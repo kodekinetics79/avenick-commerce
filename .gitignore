@@ -3,6 +3,7 @@ dist
 build
 .next
 .vercel
+*.tsbuildinfo
 .env
 .env.local
 .env.production
