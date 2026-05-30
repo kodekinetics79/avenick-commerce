@@ -70,3 +70,10 @@ the "foundation only" scope.
   match the system; a follow-up pass could route them through the new primitives.
 - A few semantic `orange-*` usages remain where orange is the *status* meaning (e.g. RETURNED) — intentional.
 - No dark mode (light enterprise theme only); tokens are structured to allow adding it later.
+
+## Phase 3 addendum
+- Production build stabilized (see PHASE3_IMPLEMENTATION_NOTES.md); shared
+  `@manzil/ui` primitives remain the single source for badges, cards, buttons,
+  tables and empty states across all three portals.
+- Login screens (admin + seller) unified on the slate/blue gradient + logo-badge
+  treatment for a consistent entry experience.

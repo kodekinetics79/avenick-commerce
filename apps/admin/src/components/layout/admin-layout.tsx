@@ -56,7 +56,7 @@ const NAV_GROUPS = [
       { href: "/orders", icon: ShoppingCart, label: "All Orders" },
       { href: "/shipments", icon: Ship, label: "Shipments" },
       { href: "/returns", icon: RotateCcw, label: "Returns" },
-      { href: "/dispatch", icon: Send, label: "Dispatch" },
+      { href: "/warehouse/pickpack?tab=dispatch", icon: Send, label: "Dispatch" },
     ],
   },
   {

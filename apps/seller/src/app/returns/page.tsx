@@ -61,7 +61,7 @@ export default async function SellerReturnsPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {RETURNS.map((r) => {
-                  const sc = STATUS[r.status] ?? STATUS.PENDING;
+                  const sc = STATUS[r.status] ?? STATUS.PENDING!;
                   const StatusIcon = sc.icon;
                   return (
                     <tr key={r.id} className={`hover:bg-secondary/40 transition-colors ${r.status === "PENDING" ? "bg-amber-50/30" : ""}`}>

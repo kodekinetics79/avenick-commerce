@@ -93,6 +93,6 @@ export async function generateProductIssues(productId: string): Promise<void> {
   }
 
   if (issues.length > 0) {
-    await db.productIssue.createMany({ data: issues as Parameters<typeof db.productIssue.createMany>[0]["data"], skipDuplicates: true });
+    await db.productIssue.createMany({ data: issues as NonNullable<Parameters<typeof db.productIssue.createMany>[0]>["data"], skipDuplicates: true });
   }
 }

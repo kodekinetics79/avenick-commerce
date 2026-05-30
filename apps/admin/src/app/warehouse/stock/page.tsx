@@ -159,12 +159,12 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
                   </td></tr>
                 ) : filtered.map((s) => (
                   <tr key={s.id} className={`hover:bg-slate-50 transition-colors ${s.isOut ? "bg-red-50/30" : s.isLow ? "bg-amber-50/30" : ""}`}>
-                    <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{s.product.sku}</td>
+                    <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{s.product?.sku ?? "—"}</td>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-sm line-clamp-1">{s.product.nameEn}</p>
+                      <p className="font-medium text-sm line-clamp-1">{s.product?.nameEn ?? "—"}</p>
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{s.product.category?.nameEn ?? "—"}</td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{s.product.seller?.businessNameEn ?? "—"}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{s.product?.category?.nameEn ?? "—"}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{s.product?.seller?.businessNameEn ?? "—"}</td>
                     <td className="px-4 py-3">
                       <p className="text-xs text-muted-foreground">{s.location?.warehouse?.nameEn ?? "—"}</p>
                       {s.location?.bin && <p className="font-mono text-xs text-slate-600">{s.location.bin}</p>}

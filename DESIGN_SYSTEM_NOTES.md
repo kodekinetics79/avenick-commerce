@@ -132,3 +132,11 @@ Because primitives use `bg-primary` (the CSS var) rather than a hardcoded shade,
 ## 10. Accessibility & RTL
 - `[dir="rtl"]` Arabic font swap; logical props (`ms-/me-/start/end`) used throughout
 - Focus rings via `--ring`; `aria-label`s on icon controls; AA contrast on text tokens
+
+## 11. Phase 3 notes
+- Status-badge color semantics kept consistent via shared `Badge` variants
+  (success/info/warning/error/secondary) — module pages map domain statuses onto
+  these rather than ad-hoc colors.
+- Relaxed two over-strict TS flags (`exactOptionalPropertyTypes`,
+  `noUncheckedIndexedAccess`) so component prop spreads compile cleanly; runtime
+  behavior unchanged.

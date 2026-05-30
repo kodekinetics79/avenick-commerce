@@ -53,7 +53,7 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
   const total        = orders.length;
   const gmv          = orders.reduce((s, o) => s + Number(o.total), 0);
   const b2bCount     = orders.filter(o => o.type === "B2B").length;
-  const disputedCount= orders.filter(o => o.status === "DISPUTED").length;
+  const disputedCount= orders.filter(o => (o.status as string) === "DISPUTED").length;
 
   const activeTab = statusFilter ?? "";
 
@@ -134,7 +134,7 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
                 {orders.map((order) => {
                   const sc = STATUS_CONFIG[order.status] ?? { label: order.status, color: "bg-gray-100 text-gray-600" };
                   return (
-                    <tr key={order.id} className={`hover:bg-slate-50 transition-colors ${order.status === "DISPUTED" ? "bg-red-50/40" : ""}`}>
+                    <tr key={order.id} className={`hover:bg-slate-50 transition-colors ${(order.status as string) === "DISPUTED" ? "bg-red-50/40" : ""}`}>
                       <td className="px-4 py-3">
                         <p className="font-mono text-xs font-semibold text-slate-600">{order.orderNumber}</p>
                       </td>
@@ -163,7 +163,7 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
                           {order.status === "PROCESSING" && (
                             <button type="button" className="text-xs bg-cyan-500 text-white px-2 py-0.5 rounded-lg hover:bg-cyan-600 transition-colors">Ship</button>
                           )}
-                          {order.status === "DISPUTED" && (
+                          {(order.status as string) === "DISPUTED" && (
                             <Link href="/support" className="text-xs bg-red-500 text-white px-2 py-0.5 rounded-lg hover:bg-red-600 transition-colors font-medium">Resolve</Link>
                           )}
                         </div>

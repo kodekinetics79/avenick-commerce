@@ -38,3 +38,13 @@
 - [ ] Warehouse / Inbound / Stock / Pick-Pack render
 - [ ] Pricing & Commission renders
 - [ ] Audit / Settings / Users / Integrations render
+
+## Phase 3 — Build & demo readiness (verified)
+- [x] `pnpm db:generate` succeeds (Prisma client generated)
+- [x] `pnpm turbo run build` → 3 successful, 3 total
+- [x] `next start` serves in production mode (admin /login → 200)
+- [x] Customer storefront `/` and `/products/[slug]` render with live data
+- [x] Demo Role switcher (Guest / B2C / B2B) toggles contextual nav
+- [x] User-facing branding reads "Avenick Commerce" (no Manzil)
+- [ ] ESLint: not configured yet (no eslint-config-next) — follow-up
+- [ ] Run full DEMO_SCRIPT.md path end-to-end before each demo

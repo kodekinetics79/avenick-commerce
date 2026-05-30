@@ -70,8 +70,8 @@ function buildAuthConfig(app: AppName): NextAuthConfig {
       session({ session, token }) {
         if (session.user) {
           session.user.id = token.sub as string;
-          (session.user as { role: UserRole }).role = token["role"] as UserRole;
-          (session.user as { language: string }).language = token["language"] as string;
+          (session.user as unknown as { role: UserRole }).role = token["role"] as UserRole;
+          (session.user as unknown as { language: string }).language = token["language"] as string;
         }
         return session;
       },

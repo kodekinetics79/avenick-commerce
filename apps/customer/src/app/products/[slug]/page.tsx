@@ -130,7 +130,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div>
                     <h1 className="text-2xl font-bold leading-tight">{String(p.nameEn)}</h1>
-                    {p.nameAr && <p className="text-base text-muted-foreground mt-0.5" dir="rtl">{String(p.nameAr)}</p>}
+                    {!!p.nameAr && <p className="text-base text-muted-foreground mt-0.5" dir="rtl">{String(p.nameAr)}</p>}
                   </div>
                   <button type="button" aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"} onClick={() => toggle({ id: productId, slug: params.slug, nameEn: String(p.nameEn), nameAr: String(p.nameAr), imageUrl: images[0]?.url, price: displayPrice, currency: "AED", sku: String(p.sku), sellerId: String(p.sellerId), inStock: available > 0 })}
                     className={`p-2 rounded-xl border transition-all shrink-0 ${wishlisted ? "bg-red-50 border-red-200 text-red-500" : "border-border text-muted-foreground hover:border-red-200 hover:text-red-500"}`}>
@@ -154,11 +154,11 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                 </div>
 
                 <div className="flex flex-wrap gap-2 mt-3">
-                  {p.origin && <Badge variant="secondary">{String(p.origin)}</Badge>}
+                  {!!p.origin && <Badge variant="secondary">{String(p.origin)}</Badge>}
                   {available > 0
                     ? <Badge variant="success">In Stock ({available} available)</Badge>
                     : <Badge variant="error">Out of Stock</Badge>}
-                  {p.isB2BEnabled && <Badge variant="info">B2B Available</Badge>}
+                  {!!p.isB2BEnabled && <Badge variant="info">B2B Available</Badge>}
                 </div>
               </div>
 
@@ -223,8 +223,8 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-semibold">{String(seller.businessNameEn)}</p>
-                      {seller.businessNameAr && <p className="text-sm text-muted-foreground" dir="rtl">{String(seller.businessNameAr)}</p>}
-                      {seller.rating && (
+                      {!!seller.businessNameAr && <p className="text-sm text-muted-foreground" dir="rtl">{String(seller.businessNameAr)}</p>}
+                      {!!seller.rating && (
                         <div className="flex items-center gap-1 mt-1">
                           <Star className="h-3.5 w-3.5 text-amber-400 fill-current" />
                           <span className="text-sm font-medium">{Number(seller.rating).toFixed(1)}</span>
@@ -262,7 +262,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                   {p.descriptionEn
                     ? <p className="text-muted-foreground leading-relaxed">{String(p.descriptionEn)}</p>
                     : <p className="text-muted-foreground italic">No description available.</p>}
-                  {p.descriptionAr && <p className="text-muted-foreground leading-relaxed mt-4 text-right" dir="rtl">{String(p.descriptionAr)}</p>}
+                  {!!p.descriptionAr && <p className="text-muted-foreground leading-relaxed mt-4 text-right" dir="rtl">{String(p.descriptionAr)}</p>}
                 </div>
               )}
 

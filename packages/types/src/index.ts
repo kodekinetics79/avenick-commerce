@@ -10,18 +10,17 @@ export type {
   SellerDocument,
   Product,
   ProductVariant,
-  PricingTier,
-  Inventory,
+  ProductPrice,
+  InventoryStock,
   Order,
   OrderItem,
   PurchaseOrder,
-  Shipment,
   Category,
   Address,
   Notification,
   SellerPayout,
   ApprovalPolicy,
-  ProductCompliance,
+  ProductComplianceDocument,
 } from "@manzil/database";
 
 export {
@@ -42,11 +41,9 @@ export {
   PricingType,
   OrderType,
   OrderStatus,
-  OrderItemStatus,
   PaymentMethod,
   PaymentStatus,
   POStatus,
-  ShipmentStatus,
   NotificationType,
   PayoutStatus,
 } from "@manzil/database";
