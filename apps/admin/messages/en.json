@@ -1,0 +1,9 @@
+{
+  "common": { "loading": "Loading...", "error": "Something went wrong", "save": "Save", "cancel": "Cancel", "approve": "Approve", "reject": "Reject", "suspend": "Suspend", "activate": "Activate", "search": "Search", "filter": "Filter", "export": "Export", "viewAll": "View All" },
+  "nav": { "dashboard": "Dashboard", "sellers": "Sellers", "products": "Products", "orders": "Orders", "companies": "B2B Companies", "compliance": "Compliance", "rfqs": "RFQs", "messages": "Messages", "settings": "Settings", "users": "Users", "signOut": "Sign Out" },
+  "dashboard": { "title": "Admin Console", "gmvToday": "GMV Today", "gmvMonth": "GMV This Month", "gmvYear": "GMV This Year", "activeSellers": "Active Sellers", "pendingReviews": "Pending Seller Reviews", "pendingCompliance": "Pending Compliance", "ordersToday": "Orders Today", "b2bCompanies": "B2B Companies", "openRFQs": "Open RFQs", "recentOrders": "Recent Orders", "alerts": "Alerts" },
+  "sellers": { "title": "Sellers", "pending": "Pending Review", "name": "Business Name", "cr": "CR Number", "type": "Type", "tier": "Tier", "status": "Status", "country": "Country", "products": "Products", "gmv": "GMV", "created": "Created", "actions": "Actions", "rejectionReason": "Rejection reason (required)" },
+  "compliance": { "title": "Compliance Documents", "seller": "Seller", "type": "Type", "status": "Status", "expiry": "Expiry", "uploaded": "Uploaded", "rejectionReason": "Rejection Reason" },
+  "orders": { "title": "All Orders", "orderNumber": "Order #", "buyer": "Buyer", "seller": "Seller", "date": "Date", "total": "Total", "status": "Status", "type": "Type", "override": "Override Status" },
+  "products": { "title": "Product Moderation", "pending": "Pending Review", "name": "Product", "seller": "Seller", "category": "Category", "status": "Status", "health": "Health", "rejectionReason": "Rejection reason" }
+}

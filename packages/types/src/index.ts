@@ -1,0 +1,52 @@
+export * from "./api";
+export * from "./schemas";
+
+// Re-export Prisma types used across portals
+export type {
+  User,
+  Company,
+  CompanyMember,
+  SellerProfile,
+  SellerDocument,
+  Product,
+  ProductVariant,
+  PricingTier,
+  Inventory,
+  Order,
+  OrderItem,
+  PurchaseOrder,
+  Shipment,
+  Category,
+  Address,
+  Notification,
+  SellerPayout,
+  ApprovalPolicy,
+  ProductCompliance,
+} from "@manzil/database";
+
+export {
+  UserRole,
+  UserStatus,
+  Language,
+  Country,
+  Currency,
+  Industry,
+  CompanySize,
+  CompanyStatus,
+  SellerType,
+  SellerTier,
+  SellerStatus,
+  DocumentType,
+  DocumentStatus,
+  ProductStatus,
+  PricingType,
+  OrderType,
+  OrderStatus,
+  OrderItemStatus,
+  PaymentMethod,
+  PaymentStatus,
+  POStatus,
+  ShipmentStatus,
+  NotificationType,
+  PayoutStatus,
+} from "@manzil/database";

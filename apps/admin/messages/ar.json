@@ -1,0 +1,9 @@
+{
+  "common": { "loading": "جارٍ التحميل...", "error": "حدث خطأ ما", "save": "حفظ", "cancel": "إلغاء", "approve": "موافقة", "reject": "رفض", "suspend": "تعليق", "activate": "تفعيل", "search": "بحث", "filter": "تصفية", "export": "تصدير", "viewAll": "عرض الكل" },
+  "nav": { "dashboard": "لوحة التحكم", "sellers": "البائعون", "products": "المنتجات", "orders": "الطلبات", "companies": "شركات B2B", "compliance": "الامتثال", "rfqs": "طلبات العروض", "messages": "الرسائل", "settings": "الإعدادات", "users": "المستخدمون", "signOut": "تسجيل الخروج" },
+  "dashboard": { "title": "لوحة الإدارة", "gmvToday": "قيمة المعاملات اليوم", "gmvMonth": "قيمة المعاملات هذا الشهر", "gmvYear": "قيمة المعاملات هذا العام", "activeSellers": "البائعون النشطون", "pendingReviews": "مراجعات بائعين معلقة", "pendingCompliance": "وثائق امتثال معلقة", "ordersToday": "طلبات اليوم", "b2bCompanies": "شركات B2B", "openRFQs": "طلبات عروض مفتوحة", "recentOrders": "الطلبات الأخيرة", "alerts": "التنبيهات" },
+  "sellers": { "title": "البائعون", "pending": "في انتظار المراجعة", "name": "اسم الشركة", "cr": "رقم السجل التجاري", "type": "النوع", "tier": "المستوى", "status": "الحالة", "country": "الدولة", "products": "المنتجات", "gmv": "قيمة المعاملات", "created": "تاريخ الإنشاء", "actions": "إجراءات", "rejectionReason": "سبب الرفض (مطلوب)" },
+  "compliance": { "title": "وثائق الامتثال", "seller": "البائع", "type": "النوع", "status": "الحالة", "expiry": "الانتهاء", "uploaded": "رُفع في", "rejectionReason": "سبب الرفض" },
+  "orders": { "title": "جميع الطلبات", "orderNumber": "رقم الطلب", "buyer": "المشتري", "seller": "البائع", "date": "التاريخ", "total": "الإجمالي", "status": "الحالة", "type": "النوع", "override": "تغيير الحالة يدوياً" },
+  "products": { "title": "مراجعة المنتجات", "pending": "في انتظار المراجعة", "name": "المنتج", "seller": "البائع", "category": "الفئة", "status": "الحالة", "health": "الصحة", "rejectionReason": "سبب الرفض" }
+}

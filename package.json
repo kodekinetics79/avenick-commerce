@@ -1,0 +1,27 @@
+{
+  "name": "manzil",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:generate": "turbo run db:generate --filter=@manzil/database",
+    "db:migrate": "turbo run db:migrate --filter=@manzil/database",
+    "db:seed": "turbo run db:seed --filter=@manzil/database",
+    "db:studio": "turbo run db:studio --filter=@manzil/database",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "prettier": "^3.3.3",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@11.4.0"
+}

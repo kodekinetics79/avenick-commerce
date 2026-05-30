@@ -1,0 +1,93 @@
+import NextAuth, { type NextAuthConfig } from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
+import { db, UserRole, UserStatus } from "@manzil/database";
+import { LoginSchema } from "@manzil/types";
+
+type AppName = "customer" | "seller" | "admin";
+
+function buildAuthConfig(app: AppName): NextAuthConfig {
+  const p = `manzil.${app}`;
+  return {
+    providers: [
+      Credentials({
+        name: "credentials",
+        credentials: {
+          email: { label: "Email", type: "email" },
+          password: { label: "Password", type: "password" },
+        },
+        async authorize(credentials) {
+          const parsed = LoginSchema.safeParse(credentials);
+          if (!parsed.success) return null;
+
+          const { email, password } = parsed.data;
+
+          const user = await db.user.findUnique({
+            where: { email: email.toLowerCase() },
+            select: {
+              id: true,
+              email: true,
+              passwordHash: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              status: true,
+              language: true,
+              avatar: true,
+            },
+          });
+
+          if (!user || !user.passwordHash) return null;
+          if (user.status !== UserStatus.ACTIVE) return null;
+
+          const valid = await bcrypt.compare(password, user.passwordHash);
+          if (!valid) return null;
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: `${user.firstName} ${user.lastName}`,
+            role: user.role,
+            language: user.language,
+            image: user.avatar ?? null,
+          };
+        },
+      }),
+    ],
+    cookies: {
+      sessionToken: { name: `${p}.session-token` },
+      callbackUrl: { name: `${p}.callback-url` },
+      csrfToken: { name: `${p}.csrf-token` },
+    },
+    callbacks: {
+      jwt({ token, user }) {
+        if (user) {
+          token["role"] = (user as { role: UserRole }).role;
+          token["language"] = (user as { language: string }).language;
+        }
+        return token;
+      },
+      session({ session, token }) {
+        if (session.user) {
+          session.user.id = token.sub as string;
+          (session.user as { role: UserRole }).role = token["role"] as UserRole;
+          (session.user as { language: string }).language = token["language"] as string;
+        }
+        return session;
+      },
+    },
+    pages: {
+      signIn: "/login",
+      error: "/login",
+    },
+    session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
+    trustHost: true,
+  };
+}
+
+export function createAuth(app: AppName) {
+  return NextAuth(buildAuthConfig(app));
+}
+
+// Default shared instance kept for backward compat — apps should use createAuth(appName)
+export const { handlers, auth, signIn, signOut } = createAuth("customer");

@@ -1,0 +1,8 @@
+import { createMiddleware } from "@manzil/auth/middleware";
+import { auth } from "@/lib/auth-instance";
+
+export default createMiddleware("customer", auth);
+
+export const config = {
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+};

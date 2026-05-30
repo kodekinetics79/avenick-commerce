@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    /* Enterprise palette — Avenick Commerce (Admin / back-office) */
+    --background: 210 40% 98%;          /* slate-50 canvas */
+    --foreground: 222 47% 11%;          /* navy text */
+    --card: 0 0% 100%;                  /* white cards */
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;             /* CTA blue #2563EB */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;           /* slate-100 */
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;    /* slate-500 muted text */
+    --accent: 192 91% 36%;              /* teal #0891B2 */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 72% 51%;           /* danger #DC2626 */
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;              /* slate-200 */
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  [dir="rtl"] body { font-family: "IBM Plex Sans Arabic", system-ui, sans-serif; }
+  h1, h2, h3, h4 { @apply tracking-tight; }
+}
+
+@layer utilities {
+  /* Skeleton shimmer */
+  .skeleton {
+    @apply bg-slate-200/70 rounded-md relative overflow-hidden;
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+    animation: skeleton-shimmer 1.6s infinite;
+  }
+  @keyframes skeleton-shimmer {
+    100% { transform: translateX(100%); }
+  }
+  /* Refined scrollbars for enterprise chrome */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(203 213 225) transparent;
+  }
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: rgb(203 213 225); border-radius: 9999px; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+}

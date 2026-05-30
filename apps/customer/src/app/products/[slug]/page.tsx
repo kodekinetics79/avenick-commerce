@@ -1,0 +1,336 @@
+"use client";
+
+import { notFound } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
+import { useState, useEffect } from "react";
+import { ShoppingCart, Star, Heart, Truck, ShieldCheck, RotateCcw, Award, Minus, Plus, MessageSquare, Package, ChevronRight } from "lucide-react";
+import { Button, Badge } from "@manzil/ui";
+import { formatCurrency } from "@manzil/utils";
+import { MainLayout } from "@/components/layout/main-layout";
+import { useCartStore } from "@/stores/cart";
+import { useWishlist } from "@/stores/wishlist";
+
+const MOCK_REVIEWS = [
+  { id: "1", author: "Ahmed Al-Rashidi", rating: 5, date: "2024-11-10", text: "Excellent quality. Fast delivery from the supplier. Highly recommended for bulk orders." },
+  { id: "2", author: "Sara M.", rating: 4, date: "2024-10-22", text: "Good product, matches the description. Packaging was secure." },
+  { id: "3", author: "Gulf Industrial Co.", rating: 5, date: "2024-09-15", text: "We order regularly. Consistent quality and on-time delivery every time." },
+];
+
+type Tab = "description" | "specs" | "reviews" | "shipping";
+
+export default function ProductPage({ params }: { params: { slug: string } }) {
+  const [product, setProduct] = useState<Record<string, unknown> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [qty, setQty] = useState(1);
+  const [activeImage, setActiveImage] = useState(0);
+  const [tab, setTab] = useState<Tab>("description");
+  const addItem = useCartStore((s) => s.addItem);
+  const { toggle, has } = useWishlist();
+
+  useEffect(() => {
+    fetch(`/api/products/${params.slug}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setProduct(data.data);
+        setLoading(false);
+        if (data.data) setQty(data.data.moq ?? 1);
+      })
+      .catch(() => setLoading(false));
+  }, [params.slug]);
+
+  if (loading) return (
+    <MainLayout>
+      <div className="max-w-7xl mx-auto px-4 py-8 animate-pulse">
+        <div className="h-4 bg-muted rounded w-48 mb-6" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+          <div className="aspect-square bg-muted rounded-2xl" />
+          <div className="space-y-4">
+            <div className="h-8 bg-muted rounded w-3/4" />
+            <div className="h-4 bg-muted rounded w-1/2" />
+            <div className="h-24 bg-muted rounded" />
+            <div className="h-12 bg-muted rounded" />
+          </div>
+        </div>
+      </div>
+    </MainLayout>
+  );
+
+  if (!product) return notFound();
+
+  const p = product as Record<string, unknown>;
+  const images = (p.images as { url: string }[]) ?? [];
+  const prices = (p.prices as { type: string; price: number; minQty: number; maxQty: number | null }[]) ?? [];
+  const b2cPrice = prices.find((pr) => pr.type === "B2C");
+  const b2bPrices = prices.filter((pr) => pr.type === "B2B").sort((a, b) => a.minQty - b.minQty);
+  const seller = p.seller as Record<string, unknown>;
+  const inventory = (p.inventory as { qty: number; reservedQty: number }[])?.[0];
+  const available = inventory ? inventory.qty - inventory.reservedQty : 0;
+  const displayPrice = b2cPrice ? Number(b2cPrice.price) : b2bPrices[0] ? Number(b2bPrices[0].price) : 0;
+  const vatPerUnit = displayPrice * 0.05;
+  const productId = String(p.id);
+  const wishlisted = has(productId);
+  const avgRating = 4.6;
+
+  const TABS: { id: Tab; label: string }[] = [
+    { id: "description", label: "Description" },
+    { id: "specs", label: "Specifications" },
+    { id: "reviews", label: `Reviews (${MOCK_REVIEWS.length})` },
+    { id: "shipping", label: "Shipping & Returns" },
+  ];
+
+  return (
+    <MainLayout>
+      <div className="bg-slate-50 min-h-screen">
+        <div className="max-w-7xl mx-auto px-4 py-8">
+
+          {/* Breadcrumb */}
+          <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-6">
+            <Link href="/" className="hover:text-orange-600">Home</Link>
+            <ChevronRight className="h-3 w-3" />
+            <Link href="/products" className="hover:text-orange-600">Products</Link>
+            <ChevronRight className="h-3 w-3" />
+            <span className="text-foreground font-medium truncate max-w-[200px]">{String(p.nameEn)}</span>
+          </nav>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+            {/* Image gallery */}
+            <div>
+              <div className="aspect-square bg-white rounded-2xl border border-border overflow-hidden mb-3 relative group">
+                {images[activeImage] ? (
+                  <Image src={images[activeImage].url} alt={String(p.nameEn)} fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="(max-width: 1024px) 100vw, 50vw" />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+                    <Package className="h-16 w-16 mb-2 opacity-30" />
+                    <p className="text-sm">No image available</p>
+                  </div>
+                )}
+                {available <= 0 && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <span className="bg-white font-semibold px-4 py-2 rounded-full">Out of Stock</span>
+                  </div>
+                )}
+              </div>
+              {images.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {images.map((img, i) => (
+                    <button key={i} type="button" onClick={() => setActiveImage(i)}
+                      className={`w-16 h-16 shrink-0 rounded-xl overflow-hidden border-2 transition-all ${activeImage === i ? "border-orange-500" : "border-border hover:border-orange-300"}`}>
+                      <Image src={img.url} alt="" width={64} height={64} className="object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Product info */}
+            <div className="space-y-5">
+              {/* Title + badges */}
+              <div>
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div>
+                    <h1 className="text-2xl font-bold leading-tight">{String(p.nameEn)}</h1>
+                    {p.nameAr && <p className="text-base text-muted-foreground mt-0.5" dir="rtl">{String(p.nameAr)}</p>}
+                  </div>
+                  <button type="button" aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"} onClick={() => toggle({ id: productId, slug: params.slug, nameEn: String(p.nameEn), nameAr: String(p.nameAr), imageUrl: images[0]?.url, price: displayPrice, currency: "AED", sku: String(p.sku), sellerId: String(p.sellerId), inStock: available > 0 })}
+                    className={`p-2 rounded-xl border transition-all shrink-0 ${wishlisted ? "bg-red-50 border-red-200 text-red-500" : "border-border text-muted-foreground hover:border-red-200 hover:text-red-500"}`}>
+                    <Heart className={`h-5 w-5 ${wishlisted ? "fill-current" : ""}`} />
+                  </button>
+                </div>
+
+                {/* Rating row */}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1">
+                    {[1,2,3,4,5].map((s) => (
+                      <Star key={s} className={`h-4 w-4 ${s <= Math.round(avgRating) ? "text-amber-400 fill-current" : "text-gray-200 fill-current"}`} />
+                    ))}
+                    <span className="text-sm font-semibold ms-1">{avgRating}</span>
+                  </div>
+                  <button type="button" onClick={() => setTab("reviews")} className="text-sm text-blue-600 hover:underline">
+                    {MOCK_REVIEWS.length} reviews
+                  </button>
+                  <span className="text-muted-foreground text-sm">·</span>
+                  <span className="text-sm text-muted-foreground">SKU: {String(p.sku)}</span>
+                </div>
+
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {p.origin && <Badge variant="secondary">{String(p.origin)}</Badge>}
+                  {available > 0
+                    ? <Badge variant="success">In Stock ({available} available)</Badge>
+                    : <Badge variant="error">Out of Stock</Badge>}
+                  {p.isB2BEnabled && <Badge variant="info">B2B Available</Badge>}
+                </div>
+              </div>
+
+              {/* Price section */}
+              <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4">
+                <div className="flex items-end gap-2 mb-1">
+                  <span className="text-3xl font-bold text-orange-600">{formatCurrency(displayPrice, "AED")}</span>
+                  <span className="text-sm text-muted-foreground pb-1">+ {formatCurrency(vatPerUnit, "AED")} VAT/unit</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Total with VAT: <strong>{formatCurrency(displayPrice * qty * 1.05, "AED")}</strong> for {qty} unit{qty !== 1 ? "s" : ""}</p>
+
+                {b2bPrices.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-orange-200">
+                    <p className="text-xs font-semibold text-orange-700 mb-2 flex items-center gap-1">
+                      <Award className="h-3.5 w-3.5" /> B2B BULK PRICING
+                    </p>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {b2bPrices.map((tier, i) => (
+                        <div key={i} className="bg-white rounded-lg px-3 py-1.5 text-xs flex justify-between">
+                          <span className="text-muted-foreground">{tier.minQty}+{tier.maxQty ? `–${tier.maxQty}` : ""} units</span>
+                          <span className="font-semibold text-orange-600">{formatCurrency(Number(tier.price), "AED")}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Qty + CTA */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center border border-border rounded-xl overflow-hidden">
+                  <button type="button" onClick={() => setQty((q) => Math.max(Number(p.moq) || 1, q - 1))} className="p-2.5 hover:bg-muted transition-colors"><Minus className="h-4 w-4" /></button>
+                  <span className="px-4 text-sm font-semibold min-w-[2.5rem] text-center">{qty}</span>
+                  <button type="button" onClick={() => setQty((q) => q + 1)} className="p-2.5 hover:bg-muted transition-colors"><Plus className="h-4 w-4" /></button>
+                </div>
+                <Button size="lg" variant="primary" className="flex-1" disabled={available <= 0}
+                  onClick={() => addItem({ productId, nameEn: String(p.nameEn), nameAr: String(p.nameAr), imageUrl: images[0]?.url, sku: String(p.sku), qty, unitPrice: displayPrice, sellerId: String(p.sellerId), currency: "AED" })}>
+                  <ShoppingCart className="h-4 w-4 me-2" />
+                  {available > 0 ? "Add to Cart" : "Out of Stock"}
+                </Button>
+              </div>
+              {Number(p.moq) > 1 && <p className="text-xs text-muted-foreground -mt-3">Minimum order: {Number(p.moq)} units</p>}
+
+              {/* Trust badges */}
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { icon: ShieldCheck, label: "Verified Supplier", color: "text-green-600" },
+                  { icon: Truck, label: "Free 200+ AED", color: "text-blue-600" },
+                  { icon: RotateCcw, label: "14-day returns", color: "text-purple-600" },
+                ].map(({ icon: Icon, label, color }) => (
+                  <div key={label} className="flex flex-col items-center gap-1 bg-white rounded-xl border border-border p-2.5 text-center">
+                    <Icon className={`h-4 w-4 ${color}`} />
+                    <span className="text-xs text-muted-foreground">{label}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Seller */}
+              {seller && (
+                <div className="border border-border rounded-2xl p-4 bg-white">
+                  <p className="text-xs text-muted-foreground mb-2">Sold by</p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold">{String(seller.businessNameEn)}</p>
+                      {seller.businessNameAr && <p className="text-sm text-muted-foreground" dir="rtl">{String(seller.businessNameAr)}</p>}
+                      {seller.rating && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <Star className="h-3.5 w-3.5 text-amber-400 fill-current" />
+                          <span className="text-sm font-medium">{Number(seller.rating).toFixed(1)}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-end">
+                      <Badge variant={seller.tier === "VERIFIED" ? "success" : seller.tier === "GOLD" ? "warning" : "secondary"}>
+                        {String(seller.tier)}
+                      </Badge>
+                      <Link href={`/b2b/rfq/new?supplier=${String(seller.id ?? "")}`} className="flex items-center gap-1 text-xs text-blue-600 hover:underline mt-2">
+                        <MessageSquare className="h-3 w-3" /> Request Quote
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="mt-10 bg-white rounded-2xl border border-border overflow-hidden">
+            <div className="flex border-b border-border overflow-x-auto">
+              {TABS.map((t) => (
+                <button key={t.id} type="button" onClick={() => setTab(t.id)}
+                  className={`px-5 py-3.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${tab === t.id ? "border-orange-500 text-orange-600" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="p-6">
+              {tab === "description" && (
+                <div className="prose prose-sm max-w-none">
+                  {p.descriptionEn
+                    ? <p className="text-muted-foreground leading-relaxed">{String(p.descriptionEn)}</p>
+                    : <p className="text-muted-foreground italic">No description available.</p>}
+                  {p.descriptionAr && <p className="text-muted-foreground leading-relaxed mt-4 text-right" dir="rtl">{String(p.descriptionAr)}</p>}
+                </div>
+              )}
+
+              {tab === "specs" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { label: "SKU", value: String(p.sku) },
+                    { label: "Origin", value: p.origin ? String(p.origin) : "—" },
+                    { label: "Weight", value: p.weight ? `${String(p.weight)} kg` : "—" },
+                    { label: "MOQ", value: `${Number(p.moq)} units` },
+                    { label: "B2C Enabled", value: p.isB2CEnabled ? "Yes" : "No" },
+                    { label: "B2B Enabled", value: p.isB2BEnabled ? "Yes" : "No" },
+                  ].map(({ label, value }) => (
+                    <div key={label} className="flex justify-between py-2.5 border-b border-border text-sm">
+                      <span className="text-muted-foreground">{label}</span>
+                      <span className="font-medium">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {tab === "reviews" && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 pb-4 border-b border-border">
+                    <div className="text-center">
+                      <p className="text-4xl font-bold text-orange-600">{avgRating}</p>
+                      <div className="flex justify-center mt-1">
+                        {[1,2,3,4,5].map((s) => <Star key={s} className={`h-4 w-4 ${s <= Math.round(avgRating) ? "text-amber-400 fill-current" : "text-gray-200 fill-current"}`} />)}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">{MOCK_REVIEWS.length} reviews</p>
+                    </div>
+                  </div>
+                  {MOCK_REVIEWS.map((r) => (
+                    <div key={r.id} className="py-4 border-b border-border last:border-0">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-medium text-sm">{r.author}</p>
+                          <div className="flex mt-0.5">
+                            {[1,2,3,4,5].map((s) => <Star key={s} className={`h-3.5 w-3.5 ${s <= r.rating ? "text-amber-400 fill-current" : "text-gray-200 fill-current"}`} />)}
+                          </div>
+                        </div>
+                        <span className="text-xs text-muted-foreground">{r.date}</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{r.text}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {tab === "shipping" && (
+                <div className="space-y-4 text-sm text-muted-foreground">
+                  {[
+                    { icon: Truck, title: "Standard Delivery", desc: "2–5 business days. Free for orders over AED 200." },
+                    { icon: ShieldCheck, title: "Express Delivery", desc: "Next business day available for most UAE locations." },
+                    { icon: RotateCcw, title: "Returns Policy", desc: "14-day returns for B2C orders. Items must be unused and in original packaging." },
+                    { icon: Award, title: "B2B Orders", desc: "Bulk orders may include special delivery terms. Contact your account manager." },
+                  ].map(({ icon: Icon, title, desc }) => (
+                    <div key={title} className="flex gap-3">
+                      <Icon className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+                      <div><p className="font-medium text-foreground">{title}</p><p>{desc}</p></div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </MainLayout>
+  );
+}

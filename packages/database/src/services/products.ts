@@ -1,0 +1,127 @@
+import { db } from "../index";
+import type { Prisma, ProductStatus, Currency, PricingType } from "@prisma/client";
+
+export interface ProductListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  categoryId?: string;
+  sellerId?: string;
+  status?: ProductStatus;
+  b2c?: boolean;
+  b2b?: boolean;
+  currency?: Currency;
+}
+
+export async function listProducts(params: ProductListParams) {
+  const { page = 1, limit = 20, search, categoryId, sellerId, status, b2c, b2b } = params;
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.ProductWhereInput = {
+    deletedAt: null,
+    ...(status && { status }),
+    ...(categoryId && { categoryId }),
+    ...(sellerId && { sellerId }),
+    ...(b2c !== undefined && { isB2CEnabled: b2c }),
+    ...(b2b !== undefined && { isB2BEnabled: b2b }),
+    ...(search && {
+      OR: [
+        { nameEn: { contains: search, mode: "insensitive" } },
+        { nameAr: { contains: search, mode: "insensitive" } },
+        { sku: { contains: search, mode: "insensitive" } },
+      ],
+    }),
+  };
+
+  const [products, total] = await Promise.all([
+    db.product.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { createdAt: "desc" },
+      include: {
+        images: { where: { isPrimary: true }, take: 1 },
+        prices: { where: { isActive: true } },
+        inventory: { select: { qty: true, reservedQty: true } },
+        category: { select: { nameEn: true, nameAr: true, slug: true } },
+        brand: { select: { nameEn: true, nameAr: true } },
+        seller: { select: { businessNameEn: true, businessNameAr: true, tier: true, rating: true } },
+        issues: { where: { resolvedAt: null } },
+      },
+    }),
+    db.product.count({ where }),
+  ]);
+
+  return { products, total, page, limit, totalPages: Math.ceil(total / limit) };
+}
+
+export async function getProductBySlug(slug: string) {
+  return db.product.findUnique({
+    where: { slug, deletedAt: null },
+    include: {
+      images: { orderBy: { sortOrder: "asc" } },
+      prices: { where: { isActive: true }, orderBy: [{ type: "asc" }, { minQty: "asc" }] },
+      inventory: { include: { location: { include: { warehouse: true } } } },
+      category: true,
+      brand: true,
+      seller: { select: { id: true, businessNameEn: true, businessNameAr: true, tier: true, rating: true, reviewCount: true, city: true, country: true } },
+      compliance: { where: { status: "APPROVED" } },
+      variants: { include: { prices: { where: { isActive: true } } } },
+    },
+  });
+}
+
+export async function getSellerDashboard(sellerId: string) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  const [
+    todayOrderCount,
+    pendingOrders,
+    lowStockItems,
+    issueCount,
+    pendingCompliance,
+    pendingPayout,
+    activeListings,
+    recentOrders,
+    unreadMessages,
+    rfqCount,
+  ] = await Promise.all([
+    db.orderItem.count({ where: { sellerId, order: { createdAt: { gte: today } } } }),
+    db.orderItem.count({ where: { sellerId, status: "PROCESSING" } }),
+    // Count low-stock items using raw SQL for cross-column comparison
+    db.$queryRaw<[{ count: bigint }]>`SELECT COUNT(*)::bigint as count FROM "InventoryStock" WHERE "productId" IN (SELECT id FROM "Product" WHERE "sellerId" = ${sellerId}) AND qty <= "reorderPoint"`.then((r) => Number(r[0]?.count ?? 0)),
+    db.productIssue.count({ where: { product: { sellerId }, resolvedAt: null } }),
+    db.sellerDocument.count({ where: { sellerId, status: "PENDING_REVIEW" } }),
+    db.sellerPayout.aggregate({ where: { sellerId, status: "PENDING" }, _sum: { amount: true } }),
+    db.product.count({ where: { sellerId, status: "ACTIVE", deletedAt: null } }),
+    db.order.findMany({
+      where: { items: { some: { sellerId } } },
+      take: 10,
+      orderBy: { createdAt: "desc" },
+      select: { id: true, orderNumber: true, status: true, total: true, currency: true, createdAt: true, type: true },
+    }),
+    db.message.count({ where: { thread: { sellerId }, isRead: false, senderType: "BUYER" } }),
+    db.rFQRequest.count({ where: { sellerId, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } }),
+  ]);
+
+  const monthRevenue = await db.orderItem.aggregate({
+    where: { sellerId, order: { createdAt: { gte: monthStart }, paymentStatus: "PAID" } },
+    _sum: { total: true },
+  });
+
+  return {
+    todayOrderCount,
+    pendingOrders,
+    lowStockItems,
+    issueCount,
+    pendingCompliance,
+    pendingPayoutAmount: pendingPayout._sum.amount ?? 0,
+    activeListings,
+    monthRevenue: monthRevenue._sum.total ?? 0,
+    recentOrders,
+    unreadMessages,
+    rfqCount,
+  };
+}
