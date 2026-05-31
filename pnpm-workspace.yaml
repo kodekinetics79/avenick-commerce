@@ -1,3 +1,12 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# Allow these trusted dependencies to run install/build scripts. pnpm v10+
+# blocks dependency build scripts by default; without this the build fails
+# (ERR_PNPM_IGNORED_BUILDS) and Prisma engines / esbuild binaries are skipped.
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  esbuild: true
+  prisma: true
