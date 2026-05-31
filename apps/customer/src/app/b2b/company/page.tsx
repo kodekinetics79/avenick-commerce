@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, Building2, MapPin, Phone, Mail, Globe, Users, CreditCard, FileText, Edit } from "lucide-react";
-import { MainLayout } from "@/components/layout/main-layout";
+import { B2BShell } from "@/components/b2b/b2b-shell";
 import { MOCK_B2B_COMPANY } from "@avenick/database";
 import { Button } from "@avenick/ui";
 
@@ -23,7 +23,7 @@ export default function CompanyProfilePage() {
   const c = MOCK_B2B_COMPANY;
 
   return (
-    <MainLayout>
+    <B2BShell>
       <div className="bg-slate-50 min-h-screen">
         <div className="max-w-4xl mx-auto px-4 py-8">
           <Link href="/b2b" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
@@ -165,6 +165,6 @@ export default function CompanyProfilePage() {
           </div>
         </div>
       </div>
-    </MainLayout>
+    </B2BShell>
   );
 }

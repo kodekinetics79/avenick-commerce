@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, CheckSquare, AlertTriangle, Clock, User, FileText, CheckCircle, XCircle } from "lucide-react";
-import { MainLayout } from "@/components/layout/main-layout";
+import { B2BShell } from "@/components/b2b/b2b-shell";
 import { formatCurrency } from "@avenick/utils";
 
 export const metadata = { title: "Approval Center — Avenick Commerce" };
@@ -37,7 +37,7 @@ const pending = MOCK_APPROVALS.filter((a) => a.status === "PENDING");
 
 export default function ApprovalsPage() {
   return (
-    <MainLayout>
+    <B2BShell>
       <div className="bg-slate-50 min-h-screen">
         <div className="max-w-4xl mx-auto px-4 py-8">
           <Link href="/b2b" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
@@ -146,6 +146,6 @@ export default function ApprovalsPage() {
           </div>
         </div>
       </div>
-    </MainLayout>
+    </B2BShell>
   );
 }

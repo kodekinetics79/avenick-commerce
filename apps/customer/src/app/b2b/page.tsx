@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Building2, CreditCard, FileText, ArrowRight, Plus, RotateCcw, ClipboardList, CheckSquare, Clock, AlertTriangle, Users, ChevronRight, Star } from "lucide-react";
-import { MainLayout } from "@/components/layout/main-layout";
+import { B2BShell } from "@/components/b2b/b2b-shell";
 import { MOCK_B2B_COMPANY, MOCK_RFQS, MOCK_PRODUCTS } from "@avenick/database";
 import { Button } from "@avenick/ui";
 
@@ -30,7 +30,7 @@ export default function B2BDashboardPage() {
   const creditPct = Math.round((creditUsed / company.creditLimit) * 100);
 
   return (
-    <MainLayout>
+    <B2BShell>
       <div className="bg-slate-50 min-h-screen">
         <div className="max-w-6xl mx-auto px-4 py-8">
 
@@ -270,6 +270,6 @@ export default function B2BDashboardPage() {
           </div>
         </div>
       </div>
-    </MainLayout>
+    </B2BShell>
   );
 }

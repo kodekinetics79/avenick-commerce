@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle, Send, Plus, Trash2, Paperclip, AlertCircle, Building2 } from "lucide-react";
-import { MainLayout } from "@/components/layout/main-layout";
+import { B2BShell } from "@/components/b2b/b2b-shell";
 import { Button, Input, Textarea } from "@avenick/ui";
 
 type Priority = "NORMAL" | "URGENT" | "CRITICAL";
@@ -58,7 +58,7 @@ export default function NewRFQPage() {
 
   if (submitted) {
     return (
-      <MainLayout>
+      <B2BShell>
         <div className="bg-slate-50 min-h-screen">
           <div className="max-w-lg mx-auto px-4 py-20 text-center">
             <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-5">
@@ -82,12 +82,12 @@ export default function NewRFQPage() {
             </div>
           </div>
         </div>
-      </MainLayout>
+      </B2BShell>
     );
   }
 
   return (
-    <MainLayout>
+    <B2BShell>
       <div className="bg-slate-50 min-h-screen">
         <div className="max-w-3xl mx-auto px-4 py-8">
           <Link href="/b2b" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
@@ -221,6 +221,6 @@ export default function NewRFQPage() {
           </form>
         </div>
       </div>
-    </MainLayout>
+    </B2BShell>
   );
 }

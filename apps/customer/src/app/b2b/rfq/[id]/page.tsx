@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle, Clock, Package, MessageSquare, Star, TrendingDown, Award, ChevronRight } from "lucide-react";
-import { MainLayout } from "@/components/layout/main-layout";
+import { B2BShell } from "@/components/b2b/b2b-shell";
 import { MOCK_RFQS, MOCK_QUOTES } from "@avenick/database";
 import { Button } from "@avenick/ui";
 import { formatCurrency } from "@avenick/utils";
@@ -39,12 +39,12 @@ export default function RFQDetailPage() {
 
   if (!rfq) {
     return (
-      <MainLayout>
+      <B2BShell>
         <div className="max-w-2xl mx-auto px-4 py-20 text-center">
           <p className="text-muted-foreground mb-4">RFQ not found.</p>
           <Button asChild variant="primary"><Link href="/b2b">Back to Dashboard</Link></Button>
         </div>
-      </MainLayout>
+      </B2BShell>
     );
   }
 
@@ -53,7 +53,7 @@ export default function RFQDetailPage() {
   const lowestQuote = quotes.reduce<typeof QUOTE_DETAILS[0] | null>((best, q) => (!best || q.totalAmount < best.totalAmount ? q : best), null);
 
   return (
-    <MainLayout>
+    <B2BShell>
       <div className="bg-slate-50 min-h-screen">
         <div className="max-w-4xl mx-auto px-4 py-8">
 
@@ -212,6 +212,6 @@ export default function RFQDetailPage() {
           </div>
         </div>
       </div>
-    </MainLayout>
+    </B2BShell>
   );
 }
