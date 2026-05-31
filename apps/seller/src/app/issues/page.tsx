@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { requireSellerSession } from "@/lib/auth";
-import { db } from "@manzil/database";
+import { db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { AlertTriangle, XCircle, AlertCircle, Info, ArrowRight } from "lucide-react";
 

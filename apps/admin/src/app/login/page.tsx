@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import { Input, Button } from "@manzil/ui";
+import { Input, Button } from "@avenick/ui";
 
 export default function AdminLoginPage() {
   const searchParams = useSearchParams();
@@ -51,7 +51,7 @@ export default function AdminLoginPage() {
             {error && <p className="text-red-400 text-sm">{error}</p>}
             <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" loading={loading}>Sign In</Button>
           </form>
-          <p className="text-center text-xs text-slate-500 mt-4">admin@manzil.test / Password123!</p>
+          <p className="text-center text-xs text-slate-500 mt-4">admin@avenick.test / Password123!</p>
         </div>
         <p className="text-center text-[11px] text-slate-600 mt-6">B2B-first. B2C-ready. Built for modern trade.</p>
       </div>

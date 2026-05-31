@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { formatCurrency, type SupportedCurrency } from "@manzil/utils";
-import { cn } from "@manzil/utils";
+import { formatCurrency, type SupportedCurrency } from "@avenick/utils";
+import { cn } from "@avenick/utils";
 
 interface CurrencyDisplayProps {
   amount: number;

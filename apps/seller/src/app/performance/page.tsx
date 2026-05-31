@@ -1,6 +1,6 @@
 import { requireSellerSession } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
-import { MOCK_SELLER_PERFORMANCE } from "@manzil/database";
+import { MOCK_SELLER_PERFORMANCE } from "@avenick/database";
 import { TrendingUp, Clock, RotateCcw, MessageSquare, CheckCircle, AlertTriangle, XCircle, Star, Award, BarChart2, Target } from "lucide-react";
 
 export const metadata = { title: "Performance" };

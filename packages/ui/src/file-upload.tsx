@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { Upload, X, FileText, Image } from "lucide-react";
-import { cn } from "@manzil/utils";
+import { cn } from "@avenick/utils";
 
 interface FileUploadProps {
   accept?: string;

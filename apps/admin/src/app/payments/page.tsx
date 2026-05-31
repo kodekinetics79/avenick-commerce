@@ -1,7 +1,7 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_PAYMENTS } from "@manzil/database";
-import { formatCurrency } from "@manzil/utils";
+import { MOCK_PAYMENTS } from "@avenick/database";
+import { formatCurrency } from "@avenick/utils";
 import { CreditCard, ArrowLeft, CheckCircle, Clock, XCircle, RotateCcw, Building2, Smartphone } from "lucide-react";
 import Link from "next/link";
 

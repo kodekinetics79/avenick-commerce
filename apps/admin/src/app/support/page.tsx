@@ -1,6 +1,6 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_ADMIN_SUPPORT_TICKETS } from "@manzil/database";
+import { MOCK_ADMIN_SUPPORT_TICKETS } from "@avenick/database";
 import { MessageSquare, Clock, AlertTriangle, CheckCircle, Activity, Scale, Gauge, ArrowRight } from "lucide-react";
 import Link from "next/link";
 

@@ -1,6 +1,6 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_AUDIT_LOGS } from "@manzil/database";
+import { MOCK_AUDIT_LOGS } from "@avenick/database";
 import { ScrollText, Search, Download, Shield, User, DollarSign, Package, Scale, Plug, Zap, LifeBuoy, Lock } from "lucide-react";
 
 export const metadata = { title: "Audit Trail" };

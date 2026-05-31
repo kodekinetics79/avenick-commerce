@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@manzil/utils";
+import { cn } from "@avenick/utils";
 
 /** Base shimmer block. Relies on the `.skeleton` utility defined in each app's globals.css. */
 export function Skeleton({ className }: { className?: string }) {

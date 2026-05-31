@@ -11,14 +11,14 @@
 - [ ] Admin login: subheading "Avenick Commerce — Platform Operations"
 - [ ] Admin sidebar: "Avenick Commerce" brand, "Modern Trade OS" tagline
 - [ ] Admin dashboard subheading: "Modern trade command center"
-- [ ] No visible "Manzil" text anywhere in the UI (excluding @manzil/* package import comments)
+- [ ] No visible "Avenick" text anywhere in the UI (excluding @avenick/* package import comments)
 
 ## Database & Build
 
 - [ ] `pnpm build` passes without errors in all three apps
 - [ ] `pnpm dev` starts all three apps on correct ports (13100, 13101, 13102)
 - [ ] Prisma schema unchanged — no migration errors
-- [ ] `@manzil/database` mock-data.ts exports are importable from all apps
+- [ ] `@avenick/database` mock-data.ts exports are importable from all apps
 
 ## Role Switcher (Customer App)
 

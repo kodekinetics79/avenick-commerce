@@ -7,10 +7,10 @@ No new modules were added.
 The production build (`pnpm turbo run build`) was failing across all three apps.
 Root causes found and fixed:
 
-1. **Prisma client never generated** → `@manzil/database` types unresolved.
+1. **Prisma client never generated** → `@avenick/database` types unresolved.
    Fixed by running `pnpm db:generate` (now a required setup step).
-2. **Missing workspace dependency** — `packages/types` imported `@manzil/database`
-   without declaring it; pnpm never symlinked it. Added `@manzil/database` to
+2. **Missing workspace dependency** — `packages/types` imported `@avenick/database`
+   without declaring it; pnpm never symlinked it. Added `@avenick/database` to
    `packages/types/package.json`.
 3. **Missing UI deps** — `packages/ui` used `@tanstack/react-table` and `date-fns`
    without declaring them. Added both to `packages/ui/package.json`.
@@ -39,10 +39,10 @@ Root causes found and fixed:
 ## Branding
 - User-facing surfaces already read **Avenick Commerce** / **Modern Trade OS** /
   *“B2B-first. B2C-ready. Built for modern trade.”*
-- Remaining internal `manzil` reference (cart persistence key) renamed to
+- Remaining internal `avenick` reference (cart persistence key) renamed to
   `avenick-cart`.
-- Workspace package names (`@manzil/*`), test login emails (`*@manzil.test`), and
-  the DB layer keep the `manzil` namespace — internal only, not user-facing.
+- Workspace package names (`@avenick/*`), test login emails (`*@avenick.test`), and
+  the DB layer keep the `avenick` namespace — internal only, not user-facing.
 
 ## Demo flow
 - Cross-portal demo path documented in **DEMO_SCRIPT.md**.
@@ -53,7 +53,7 @@ Root causes found and fixed:
 - **ESLint not configured** — the project has no `eslint-config-next` / `.eslintrc`;
   `next lint` drops into interactive setup. Build-time type checking is the current
   safety net. Recommend scaffolding shared ESLint config in a follow-up.
-- UI consistency relies on the shared `@manzil/ui` design system; a full
+- UI consistency relies on the shared `@avenick/ui` design system; a full
   pixel-level audit across all 13 admin modules was not performed this phase.
 - Demo data is illustrative, not production-scale.
 

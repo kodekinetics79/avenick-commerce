@@ -1,9 +1,9 @@
 import { auth } from "@/lib/auth-instance";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { db } from "@manzil/database";
+import { db } from "@avenick/database";
 import { MainLayout } from "@/components/layout/main-layout";
-import { formatCurrency } from "@manzil/utils";
+import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
 import { ShoppingBag, Package, Truck, CheckCircle, Clock, ChevronRight, RotateCcw } from "lucide-react";
 

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Search, PackageSearch, TrendingUp } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
-import { db } from "@manzil/database";
+import { db } from "@avenick/database";
 
 export const metadata: Metadata = { title: "Search — Avenick Commerce" };
 

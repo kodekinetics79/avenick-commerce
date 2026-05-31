@@ -1,5 +1,5 @@
 import { requireAdminSession } from "@/lib/auth";
-import { db } from "@manzil/database";
+import { db } from "@avenick/database";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import Link from "next/link";
 import { format } from "date-fns";

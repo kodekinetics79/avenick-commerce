@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { AlertTriangle, CheckCircle, Info, XCircle } from "lucide-react";
-import { cn } from "@manzil/utils";
+import { cn } from "@avenick/utils";
 
 export type AlertCardType = "info" | "warning" | "error" | "success";
 

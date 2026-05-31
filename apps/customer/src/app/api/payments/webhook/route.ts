@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@manzil/database";
+import { db } from "@avenick/database";
 
 // Checkout.com webhook handler skeleton
 // TODO: Verify webhook signature using CHECKOUT_WEBHOOK_SECRET

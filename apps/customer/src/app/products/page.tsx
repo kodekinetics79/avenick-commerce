@@ -5,9 +5,9 @@ import { SlidersHorizontal, PackageSearch } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
 import { SortSelect } from "@/components/products/sort-select";
-import { PageLoader } from "@manzil/ui";
-import { db } from "@manzil/database";
-import type { Prisma } from "@manzil/database";
+import { PageLoader } from "@avenick/ui";
+import { db } from "@avenick/database";
+import type { Prisma } from "@avenick/database";
 
 export const metadata: Metadata = { title: "Products — Avenick Commerce" };
 

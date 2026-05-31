@@ -4,10 +4,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { Heart, ShoppingCart, Trash2, PackageSearch } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { Button } from "@manzil/ui";
+import { Button } from "@avenick/ui";
 import { useWishlist } from "@/stores/wishlist";
 import { useCartStore } from "@/stores/cart";
-import { formatCurrency } from "@manzil/utils";
+import { formatCurrency } from "@avenick/utils";
 
 export default function WishlistPage() {
   const { items, remove } = useWishlist();

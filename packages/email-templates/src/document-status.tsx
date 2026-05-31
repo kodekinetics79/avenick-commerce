@@ -70,7 +70,7 @@ export function DocumentStatusEmail({
 
             <Hr className="my-6" />
             <Text className="text-xs text-gray-400 text-center">
-              {isAr ? "منصة منزل للتجارة الإلكترونية" : "Manzil Marketplace"}
+              {isAr ? "منصة منزل للتجارة الإلكترونية" : "Avenick Marketplace"}
             </Text>
           </Container>
         </Body>

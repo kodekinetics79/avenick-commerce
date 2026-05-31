@@ -1,5 +1,5 @@
 import { type Session } from "next-auth";
-import { UserRole } from "@manzil/database";
+import { UserRole } from "@avenick/database";
 import { NextResponse, type NextRequest } from "next/server";
 
 export type AuthGuardResult =

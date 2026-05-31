@@ -1,7 +1,7 @@
 import { requireSellerSession } from "@/lib/auth";
-import { getOrdersForSeller } from "@manzil/database";
+import { getOrdersForSeller } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
-import { formatCurrency } from "@manzil/utils";
+import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
 import Link from "next/link";
 import { ShoppingCart, Package, Truck, CheckCircle } from "lucide-react";

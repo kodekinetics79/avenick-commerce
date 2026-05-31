@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, CheckSquare, AlertTriangle, Clock, User, FileText, CheckCircle, XCircle } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { formatCurrency } from "@manzil/utils";
+import { formatCurrency } from "@avenick/utils";
 
 export const metadata = { title: "Approval Center — Avenick Commerce" };
 

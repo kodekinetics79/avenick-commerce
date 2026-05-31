@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth-instance";
-import { db } from "@manzil/database";
+import { db } from "@avenick/database";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {

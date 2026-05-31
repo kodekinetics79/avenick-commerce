@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { ArrowLeft, Building2, MapPin, Phone, Mail, Globe, Users, CreditCard, FileText, Edit } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { MOCK_B2B_COMPANY } from "@manzil/database";
-import { Button } from "@manzil/ui";
+import { MOCK_B2B_COMPANY } from "@avenick/database";
+import { Button } from "@avenick/ui";
 
 export const metadata = { title: "Company Profile — Avenick Commerce" };
 

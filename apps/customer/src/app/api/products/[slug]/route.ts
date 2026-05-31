@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProductBySlug } from "@manzil/database";
+import { getProductBySlug } from "@avenick/database";
 
 export async function GET(_req: NextRequest, { params }: { params: { slug: string } }) {
   try {

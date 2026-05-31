@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Building2, ArrowRight } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { MOCK_BRANDS } from "@manzil/database";
+import { MOCK_BRANDS } from "@avenick/database";
 
 export const metadata = { title: "Brands" };
 

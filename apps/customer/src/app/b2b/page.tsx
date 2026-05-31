@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Building2, CreditCard, FileText, ArrowRight, Plus, RotateCcw, ClipboardList, CheckSquare, Clock, AlertTriangle, Users, ChevronRight, Star } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { MOCK_B2B_COMPANY, MOCK_RFQS, MOCK_PRODUCTS } from "@manzil/database";
-import { Button } from "@manzil/ui";
+import { MOCK_B2B_COMPANY, MOCK_RFQS, MOCK_PRODUCTS } from "@avenick/database";
+import { Button } from "@avenick/ui";
 
 export const metadata = { title: "B2B Dashboard — Avenick Commerce" };
 

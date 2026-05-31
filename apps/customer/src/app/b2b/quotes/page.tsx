@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { ArrowLeft, FileText, Plus, CheckCircle, Clock, TrendingDown, Star } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { MOCK_RFQS } from "@manzil/database";
-import { Button } from "@manzil/ui";
-import { formatCurrency } from "@manzil/utils";
+import { MOCK_RFQS } from "@avenick/database";
+import { Button } from "@avenick/ui";
+import { formatCurrency } from "@avenick/utils";
 
 export const metadata = { title: "My Quotes — Avenick Commerce" };
 

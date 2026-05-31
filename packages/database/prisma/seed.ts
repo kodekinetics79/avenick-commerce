@@ -33,14 +33,14 @@ const prisma = new PrismaClient();
 const HASH = (pw: string) => bcrypt.hash(pw, 12);
 
 async function main() {
-  console.log("🌱 Seeding Manzil...");
+  console.log("🌱 Seeding Avenick...");
 
   // ── ADMIN ────────────────────────────────────────────────────────────────────
   const adminUser = await prisma.user.upsert({
-    where: { email: "admin@manzil.test" },
+    where: { email: "admin@avenick.test" },
     update: {},
     create: {
-      email: "admin@manzil.test",
+      email: "admin@avenick.test",
       passwordHash: await HASH("Password123!"),
       firstName: "Platform",
       lastName: "Admin",
@@ -54,10 +54,10 @@ async function main() {
 
   // ── SELLER USER ────────────────────────────────────────────────────────────
   const sellerUser = await prisma.user.upsert({
-    where: { email: "seller@manzil.test" },
+    where: { email: "seller@avenick.test" },
     update: {},
     create: {
-      email: "seller@manzil.test",
+      email: "seller@avenick.test",
       passwordHash: await HASH("Password123!"),
       firstName: "Mohammed",
       lastName: "Al-Rashidi",
@@ -125,10 +125,10 @@ async function main() {
 
   // ── B2C BUYER ──────────────────────────────────────────────────────────────
   const buyerUser = await prisma.user.upsert({
-    where: { email: "buyer@manzil.test" },
+    where: { email: "buyer@avenick.test" },
     update: {},
     create: {
-      email: "buyer@manzil.test",
+      email: "buyer@avenick.test",
       passwordHash: await HASH("Password123!"),
       firstName: "Sara",
       lastName: "Al-Mansouri",
@@ -142,10 +142,10 @@ async function main() {
 
   // ── B2B COMPANY ────────────────────────────────────────────────────────────
   const companyUser = await prisma.user.upsert({
-    where: { email: "company@manzil.test" },
+    where: { email: "company@avenick.test" },
     update: {},
     create: {
-      email: "company@manzil.test",
+      email: "company@avenick.test",
       passwordHash: await HASH("Password123!"),
       firstName: "Omar",
       lastName: "Al-Suwaidi",
@@ -242,7 +242,7 @@ async function main() {
     update: {},
     create: {
       id: "wh-platform-dubai",
-      nameEn: "Manzil Fulfillment Center - Dubai",
+      nameEn: "Avenick Fulfillment Center - Dubai",
       nameAr: "مركز توزيع منزل - دبي",
       type: WarehouseType.PLATFORM,
       country: Country.AE,
@@ -958,10 +958,10 @@ async function main() {
 
   // ── PENDING SELLER (for admin review demo) ────────────────────────────────
   const pendingSellerUser = await prisma.user.upsert({
-    where: { email: "pending-seller@manzil.test" },
+    where: { email: "pending-seller@avenick.test" },
     update: {},
     create: {
-      email: "pending-seller@manzil.test",
+      email: "pending-seller@avenick.test",
       passwordHash: await HASH("Password123!"),
       firstName: "Khalid",
       lastName: "Al-Otaibi",
@@ -998,11 +998,11 @@ async function main() {
 
   console.log("\n🎉 Seed complete!");
   console.log("─────────────────────────────────────────────────────");
-  console.log("  admin@manzil.test          / Password123!");
-  console.log("  seller@manzil.test         / Password123!");
-  console.log("  buyer@manzil.test          / Password123!");
-  console.log("  company@manzil.test        / Password123!");
-  console.log("  pending-seller@manzil.test / Password123!");
+  console.log("  admin@avenick.test          / Password123!");
+  console.log("  seller@avenick.test         / Password123!");
+  console.log("  buyer@avenick.test          / Password123!");
+  console.log("  company@avenick.test        / Password123!");
+  console.log("  pending-seller@avenick.test / Password123!");
   console.log("─────────────────────────────────────────────────────");
 }
 

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth-instance";
-import { db, getSellerDashboard } from "@manzil/database";
+import { db, getSellerDashboard } from "@avenick/database";
 
 export async function GET() {
   try {

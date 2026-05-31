@@ -1,6 +1,6 @@
 import { requireSellerSession } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
-import { formatCurrency } from "@manzil/utils";
+import { formatCurrency } from "@avenick/utils";
 import Link from "next/link";
 import { FileText, CheckCircle, Clock, XCircle, TrendingUp } from "lucide-react";
 

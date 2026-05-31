@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Building2, CheckCircle, Users, FileText, TrendingUp, ShieldCheck } from "lucide-react";
-import { Button } from "@manzil/ui";
+import { Button } from "@avenick/ui";
 import { MainLayout } from "@/components/layout/main-layout";
 
 const FEATURES = [

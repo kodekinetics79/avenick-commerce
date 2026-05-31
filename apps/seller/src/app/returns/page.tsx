@@ -1,6 +1,6 @@
 import { requireSellerSession } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
-import { formatCurrency } from "@manzil/utils";
+import { formatCurrency } from "@avenick/utils";
 import { RotateCcw, CheckCircle, Clock, XCircle, Package } from "lucide-react";
 
 export const metadata = { title: "Returns" };

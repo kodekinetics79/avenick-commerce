@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { CreditCard, Building2, Smartphone, CheckCircle } from "lucide-react";
-import { Button, Input } from "@manzil/ui";
-import { formatCurrency, VAT_RATES } from "@manzil/utils";
+import { Button, Input } from "@avenick/ui";
+import { formatCurrency, VAT_RATES } from "@avenick/utils";
 import { useCartStore } from "@/stores/cart";
 import { MainLayout } from "@/components/layout/main-layout";
 

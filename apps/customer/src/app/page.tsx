@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
-import { db } from "@manzil/database";
+import { db } from "@avenick/database";
 
 const CATEGORIES = [
   { slug: "industrial-supplies", nameEn: "Industrial Supplies", nameAr: "مستلزمات صناعية", icon: Factory, color: "bg-blue-50 text-blue-600" },

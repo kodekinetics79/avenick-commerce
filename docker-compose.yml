@@ -3,25 +3,25 @@ version: "3.9"
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: manzil_postgres
+    container_name: avenick_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: manzil_db
-      POSTGRES_USER: manzil
-      POSTGRES_PASSWORD: manzil_secret
+      POSTGRES_DB: avenick_db
+      POSTGRES_USER: avenick
+      POSTGRES_PASSWORD: avenick_secret
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U manzil -d manzil_db"]
+      test: ["CMD-SHELL", "pg_isready -U avenick -d avenick_db"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: manzil_redis
+    container_name: avenick_redis
     restart: unless-stopped
     ports:
       - "6379:6379"
@@ -36,11 +36,11 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: manzil_minio
+    container_name: avenick_minio
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: manzil_access
-      MINIO_ROOT_PASSWORD: manzil_secret
+      MINIO_ROOT_USER: avenick_access
+      MINIO_ROOT_PASSWORD: avenick_secret
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -56,41 +56,41 @@ services:
   # MinIO bucket creation on startup
   minio-init:
     image: minio/mc:latest
-    container_name: manzil_minio_init
+    container_name: avenick_minio_init
     depends_on:
       minio:
         condition: service_healthy
     entrypoint: >
       /bin/sh -c "
-      mc alias set manzil http://minio:9000 manzil_access manzil_secret;
-      mc mb --ignore-existing manzil/manzil-uploads;
-      mc anonymous set download manzil/manzil-uploads;
+      mc alias set avenick http://minio:9000 avenick_access avenick_secret;
+      mc mb --ignore-existing avenick/avenick-uploads;
+      mc anonymous set download avenick/avenick-uploads;
       echo 'MinIO bucket ready';
       "
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.16.1
-    container_name: manzil_elasticsearch
+    container_name: avenick_elasticsearch
     restart: unless-stopped
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=true
       - xpack.security.http.ssl.enabled=false
-      - ELASTIC_PASSWORD=manzil_elastic
+      - ELASTIC_PASSWORD=avenick_elastic
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ports:
       - "9200:9200"
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
     healthcheck:
-      test: ["CMD-SHELL", "curl -s -u elastic:manzil_elastic http://localhost:9200/_cluster/health | grep -vq '\"status\":\"red\"'"]
+      test: ["CMD-SHELL", "curl -s -u elastic:avenick_elastic http://localhost:9200/_cluster/health | grep -vq '\"status\":\"red\"'"]
       interval: 20s
       timeout: 10s
       retries: 10
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.16.1
-    container_name: manzil_kibana
+    container_name: avenick_kibana
     restart: unless-stopped
     depends_on:
       elasticsearch:
@@ -98,7 +98,7 @@ services:
     environment:
       ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
       ELASTICSEARCH_USERNAME: "elastic"
-      ELASTICSEARCH_PASSWORD: "manzil_elastic"
+      ELASTICSEARCH_PASSWORD: "avenick_elastic"
     ports:
       - "5601:5601"
     profiles:

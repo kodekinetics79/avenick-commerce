@@ -1,5 +1,5 @@
 import { requireSellerSession } from "@/lib/auth";
-import { db, MOCK_SELLER_RFQ_INBOX } from "@manzil/database";
+import { db, MOCK_SELLER_RFQ_INBOX } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { format } from "date-fns";
 import { MessageSquare, ClipboardList, AlertCircle, Clock, ChevronRight } from "lucide-react";

@@ -1,5 +1,5 @@
 {
-  "name": "manzil",
+  "name": "avenick",
   "private": true,
   "version": "1.0.0",
   "scripts": {
@@ -8,10 +8,10 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
-    "db:generate": "turbo run db:generate --filter=@manzil/database",
-    "db:migrate": "turbo run db:migrate --filter=@manzil/database",
-    "db:seed": "turbo run db:seed --filter=@manzil/database",
-    "db:studio": "turbo run db:studio --filter=@manzil/database",
+    "db:generate": "turbo run db:generate --filter=@avenick/database",
+    "db:migrate": "turbo run db:migrate --filter=@avenick/database",
+    "db:seed": "turbo run db:seed --filter=@avenick/database",
+    "db:studio": "turbo run db:studio --filter=@avenick/database",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {

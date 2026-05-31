@@ -5,8 +5,8 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2, CheckCircle, Send, AlertCircle } from "lucide-react";
 import { SellerLayout } from "@/components/layout/seller-layout";
-import { MOCK_SELLER_RFQ_INBOX } from "@manzil/database";
-import { Input, Textarea } from "@manzil/ui";
+import { MOCK_SELLER_RFQ_INBOX } from "@avenick/database";
+import { Input, Textarea } from "@avenick/ui";
 
 interface QuoteLineItem {
   id: string;

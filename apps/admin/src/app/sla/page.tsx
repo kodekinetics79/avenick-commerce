@@ -1,6 +1,6 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_SLA_METRICS } from "@manzil/database";
+import { MOCK_SLA_METRICS } from "@avenick/database";
 import { Gauge, ArrowLeft, Clock, Zap, AlertTriangle, TrendingUp, CheckCircle } from "lucide-react";
 import Link from "next/link";
 

@@ -1,7 +1,7 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_EXECUTIVE } from "@manzil/database";
-import { formatCurrency } from "@manzil/utils";
+import { MOCK_EXECUTIVE } from "@avenick/database";
+import { formatCurrency } from "@avenick/utils";
 import { TrendingUp, Star, Clock, RotateCcw, Award, AlertTriangle } from "lucide-react";
 
 export const metadata = { title: "Supplier Performance" };

@@ -45,6 +45,6 @@
 - [x] `next start` serves in production mode (admin /login → 200)
 - [x] Customer storefront `/` and `/products/[slug]` render with live data
 - [x] Demo Role switcher (Guest / B2C / B2B) toggles contextual nav
-- [x] User-facing branding reads "Avenick Commerce" (no Manzil)
+- [x] User-facing branding reads "Avenick Commerce" (no Avenick)
 - [ ] ESLint: not configured yet (no eslint-config-next) — follow-up
 - [ ] Run full DEMO_SCRIPT.md path end-to-end before each demo

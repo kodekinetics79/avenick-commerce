@@ -21,7 +21,7 @@ export type {
   SellerPayout,
   ApprovalPolicy,
   ProductComplianceDocument,
-} from "@manzil/database";
+} from "@avenick/database";
 
 export {
   UserRole,
@@ -46,4 +46,4 @@ export {
   POStatus,
   NotificationType,
   PayoutStatus,
-} from "@manzil/database";
+} from "@avenick/database";

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@manzil/utils";
+import { cn } from "@avenick/utils";
 
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => (

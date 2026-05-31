@@ -1,6 +1,6 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_SYSTEM_HEALTH } from "@manzil/database";
+import { MOCK_SYSTEM_HEALTH } from "@avenick/database";
 import { Settings, Activity, CheckCircle, AlertTriangle, Globe, DollarSign, Bell, Shield, Server } from "lucide-react";
 import Link from "next/link";
 

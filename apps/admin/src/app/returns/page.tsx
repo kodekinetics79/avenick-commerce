@@ -1,6 +1,6 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { formatCurrency } from "@manzil/utils";
+import { formatCurrency } from "@avenick/utils";
 import { RotateCcw, CheckCircle, Clock, XCircle, Package } from "lucide-react";
 
 export const metadata = { title: "Returns" };

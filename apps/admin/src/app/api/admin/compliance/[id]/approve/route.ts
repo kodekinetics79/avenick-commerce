@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth-instance";
-import { reviewDocument } from "@manzil/database";
+import { reviewDocument } from "@avenick/database";
 
 export async function PUT(_req: NextRequest, { params }: { params: { id: string } }) {
   try {

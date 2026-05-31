@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle, Send, Plus, Trash2, Paperclip, AlertCircle, Building2 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { Button, Input, Textarea } from "@manzil/ui";
+import { Button, Input, Textarea } from "@avenick/ui";
 
 type Priority = "NORMAL" | "URGENT" | "CRITICAL";
 

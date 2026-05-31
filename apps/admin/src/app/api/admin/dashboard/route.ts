@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth-instance";
-import { getAdminDashboard } from "@manzil/database";
+import { getAdminDashboard } from "@avenick/database";
 
 export async function GET() {
   try {

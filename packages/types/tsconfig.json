@@ -1,5 +1,5 @@
 {
-  "extends": "@manzil/config/typescript",
+  "extends": "@avenick/config/typescript",
   "compilerOptions": {
     "outDir": "dist",
     "rootDir": "src",

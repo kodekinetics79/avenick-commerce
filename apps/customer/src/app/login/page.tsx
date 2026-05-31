@@ -4,7 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Input, Button } from "@manzil/ui";
+import { Input, Button } from "@avenick/ui";
 import { MainLayout } from "@/components/layout/main-layout";
 
 export default function LoginPage() {
@@ -57,7 +57,7 @@ export default function LoginPage() {
             </form>
             <div className="mt-4 text-center text-sm text-muted-foreground">
               <p>Don&apos;t have an account? <Link href="/register" className="text-orange-600 hover:underline">Register</Link></p>
-              <p className="mt-1 text-xs">Test: buyer@manzil.test / Password123!</p>
+              <p className="mt-1 text-xs">Test: buyer@avenick.test / Password123!</p>
             </div>
           </div>
         </div>

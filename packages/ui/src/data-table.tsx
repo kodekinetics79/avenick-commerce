@@ -11,7 +11,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
-import { cn } from "@manzil/utils";
+import { cn } from "@avenick/utils";
 import { Button } from "./button";
 import { Spinner } from "./spinner";
 

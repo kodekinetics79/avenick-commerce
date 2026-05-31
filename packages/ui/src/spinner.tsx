@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@manzil/utils";
+import { cn } from "@avenick/utils";
 
 interface SpinnerProps {
   size?: "sm" | "md" | "lg";

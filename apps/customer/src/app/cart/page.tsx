@@ -4,12 +4,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { Trash2, Minus, Plus, ShoppingBag, ArrowRight, Tag, Truck, ShieldCheck, Heart } from "lucide-react";
-import { Button } from "@manzil/ui";
-import { formatCurrency } from "@manzil/utils";
+import { Button } from "@avenick/ui";
+import { formatCurrency } from "@avenick/utils";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
 import { MainLayout } from "@/components/layout/main-layout";
-import { VAT_RATES } from "@manzil/utils";
+import { VAT_RATES } from "@avenick/utils";
 
 export default function CartPage() {
   const { items, updateQty, removeItem, total } = useCartStore();

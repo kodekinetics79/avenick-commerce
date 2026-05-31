@@ -1,7 +1,7 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_CAMPAIGNS } from "@manzil/database";
-import { formatCurrency } from "@manzil/utils";
+import { MOCK_CAMPAIGNS } from "@avenick/database";
+import { formatCurrency } from "@avenick/utils";
 import { Megaphone, Mail, MessageSquare, Send, TrendingUp, Plus, ArrowLeft, Play, Pause, CheckCircle } from "lucide-react";
 import Link from "next/link";
 

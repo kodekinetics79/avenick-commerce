@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { auth as defaultAuth } from "./config";
-import { UserRole } from "@manzil/database";
+import { UserRole } from "@avenick/database";
 
 type PortalType = "customer" | "seller" | "admin";
 

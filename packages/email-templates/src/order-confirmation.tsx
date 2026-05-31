@@ -79,7 +79,7 @@ export function OrderConfirmationEmail({
         vat: "VAT",
         shipping: "Shipping",
         total: "Total",
-        footer: "Thank you for shopping with Manzil.",
+        footer: "Thank you for shopping with Avenick.",
       };
 
   return (

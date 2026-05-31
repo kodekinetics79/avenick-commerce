@@ -1,7 +1,7 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { db } from "@manzil/database";
-import { formatCurrency } from "@manzil/utils";
+import { db } from "@avenick/database";
+import { formatCurrency } from "@avenick/utils";
 import { ArrowLeft, Search, Boxes, AlertTriangle, RefreshCw, TrendingDown, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 

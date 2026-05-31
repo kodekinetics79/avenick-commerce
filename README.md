@@ -1,4 +1,4 @@
-# Manzil — منزل
+# Avenick — منزل
 
 GCC B2B + B2C Marketplace Platform — Stage 1 MVP
 
@@ -18,7 +18,7 @@ Three-portal monorepo: Customer Marketplace · Seller Central · Admin Console
 
 ```bash
 git clone <repo>
-cd manzil
+cd avenick
 pnpm install
 ```
 
@@ -56,9 +56,9 @@ pnpm dev
 Or individually:
 
 ```bash
-pnpm --filter @manzil/customer dev   # port 14000
-pnpm --filter @manzil/seller dev     # port 14001
-pnpm --filter @manzil/admin dev      # port 14002
+pnpm --filter @avenick/customer dev   # port 14000
+pnpm --filter @avenick/seller dev     # port 14001
+pnpm --filter @avenick/admin dev      # port 14002
 ```
 
 ---
@@ -81,11 +81,11 @@ pnpm --filter @manzil/admin dev      # port 14002
 
 | Role              | Email                         | Password       |
 |-------------------|-------------------------------|----------------|
-| Super Admin       | admin@manzil.test             | Password123!   |
-| Seller Owner      | seller@manzil.test            | Password123!   |
-| B2C Buyer         | buyer@manzil.test             | Password123!   |
-| B2B Company Admin | company@manzil.test           | Password123!   |
-| Pending Seller    | pending-seller@manzil.test    | Password123!   |
+| Super Admin       | admin@avenick.test             | Password123!   |
+| Seller Owner      | seller@avenick.test            | Password123!   |
+| B2C Buyer         | buyer@avenick.test             | Password123!   |
+| B2B Company Admin | company@avenick.test           | Password123!   |
+| Pending Seller    | pending-seller@avenick.test    | Password123!   |
 
 ---
 
@@ -123,7 +123,7 @@ pnpm --filter @manzil/admin dev      # port 14002
 ## Architecture
 
 ```
-manzil/
+avenick/
 ├── apps/
 │   ├── customer/         # Next.js 14 App Router, port 3000
 │   ├── seller/           # Next.js 14 App Router, port 3001

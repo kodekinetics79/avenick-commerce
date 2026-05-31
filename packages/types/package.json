@@ -1,5 +1,5 @@
 {
-  "name": "@manzil/types",
+  "name": "@avenick/types",
   "version": "1.0.0",
   "private": true,
   "main": "./src/index.ts",
@@ -7,7 +7,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@manzil/database": "workspace:*",
+    "@avenick/database": "workspace:*",
     "zod": "^3.24.1"
   },
   "devDependencies": {

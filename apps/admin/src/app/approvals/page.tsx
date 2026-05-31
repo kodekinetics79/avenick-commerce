@@ -1,6 +1,6 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { db } from "@manzil/database";
+import { db } from "@avenick/database";
 import Link from "next/link";
 import { CheckSquare, Package, Store, FileCheck, CheckCircle, XCircle, ArrowRight } from "lucide-react";
 

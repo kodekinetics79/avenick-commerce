@@ -93,7 +93,7 @@ Because primitives use `bg-primary` (the CSS var) rather than a hardcoded shade,
 
 ---
 
-## 7. Component Inventory (`@manzil/ui`)
+## 7. Component Inventory (`@avenick/ui`)
 
 **Foundation:** Button, Card, Input, Textarea, Select, Checkbox, RadioGroup, Switch, Combobox, Avatar, Dialog
 **Data display:** Badge, StatusBadge, MetricCard, DataTable, **TableShell + TableHead**, CurrencyDisplay, HijriDate

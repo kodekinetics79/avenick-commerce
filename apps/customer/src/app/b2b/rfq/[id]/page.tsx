@@ -4,9 +4,9 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle, Clock, Package, MessageSquare, Star, TrendingDown, Award, ChevronRight } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { MOCK_RFQS, MOCK_QUOTES } from "@manzil/database";
-import { Button } from "@manzil/ui";
-import { formatCurrency } from "@manzil/utils";
+import { MOCK_RFQS, MOCK_QUOTES } from "@avenick/database";
+import { Button } from "@avenick/ui";
+import { formatCurrency } from "@avenick/utils";
 
 const RFQ_STATUS: Record<string, { label: string; color: string }> = {
   DRAFT:         { label: "Draft",          color: "bg-gray-100 text-gray-600" },

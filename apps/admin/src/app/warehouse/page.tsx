@@ -1,6 +1,6 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_WAREHOUSE_DATA } from "@manzil/database";
+import { MOCK_WAREHOUSE_DATA } from "@avenick/database";
 import { Package, Truck, AlertTriangle, Clock, BarChart2, Boxes, PackageCheck, ArrowDownToLine, ArrowRight, TrendingUp, RefreshCw } from "lucide-react";
 import Link from "next/link";
 

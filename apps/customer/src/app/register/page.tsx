@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { User, Building2 } from "lucide-react";
-import { Input, Button, Textarea } from "@manzil/ui";
+import { Input, Button, Textarea } from "@avenick/ui";
 import { MainLayout } from "@/components/layout/main-layout";
 
 type Mode = "select" | "consumer" | "business";

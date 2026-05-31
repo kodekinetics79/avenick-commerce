@@ -1,7 +1,7 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_SEGMENTS } from "@manzil/database";
-import { formatCurrency } from "@manzil/utils";
+import { MOCK_SEGMENTS } from "@avenick/database";
+import { formatCurrency } from "@avenick/utils";
 import { PieChart, Plus, ArrowLeft, TrendingUp, TrendingDown, Users, Megaphone, ArrowRight } from "lucide-react";
 import Link from "next/link";
 

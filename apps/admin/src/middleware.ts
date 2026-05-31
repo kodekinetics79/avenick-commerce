@@ -1,4 +1,4 @@
-import { createMiddleware } from "@manzil/auth/middleware";
+import { createMiddleware } from "@avenick/auth/middleware";
 import { auth } from "@/lib/auth-instance";
 
 export default createMiddleware("admin", auth);

@@ -1,7 +1,7 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_PRICING_PRODUCTS, MOCK_BULK_TIERS, MOCK_CONTRACT_PRICING, MOCK_COMMISSION_RULES } from "@manzil/database";
-import { formatCurrency } from "@manzil/utils";
+import { MOCK_PRICING_PRODUCTS, MOCK_BULK_TIERS, MOCK_CONTRACT_PRICING, MOCK_COMMISSION_RULES } from "@avenick/database";
+import { formatCurrency } from "@avenick/utils";
 import { Coins, Layers, FileText, Percent, TrendingUp, Plus, CheckCircle, Clock, AlertTriangle } from "lucide-react";
 
 export const metadata = { title: "Pricing & Commission" };

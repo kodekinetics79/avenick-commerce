@@ -1,10 +1,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { requireSellerSession } from "@/lib/auth";
-import { db } from "@manzil/database";
+import { db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
-import { Badge } from "@manzil/ui";
-import { formatCurrency } from "@manzil/utils";
+import { Badge } from "@avenick/ui";
+import { formatCurrency } from "@avenick/utils";
 import { Plus, AlertTriangle } from "lucide-react";
 
 function HealthBar({ score }: { score: number }) {

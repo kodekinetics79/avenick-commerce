@@ -8,7 +8,7 @@ import {
   MapPin, RotateCcw, Copy, ExternalLink, ShieldCheck, FileText,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { MOCK_ORDERS } from "@manzil/database";
+import { MOCK_ORDERS } from "@avenick/database";
 
 const ALL_STEPS = [
   { status: "CONFIRMED",  label: "Order Confirmed",  icon: CheckCircle, desc: "Payment received and order confirmed." },

@@ -1,13 +1,13 @@
 import NextAuth, { type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { db, UserRole, UserStatus } from "@manzil/database";
-import { LoginSchema } from "@manzil/types";
+import { db, UserRole, UserStatus } from "@avenick/database";
+import { LoginSchema } from "@avenick/types";
 
 type AppName = "customer" | "seller" | "admin";
 
 function buildAuthConfig(app: AppName): NextAuthConfig {
-  const p = `manzil.${app}`;
+  const p = `avenick.${app}`;
   return {
     providers: [
       Credentials({

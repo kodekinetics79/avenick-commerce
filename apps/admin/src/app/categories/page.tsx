@@ -1,6 +1,6 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { db } from "@manzil/database";
+import { db } from "@avenick/database";
 import { Tag, Plus, FolderTree } from "lucide-react";
 
 export const metadata = { title: "Categories" };

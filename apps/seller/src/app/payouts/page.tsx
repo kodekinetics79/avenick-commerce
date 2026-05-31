@@ -1,7 +1,7 @@
 import { requireSellerSession } from "@/lib/auth";
-import { db, MOCK_PAYOUT_HISTORY } from "@manzil/database";
+import { db, MOCK_PAYOUT_HISTORY } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
-import { formatCurrency } from "@manzil/utils";
+import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
 import { DollarSign } from "lucide-react";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@manzil/utils";
+import { cn } from "@avenick/utils";
 
 interface EmptyStateProps {
   icon?: React.ReactNode;

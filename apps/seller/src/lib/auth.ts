@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth-instance";
 import { redirect } from "next/navigation";
-import { db } from "@manzil/database";
+import { db } from "@avenick/database";
 
 export async function requireSellerSession() {
   const session = await auth();

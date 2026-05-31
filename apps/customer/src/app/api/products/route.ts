@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listProducts } from "@manzil/database";
-import type { ProductStatus } from "@manzil/database";
+import { listProducts } from "@avenick/database";
+import type { ProductStatus } from "@avenick/database";
 
 export async function GET(req: NextRequest) {
   try {

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@manzil/database";
+import { db } from "@avenick/database";
 import bcrypt from "bcryptjs";
-import { RegisterBusinessSchema } from "@manzil/types";
-import type { Country, Industry, CompanySize } from "@manzil/database";
+import { RegisterBusinessSchema } from "@avenick/types";
+import type { Country, Industry, CompanySize } from "@avenick/database";
 
 export async function POST(req: NextRequest) {
   try {

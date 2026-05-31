@@ -20,12 +20,12 @@ export function SellerWelcomeEmail({
   return (
     <Html dir={dir} lang={isAr ? "ar" : "en"}>
       <Head />
-      <Preview>{isAr ? `مرحباً بك في منزل، ${businessName}` : `Welcome to Manzil, ${businessName}`}</Preview>
+      <Preview>{isAr ? `مرحباً بك في منزل، ${businessName}` : `Welcome to Avenick, ${businessName}`}</Preview>
       <Tailwind>
         <Body className="bg-gray-50 font-sans">
           <Container className="mx-auto my-8 max-w-xl rounded-2xl bg-white p-8 shadow-sm">
             <Heading className="text-2xl font-bold text-orange-600 mb-4">
-              {isAr ? "مرحباً بك في منزل!" : "Welcome to Manzil!"}
+              {isAr ? "مرحباً بك في منزل!" : "Welcome to Avenick!"}
             </Heading>
 
             <Text className="text-base mb-4">
@@ -35,7 +35,7 @@ export function SellerWelcomeEmail({
             <Text className="text-base text-gray-700 mb-4">
               {isAr
                 ? `شكراً لتسجيلك كبائع في منصة منزل. طلب ${businessName} قيد المراجعة حالياً.`
-                : `Thank you for registering as a seller on Manzil. Your application for ${businessName} is currently under review.`}
+                : `Thank you for registering as a seller on Avenick. Your application for ${businessName} is currently under review.`}
             </Text>
 
             <Section className="rounded-xl bg-orange-50 p-4 mb-4">
@@ -51,7 +51,7 @@ export function SellerWelcomeEmail({
 
             <Hr className="my-6" />
             <Text className="text-xs text-gray-400 text-center">
-              {isAr ? "منصة منزل للتجارة الإلكترونية في منطقة الخليج" : "Manzil — GCC Marketplace Platform"}
+              {isAr ? "منصة منزل للتجارة الإلكترونية في منطقة الخليج" : "Avenick — GCC Marketplace Platform"}
             </Text>
           </Container>
         </Body>

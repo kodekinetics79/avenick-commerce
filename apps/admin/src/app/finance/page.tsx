@@ -1,7 +1,7 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_FINANCE_INVOICES, MOCK_SETTLEMENTS, MOCK_CREDIT_ACCOUNTS } from "@manzil/database";
-import { formatCurrency } from "@manzil/utils";
+import { MOCK_FINANCE_INVOICES, MOCK_SETTLEMENTS, MOCK_CREDIT_ACCOUNTS } from "@avenick/database";
+import { formatCurrency } from "@avenick/utils";
 import { DollarSign, TrendingUp, Clock, AlertCircle, Receipt, CreditCard, FileSpreadsheet, ArrowRight } from "lucide-react";
 import Link from "next/link";
 

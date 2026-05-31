@@ -1,5 +1,5 @@
 import { requireAdminSession } from "@/lib/auth";
-import { getAdminDashboard, db, MOCK_EXECUTIVE, MOCK_TOP_CUSTOMERS } from "@manzil/database";
+import { getAdminDashboard, db, MOCK_EXECUTIVE, MOCK_TOP_CUSTOMERS } from "@avenick/database";
 import { DashboardView } from "./dashboard-view";
 
 export const metadata = { title: "Executive Command Center" };

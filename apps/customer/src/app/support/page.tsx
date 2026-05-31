@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { MessageSquare, Plus, Clock, CheckCircle, AlertCircle, X } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { MOCK_SUPPORT_TICKETS } from "@manzil/database";
-import { Button, Input, Textarea } from "@manzil/ui";
+import { MOCK_SUPPORT_TICKETS } from "@avenick/database";
+import { Button, Input, Textarea } from "@avenick/ui";
 
 const STATUS_CONFIG = {
   OPEN: { label: "Open", color: "bg-blue-100 text-blue-700", icon: Clock },

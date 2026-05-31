@@ -1,6 +1,6 @@
 import { requireSellerSession } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
-import { MOCK_SELLER_DOCUMENTS } from "@manzil/database";
+import { MOCK_SELLER_DOCUMENTS } from "@avenick/database";
 import { AlertTriangle, Upload, CheckCircle, Clock, XCircle, FileText, Calendar, RefreshCw, Eye } from "lucide-react";
 
 export const metadata = { title: "Document Center" };

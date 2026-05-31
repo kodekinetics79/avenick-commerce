@@ -1,7 +1,7 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { db } from "@manzil/database";
-import { formatCurrency } from "@manzil/utils";
+import { db } from "@avenick/database";
+import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
 import Link from "next/link";
 import { ShoppingCart, Package, Truck, CheckCircle, Clock, AlertTriangle, ExternalLink } from "lucide-react";

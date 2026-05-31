@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { CheckCircle, XCircle, ExternalLink, AlertTriangle } from "lucide-react";
-import { formatCurrency } from "@manzil/utils";
+import { formatCurrency } from "@avenick/utils";
 import Link from "next/link";
 
 export default function SellerDetailPage() {

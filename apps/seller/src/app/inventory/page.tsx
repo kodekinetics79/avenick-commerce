@@ -1,5 +1,5 @@
 import { requireSellerSession } from "@/lib/auth";
-import { getSellerInventory } from "@manzil/database";
+import { getSellerInventory } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import Image from "next/image";
 import { AlertTriangle } from "lucide-react";

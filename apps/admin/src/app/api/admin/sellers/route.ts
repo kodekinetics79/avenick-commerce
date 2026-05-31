@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth-instance";
-import { db } from "@manzil/database";
-import type { SellerStatus } from "@manzil/database";
+import { db } from "@avenick/database";
+import type { SellerStatus } from "@avenick/database";
 
 export async function GET(req: NextRequest) {
   try {

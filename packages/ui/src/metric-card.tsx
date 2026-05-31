@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { TrendingUp, TrendingDown } from "lucide-react";
-import { cn } from "@manzil/utils";
+import { cn } from "@avenick/utils";
 
 export interface MetricCardProps {
   label: string;

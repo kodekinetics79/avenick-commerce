@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth-instance";
-import { createOrder, db } from "@manzil/database";
+import { createOrder, db } from "@avenick/database";
 import { z } from "zod";
-import type { PaymentMethod, Currency } from "@manzil/database";
+import type { PaymentMethod, Currency } from "@avenick/database";
 
 const CreateOrderSchema = z.object({
   items: z.array(z.object({

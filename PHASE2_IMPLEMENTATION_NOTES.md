@@ -21,22 +21,22 @@
 
 | Package              | Purpose                                    |
 |---------------------|--------------------------------------------|
-| @manzil/auth        | next-auth configuration and helpers        |
-| @manzil/database    | Prisma client, service functions, mock data|
-| @manzil/ui          | Shared React component library             |
-| @manzil/utils       | Shared utilities (formatCurrency, cn, etc) |
-| @manzil/types       | Shared TypeScript types                    |
+| @avenick/auth        | next-auth configuration and helpers        |
+| @avenick/database    | Prisma client, service functions, mock data|
+| @avenick/ui          | Shared React component library             |
+| @avenick/utils       | Shared utilities (formatCurrency, cn, etc) |
+| @avenick/types       | Shared TypeScript types                    |
 
 ## Database
 
-- **DB**: PostgreSQL (manzil_db)
+- **DB**: PostgreSQL (avenick_db)
 - **ORM**: Prisma (schema at packages/database/prisma/schema.prisma)
 - **MySQL decision**: Deferred — PostgreSQL works for development; MySQL migration recommended before production
 
 ## What Was Changed in Phase 2
 
 ### Branding (STEP 2)
-- All user-visible "Manzil" → "Avenick Commerce" across all three apps
+- All user-visible "Avenick" → "Avenick Commerce" across all three apps
 - Login headlines, sidebars, page metadata, footer, dashboard subheadings
 - Customer login: "Welcome to Avenick Commerce" / "B2B-first. B2C-ready. Built for modern trade."
 - Admin sidebar brand: "Avenick Commerce" / "Modern Trade OS"
@@ -87,11 +87,11 @@
 
 ## What Was NOT Changed
 
-- Package names in package.json (kept @manzil/*)
-- Database name (manzil_db) or env vars
+- Package names in package.json (kept @avenick/*)
+- Database name (avenick_db) or env vars
 - Prisma schema — no migrations run
 - Existing working pages (cart, checkout, products, account, orders, categories, search, register)
-- Internal identifiers like `manzil-cart` localStorage key
+- Internal identifiers like `avenick-cart` localStorage key
 - API route internals
 - File/folder names that would break imports
 

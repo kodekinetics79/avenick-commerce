@@ -3,7 +3,7 @@
 ## Current Database
 
 - **Engine**: PostgreSQL
-- **Database name**: `manzil_db`
+- **Database name**: `avenick_db`
 - **ORM**: Prisma (schema at `packages/database/prisma/schema.prisma`)
 - **Connection**: `DATABASE_URL` environment variable
 

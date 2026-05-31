@@ -20,24 +20,24 @@ importers:
 
   apps/admin:
     dependencies:
+      '@avenick/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@avenick/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@avenick/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      '@avenick/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@avenick/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.10.0(react-hook-form@7.76.1(react@18.3.1))
-      '@manzil/auth':
-        specifier: workspace:*
-        version: link:../../packages/auth
-      '@manzil/database':
-        specifier: workspace:*
-        version: link:../../packages/database
-      '@manzil/types':
-        specifier: workspace:*
-        version: link:../../packages/types
-      '@manzil/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      '@manzil/utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
       '@tanstack/react-query':
         specifier: ^5.62.7
         version: 5.100.14(react@18.3.1)
@@ -84,7 +84,7 @@ importers:
         specifier: ^5.0.2
         version: 5.0.13(@types/react@18.3.29)(react@18.3.1)(use-sync-external-store@1.6.0(react@18.3.1))
     devDependencies:
-      '@manzil/config':
+      '@avenick/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@types/node':
@@ -111,24 +111,24 @@ importers:
 
   apps/customer:
     dependencies:
+      '@avenick/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@avenick/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@avenick/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      '@avenick/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@avenick/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.10.0(react-hook-form@7.76.1(react@18.3.1))
-      '@manzil/auth':
-        specifier: workspace:*
-        version: link:../../packages/auth
-      '@manzil/database':
-        specifier: workspace:*
-        version: link:../../packages/database
-      '@manzil/types':
-        specifier: workspace:*
-        version: link:../../packages/types
-      '@manzil/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      '@manzil/utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
       '@tanstack/react-query':
         specifier: ^5.62.7
         version: 5.100.14(react@18.3.1)
@@ -178,7 +178,7 @@ importers:
         specifier: ^5.0.2
         version: 5.0.13(@types/react@18.3.29)(react@18.3.1)(use-sync-external-store@1.6.0(react@18.3.1))
     devDependencies:
-      '@manzil/config':
+      '@avenick/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@types/bcryptjs':
@@ -208,24 +208,24 @@ importers:
 
   apps/seller:
     dependencies:
+      '@avenick/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@avenick/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@avenick/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      '@avenick/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
+      '@avenick/utils':
+        specifier: workspace:*
+        version: link:../../packages/utils
       '@hookform/resolvers':
         specifier: ^3.9.1
         version: 3.10.0(react-hook-form@7.76.1(react@18.3.1))
-      '@manzil/auth':
-        specifier: workspace:*
-        version: link:../../packages/auth
-      '@manzil/database':
-        specifier: workspace:*
-        version: link:../../packages/database
-      '@manzil/types':
-        specifier: workspace:*
-        version: link:../../packages/types
-      '@manzil/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      '@manzil/utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
       '@tanstack/react-query':
         specifier: ^5.62.7
         version: 5.100.14(react@18.3.1)
@@ -272,7 +272,7 @@ importers:
         specifier: ^5.0.2
         version: 5.0.13(@types/react@18.3.29)(react@18.3.1)(use-sync-external-store@1.6.0(react@18.3.1))
     devDependencies:
-      '@manzil/config':
+      '@avenick/config':
         specifier: workspace:*
         version: link:../../packages/config
       '@types/node':
@@ -299,10 +299,10 @@ importers:
 
   packages/auth:
     dependencies:
-      '@manzil/database':
+      '@avenick/database':
         specifier: workspace:*
         version: link:../database
-      '@manzil/types':
+      '@avenick/types':
         specifier: workspace:*
         version: link:../types
       bcryptjs:
@@ -379,7 +379,7 @@ importers:
 
   packages/types:
     dependencies:
-      '@manzil/database':
+      '@avenick/database':
         specifier: workspace:*
         version: link:../database
       zod:
@@ -395,7 +395,7 @@ importers:
 
   packages/ui:
     dependencies:
-      '@manzil/utils':
+      '@avenick/utils':
         specifier: workspace:*
         version: link:../utils
       '@radix-ui/react-avatar':
@@ -465,7 +465,7 @@ importers:
         specifier: ^2.5.5
         version: 2.6.1
     devDependencies:
-      '@manzil/config':
+      '@avenick/config':
         specifier: workspace:*
         version: link:../config
       '@types/node':

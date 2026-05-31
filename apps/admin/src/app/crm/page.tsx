@@ -1,6 +1,6 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_CRM_ACTIVITIES, MOCK_CRM_ACCOUNTS, MOCK_LIFECYCLE_STAGES } from "@manzil/database";
+import { MOCK_CRM_ACTIVITIES, MOCK_CRM_ACCOUNTS, MOCK_LIFECYCLE_STAGES } from "@avenick/database";
 import { Users, AlertCircle, TrendingDown, Clock, Building2, User, Megaphone, PieChart, Heart, ArrowRight } from "lucide-react";
 import Link from "next/link";
 

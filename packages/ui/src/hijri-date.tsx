@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { format } from "date-fns";
-import { cn } from "@manzil/utils";
+import { cn } from "@avenick/utils";
 
 interface HijriDateProps {
   date: Date | string;

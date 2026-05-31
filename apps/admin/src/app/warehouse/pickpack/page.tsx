@@ -1,6 +1,6 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { formatCurrency } from "@manzil/utils";
+import { formatCurrency } from "@avenick/utils";
 import { ArrowLeft, Package, PackageCheck, Truck, Clock, AlertTriangle, CheckCircle, MapPin, User } from "lucide-react";
 import Link from "next/link";
 

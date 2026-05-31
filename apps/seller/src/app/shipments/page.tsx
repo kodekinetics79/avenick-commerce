@@ -1,6 +1,6 @@
 import { requireSellerSession } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
-import { formatCurrency } from "@manzil/utils";
+import { formatCurrency } from "@avenick/utils";
 import { Truck, Package, CheckCircle, Clock, MapPin, AlertTriangle } from "lucide-react";
 
 export const metadata = { title: "Shipments" };

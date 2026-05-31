@@ -1,6 +1,6 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_BRANDS } from "@manzil/database";
+import { MOCK_BRANDS } from "@avenick/database";
 import { Award, Plus, Search, Package } from "lucide-react";
 
 export const metadata = { title: "Brands" };

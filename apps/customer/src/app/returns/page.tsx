@@ -4,8 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, RotateCcw, CheckCircle, Package, AlertCircle } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { MOCK_ORDERS } from "@manzil/database";
-import { Input, Textarea } from "@manzil/ui";
+import { MOCK_ORDERS } from "@avenick/database";
+import { Input, Textarea } from "@avenick/ui";
 
 const RETURN_REASONS = [
   "Wrong item received",

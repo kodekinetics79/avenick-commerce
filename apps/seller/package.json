@@ -1,5 +1,5 @@
 {
-  "name": "@manzil/seller",
+  "name": "@avenick/seller",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -10,11 +10,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@manzil/auth": "workspace:*",
-    "@manzil/database": "workspace:*",
-    "@manzil/types": "workspace:*",
-    "@manzil/ui": "workspace:*",
-    "@manzil/utils": "workspace:*",
+    "@avenick/auth": "workspace:*",
+    "@avenick/database": "workspace:*",
+    "@avenick/types": "workspace:*",
+    "@avenick/ui": "workspace:*",
+    "@avenick/utils": "workspace:*",
     "@tanstack/react-query": "^5.62.7",
     "@tanstack/react-table": "^8.20.5",
     "next": "^14.2.21",
@@ -33,7 +33,7 @@
     "tailwind-merge": "^2.5.5"
   },
   "devDependencies": {
-    "@manzil/config": "workspace:*",
+    "@avenick/config": "workspace:*",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.17",
     "@types/react-dom": "^18.3.5",

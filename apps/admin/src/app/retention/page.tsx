@@ -1,7 +1,7 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_RETENTION_RISKS, MOCK_LIFECYCLE_STAGES } from "@manzil/database";
-import { formatCurrency } from "@manzil/utils";
+import { MOCK_RETENTION_RISKS, MOCK_LIFECYCLE_STAGES } from "@avenick/database";
+import { formatCurrency } from "@avenick/utils";
 import { Heart, ArrowLeft, AlertTriangle, TrendingDown, Phone, Mail, Gift, Clock, ArrowRight } from "lucide-react";
 import Link from "next/link";
 

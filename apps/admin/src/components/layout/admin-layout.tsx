@@ -11,7 +11,7 @@ import {
   LifeBuoy, Scale, Gauge, Settings, UserCog, Plug, ScrollText,
   Menu, Search, Bell, ChevronDown, Zap, LogOut, Coins
 } from "lucide-react";
-import { cn } from "@manzil/utils";
+import { cn } from "@avenick/utils";
 
 const NAV_GROUPS = [
   {

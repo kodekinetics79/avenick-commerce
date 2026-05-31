@@ -2,8 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { Tag, Clock, Filter, ShoppingCart } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { MOCK_PRODUCTS } from "@manzil/database";
-import { Button, Badge } from "@manzil/ui";
+import { MOCK_PRODUCTS } from "@avenick/database";
+import { Button, Badge } from "@avenick/ui";
 
 export const metadata = { title: "Deals & Promotions" };
 

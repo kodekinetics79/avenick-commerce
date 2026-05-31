@@ -3,8 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { PageHeader, MetricCard, SectionHeader, AIInsightCard } from "@manzil/ui";
-import { formatCurrency } from "@manzil/utils";
+import { PageHeader, MetricCard, SectionHeader, AIInsightCard } from "@avenick/ui";
+import { formatCurrency } from "@avenick/utils";
 import {
   TrendingUp, Building2, Users, Store, ShoppingCart, Coins, Scale, Truck,
   Boxes, FileQuestion, Activity, ArrowRight, Brain, Plus, UserPlus, Megaphone,

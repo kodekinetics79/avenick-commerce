@@ -1,5 +1,5 @@
 {
-  "name": "@manzil/ui",
+  "name": "@avenick/ui",
   "version": "1.0.0",
   "private": true,
   "exports": {
@@ -7,7 +7,7 @@
     "./globals.css": "./src/globals.css"
   },
   "dependencies": {
-    "@manzil/utils": "workspace:*",
+    "@avenick/utils": "workspace:*",
     "@tanstack/react-table": "^8.20.5",
     "date-fns": "^4.1.0",
     "@radix-ui/react-avatar": "^1.1.2",
@@ -31,7 +31,7 @@
     "tailwind-merge": "^2.5.5"
   },
   "devDependencies": {
-    "@manzil/config": "workspace:*",
+    "@avenick/config": "workspace:*",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.17",
     "tailwindcss": "^3.4.17",

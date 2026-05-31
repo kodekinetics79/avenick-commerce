@@ -1,5 +1,5 @@
 import { requireSellerSession } from "@/lib/auth";
-import { db } from "@manzil/database";
+import { db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { format, isAfter, addDays } from "date-fns";
 import { AlertTriangle, CheckCircle, Clock, XCircle, Upload } from "lucide-react";

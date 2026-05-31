@@ -13,7 +13,7 @@ import {
   LifeBuoy, MessageSquare,
   Settings, Bell, Menu, ChevronDown, Star, LogOut
 } from "lucide-react";
-import { cn } from "@manzil/utils";
+import { cn } from "@avenick/utils";
 
 const NAV_GROUPS = [
   {

@@ -22,7 +22,7 @@ Enterprise back-office (admin/seller) reads as trustworthy **blue/navy**; the co
 storefront keeps its **green** marketplace identity — both from one token system, so
 shared primitives theme automatically.
 
-### Primitives (`@manzil/ui`)
+### Primitives (`@avenick/ui`)
 - **Button**: themeable `primary` (CSS var, not hardcoded), new `accent` (teal) variant,
   bordered `secondary`, refined `ghost/outline`, `destructive` for danger CTAs, new `xs` size.
 - **MetricCard**: `shadow-card` + hover `shadow-elevated`, semantic trend colors (success/destructive), token borders.
@@ -73,7 +73,7 @@ the "foundation only" scope.
 
 ## Phase 3 addendum
 - Production build stabilized (see PHASE3_IMPLEMENTATION_NOTES.md); shared
-  `@manzil/ui` primitives remain the single source for badges, cards, buttons,
+  `@avenick/ui` primitives remain the single source for badges, cards, buttons,
   tables and empty states across all three portals.
 - Login screens (admin + seller) unified on the slate/blue gradient + logo-badge
   treatment for a consistent entry experience.

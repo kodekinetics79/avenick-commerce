@@ -1,7 +1,7 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_SETTLEMENTS } from "@manzil/database";
-import { formatCurrency } from "@manzil/utils";
+import { MOCK_SETTLEMENTS } from "@avenick/database";
+import { formatCurrency } from "@avenick/utils";
 import { Receipt, ArrowLeft, CheckCircle, Clock, RefreshCw, Store } from "lucide-react";
 import Link from "next/link";
 

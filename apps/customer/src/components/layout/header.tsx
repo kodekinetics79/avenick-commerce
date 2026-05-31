@@ -15,7 +15,7 @@ import {
 import { useCartStore } from "@/stores/cart";
 
 function setLocaleCookie(locale: string) {
-  document.cookie = `MANZIL_LOCALE=${locale}; path=/; max-age=${60 * 60 * 24 * 365}`;
+  document.cookie = `AVENICK_LOCALE=${locale}; path=/; max-age=${60 * 60 * 24 * 365}`;
   window.location.reload();
 }
 
