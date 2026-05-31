@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, FileQuestion, FileCheck2, ClipboardList, CheckSquare,
-  ListChecks, Receipt, BarChart3, Users, Building2, Plus,
+  ListChecks, Receipt, BarChart3, Users, Building2, Plus, ShieldCheck, MapPin,
 } from "lucide-react";
 import { cn } from "@avenick/utils";
 import { MainLayout } from "@/components/layout/main-layout";
@@ -16,10 +16,12 @@ const NAV = [
   { href: "/b2b/rfq/new", label: "New RFQ", icon: FileQuestion },
   { href: "/b2b/quotes", label: "Quotes", icon: ClipboardList },
   { href: "/b2b/approvals", label: "Approvals", icon: CheckSquare },
+  { href: "/b2b/approval-policies", label: "Approval Policies", icon: ShieldCheck },
   { href: "/b2b/lists", label: "Requisition Lists", icon: ListChecks },
   { href: "/b2b/billing", label: "Billing & Invoices", icon: Receipt },
   { href: "/b2b/analytics", label: "Spend Analytics", icon: BarChart3 },
   { href: "/b2b/team", label: "Team & Roles", icon: Users },
+  { href: "/b2b/addresses", label: "Delivery Sites", icon: MapPin },
   { href: "/b2b/company", label: "Company", icon: Building2 },
 ];
 

@@ -1,42 +1,49 @@
 import { B2BShell } from "@/components/b2b/b2b-shell";
 import { formatCurrency } from "@avenick/utils";
-import { UserPlus, Shield, ShoppingBag, CheckSquare, MoreHorizontal, Mail } from "lucide-react";
+import { db } from "@avenick/database";
+import { getB2BContext } from "@/lib/b2b";
+import { inviteMember, setMemberActive } from "./actions";
+import { Shield, ShoppingBag, CheckSquare, UserPlus, Building2 } from "lucide-react";
 
 export const metadata = { title: "Team & Roles — Avenick for Business" };
 
-const MEMBERS = [
-  { id: "u1", name: "Ahmed Al-Rashidi", email: "ahmed@gulfindustrial.ae", role: "ADMIN", department: "Management", spendLimit: null, status: "ACTIVE", lastActive: "Now" },
-  { id: "u2", name: "Fatima Hassan", email: "fatima@gulfindustrial.ae", role: "BUYER", department: "Medical", spendLimit: 25000, status: "ACTIVE", lastActive: "2h ago" },
-  { id: "u3", name: "Khalid Omar", email: "khalid@gulfindustrial.ae", role: "BUYER", department: "Operations", spendLimit: 50000, status: "ACTIVE", lastActive: "Yesterday" },
-  { id: "u4", name: "Nora Al-Sayed", email: "nora@gulfindustrial.ae", role: "APPROVER", department: "Finance", spendLimit: null, status: "ACTIVE", lastActive: "3d ago" },
-  { id: "u5", name: "Yousef Idris", email: "yousef@gulfindustrial.ae", role: "BUYER", department: "Facilities", spendLimit: 10000, status: "SUSPENDED", lastActive: "2w ago" },
-];
-
-const PENDING = [
-  { email: "maryam@gulfindustrial.ae", role: "BUYER", invitedAgo: "1 day ago" },
-];
-
 const ROLES: Record<string, { label: string; cls: string; icon: typeof Shield; desc: string }> = {
-  ADMIN: { label: "Admin", cls: "bg-accent/15 text-accent", icon: Shield, desc: "Full access — manage team, billing, approvals & ordering." },
-  APPROVER: { label: "Approver", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400", icon: CheckSquare, desc: "Reviews and approves orders above buyers' spend limits." },
-  BUYER: { label: "Buyer", cls: "bg-primary/15 text-primary", icon: ShoppingBag, desc: "Creates RFQs and orders within an assigned spend limit." },
+  COMPANY_ADMIN: { label: "Admin", cls: "bg-accent/15 text-accent", icon: Shield, desc: "Full access — manage team, billing, approvals & ordering." },
+  COMPANY_APPROVER: { label: "Approver", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400", icon: CheckSquare, desc: "Reviews and approves orders above buyers' spend limits." },
+  COMPANY_BUYER: { label: "Buyer", cls: "bg-primary/15 text-primary", icon: ShoppingBag, desc: "Creates RFQs and orders within an assigned spend limit." },
 };
 
-export default function B2BTeamPage() {
+export default async function B2BTeamPage() {
+  const ctx = await getB2BContext();
+
+  if (!ctx) {
+    return (
+      <B2BShell title="Team & Roles">
+        <div className="rounded-2xl border border-border bg-card p-10 text-center">
+          <Building2 className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+          <p className="font-semibold">No company account</p>
+          <p className="text-sm text-muted-foreground mt-1">Sign in with a company account to manage your team.</p>
+        </div>
+      </B2BShell>
+    );
+  }
+
+  const members = await db.companyMember.findMany({
+    where: { companyId: ctx.companyId },
+    include: { user: { select: { firstName: true, lastName: true, email: true, status: true } } },
+    orderBy: { joinedAt: "asc" },
+  });
+  const isAdmin = ctx.member.role === "COMPANY_ADMIN";
+
   return (
     <B2BShell
       title="Team & Roles"
-      description="Manage who can buy on behalf of your company, their roles and spend limits."
-      actions={
-        <button className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">
-          <UserPlus className="h-4 w-4" /> Invite member
-        </button>
-      }
+      description={`Manage who can buy on behalf of ${ctx.company.nameEn}.`}
     >
       {/* Role legend */}
       <div className="grid sm:grid-cols-3 gap-3 mb-6">
-        {Object.entries(ROLES).map(([key, r]) => (
-          <div key={key} className="rounded-2xl border border-border bg-card p-4">
+        {Object.values(ROLES).map((r) => (
+          <div key={r.label} className="rounded-2xl border border-border bg-card p-4">
             <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${r.cls}`}>
               <r.icon className="h-3.5 w-3.5" /> {r.label}
             </span>
@@ -45,26 +52,23 @@ export default function B2BTeamPage() {
         ))}
       </div>
 
-      {/* Pending invites */}
-      {PENDING.length > 0 && (
-        <div className="rounded-2xl border border-border bg-card overflow-hidden mb-6">
-          <div className="px-5 py-3 border-b border-border text-sm font-semibold">Pending invites</div>
-          {PENDING.map((p) => (
-            <div key={p.email} className="flex items-center justify-between px-5 py-3">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-muted-foreground"><Mail className="h-4 w-4" /></span>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{p.email}</p>
-                  <p className="text-xs text-muted-foreground">Invited {p.invitedAgo} · {ROLES[p.role]?.label}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button className="text-xs font-medium text-primary hover:underline">Resend</button>
-                <button className="text-xs font-medium text-muted-foreground hover:text-danger">Revoke</button>
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* Invite form (admins only) */}
+      {isAdmin && (
+        <form action={inviteMember} className="rounded-2xl border border-border bg-card p-5 mb-6">
+          <div className="flex items-center gap-2 text-sm font-semibold mb-4"><UserPlus className="h-4 w-4 text-primary" /> Invite a member</div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-2">
+            <input name="name" required placeholder="Full name" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <input name="email" type="email" required placeholder="Email" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <select name="role" aria-label="Role" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border focus:outline-none focus:ring-2 focus:ring-ring">
+              <option value="COMPANY_BUYER">Buyer</option>
+              <option value="COMPANY_APPROVER">Approver</option>
+              <option value="COMPANY_ADMIN">Admin</option>
+            </select>
+            <input name="spendLimit" type="number" placeholder="Spend limit (AED)" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <button type="submit" className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">Send invite</button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">Department is optional — invited members join with a pending status until they set a password.</p>
+        </form>
       )}
 
       {/* Members table */}
@@ -79,18 +83,20 @@ export default function B2BTeamPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {MEMBERS.map((m) => {
-                const role = ROLES[m.role]!;
+              {members.map((m) => {
+                const role = ROLES[m.role] ?? ROLES.COMPANY_BUYER!;
+                const active = m.isActive && m.user.status !== "SUSPENDED";
+                const name = `${m.user.firstName} ${m.user.lastName}`.trim();
                 return (
                   <tr key={m.id} className="hover:bg-secondary/40 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-primary-500 to-accent-600 text-white text-xs font-bold shrink-0">
-                          {m.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                          {name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
                         </span>
                         <div className="min-w-0">
-                          <p className="font-medium truncate">{m.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{m.email}</p>
+                          <p className="font-medium truncate">{name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{m.user.email}</p>
                         </div>
                       </div>
                     </td>
@@ -99,18 +105,22 @@ export default function B2BTeamPage() {
                         <role.icon className="h-3 w-3" /> {role.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{m.department}</td>
-                    <td className="px-4 py-3 font-mono">{m.spendLimit ? formatCurrency(m.spendLimit, "AED") : <span className="text-muted-foreground">Unlimited</span>}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{m.department ?? "—"}</td>
+                    <td className="px-4 py-3 font-mono">{m.spendLimit ? formatCurrency(Number(m.spendLimit), "AED") : <span className="text-muted-foreground">Unlimited</span>}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${m.status === "ACTIVE" ? "text-success" : "text-muted-foreground"}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${m.status === "ACTIVE" ? "bg-success" : "bg-muted-foreground"}`} />
-                        {m.status === "ACTIVE" ? "Active" : "Suspended"}
+                      <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${active ? "text-success" : "text-muted-foreground"}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${active ? "bg-success" : "bg-muted-foreground"}`} />
+                        {m.user.status === "PENDING" ? "Invited" : active ? "Active" : "Suspended"}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-end">
-                      <button className="p-1.5 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors" aria-label="Member actions">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </button>
+                      {isAdmin && m.userId !== ctx.userId && (
+                        <form action={setMemberActive.bind(null, m.id, !active)}>
+                          <button type="submit" className={`text-xs font-medium ${active ? "text-muted-foreground hover:text-danger" : "text-primary hover:underline"}`}>
+                            {active ? "Suspend" : "Reactivate"}
+                          </button>
+                        </form>
+                      )}
                     </td>
                   </tr>
                 );
