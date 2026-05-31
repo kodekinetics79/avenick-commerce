@@ -65,3 +65,32 @@ If the database is empty, use the existing seed script (if present) or create te
 - Business: `POST /api/auth/register/business`
 - Seller: via seller onboarding flow
 - Admin: manually set `role: ADMIN` in the users table
+
+## Senior DB Audit (Avenick hardening pass)
+
+### Applied
+- **FK indexes** added where Postgres does not auto-index foreign keys:
+  Product.brandId, ProductPrice.variantId, InventoryStock.variantId,
+  OrderItem.productId, CartItem.productId, RFQItem.productId,
+  SellerPayoutItem.orderId, Order.purchaseOrderId/addressId,
+  PurchaseOrder.requesterId/approverId, InventoryMovement.createdAt.
+- **Referential integrity**: Refund and TaxInvoice now have real FK relations
+  to Order (previously bare string columns with no constraint).
+- **Enums replace stringly-typed columns**: InventoryMovement.type →
+  InventoryMovementType (IN/OUT/ADJUSTMENT/RESERVE/RELEASE); Refund.status →
+  RefundStatus.
+- **onDelete: Cascade** on owned children so a product/order/RFQ/payout can be
+  removed without orphan rows (images, prices, variants, compliance, issues,
+  health snapshots, inventory, order items, status history, payments, refunds,
+  tax invoice, rfq items, payout items).
+- **Migrations introduced**: replaced db-push-only workflow with a baseline
+  Prisma migration + `prisma.seed` config; added `db:push` / `db:deploy`
+  scripts. DB is reproducible via `prisma migrate reset`.
+- **Env consolidation**: all env files now point at a single `avenick`
+  Postgres role/database (previously three different credentials).
+
+### Recommended next (not yet applied)
+- Partial unique index on InventoryStock(productId, variantId, locationId) to
+  prevent duplicate stock rows (needs raw SQL for NULL-safe semantics).
+- Move money math to integer minor units or enforce rounding centrally.
+- Add DB-level CHECK constraints (qty >= 0, reservedQty <= qty).

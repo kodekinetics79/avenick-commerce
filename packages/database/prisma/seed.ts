@@ -696,7 +696,7 @@ async function main() {
     const orderTotal = (18.5 * 50) * 1.05;
     const order1 = await prisma.order.create({
       data: {
-        orderNumber: `MNZ-2026-00001`,
+        orderNumber: `AVN-2026-00001`,
         userId: companyUser.id,
         companyId: company.id,
         type: OrderType.B2B,
@@ -766,7 +766,7 @@ async function main() {
   if (p2) {
     await prisma.order.create({
       data: {
-        orderNumber: `MNZ-2026-00002`,
+        orderNumber: `AVN-2026-00002`,
         userId: buyerUser.id,
         type: OrderType.B2C,
         status: OrderStatus.PROCESSING,
@@ -811,7 +811,7 @@ async function main() {
   if (p3) {
     await prisma.order.create({
       data: {
-        orderNumber: `MNZ-2026-00003`,
+        orderNumber: `AVN-2026-00003`,
         userId: companyUser.id,
         companyId: company.id,
         type: OrderType.B2B,

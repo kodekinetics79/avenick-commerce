@@ -64,3 +64,18 @@ pnpm install
 pnpm turbo run build        # 3/3 successful
 PORT=13102 pnpm start       # next start smoke test → /login 200
 ```
+
+## Backend hardening (Avenick pass)
+- **Price tampering fixed**: order creation no longer trusts client-supplied
+  unitPrice; prices are resolved server-side from active ProductPrice tiers
+  (channel + currency + quantity tier).
+- **Atomic orders + oversell guard**: order insert and inventory reservation
+  now run in a single transaction with an availability check, reserving
+  greedily across stock rows.
+- **Payment webhook secured**: Checkout.com `Cko-Signature` is verified
+  (timing-safe HMAC-SHA256 over the raw body); fails closed when the secret is
+  unset. Previously unauthenticated — anyone could mark an order paid.
+- **Order numbers**: AVN- prefix, collision-resistant (time + random) against
+  the @unique column (was MNZ- + 5-digit random).
+- **Error semantics**: business-rule failures (no price, insufficient stock)
+  return 409 with a useful message instead of a generic 500.

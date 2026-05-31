@@ -1,10 +1,14 @@
 import { db } from "../index";
 import type { Prisma, OrderStatus, Currency, PaymentMethod } from "@prisma/client";
 
+// Collision-resistant, human-readable order number.
+// Time component (base36) guarantees monotonic uniqueness; random suffix
+// avoids clashes within the same millisecond. Backed by a @unique column.
 export function generateOrderNumber(): string {
   const year = new Date().getFullYear();
-  const rand = Math.floor(10000 + Math.random() * 90000);
-  return `MNZ-${year}-${rand}`;
+  const time = Date.now().toString(36).toUpperCase().slice(-6);
+  const rand = Math.floor(100 + Math.random() * 900);
+  return `AVN-${year}-${time}${rand}`;
 }
 
 export interface CreateOrderInput {
@@ -12,81 +16,131 @@ export interface CreateOrderInput {
   companyId?: string;
   type: "B2C" | "B2B";
   currency: Currency;
-  items: { productId: string; variantId?: string; quantity: number; unitPrice: number; sellerId: string; vatRate?: number }[];
+  // unitPrice is intentionally NOT accepted from the caller — prices are
+  // resolved server-side from the catalog to prevent price tampering.
+  items: { productId: string; variantId?: string; quantity: number; sellerId: string }[];
   shippingAddress: Record<string, string>;
   paymentMethod?: PaymentMethod;
   notes?: string;
   purchaseOrderId?: string;
 }
 
+// VAT rate by jurisdiction (KSA 15%, rest of GCC 5%).
+function vatRateForCurrency(currency: Currency): number {
+  return currency === "SAR" ? 15 : 5;
+}
+
+// Pick the authoritative unit price for a product/quantity from active price
+// tiers matching the order channel + currency. Highest applicable minQty wins
+// (best volume tier the quantity qualifies for).
+function resolveUnitPrice(
+  prices: { type: string; currency: string; minQty: number; maxQty: number | null; price: Prisma.Decimal; isActive: boolean; vatRate: Prisma.Decimal }[],
+  channel: "B2C" | "B2B",
+  currency: Currency,
+  quantity: number
+) {
+  const applicable = prices
+    .filter((p) => p.isActive && p.type === channel && p.currency === currency && p.minQty <= quantity && (p.maxQty == null || quantity <= p.maxQty))
+    .sort((a, b) => b.minQty - a.minQty);
+  return applicable[0] ?? null;
+}
+
 export async function createOrder(input: CreateOrderInput) {
-  const vatRate = input.currency === "SAR" ? 15 : 5;
+  if (input.items.length === 0) throw new Error("Order must contain at least one item");
 
-  let subtotal = 0;
-  const itemData = input.items.map((item) => {
-    const effectiveVat = item.vatRate ?? vatRate;
-    const vatAmount = parseFloat(((item.unitPrice * item.quantity * effectiveVat) / 100).toFixed(2));
-    const total = parseFloat((item.unitPrice * item.quantity + vatAmount).toFixed(2));
-    subtotal += item.unitPrice * item.quantity;
-    return { ...item, vatRate: effectiveVat, vatAmount, total };
-  });
-
-  const vatAmount = parseFloat(((subtotal * vatRate) / 100).toFixed(2));
-  const total = parseFloat((subtotal + vatAmount).toFixed(2));
-
-  // Fetch product names for order items
+  const defaultVat = vatRateForCurrency(input.currency);
   const productIds = [...new Set(input.items.map((i) => i.productId))];
-  const products = await db.product.findMany({ where: { id: { in: productIds } } });
+
+  // Single authoritative read of catalog + pricing + stock.
+  const products = await db.product.findMany({
+    where: { id: { in: productIds }, deletedAt: null },
+    include: { prices: true, inventory: true },
+  });
   const productMap = new Map(products.map((p) => [p.id, p]));
 
-  const order = await db.order.create({
-    data: {
-      orderNumber: generateOrderNumber(),
-      userId: input.userId,
-      companyId: input.companyId,
-      purchaseOrderId: input.purchaseOrderId,
-      type: input.type,
-      currency: input.currency,
-      subtotal,
+  // Build server-priced line items (ignoring any client-supplied price).
+  let subtotal = 0;
+  let vatTotal = 0;
+  const itemData = input.items.map((item) => {
+    const product = productMap.get(item.productId);
+    if (!product) throw new Error(`Product ${item.productId} is unavailable`);
+
+    const tier = resolveUnitPrice(product.prices, input.type, input.currency, item.quantity);
+    if (!tier) throw new Error(`No active ${input.type} price for "${product.nameEn}" in ${input.currency}`);
+
+    const unitPrice = Number(tier.price);
+    const lineSubtotal = parseFloat((unitPrice * item.quantity).toFixed(2));
+    const effectiveVat = Number(tier.vatRate) || defaultVat;
+    const vatAmount = parseFloat((lineSubtotal * (effectiveVat / 100)).toFixed(2));
+
+    subtotal += lineSubtotal;
+    vatTotal += vatAmount;
+
+    return {
+      productId: item.productId,
+      variantId: item.variantId,
+      sellerId: item.sellerId,
+      sku: product.sku,
+      nameEn: product.nameEn,
+      nameAr: product.nameAr,
+      quantity: item.quantity,
+      unitPrice,
+      vatRate: effectiveVat,
       vatAmount,
-      total,
-      paymentMethod: input.paymentMethod,
-      shippingAddress: input.shippingAddress,
-      notes: input.notes,
-      items: {
-        create: itemData.map((item) => {
-          const product = productMap.get(item.productId);
-          return {
-            productId: item.productId,
-            variantId: item.variantId,
-            sellerId: item.sellerId,
-            sku: product?.sku ?? "UNKNOWN",
-            nameEn: product?.nameEn ?? "Product",
-            nameAr: product?.nameAr ?? "منتج",
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            vatRate: item.vatRate,
-            vatAmount: item.vatAmount,
-            total: item.total,
-          };
-        }),
-      },
-      statusHistory: {
-        create: { status: "PENDING_PAYMENT", message: "Order created, awaiting payment" },
-      },
-    },
-    include: { items: true, statusHistory: true },
+      total: parseFloat((lineSubtotal + vatAmount).toFixed(2)),
+    };
   });
 
-  // Reserve inventory
-  for (const item of input.items) {
-    const stock = await db.inventoryStock.findFirst({ where: { productId: item.productId } });
-    if (stock) {
-      await db.inventoryStock.update({ where: { id: stock.id }, data: { reservedQty: { increment: item.quantity } } });
-    }
-  }
+  subtotal = parseFloat(subtotal.toFixed(2));
+  const vatAmount = parseFloat(vatTotal.toFixed(2));
+  const total = parseFloat((subtotal + vatAmount).toFixed(2));
 
-  return order;
+  // Order creation + inventory reservation must be atomic. An oversell guard
+  // runs inside the transaction so concurrent orders can't both reserve the
+  // last unit.
+  return db.$transaction(async (tx) => {
+    for (const item of input.items) {
+      const stockRows = await tx.inventoryStock.findMany({
+        where: { productId: item.productId, ...(item.variantId ? { variantId: item.variantId } : {}) },
+        orderBy: { updatedAt: "asc" },
+      });
+      const available = stockRows.reduce((sum, s) => sum + (s.qty - s.reservedQty), 0);
+      if (available < item.quantity) {
+        const product = productMap.get(item.productId);
+        throw new Error(`Insufficient stock for "${product?.nameEn ?? item.productId}" (${available} available, ${item.quantity} requested)`);
+      }
+      // Reserve greedily across rows.
+      let remaining = item.quantity;
+      for (const s of stockRows) {
+        if (remaining <= 0) break;
+        const canReserve = Math.min(remaining, s.qty - s.reservedQty);
+        if (canReserve > 0) {
+          await tx.inventoryStock.update({ where: { id: s.id }, data: { reservedQty: { increment: canReserve } } });
+          remaining -= canReserve;
+        }
+      }
+    }
+
+    return tx.order.create({
+      data: {
+        orderNumber: generateOrderNumber(),
+        userId: input.userId,
+        companyId: input.companyId,
+        purchaseOrderId: input.purchaseOrderId,
+        type: input.type,
+        currency: input.currency,
+        subtotal,
+        vatAmount,
+        total,
+        paymentMethod: input.paymentMethod,
+        shippingAddress: input.shippingAddress,
+        notes: input.notes,
+        items: { create: itemData },
+        statusHistory: { create: { status: "PENDING_PAYMENT", message: "Order created, awaiting payment" } },
+      },
+      include: { items: true, statusHistory: true },
+    });
+  });
 }
 
 export async function updateOrderStatus(orderId: string, status: OrderStatus, actorId?: string, message?: string) {

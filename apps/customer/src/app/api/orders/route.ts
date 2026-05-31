@@ -5,11 +5,11 @@ import { z } from "zod";
 import type { PaymentMethod, Currency } from "@avenick/database";
 
 const CreateOrderSchema = z.object({
+  // No unitPrice — the server resolves authoritative prices from the catalog.
   items: z.array(z.object({
     productId: z.string(),
     variantId: z.string().optional(),
     quantity: z.number().int().positive(),
-    unitPrice: z.number().positive(),
     sellerId: z.string(),
   })).min(1),
   shippingAddress: z.object({ label: z.string(), line1: z.string(), city: z.string(), country: z.string() }),
@@ -49,8 +49,12 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: { id: order.id, orderNumber: order.orderNumber } });
   } catch (e) {
-    console.error(e);
-    return NextResponse.json({ success: false, error: "Failed to create order" }, { status: 500 });
+    // Business-rule violations (no price, insufficient stock, unavailable
+    // product) are surfaced to the client as 409; everything else is a 500.
+    const message = e instanceof Error ? e.message : "Failed to create order";
+    const isBusinessError = /price|stock|unavailable|at least one item/i.test(message);
+    if (!isBusinessError) console.error(e);
+    return NextResponse.json({ success: false, error: message }, { status: isBusinessError ? 409 : 500 });
   }
 }
 
