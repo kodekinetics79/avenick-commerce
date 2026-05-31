@@ -3,12 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { PageHeader, MetricCard, SectionHeader, AIInsightCard } from "@avenick/ui";
+import { AIInsightCard } from "@avenick/ui";
 import { formatCurrency } from "@avenick/utils";
 import {
   TrendingUp, Building2, Users, Store, ShoppingCart, Coins, Scale, Truck,
-  Boxes, FileQuestion, Activity, ArrowRight, Brain, Plus, UserPlus, Megaphone,
+  Boxes, FileQuestion, ArrowRight, Brain, Plus, UserPlus, Megaphone,
   AlertTriangle, ChevronRight, Star, TrendingDown, PieChart, Tag,
+  ArrowUpRight, ArrowDownRight, Sparkles,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -16,18 +17,11 @@ const ICON_MAP: Record<string, React.ElementType> = {
 };
 
 const QUICK_ACTIONS = [
-  { label: "Create RFQ", icon: Plus, href: "/rfqs", variant: "primary" },
-  { label: "Invite Supplier", icon: UserPlus, href: "/sellers/pending", variant: "default" },
-  { label: "Launch Campaign", icon: Megaphone, href: "/campaigns", variant: "default" },
-  { label: "Review Delayed Orders", icon: AlertTriangle, href: "/orders?status=PROCESSING", variant: "default" },
-  { label: "Open Warehouse Queue", icon: Boxes, href: "/warehouse/pickpack", variant: "default" },
-  { label: "View AI Insights", icon: Brain, href: "/ai-insights", variant: "accent" },
+  { label: "Create RFQ", icon: Plus, href: "/rfqs" },
+  { label: "Invite supplier", icon: UserPlus, href: "/sellers/pending" },
+  { label: "Launch campaign", icon: Megaphone, href: "/campaigns" },
+  { label: "Warehouse queue", icon: Boxes, href: "/warehouse/pickpack" },
 ];
-
-const SEV: Record<string, { dot: string; text: string; bg: string }> = {
-  danger:  { dot: "bg-red-500",   text: "text-red-600",   bg: "hover:bg-red-50" },
-  warning: { dot: "bg-amber-500", text: "text-amber-600", bg: "hover:bg-amber-50" },
-};
 
 interface ExecData {
   kpis: Record<string, number>;
@@ -51,97 +45,175 @@ export interface DashboardViewProps {
   pendingCount: number;
 }
 
+/* ── Reusable bits ─────────────────────────────────────── */
+function Trend({ value, up }: { value: string; up: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${up ? "text-success" : "text-danger"}`}>
+      {up ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+      {value}
+    </span>
+  );
+}
+
+function Bars({ ratio, gradient = true }: { ratio: number; gradient?: boolean }) {
+  const filled = Math.max(1, Math.round(ratio * 20));
+  return (
+    <div className="flex gap-0.5 h-2">
+      {Array.from({ length: 20 }).map((_, i) => (
+        <div
+          key={i}
+          className={`flex-1 rounded-full ${i < filled ? (gradient ? "bg-gradient-to-r from-primary-500 to-accent-500" : "bg-primary") : "bg-secondary"}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`rounded-2xl border border-border bg-card shadow-card ${className}`}>{children}</div>;
+}
+
+function PanelHead({ title, sub, icon: Icon, action }: { title: string; sub?: string; icon: React.ElementType; action?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <span className="grid h-8 w-8 place-items-center rounded-lg bg-secondary text-muted-foreground"><Icon className="h-4 w-4" /></span>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold truncate">{title}</p>
+          {sub && <p className="text-xs text-muted-foreground truncate">{sub}</p>}
+        </div>
+      </div>
+      {action}
+    </div>
+  );
+}
+
 export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, activeSuppliers, pendingCount }: DashboardViewProps) {
   const k = exec.kpis;
 
-  const kpis = [
-    { label: "Gross Merchandise Value", value: formatCurrency(gmvMonth, "AED"), icon: TrendingUp, trend: `+${k.gmvTrend}%`, trendUp: true, sub: "this month", iconColor: "bg-blue-100 text-primary" },
-    { label: "B2B Revenue", value: formatCurrency(k.b2bRevenue, "AED"), icon: Building2, trend: `+${k.b2bTrend}%`, trendUp: true, sub: "this month", iconColor: "bg-indigo-100 text-indigo-600" },
-    { label: "B2C Revenue", value: formatCurrency(k.b2cRevenue, "AED"), icon: ShoppingCart, trend: `+${k.b2cTrend}%`, trendUp: true, sub: "this month", iconColor: "bg-cyan-100 text-cyan-600" },
-    { label: "Marketplace Commission", value: formatCurrency(k.commission, "AED"), icon: Coins, trend: `+${k.commissionTrend}%`, trendUp: true, sub: "this month", iconColor: "bg-green-100 text-green-600" },
-    { label: "Active Companies", value: activeCompanies || k.activeCompanies, icon: Building2, trend: `+${k.companiesTrend}%`, trendUp: true, sub: "B2B accounts", iconColor: "bg-purple-100 text-purple-600" },
-    { label: "Active B2C Customers", value: k.activeCustomers.toLocaleString(), icon: Users, trend: `+${k.customersTrend}%`, trendUp: true, sub: "this month", iconColor: "bg-blue-100 text-primary" },
-    { label: "Active Suppliers", value: activeSuppliers || k.activeSuppliers, icon: Store, trend: `+${k.suppliersTrend}%`, trendUp: true, sub: "verified", iconColor: "bg-teal-100 text-teal-600" },
-    { label: "RFQ Conversion Rate", value: `${k.rfqConversion}%`, icon: FileQuestion, trend: `+${k.rfqConversionTrend}%`, trendUp: true, sub: "quote → order", iconColor: "bg-amber-100 text-amber-600" },
-    { label: "Order Fulfillment Rate", value: `${k.fulfillmentRate}%`, icon: TrendingUp, trend: `+${k.fulfillmentTrend}%`, trendUp: true, sub: "on-time", iconColor: "bg-green-100 text-green-600" },
-    { label: "Warehouse Utilization", value: `${k.warehouseUtilization}%`, icon: Boxes, trend: `${k.warehouseTrend}%`, trendUp: false, sub: "capacity used", iconColor: "bg-slate-100 text-muted-foreground" },
-    { label: "Open Disputes", value: k.openDisputes, icon: Scale, sub: "need mediation", urgent: k.openDisputes > 0, iconColor: "bg-red-100 text-red-600" },
-    { label: "Delayed Orders", value: k.delayedOrders, icon: AlertTriangle, sub: "past SLA", urgent: k.delayedOrders > 0, iconColor: "bg-orange-100 text-orange-600" },
+  const heroKpis = [
+    { label: "Gross merchandise value", value: formatCurrency(gmvMonth, "AED"), icon: TrendingUp, trend: `${k.gmvTrend}%`, up: true, hero: true },
+    { label: "B2B revenue", value: formatCurrency(k.b2bRevenue, "AED"), icon: Building2, trend: `${k.b2bTrend}%`, up: true },
+    { label: "B2C revenue", value: formatCurrency(k.b2cRevenue, "AED"), icon: ShoppingCart, trend: `${k.b2cTrend}%`, up: true },
+    { label: "Commission", value: formatCurrency(k.commission, "AED"), icon: Coins, trend: `${k.commissionTrend}%`, up: true },
   ];
+
+  const statKpis = [
+    { label: "Active companies", value: activeCompanies || k.activeCompanies, icon: Building2, trend: `${k.companiesTrend}%`, up: true },
+    { label: "B2C customers", value: k.activeCustomers.toLocaleString(), icon: Users, trend: `${k.customersTrend}%`, up: true },
+    { label: "Active suppliers", value: activeSuppliers || k.activeSuppliers, icon: Store, trend: `${k.suppliersTrend}%`, up: true },
+    { label: "RFQ conversion", value: `${k.rfqConversion}%`, icon: FileQuestion, trend: `${k.rfqConversionTrend}%`, up: true },
+    { label: "Fulfillment rate", value: `${k.fulfillmentRate}%`, icon: TrendingUp, trend: `${k.fulfillmentTrend}%`, up: true },
+    { label: "Warehouse use", value: `${k.warehouseUtilization}%`, icon: Boxes, trend: `${k.warehouseTrend}%`, up: false },
+  ];
+
+  const alerts = [
+    { label: "Open disputes", value: k.openDisputes, sub: "need mediation", icon: Scale, href: "/disputes" },
+    { label: "Delayed orders", value: k.delayedOrders, sub: "past SLA", icon: AlertTriangle, href: "/orders?status=PROCESSING" },
+  ].filter((a) => a.value > 0);
 
   const revTotal = exec.revenueSplit.b2b + exec.revenueSplit.b2c;
   const b2bPct = Math.round((exec.revenueSplit.b2b / revTotal) * 100);
   const rfqMax = Math.max(...exec.rfqFunnel.map((s) => s.count));
   const lifeMax = Math.max(...exec.orderLifecycle.map((s) => s.count));
+  const catMax = Math.max(...exec.topCategories.map((c) => c.share));
 
   return (
     <AdminLayout pendingCount={pendingCount}>
-      <PageHeader
-        eyebrow="Avenick Commerce · Modern Trade OS"
-        title="Executive Command Center"
-        description="Real-time view of marketplace performance across B2B and B2C — revenue, suppliers, fulfillment, and AI-driven actions."
-        linkComponent={Link}
-        actions={
-          <div className="flex items-center gap-2">
-            <span className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground bg-card border border-border rounded-lg px-2.5 py-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" /> Live
+      {/* Hero band */}
+      <div className="relative overflow-hidden rounded-3xl border border-border bg-card mb-8">
+        <div className="absolute inset-0 bg-grid opacity-50" />
+        <div className="absolute -top-16 end-10 h-56 w-56 rounded-full bg-primary/15 blur-[100px]" />
+        <div className="relative px-6 py-7 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+          <div>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
+              <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" /> Live · Modern Trade OS
             </span>
-            <Link href="/ai-insights" className="flex items-center gap-1.5 bg-accent text-accent-foreground text-sm font-semibold px-4 py-2 rounded-xl hover:bg-accent/90 transition-colors">
+            <h1 className="mt-2 text-3xl font-extrabold tracking-tight">Executive Command Center</h1>
+            <p className="mt-1.5 text-sm text-muted-foreground max-w-xl">
+              Real-time marketplace performance across B2B and B2C — revenue, suppliers, fulfillment, and AI-driven actions.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {QUICK_ACTIONS.map(({ label, icon: Icon, href }) => (
+              <Link key={label} href={href} className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-border bg-background text-sm font-medium hover:bg-secondary transition-colors">
+                <Icon className="h-3.5 w-3.5" /> {label}
+              </Link>
+            ))}
+            <Link href="/ai-insights" className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">
               <Brain className="h-3.5 w-3.5" /> AI Insights
             </Link>
           </div>
-        }
-      />
+        </div>
+      </div>
 
       <div className="space-y-8">
-        {/* Quick actions */}
-        <div className="flex flex-wrap gap-2">
-          {QUICK_ACTIONS.map(({ label, icon: Icon, href, variant }) => (
-            <Link
-              key={label}
-              href={href}
-              className={
-                variant === "primary"
-                  ? "flex items-center gap-1.5 bg-primary text-primary-foreground text-sm font-semibold px-4 py-2 rounded-xl hover:bg-primary/90 transition-colors"
-                  : variant === "accent"
-                  ? "flex items-center gap-1.5 bg-slate-900 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-slate-800 transition-colors"
-                  : "flex items-center gap-1.5 bg-card border border-border text-foreground text-sm font-medium px-4 py-2 rounded-xl hover:bg-secondary transition-colors"
-              }
+        {/* Hero KPIs */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {heroKpis.map((kpi) => (
+            <div
+              key={kpi.label}
+              className={`relative overflow-hidden rounded-2xl border p-5 transition-all hover:-translate-y-0.5 ${
+                kpi.hero
+                  ? "border-primary/30 bg-gradient-to-br from-primary/10 to-accent/5 shadow-glow-sm"
+                  : "border-border bg-card hover:border-primary/30"
+              }`}
             >
-              <Icon className="h-3.5 w-3.5" /> {label}
-            </Link>
+              <div className="flex items-center justify-between">
+                <span className={`grid h-9 w-9 place-items-center rounded-xl ${kpi.hero ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}>
+                  <kpi.icon className="h-4 w-4" />
+                </span>
+                <Trend value={kpi.trend} up={kpi.up} />
+              </div>
+              <p className="mt-4 text-2xl font-bold font-mono tracking-tight">{kpi.value}</p>
+              <p className="text-xs text-muted-foreground mt-1">{kpi.label}</p>
+            </div>
           ))}
         </div>
 
-        {/* Executive KPI grid */}
-        <section>
-          <SectionHeader title="Marketplace KPIs" description="Performance snapshot · this month" icon={Activity} />
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {kpis.map((kpi) => (
-              <MetricCard
-                key={kpi.label}
-                label={kpi.label}
-                value={kpi.value}
-                trend={kpi.trend}
-                trendUp={kpi.trendUp}
-                sub={kpi.sub}
-                icon={kpi.icon}
-                iconColor={kpi.iconColor}
-                urgent={kpi.urgent}
-              />
+        {/* Stat strip + alerts */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {statKpis.map((kpi) => (
+            <div key={kpi.label} className="rounded-2xl border border-border bg-card p-4 hover:border-primary/30 transition-colors">
+              <div className="flex items-center gap-2 text-muted-foreground mb-2.5">
+                <kpi.icon className="h-4 w-4" />
+                <span className="text-[11px] truncate">{kpi.label}</span>
+              </div>
+              <div className="flex items-end justify-between">
+                <p className="text-xl font-bold font-mono tracking-tight">{kpi.value}</p>
+                <Trend value={kpi.trend} up={kpi.up} />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {alerts.length > 0 && (
+          <div className="grid sm:grid-cols-2 gap-3">
+            {alerts.map((a) => (
+              <Link key={a.label} href={a.href} className="flex items-center justify-between rounded-2xl border border-danger/30 bg-danger/5 p-4 hover:bg-danger/10 transition-colors">
+                <div className="flex items-center gap-3">
+                  <span className="grid h-10 w-10 place-items-center rounded-xl bg-danger/15 text-danger"><a.icon className="h-5 w-5" /></span>
+                  <div>
+                    <p className="font-semibold text-sm">{a.value} {a.label.toLowerCase()}</p>
+                    <p className="text-xs text-muted-foreground">{a.sub}</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </Link>
             ))}
           </div>
-        </section>
+        )}
 
         {/* AI recommendations + operational health */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <section className="lg:col-span-2">
-            <SectionHeader
-              title="AI Recommendations"
-              description="Prioritized actions from the commerce intelligence engine"
-              icon={Brain}
-              action={<Link href="/ai-insights" className="text-sm text-primary hover:underline font-medium flex items-center gap-1">View all <ArrowRight className="h-3 w-3" /></Link>}
-            />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                <h2 className="text-base font-semibold">AI recommendations</h2>
+              </div>
+              <Link href="/ai-insights" className="text-sm text-primary hover:underline font-medium flex items-center gap-1">View all <ArrowRight className="h-3 w-3" /></Link>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {exec.aiRecommendations.map((rec) => (
                 <AIInsightCard
@@ -161,133 +233,118 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
           </section>
 
           <section>
-            <SectionHeader title="Operational Health" description="Items needing attention" icon={Activity} />
-            <div className="bg-card rounded-2xl border border-border shadow-card overflow-hidden divide-y divide-border">
+            <h2 className="text-base font-semibold mb-4">Operational health</h2>
+            <Panel className="overflow-hidden divide-y divide-border">
               {exec.operationalHealth.map((item) => {
-                const s = SEV[item.severity] ?? SEV.warning;
+                const danger = item.severity === "danger";
                 return (
-                  <Link key={item.label} href={item.href} className={`flex items-center justify-between px-4 py-3.5 transition-colors ${s.bg}`}>
+                  <Link key={item.label} href={item.href} className="flex items-center justify-between px-4 py-3.5 hover:bg-secondary transition-colors">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <span className={`h-2 w-2 rounded-full shrink-0 ${s.dot}`} />
-                      <span className="text-sm text-foreground truncate">{item.label}</span>
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${danger ? "bg-danger" : "bg-warning"}`} />
+                      <span className="text-sm truncate">{item.label}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-sm font-bold ${s.text}`}>{item.value}</span>
+                      <span className={`text-sm font-bold font-mono ${danger ? "text-danger" : "text-warning"}`}>{item.value}</span>
                       <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                     </div>
                   </Link>
                 );
               })}
-            </div>
+            </Panel>
             {pendingCount > 0 && (
-              <Link href="/sellers/pending" className="mt-3 flex items-center justify-between bg-amber-50 border border-amber-200 rounded-2xl p-4 hover:bg-amber-100/60 transition-colors">
+              <Link href="/sellers/pending" className="mt-3 flex items-center justify-between rounded-2xl border border-warning/30 bg-warning/5 p-4 hover:bg-warning/10 transition-colors">
                 <div>
-                  <p className="font-semibold text-amber-800 text-sm">{pendingCount} supplier{pendingCount !== 1 ? "s" : ""} awaiting review</p>
-                  <p className="text-xs text-amber-600">Approve or reject pending applications</p>
+                  <p className="font-semibold text-sm">{pendingCount} supplier{pendingCount !== 1 ? "s" : ""} awaiting review</p>
+                  <p className="text-xs text-muted-foreground">Approve or reject pending applications</p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-amber-600" />
+                <ArrowRight className="h-4 w-4 text-warning" />
               </Link>
             )}
           </section>
         </div>
 
-        {/* Visual row 1 */}
+        {/* Charts bento */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-card rounded-2xl border border-border shadow-card p-5">
-            <SectionHeader title="Revenue Split" description="B2B vs B2C" icon={PieChart} />
-            <div className="flex items-end gap-2 mb-4">
-              <p className="text-3xl font-bold text-foreground">{formatCurrency(revTotal, "AED")}</p>
-              <p className="text-xs text-muted-foreground mb-1.5">total</p>
-            </div>
-            <div className="flex gap-0.5 h-3 mb-3">
-              {Array.from({ length: 20 }).map((_, i) => (
-                <div key={i} className={`flex-1 rounded-full ${i < Math.round((b2bPct / 100) * 20) ? "bg-indigo-500" : "bg-cyan-500"}`} />
-              ))}
-            </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-indigo-500" /> B2B</span>
-                <span className="font-semibold">{formatCurrency(exec.revenueSplit.b2b, "AED")} · {b2bPct}%</span>
+          <Panel className="p-5">
+            <PanelHead title="Revenue split" sub="B2B vs B2C" icon={PieChart} />
+            <div className="p-0 pt-5">
+              <div className="flex items-end gap-2 mb-4">
+                <p className="text-3xl font-bold font-mono tracking-tight">{formatCurrency(revTotal, "AED")}</p>
+                <p className="text-xs text-muted-foreground mb-1.5">total</p>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-cyan-500" /> B2C</span>
-                <span className="font-semibold">{formatCurrency(exec.revenueSplit.b2c, "AED")} · {100 - b2bPct}%</span>
+              <div className="flex gap-0.5 h-3 mb-4 rounded-full overflow-hidden">
+                {Array.from({ length: 20 }).map((_, i) => (
+                  <div key={i} className={`flex-1 ${i < Math.round((b2bPct / 100) * 20) ? "bg-primary" : "bg-accent"}`} />
+                ))}
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-primary" /> B2B</span>
+                  <span className="font-semibold font-mono">{formatCurrency(exec.revenueSplit.b2b, "AED")} · {b2bPct}%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-accent" /> B2C</span>
+                  <span className="font-semibold font-mono">{formatCurrency(exec.revenueSplit.b2c, "AED")} · {100 - b2bPct}%</span>
+                </div>
               </div>
             </div>
-          </div>
+          </Panel>
 
-          <div className="bg-card rounded-2xl border border-border shadow-card p-5">
-            <SectionHeader title="RFQ Funnel" description="Created → accepted" icon={FileQuestion}
-              action={<Link href="/rfqs" className="text-xs text-primary hover:underline font-medium">View</Link>} />
-            <div className="space-y-2.5">
+          <Panel className="p-5">
+            <PanelHead title="RFQ funnel" sub="Created → accepted" icon={FileQuestion} action={<Link href="/rfqs" className="text-xs text-primary hover:underline font-medium">View</Link>} />
+            <div className="space-y-3 pt-5">
               {exec.rfqFunnel.map((s) => (
                 <div key={s.stage}>
-                  <div className="flex items-center justify-between text-xs mb-1">
+                  <div className="flex items-center justify-between text-xs mb-1.5">
                     <span className="text-muted-foreground">{s.stage}</span>
-                    <span className="font-semibold">{s.count}</span>
+                    <span className="font-semibold font-mono">{s.count}</span>
                   </div>
-                  <div className="flex gap-0.5 h-2">
-                    {Array.from({ length: 20 }).map((_, i) => (
-                      <div key={i} className={`flex-1 rounded-full ${i < Math.round((s.count / rfqMax) * 20) ? s.color : "bg-slate-100"}`} />
-                    ))}
-                  </div>
+                  <Bars ratio={s.count / rfqMax} />
                 </div>
               ))}
             </div>
-          </div>
+          </Panel>
 
-          <div className="bg-card rounded-2xl border border-border shadow-card p-5">
-            <SectionHeader title="Order Lifecycle" description="Active pipeline" icon={ShoppingCart}
-              action={<Link href="/orders" className="text-xs text-primary hover:underline font-medium">View</Link>} />
-            <div className="space-y-2.5">
+          <Panel className="p-5">
+            <PanelHead title="Order lifecycle" sub="Active pipeline" icon={ShoppingCart} action={<Link href="/orders" className="text-xs text-primary hover:underline font-medium">View</Link>} />
+            <div className="space-y-3 pt-5">
               {exec.orderLifecycle.map((s) => (
                 <div key={s.stage}>
-                  <div className="flex items-center justify-between text-xs mb-1">
+                  <div className="flex items-center justify-between text-xs mb-1.5">
                     <span className="text-muted-foreground">{s.stage}</span>
-                    <span className="font-semibold">{s.count}</span>
+                    <span className="font-semibold font-mono">{s.count}</span>
                   </div>
-                  <div className="flex gap-0.5 h-2">
-                    {Array.from({ length: 20 }).map((_, i) => (
-                      <div key={i} className={`flex-1 rounded-full ${i < Math.max(1, Math.round((s.count / lifeMax) * 20)) ? s.color : "bg-slate-100"}`} />
-                    ))}
-                  </div>
+                  <Bars ratio={s.count / lifeMax} />
                 </div>
               ))}
             </div>
-          </div>
+          </Panel>
         </div>
 
-        {/* Visual row 2 */}
+        {/* Tables bento */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-card rounded-2xl border border-border shadow-card overflow-hidden">
-            <div className="px-5 py-4 border-b border-border"><SectionHeader title="Top Categories" icon={Tag} className="mb-0" /></div>
-            <div className="p-5 space-y-3">
+          <Panel className="overflow-hidden">
+            <PanelHead title="Top categories" icon={Tag} />
+            <div className="p-5 space-y-3.5">
               {exec.topCategories.map((c) => (
                 <div key={c.name}>
-                  <div className="flex items-center justify-between text-sm mb-1">
+                  <div className="flex items-center justify-between text-sm mb-1.5">
                     <span className="font-medium">{c.name}</span>
-                    <span className="text-muted-foreground text-xs">{formatCurrency(c.gmv, "AED")}</span>
+                    <span className="text-muted-foreground text-xs font-mono">{formatCurrency(c.gmv, "AED")}</span>
                   </div>
-                  <div className="flex gap-0.5 h-1.5">
-                    {Array.from({ length: 20 }).map((_, i) => (
-                      <div key={i} className={`flex-1 rounded-full ${i < Math.round((c.share / 30) * 20) ? "bg-blue-500" : "bg-slate-100"}`} />
-                    ))}
-                  </div>
+                  <Bars ratio={c.share / catMax} />
                 </div>
               ))}
             </div>
-          </div>
+          </Panel>
 
-          <div className="bg-card rounded-2xl border border-border shadow-card overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <SectionHeader title="Top Suppliers" icon={Store} className="mb-0" />
-              <Link href="/sellers" className="text-xs text-primary hover:underline font-medium">All</Link>
-            </div>
+          <Panel className="overflow-hidden">
+            <PanelHead title="Top suppliers" icon={Store} action={<Link href="/sellers" className="text-xs text-primary hover:underline font-medium">All</Link>} />
             <div className="divide-y divide-border">
               {exec.topSuppliers.map((s, i) => (
                 <div key={s.name} className="flex items-center justify-between px-5 py-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="text-xs font-bold text-muted-foreground w-4">{i + 1}</span>
+                    <span className="grid place-items-center h-6 w-6 rounded-lg bg-secondary text-xs font-bold text-muted-foreground shrink-0">{i + 1}</span>
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{s.name}</p>
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
@@ -295,17 +352,14 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                       </p>
                     </div>
                   </div>
-                  <span className="text-sm font-semibold text-green-700 shrink-0">{formatCurrency(s.gmv, "AED")}</span>
+                  <span className="text-sm font-semibold font-mono shrink-0">{formatCurrency(s.gmv, "AED")}</span>
                 </div>
               ))}
             </div>
-          </div>
+          </Panel>
 
-          <div className="bg-card rounded-2xl border border-border shadow-card overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <SectionHeader title="Top Customers" icon={Users} className="mb-0" />
-              <Link href="/crm" className="text-xs text-primary hover:underline font-medium">CRM</Link>
-            </div>
+          <Panel className="overflow-hidden">
+            <PanelHead title="Top customers" icon={Users} action={<Link href="/crm" className="text-xs text-primary hover:underline font-medium">CRM</Link>} />
             <div className="divide-y divide-border">
               {topCustomers.slice(0, 5).map((c) => (
                 <div key={c.id} className="flex items-center justify-between px-5 py-3">
@@ -314,13 +368,13 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                     <p className="text-xs text-muted-foreground">{c.totalOrders} orders</p>
                   </div>
                   <div className="text-end shrink-0">
-                    <p className="text-sm font-semibold text-green-700">{formatCurrency(c.totalSpent, "AED")}</p>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${c.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-primary"}`}>{c.type}</span>
+                    <p className="text-sm font-semibold font-mono">{formatCurrency(c.totalSpent, "AED")}</p>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${c.type === "B2B" ? "bg-accent/15 text-accent" : "bg-primary/15 text-primary"}`}>{c.type}</span>
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          </Panel>
         </div>
       </div>
     </AdminLayout>
