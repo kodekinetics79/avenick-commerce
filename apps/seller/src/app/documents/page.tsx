@@ -119,13 +119,13 @@ export default async function DocumentsPage() {
                 className={`bg-white rounded-2xl border p-4 hover:shadow-sm transition-shadow ${
                   expired ? "border-red-200 bg-red-50/30" :
                   expiring ? "border-amber-200 bg-amber-50/30" :
-                  "border-slate-200"
+                  "border-border"
                 }`}
               >
                 {/* Icon + status */}
                 <div className="flex items-start justify-between mb-3">
                   <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center">
-                    <FileText className="h-5 w-5 text-slate-500" />
+                    <FileText className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${cfg.color}`}>
                     <StatusIcon className="h-3 w-3" />
@@ -134,7 +134,7 @@ export default async function DocumentsPage() {
                 </div>
 
                 {/* Name + type */}
-                <h3 className="font-semibold text-sm text-slate-800 mb-0.5">{doc.name}</h3>
+                <h3 className="font-semibold text-sm text-foreground mb-0.5">{doc.name}</h3>
                 <p className="text-xs text-muted-foreground mb-3">{doc.type.replace(/_/g, " ")}</p>
 
                 {/* Expiry info */}
@@ -157,7 +157,7 @@ export default async function DocumentsPage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    className="flex-1 flex items-center justify-center gap-1.5 text-xs border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
                   >
                     <Eye className="h-3 w-3" /> View
                   </button>
@@ -172,7 +172,7 @@ export default async function DocumentsPage() {
                   ) : (
                     <button
                       type="button"
-                      className="flex-1 flex items-center justify-center gap-1.5 text-xs border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1.5 text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
                     >
                       <Upload className="h-3 w-3" /> Replace
                     </button>

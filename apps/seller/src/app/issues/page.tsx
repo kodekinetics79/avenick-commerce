@@ -8,7 +8,7 @@ import { AlertTriangle, XCircle, AlertCircle, Info, ArrowRight } from "lucide-re
 const SEVERITY_CONFIG = {
   ERROR: { icon: XCircle, color: "text-red-600", bg: "bg-red-50 border-red-200", label: "Error" },
   WARNING: { icon: AlertTriangle, color: "text-yellow-600", bg: "bg-yellow-50 border-yellow-200", label: "Warning" },
-  INFO: { icon: Info, color: "text-blue-600", bg: "bg-blue-50 border-blue-200", label: "Info" },
+  INFO: { icon: Info, color: "text-primary", bg: "bg-blue-50 border-blue-200", label: "Info" },
 };
 
 const ISSUE_ACTION_MAP: Record<string, { label: string; path: string }> = {
@@ -81,7 +81,7 @@ export default async function IssuesPage() {
                     {p.images[0] ? (
                       <Image src={p.images[0].url} alt={p.nameEn} width={48} height={48} className="rounded-lg object-cover shrink-0" />
                     ) : (
-                      <div className="w-12 h-12 bg-gray-200 rounded-lg shrink-0 flex items-center justify-center text-xs text-gray-400">No img</div>
+                      <div className="w-12 h-12 bg-gray-200 rounded-lg shrink-0 flex items-center justify-center text-xs text-muted-foreground">No img</div>
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">

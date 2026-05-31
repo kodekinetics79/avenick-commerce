@@ -42,7 +42,7 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <MainLayout>
-        <div className="bg-slate-50 min-h-screen">
+        <div className="bg-secondary min-h-screen">
           <div className="max-w-7xl mx-auto px-4 py-20 text-center">
             <div className="w-20 h-20 rounded-2xl bg-white border border-border flex items-center justify-center mx-auto mb-5 shadow-sm">
               <ShoppingBag className="h-10 w-10 text-muted-foreground" />
@@ -62,7 +62,7 @@ export default function CartPage() {
 
   return (
     <MainLayout>
-      <div className="bg-slate-50 min-h-screen">
+      <div className="bg-secondary min-h-screen">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <h1 className="text-2xl font-bold mb-6">
             Shopping Cart <span className="text-muted-foreground font-normal text-lg">({items.length} item{items.length !== 1 ? "s" : ""})</span>
@@ -94,7 +94,7 @@ export default function CartPage() {
 
               {items.map((item) => (
                 <div key={item.id} className="flex gap-4 bg-white rounded-2xl border border-border p-4 hover:shadow-sm transition-shadow">
-                  <Link href={`/products/${item.productId}`} className="w-20 h-20 shrink-0 bg-slate-50 rounded-xl overflow-hidden relative border border-border">
+                  <Link href={`/products/${item.productId}`} className="w-20 h-20 shrink-0 bg-secondary rounded-xl overflow-hidden relative border border-border">
                     {item.imageUrl ? (
                       <Image src={item.imageUrl} alt={item.nameEn} fill className="object-cover" sizes="80px" />
                     ) : (
@@ -108,18 +108,18 @@ export default function CartPage() {
                         <p className="text-xs text-muted-foreground">{item.nameAr}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">SKU: {item.sku}</p>
                       </div>
-                      <span className="font-bold text-orange-600 shrink-0">{formatCurrency(item.unitPrice * item.qty, "AED")}</span>
+                      <span className="font-bold text-primary shrink-0">{formatCurrency(item.unitPrice * item.qty, "AED")}</span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">{formatCurrency(item.unitPrice, "AED")} each</p>
 
                     <div className="flex items-center justify-between mt-3">
                       <div className="flex items-center border border-border rounded-lg overflow-hidden">
-                        <button type="button" aria-label="Decrease quantity" onClick={() => updateQty(item.id, item.qty - 1)} className="p-1.5 hover:bg-slate-50 transition-colors"><Minus className="h-3.5 w-3.5" /></button>
+                        <button type="button" aria-label="Decrease quantity" onClick={() => updateQty(item.id, item.qty - 1)} className="p-1.5 hover:bg-secondary transition-colors"><Minus className="h-3.5 w-3.5" /></button>
                         <span className="px-3 text-sm font-semibold min-w-[2rem] text-center">{item.qty}</span>
-                        <button type="button" aria-label="Increase quantity" onClick={() => updateQty(item.id, item.qty + 1)} className="p-1.5 hover:bg-slate-50 transition-colors"><Plus className="h-3.5 w-3.5" /></button>
+                        <button type="button" aria-label="Increase quantity" onClick={() => updateQty(item.id, item.qty + 1)} className="p-1.5 hover:bg-secondary transition-colors"><Plus className="h-3.5 w-3.5" /></button>
                       </div>
                       <div className="flex items-center gap-1">
-                        <button type="button" onClick={() => saveForLater(item)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-orange-600 transition-colors px-2 py-1 rounded-lg hover:bg-orange-50">
+                        <button type="button" onClick={() => saveForLater(item)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-primary/10">
                           <Heart className="h-3.5 w-3.5" /> Save
                         </button>
                         <button type="button" aria-label="Remove item" onClick={() => removeItem(item.id)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors px-2 py-1 rounded-lg hover:bg-red-50">
@@ -160,7 +160,7 @@ export default function CartPage() {
                   </div>
                   <div className="border-t border-border pt-2.5 flex justify-between font-bold text-base">
                     <span>Total</span>
-                    <span className="text-orange-600">{formatCurrency(orderTotal, "AED")}</span>
+                    <span className="text-primary">{formatCurrency(orderTotal, "AED")}</span>
                   </div>
                 </div>
 
@@ -173,7 +173,7 @@ export default function CartPage() {
                         value={promoCode}
                         onChange={(e) => { setPromoCode(e.target.value); setPromoError(""); }}
                         placeholder="Promo code"
-                        className="flex-1 h-9 px-3 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-400"
+                        className="flex-1 h-9 px-3 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                       />
                       <button type="button" onClick={applyPromo} className="px-3 h-9 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1">
                         <Tag className="h-3.5 w-3.5" /> Apply

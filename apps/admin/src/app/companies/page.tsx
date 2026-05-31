@@ -42,7 +42,7 @@ const STATUS_CONFIG: Record<CompanyStatus, { label: string; color: string }> = {
 
 const HEALTH_CONFIG: Record<HealthLevel, { color: string; dot: string }> = {
   EXCELLENT: { color: "text-green-600", dot: "bg-green-500" },
-  GOOD: { color: "text-blue-600", dot: "bg-blue-500" },
+  GOOD: { color: "text-primary", dot: "bg-blue-500" },
   FAIR: { color: "text-amber-600", dot: "bg-amber-500" },
   POOR: { color: "text-red-600", dot: "bg-red-500" },
 };
@@ -63,7 +63,7 @@ export default async function CompaniesPage() {
             <h1 className="text-2xl font-bold">B2B Companies</h1>
             <p className="text-muted-foreground text-sm">Manage enterprise accounts, credit limits, and account health</p>
           </div>
-          <button type="button" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">
+          <button type="button" className="flex items-center gap-2 bg-primary hover:bg-primary text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">
             <Plus className="h-4 w-4" /> Add Company
           </button>
         </div>
@@ -107,15 +107,15 @@ export default async function CompaniesPage() {
         {/* Search and filter bar */}
         <div className="flex items-center gap-3 bg-white rounded-2xl border border-border p-3">
           <div className="flex items-center gap-2 flex-1">
-            <Search className="h-4 w-4 text-slate-400 shrink-0" />
-            <input type="text" placeholder="Search by company name, CR number, city..." className="flex-1 text-sm text-slate-600 placeholder:text-slate-400 outline-none" />
+            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+            <input type="text" placeholder="Search by company name, CR number, city..." className="flex-1 text-sm text-muted-foreground placeholder:text-muted-foreground outline-none" />
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {(["All", "Active", "Credit Hold", "Pending"] as const).map((f) => (
               <button
                 key={f}
                 type="button"
-                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${f === "All" ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200"}`}
+                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${f === "All" ? "bg-slate-700 text-white" : "bg-slate-100 text-muted-foreground hover:bg-slate-200"}`}
               >
                 {f}
               </button>
@@ -150,7 +150,7 @@ export default async function CompaniesPage() {
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                            <Building2 className="h-4 w-4 text-slate-500" />
+                            <Building2 className="h-4 w-4 text-muted-foreground" />
                           </div>
                           <div>
                             <p className="font-medium">{company.name}</p>
@@ -190,7 +190,7 @@ export default async function CompaniesPage() {
                       <td className="px-5 py-3 hidden sm:table-cell text-xs text-muted-foreground">{company.lastActivity}</td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
-                          <button type="button" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                          <button type="button" className="text-xs text-primary hover:underline flex items-center gap-1">
                             <ExternalLink className="h-3 w-3" /> View
                           </button>
                         </div>

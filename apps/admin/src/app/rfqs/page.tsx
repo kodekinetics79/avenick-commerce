@@ -33,10 +33,10 @@ const MOCK_RFQS: Array<{
 ];
 
 const STATUS_CONFIG: Record<RFQStatus, { label: string; color: string }> = {
-  OPEN: { label: "Open", color: "bg-blue-100 text-blue-700" },
+  OPEN: { label: "Open", color: "bg-blue-100 text-primary" },
   QUOTED: { label: "Quoted", color: "bg-purple-100 text-purple-700" },
   ACCEPTED: { label: "Accepted", color: "bg-green-100 text-green-700" },
-  CLOSED: { label: "Closed", color: "bg-slate-100 text-slate-500" },
+  CLOSED: { label: "Closed", color: "bg-slate-100 text-muted-foreground" },
   EXPIRED: { label: "Expired", color: "bg-red-100 text-red-600" },
 };
 
@@ -62,7 +62,7 @@ export default async function RFQsPage() {
             <h1 className="text-2xl font-bold">RFQ Management</h1>
             <p className="text-muted-foreground text-sm">Track requests for quotes from B2B buyers across suppliers</p>
           </div>
-          <button type="button" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">
+          <button type="button" className="flex items-center gap-2 bg-primary hover:bg-primary text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">
             <Plus className="h-4 w-4" /> Create RFQ
           </button>
         </div>
@@ -70,7 +70,7 @@ export default async function RFQsPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Open RFQs", value: countByStatus.Open, color: "text-blue-600", bg: "bg-blue-50 border-blue-200" },
+            { label: "Open RFQs", value: countByStatus.Open, color: "text-primary", bg: "bg-blue-50 border-blue-200" },
             { label: "Awaiting Response", value: MOCK_RFQS.filter((r) => r.status === "OPEN" && r.quotesReceived === 0).length, color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
             { label: "Accepted", value: countByStatus.Accepted, color: "text-green-600", bg: "bg-green-50 border-green-200" },
             { label: "Conversion Rate", value: "34%", color: "text-purple-600", bg: "bg-purple-50 border-purple-200" },
@@ -85,15 +85,15 @@ export default async function RFQsPage() {
         {/* Search and filter */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <div className="flex items-center gap-2 bg-white border border-border rounded-xl px-3 py-1.5 flex-1">
-            <Search className="h-4 w-4 text-slate-400 shrink-0" />
-            <input type="text" placeholder="Search RFQ number, buyer, or product..." className="flex-1 text-sm text-slate-600 placeholder:text-slate-400 outline-none" />
+            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+            <input type="text" placeholder="Search RFQ number, buyer, or product..." className="flex-1 text-sm text-muted-foreground placeholder:text-muted-foreground outline-none" />
           </div>
           <div className="flex items-center gap-1.5 overflow-x-auto">
             {STATUS_TABS.map((tab) => (
               <button
                 key={tab}
                 type="button"
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${tab === "All" ? "bg-slate-700 text-white" : "bg-white border border-border text-slate-500 hover:border-slate-400"}`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${tab === "All" ? "bg-slate-700 text-white" : "bg-white border border-border text-muted-foreground hover:border-slate-400"}`}
               >
                 {tab}
                 <span className="text-[10px] font-bold">{countByStatus[tab as keyof typeof countByStatus]}</span>
@@ -126,7 +126,7 @@ export default async function RFQsPage() {
                   return (
                     <tr key={rfq.id} className={`hover:bg-muted/20 transition-colors ${noResponse ? "bg-amber-50/40" : ""}`}>
                       <td className="px-5 py-3">
-                        <p className="font-mono text-xs font-semibold text-slate-600">{rfq.rfqNumber}</p>
+                        <p className="font-mono text-xs font-semibold text-muted-foreground">{rfq.rfqNumber}</p>
                         <p className="text-xs text-muted-foreground">{rfq.createdAt}</p>
                       </td>
                       <td className="px-5 py-3">
@@ -154,7 +154,7 @@ export default async function RFQsPage() {
                       <td className="px-5 py-3 hidden lg:table-cell text-xs text-muted-foreground">{rfq.requiredBy}</td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <button type="button" className="text-xs text-blue-600 hover:underline flex items-center gap-0.5">
+                          <button type="button" className="text-xs text-primary hover:underline flex items-center gap-0.5">
                             <ExternalLink className="h-3 w-3" /> View
                           </button>
                           {noResponse && (

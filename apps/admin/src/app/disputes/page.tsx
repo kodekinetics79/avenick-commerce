@@ -8,7 +8,7 @@ import Link from "next/link";
 export const metadata = { title: "Disputes" };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
-  OPEN:            { label: "Open",             color: "bg-blue-100 text-blue-700",     icon: Clock },
+  OPEN:            { label: "Open",             color: "bg-blue-100 text-primary",     icon: Clock },
   AWAITING_SELLER: { label: "Awaiting Seller",  color: "bg-amber-100 text-amber-700",   icon: Clock },
   UNDER_REVIEW:    { label: "Under Review",     color: "bg-purple-100 text-purple-700", icon: Scale },
   RESOLVED_BUYER:  { label: "Resolved (Buyer)", color: "bg-green-100 text-green-700",   icon: CheckCircle },
@@ -53,7 +53,7 @@ export default async function DisputesPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Open Disputes", value: open.length, color: "text-blue-600", bg: "bg-blue-50 border-blue-200" },
+            { label: "Open Disputes", value: open.length, color: "text-primary", bg: "bg-blue-50 border-blue-200" },
             { label: "Disputed Value", value: formatCurrency(disputedValue, "AED"), color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
             { label: "Awaiting Seller", value: awaitingSeller, color: "text-purple-600", bg: "bg-purple-50 border-purple-200" },
             { label: "Resolved", value: resolved, color: "text-green-600", bg: "bg-white border-border" },
@@ -88,11 +88,11 @@ export default async function DisputesPage() {
                   <div className="flex-1 min-w-0">
                     {/* Top row */}
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <span className="font-mono text-xs font-semibold text-slate-600">{d.id}</span>
+                      <span className="font-mono text-xs font-semibold text-muted-foreground">{d.id}</span>
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}>
                         <StatusIcon className="h-3 w-3" /> {sc.label}
                       </span>
-                      <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">{TYPE_LABEL[d.type] ?? d.type}</span>
+                      <span className="text-xs bg-slate-100 text-muted-foreground px-2 py-0.5 rounded font-medium">{TYPE_LABEL[d.type] ?? d.type}</span>
                       {d.priority === "HIGH" && !isResolved && (
                         <span className="flex items-center gap-0.5 text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold uppercase">
                           <AlertTriangle className="h-2.5 w-2.5" /> High
@@ -124,7 +124,7 @@ export default async function DisputesPage() {
                     {needsAction ? (
                       <div className="flex flex-col gap-1.5">
                         <button type="button" className="text-xs bg-slate-900 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 font-medium transition-colors">Review Case</button>
-                        <button type="button" className="text-xs border border-border text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-50 font-medium transition-colors">Mediate</button>
+                        <button type="button" className="text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-slate-50 font-medium transition-colors">Mediate</button>
                       </div>
                     ) : d.status === "AWAITING_SELLER" ? (
                       <button type="button" className="text-xs border border-amber-200 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-50 font-medium transition-colors">Remind Seller</button>

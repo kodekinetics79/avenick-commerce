@@ -124,7 +124,7 @@ export default async function DashboardPage() {
                   <Activity className="h-4 w-4 text-blue-500" />
                   <p className="text-sm font-semibold">Pending RFQs</p>
                 </div>
-                <p className="text-2xl font-bold text-blue-600">{pending.length}</p>
+                <p className="text-2xl font-bold text-primary">{pending.length}</p>
                 <p className="text-xs text-muted-foreground mt-1">Awaiting your quote response</p>
                 {pending.length > 0 && (
                   <Link href="/messages" className="text-xs text-orange-600 hover:underline mt-2 block">Respond →</Link>
@@ -163,7 +163,7 @@ export default async function DashboardPage() {
                   </div>
                   <div className="text-end">
                     <p className="font-semibold text-sm">{formatCurrency(Number(order.total), order.currency)}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${order.status === "DELIVERED" ? "bg-green-100 text-green-700" : order.status === "PROCESSING" ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-600"}`}>{order.status}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${order.status === "DELIVERED" ? "bg-green-100 text-green-700" : order.status === "PROCESSING" ? "bg-blue-100 text-primary" : "bg-gray-100 text-gray-600"}`}>{order.status}</span>
                   </div>
                 </Link>
               ))}

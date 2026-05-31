@@ -30,7 +30,7 @@ export default async function FinancePage() {
             <p className="text-muted-foreground text-sm">Revenue, invoices, settlements, and VAT</p>
           </div>
           <div className="flex gap-2">
-            <Link href="/payments" className="flex items-center gap-1.5 text-sm border border-border bg-white text-slate-700 hover:bg-slate-50 px-3 py-2 rounded-xl font-medium transition-colors">
+            <Link href="/payments" className="flex items-center gap-1.5 text-sm border border-border bg-white text-muted-foreground hover:bg-slate-50 px-3 py-2 rounded-xl font-medium transition-colors">
               <CreditCard className="h-3.5 w-3.5" /> Payments
             </Link>
             <Link href="/settlements" className="flex items-center gap-1.5 text-sm bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl font-semibold transition-colors">
@@ -59,7 +59,7 @@ export default async function FinancePage() {
           <Link href="/vat" className="bg-white border border-border rounded-2xl p-4 hover:shadow-sm transition-all">
             <FileSpreadsheet className="h-4 w-4 text-blue-500 mb-2" />
             <p className="text-2xl font-bold">{formatCurrency(totalVat, "AED")}</p>
-            <p className="text-xs text-blue-600 mt-0.5 flex items-center gap-0.5 font-medium">VAT payable <ArrowRight className="h-3 w-3" /></p>
+            <p className="text-xs text-primary mt-0.5 flex items-center gap-0.5 font-medium">VAT payable <ArrowRight className="h-3 w-3" /></p>
           </Link>
         </div>
 
@@ -82,13 +82,13 @@ export default async function FinancePage() {
             <div className="flex items-center gap-3">
               <AlertCircle className={`h-5 w-5 shrink-0 ${creditOverdue > 0 ? "text-red-600" : "text-muted-foreground"}`} />
               <div>
-                <p className={`font-semibold text-sm ${creditOverdue > 0 ? "text-red-800" : "text-slate-800"}`}>Credit Exposure</p>
+                <p className={`font-semibold text-sm ${creditOverdue > 0 ? "text-red-800" : "text-foreground"}`}>Credit Exposure</p>
                 <p className={`text-xs ${creditOverdue > 0 ? "text-red-600" : "text-muted-foreground"}`}>
                   {creditOverdue > 0 ? `${formatCurrency(creditOverdue, "AED")} overdue across accounts` : "All credit accounts current"}
                 </p>
               </div>
             </div>
-            <span className="text-xs text-blue-600 font-medium">{MOCK_CREDIT_ACCOUNTS.length} accounts</span>
+            <span className="text-xs text-primary font-medium">{MOCK_CREDIT_ACCOUNTS.length} accounts</span>
           </div>
         </div>
 
@@ -131,10 +131,10 @@ export default async function FinancePage() {
               <tbody className="divide-y divide-border">
                 {MOCK_FINANCE_INVOICES.map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-5 py-3 font-mono text-xs font-semibold text-blue-600">{inv.invoiceNo}</td>
+                    <td className="px-5 py-3 font-mono text-xs font-semibold text-primary">{inv.invoiceNo}</td>
                     <td className="px-5 py-3 font-medium">{inv.buyer}</td>
                     <td className="px-5 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${inv.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>{inv.type}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${inv.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-primary"}`}>{inv.type}</span>
                     </td>
                     <td className="px-5 py-3 font-bold text-green-700">{formatCurrency(inv.amount, "AED")}</td>
                     <td className="px-5 py-3 text-muted-foreground">{formatCurrency(inv.vatAmount, "AED")}</td>

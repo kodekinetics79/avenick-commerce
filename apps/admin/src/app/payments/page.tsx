@@ -11,7 +11,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
   SUCCEEDED: { label: "Succeeded", color: "bg-green-100 text-green-700",  icon: CheckCircle },
   PENDING:   { label: "Pending",   color: "bg-amber-100 text-amber-700",  icon: Clock },
   FAILED:    { label: "Failed",    color: "bg-red-100 text-red-700",      icon: XCircle },
-  REFUNDED:  { label: "Refunded",  color: "bg-slate-100 text-slate-600",  icon: RotateCcw },
+  REFUNDED:  { label: "Refunded",  color: "bg-slate-100 text-muted-foreground",  icon: RotateCcw },
 };
 
 const METHOD_LABEL: Record<string, { label: string; icon: typeof CreditCard }> = {
@@ -56,8 +56,8 @@ export default async function PaymentsPage() {
           {[
             { label: "Collected", value: formatCurrency(totalCollected, "AED"), color: "text-green-700", bg: "bg-green-50 border-green-200" },
             { label: "Pending", value: formatCurrency(pendingValue, "AED"), color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
-            { label: "Failed", value: failed.length, color: failed.length > 0 ? "text-red-600" : "text-slate-500", bg: failed.length > 0 ? "bg-red-50 border-red-200" : "bg-white border-border" },
-            { label: "Total Txns", value: MOCK_PAYMENTS.length, color: "text-slate-800", bg: "bg-white border-border" },
+            { label: "Failed", value: failed.length, color: failed.length > 0 ? "text-red-600" : "text-muted-foreground", bg: failed.length > 0 ? "bg-red-50 border-red-200" : "bg-white border-border" },
+            { label: "Total Txns", value: MOCK_PAYMENTS.length, color: "text-foreground", bg: "bg-white border-border" },
           ].map(({ label, value, color, bg }) => (
             <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
               <p className={`text-xl font-bold ${color}`}>{value}</p>
@@ -103,11 +103,11 @@ export default async function PaymentsPage() {
                   const MethodIcon = ml.icon;
                   return (
                     <tr key={p.id} className={`hover:bg-slate-50 transition-colors ${p.status === "FAILED" ? "bg-red-50/30" : ""}`}>
-                      <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{p.ref}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-blue-600">{p.invoiceNo}</td>
+                      <td className="px-4 py-3 font-mono text-xs font-semibold text-muted-foreground">{p.ref}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-primary">{p.invoiceNo}</td>
                       <td className="px-4 py-3 font-medium text-sm">{p.payer}</td>
                       <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1 text-xs text-slate-600">
+                        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                           <MethodIcon className="h-3 w-3" /> {ml.label}
                         </span>
                       </td>
@@ -120,8 +120,8 @@ export default async function PaymentsPage() {
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{p.processedAt}</td>
                       <td className="px-4 py-3">
-                        {p.status === "FAILED" && <button type="button" className="text-xs bg-blue-600 text-white px-2.5 py-1 rounded-lg hover:bg-blue-700 font-medium transition-colors">Retry</button>}
-                        {p.status === "SUCCEEDED" && <button type="button" className="text-xs text-blue-600 hover:underline font-medium">Receipt</button>}
+                        {p.status === "FAILED" && <button type="button" className="text-xs bg-primary text-white px-2.5 py-1 rounded-lg hover:bg-primary font-medium transition-colors">Retry</button>}
+                        {p.status === "SUCCEEDED" && <button type="button" className="text-xs text-primary hover:underline font-medium">Receipt</button>}
                         {p.status === "PENDING" && <span className="text-xs text-muted-foreground italic">Awaiting</span>}
                         {p.status === "REFUNDED" && <span className="text-xs text-muted-foreground">Refunded</span>}
                       </td>

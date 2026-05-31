@@ -9,12 +9,12 @@ export const metadata = { title: "Segments" };
 
 const COLOR_MAP: Record<string, { bg: string; text: string; dot: string; ring: string }> = {
   purple: { bg: "bg-purple-50", text: "text-purple-700", dot: "bg-purple-500", ring: "border-purple-200" },
-  blue:   { bg: "bg-blue-50",   text: "text-blue-700",   dot: "bg-blue-500",   ring: "border-blue-200" },
+  blue:   { bg: "bg-blue-50",   text: "text-primary",   dot: "bg-blue-500",   ring: "border-blue-200" },
   red:    { bg: "bg-red-50",    text: "text-red-700",    dot: "bg-red-500",    ring: "border-red-200" },
   green:  { bg: "bg-green-50",  text: "text-green-700",  dot: "bg-green-500",  ring: "border-green-200" },
   amber:  { bg: "bg-amber-50",  text: "text-amber-700",  dot: "bg-amber-500",  ring: "border-amber-200" },
   orange: { bg: "bg-orange-50", text: "text-orange-700", dot: "bg-orange-500", ring: "border-orange-200" },
-  slate:  { bg: "bg-slate-50",  text: "text-slate-700",  dot: "bg-slate-500",  ring: "border-slate-200" },
+  slate:  { bg: "bg-slate-50",  text: "text-muted-foreground",  dot: "bg-slate-500",  ring: "border-border" },
   cyan:   { bg: "bg-cyan-50",   text: "text-cyan-700",   dot: "bg-cyan-500",   ring: "border-cyan-200" },
 };
 
@@ -48,8 +48,8 @@ export default async function SegmentsPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Total Segments", value: MOCK_SEGMENTS.length, color: "text-slate-800" },
-            { label: "Customers Grouped", value: totalCustomers.toLocaleString(), color: "text-blue-600" },
+            { label: "Total Segments", value: MOCK_SEGMENTS.length, color: "text-foreground" },
+            { label: "Customers Grouped", value: totalCustomers.toLocaleString(), color: "text-primary" },
             { label: "Growing Segments", value: growing, color: "text-green-600" },
             { label: "VIP Accounts", value: MOCK_SEGMENTS.find(s => s.id === "seg1")?.count ?? 0, color: "text-purple-600" },
           ].map(({ label, value, color }) => (
@@ -100,7 +100,7 @@ export default async function SegmentsPage() {
                       </div>
                     )}
                     <div className="flex gap-2">
-                      <button type="button" className="flex items-center gap-1 text-xs border border-border text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-50 font-medium transition-colors">
+                      <button type="button" className="flex items-center gap-1 text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-slate-50 font-medium transition-colors">
                         <Users className="h-3 w-3" /> View
                       </button>
                       <Link href="/campaigns" className="flex items-center gap-1 text-xs bg-slate-900 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 font-medium transition-colors">
@@ -118,7 +118,7 @@ export default async function SegmentsPage() {
         <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl p-6 flex items-center justify-between text-white">
           <div>
             <h3 className="font-bold mb-1">Turn segments into revenue</h3>
-            <p className="text-slate-400 text-sm">Launch targeted campaigns to any segment with one click.</p>
+            <p className="text-muted-foreground text-sm">Launch targeted campaigns to any segment with one click.</p>
           </div>
           <Link href="/campaigns" className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors whitespace-nowrap">
             Create Campaign <ArrowRight className="h-4 w-4" />

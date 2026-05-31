@@ -10,7 +10,7 @@ export const metadata = { title: "Orders" };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   PENDING_PAYMENT:  { label: "Pending Payment",  color: "bg-gray-100 text-gray-600" },
-  CONFIRMED:        { label: "Confirmed",         color: "bg-blue-100 text-blue-700" },
+  CONFIRMED:        { label: "Confirmed",         color: "bg-blue-100 text-primary" },
   PROCESSING:       { label: "Processing",        color: "bg-purple-100 text-purple-700" },
   READY_FOR_PICKUP: { label: "Ready for Pickup",  color: "bg-amber-100 text-amber-700" },
   SHIPPED:          { label: "Shipped",           color: "bg-cyan-100 text-cyan-700" },
@@ -67,16 +67,16 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
             <h1 className="text-2xl font-bold">Orders</h1>
             <p className="text-muted-foreground text-sm">All orders across B2C and B2B channels</p>
           </div>
-          <Link href="/orders" className="text-sm text-blue-600 hover:underline font-medium">Export ↗</Link>
+          <Link href="/orders" className="text-sm text-primary hover:underline font-medium">Export ↗</Link>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Total Orders",    value: total,                                color: "text-slate-800", bg: "bg-white border-border" },
+            { label: "Total Orders",    value: total,                                color: "text-foreground", bg: "bg-white border-border" },
             { label: "Total GMV",       value: formatCurrency(gmv, "AED"),           color: "text-green-700", bg: "bg-green-50 border-green-200" },
             { label: "B2B Orders",      value: b2bCount,                             color: "text-purple-700", bg: "bg-purple-50 border-purple-200" },
-            { label: "Disputes",        value: disputedCount,                        color: disputedCount > 0 ? "text-red-700" : "text-slate-500", bg: disputedCount > 0 ? "bg-red-50 border-red-200" : "bg-white border-border" },
+            { label: "Disputes",        value: disputedCount,                        color: disputedCount > 0 ? "text-red-700" : "text-muted-foreground", bg: disputedCount > 0 ? "bg-red-50 border-red-200" : "bg-white border-border" },
           ].map(({ label, value, color, bg }) => (
             <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
               <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -136,7 +136,7 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
                   return (
                     <tr key={order.id} className={`hover:bg-slate-50 transition-colors ${(order.status as string) === "DISPUTED" ? "bg-red-50/40" : ""}`}>
                       <td className="px-4 py-3">
-                        <p className="font-mono text-xs font-semibold text-slate-600">{order.orderNumber}</p>
+                        <p className="font-mono text-xs font-semibold text-muted-foreground">{order.orderNumber}</p>
                       </td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-sm">{order.user.firstName} {order.user.lastName}</p>
@@ -147,14 +147,14 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
                       <td className="px-4 py-3 text-sm text-center font-medium">{order.items.length}+</td>
                       <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(Number(order.total), order.currency)}</td>
                       <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${order.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>{order.type}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${order.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-primary"}`}>{order.type}</span>
                       </td>
                       <td className="px-4 py-3">
                         <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${sc.color}`}>{sc.label}</span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2 items-center">
-                          <Link href={`/orders/${order.id}`} className="text-xs text-blue-600 hover:underline font-medium flex items-center gap-0.5">
+                          <Link href={`/orders/${order.id}`} className="text-xs text-primary hover:underline font-medium flex items-center gap-0.5">
                             <ExternalLink className="h-3 w-3" /> View
                           </Link>
                           {order.status === "CONFIRMED" && (

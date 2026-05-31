@@ -65,7 +65,7 @@ export default async function CommissionPage() {
               </div>
             ))}
           </div>
-          <div className="mt-4 flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-700">
+          <div className="mt-4 flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-primary">
             <Info className="h-4 w-4 shrink-0 mt-0.5" />
             <p>Maintain a performance score above 85 and AED 100k+ monthly GMV to qualify for reduced volume rates.</p>
           </div>
@@ -91,7 +91,7 @@ export default async function CommissionPage() {
                     <td className="px-4 py-3 text-red-600">−{formatCurrency(c.handling, "AED")}</td>
                     <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(c.net, "AED")}</td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${c.status === "PAID" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>{c.status === "PAID" ? "Paid" : "Current"}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${c.status === "PAID" ? "bg-green-100 text-green-700" : "bg-blue-100 text-primary"}`}>{c.status === "PAID" ? "Paid" : "Current"}</span>
                     </td>
                   </tr>
                 ))}

@@ -36,7 +36,7 @@ export default async function VATPage() {
             <h1 className="text-2xl font-bold">VAT Summary</h1>
             <p className="text-sm text-muted-foreground">Tax periods, filings, and net VAT liability (UAE 5% · KSA 15%)</p>
           </div>
-          <button type="button" className="flex items-center gap-1.5 border border-border bg-white text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+          <button type="button" className="flex items-center gap-1.5 border border-border bg-white text-muted-foreground hover:bg-slate-50 text-sm font-medium px-4 py-2 rounded-xl transition-colors">
             <Download className="h-3.5 w-3.5" /> Export VAT Report
           </button>
         </div>
@@ -46,8 +46,8 @@ export default async function VATPage() {
           {[
             { label: "Net VAT Due (Open)", value: formatCurrency(totalDue, "AED"), color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
             { label: "Output VAT (Collected)", value: formatCurrency(totalOutput, "AED"), color: "text-green-700", bg: "bg-white border-border" },
-            { label: "Input VAT (Reclaimable)", value: formatCurrency(totalInput, "AED"), color: "text-blue-600", bg: "bg-white border-border" },
-            { label: "Open Periods", value: openPeriods.length, color: "text-slate-800", bg: "bg-white border-border" },
+            { label: "Input VAT (Reclaimable)", value: formatCurrency(totalInput, "AED"), color: "text-primary", bg: "bg-white border-border" },
+            { label: "Open Periods", value: openPeriods.length, color: "text-foreground", bg: "bg-white border-border" },
           ].map(({ label, value, color, bg }) => (
             <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
               <p className={`text-xl font-bold ${color}`}>{value}</p>
@@ -91,11 +91,11 @@ export default async function VATPage() {
                     <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3 font-medium text-sm">{p.period}</td>
                       <td className="px-4 py-3">
-                        <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">{p.country}</span>
+                        <span className="text-xs bg-slate-100 text-muted-foreground px-2 py-0.5 rounded font-mono">{p.country}</span>
                       </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">{p.rate}%</td>
                       <td className="px-4 py-3 text-green-700 font-medium">{formatCurrency(p.outputVat, "AED")}</td>
-                      <td className="px-4 py-3 text-blue-600 font-medium">{formatCurrency(p.inputVat, "AED")}</td>
+                      <td className="px-4 py-3 text-primary font-medium">{formatCurrency(p.inputVat, "AED")}</td>
                       <td className="px-4 py-3 font-bold text-amber-700">{formatCurrency(p.netVatDue, "AED")}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{p.filingDeadline}</td>
                       <td className="px-4 py-3">
@@ -106,7 +106,7 @@ export default async function VATPage() {
                       <td className="px-4 py-3">
                         {p.status === "OPEN"
                           ? <button type="button" className="text-xs bg-slate-900 text-white px-2.5 py-1 rounded-lg hover:bg-slate-800 font-medium transition-colors">File Return</button>
-                          : <button type="button" className="text-xs text-blue-600 hover:underline font-medium">View Filing</button>}
+                          : <button type="button" className="text-xs text-primary hover:underline font-medium">View Filing</button>}
                       </td>
                     </tr>
                   );

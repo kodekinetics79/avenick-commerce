@@ -81,14 +81,14 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
 
   return (
     <MainLayout>
-      <div className="bg-slate-50 min-h-screen">
+      <div className="bg-secondary min-h-screen">
         <div className="max-w-7xl mx-auto px-4 py-8">
 
           {/* Breadcrumb */}
           <nav className="flex items-center gap-1.5 text-xs text-muted-foreground mb-6">
-            <Link href="/" className="hover:text-orange-600">Home</Link>
+            <Link href="/" className="hover:text-primary">Home</Link>
             <ChevronRight className="h-3 w-3" />
-            <Link href="/products" className="hover:text-orange-600">Products</Link>
+            <Link href="/products" className="hover:text-primary">Products</Link>
             <ChevronRight className="h-3 w-3" />
             <span className="text-foreground font-medium truncate max-w-[200px]">{String(p.nameEn)}</span>
           </nav>
@@ -115,7 +115,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                 <div className="flex gap-2 overflow-x-auto pb-1">
                   {images.map((img, i) => (
                     <button key={i} type="button" onClick={() => setActiveImage(i)}
-                      className={`w-16 h-16 shrink-0 rounded-xl overflow-hidden border-2 transition-all ${activeImage === i ? "border-orange-500" : "border-border hover:border-orange-300"}`}>
+                      className={`w-16 h-16 shrink-0 rounded-xl overflow-hidden border-2 transition-all ${activeImage === i ? "border-primary/100" : "border-border hover:border-primary/40"}`}>
                       <Image src={img.url} alt="" width={64} height={64} className="object-cover" />
                     </button>
                   ))}
@@ -146,7 +146,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                     ))}
                     <span className="text-sm font-semibold ms-1">{avgRating}</span>
                   </div>
-                  <button type="button" onClick={() => setTab("reviews")} className="text-sm text-blue-600 hover:underline">
+                  <button type="button" onClick={() => setTab("reviews")} className="text-sm text-primary hover:underline">
                     {MOCK_REVIEWS.length} reviews
                   </button>
                   <span className="text-muted-foreground text-sm">·</span>
@@ -163,23 +163,23 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
               </div>
 
               {/* Price section */}
-              <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4">
+              <div className="bg-primary/10 border border-primary/20 rounded-2xl p-4">
                 <div className="flex items-end gap-2 mb-1">
-                  <span className="text-3xl font-bold text-orange-600">{formatCurrency(displayPrice, "AED")}</span>
+                  <span className="text-3xl font-bold text-primary">{formatCurrency(displayPrice, "AED")}</span>
                   <span className="text-sm text-muted-foreground pb-1">+ {formatCurrency(vatPerUnit, "AED")} VAT/unit</span>
                 </div>
                 <p className="text-xs text-muted-foreground">Total with VAT: <strong>{formatCurrency(displayPrice * qty * 1.05, "AED")}</strong> for {qty} unit{qty !== 1 ? "s" : ""}</p>
 
                 {b2bPrices.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-orange-200">
-                    <p className="text-xs font-semibold text-orange-700 mb-2 flex items-center gap-1">
+                  <div className="mt-3 pt-3 border-t border-primary/30">
+                    <p className="text-xs font-semibold text-primary mb-2 flex items-center gap-1">
                       <Award className="h-3.5 w-3.5" /> B2B BULK PRICING
                     </p>
                     <div className="grid grid-cols-2 gap-1.5">
                       {b2bPrices.map((tier, i) => (
                         <div key={i} className="bg-white rounded-lg px-3 py-1.5 text-xs flex justify-between">
                           <span className="text-muted-foreground">{tier.minQty}+{tier.maxQty ? `–${tier.maxQty}` : ""} units</span>
-                          <span className="font-semibold text-orange-600">{formatCurrency(Number(tier.price), "AED")}</span>
+                          <span className="font-semibold text-primary">{formatCurrency(Number(tier.price), "AED")}</span>
                         </div>
                       ))}
                     </div>
@@ -206,7 +206,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { icon: ShieldCheck, label: "Verified Supplier", color: "text-green-600" },
-                  { icon: Truck, label: "Free 200+ AED", color: "text-blue-600" },
+                  { icon: Truck, label: "Free 200+ AED", color: "text-primary" },
                   { icon: RotateCcw, label: "14-day returns", color: "text-purple-600" },
                 ].map(({ icon: Icon, label, color }) => (
                   <div key={label} className="flex flex-col items-center gap-1 bg-white rounded-xl border border-border p-2.5 text-center">
@@ -235,7 +235,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                       <Badge variant={seller.tier === "VERIFIED" ? "success" : seller.tier === "GOLD" ? "warning" : "secondary"}>
                         {String(seller.tier)}
                       </Badge>
-                      <Link href={`/b2b/rfq/new?supplier=${String(seller.id ?? "")}`} className="flex items-center gap-1 text-xs text-blue-600 hover:underline mt-2">
+                      <Link href={`/b2b/rfq/new?supplier=${String(seller.id ?? "")}`} className="flex items-center gap-1 text-xs text-primary hover:underline mt-2">
                         <MessageSquare className="h-3 w-3" /> Request Quote
                       </Link>
                     </div>
@@ -250,7 +250,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
             <div className="flex border-b border-border overflow-x-auto">
               {TABS.map((t) => (
                 <button key={t.id} type="button" onClick={() => setTab(t.id)}
-                  className={`px-5 py-3.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${tab === t.id ? "border-orange-500 text-orange-600" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                  className={`px-5 py-3.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${tab === t.id ? "border-primary/100 text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
                   {t.label}
                 </button>
               ))}
@@ -288,7 +288,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                 <div className="space-y-4">
                   <div className="flex items-center gap-4 pb-4 border-b border-border">
                     <div className="text-center">
-                      <p className="text-4xl font-bold text-orange-600">{avgRating}</p>
+                      <p className="text-4xl font-bold text-primary">{avgRating}</p>
                       <div className="flex justify-center mt-1">
                         {[1,2,3,4,5].map((s) => <Star key={s} className={`h-4 w-4 ${s <= Math.round(avgRating) ? "text-amber-400 fill-current" : "text-gray-200 fill-current"}`} />)}
                       </div>
@@ -321,7 +321,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                     { icon: Award, title: "B2B Orders", desc: "Bulk orders may include special delivery terms. Contact your account manager." },
                   ].map(({ icon: Icon, title, desc }) => (
                     <div key={title} className="flex gap-3">
-                      <Icon className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
+                      <Icon className="h-5 w-5 text-primary/100 shrink-0 mt-0.5" />
                       <div><p className="font-medium text-foreground">{title}</p><p>{desc}</p></div>
                     </div>
                   ))}

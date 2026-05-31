@@ -15,7 +15,7 @@ const MOCK_SHIPMENTS = [
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Truck; border: string }> = {
   PENDING_PICKUP: { label: "Pending Pickup",   color: "bg-amber-100 text-amber-700",  icon: Clock,         border: "border-amber-200" },
-  IN_TRANSIT:     { label: "In Transit",       color: "bg-blue-100 text-blue-700",    icon: Truck,         border: "border-blue-200" },
+  IN_TRANSIT:     { label: "In Transit",       color: "bg-blue-100 text-primary",    icon: Truck,         border: "border-blue-200" },
   DELIVERED:      { label: "Delivered",        color: "bg-green-100 text-green-700",  icon: CheckCircle,   border: "border-green-200" },
   EXCEPTION:      { label: "Exception",        color: "bg-red-100 text-red-700",      icon: AlertTriangle, border: "border-red-200" },
 };
@@ -46,7 +46,7 @@ export default async function ShipmentsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Pending Pickup", value: pendingPickup, color: "text-amber-600", bg: "bg-amber-50 border-amber-200", icon: Clock },
-            { label: "In Transit",     value: inTransit,     color: "text-blue-600",  bg: "bg-blue-50 border-blue-200",   icon: Truck },
+            { label: "In Transit",     value: inTransit,     color: "text-primary",  bg: "bg-blue-50 border-blue-200",   icon: Truck },
             { label: "Delivered",      value: delivered,     color: "text-green-600", bg: "bg-green-50 border-green-200", icon: CheckCircle },
             { label: "Exceptions",     value: exceptions,    color: "text-red-600",   bg: "bg-red-50 border-red-200",     icon: AlertTriangle },
           ].map(({ label, value, color, bg, icon: Icon }) => (
@@ -79,7 +79,7 @@ export default async function ShipmentsPage() {
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div>
                     <div className="flex items-center gap-2 mb-0.5">
-                      <p className="font-mono text-xs font-semibold text-slate-600">{s.orderNumber}</p>
+                      <p className="font-mono text-xs font-semibold text-muted-foreground">{s.orderNumber}</p>
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}>
                         <StatusIcon className="h-3 w-3" /> {sc.label}
                       </span>
@@ -97,7 +97,7 @@ export default async function ShipmentsPage() {
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Tracking #</p>
-                    <p className="font-mono text-xs font-semibold text-blue-600">{s.trackingNumber}</p>
+                    <p className="font-mono text-xs font-semibold text-primary">{s.trackingNumber}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Shipped</p>
@@ -117,7 +117,7 @@ export default async function ShipmentsPage() {
                     <span>{s.destination}</span>
                   </div>
                   <div className="flex gap-2">
-                    <button type="button" className="text-xs text-blue-600 hover:underline font-medium">Track</button>
+                    <button type="button" className="text-xs text-primary hover:underline font-medium">Track</button>
                     {s.status === "PENDING_PICKUP" && (
                       <button type="button" className="text-xs bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 transition-colors font-medium">Mark Shipped</button>
                     )}

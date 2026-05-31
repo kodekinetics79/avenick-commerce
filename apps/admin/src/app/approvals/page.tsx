@@ -23,7 +23,7 @@ export default async function ApprovalsPage() {
   }).catch(() => []);
 
   const queues = [
-    { label: "Product Listings", count: pendingProducts, icon: Package, href: "/products", color: "bg-blue-100 text-blue-600" },
+    { label: "Product Listings", count: pendingProducts, icon: Package, href: "/products", color: "bg-blue-100 text-primary" },
     { label: "Supplier Applications", count: pendingSellers, icon: Store, href: "/sellers/pending", color: "bg-purple-100 text-purple-600" },
     { label: "Compliance Documents", count: pendingDocs, icon: FileCheck, href: "/compliance", color: "bg-amber-100 text-amber-600" },
   ];

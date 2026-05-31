@@ -93,7 +93,7 @@ export default async function OnboardingPage() {
                   ) : step.status === "IN_PROGRESS" ? (
                     <Icon className="h-5 w-5 text-orange-600" />
                   ) : (
-                    <Circle className="h-5 w-5 text-gray-400" />
+                    <Circle className="h-5 w-5 text-muted-foreground" />
                   )}
                 </div>
                 <div className="flex-1">
@@ -102,7 +102,7 @@ export default async function OnboardingPage() {
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                       step.status === "COMPLETE" ? "bg-green-100 text-green-700" :
                       step.status === "IN_PROGRESS" ? "bg-orange-100 text-orange-700" :
-                      "bg-gray-100 text-gray-500"
+                      "bg-gray-100 text-muted-foreground"
                     }`}>
                       {step.status === "COMPLETE" ? "Complete" : step.status === "IN_PROGRESS" ? "In Progress" : "Pending"}
                     </span>

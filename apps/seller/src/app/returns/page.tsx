@@ -33,9 +33,9 @@ export default async function SellerReturnsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Action Needed", value: pending, color: "text-amber-600", bg: pending > 0 ? "bg-amber-50 border-amber-200" : "bg-white border-border" },
-            { label: "Total Returns", value: RETURNS.length, color: "text-slate-800", bg: "bg-white border-border" },
+            { label: "Total Returns", value: RETURNS.length, color: "text-foreground", bg: "bg-white border-border" },
             { label: "Return Rate", value: "2.1%", color: "text-green-600", bg: "bg-green-50 border-green-200" },
-            { label: "Avg Resolution", value: "1.8d", color: "text-blue-600", bg: "bg-blue-50 border-blue-200" },
+            { label: "Avg Resolution", value: "1.8d", color: "text-primary", bg: "bg-blue-50 border-blue-200" },
           ].map((s) => (
             <div key={s.label} className={`rounded-2xl border p-4 ${s.bg}`}>
               <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
@@ -65,7 +65,7 @@ export default async function SellerReturnsPage() {
                   const StatusIcon = sc.icon;
                   return (
                     <tr key={r.id} className={`hover:bg-secondary/40 transition-colors ${r.status === "PENDING" ? "bg-amber-50/30" : ""}`}>
-                      <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{r.ref}</td>
+                      <td className="px-4 py-3 font-mono text-xs font-semibold text-muted-foreground">{r.ref}</td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{r.order}</td>
                       <td className="px-4 py-3 font-medium">{r.buyer}</td>
                       <td className="px-4 py-3 text-muted-foreground max-w-[160px] truncate">{r.item}</td>

@@ -54,7 +54,7 @@ export default async function SettingsPage() {
             <h1 className="text-2xl font-bold">Marketplace Settings</h1>
             <p className="text-muted-foreground text-sm">Platform configuration and system health</p>
           </div>
-          <Link href="/audit" className="flex items-center gap-1.5 text-sm border border-border bg-white text-slate-700 hover:bg-slate-50 px-3 py-2 rounded-xl font-medium transition-colors">
+          <Link href="/audit" className="flex items-center gap-1.5 text-sm border border-border bg-white text-muted-foreground hover:bg-slate-50 px-3 py-2 rounded-xl font-medium transition-colors">
             <Activity className="h-3.5 w-3.5" /> Audit Trail
           </Link>
         </div>
@@ -63,7 +63,7 @@ export default async function SettingsPage() {
         <div className="bg-white rounded-2xl border border-border overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Server className="h-4 w-4 text-slate-500" />
+              <Server className="h-4 w-4 text-muted-foreground" />
               <h2 className="font-semibold">System Health</h2>
             </div>
             <div className="flex items-center gap-2">
@@ -77,9 +77,9 @@ export default async function SettingsPage() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-5 border-b border-border">
             {[
               { label: "Uptime (30d)", value: `${h.uptime}%`, color: "text-green-600" },
-              { label: "Avg Response", value: `${h.avgResponseMs}ms`, color: "text-blue-600" },
+              { label: "Avg Response", value: `${h.avgResponseMs}ms`, color: "text-primary" },
               { label: "API Status", value: STATUS_CONFIG[h.apiStatus]?.label ?? h.apiStatus, color: STATUS_CONFIG[h.apiStatus]?.color ?? "" },
-              { label: "Last Deploy", value: h.lastDeployment.split(" ")[0], color: "text-slate-800" },
+              { label: "Last Deploy", value: h.lastDeployment.split(" ")[0], color: "text-foreground" },
             ].map(({ label, value, color }) => (
               <div key={label} className="bg-slate-50 rounded-xl p-3">
                 <p className={`text-lg font-bold ${color}`}>{value}</p>
@@ -117,10 +117,10 @@ export default async function SettingsPage() {
               <div key={group.group} className="bg-white rounded-2xl border border-border overflow-hidden">
                 <div className="px-5 py-4 border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4 text-slate-500" />
+                    <Icon className="h-4 w-4 text-muted-foreground" />
                     <h2 className="font-semibold">{group.group}</h2>
                   </div>
-                  <button type="button" className="text-xs text-blue-600 hover:underline font-medium">Edit</button>
+                  <button type="button" className="text-xs text-primary hover:underline font-medium">Edit</button>
                 </div>
                 <div className="divide-y divide-border">
                   {group.items.map((item) => (
@@ -139,7 +139,7 @@ export default async function SettingsPage() {
         <div className="bg-slate-50 border border-border rounded-2xl p-4 flex items-center gap-3">
           <Settings className="h-5 w-5 text-muted-foreground shrink-0" />
           <p className="text-sm text-muted-foreground">
-            Changes to marketplace settings are logged in the <Link href="/audit" className="text-blue-600 hover:underline font-medium">audit trail</Link> and may require Super Admin approval.
+            Changes to marketplace settings are logged in the <Link href="/audit" className="text-primary hover:underline font-medium">audit trail</Link> and may require Super Admin approval.
           </p>
         </div>
       </div>

@@ -9,7 +9,7 @@ export const metadata = { title: "Settlements" };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
   PENDING:    { label: "Pending",    color: "bg-amber-100 text-amber-700",  icon: Clock },
-  PROCESSING: { label: "Processing", color: "bg-blue-100 text-blue-700",    icon: RefreshCw },
+  PROCESSING: { label: "Processing", color: "bg-blue-100 text-primary",    icon: RefreshCw },
   PAID:       { label: "Paid",       color: "bg-green-100 text-green-700",  icon: CheckCircle },
 };
 
@@ -50,9 +50,9 @@ export default async function SettlementsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Pending Payout", value: formatCurrency(pendingPayout, "AED"), color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
-            { label: "Gross Sales (GMV)", value: formatCurrency(totalGross, "AED"), color: "text-slate-800", bg: "bg-white border-border" },
+            { label: "Gross Sales (GMV)", value: formatCurrency(totalGross, "AED"), color: "text-foreground", bg: "bg-white border-border" },
             { label: "Commission Earned", value: formatCurrency(totalCommission, "AED"), color: "text-green-700", bg: "bg-green-50 border-green-200" },
-            { label: "Pending Sellers", value: pending.length, color: "text-blue-600", bg: "bg-blue-50 border-blue-200" },
+            { label: "Pending Sellers", value: pending.length, color: "text-primary", bg: "bg-blue-50 border-blue-200" },
           ].map(({ label, value, color, bg }) => (
             <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
               <p className={`text-xl font-bold ${color}`}>{value}</p>
@@ -91,7 +91,7 @@ export default async function SettlementsPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                            <Store className="h-3.5 w-3.5 text-slate-500" />
+                            <Store className="h-3.5 w-3.5 text-muted-foreground" />
                           </div>
                           <p className="font-medium text-sm">{s.seller}</p>
                         </div>
@@ -112,8 +112,8 @@ export default async function SettlementsPage() {
                       </td>
                       <td className="px-4 py-3">
                         {s.status === "PENDING" && <button type="button" className="text-xs bg-green-600 text-white px-2.5 py-1 rounded-lg hover:bg-green-700 font-medium transition-colors">Pay Now</button>}
-                        {s.status === "PROCESSING" && <span className="text-xs text-blue-600 font-medium">In progress…</span>}
-                        {s.status === "PAID" && <button type="button" className="text-xs text-blue-600 hover:underline font-medium">Statement</button>}
+                        {s.status === "PROCESSING" && <span className="text-xs text-primary font-medium">In progress…</span>}
+                        {s.status === "PAID" && <button type="button" className="text-xs text-primary hover:underline font-medium">Statement</button>}
                       </td>
                     </tr>
                   );

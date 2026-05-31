@@ -15,7 +15,7 @@ const SHIPMENTS = [
 
 const STATUS: Record<string, { label: string; color: string; icon: typeof Truck }> = {
   PENDING_PICKUP: { label: "Pending Pickup", color: "bg-amber-100 text-amber-700", icon: Clock },
-  IN_TRANSIT:     { label: "In Transit",     color: "bg-blue-100 text-blue-700",   icon: Truck },
+  IN_TRANSIT:     { label: "In Transit",     color: "bg-blue-100 text-primary",   icon: Truck },
   DELIVERED:      { label: "Delivered",      color: "bg-green-100 text-green-700", icon: CheckCircle },
   EXCEPTION:      { label: "Exception",      color: "bg-red-100 text-red-700",     icon: AlertTriangle },
 };
@@ -41,9 +41,9 @@ export default async function ShipmentsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Pending Pickup", value: SHIPMENTS.filter((s) => s.status === "PENDING_PICKUP").length, color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
-            { label: "In Transit", value: inTransit, color: "text-blue-600", bg: "bg-blue-50 border-blue-200" },
+            { label: "In Transit", value: inTransit, color: "text-primary", bg: "bg-blue-50 border-blue-200" },
             { label: "Delivered", value: SHIPMENTS.filter((s) => s.status === "DELIVERED").length, color: "text-green-600", bg: "bg-white border-border" },
-            { label: "Exceptions", value: exceptions, color: exceptions > 0 ? "text-red-600" : "text-slate-500", bg: exceptions > 0 ? "bg-red-50 border-red-200" : "bg-white border-border" },
+            { label: "Exceptions", value: exceptions, color: exceptions > 0 ? "text-red-600" : "text-muted-foreground", bg: exceptions > 0 ? "bg-red-50 border-red-200" : "bg-white border-border" },
           ].map((s) => (
             <div key={s.label} className={`rounded-2xl border p-4 ${s.bg}`}>
               <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
@@ -73,7 +73,7 @@ export default async function ShipmentsPage() {
                   const StatusIcon = sc.icon;
                   return (
                     <tr key={s.id} className={`hover:bg-secondary/40 transition-colors ${s.status === "EXCEPTION" ? "bg-red-50/30" : ""}`}>
-                      <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{s.order}</td>
+                      <td className="px-4 py-3 font-mono text-xs font-semibold text-muted-foreground">{s.order}</td>
                       <td className="px-4 py-3 font-medium">{s.supplier}</td>
                       <td className="px-4 py-3 text-muted-foreground">{s.buyer}</td>
                       <td className="px-4 py-3"><p className="text-xs">{s.carrier}</p><p className="font-mono text-xs text-muted-foreground">{s.tracking}</p></td>

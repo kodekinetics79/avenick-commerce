@@ -25,7 +25,7 @@ export default async function SellersPage({ searchParams }: { searchParams: { st
   };
   const TIER_COLORS: Record<string, string> = {
     PLATINUM: "bg-purple-100 text-purple-700", GOLD: "bg-yellow-100 text-yellow-700",
-    VERIFIED: "bg-blue-100 text-blue-700", STANDARD: "bg-gray-100 text-gray-600",
+    VERIFIED: "bg-blue-100 text-primary", STANDARD: "bg-gray-100 text-gray-600",
   };
 
   return (
@@ -36,7 +36,7 @@ export default async function SellersPage({ searchParams }: { searchParams: { st
           <div className="flex gap-2">
             {[undefined, "PENDING_REVIEW", "ACTIVE", "SUSPENDED"].map((s) => (
               <Link key={s ?? "all"} href={s ? `/sellers?status=${s}` : "/sellers"}
-                className={`text-xs px-3 py-1.5 rounded-lg border ${searchParams.status === s || (!searchParams.status && !s) ? "bg-blue-600 text-white border-blue-600" : "border-border hover:bg-muted"}`}>
+                className={`text-xs px-3 py-1.5 rounded-lg border ${searchParams.status === s || (!searchParams.status && !s) ? "bg-primary text-white border-primary" : "border-border hover:bg-muted"}`}>
                 {s ? s.replace(/_/g, " ") : "All"}
               </Link>
             ))}
@@ -78,7 +78,7 @@ export default async function SellersPage({ searchParams }: { searchParams: { st
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{format(s.createdAt, "MMM d, yyyy")}</td>
                       <td className="px-4 py-3">
-                        <Link href={`/sellers/${s.id}`} className="text-xs text-blue-600 hover:underline">View</Link>
+                        <Link href={`/sellers/${s.id}`} className="text-xs text-primary hover:underline">View</Link>
                       </td>
                     </tr>
                   );

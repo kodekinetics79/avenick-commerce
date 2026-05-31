@@ -11,7 +11,7 @@ export const metadata = { title: "Order Detail" };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   PENDING_PAYMENT:  { label: "Pending Payment",  color: "bg-gray-100 text-gray-600" },
-  CONFIRMED:        { label: "Confirmed",         color: "bg-blue-100 text-blue-700" },
+  CONFIRMED:        { label: "Confirmed",         color: "bg-blue-100 text-primary" },
   PROCESSING:       { label: "Processing",        color: "bg-purple-100 text-purple-700" },
   READY_FOR_PICKUP: { label: "Ready for Pickup",  color: "bg-amber-100 text-amber-700" },
   SHIPPED:          { label: "Shipped",           color: "bg-cyan-100 text-cyan-700" },
@@ -65,7 +65,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
               <div className="flex items-center gap-2 mb-1">
                 <h1 className="text-xl font-bold">{order.orderNumber}</h1>
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}>{sc.label}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${order.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>{order.type}</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${order.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-primary"}`}>{order.type}</span>
               </div>
               <p className="text-sm text-muted-foreground">Placed {format(order.createdAt, "MMM d, yyyy 'at' h:mm a")}</p>
             </div>
@@ -124,14 +124,14 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                     <div key={step.status} className="flex gap-4">
                       <div className="flex flex-col items-center">
                         <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${isReached ? "bg-green-500" : isCurrent ? "bg-blue-500 ring-4 ring-blue-100" : "bg-slate-100"}`}>
-                          <Icon className={`h-4 w-4 ${isReached || isCurrent ? "text-white" : "text-slate-400"}`} />
+                          <Icon className={`h-4 w-4 ${isReached || isCurrent ? "text-white" : "text-muted-foreground"}`} />
                         </div>
                         {!isLast && <div className={`w-0.5 h-10 my-0.5 ${isReached ? "bg-green-300" : "bg-slate-100"}`} />}
                       </div>
                       <div className={`pb-8 flex-1 ${isLast ? "pb-0" : ""}`}>
                         <p className={`font-semibold text-sm ${!isReached && !isCurrent ? "text-muted-foreground" : ""}`}>
                           {step.label}
-                          {isCurrent && <span className="ms-2 text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full font-bold">CURRENT</span>}
+                          {isCurrent && <span className="ms-2 text-[10px] bg-blue-100 text-primary px-1.5 py-0.5 rounded-full font-bold">CURRENT</span>}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5">
                           {entry ? `${format(entry.createdAt, "MMM d, h:mm a")} · ${entry.message ?? "Status updated"}` : !isReached ? "Pending" : ""}
@@ -176,7 +176,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
             {/* Customer */}
             <div className="bg-white rounded-2xl border border-border p-4">
               <div className="flex items-center gap-2 mb-3">
-                <User className="h-4 w-4 text-slate-500" />
+                <User className="h-4 w-4 text-muted-foreground" />
                 <h3 className="font-semibold text-sm">Customer</h3>
               </div>
               <p className="font-medium text-sm">{order.user.firstName} {order.user.lastName}</p>
@@ -192,7 +192,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
             {/* Shipping address */}
             <div className="bg-white rounded-2xl border border-border p-4">
               <div className="flex items-center gap-2 mb-3">
-                <MapPin className="h-4 w-4 text-slate-500" />
+                <MapPin className="h-4 w-4 text-muted-foreground" />
                 <h3 className="font-semibold text-sm">Delivery Address</h3>
               </div>
               {order.shippingAddress && typeof order.shippingAddress === "object" ? (

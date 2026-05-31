@@ -19,7 +19,7 @@ const AGING_INVENTORY = [
 ];
 
 const QUICK_STATS = [
-  { label: "Inbound Shipments",  value: MOCK_WAREHOUSE_DATA.inboundShipments, icon: Truck,          color: "text-blue-600",   bg: "bg-blue-50 border-blue-200",   href: "/warehouse/inbound" },
+  { label: "Inbound Shipments",  value: MOCK_WAREHOUSE_DATA.inboundShipments, icon: Truck,          color: "text-primary",   bg: "bg-blue-50 border-blue-200",   href: "/warehouse/inbound" },
   { label: "Pending Dispatch",   value: MOCK_WAREHOUSE_DATA.pendingDispatch,   icon: Clock,          color: "text-amber-600",  bg: "bg-amber-50 border-amber-200", href: "/warehouse/pickpack" },
   { label: "Low Stock SKUs",     value: MOCK_WAREHOUSE_DATA.lowStockAlerts.length, icon: AlertTriangle, color: "text-red-600", bg: "bg-red-50 border-red-200",    href: "/warehouse/stock?filter=low" },
   { label: "Total SKUs Tracked", value: 847,                                   icon: Boxes,          color: "text-purple-600", bg: "bg-white border-border",       href: "/warehouse/stock" },
@@ -43,7 +43,7 @@ export default async function WarehousePage() {
             <Link href="/warehouse/inbound" className="flex items-center gap-1.5 text-sm bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl font-semibold transition-colors">
               <ArrowDownToLine className="h-3.5 w-3.5" /> Receive Goods
             </Link>
-            <Link href="/warehouse/pickpack" className="flex items-center gap-1.5 text-sm border border-border bg-white text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-xl font-medium transition-colors">
+            <Link href="/warehouse/pickpack" className="flex items-center gap-1.5 text-sm border border-border bg-white text-muted-foreground hover:bg-slate-50 px-4 py-2 rounded-xl font-medium transition-colors">
               <PackageCheck className="h-3.5 w-3.5" /> Pick/Pack
             </Link>
           </div>
@@ -97,7 +97,7 @@ export default async function WarehousePage() {
                         <p className="font-semibold text-sm">{wh.name}</p>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-xs text-muted-foreground">{wh.city}, {wh.country}</span>
-                          <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono">{wh.type}</span>
+                          <span className="text-xs bg-slate-100 text-muted-foreground px-1.5 py-0.5 rounded font-mono">{wh.type}</span>
                         </div>
                       </div>
                       <span className={`text-sm font-bold ${textColor}`}>{pct}%</span>
@@ -124,7 +124,7 @@ export default async function WarehousePage() {
                 <BarChart2 className="h-4 w-4 text-blue-500" />
                 <h2 className="font-semibold">Stock by Category</h2>
               </div>
-              <Link href="/warehouse/stock" className="text-xs text-blue-600 hover:underline font-medium">View All →</Link>
+              <Link href="/warehouse/stock" className="text-xs text-primary hover:underline font-medium">View All →</Link>
             </div>
             <div className="p-5 space-y-4">
               {data.stockByCategory.map((cat) => {
@@ -151,7 +151,7 @@ export default async function WarehousePage() {
             </div>
             <div className="px-5 py-3 border-t border-border bg-slate-50">
               <p className="text-xs text-muted-foreground">
-                Total stock value: <strong className="text-slate-800">AED {(data.stockByCategory.reduce((s,c) => s+c.value, 0) / 1000).toFixed(0)}k</strong>
+                Total stock value: <strong className="text-foreground">AED {(data.stockByCategory.reduce((s,c) => s+c.value, 0) / 1000).toFixed(0)}k</strong>
               </p>
             </div>
           </div>
@@ -165,7 +165,7 @@ export default async function WarehousePage() {
               <h2 className="font-semibold">Aging Inventory</h2>
               <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">Review recommended</span>
             </div>
-            <Link href="/warehouse/stock?filter=aging" className="text-xs text-blue-600 hover:underline font-medium">View All →</Link>
+            <Link href="/warehouse/stock?filter=aging" className="text-xs text-primary hover:underline font-medium">View All →</Link>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -179,18 +179,18 @@ export default async function WarehousePage() {
               <tbody className="divide-y divide-border">
                 {AGING_INVENTORY.map((item) => (
                   <tr key={item.sku} className="hover:bg-slate-50">
-                    <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{item.sku}</td>
+                    <td className="px-4 py-3 font-mono text-xs font-semibold text-muted-foreground">{item.sku}</td>
                     <td className="px-4 py-3 font-medium text-sm">{item.product}</td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{item.warehouse}</td>
                     <td className="px-4 py-3">
-                      <span className={`text-sm font-bold ${item.daysInStock > 90 ? "text-red-600" : item.daysInStock > 60 ? "text-amber-600" : "text-slate-800"}`}>
+                      <span className={`text-sm font-bold ${item.daysInStock > 90 ? "text-red-600" : item.daysInStock > 60 ? "text-amber-600" : "text-foreground"}`}>
                         {item.daysInStock}d
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm font-medium">{item.qty}</td>
                     <td className="px-4 py-3 text-sm font-medium">AED {item.value.toLocaleString()}</td>
                     <td className="px-4 py-3">
-                      <button type="button" className="text-xs text-blue-600 hover:underline font-medium">Mark for Clearance</button>
+                      <button type="button" className="text-xs text-primary hover:underline font-medium">Mark for Clearance</button>
                     </td>
                   </tr>
                 ))}
@@ -202,7 +202,7 @@ export default async function WarehousePage() {
         {/* Quick nav */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { href: "/warehouse/inbound",  label: "Inbound Goods",  icon: ArrowDownToLine, color: "text-blue-600",   bg: "hover:bg-blue-50 hover:border-blue-300" },
+            { href: "/warehouse/inbound",  label: "Inbound Goods",  icon: ArrowDownToLine, color: "text-primary",   bg: "hover:bg-blue-50 hover:border-blue-300" },
             { href: "/warehouse/stock",    label: "Stock Manager",  icon: Boxes,           color: "text-purple-600", bg: "hover:bg-purple-50 hover:border-purple-300" },
             { href: "/warehouse/pickpack", label: "Pick / Pack",    icon: PackageCheck,    color: "text-green-600",  bg: "hover:bg-green-50 hover:border-green-300" },
             { href: "/warehouse/pickpack?tab=dispatch", label: "Dispatch Queue", icon: Truck, color: "text-cyan-600", bg: "hover:bg-cyan-50 hover:border-cyan-300" },

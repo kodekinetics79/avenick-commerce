@@ -12,14 +12,14 @@ const INSIGHTS = {
     {
       icon: TrendingUp,
       iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
+      iconColor: "text-primary",
       title: "Price Optimization Opportunity",
       description: "3 high-volume SKUs are priced 10–18% above market average based on competitor analysis. Adjusting prices could recover an estimated AED 8,200 monthly in lost conversions.",
       confidence: 91,
       action: "View Products",
       href: "/products",
       tag: "Revenue",
-      tagColor: "bg-blue-100 text-blue-700",
+      tagColor: "bg-blue-100 text-primary",
     },
     {
       icon: BarChart2,
@@ -86,14 +86,14 @@ const INSIGHTS = {
     {
       icon: TrendingUp,
       iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
+      iconColor: "text-primary",
       title: "Credit Limit Upgrade Opportunity",
       description: "12 B2B accounts have consistently utilized >80% of their credit limit without any payment delays. Proactively offering a limit increase may grow their order frequency.",
       confidence: 82,
       action: "View Companies",
       href: "/companies",
       tag: "Finance",
-      tagColor: "bg-blue-100 text-blue-700",
+      tagColor: "bg-blue-100 text-primary",
     },
     {
       icon: BarChart2,
@@ -191,7 +191,7 @@ const RECOMMENDED_ACTIONS = [
   { priority: "P1", label: "Renew expiring compliance docs before 14-day deadline", color: "bg-red-100 text-red-700 border-red-200", href: "/compliance" },
   { priority: "P2", label: "Run reactivation campaign for 5 inactive VIP B2B accounts", color: "bg-amber-100 text-amber-700 border-amber-200", href: "/crm" },
   { priority: "P2", label: "Replenish SKU-PPE-0042 — 3 days stock remaining", color: "bg-amber-100 text-amber-700 border-amber-200", href: "/warehouse" },
-  { priority: "P3", label: "Adjust pricing on 3 overpriced SKUs to improve conversion", color: "bg-blue-100 text-blue-700 border-blue-200", href: "/products" },
+  { priority: "P3", label: "Adjust pricing on 3 overpriced SKUs to improve conversion", color: "bg-blue-100 text-primary border-blue-200", href: "/products" },
 ];
 
 export default async function AIInsightsPage() {
@@ -221,39 +221,39 @@ export default async function AIInsightsPage() {
             {(Object.keys(INSIGHTS) as Array<keyof typeof INSIGHTS>).map((tab) => (
               <div key={tab}>
                 <div className="flex items-center gap-2 mb-3">
-                  <h2 className="font-semibold text-slate-700">{tab} Insights</h2>
-                  <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{INSIGHTS[tab].length} signals</span>
+                  <h2 className="font-semibold text-muted-foreground">{tab} Insights</h2>
+                  <span className="text-xs bg-slate-100 text-muted-foreground px-2 py-0.5 rounded-full">{INSIGHTS[tab].length} signals</span>
                 </div>
                 <div className="space-y-3">
                   {INSIGHTS[tab].map((insight, idx) => {
                     const Icon = insight.icon;
                     return (
-                      <div key={idx} className="bg-white rounded-2xl border border-slate-200 p-4 hover:shadow-sm transition-shadow">
+                      <div key={idx} className="bg-white rounded-2xl border border-border p-4 hover:shadow-sm transition-shadow">
                         <div className="flex items-start gap-3">
                           <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center shrink-0", insight.iconBg)}>
                             <Icon className={cn("h-4 w-4", insight.iconColor)} />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <h3 className="font-semibold text-sm text-slate-800">{insight.title}</h3>
+                              <h3 className="font-semibold text-sm text-foreground">{insight.title}</h3>
                               <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", insight.tagColor)}>{insight.tag}</span>
                             </div>
-                            <p className="text-xs text-slate-500 mb-3 leading-relaxed">{insight.description}</p>
+                            <p className="text-xs text-muted-foreground mb-3 leading-relaxed">{insight.description}</p>
                             <div className="flex items-center justify-between gap-3">
                               <div className="flex items-center gap-2 flex-1">
-                                <span className="text-xs text-slate-400">Confidence</span>
+                                <span className="text-xs text-muted-foreground">Confidence</span>
                                 <div className="flex gap-0.5 flex-1 max-w-[120px] h-1.5">
                                   {Array.from({ length: 10 }).map((_, i) => (
                                     <div key={i} className={cn("flex-1 rounded-full", i < Math.round(insight.confidence / 10) ? (insight.confidence >= 90 ? "bg-green-500" : insight.confidence >= 75 ? "bg-amber-500" : "bg-blue-500") : "bg-slate-100")} />
                                   ))}
                                 </div>
-                                <span className={cn("text-xs font-semibold", insight.confidence >= 90 ? "text-green-600" : insight.confidence >= 75 ? "text-amber-600" : "text-blue-600")}>
+                                <span className={cn("text-xs font-semibold", insight.confidence >= 90 ? "text-green-600" : insight.confidence >= 75 ? "text-amber-600" : "text-primary")}>
                                   {insight.confidence}%
                                 </span>
                               </div>
                               <Link
                                 href={insight.href}
-                                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium whitespace-nowrap"
+                                className="flex items-center gap-1 text-xs text-primary hover:text-blue-800 font-medium whitespace-nowrap"
                               >
                                 {insight.action} <ArrowRight className="h-3 w-3" />
                               </Link>
@@ -270,13 +270,13 @@ export default async function AIInsightsPage() {
 
           {/* Recommended Actions Panel */}
           <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden sticky top-4">
+            <div className="bg-white rounded-2xl border border-border overflow-hidden sticky top-4">
               <div className="px-5 py-4 border-b border-slate-100 bg-gradient-to-r from-slate-800 to-slate-700">
                 <div className="flex items-center gap-2">
                   <Zap className="h-4 w-4 text-amber-400" />
                   <h2 className="font-semibold text-white text-sm">Recommended Actions</h2>
                 </div>
-                <p className="text-slate-400 text-xs mt-0.5">AI-prioritized next steps</p>
+                <p className="text-muted-foreground text-xs mt-0.5">AI-prioritized next steps</p>
               </div>
               <div className="divide-y divide-slate-100">
                 {RECOMMENDED_ACTIONS.map((action, idx) => (
@@ -284,13 +284,13 @@ export default async function AIInsightsPage() {
                     <span className={cn("shrink-0 text-xs font-bold px-1.5 py-0.5 rounded border font-mono", action.color)}>
                       {action.priority}
                     </span>
-                    <p className="text-sm text-slate-600 group-hover:text-slate-800 leading-snug flex-1">{action.label}</p>
+                    <p className="text-sm text-muted-foreground group-hover:text-foreground leading-snug flex-1">{action.label}</p>
                     <ArrowRight className="h-3.5 w-3.5 text-slate-300 group-hover:text-blue-500 shrink-0 mt-0.5 transition-colors" />
                   </Link>
                 ))}
               </div>
               <div className="px-4 py-3 bg-slate-50 border-t border-slate-100">
-                <p className="text-xs text-slate-400">Actions generated from live platform data. Dismiss or snooze from action menu.</p>
+                <p className="text-xs text-muted-foreground">Actions generated from live platform data. Dismiss or snooze from action menu.</p>
               </div>
             </div>
 

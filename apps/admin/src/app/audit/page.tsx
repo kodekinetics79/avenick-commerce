@@ -11,15 +11,15 @@ const CATEGORY_CONFIG: Record<string, { color: string; icon: typeof Shield }> = 
   DISPUTE:     { color: "bg-purple-100 text-purple-700", icon: Scale },
   PRODUCT:     { color: "bg-cyan-100 text-cyan-700",     icon: Package },
   FINANCE:     { color: "bg-green-100 text-green-700",   icon: DollarSign },
-  USER:        { color: "bg-blue-100 text-blue-700",     icon: User },
+  USER:        { color: "bg-blue-100 text-primary",     icon: User },
   SECURITY:    { color: "bg-red-100 text-red-700",       icon: Lock },
-  INTEGRATION: { color: "bg-slate-100 text-slate-600",   icon: Plug },
+  INTEGRATION: { color: "bg-slate-100 text-muted-foreground",   icon: Plug },
   SUPPORT:     { color: "bg-amber-100 text-amber-700",   icon: LifeBuoy },
   AUTOMATION:  { color: "bg-indigo-100 text-indigo-700", icon: Zap },
 };
 
 const ACTION_COLOR: Record<string, string> = {
-  APPROVED: "text-green-600", UPDATED: "text-blue-600", RESOLVED: "text-green-600",
+  APPROVED: "text-green-600", UPDATED: "text-primary", RESOLVED: "text-green-600",
   REJECTED: "text-red-600", PROCESSED: "text-green-600", SUSPENDED: "text-red-600",
   AUTO_FLAGGED: "text-amber-600", ESCALATED: "text-amber-600", CREATED: "text-purple-600",
 };
@@ -39,7 +39,7 @@ export default async function AuditPage() {
             <h1 className="text-2xl font-bold">Audit Trail</h1>
             <p className="text-muted-foreground text-sm">Immutable log of all administrative and system actions</p>
           </div>
-          <button type="button" className="flex items-center gap-1.5 border border-border bg-white text-slate-700 hover:bg-slate-50 text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+          <button type="button" className="flex items-center gap-1.5 border border-border bg-white text-muted-foreground hover:bg-slate-50 text-sm font-medium px-4 py-2 rounded-xl transition-colors">
             <Download className="h-3.5 w-3.5" /> Export Log
           </button>
         </div>
@@ -47,8 +47,8 @@ export default async function AuditPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Events (24h)", value: logs.length, color: "text-slate-800" },
-            { label: "Admin Actions", value: logs.filter(l => l.role !== "SYSTEM").length, color: "text-blue-600" },
+            { label: "Events (24h)", value: logs.length, color: "text-foreground" },
+            { label: "Admin Actions", value: logs.filter(l => l.role !== "SYSTEM").length, color: "text-primary" },
             { label: "System Events", value: logs.filter(l => l.role === "SYSTEM").length, color: "text-purple-600" },
             { label: "Security Flags", value: logs.filter(l => l.category === "SECURITY").length, color: "text-red-600" },
           ].map(({ label, value, color }) => (
@@ -62,9 +62,9 @@ export default async function AuditPage() {
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex items-center gap-2 bg-white border border-border rounded-xl px-3 py-2 flex-1">
-            <Search className="h-4 w-4 text-slate-400 shrink-0" />
+            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
             <input type="text" placeholder="Search by actor, action, or target..."
-              className="flex-1 text-sm text-slate-600 placeholder:text-slate-400 outline-none bg-transparent" />
+              className="flex-1 text-sm text-muted-foreground placeholder:text-muted-foreground outline-none bg-transparent" />
           </div>
           <div className="flex gap-1.5 overflow-x-auto">
             {TABS.map((tab) => (
@@ -89,7 +89,7 @@ export default async function AuditPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {logs.map((log) => {
-                  const cc = CATEGORY_CONFIG[log.category] ?? { color: "bg-slate-100 text-slate-600", icon: ScrollText };
+                  const cc = CATEGORY_CONFIG[log.category] ?? { color: "bg-slate-100 text-muted-foreground", icon: ScrollText };
                   const CatIcon = cc.icon;
                   return (
                     <tr key={log.id} className={`hover:bg-slate-50 transition-colors ${log.category === "SECURITY" ? "bg-red-50/30" : ""}`}>
@@ -99,7 +99,7 @@ export default async function AuditPage() {
                         <p className="text-xs text-muted-foreground">{log.role}</p>
                       </td>
                       <td className="px-5 py-3">
-                        <span className={`text-xs font-bold ${ACTION_COLOR[log.action] ?? "text-slate-600"}`}>{log.action.replace(/_/g, " ")}</span>
+                        <span className={`text-xs font-bold ${ACTION_COLOR[log.action] ?? "text-muted-foreground"}`}>{log.action.replace(/_/g, " ")}</span>
                       </td>
                       <td className="px-5 py-3 text-sm max-w-[260px]">
                         <p className="line-clamp-2">{log.target}</p>

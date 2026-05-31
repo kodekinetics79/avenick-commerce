@@ -91,11 +91,11 @@ export default function SubmitQuotePage() {
         {rfq && (
           <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-5">
             <div className="flex items-start gap-2">
-              <AlertCircle className="h-4 w-4 text-blue-600 shrink-0 mt-0.5" />
+              <AlertCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
               <div className="text-sm">
                 <p className="font-semibold text-blue-800">RFQ Details</p>
-                <p className="text-blue-700">{rfq.description}</p>
-                <p className="text-blue-600 text-xs mt-1">Received: {rfq.receivedAt} · Due: {rfq.dueBy}</p>
+                <p className="text-primary">{rfq.description}</p>
+                <p className="text-primary text-xs mt-1">Received: {rfq.receivedAt} · Due: {rfq.dueBy}</p>
               </div>
             </div>
           </div>

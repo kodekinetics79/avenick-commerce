@@ -116,10 +116,10 @@ export default async function PerformancePage() {
         </div>
 
         {/* Overall score card */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+        <div className="bg-white rounded-2xl border border-border shadow-sm p-6">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <h2 className="font-semibold text-slate-800">Overall Score</h2>
+              <h2 className="font-semibold text-foreground">Overall Score</h2>
               <p className="text-xs text-muted-foreground">Calculated from all performance metrics</p>
             </div>
             <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border ${slaColor}`}>
@@ -142,13 +142,13 @@ export default async function PerformancePage() {
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className="text-xl font-bold text-slate-800">{perf.overallScore}</span>
+                <span className="text-xl font-bold text-foreground">{perf.overallScore}</span>
               </div>
             </div>
 
             <div className="flex-1">
               <div className="flex items-baseline gap-2 mb-1">
-                <p className="text-3xl font-bold text-slate-800">{perf.overallScore}<span className="text-lg text-muted-foreground font-normal">/100</span></p>
+                <p className="text-3xl font-bold text-foreground">{perf.overallScore}<span className="text-lg text-muted-foreground font-normal">/100</span></p>
                 <span className={`text-sm font-semibold ${perf.overallScore >= 80 ? "text-green-600" : perf.overallScore >= 60 ? "text-amber-600" : "text-red-600"}`}>
                   {scoreLabel}
                 </span>
@@ -157,15 +157,15 @@ export default async function PerformancePage() {
               <div className="flex items-center gap-4 flex-wrap">
                 <div className="flex items-center gap-1.5 text-xs">
                   <span className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-muted-foreground">You: <span className="font-semibold text-slate-700">{perf.overallScore}</span></span>
+                  <span className="text-muted-foreground">You: <span className="font-semibold text-muted-foreground">{perf.overallScore}</span></span>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs">
                   <span className="h-2 w-2 rounded-full bg-slate-300" />
-                  <span className="text-muted-foreground">Platform avg: <span className="font-semibold text-slate-700">84</span></span>
+                  <span className="text-muted-foreground">Platform avg: <span className="font-semibold text-muted-foreground">84</span></span>
                 </div>
                 <div className="flex items-center gap-1.5 text-xs">
                   <span className="h-2 w-2 rounded-full bg-amber-400" />
-                  <span className="text-muted-foreground">Top 10%: <span className="font-semibold text-slate-700">95+</span></span>
+                  <span className="text-muted-foreground">Top 10%: <span className="font-semibold text-muted-foreground">95+</span></span>
                 </div>
               </div>
             </div>
@@ -182,8 +182,8 @@ export default async function PerformancePage() {
 
         {/* Score breakdown */}
         <div>
-          <h2 className="font-semibold text-slate-700 mb-3 flex items-center gap-2">
-            <BarChart2 className="h-4 w-4 text-slate-400" />
+          <h2 className="font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+            <BarChart2 className="h-4 w-4 text-muted-foreground" />
             Score Breakdown
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -202,14 +202,14 @@ export default async function PerformancePage() {
               const Icon = metric.icon;
 
               return (
-                <div key={metric.key} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+                <div key={metric.key} className="bg-white rounded-2xl border border-border shadow-sm p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2.5">
                       <div className={`h-9 w-9 rounded-xl flex items-center justify-center ${metric.iconBg}`}>
                         <Icon className={`h-4 w-4 ${metric.iconColor}`} />
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-slate-700">{metric.label}</p>
+                        <p className="text-sm font-semibold text-muted-foreground">{metric.label}</p>
                         <p className="text-[11px] text-muted-foreground">{metric.weight}% of total score</p>
                       </div>
                     </div>
@@ -236,7 +236,7 @@ export default async function PerformancePage() {
                       <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                         <div className={`h-full rounded-full bg-slate-300 ${toWidthClass(Math.min(numPlatform, 100))}`} />
                       </div>
-                      <span className="text-slate-400 w-12 text-end">{platformValue}{metric.unit}</span>
+                      <span className="text-muted-foreground w-12 text-end">{platformValue}{metric.unit}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground w-20 shrink-0">Target</span>
@@ -262,14 +262,14 @@ export default async function PerformancePage() {
         </div>
 
         {/* Monthly trend */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-          <h2 className="font-semibold text-slate-700 mb-4">Monthly Score Trend</h2>
+        <div className="bg-white rounded-2xl border border-border shadow-sm p-5">
+          <h2 className="font-semibold text-muted-foreground mb-4">Monthly Score Trend</h2>
           <div className="flex items-end gap-3 h-28">
             {perf.monthlyTrend.map((m) => {
               const barColor = m.score >= 80 ? "bg-green-500" : m.score >= 60 ? "bg-amber-500" : "bg-red-400";
               return (
                 <div key={m.month} className="flex-1 flex flex-col items-center gap-1 group">
-                  <span className="text-xs font-semibold text-muted-foreground group-hover:text-slate-700 transition-colors">{m.score}</span>
+                  <span className="text-xs font-semibold text-muted-foreground group-hover:text-muted-foreground transition-colors">{m.score}</span>
                   <div
                     className={`w-full rounded-t-lg ${barColor} transition-all hover:opacity-90 ${toBarHeightClass(m.score)}`}
                     title={`${m.month}: ${m.score}/100`}

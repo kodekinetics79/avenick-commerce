@@ -82,7 +82,7 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
             <p className="text-sm text-muted-foreground">Real-time inventory across all warehouses</p>
           </div>
           <div className="flex gap-2">
-            <button type="button" className="flex items-center gap-1.5 text-sm border border-border bg-white text-slate-700 hover:bg-slate-50 px-3 py-2 rounded-xl font-medium transition-colors">
+            <button type="button" className="flex items-center gap-1.5 text-sm border border-border bg-white text-muted-foreground hover:bg-slate-50 px-3 py-2 rounded-xl font-medium transition-colors">
               <RefreshCw className="h-3.5 w-3.5" /> Sync
             </button>
             <button type="button" className="flex items-center gap-1.5 text-sm bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl font-semibold transition-colors">
@@ -94,10 +94,10 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Total SKUs",    value: totalSKUs,  color: "text-slate-800", bg: "bg-white border-border" },
-            { label: "Total Units",   value: totalUnits.toLocaleString(), color: "text-blue-700", bg: "bg-blue-50 border-blue-200" },
-            { label: "Low Stock",     value: lowCount,   color: lowCount > 0 ? "text-amber-700" : "text-slate-500",  bg: lowCount > 0 ? "bg-amber-50 border-amber-200" : "bg-white border-border" },
-            { label: "Out of Stock",  value: outCount,   color: outCount > 0 ? "text-red-700" : "text-slate-500",    bg: outCount > 0 ? "bg-red-50 border-red-200" : "bg-white border-border" },
+            { label: "Total SKUs",    value: totalSKUs,  color: "text-foreground", bg: "bg-white border-border" },
+            { label: "Total Units",   value: totalUnits.toLocaleString(), color: "text-primary", bg: "bg-blue-50 border-blue-200" },
+            { label: "Low Stock",     value: lowCount,   color: lowCount > 0 ? "text-amber-700" : "text-muted-foreground",  bg: lowCount > 0 ? "bg-amber-50 border-amber-200" : "bg-white border-border" },
+            { label: "Out of Stock",  value: outCount,   color: outCount > 0 ? "text-red-700" : "text-muted-foreground",    bg: outCount > 0 ? "bg-red-50 border-red-200" : "bg-white border-border" },
           ].map(({ label, value, color, bg }) => (
             <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
               <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -121,9 +121,9 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Search */}
           <div className="flex items-center gap-2 bg-white border border-border rounded-xl px-3 py-2 flex-1">
-            <Search className="h-4 w-4 text-slate-400 shrink-0" />
+            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
             <input type="text" placeholder="Search by SKU, product name, or category..."
-              className="flex-1 text-sm text-slate-600 placeholder:text-slate-400 outline-none bg-transparent"
+              className="flex-1 text-sm text-muted-foreground placeholder:text-muted-foreground outline-none bg-transparent"
               defaultValue={searchParams.search ?? ""} />
           </div>
           {/* Stock filter */}
@@ -159,7 +159,7 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
                   </td></tr>
                 ) : filtered.map((s) => (
                   <tr key={s.id} className={`hover:bg-slate-50 transition-colors ${s.isOut ? "bg-red-50/30" : s.isLow ? "bg-amber-50/30" : ""}`}>
-                    <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{s.product?.sku ?? "—"}</td>
+                    <td className="px-4 py-3 font-mono text-xs font-semibold text-muted-foreground">{s.product?.sku ?? "—"}</td>
                     <td className="px-4 py-3">
                       <p className="font-medium text-sm line-clamp-1">{s.product?.nameEn ?? "—"}</p>
                     </td>
@@ -167,7 +167,7 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
                     <td className="px-4 py-3 text-xs text-muted-foreground">{s.product?.seller?.businessNameEn ?? "—"}</td>
                     <td className="px-4 py-3">
                       <p className="text-xs text-muted-foreground">{s.location?.warehouse?.nameEn ?? "—"}</p>
-                      {s.location?.bin && <p className="font-mono text-xs text-slate-600">{s.location.bin}</p>}
+                      {s.location?.bin && <p className="font-mono text-xs text-muted-foreground">{s.location.bin}</p>}
                     </td>
                     <td className="px-4 py-3 font-bold text-sm text-center">{s.qty}</td>
                     <td className="px-4 py-3 text-sm text-center text-muted-foreground">{s.reservedQty}</td>
@@ -186,7 +186,7 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-1.5">
-                        <button type="button" className="text-xs text-blue-600 hover:underline font-medium">Adjust</button>
+                        <button type="button" className="text-xs text-primary hover:underline font-medium">Adjust</button>
                         {(s.isLow || s.isOut) && (
                           <button type="button" className="text-xs bg-amber-500 text-white px-2 py-0.5 rounded-lg hover:bg-amber-600 font-medium transition-colors">Reorder</button>
                         )}
@@ -200,7 +200,7 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
           {filtered.length > 0 && (
             <div className="px-4 py-3 border-t border-border bg-slate-50 flex items-center justify-between">
               <p className="text-xs text-muted-foreground">{filtered.length} SKU{filtered.length !== 1 ? "s" : ""}</p>
-              <button type="button" className="text-xs text-blue-600 hover:underline font-medium">Export CSV →</button>
+              <button type="button" className="text-xs text-primary hover:underline font-medium">Export CSV →</button>
             </div>
           )}
         </div>

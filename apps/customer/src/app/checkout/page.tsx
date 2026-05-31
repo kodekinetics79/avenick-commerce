@@ -64,7 +64,7 @@ export default function CheckoutPage() {
     return (
       <MainLayout>
         <div className="max-w-xl mx-auto px-4 py-20 text-center">
-          <p className="text-muted-foreground">Your cart is empty. <a href="/products" className="text-orange-600 underline">Shop now</a></p>
+          <p className="text-muted-foreground">Your cart is empty. <a href="/products" className="text-primary underline">Shop now</a></p>
         </div>
       </MainLayout>
     );
@@ -77,7 +77,7 @@ export default function CheckoutPage() {
           <CheckCircle className="h-16 w-16 mx-auto text-green-500 mb-4" />
           <h1 className="text-2xl font-bold mb-2">Order Placed!</h1>
           <p className="text-muted-foreground mb-2">تم تأكيد الطلب بنجاح</p>
-          <p className="text-lg font-semibold text-orange-600 mb-6">Order #{orderNumber}</p>
+          <p className="text-lg font-semibold text-primary mb-6">Order #{orderNumber}</p>
           <Button asChild variant="primary"><a href="/account/orders">View My Orders</a></Button>
         </div>
       </MainLayout>
@@ -93,7 +93,7 @@ export default function CheckoutPage() {
         <div className="flex items-center gap-2 mb-8">
           {(["address", "payment", "review"] as Step[]).map((s, i) => (
             <div key={s} className="flex items-center gap-2">
-              <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${step === s ? "bg-orange-500 text-white" : "bg-muted text-muted-foreground"}`}>{i + 1}</div>
+              <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${step === s ? "bg-primary/100 text-white" : "bg-muted text-muted-foreground"}`}>{i + 1}</div>
               <span className={`text-sm ${step === s ? "font-semibold" : "text-muted-foreground"}`}>{s.charAt(0).toUpperCase() + s.slice(1)}</span>
               {i < 2 && <div className="w-8 h-px bg-border" />}
             </div>
@@ -132,9 +132,9 @@ export default function CheckoutPage() {
                     <button
                       key={pm.id}
                       onClick={() => setPaymentMethod(pm.id)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-start ${paymentMethod === pm.id ? "border-orange-500 bg-orange-50" : "border-border hover:border-orange-300"}`}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-start ${paymentMethod === pm.id ? "border-primary/100 bg-primary/10" : "border-border hover:border-primary/40"}`}
                     >
-                      <pm.icon className={`h-5 w-5 shrink-0 ${paymentMethod === pm.id ? "text-orange-500" : "text-muted-foreground"}`} />
+                      <pm.icon className={`h-5 w-5 shrink-0 ${paymentMethod === pm.id ? "text-primary/100" : "text-muted-foreground"}`} />
                       <div>
                         <p className="font-medium text-sm">{pm.label} — {pm.labelAr}</p>
                         <p className="text-xs text-muted-foreground">{pm.desc}</p>
@@ -167,7 +167,7 @@ export default function CheckoutPage() {
                 <div className="bg-muted rounded-xl p-3 text-sm space-y-1 mb-4">
                   <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal, "AED")}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">VAT (5%)</span><span>{formatCurrency(vatAmount, "AED")}</span></div>
-                  <div className="flex justify-between font-bold"><span>Total</span><span className="text-orange-600">{formatCurrency(orderTotal, "AED")}</span></div>
+                  <div className="flex justify-between font-bold"><span>Total</span><span className="text-primary">{formatCurrency(orderTotal, "AED")}</span></div>
                 </div>
                 <div className="flex gap-3">
                   <Button variant="outline" onClick={() => setStep("payment")}>Back</Button>
@@ -184,7 +184,7 @@ export default function CheckoutPage() {
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{formatCurrency(subtotal, "AED")}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">VAT 5%</span><span>{formatCurrency(vatAmount, "AED")}</span></div>
               <hr />
-              <div className="flex justify-between font-bold"><span>Total</span><span className="text-orange-600">{formatCurrency(orderTotal, "AED")}</span></div>
+              <div className="flex justify-between font-bold"><span>Total</span><span className="text-primary">{formatCurrency(orderTotal, "AED")}</span></div>
             </div>
           </div>
         </div>

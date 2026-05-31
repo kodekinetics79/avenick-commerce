@@ -10,7 +10,7 @@ export const metadata = { title: "Orders" };
 
 const STATUS_COLORS: Record<string, string> = {
   PENDING_PAYMENT: "bg-gray-100 text-gray-600",
-  CONFIRMED:       "bg-blue-100 text-blue-700",
+  CONFIRMED:       "bg-blue-100 text-primary",
   PROCESSING:      "bg-purple-100 text-purple-700",
   READY_FOR_PICKUP:"bg-amber-100 text-amber-700",
   SHIPPED:         "bg-cyan-100 text-cyan-700",
@@ -42,7 +42,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
             <h1 className="text-2xl font-bold">Orders</h1>
             <p className="text-sm text-muted-foreground">{total} total order{total !== 1 ? "s" : ""}</p>
           </div>
-          <Link href="/shipments" className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline font-medium">
+          <Link href="/shipments" className="flex items-center gap-1.5 text-sm text-primary hover:underline font-medium">
             <Truck className="h-4 w-4" /> Manage Shipments →
           </Link>
         </div>
@@ -73,7 +73,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
                 {orders.map((order) => (
                   <tr key={order.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-4 py-3">
-                      <p className="font-mono text-xs font-semibold text-slate-600">{order.orderNumber}</p>
+                      <p className="font-mono text-xs font-semibold text-muted-foreground">{order.orderNumber}</p>
                       <p className="text-xs text-muted-foreground">{format(order.createdAt, "MMM d")}</p>
                     </td>
                     <td className="px-4 py-3">
@@ -84,7 +84,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
                     <td className="px-4 py-3 text-sm font-medium text-center">{order.items.length}</td>
                     <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(Number(order.total), order.currency)}</td>
                     <td className="px-4 py-3">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${order.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${order.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-primary"}`}>
                         {order.type}
                       </span>
                     </td>
@@ -95,7 +95,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <Link href={`/orders/${order.id}`} className="text-xs text-blue-600 hover:underline font-medium">View</Link>
+                        <Link href={`/orders/${order.id}`} className="text-xs text-primary hover:underline font-medium">View</Link>
                         {order.status === "CONFIRMED" && (
                           <button type="button" className="text-xs bg-green-500 text-white px-2 py-0.5 rounded-lg hover:bg-green-600 transition-colors font-medium">Mark Ready</button>
                         )}
@@ -121,7 +121,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
           {orders.length > 0 && (
             <div className="px-4 py-3 border-t border-border bg-slate-50 flex items-center justify-between">
               <p className="text-xs text-muted-foreground">Showing {orders.length} of {total} orders</p>
-              <Link href="/shipments" className="text-xs text-blue-600 hover:underline font-medium">Manage Shipments →</Link>
+              <Link href="/shipments" className="text-xs text-primary hover:underline font-medium">Manage Shipments →</Link>
             </div>
           )}
         </div>

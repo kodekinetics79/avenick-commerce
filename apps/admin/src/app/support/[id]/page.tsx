@@ -19,7 +19,7 @@ export default async function TicketDetailPage({ params }: { params: { id: strin
   const slaRemaining = listTicket?.slaRemaining ?? t.slaRemaining;
 
   const STATUS_COLOR: Record<string, string> = {
-    OPEN: "bg-blue-100 text-blue-700", IN_PROGRESS: "bg-amber-100 text-amber-700",
+    OPEN: "bg-blue-100 text-primary", IN_PROGRESS: "bg-amber-100 text-amber-700",
     ESCALATED: "bg-red-100 text-red-700", CLOSED: "bg-green-100 text-green-700",
   };
 
@@ -64,7 +64,7 @@ export default async function TicketDetailPage({ params }: { params: { id: strin
         {/* SLA bar */}
         <div className={`rounded-2xl border p-4 flex items-center justify-between ${slaRemaining.includes("m") || slaRemaining === "1h" ? "bg-red-50 border-red-200" : "bg-white border-border"}`}>
           <div className="flex items-center gap-3">
-            <Clock className={`h-5 w-5 shrink-0 ${slaRemaining.includes("m") || slaRemaining === "1h" ? "text-red-600" : "text-slate-500"}`} />
+            <Clock className={`h-5 w-5 shrink-0 ${slaRemaining.includes("m") || slaRemaining === "1h" ? "text-red-600" : "text-muted-foreground"}`} />
             <div>
               <p className="text-sm font-semibold">SLA: {slaRemaining} remaining</p>
               <p className="text-xs text-muted-foreground">Target resolution: {t.slaTotal} · Assigned to {t.assignedTo}</p>
@@ -88,7 +88,7 @@ export default async function TicketDetailPage({ params }: { params: { id: strin
                   return (
                     <div key={m.id} className={`flex ${isAgent ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[80%] ${isAgent ? "items-end" : "items-start"}`}>
-                        <div className={`rounded-2xl px-4 py-2.5 ${isAgent ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-800"}`}>
+                        <div className={`rounded-2xl px-4 py-2.5 ${isAgent ? "bg-slate-900 text-white" : "bg-slate-100 text-foreground"}`}>
                           <p className="text-sm">{m.body}</p>
                         </div>
                         <p className={`text-xs text-muted-foreground mt-1 ${isAgent ? "text-end" : ""}`}>{m.author} · {m.time}</p>
@@ -121,7 +121,7 @@ export default async function TicketDetailPage({ params }: { params: { id: strin
               <div className="p-5 space-y-3">
                 {t.internalNotes.map((n) => (
                   <div key={n.id} className="bg-white rounded-xl p-3 border border-amber-100">
-                    <p className="text-sm text-slate-700">{n.body}</p>
+                    <p className="text-sm text-muted-foreground">{n.body}</p>
                     <p className="text-xs text-muted-foreground mt-1">{n.author} · {n.time}</p>
                   </div>
                 ))}
@@ -156,10 +156,10 @@ export default async function TicketDetailPage({ params }: { params: { id: strin
               <h3 className="font-semibold text-sm mb-3">Quick Actions</h3>
               <div className="space-y-2">
                 {[
-                  { label: "Reassign agent", color: "text-blue-600" },
+                  { label: "Reassign agent", color: "text-primary" },
                   { label: "Convert to dispute", color: "text-purple-600" },
                   { label: "Issue refund", color: "text-green-600" },
-                  { label: "Close ticket", color: "text-slate-600" },
+                  { label: "Close ticket", color: "text-muted-foreground" },
                 ].map(({ label, color }) => (
                   <button key={label} type="button" className={`w-full text-start text-sm ${color} hover:underline py-1`}>{label} →</button>
                 ))}

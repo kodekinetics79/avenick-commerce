@@ -9,7 +9,7 @@ export const metadata = { title: "SLA Monitor" };
 const SEVERITY_COLOR: Record<string, string> = {
   HIGH:   "bg-red-100 text-red-700",
   MEDIUM: "bg-amber-100 text-amber-700",
-  LOW:    "bg-blue-100 text-blue-700",
+  LOW:    "bg-blue-100 text-primary",
 };
 
 function complianceColor(pct: number): string {
@@ -62,7 +62,7 @@ export default async function SLAPage() {
           </div>
           <div className={`rounded-2xl border p-4 ${m.breachesThisWeek > 0 ? "bg-red-50 border-red-200" : "bg-white border-border"}`}>
             <AlertTriangle className={`h-4 w-4 mb-2 ${m.breachesThisWeek > 0 ? "text-red-600" : "text-muted-foreground"}`} />
-            <p className={`text-2xl font-bold ${m.breachesThisWeek > 0 ? "text-red-600" : "text-slate-800"}`}>{m.breachesThisWeek}</p>
+            <p className={`text-2xl font-bold ${m.breachesThisWeek > 0 ? "text-red-600" : "text-foreground"}`}>{m.breachesThisWeek}</p>
             <p className="text-xs text-muted-foreground mt-0.5">Breaches This Week</p>
           </div>
         </div>
@@ -87,7 +87,7 @@ export default async function SLAPage() {
         {/* By type */}
         <div className="bg-white rounded-2xl border border-border overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-slate-500" />
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
             <h2 className="font-semibold">Performance by Ticket Type</h2>
           </div>
           <div className="overflow-x-auto">
@@ -106,7 +106,7 @@ export default async function SLAPage() {
                     <td className="px-5 py-3 text-muted-foreground">{row.volume}</td>
                     <td className="px-5 py-3 text-muted-foreground">{row.target}</td>
                     <td className="px-5 py-3">
-                      <span className={row.compliance < 80 ? "text-red-600 font-medium" : "text-slate-700"}>{row.avgResolution}</span>
+                      <span className={row.compliance < 80 ? "text-red-600 font-medium" : "text-muted-foreground"}>{row.avgResolution}</span>
                     </td>
                     <td className="px-5 py-3 w-40">
                       <div className="flex items-center gap-2">
@@ -141,16 +141,16 @@ export default async function SLAPage() {
               <div key={b.id} className="flex items-center justify-between px-5 py-3.5">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <Link href={`/support/${b.id}`} className="font-mono text-xs font-semibold text-blue-600 hover:underline">{b.id}</Link>
+                    <Link href={`/support/${b.id}`} className="font-mono text-xs font-semibold text-primary hover:underline">{b.id}</Link>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${SEVERITY_COLOR[b.severity]}`}>{b.severity}</span>
-                    <span className="text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">{b.type}</span>
+                    <span className="text-xs bg-slate-100 text-muted-foreground px-1.5 py-0.5 rounded">{b.type}</span>
                   </div>
                   <p className="text-sm font-medium">{b.buyer}</p>
                   <p className="text-xs text-muted-foreground">Agent: {b.agent}</p>
                 </div>
                 <div className="text-end shrink-0">
                   <p className="text-sm font-bold text-red-600">+{b.breachedBy} over</p>
-                  <Link href={`/support/${b.id}`} className="text-xs text-blue-600 hover:underline font-medium">Resolve now →</Link>
+                  <Link href={`/support/${b.id}`} className="text-xs text-primary hover:underline font-medium">Resolve now →</Link>
                 </div>
               </div>
             ))}

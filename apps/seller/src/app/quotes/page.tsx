@@ -18,7 +18,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof
   PENDING:  { label: "Awaiting Response", color: "bg-amber-100 text-amber-700",  icon: Clock },
   ACCEPTED: { label: "Accepted",          color: "bg-green-100 text-green-700",  icon: CheckCircle },
   DECLINED: { label: "Declined",          color: "bg-red-100 text-red-700",      icon: XCircle },
-  EXPIRED:  { label: "Expired",           color: "bg-gray-100 text-gray-500",    icon: Clock },
+  EXPIRED:  { label: "Expired",           color: "bg-gray-100 text-muted-foreground",    icon: Clock },
 };
 
 const TABS = ["All","Accepted","Pending","Declined","Expired"] as const;
@@ -46,7 +46,7 @@ export default async function QuoteHistoryPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Total Submitted", value: MOCK_QUOTE_HISTORY.length, icon: FileText, color: "text-blue-600", bg: "bg-blue-50 border-blue-200" },
+            { label: "Total Submitted", value: MOCK_QUOTE_HISTORY.length, icon: FileText, color: "text-primary", bg: "bg-blue-50 border-blue-200" },
             { label: "Accepted", value: MOCK_QUOTE_HISTORY.filter(q=>q.status==="ACCEPTED").length, icon: CheckCircle, color: "text-green-600", bg: "bg-green-50 border-green-200" },
             { label: "Win Rate", value: `${winRate}%`, icon: TrendingUp, color: "text-purple-600", bg: "bg-purple-50 border-purple-200" },
             { label: "Accepted Value", value: formatCurrency(acceptedValue, "AED"), icon: TrendingUp, color: "text-orange-600", bg: "bg-orange-50 border-orange-200" },
@@ -86,7 +86,7 @@ export default async function QuoteHistoryPage() {
                   const StatusIcon = sc.icon;
                   return (
                     <tr key={q.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{q.rfqNumber}</td>
+                      <td className="px-4 py-3 font-mono text-xs font-semibold text-muted-foreground">{q.rfqNumber}</td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-sm line-clamp-1">{q.buyer}</p>
                       </td>
@@ -104,7 +104,7 @@ export default async function QuoteHistoryPage() {
                       </td>
                       <td className="px-4 py-3">
                         {q.status === "ACCEPTED" && (
-                          <Link href="/orders" className="text-xs text-blue-600 hover:underline font-medium">View Order →</Link>
+                          <Link href="/orders" className="text-xs text-primary hover:underline font-medium">View Order →</Link>
                         )}
                         {q.status === "PENDING" && (
                           <span className="text-xs text-muted-foreground italic">Awaiting...</span>

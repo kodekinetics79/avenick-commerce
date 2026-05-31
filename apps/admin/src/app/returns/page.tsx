@@ -15,7 +15,7 @@ const RETURNS = [
 
 const STATUS: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
   PENDING:    { label: "Pending Review", color: "bg-amber-100 text-amber-700",   icon: Clock },
-  APPROVED:   { label: "Approved",       color: "bg-blue-100 text-blue-700",     icon: CheckCircle },
+  APPROVED:   { label: "Approved",       color: "bg-blue-100 text-primary",     icon: CheckCircle },
   PROCESSING: { label: "Processing",     color: "bg-purple-100 text-purple-700", icon: Package },
   COMPLETED:  { label: "Completed",      color: "bg-green-100 text-green-700",   icon: CheckCircle },
   REJECTED:   { label: "Rejected",       color: "bg-red-100 text-red-700",       icon: XCircle },
@@ -39,9 +39,9 @@ export default async function ReturnsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Pending Review", value: pending, color: "text-amber-600", bg: pending > 0 ? "bg-amber-50 border-amber-200" : "bg-white border-border" },
-            { label: "Total Requests", value: RETURNS.length, color: "text-slate-800", bg: "bg-white border-border" },
+            { label: "Total Requests", value: RETURNS.length, color: "text-foreground", bg: "bg-white border-border" },
             { label: "Refund Value", value: formatCurrency(refundValue, "AED"), color: "text-green-700", bg: "bg-white border-border" },
-            { label: "Return Rate", value: "2.5%", color: "text-blue-600", bg: "bg-blue-50 border-blue-200" },
+            { label: "Return Rate", value: "2.5%", color: "text-primary", bg: "bg-blue-50 border-blue-200" },
           ].map((s) => (
             <div key={s.label} className={`rounded-2xl border p-4 ${s.bg}`}>
               <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
@@ -70,12 +70,12 @@ export default async function ReturnsPage() {
                   const StatusIcon = sc.icon;
                   return (
                     <tr key={r.id} className={`hover:bg-secondary/40 transition-colors ${r.status === "PENDING" ? "bg-amber-50/30" : ""}`}>
-                      <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{r.ref}</td>
+                      <td className="px-4 py-3 font-mono text-xs font-semibold text-muted-foreground">{r.ref}</td>
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{r.order}</td>
                       <td className="px-4 py-3 font-medium">{r.buyer}</td>
                       <td className="px-4 py-3 text-muted-foreground max-w-[160px] truncate">{r.item}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{r.reason}</td>
-                      <td className="px-4 py-3"><span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">{r.type}</span></td>
+                      <td className="px-4 py-3"><span className="text-xs bg-slate-100 text-muted-foreground px-2 py-0.5 rounded font-medium">{r.type}</span></td>
                       <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(r.amount, "AED")}</td>
                       <td className="px-4 py-3"><span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}><StatusIcon className="h-3 w-3" /> {sc.label}</span></td>
                       <td className="px-4 py-3">

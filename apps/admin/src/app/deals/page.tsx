@@ -15,7 +15,7 @@ const DEALS = [
 const STATUS: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
   ACTIVE:    { label: "Active",    color: "bg-green-100 text-green-700", icon: CheckCircle },
   SCHEDULED: { label: "Scheduled", color: "bg-amber-100 text-amber-700", icon: Clock },
-  ENDED:     { label: "Ended",     color: "bg-slate-100 text-slate-500", icon: Clock },
+  ENDED:     { label: "Ended",     color: "bg-slate-100 text-muted-foreground", icon: Clock },
 };
 
 export default async function DealsPage() {
@@ -40,7 +40,7 @@ export default async function DealsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Active Promotions", value: active.length, color: "text-green-600", bg: "bg-green-50 border-green-200" },
-            { label: "Total Redemptions", value: totalRedemptions.toLocaleString(), color: "text-blue-600", bg: "bg-blue-50 border-blue-200" },
+            { label: "Total Redemptions", value: totalRedemptions.toLocaleString(), color: "text-primary", bg: "bg-blue-50 border-blue-200" },
             { label: "Promo Revenue", value: `AED ${(totalRevenue / 1000).toFixed(0)}k`, color: "text-green-700", bg: "bg-white border-border" },
             { label: "Avg Order Uplift", value: "+18%", color: "text-purple-600", bg: "bg-purple-50 border-purple-200" },
           ].map((s) => (

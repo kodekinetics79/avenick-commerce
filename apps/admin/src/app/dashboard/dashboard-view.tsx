@@ -55,16 +55,16 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
   const k = exec.kpis;
 
   const kpis = [
-    { label: "Gross Merchandise Value", value: formatCurrency(gmvMonth, "AED"), icon: TrendingUp, trend: `+${k.gmvTrend}%`, trendUp: true, sub: "this month", iconColor: "bg-blue-100 text-blue-600" },
+    { label: "Gross Merchandise Value", value: formatCurrency(gmvMonth, "AED"), icon: TrendingUp, trend: `+${k.gmvTrend}%`, trendUp: true, sub: "this month", iconColor: "bg-blue-100 text-primary" },
     { label: "B2B Revenue", value: formatCurrency(k.b2bRevenue, "AED"), icon: Building2, trend: `+${k.b2bTrend}%`, trendUp: true, sub: "this month", iconColor: "bg-indigo-100 text-indigo-600" },
     { label: "B2C Revenue", value: formatCurrency(k.b2cRevenue, "AED"), icon: ShoppingCart, trend: `+${k.b2cTrend}%`, trendUp: true, sub: "this month", iconColor: "bg-cyan-100 text-cyan-600" },
     { label: "Marketplace Commission", value: formatCurrency(k.commission, "AED"), icon: Coins, trend: `+${k.commissionTrend}%`, trendUp: true, sub: "this month", iconColor: "bg-green-100 text-green-600" },
     { label: "Active Companies", value: activeCompanies || k.activeCompanies, icon: Building2, trend: `+${k.companiesTrend}%`, trendUp: true, sub: "B2B accounts", iconColor: "bg-purple-100 text-purple-600" },
-    { label: "Active B2C Customers", value: k.activeCustomers.toLocaleString(), icon: Users, trend: `+${k.customersTrend}%`, trendUp: true, sub: "this month", iconColor: "bg-blue-100 text-blue-600" },
+    { label: "Active B2C Customers", value: k.activeCustomers.toLocaleString(), icon: Users, trend: `+${k.customersTrend}%`, trendUp: true, sub: "this month", iconColor: "bg-blue-100 text-primary" },
     { label: "Active Suppliers", value: activeSuppliers || k.activeSuppliers, icon: Store, trend: `+${k.suppliersTrend}%`, trendUp: true, sub: "verified", iconColor: "bg-teal-100 text-teal-600" },
     { label: "RFQ Conversion Rate", value: `${k.rfqConversion}%`, icon: FileQuestion, trend: `+${k.rfqConversionTrend}%`, trendUp: true, sub: "quote → order", iconColor: "bg-amber-100 text-amber-600" },
     { label: "Order Fulfillment Rate", value: `${k.fulfillmentRate}%`, icon: TrendingUp, trend: `+${k.fulfillmentTrend}%`, trendUp: true, sub: "on-time", iconColor: "bg-green-100 text-green-600" },
-    { label: "Warehouse Utilization", value: `${k.warehouseUtilization}%`, icon: Boxes, trend: `${k.warehouseTrend}%`, trendUp: false, sub: "capacity used", iconColor: "bg-slate-100 text-slate-600" },
+    { label: "Warehouse Utilization", value: `${k.warehouseUtilization}%`, icon: Boxes, trend: `${k.warehouseTrend}%`, trendUp: false, sub: "capacity used", iconColor: "bg-slate-100 text-muted-foreground" },
     { label: "Open Disputes", value: k.openDisputes, icon: Scale, sub: "need mediation", urgent: k.openDisputes > 0, iconColor: "bg-red-100 text-red-600" },
     { label: "Delayed Orders", value: k.delayedOrders, icon: AlertTriangle, sub: "past SLA", urgent: k.delayedOrders > 0, iconColor: "bg-orange-100 text-orange-600" },
   ];
@@ -315,7 +315,7 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                   </div>
                   <div className="text-end shrink-0">
                     <p className="text-sm font-semibold text-green-700">{formatCurrency(c.totalSpent, "AED")}</p>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${c.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>{c.type}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${c.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-primary"}`}>{c.type}</span>
                   </div>
                 </div>
               ))}

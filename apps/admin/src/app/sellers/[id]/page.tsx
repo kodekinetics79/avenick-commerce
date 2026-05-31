@@ -46,7 +46,7 @@ export default function SellerDetailPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <Link href="/sellers" className="text-sm text-blue-600 hover:underline">← Sellers</Link>
+            <Link href="/sellers" className="text-sm text-primary hover:underline">← Sellers</Link>
             <h1 className="text-2xl font-bold mt-1">{String(s.businessNameEn)}</h1>
             {Boolean(s.businessNameAr) && <p className="text-muted-foreground" dir="rtl">{String(s.businessNameAr)}</p>}
           </div>
@@ -89,7 +89,7 @@ export default function SellerDetailPage() {
                 <div key={String(d.id)} className="p-4 flex items-start gap-4">
                   <div className="flex-1">
                     <p className="font-medium text-sm">{String(d.type).replace(/_/g, " ")}</p>
-                    <a href={String(d.fileUrl)} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                    <a href={String(d.fileUrl)} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline flex items-center gap-1">
                       <ExternalLink className="h-3 w-3" />{String(d.fileName)}
                     </a>
                     {Boolean(d.rejectionReason) && <p className="text-xs text-red-600 mt-1">{String(d.rejectionReason)}</p>}

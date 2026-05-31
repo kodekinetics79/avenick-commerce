@@ -42,7 +42,7 @@ export default async function PricingPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Avg Gross Margin", value: `${avgMargin}%`, color: marginColor(avgMargin), bg: "bg-white border-border", icon: TrendingUp },
-            { label: "Active Contracts", value: activeContracts, color: "text-blue-600", bg: "bg-blue-50 border-blue-200", icon: FileText },
+            { label: "Active Contracts", value: activeContracts, color: "text-primary", bg: "bg-blue-50 border-blue-200", icon: FileText },
             { label: "Commission Rules", value: activeRules, color: "text-purple-600", bg: "bg-purple-50 border-purple-200", icon: Percent },
             { label: "Bulk Tiers", value: MOCK_BULK_TIERS.length, color: "text-green-600", bg: "bg-green-50 border-green-200", icon: Layers },
           ].map(({ label, value, color, bg, icon: Icon }) => (
@@ -81,7 +81,7 @@ export default async function PricingPage() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">{formatCurrency(p.supplierCost, "AED")}</td>
                       <td className="px-4 py-3 font-bold">{formatCurrency(p.b2cPrice, "AED")}</td>
-                      <td className="px-4 py-3 text-slate-600">{formatCurrency(p.b2bPrice, "AED")}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{formatCurrency(p.b2bPrice, "AED")}</td>
                       <td className="px-4 py-3 text-red-600">−{formatCurrency(commission, "AED")} <span className="text-xs text-muted-foreground">({p.commissionRate}%)</span></td>
                       <td className="px-4 py-3 text-red-600">−{formatCurrency(p.handlingFee, "AED")}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{p.vatRate}%</td>
@@ -135,7 +135,7 @@ export default async function PricingPage() {
             <div className="px-5 py-4 border-b border-border flex items-center gap-2">
               <Percent className="h-4 w-4 text-purple-500" />
               <h2 className="font-semibold">Commission Rules</h2>
-              <button type="button" className="ms-auto text-xs text-blue-600 hover:underline font-medium">+ Add Rule</button>
+              <button type="button" className="ms-auto text-xs text-primary hover:underline font-medium">+ Add Rule</button>
             </div>
             <div className="divide-y divide-border">
               {MOCK_COMMISSION_RULES.map((rule) => (
@@ -161,7 +161,7 @@ export default async function PricingPage() {
           <div className="px-5 py-4 border-b border-border flex items-center gap-2">
             <FileText className="h-4 w-4 text-blue-500" />
             <h2 className="font-semibold">Contract Pricing (Customer-Specific)</h2>
-            <span className="ms-auto text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">{MOCK_CONTRACT_PRICING.length} agreements</span>
+            <span className="ms-auto text-xs bg-blue-100 text-primary px-2 py-0.5 rounded-full font-semibold">{MOCK_CONTRACT_PRICING.length} agreements</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -190,7 +190,7 @@ export default async function PricingPage() {
                         : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700"><AlertTriangle className="h-3 w-3" /> Expiring</span>}
                     </td>
                     <td className="px-4 py-3">
-                      <button type="button" className="text-xs text-blue-600 hover:underline font-medium">{c.status === "EXPIRING" ? "Renew" : "Edit"}</button>
+                      <button type="button" className="text-xs text-primary hover:underline font-medium">{c.status === "EXPIRING" ? "Renew" : "Edit"}</button>
                     </td>
                   </tr>
                 ))}

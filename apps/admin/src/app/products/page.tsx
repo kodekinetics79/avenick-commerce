@@ -29,7 +29,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
           <h1 className="text-2xl font-bold">Products ({products.length})</h1>
           <div className="flex gap-2">
             {["PENDING_REVIEW", "ACTIVE", "REJECTED", "SUPPRESSED"].map((s) => (
-              <Link key={s} href={`/products?status=${s}`} className={`text-xs px-3 py-1.5 rounded-lg border ${(searchParams.status ?? "PENDING_REVIEW") === s ? "bg-blue-600 text-white border-blue-600" : "border-border hover:bg-muted"}`}>
+              <Link key={s} href={`/products?status=${s}`} className={`text-xs px-3 py-1.5 rounded-lg border ${(searchParams.status ?? "PENDING_REVIEW") === s ? "bg-primary text-white border-primary" : "border-border hover:bg-muted"}`}>
                 {s.replace(/_/g, " ")}
               </Link>
             ))}
@@ -62,7 +62,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      <Link href={`/sellers/${p.seller.id}`} className="text-blue-600 hover:underline">{p.seller.businessNameEn}</Link>
+                      <Link href={`/sellers/${p.seller.id}`} className="text-primary hover:underline">{p.seller.businessNameEn}</Link>
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">{p.category.nameEn}</td>
                     <td className="px-4 py-3">

@@ -9,7 +9,7 @@ export const metadata = { title: "Messages & RFQs" };
 
 const RFQ_STATUS: Record<string, { label: string; color: string }> = {
   PENDING:  { label: "Pending",  color: "bg-amber-100 text-amber-700" },
-  QUOTED:   { label: "Quoted",   color: "bg-blue-100 text-blue-700" },
+  QUOTED:   { label: "Quoted",   color: "bg-blue-100 text-primary" },
   ACCEPTED: { label: "Accepted", color: "bg-green-100 text-green-700" },
   DECLINED: { label: "Declined", color: "bg-red-100 text-red-700" },
 };
@@ -46,7 +46,7 @@ export default async function MessagesPage() {
         {/* RFQ Inbox */}
         <div className="bg-white rounded-2xl border border-border overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-            <ClipboardList className="h-4 w-4 text-blue-600" />
+            <ClipboardList className="h-4 w-4 text-primary" />
             <h2 className="font-semibold">RFQ Inbox</h2>
             {pendingRfqs.length > 0 && (
               <span className="ms-auto flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2.5 py-0.5 rounded-full font-semibold">
@@ -66,11 +66,11 @@ export default async function MessagesPage() {
                       <span className="text-xs font-mono text-muted-foreground font-semibold">{rfq.rfqNumber}</span>
                       {isPending && <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Needs Response</span>}
                     </div>
-                    <p className="text-sm font-semibold text-slate-900">{rfq.buyerCompany}</p>
+                    <p className="text-sm font-semibold text-foreground">{rfq.buyerCompany}</p>
                     <p className="text-sm text-muted-foreground line-clamp-1">{rfq.description}</p>
                     <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> Received: {rfq.receivedAt}</span>
-                      <span className="font-medium text-slate-700">Due: {rfq.dueBy}</span>
+                      <span className="font-medium text-muted-foreground">Due: {rfq.dueBy}</span>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-2 shrink-0">
@@ -81,7 +81,7 @@ export default async function MessagesPage() {
                         Submit Quote <ChevronRight className="h-3 w-3" />
                       </Link>
                     ) : (
-                      <button type="button" className="text-xs text-blue-600 hover:underline font-medium">View Quote</button>
+                      <button type="button" className="text-xs text-primary hover:underline font-medium">View Quote</button>
                     )}
                   </div>
                 </div>
@@ -116,7 +116,7 @@ export default async function MessagesPage() {
                 return (
                   <div key={thread.id} className={`p-4 flex items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer ${hasUnread ? "bg-blue-50/40" : ""}`}>
                     <div className="h-9 w-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
-                      <MessageSquare className="h-4 w-4 text-slate-500" />
+                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-0.5">

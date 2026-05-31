@@ -23,8 +23,8 @@ const MOCK_INBOUND: Array<{
 ];
 
 const STATUS_CONFIG: Record<InboundStatus, { label: string; color: string; icon: typeof CheckCircle; border: string }> = {
-  SCHEDULED:   { label: "Scheduled",   color: "bg-slate-100 text-slate-600",  icon: Calendar,      border: "border-border" },
-  IN_TRANSIT:  { label: "In Transit",  color: "bg-blue-100 text-blue-700",    icon: Truck,          border: "border-border" },
+  SCHEDULED:   { label: "Scheduled",   color: "bg-slate-100 text-muted-foreground",  icon: Calendar,      border: "border-border" },
+  IN_TRANSIT:  { label: "In Transit",  color: "bg-blue-100 text-primary",    icon: Truck,          border: "border-border" },
   ARRIVED:     { label: "Arrived",     color: "bg-amber-100 text-amber-700",  icon: Package,        border: "border-amber-200" },
   RECEIVING:   { label: "Receiving",   color: "bg-purple-100 text-purple-700",icon: ArrowDownToLine, border: "border-border" },
   RECEIVED:    { label: "Received",    color: "bg-green-100 text-green-700",  icon: CheckCircle,    border: "border-border" },
@@ -74,7 +74,7 @@ export default async function InboundPage({ searchParams }: { searchParams: { st
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "In Transit",     value: inTransitCount, color: "text-blue-600",   bg: "bg-blue-50 border-blue-200" },
+            { label: "In Transit",     value: inTransitCount, color: "text-primary",   bg: "bg-blue-50 border-blue-200" },
             { label: "Arrived / Dock", value: arrivedCount,   color: "text-amber-600",  bg: arrivedCount > 0 ? "bg-amber-50 border-amber-200" : "bg-white border-border" },
             { label: "Discrepancies",  value: discrepancies,  color: "text-red-600",    bg: discrepancies > 0 ? "bg-red-50 border-red-200" : "bg-white border-border" },
             { label: "Expected Value", value: formatCurrency(totalValue, "AED"), color: "text-green-700", bg: "bg-green-50 border-green-200" },
@@ -121,7 +121,7 @@ export default async function InboundPage({ searchParams }: { searchParams: { st
               <Link key={value} href={value ? `/warehouse/inbound?status=${value}` : "/warehouse/inbound"}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${activeTab === value ? "bg-slate-900 text-white" : "bg-white border border-border text-muted-foreground hover:border-slate-400 hover:text-foreground"}`}>
                 {label}
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === value ? "bg-white/20" : "bg-slate-100 text-slate-500"}`}>{count}</span>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === value ? "bg-white/20" : "bg-slate-100 text-muted-foreground"}`}>{count}</span>
               </Link>
             );
           })}
@@ -144,7 +144,7 @@ export default async function InboundPage({ searchParams }: { searchParams: { st
                   const StatusIcon = sc.icon;
                   return (
                     <tr key={item.id} className={`hover:bg-slate-50 transition-colors ${item.status === "DISCREPANCY" ? "bg-red-50/30" : item.status === "ARRIVED" ? "bg-amber-50/30" : ""}`}>
-                      <td className="px-4 py-3 font-mono text-xs font-semibold text-blue-600">{item.ref}</td>
+                      <td className="px-4 py-3 font-mono text-xs font-semibold text-primary">{item.ref}</td>
                       <td className="px-4 py-3 font-medium text-sm">{item.supplier}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{item.warehouse}</td>
                       <td className="px-4 py-3 text-sm text-center font-medium">{item.items}</td>
@@ -152,7 +152,7 @@ export default async function InboundPage({ searchParams }: { searchParams: { st
                       <td className="px-4 py-3 font-bold text-green-700 text-sm">{formatCurrency(item.expectedValue, item.currency as "AED")}</td>
                       <td className="px-4 py-3">
                         <p className="text-xs text-muted-foreground">{item.carrier}</p>
-                        <p className="font-mono text-xs text-slate-700">{item.trackingNumber}</p>
+                        <p className="font-mono text-xs text-muted-foreground">{item.trackingNumber}</p>
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{item.expectedArrival}</td>
                       <td className="px-4 py-3">
@@ -167,7 +167,7 @@ export default async function InboundPage({ searchParams }: { searchParams: { st
                             <button type="button" className="text-xs bg-green-600 text-white px-2.5 py-1 rounded-lg hover:bg-green-700 font-medium transition-colors">Receive</button>
                           )}
                           {item.status === "IN_TRANSIT" && (
-                            <button type="button" className="text-xs border border-border text-slate-600 px-2.5 py-1 rounded-lg hover:bg-slate-50 font-medium transition-colors">Track</button>
+                            <button type="button" className="text-xs border border-border text-muted-foreground px-2.5 py-1 rounded-lg hover:bg-slate-50 font-medium transition-colors">Track</button>
                           )}
                           {item.status === "DISCREPANCY" && (
                             <button type="button" className="text-xs bg-red-500 text-white px-2.5 py-1 rounded-lg hover:bg-red-600 font-medium transition-colors">Resolve</button>

@@ -48,7 +48,7 @@ export default async function InvoicesPage() {
           </div>
           <div className={`rounded-2xl p-4 border ${totalOverdue > 0 ? "bg-red-50 border-red-200" : "bg-white border-border"}`}>
             <AlertTriangle className={`h-4 w-4 mb-2 ${totalOverdue > 0 ? "text-red-600" : "text-muted-foreground"}`} />
-            <p className={`text-2xl font-bold ${totalOverdue > 0 ? "text-red-700" : "text-slate-800"}`}>{formatCurrency(totalOverdue, "AED")}</p>
+            <p className={`text-2xl font-bold ${totalOverdue > 0 ? "text-red-700" : "text-foreground"}`}>{formatCurrency(totalOverdue, "AED")}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{MOCK_INVOICES.filter(i=>i.status==="OVERDUE").length} overdue invoice{MOCK_INVOICES.filter(i=>i.status==="OVERDUE").length !== 1 ? "s" : ""}</p>
           </div>
         </div>
@@ -81,8 +81,8 @@ export default async function InvoicesPage() {
                   const StatusIcon = sc.icon;
                   return (
                     <tr key={inv.id} className={`hover:bg-slate-50 transition-colors ${inv.status === "OVERDUE" ? "bg-red-50/30" : ""}`}>
-                      <td className="px-4 py-3 font-mono text-xs font-semibold text-blue-600">{inv.invoiceNumber}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-600">{inv.orderNumber}</td>
+                      <td className="px-4 py-3 font-mono text-xs font-semibold text-primary">{inv.invoiceNumber}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{inv.orderNumber}</td>
                       <td className="px-4 py-3 font-medium text-sm line-clamp-1 max-w-[150px]">{inv.buyer}</td>
                       <td className="px-4 py-3 text-sm">{formatCurrency(inv.amount, inv.currency as "AED")}</td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">{formatCurrency(inv.vatAmount, inv.currency as "AED")}</td>
@@ -95,7 +95,7 @@ export default async function InvoicesPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <button type="button" className="flex items-center gap-1 text-xs text-blue-600 hover:underline font-medium">
+                        <button type="button" className="flex items-center gap-1 text-xs text-primary hover:underline font-medium">
                           <Download className="h-3 w-3" /> PDF
                         </button>
                       </td>

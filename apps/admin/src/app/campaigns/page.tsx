@@ -8,7 +8,7 @@ import Link from "next/link";
 export const metadata = { title: "Campaigns" };
 
 const CHANNEL_CONFIG: Record<string, { icon: typeof Mail; color: string }> = {
-  EMAIL:    { icon: Mail,          color: "bg-blue-100 text-blue-700" },
+  EMAIL:    { icon: Mail,          color: "bg-blue-100 text-primary" },
   SMS:      { icon: MessageSquare, color: "bg-green-100 text-green-700" },
   WHATSAPP: { icon: Send,          color: "bg-emerald-100 text-emerald-700" },
 };
@@ -16,7 +16,7 @@ const CHANNEL_CONFIG: Record<string, { icon: typeof Mail; color: string }> = {
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Play }> = {
   ACTIVE:    { label: "Active",    color: "bg-green-100 text-green-700",  icon: Play },
   SCHEDULED: { label: "Scheduled", color: "bg-amber-100 text-amber-700",  icon: Pause },
-  COMPLETED: { label: "Completed", color: "bg-slate-100 text-slate-600",  icon: CheckCircle },
+  COMPLETED: { label: "Completed", color: "bg-slate-100 text-muted-foreground",  icon: CheckCircle },
 };
 
 const TABS = ["All", "Active", "Scheduled", "Completed"] as const;
@@ -57,7 +57,7 @@ export default async function CampaignsPage() {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Active Campaigns", value: active.length, color: "text-green-600", bg: "bg-green-50 border-green-200" },
-            { label: "Total Sent", value: totalSent.toLocaleString(), color: "text-blue-600", bg: "bg-blue-50 border-blue-200" },
+            { label: "Total Sent", value: totalSent.toLocaleString(), color: "text-primary", bg: "bg-blue-50 border-blue-200" },
             { label: "Avg Open Rate", value: `${avgOpenRate}%`, color: "text-purple-600", bg: "bg-purple-50 border-purple-200" },
             { label: "Attributed Revenue", value: formatCurrency(totalRevenue, "AED"), color: "text-green-700", bg: "bg-white border-border" },
           ].map(({ label, value, color, bg }) => (

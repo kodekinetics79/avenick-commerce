@@ -14,6 +14,7 @@ import {
   Settings, Bell, Menu, ChevronDown, Star, LogOut
 } from "lucide-react";
 import { cn } from "@avenick/utils";
+import { ThemeToggle } from "@avenick/ui";
 
 const NAV_GROUPS = [
   {
@@ -107,39 +108,40 @@ export function SellerLayout({
     });
   }
 
-  const scoreColor = performanceScore >= 80 ? "text-green-400" : performanceScore >= 60 ? "text-amber-400" : "text-red-400";
-  const scoreBg = performanceScore >= 80 ? "bg-green-500/20 border-green-500/40" : performanceScore >= 60 ? "bg-amber-500/20 border-amber-500/40" : "bg-red-500/20 border-red-500/40";
+  const scoreColor = performanceScore >= 80 ? "text-success" : performanceScore >= 60 ? "text-warning" : "text-danger";
+  const scoreBg = performanceScore >= 80 ? "bg-success/10 border-success/30" : performanceScore >= 60 ? "bg-warning/10 border-warning/30" : "bg-danger/10 border-danger/30";
+  const scoreFill = performanceScore >= 80 ? "bg-success" : performanceScore >= 60 ? "bg-warning" : "bg-danger";
 
   const SidebarContent = () => (
-    <div className="flex flex-col h-full bg-slate-900">
+    <div className="flex flex-col h-full bg-card border-e border-border">
       {/* Logo / Branding */}
-      <div className={cn("px-4 py-4 border-b border-slate-700 flex items-center gap-3", collapsed && "justify-center px-2")}>
-        <div className="h-8 w-8 rounded-lg bg-green-600 flex items-center justify-center shrink-0 font-bold text-white text-sm">
+      <div className={cn("px-4 h-16 border-b border-border flex items-center gap-3", collapsed && "justify-center px-2")}>
+        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center shrink-0 font-black text-white">
           {sellerName.charAt(0).toUpperCase()}
         </div>
         {!collapsed && (
           <div className="min-w-0">
-            <p className="text-white font-semibold text-sm leading-tight truncate">{sellerName}</p>
-            <span className="text-xs text-green-400 font-medium">{tier}</span>
+            <p className="font-bold text-sm leading-tight truncate">{sellerName}</p>
+            <span className="text-xs text-primary font-medium">{tier}</span>
           </div>
         )}
       </div>
 
       {/* Performance Score Pill */}
       {!collapsed && (
-        <div className="px-3 py-2.5 border-b border-slate-700">
-          <Link href="/performance" className={cn("flex items-center gap-2.5 px-2.5 py-2 rounded-xl border text-xs transition-colors hover:brightness-110", scoreBg)}>
+        <div className="px-3 py-2.5 border-b border-border">
+          <Link href="/performance" className={cn("flex items-center gap-2.5 px-2.5 py-2 rounded-xl border text-xs transition-colors hover:brightness-105", scoreBg)}>
             <Star className={cn("h-3.5 w-3.5", scoreColor)} />
             <div className="flex-1">
               <div className="flex items-center justify-between">
-                <span className="text-slate-300 text-[11px]">Performance Score</span>
-                <span className={cn("font-bold", scoreColor)}>{performanceScore}/100</span>
+                <span className="text-muted-foreground text-[11px]">Performance score</span>
+                <span className={cn("font-bold font-mono", scoreColor)}>{performanceScore}/100</span>
               </div>
-              <div className="mt-1 h-1 bg-slate-700 rounded-full overflow-hidden">
+              <div className="mt-1.5 h-1 bg-secondary rounded-full overflow-hidden">
                 <div
                   className={cn(
                     "h-full rounded-full transition-all",
-                    performanceScore >= 80 ? "bg-green-500" : performanceScore >= 60 ? "bg-amber-500" : "bg-red-500",
+                    scoreFill,
                     performanceScore >= 90 ? "w-[90%]" : performanceScore >= 80 ? "w-[80%]" : performanceScore >= 70 ? "w-[70%]" : performanceScore >= 60 ? "w-[60%]" : "w-[50%]"
                   )}
                 />
@@ -150,11 +152,11 @@ export function SellerLayout({
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-3">
+      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-3 scrollbar-hide">
         {NAV_GROUPS.map((group) => (
           <div key={group.label}>
             {!collapsed && (
-              <p className="px-2 mb-1 text-[10px] font-semibold text-slate-500 uppercase tracking-widest">{group.label}</p>
+              <p className="px-2 mb-1 text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">{group.label}</p>
             )}
             <div className="space-y-0.5">
               {group.items.map((item) => {
@@ -170,22 +172,22 @@ export function SellerLayout({
                     onClick={() => setSidebarOpen(false)}
                     title={collapsed ? item.label : undefined}
                     className={cn(
-                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-all group relative",
+                      "flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-all group relative",
                       isActive
-                        ? "bg-green-600 text-white"
-                        : "text-slate-300 hover:bg-slate-800 hover:text-white",
+                        ? "bg-primary text-primary-foreground shadow-glow-sm"
+                        : "text-muted-foreground hover:bg-secondary hover:text-foreground",
                       collapsed && "justify-center px-2"
                     )}
                   >
-                    <item.icon className={cn("h-4 w-4 shrink-0", isActive ? "text-white" : "text-slate-400 group-hover:text-white")} />
+                    <item.icon className={cn("h-4 w-4 shrink-0", isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground")} />
                     {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
                     {!collapsed && badgeCount > 0 && (
-                      <span className="bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center font-bold">
+                      <span className="bg-danger text-white text-xs rounded-full h-4 min-w-4 px-1 flex items-center justify-center font-bold">
                         {badgeCount > 9 ? "9+" : badgeCount}
                       </span>
                     )}
                     {collapsed && badgeCount > 0 && (
-                      <span className="absolute -top-1 -right-1 h-3 w-3 bg-red-500 rounded-full" />
+                      <span className="absolute -top-1 -right-1 h-3 w-3 bg-danger rounded-full" />
                     )}
                   </Link>
                 );
@@ -196,27 +198,21 @@ export function SellerLayout({
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-slate-700 p-3 space-y-0.5">
-        <Link
-          href="/settings"
-          className={cn("flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors", collapsed && "justify-center")}
-        >
+      <div className="border-t border-border p-3 space-y-0.5">
+        <Link href="/settings" className={cn("flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors", collapsed && "justify-center")}>
           <Settings className="h-4 w-4 shrink-0" />
           {!collapsed && <span>Settings</span>}
         </Link>
-        <Link
-          href="/api/auth/signout"
-          className={cn("flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-slate-400 hover:bg-slate-800 hover:text-white transition-colors", collapsed && "justify-center")}
-        >
+        <Link href="/api/auth/signout" className={cn("flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors", collapsed && "justify-center")}>
           <LogOut className="h-4 w-4 shrink-0" />
-          {!collapsed && <span>Sign Out</span>}
+          {!collapsed && <span>Sign out</span>}
         </Link>
       </div>
     </div>
   );
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
+    <div className="flex h-screen bg-background overflow-hidden">
       {/* Desktop sidebar */}
       <aside className={cn("hidden lg:flex flex-col shrink-0 transition-all duration-200", collapsed ? "w-14" : "w-56")}>
         <SidebarContent />
@@ -226,69 +222,57 @@ export function SellerLayout({
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div className="w-56 shrink-0"><SidebarContent /></div>
-          <button type="button" className="flex-1 bg-black/50" onClick={() => setSidebarOpen(false)} aria-label="Close menu" />
+          <button type="button" className="flex-1 bg-black/60 backdrop-blur-sm" onClick={() => setSidebarOpen(false)} aria-label="Close menu" />
         </div>
       )}
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="bg-white border-b border-slate-200 px-4 h-14 flex items-center justify-between shrink-0 shadow-sm">
+        <header className="glass border-b border-border px-4 h-16 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="lg:hidden p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
-              onClick={() => setSidebarOpen(true)}
-              aria-label="Open menu"
-            >
-              <Menu className="h-5 w-5 text-slate-600" />
+            <button type="button" className="lg:hidden p-1.5 hover:bg-secondary rounded-lg transition-colors" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
+              <Menu className="h-5 w-5 text-muted-foreground" />
             </button>
-            <button
-              type="button"
-              className="hidden lg:flex p-1.5 hover:bg-slate-100 rounded-lg transition-colors"
-              onClick={toggleCollapsed}
-              aria-label="Toggle sidebar"
-            >
-              <Menu className="h-5 w-5 text-slate-600" />
+            <button type="button" className="hidden lg:flex p-1.5 hover:bg-secondary rounded-lg transition-colors" onClick={toggleCollapsed} aria-label="Toggle sidebar">
+              <Menu className="h-5 w-5 text-muted-foreground" />
             </button>
-            <span className="font-semibold text-sm text-slate-700 hidden sm:block">Seller Central</span>
+            <span className="font-semibold text-sm hidden sm:block">Seller Central</span>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Notification bell */}
-            <Link href="/messages" className="relative p-2 hover:bg-slate-100 rounded-lg transition-colors">
-              <Bell className="h-5 w-5 text-slate-600" />
+            <ThemeToggle />
+            <Link href="/messages" className="relative p-2 hover:bg-secondary rounded-lg transition-colors" aria-label="Messages">
+              <Bell className="h-5 w-5 text-muted-foreground" />
               {unreadMessages > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">
+                <span className="absolute top-1 right-1 h-4 min-w-4 px-1 bg-danger text-white text-[9px] rounded-full flex items-center justify-center font-bold">
                   {unreadMessages > 9 ? "9+" : unreadMessages}
                 </span>
               )}
             </Link>
-
-            {/* User avatar */}
             <div className="relative group">
-              <button type="button" className="flex items-center gap-2 p-1.5 hover:bg-slate-100 rounded-lg transition-colors">
-                <div className="h-7 w-7 rounded-full bg-green-600 flex items-center justify-center text-white font-bold text-xs">
+              <button type="button" className="flex items-center gap-2 p-1.5 hover:bg-secondary rounded-lg transition-colors">
+                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center text-white font-bold text-xs">
                   {sellerName.charAt(0).toUpperCase()}
                 </div>
-                <span className="text-sm font-medium text-slate-700 hidden sm:block max-w-[100px] truncate">{sellerName}</span>
-                <ChevronDown className="h-3 w-3 text-slate-400" />
+                <span className="text-sm font-medium hidden sm:block max-w-[100px] truncate">{sellerName}</span>
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
               </button>
-              <div className="absolute end-0 top-full mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                <div className="px-4 py-3 border-b border-slate-100">
-                  <p className="text-sm font-semibold text-slate-700 truncate">{sellerName}</p>
-                  <span className="text-xs text-green-500">{tier}</span>
+              <div className="absolute end-0 top-full mt-1.5 w-48 bg-popover text-popover-foreground border border-border rounded-xl shadow-elevated opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-1">
+                <div className="px-3 py-2.5 border-b border-border mb-1">
+                  <p className="text-sm font-semibold truncate">{sellerName}</p>
+                  <span className="text-xs text-primary">{tier}</span>
                 </div>
-                <Link href="/performance" className="block px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50">Performance</Link>
-                <Link href="/settings" className="block px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-50">Settings</Link>
-                <Link href="/api/auth/signout" className="block px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">Sign Out</Link>
+                <Link href="/performance" className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">Performance</Link>
+                <Link href="/settings" className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">Settings</Link>
+                <Link href="/api/auth/signout" className="block px-3 py-2 text-sm rounded-lg text-danger hover:bg-danger/10 transition-colors">Sign out</Link>
               </div>
             </div>
           </div>
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 bg-slate-50">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 bg-background">
           {children}
         </main>
       </div>

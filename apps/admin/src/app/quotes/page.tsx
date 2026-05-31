@@ -38,7 +38,7 @@ export default async function QuotesPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Total Quotes", value: QUOTES.length, color: "text-slate-800", bg: "bg-white border-border" },
+            { label: "Total Quotes", value: QUOTES.length, color: "text-foreground", bg: "bg-white border-border" },
             { label: "Pending", value: QUOTES.filter((q) => q.status === "PENDING").length, color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
             { label: "Win Rate", value: `${winRate}%`, color: "text-green-600", bg: "bg-green-50 border-green-200" },
             { label: "Accepted Value", value: formatCurrency(acceptedValue, "AED"), color: "text-green-700", bg: "bg-white border-border" },
@@ -70,12 +70,12 @@ export default async function QuotesPage() {
                   const StatusIcon = sc.icon;
                   return (
                     <tr key={q.id} className="hover:bg-secondary/40 transition-colors">
-                      <td className="px-4 py-3 font-mono text-xs font-semibold text-slate-600">{q.quoteNo}</td>
+                      <td className="px-4 py-3 font-mono text-xs font-semibold text-muted-foreground">{q.quoteNo}</td>
                       <td className="px-4 py-3"><Link href="/rfqs" className="font-mono text-xs text-primary hover:underline">{q.rfq}</Link></td>
                       <td className="px-4 py-3 font-medium">{q.buyer}</td>
                       <td className="px-4 py-3 text-muted-foreground">{q.supplier}</td>
                       <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(q.amount, q.currency as "AED")}</td>
-                      <td className="px-4 py-3"><span className="inline-flex items-center gap-0.5 text-xs font-medium text-slate-600"><TrendingUp className="h-3 w-3" /> {q.margin}%</span></td>
+                      <td className="px-4 py-3"><span className="inline-flex items-center gap-0.5 text-xs font-medium text-muted-foreground"><TrendingUp className="h-3 w-3" /> {q.margin}%</span></td>
                       <td className="px-4 py-3"><span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}><StatusIcon className="h-3 w-3" /> {sc.label}</span></td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{q.submitted}</td>
                       <td className="px-4 py-3"><button type="button" className="text-xs text-primary hover:underline font-medium">View</button></td>

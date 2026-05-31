@@ -34,8 +34,8 @@ export default async function PerformancePage() {
           {[
             { label: "Avg Supplier Score", value: `${avg}/100`, color: scoreColor(avg), bg: "bg-white border-border", icon: Award },
             { label: "Avg On-Time Delivery", value: "91%", color: "text-green-600", bg: "bg-green-50 border-green-200", icon: TrendingUp },
-            { label: "Avg Return Rate", value: "2.5%", color: "text-blue-600", bg: "bg-blue-50 border-blue-200", icon: RotateCcw },
-            { label: "Suppliers At Risk", value: atRisk, color: atRisk > 0 ? "text-red-600" : "text-slate-500", bg: atRisk > 0 ? "bg-red-50 border-red-200" : "bg-white border-border", icon: AlertTriangle },
+            { label: "Avg Return Rate", value: "2.5%", color: "text-primary", bg: "bg-blue-50 border-blue-200", icon: RotateCcw },
+            { label: "Suppliers At Risk", value: atRisk, color: atRisk > 0 ? "text-red-600" : "text-muted-foreground", bg: atRisk > 0 ? "bg-red-50 border-red-200" : "bg-white border-border", icon: AlertTriangle },
           ].map((s) => (
             <div key={s.label} className={`rounded-2xl border p-4 ${s.bg}`}>
               <s.icon className={`h-4 w-4 ${s.color} mb-2`} />
@@ -65,7 +65,7 @@ export default async function PerformancePage() {
                 {SUPPLIER_SCORES.map((s) => (
                   <tr key={s.name} className="hover:bg-secondary/40 transition-colors">
                     <td className="px-4 py-3 font-medium">{s.name}</td>
-                    <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.tier === "GOLD" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>{s.tier}</span></td>
+                    <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.tier === "GOLD" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-muted-foreground"}`}>{s.tier}</span></td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="flex gap-0.5 w-16 h-1.5">

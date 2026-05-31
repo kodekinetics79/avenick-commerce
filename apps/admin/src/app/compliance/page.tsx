@@ -39,7 +39,7 @@ export default async function AdminCompliancePage() {
                   return (
                     <tr key={doc.id} className={`hover:bg-muted/20 ${doc.status === "PENDING_REVIEW" ? "bg-yellow-50/50" : ""}`}>
                       <td className="px-4 py-3">
-                        <Link href={`/sellers/${doc.seller.id}`} className="text-blue-600 hover:underline text-sm">{doc.seller.businessNameEn}</Link>
+                        <Link href={`/sellers/${doc.seller.id}`} className="text-primary hover:underline text-sm">{doc.seller.businessNameEn}</Link>
                       </td>
                       <td className="px-4 py-3">
                         <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm hover:underline">{doc.type.replace(/_/g, " ")}</a>
@@ -57,7 +57,7 @@ export default async function AdminCompliancePage() {
                       <td className="px-4 py-3 text-xs text-muted-foreground">{format(doc.uploadedAt, "MMM d, yyyy")}</td>
                       <td className="px-4 py-3">
                         {doc.status === "PENDING_REVIEW" && (
-                          <Link href={`/sellers/${doc.seller.id}`} className="text-xs text-blue-600 hover:underline">Review</Link>
+                          <Link href={`/sellers/${doc.seller.id}`} className="text-xs text-primary hover:underline">Review</Link>
                         )}
                       </td>
                     </tr>

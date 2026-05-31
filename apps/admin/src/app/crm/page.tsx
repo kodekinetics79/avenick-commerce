@@ -16,7 +16,7 @@ const SMART_ALERTS = [
 const SEVERITY_CONFIG: Record<string, { dot: string; badge: string; border: string }> = {
   HIGH:   { dot: "bg-red-500",   badge: "bg-red-100 text-red-700",     border: "border-l-red-400" },
   MEDIUM: { dot: "bg-amber-500", badge: "bg-amber-100 text-amber-700", border: "border-l-amber-400" },
-  LOW:    { dot: "bg-blue-500",  badge: "bg-blue-100 text-blue-700",   border: "border-l-blue-400" },
+  LOW:    { dot: "bg-blue-500",  badge: "bg-blue-100 text-primary",   border: "border-l-blue-400" },
 };
 
 const STAGE_COLORS: Record<string, string> = {
@@ -41,7 +41,7 @@ export default async function CRMPage() {
             <p className="text-muted-foreground text-sm">Customer intelligence, retention, and pipeline</p>
           </div>
           <div className="flex gap-2">
-            <Link href="/campaigns" className="flex items-center gap-1.5 text-sm border border-border bg-white text-slate-700 hover:bg-slate-50 px-3 py-2 rounded-xl font-medium transition-colors">
+            <Link href="/campaigns" className="flex items-center gap-1.5 text-sm border border-border bg-white text-muted-foreground hover:bg-slate-50 px-3 py-2 rounded-xl font-medium transition-colors">
               <Megaphone className="h-3.5 w-3.5" /> Campaigns
             </Link>
             <Link href="/segments" className="flex items-center gap-1.5 text-sm bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl font-semibold transition-colors">
@@ -53,7 +53,7 @@ export default async function CRMPage() {
         {/* Stat cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: "B2C Customers", value: "4,821", trend: "+142 this month", icon: User, color: "text-blue-600" },
+            { label: "B2C Customers", value: "4,821", trend: "+142 this month", icon: User, color: "text-primary" },
             { label: "B2B Companies", value: "287", trend: "+18 this month", icon: Building2, color: "text-purple-600" },
             { label: "Active This Week", value: "1,203", trend: "Unique sessions", icon: Users, color: "text-green-600" },
             { label: "At-Risk Accounts", value: "36", trend: "Needs attention", icon: Heart, color: "text-red-600" },
@@ -88,7 +88,7 @@ export default async function CRMPage() {
                       <p className="text-sm font-medium">{alert.message}</p>
                       <p className="text-xs text-muted-foreground">{alert.sub}</p>
                     </div>
-                    <Link href={alert.href} className="text-xs text-blue-600 hover:underline shrink-0 font-medium whitespace-nowrap">{alert.action} →</Link>
+                    <Link href={alert.href} className="text-xs text-primary hover:underline shrink-0 font-medium whitespace-nowrap">{alert.action} →</Link>
                   </div>
                 );
               })}
@@ -127,7 +127,7 @@ export default async function CRMPage() {
           <div className="lg:col-span-2 bg-white rounded-2xl border border-border overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <h2 className="font-semibold">Top Accounts</h2>
-              <Link href="/segments" className="text-xs text-blue-600 hover:underline font-medium">View segments →</Link>
+              <Link href="/segments" className="text-xs text-primary hover:underline font-medium">View segments →</Link>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -146,7 +146,7 @@ export default async function CRMPage() {
                         <p className="text-xs text-muted-foreground">{c.contact}</p>
                       </td>
                       <td className="px-5 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${c.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"}`}>{c.type}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${c.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-primary"}`}>{c.type}</span>
                       </td>
                       <td className="px-5 py-3 font-medium">{c.totalOrders}</td>
                       <td className="px-5 py-3 font-bold text-green-700">AED {c.totalSpent.toLocaleString()}</td>
@@ -194,7 +194,7 @@ export default async function CRMPage() {
               ))}
             </div>
             <div className="px-5 py-3 border-t border-border bg-slate-50">
-              <Link href="/retention" className="text-xs text-blue-600 hover:underline font-medium flex items-center gap-1">
+              <Link href="/retention" className="text-xs text-primary hover:underline font-medium flex items-center gap-1">
                 View retention dashboard <ArrowRight className="h-3 w-3" />
               </Link>
             </div>

@@ -32,13 +32,13 @@ const MOCK_USERS: Array<{
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; icon: typeof Shield }> = {
   ADMIN: { label: "Admin", color: "bg-red-100 text-red-700", icon: Shield },
   SELLER: { label: "Seller", color: "bg-orange-100 text-orange-700", icon: Store },
-  BUYER: { label: "B2B Buyer", color: "bg-blue-100 text-blue-700", icon: ShoppingBag },
+  BUYER: { label: "B2B Buyer", color: "bg-blue-100 text-primary", icon: ShoppingBag },
   CONSUMER: { label: "Consumer", color: "bg-green-100 text-green-700", icon: User },
 };
 
 const STATUS_CONFIG: Record<UserStatus, { label: string; color: string }> = {
   ACTIVE: { label: "Active", color: "bg-green-100 text-green-700" },
-  INACTIVE: { label: "Inactive", color: "bg-slate-100 text-slate-500" },
+  INACTIVE: { label: "Inactive", color: "bg-slate-100 text-muted-foreground" },
   SUSPENDED: { label: "Suspended", color: "bg-red-100 text-red-600" },
 };
 
@@ -64,7 +64,7 @@ export default async function UsersPage() {
             <h1 className="text-2xl font-bold">User Management</h1>
             <p className="text-muted-foreground text-sm">Manage platform users, roles, and access permissions</p>
           </div>
-          <button type="button" className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">
+          <button type="button" className="flex items-center gap-2 bg-primary hover:bg-primary text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">
             <Plus className="h-4 w-4" /> Invite User
           </button>
         </div>
@@ -74,7 +74,7 @@ export default async function UsersPage() {
           {[
             { label: "Admins", value: roleCounts.Admin, icon: Shield, color: "text-red-600", bg: "bg-red-50 border-red-200" },
             { label: "Sellers", value: roleCounts.Seller, icon: Store, color: "text-orange-600", bg: "bg-orange-50 border-orange-200" },
-            { label: "B2B Buyers", value: roleCounts["B2B Buyer"], icon: ShoppingBag, color: "text-blue-600", bg: "bg-blue-50 border-blue-200" },
+            { label: "B2B Buyers", value: roleCounts["B2B Buyer"], icon: ShoppingBag, color: "text-primary", bg: "bg-blue-50 border-blue-200" },
             { label: "Consumers", value: roleCounts.Consumer, icon: User, color: "text-green-600", bg: "bg-green-50 border-green-200" },
           ].map((stat) => {
             const Icon = stat.icon;
@@ -91,15 +91,15 @@ export default async function UsersPage() {
         {/* Search and filter */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <div className="flex items-center gap-2 bg-white border border-border rounded-xl px-3 py-1.5 flex-1">
-            <Search className="h-4 w-4 text-slate-400 shrink-0" />
-            <input type="text" placeholder="Search by name, email, or role..." className="flex-1 text-sm text-slate-600 placeholder:text-slate-400 outline-none" />
+            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+            <input type="text" placeholder="Search by name, email, or role..." className="flex-1 text-sm text-muted-foreground placeholder:text-muted-foreground outline-none" />
           </div>
           <div className="flex items-center gap-1.5 overflow-x-auto">
             {ROLE_TABS.map((tab) => (
               <button
                 key={tab}
                 type="button"
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${tab === "All" ? "bg-slate-700 text-white" : "bg-white border border-border text-slate-500 hover:border-slate-400"}`}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${tab === "All" ? "bg-slate-700 text-white" : "bg-white border border-border text-muted-foreground hover:border-slate-400"}`}
               >
                 {tab} <span className="text-[10px]">({roleCounts[tab as keyof typeof roleCounts]})</span>
               </button>
@@ -132,7 +132,7 @@ export default async function UsersPage() {
                     <tr key={user.id} className="hover:bg-muted/20 transition-colors">
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0 text-xs font-bold text-slate-600">
+                          <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0 text-xs font-bold text-muted-foreground">
                             {initials}
                           </div>
                           <div>
@@ -157,7 +157,7 @@ export default async function UsersPage() {
                       <td className="px-5 py-3 hidden lg:table-cell text-xs text-muted-foreground">{user.createdAt}</td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
-                          <button type="button" className="text-xs text-blue-600 hover:underline">Edit</button>
+                          <button type="button" className="text-xs text-primary hover:underline">Edit</button>
                           {user.status === "ACTIVE" && user.role !== "ADMIN" && (
                             <button type="button" className="text-xs text-red-500 hover:underline">Suspend</button>
                           )}
