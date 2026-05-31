@@ -1,10 +1,13 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: "class",
   content: [],
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-ibm-arabic)", "IBM Plex Sans Arabic", "system-ui", "sans-serif"],
+        sans: ["var(--font-sans)", "Inter", "system-ui", "sans-serif"],
+        arabic: ["var(--font-ibm-arabic)", "IBM Plex Sans Arabic", "system-ui", "sans-serif"],
+        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -12,23 +15,23 @@ module.exports = {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        // Primary CTA — themeable per app (enterprise blue by default, green on storefront)
+        // Primary CTA — electric indigo signature accent (unified across portals)
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
-          50: "#eff6ff",
-          100: "#dbeafe",
-          200: "#bfdbfe",
-          300: "#93c5fd",
-          400: "#60a5fa",
-          500: "#3b82f6",
-          600: "#2563eb",
-          700: "#1d4ed8",
-          800: "#1e40af",
-          900: "#1e3a8a",
-          950: "#172554",
+          50: "#eef2ff",
+          100: "#e0e7ff",
+          200: "#c7d2fe",
+          300: "#a5b4fc",
+          400: "#818cf8",
+          500: "#6366f1",
+          600: "#4f46e5",
+          700: "#4338ca",
+          800: "#3730a3",
+          900: "#312e81",
+          950: "#1e1b4b",
         },
-        // Enterprise navy — sidebars, dark chrome, headings
+        // Neutral chrome
         navy: {
           DEFAULT: "#0F172A",
           50: "#f8fafc",
@@ -43,25 +46,25 @@ module.exports = {
           900: "#0f172a",
           950: "#020617",
         },
-        // Accent — commerce intelligence / teal
+        // Secondary accent — violet (used for gradients/glows)
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
-          50: "#ecfeff",
-          100: "#cffafe",
-          200: "#a5f3fc",
-          300: "#67e8f9",
-          400: "#22d3ee",
-          500: "#06b6d4",
-          600: "#0891b2",
-          700: "#0e7490",
-          800: "#155e75",
-          900: "#164e63",
+          50: "#f5f3ff",
+          100: "#ede9fe",
+          200: "#ddd6fe",
+          300: "#c4b5fd",
+          400: "#a78bfa",
+          500: "#8b5cf6",
+          600: "#7c3aed",
+          700: "#6d28d9",
+          800: "#5b21b6",
+          900: "#4c1d95",
         },
         // Semantic states
-        success: { DEFAULT: "#16A34A", fg: "#ffffff", soft: "#f0fdf4", border: "#bbf7d0" },
+        success: { DEFAULT: "#10B981", fg: "#ffffff", soft: "#ecfdf5", border: "#a7f3d0" },
         warning: { DEFAULT: "#F59E0B", fg: "#ffffff", soft: "#fffbeb", border: "#fde68a" },
-        danger:  { DEFAULT: "#DC2626", fg: "#ffffff", soft: "#fef2f2", border: "#fecaca" },
+        danger:  { DEFAULT: "#EF4444", fg: "#ffffff", soft: "#fef2f2", border: "#fecaca" },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
           foreground: "hsl(var(--secondary-foreground))",
@@ -89,10 +92,31 @@ module.exports = {
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
-        // Soft enterprise elevation
-        xs: "0 1px 2px 0 rgb(15 23 42 / 0.04)",
-        card: "0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.04)",
-        elevated: "0 4px 16px -2px rgb(15 23 42 / 0.08), 0 2px 6px -2px rgb(15 23 42 / 0.05)",
+        xs: "0 1px 2px 0 rgb(2 6 23 / 0.04)",
+        card: "0 1px 2px 0 rgb(2 6 23 / 0.04), 0 1px 3px 0 rgb(2 6 23 / 0.06)",
+        elevated: "0 8px 30px -6px rgb(2 6 23 / 0.12), 0 2px 8px -4px rgb(2 6 23 / 0.06)",
+        glow: "0 0 0 1px rgb(99 102 241 / 0.15), 0 8px 30px -8px rgb(99 102 241 / 0.45)",
+        "glow-sm": "0 0 24px -6px rgb(99 102 241 / 0.5)",
+      },
+      backgroundImage: {
+        "grid-light":
+          "linear-gradient(to right, rgb(2 6 23 / 0.04) 1px, transparent 1px), linear-gradient(to bottom, rgb(2 6 23 / 0.04) 1px, transparent 1px)",
+        "grid-dark":
+          "linear-gradient(to right, rgb(255 255 255 / 0.05) 1px, transparent 1px), linear-gradient(to bottom, rgb(255 255 255 / 0.05) 1px, transparent 1px)",
+      },
+      keyframes: {
+        "fade-up": {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+      },
+      animation: {
+        "fade-up": "fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both",
+        float: "float 6s ease-in-out infinite",
       },
     },
   },

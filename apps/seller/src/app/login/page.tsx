@@ -32,27 +32,27 @@ export default function SellerLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 px-4 relative overflow-hidden">
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
-      <div className="relative w-full max-w-sm">
+    <div className="dark relative min-h-screen flex items-center justify-center overflow-hidden bg-background px-4">
+      <div className="absolute inset-0 bg-grid mask-fade-b opacity-40" />
+      <div className="absolute -top-20 start-1/3 h-96 w-96 rounded-full bg-primary/25 blur-[120px]" />
+      <div className="absolute bottom-0 end-1/3 h-80 w-80 rounded-full bg-accent/20 blur-[120px]" />
+
+      <div className="relative w-full max-w-sm animate-fade-up">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center h-12 w-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-700 shadow-lg shadow-blue-900/40 mb-4">
-            <span className="text-white font-black text-lg">A</span>
-          </div>
-          <h1 className="text-2xl font-bold text-white mb-1">Seller Central</h1>
-          <p className="text-slate-400 text-sm">Avenick Commerce — Modern Trade OS</p>
+          <span className="inline-grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-primary-500 to-accent-600 text-white font-black text-lg shadow-glow mb-4">A</span>
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Seller Central</h1>
+          <p className="text-sm text-muted-foreground mt-1">Avenick Commerce — Modern Trade OS</p>
         </div>
-        <div className="bg-slate-800/80 backdrop-blur border border-slate-700 rounded-2xl p-6 shadow-2xl">
-          <form onSubmit={handleLogin} className="space-y-4">
-            <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 focus:ring-blue-500" />
-            <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-400 focus:ring-blue-500" />
-            {error && <p className="text-red-400 text-sm">{error}</p>}
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white" loading={loading}>Sign In</Button>
+        <div className="glass-strong rounded-2xl p-6 shadow-elevated">
+          <form onSubmit={handleLogin} className="space-y-3.5">
+            <Input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            {error && <p className="text-danger text-sm">{error}</p>}
+            <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
           </form>
-          <p className="text-center text-xs text-slate-500 mt-4">Test: seller@avenick.test / Password123!</p>
+          <p className="text-center text-xs text-muted-foreground mt-4">seller@avenick.test · Password123!</p>
         </div>
-        <p className="text-center text-[11px] text-slate-600 mt-6">B2B-first. B2C-ready. Built for modern trade.</p>
+        <p className="text-center text-[11px] text-muted-foreground/70 mt-6">B2B-first. B2C-ready. Built for modern trade.</p>
       </div>
     </div>
   );

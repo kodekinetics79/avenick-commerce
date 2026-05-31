@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingCart, Star, Heart, Truck } from "lucide-react";
+import { ShoppingCart, Star, Heart, Truck, Package } from "lucide-react";
 import { formatCurrency } from "@avenick/utils";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
@@ -53,92 +53,89 @@ export function ProductCard({
     toggle({ id, slug, nameEn, nameAr, imageUrl, price, currency, sku, sellerId, sellerName, inStock });
   }
 
+  const badgeClass =
+    discount || badge === "SALE" ? "bg-danger text-white"
+    : badge === "HOT" ? "bg-primary text-primary-foreground shadow-glow-sm"
+    : badge === "NEW" ? "bg-accent text-accent-foreground"
+    : "";
+
   return (
-    <Link href={`/products/${slug}`} className="group block bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg transition-all duration-200">
+    <Link
+      href={`/products/${slug}`}
+      className="group relative block rounded-2xl border border-border bg-card overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-elevated"
+    >
       {/* Image */}
-      <div className="relative aspect-square bg-slate-50 overflow-hidden">
+      <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-secondary to-muted">
         {imageUrl ? (
-          <Image src={imageUrl} alt={name} fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw" />
+          <Image src={imageUrl} alt={name} fill className="object-cover transition-transform duration-500 group-hover:scale-110" sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw" />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
-            <span className="text-3xl mb-1">📦</span>
-            <p className="text-xs">No image</p>
+          <div className="absolute inset-0 grid place-items-center text-muted-foreground/40">
+            <Package className="h-10 w-10" strokeWidth={1.2} />
           </div>
         )}
-        {!inStock && (
-          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-            <span className="bg-white text-xs font-semibold px-3 py-1 rounded-full">Out of Stock</span>
-          </div>
-        )}
-        {badge === "HOT" && !discount && (
-          <div className="absolute top-2 start-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-            HOT
-          </div>
-        )}
-        {badge === "NEW" && !discount && (
-          <div className="absolute top-2 start-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-            NEW
-          </div>
-        )}
-        {discount && (
-          <div className="absolute top-2 start-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-            -{discount}%
-          </div>
-        )}
-        {isB2B && (
-          <div className="absolute top-2 start-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">B2B</div>
-        )}
+
+        {/* Badges */}
+        <div className="absolute top-2.5 start-2.5 flex flex-col gap-1.5">
+          {badgeClass && (
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badgeClass}`}>
+              {discount ? `-${discount}%` : badge}
+            </span>
+          )}
+          {isB2B && (
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-foreground text-background">B2B</span>
+          )}
+        </div>
+
+        {/* Wishlist */}
         <button
           type="button"
           onClick={handleWishlist}
-          className={`absolute top-2 end-2 p-1.5 rounded-full transition-all shadow-sm ${wishlisted ? "bg-red-500 text-white" : "bg-white/90 text-muted-foreground hover:bg-white hover:text-red-500"}`}
+          className={`absolute top-2.5 end-2.5 grid h-8 w-8 place-items-center rounded-full backdrop-blur transition-all ${wishlisted ? "bg-danger text-white" : "bg-background/70 text-muted-foreground hover:text-danger"}`}
           title={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
         >
-          <Heart className={`h-3.5 w-3.5 ${wishlisted ? "fill-current" : ""}`} />
+          <Heart className={`h-4 w-4 ${wishlisted ? "fill-current" : ""}`} />
         </button>
-      </div>
 
-      {/* Content */}
-      <div className="p-3">
-        {category && <p className="text-xs text-green-600 font-medium mb-0.5">{category}</p>}
-        {!category && sellerName && <p className="text-xs text-muted-foreground mb-0.5 truncate">{sellerName}</p>}
-        <h3 className="text-sm font-medium line-clamp-2 mb-1.5 min-h-[2.5rem]">{name}</h3>
-
-        {/* Rating */}
-        <div className="flex items-center gap-1 mb-2">
-          <div className="flex">
-            {[1,2,3,4,5].map((s) => (
-              <Star key={s} className={`h-3 w-3 ${s <= Math.round(rating) ? "text-amber-400 fill-current" : "text-gray-200 fill-current"}`} />
-            ))}
+        {!inStock && (
+          <div className="absolute inset-0 grid place-items-center bg-background/60 backdrop-blur-[1px]">
+            <span className="rounded-full bg-foreground text-background text-xs font-semibold px-3 py-1">Out of stock</span>
           </div>
-          <span className="text-xs text-muted-foreground">{rating.toFixed(1)}{reviewCount ? ` (${reviewCount})` : ""}</span>
-        </div>
+        )}
 
-        {/* Price */}
-        <div className="mb-1">
-          {originalPrice && originalPrice > price && (
-            <span className="text-xs text-gray-400 line-through me-1">{formatCurrency(originalPrice, currency as "AED", locale)}</span>
-          )}
-          <span className="text-base font-bold text-green-600">{formatCurrency(price, currency as "AED", locale)}</span>
-          {moq > 1 && <p className="text-xs text-muted-foreground">Min. {moq}</p>}
-        </div>
-
-        {/* Delivery */}
-        <div className="flex items-center gap-1 mb-2 text-xs text-green-600">
-          <Truck className="h-3 w-3" />
-          <span>Free delivery 200+ AED</span>
-        </div>
-
-        {/* Add to Cart - full width */}
+        {/* Quick add on hover */}
         <button
           type="button"
           onClick={handleAddToCart}
           disabled={!inStock}
-          className="w-full mt-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-semibold py-2 transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="absolute inset-x-2.5 bottom-2.5 translate-y-3 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 h-9 rounded-xl bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-1.5 shadow-glow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <ShoppingCart className="h-3.5 w-3.5" />
-          Add to Cart
+          <ShoppingCart className="h-3.5 w-3.5" /> Add to cart
         </button>
+      </div>
+
+      {/* Content */}
+      <div className="p-3.5">
+        <p className="text-[11px] font-medium text-primary mb-1 truncate">{category ?? sellerName ?? "Avenick"}</p>
+        <h3 className="text-sm font-semibold leading-snug line-clamp-2 min-h-[2.5rem] text-foreground">{name}</h3>
+
+        <div className="flex items-center gap-1.5 mt-1.5 text-muted-foreground">
+          <Star className="h-3.5 w-3.5 text-amber-400 fill-current" />
+          <span className="text-xs font-medium text-foreground">{rating.toFixed(1)}</span>
+          {reviewCount ? <span className="text-xs">({reviewCount})</span> : null}
+        </div>
+
+        <div className="mt-2.5 flex items-end justify-between">
+          <div>
+            {originalPrice && originalPrice > price && (
+              <span className="block text-xs text-muted-foreground line-through font-mono">{formatCurrency(originalPrice, currency as "AED", locale)}</span>
+            )}
+            <span className="text-lg font-bold font-mono tracking-tight text-foreground">{formatCurrency(price, currency as "AED", locale)}</span>
+            {moq > 1 && <span className="block text-[11px] text-muted-foreground">Min. {moq} units</span>}
+          </div>
+          <span className="inline-flex items-center gap-1 text-[11px] text-success">
+            <Truck className="h-3.5 w-3.5" /> Fast
+          </span>
+        </div>
       </div>
     </Link>
   );

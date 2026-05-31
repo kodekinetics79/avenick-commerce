@@ -1,56 +1,110 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
-
 @layer base {
   :root {
-    /* Avenick Commerce — Customer storefront (green sub-brand on shared foundation) */
-    --background: 210 40% 98%;          /* slate-50 canvas */
-    --foreground: 222 47% 11%;          /* navy text */
+    /* Avenick — Premium Minimal (light) */
+    --font-sans: "Inter";
+    --background: 0 0% 100%;
+    --foreground: 240 10% 4%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 240 10% 4%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 142 76% 36%;             /* storefront green #16A34A */
+    --popover-foreground: 240 10% 4%;
+    --primary: 243 75% 59%;            /* electric indigo */
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 192 91% 36%;              /* teal */
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 6% 10%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+    --accent: 262 83% 58%;             /* violet */
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 243 75% 59%;
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    /* Avenick — Premium Minimal (dark) */
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 6% 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 6% 8%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 239 84% 67%;            /* brighter indigo on dark */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 13%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 5% 13%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 262 83% 66%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 142 76% 36%;
-    --radius: 0.75rem;
+    --border: 240 5% 16%;
+    --input: 240 5% 18%;
+    --ring: 239 84% 67%;
   }
 }
 
 @layer base {
   * { @apply border-border; }
+  html { scroll-behavior: smooth; }
   body {
     @apply bg-background text-foreground font-sans antialiased;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    font-feature-settings: "cv02", "cv03", "cv04", "ss01";
   }
   [dir="rtl"] body { font-family: "IBM Plex Sans Arabic", system-ui, sans-serif; }
   h1, h2, h3, h4 { @apply tracking-tight; }
+  /* Smooth theme switch */
+  body, .glass, [class*="bg-card"], [class*="border-"] {
+    transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+  }
+}
+
+@layer components {
+  /* Frosted glass surface (adapts to light/dark) */
+  .glass {
+    @apply bg-white/70 dark:bg-white/[0.04] backdrop-blur-xl border border-white/60 dark:border-white/10;
+  }
+  .glass-strong {
+    @apply bg-white/85 dark:bg-white/[0.06] backdrop-blur-2xl border border-black/5 dark:border-white/10;
+  }
 }
 
 @layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-500 via-accent-500 to-primary-400 bg-clip-text text-transparent;
+  }
+  .bg-grid {
+    background-image: theme("backgroundImage.grid-light");
+    background-size: 40px 40px;
+  }
+  .dark .bg-grid {
+    background-image: theme("backgroundImage.grid-dark");
+  }
+  .mask-fade-b {
+    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  }
   .skeleton {
-    @apply bg-slate-200/70 rounded-md relative overflow-hidden;
+    @apply bg-muted rounded-md relative overflow-hidden;
   }
   .skeleton::after {
     content: "";
     position: absolute;
     inset: 0;
     transform: translateX(-100%);
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
     animation: skeleton-shimmer 1.6s infinite;
   }
   @keyframes skeleton-shimmer {

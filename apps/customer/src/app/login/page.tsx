@@ -36,28 +36,33 @@ export default function LoginPage() {
 
   return (
     <MainLayout>
-      <div className="min-h-[60vh] flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-sm">
+      <div className="relative min-h-[78vh] flex items-center justify-center overflow-hidden px-4 py-16">
+        <div className="absolute inset-0 bg-grid mask-fade-b opacity-50" />
+        <div className="absolute -top-10 start-1/3 h-80 w-80 rounded-full bg-primary/15 blur-[120px]" />
+        <div className="absolute bottom-0 end-1/3 h-72 w-72 rounded-full bg-accent/15 blur-[120px]" />
+
+        <div className="relative w-full max-w-sm animate-fade-up">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-orange-600 mb-1">Welcome to Avenick Commerce</h1>
-            <p className="text-muted-foreground text-sm">B2B-first. B2C-ready. Built for modern trade.</p>
+            <span className="inline-grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-primary-500 to-accent-600 text-white font-black text-lg shadow-glow mb-4">A</span>
+            <h1 className="text-2xl font-extrabold tracking-tight">Welcome back</h1>
+            <p className="text-muted-foreground text-sm mt-1">B2B-first. B2C-ready. Built for modern trade.</p>
           </div>
-          <div className="bg-white rounded-2xl border border-border p-6 shadow-sm">
+          <div className="glass-strong rounded-2xl p-6 shadow-elevated">
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Email / البريد الإلكتروني</label>
+                <label className="block text-sm font-medium mb-1.5">Email / البريد الإلكتروني</label>
                 <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Password / كلمة المرور</label>
+                <label className="block text-sm font-medium mb-1.5">Password / كلمة المرور</label>
                 <Input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <Button type="submit" className="w-full" loading={loading}>Sign In</Button>
+              {error && <p className="text-sm text-danger">{error}</p>}
+              <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
             </form>
             <div className="mt-4 text-center text-sm text-muted-foreground">
-              <p>Don&apos;t have an account? <Link href="/register" className="text-orange-600 hover:underline">Register</Link></p>
-              <p className="mt-1 text-xs">Test: buyer@avenick.test / Password123!</p>
+              <p>Don&apos;t have an account? <Link href="/register" className="text-primary font-medium hover:underline">Register</Link></p>
+              <p className="mt-1 text-xs">buyer@avenick.test · Password123!</p>
             </div>
           </div>
         </div>
