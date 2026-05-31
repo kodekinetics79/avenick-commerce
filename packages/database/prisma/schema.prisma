@@ -264,6 +264,22 @@ enum AuditAction {
   STATUS_CHANGE
 }
 
+enum InventoryMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+  RESERVE
+  RELEASE
+}
+
+enum RefundStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  COMPLETED
+  REJECTED
+}
+
 // ─── USER & SESSION ───────────────────────────────────────────────────────────
 
 model User {
@@ -285,16 +301,16 @@ model User {
   updatedAt     DateTime   @updatedAt
   deletedAt     DateTime?
 
-  sellerProfile     SellerProfile?
-  adminProfile      AdminProfile?
-  companyMember     CompanyMember?
-  addresses         Address[]
-  cart              Cart?
-  orders            Order[]
-  sessions          Session[]
-  notifications     Notification[]
-  auditLogs         AuditLog[]
-  sentMessages      Message[]          @relation("SentMessages")
+  sellerProfile      SellerProfile?
+  adminProfile       AdminProfile?
+  companyMember      CompanyMember?
+  addresses          Address[]
+  cart               Cart?
+  orders             Order[]
+  sessions           Session[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  sentMessages       Message[]          @relation("SentMessages")
   customerActivities CustomerActivity[]
 
   @@index([email])
@@ -384,24 +400,26 @@ model ApprovalPolicy {
 }
 
 model PurchaseOrder {
-  id              String   @id @default(cuid())
-  poNumber        String   @unique
+  id              String    @id @default(cuid())
+  poNumber        String    @unique
   companyId       String
   requesterId     String
   approverId      String?
-  status          POStatus @default(DRAFT)
-  currency        Currency @default(AED)
-  total           Decimal  @db.Decimal(12, 2)
+  status          POStatus  @default(DRAFT)
+  currency        Currency  @default(AED)
+  total           Decimal   @db.Decimal(12, 2)
   requiredDate    DateTime?
   notes           String?
   rejectionReason String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   company Company @relation(fields: [companyId], references: [id])
   orders  Order[]
 
   @@index([companyId, status])
+  @@index([requesterId])
+  @@index([approverId])
 }
 
 // ─── SELLER ───────────────────────────────────────────────────────────────────
@@ -431,7 +449,7 @@ model SellerProfile {
   updatedAt      DateTime     @updatedAt
   deletedAt      DateTime?
 
-  user            User                  @relation(fields: [userId], references: [id])
+  user            User             @relation(fields: [userId], references: [id])
   products        Product[]
   documents       SellerDocument[]
   payouts         SellerPayout[]
@@ -480,7 +498,7 @@ model SellerPayout {
   notes       String?
   createdAt   DateTime     @default(now())
 
-  seller SellerProfile     @relation(fields: [sellerId], references: [id])
+  seller SellerProfile      @relation(fields: [sellerId], references: [id])
   items  SellerPayoutItem[]
 
   @@index([sellerId, status])
@@ -494,10 +512,11 @@ model SellerPayoutItem {
   commission Decimal @db.Decimal(12, 2)
   net        Decimal @db.Decimal(12, 2)
 
-  payout SellerPayout @relation(fields: [payoutId], references: [id])
+  payout SellerPayout @relation(fields: [payoutId], references: [id], onDelete: Cascade)
   order  Order        @relation(fields: [orderId], references: [id])
 
   @@index([payoutId])
+  @@index([orderId])
 }
 
 // ─── CATALOG ──────────────────────────────────────────────────────────────────
@@ -563,9 +582,9 @@ model Product {
   deletedAt     DateTime?
   publishedAt   DateTime?
 
-  seller      SellerProfile             @relation(fields: [sellerId], references: [id])
-  category    Category                  @relation(fields: [categoryId], references: [id])
-  brand       Brand?                    @relation(fields: [brandId], references: [id])
+  seller      SellerProfile               @relation(fields: [sellerId], references: [id])
+  category    Category                    @relation(fields: [categoryId], references: [id])
+  brand       Brand?                      @relation(fields: [brandId], references: [id])
   images      ProductImage[]
   variants    ProductVariant[]
   prices      ProductPrice[]
@@ -579,6 +598,7 @@ model Product {
 
   @@index([sellerId, status])
   @@index([categoryId])
+  @@index([brandId])
   @@index([slug])
   @@index([sku])
   @@index([deletedAt])
@@ -599,15 +619,15 @@ model ProductImage {
 }
 
 model ProductVariant {
-  id        String  @id @default(cuid())
-  productId String
-  sku       String  @unique
-  nameEn    String
-  nameAr    String?
+  id         String  @id @default(cuid())
+  productId  String
+  sku        String  @unique
+  nameEn     String
+  nameAr     String?
   attributes Json
-  isActive  Boolean @default(true)
+  isActive   Boolean @default(true)
 
-  product   Product          @relation(fields: [productId], references: [id])
+  product   Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
   prices    ProductPrice[]
   inventory InventoryStock[]
 
@@ -627,10 +647,11 @@ model ProductPrice {
   isActive  Boolean     @default(true)
   createdAt DateTime    @default(now())
 
-  product Product?        @relation(fields: [productId], references: [id])
-  variant ProductVariant? @relation(fields: [variantId], references: [id])
+  product Product?        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
   @@index([productId, type, currency])
+  @@index([variantId])
 }
 
 model ProductComplianceDocument {
@@ -650,7 +671,7 @@ model ProductComplianceDocument {
   createdAt       DateTime       @default(now())
   reviewedAt      DateTime?
 
-  product Product @relation(fields: [productId], references: [id])
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId, status])
   @@index([sellerId])
@@ -666,7 +687,7 @@ model ProductIssue {
   resolvedAt DateTime?
   createdAt  DateTime         @default(now())
 
-  product Product @relation(fields: [productId], references: [id])
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId, resolvedAt])
 }
@@ -685,7 +706,7 @@ model ListingHealthSnapshot {
   hasBrand       Boolean
   capturedAt     DateTime @default(now())
 
-  product Product @relation(fields: [productId], references: [id])
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@index([productId, capturedAt])
 }
@@ -705,7 +726,7 @@ model Warehouse {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
-  seller    SellerProfile?     @relation(fields: [sellerId], references: [id])
+  seller    SellerProfile?      @relation(fields: [sellerId], references: [id])
   locations InventoryLocation[]
 
   @@index([sellerId])
@@ -737,28 +758,30 @@ model InventoryStock {
   reorderPoint Int      @default(10)
   updatedAt    DateTime @updatedAt
 
-  product   Product?           @relation(fields: [productId], references: [id])
-  variant   ProductVariant?    @relation(fields: [variantId], references: [id])
-  location  InventoryLocation  @relation(fields: [locationId], references: [id])
+  product   Product?            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant   ProductVariant?     @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  location  InventoryLocation   @relation(fields: [locationId], references: [id])
   movements InventoryMovement[]
 
   @@index([productId])
+  @@index([variantId])
   @@index([locationId])
 }
 
 model InventoryMovement {
-  id        String   @id @default(cuid())
+  id        String                @id @default(cuid())
   stockId   String
-  type      String
+  type      InventoryMovementType
   qty       Int
   reference String?
   notes     String?
   createdBy String?
-  createdAt DateTime @default(now())
+  createdAt DateTime              @default(now())
 
-  stock InventoryStock @relation(fields: [stockId], references: [id])
+  stock InventoryStock @relation(fields: [stockId], references: [id], onDelete: Cascade)
 
   @@index([stockId])
+  @@index([createdAt])
 }
 
 // ─── CART ─────────────────────────────────────────────────────────────────────
@@ -789,6 +812,7 @@ model CartItem {
 
   @@unique([cartId, productId, variantId])
   @@index([cartId])
+  @@index([productId])
 }
 
 // ─── ADDRESS & ORDER ──────────────────────────────────────────────────────────
@@ -839,18 +863,22 @@ model Order {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
-  user          User                @relation(fields: [userId], references: [id])
-  company       Company?            @relation(fields: [companyId], references: [id])
-  purchaseOrder PurchaseOrder?      @relation(fields: [purchaseOrderId], references: [id])
-  address       Address?            @relation(fields: [addressId], references: [id])
+  user          User                 @relation(fields: [userId], references: [id])
+  company       Company?             @relation(fields: [companyId], references: [id])
+  purchaseOrder PurchaseOrder?       @relation(fields: [purchaseOrderId], references: [id])
+  address       Address?             @relation(fields: [addressId], references: [id])
   items         OrderItem[]
   statusHistory OrderStatusHistory[]
   payments      Payment[]
   commissions   Commission[]
   payoutItems   SellerPayoutItem[]
+  refunds       Refund[]
+  taxInvoice    TaxInvoice?
 
   @@index([userId, status])
   @@index([companyId])
+  @@index([purchaseOrderId])
+  @@index([addressId])
   @@index([orderNumber])
   @@index([createdAt])
 }
@@ -872,10 +900,11 @@ model OrderItem {
   status    OrderStatus @default(CONFIRMED)
   createdAt DateTime    @default(now())
 
-  order   Order   @relation(fields: [orderId], references: [id])
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
 
   @@index([orderId])
+  @@index([productId])
   @@index([sellerId])
 }
 
@@ -888,7 +917,7 @@ model OrderStatusHistory {
   actorId   String?
   createdAt DateTime    @default(now())
 
-  order Order @relation(fields: [orderId], references: [id])
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
 }
@@ -907,30 +936,34 @@ model Payment {
   paidAt      DateTime?
   createdAt   DateTime      @default(now())
 
-  order Order @relation(fields: [orderId], references: [id])
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId])
 }
 
 model Refund {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   orderId     String
-  amount      Decimal  @db.Decimal(12, 2)
+  amount      Decimal      @db.Decimal(12, 2)
   reason      String?
-  status      String   @default("PENDING")
+  status      RefundStatus @default(PENDING)
   processedAt DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime     @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
 }
 
 model Commission {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   sellerId  String
   orderId   String
-  amount    Decimal  @db.Decimal(12, 2)
-  rate      Decimal  @db.Decimal(5, 2)
+  amount    Decimal   @db.Decimal(12, 2)
+  rate      Decimal   @db.Decimal(5, 2)
   currency  Currency
   settledAt DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   seller SellerProfile @relation(fields: [sellerId], references: [id])
   order  Order         @relation(fields: [orderId], references: [id])
@@ -948,6 +981,8 @@ model TaxInvoice {
   totalAmount Decimal  @db.Decimal(12, 2)
   vatAmount   Decimal  @db.Decimal(12, 2)
   currency    Currency
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 // ─── RFQ ──────────────────────────────────────────────────────────────────────
@@ -985,10 +1020,11 @@ model RFQItem {
   unitQuoted Decimal? @db.Decimal(12, 2)
   notes      String?
 
-  rfq     RFQRequest @relation(fields: [rfqId], references: [id])
+  rfq     RFQRequest @relation(fields: [rfqId], references: [id], onDelete: Cascade)
   product Product?   @relation(fields: [productId], references: [id])
 
   @@index([rfqId])
+  @@index([productId])
 }
 
 // ─── MESSAGING ────────────────────────────────────────────────────────────────
@@ -1023,9 +1059,9 @@ model Message {
   readAt      DateTime?
   createdAt   DateTime          @default(now())
 
-  thread  MessageThread? @relation(fields: [threadId], references: [id])
-  rfq     RFQRequest?    @relation(fields: [rfqId], references: [id])
-  sender  User           @relation("SentMessages", fields: [senderId], references: [id])
+  thread MessageThread? @relation(fields: [threadId], references: [id])
+  rfq    RFQRequest?    @relation(fields: [rfqId], references: [id])
+  sender User           @relation("SentMessages", fields: [senderId], references: [id])
 
   @@index([threadId])
   @@index([rfqId])
@@ -1035,19 +1071,19 @@ model Message {
 // ─── CRM ──────────────────────────────────────────────────────────────────────
 
 model SellerCustomer {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   sellerId    String
   buyerId     String
-  totalOrders Int      @default(0)
-  totalSpent  Decimal  @default(0) @db.Decimal(12, 2)
-  currency    Currency @default(AED)
+  totalOrders Int       @default(0)
+  totalSpent  Decimal   @default(0) @db.Decimal(12, 2)
+  currency    Currency  @default(AED)
   lastOrderAt DateTime?
   tags        String[]
   notes       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  seller     SellerProfile     @relation(fields: [sellerId], references: [id])
+  seller     SellerProfile      @relation(fields: [sellerId], references: [id])
   activities CustomerActivity[]
 
   @@unique([sellerId, buyerId])
