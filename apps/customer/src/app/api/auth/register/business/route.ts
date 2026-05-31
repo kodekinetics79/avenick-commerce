@@ -20,36 +20,46 @@ export async function POST(req: NextRequest) {
 
     const passwordHash = await bcrypt.hash(password, 12);
 
-    const user = await db.user.create({
-      data: {
-        email: email.toLowerCase(),
-        passwordHash,
-        firstName,
-        lastName,
-        phone: phone ?? null,
-        role: "COMPANY_ADMIN",
-        status: "ACTIVE",
-        language: language === "AR" ? "AR" : "EN",
-      },
-    });
+    // User + company + membership must be created atomically — otherwise a
+    // failure on company creation (e.g. duplicate VAT number) would leave an
+    // orphaned user and make retries fail with "Email already registered".
+    await db.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          email: email.toLowerCase(),
+          passwordHash,
+          firstName,
+          lastName,
+          phone: phone ?? null,
+          role: "COMPANY_ADMIN",
+          status: "ACTIVE",
+          language: language === "AR" ? "AR" : "EN",
+        },
+      });
 
-    await db.company.create({
-      data: {
-        nameEn: companyNameEn,
-        nameAr: companyNameAr ?? null,
-        crNumber: crNumber ?? null,
-        vatNumber: vatNumber ?? null,
-        industry: industry as Industry,
-        size: (companySize ?? "SMALL") as CompanySize,
-        country: country as Country,
-        city: city ?? "Dubai",
-        status: "PENDING_VERIFICATION",
-        members: { create: { userId: user.id, role: "COMPANY_ADMIN" } },
-      },
+      await tx.company.create({
+        data: {
+          nameEn: companyNameEn,
+          nameAr: companyNameAr ?? null,
+          crNumber: crNumber ?? null,
+          vatNumber: vatNumber ?? null,
+          industry: industry as Industry,
+          size: (companySize ?? "SMALL") as CompanySize,
+          country: country as Country,
+          city: city ?? "Dubai",
+          status: "PENDING_VERIFICATION",
+          members: { create: { userId: user.id, role: "COMPANY_ADMIN" } },
+        },
+      });
     });
 
     return NextResponse.json({ success: true, message: "Business account created" });
   } catch (e) {
+    // Unique-constraint violations (email / CR / VAT) → 409 with the field.
+    if (e && typeof e === "object" && "code" in e && (e as { code?: string }).code === "P2002") {
+      const target = (e as { meta?: { target?: string[] } }).meta?.target?.join(", ") ?? "field";
+      return NextResponse.json({ success: false, error: `Already registered: ${target}` }, { status: 409 });
+    }
     console.error(e);
     return NextResponse.json({ success: false, error: "Registration failed" }, { status: 500 });
   }
