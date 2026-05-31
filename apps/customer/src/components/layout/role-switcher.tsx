@@ -7,8 +7,8 @@ import { Users, ChevronDown } from "lucide-react";
 type DemoRole = "guest" | "b2c" | "b2b";
 
 const ROLES: { value: DemoRole; label: string; color: string }[] = [
-  { value: "guest", label: "Guest", color: "bg-slate-100 text-slate-600" },
-  { value: "b2c", label: "B2C Customer", color: "bg-blue-50 text-blue-700" },
+  { value: "guest", label: "Guest", color: "bg-slate-100 text-muted-foreground" },
+  { value: "b2c", label: "B2C Customer", color: "bg-blue-50 text-primary" },
   { value: "b2b", label: "B2B Buyer", color: "bg-primary/10 text-primary" },
 ];
 

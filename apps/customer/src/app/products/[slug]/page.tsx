@@ -205,7 +205,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
               {/* Trust badges */}
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { icon: ShieldCheck, label: "Verified Supplier", color: "text-green-600" },
+                  { icon: ShieldCheck, label: "Verified Supplier", color: "text-primary" },
                   { icon: Truck, label: "Free 200+ AED", color: "text-primary" },
                   { icon: RotateCcw, label: "14-day returns", color: "text-purple-600" },
                 ].map(({ icon: Icon, label, color }) => (

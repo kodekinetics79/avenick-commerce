@@ -75,18 +75,18 @@ export default function CartPage() {
               {subtotal < 200 && (
                 <div className="bg-white rounded-2xl border border-border p-4">
                   <div className="flex items-center gap-2 text-sm mb-2">
-                    <Truck className="h-4 w-4 text-green-600" />
+                    <Truck className="h-4 w-4 text-primary" />
                     <span>Add <strong>{formatCurrency(200 - subtotal, "AED")}</strong> more for free shipping</span>
                   </div>
                   <div className="flex gap-0.5 h-2">
                     {Array.from({ length: 10 }).map((_, i) => (
-                      <div key={i} className={`flex-1 rounded-full transition-colors ${i < Math.min(10, Math.floor(subtotal / 20)) ? "bg-green-500" : "bg-slate-100"}`} />
+                      <div key={i} className={`flex-1 rounded-full transition-colors ${i < Math.min(10, Math.floor(subtotal / 20)) ? "bg-primary/100" : "bg-slate-100"}`} />
                     ))}
                   </div>
                 </div>
               )}
               {subtotal >= 200 && (
-                <div className="bg-green-50 border border-green-200 rounded-2xl p-3 flex items-center gap-2 text-sm text-green-700">
+                <div className="bg-primary/10 border border-primary/30 rounded-2xl p-3 flex items-center gap-2 text-sm text-primary">
                   <Truck className="h-4 w-4" />
                   <span className="font-medium">You qualify for free shipping!</span>
                 </div>
@@ -143,7 +143,7 @@ export default function CartPage() {
                     <span>{formatCurrency(subtotal, "AED")}</span>
                   </div>
                   {promoApplied && (
-                    <div className="flex justify-between text-green-600">
+                    <div className="flex justify-between text-primary">
                       <span>Promo (AVENICK10)</span>
                       <span>-{formatCurrency(discount, "AED")}</span>
                     </div>
@@ -155,7 +155,7 @@ export default function CartPage() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Shipping</span>
                     {shipping === 0
-                      ? <span className="text-green-600 font-medium">Free</span>
+                      ? <span className="text-primary font-medium">Free</span>
                       : <span>{formatCurrency(shipping, "AED")}</span>}
                   </div>
                   <div className="border-t border-border pt-2.5 flex justify-between font-bold text-base">
@@ -183,7 +183,7 @@ export default function CartPage() {
                     <p className="text-xs text-muted-foreground mt-1">Try: AVENICK10</p>
                   </div>
                 ) : (
-                  <div className="mb-4 flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-sm text-green-700">
+                  <div className="mb-4 flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-lg px-3 py-2 text-sm text-primary">
                     <Tag className="h-3.5 w-3.5" />
                     <span className="font-medium">10% discount applied!</span>
                     <button type="button" onClick={() => { setPromoApplied(false); setPromoCode(""); }} className="ms-auto text-xs underline">Remove</button>
@@ -194,7 +194,7 @@ export default function CartPage() {
                   <Link href="/checkout">Proceed to Checkout <ArrowRight className="ms-2 h-4 w-4" /></Link>
                 </Button>
                 <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-                  <ShieldCheck className="h-3.5 w-3.5 text-green-600" />
+                  <ShieldCheck className="h-3.5 w-3.5 text-primary" />
                   <span>Secure checkout · SSL encrypted</span>
                 </div>
               </div>

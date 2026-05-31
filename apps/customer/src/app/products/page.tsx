@@ -76,12 +76,12 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
-          <PackageSearch className="h-8 w-8 text-slate-400" />
+          <PackageSearch className="h-8 w-8 text-muted-foreground" />
         </div>
         <h3 className="font-semibold text-lg mb-1">No products found</h3>
         <p className="text-muted-foreground text-sm mb-4">لم يتم العثور على منتجات</p>
         <p className="text-sm text-muted-foreground mb-6">Try adjusting your filters or search term.</p>
-        <Link href="/products" className="text-sm text-orange-600 hover:underline font-medium">Clear all filters →</Link>
+        <Link href="/products" className="text-sm text-primary hover:underline font-medium">Clear all filters →</Link>
       </div>
     );
   }
@@ -127,7 +127,7 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
             <Link
               key={p}
               href={`?${new URLSearchParams({ ...searchParams, page: String(p) })}`}
-              className={`w-9 h-9 flex items-center justify-center rounded-xl text-sm font-medium transition-colors ${p === page ? "bg-orange-500 text-white" : "bg-white border border-border hover:bg-orange-50"}`}
+              className={`w-9 h-9 flex items-center justify-center rounded-xl text-sm font-medium transition-colors ${p === page ? "bg-primary/100 text-white" : "bg-white border border-border hover:bg-primary/10"}`}
             >
               {p}
             </Link>
@@ -165,7 +165,7 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
         </div>
         <ul className="space-y-0.5">
           <li>
-            <a href="/products" className={`block px-3 py-2 rounded-lg text-sm transition-colors ${!searchParams.category ? "bg-orange-50 text-orange-600 font-medium" : "hover:bg-slate-50 text-muted-foreground"}`}>
+            <a href="/products" className={`block px-3 py-2 rounded-lg text-sm transition-colors ${!searchParams.category ? "bg-primary/10 text-primary font-medium" : "hover:bg-slate-50 text-muted-foreground"}`}>
               All Products
             </a>
           </li>
@@ -173,7 +173,7 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
             <li key={cat.id}>
               <a
                 href={buildUrl({ category: cat.slug })}
-                className={`block px-3 py-2 rounded-lg text-sm transition-colors ${searchParams.category === cat.slug ? "bg-orange-50 text-orange-600 font-medium" : "hover:bg-slate-50 text-muted-foreground"}`}
+                className={`block px-3 py-2 rounded-lg text-sm transition-colors ${searchParams.category === cat.slug ? "bg-primary/10 text-primary font-medium" : "hover:bg-slate-50 text-muted-foreground"}`}
               >
                 {cat.nameEn}
               </a>
@@ -192,7 +192,7 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
               <li key={r.label}>
                 <a
                   href={active ? buildUrl({ minPrice: undefined, maxPrice: undefined }) : buildUrl({ minPrice: String(r.min), maxPrice: String(r.max) })}
-                  className={`block px-3 py-2 rounded-lg text-sm transition-colors ${active ? "bg-orange-50 text-orange-600 font-medium" : "hover:bg-slate-50 text-muted-foreground"}`}
+                  className={`block px-3 py-2 rounded-lg text-sm transition-colors ${active ? "bg-primary/10 text-primary font-medium" : "hover:bg-slate-50 text-muted-foreground"}`}
                 >
                   {r.label}
                 </a>
@@ -207,9 +207,9 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
         <h3 className="font-semibold text-sm mb-3">Availability</h3>
         <a
           href={searchParams.inStock === "1" ? buildUrl({ inStock: undefined }) : buildUrl({ inStock: "1" })}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${searchParams.inStock === "1" ? "bg-orange-50 text-orange-600 font-medium" : "hover:bg-slate-50 text-muted-foreground"}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${searchParams.inStock === "1" ? "bg-primary/10 text-primary font-medium" : "hover:bg-slate-50 text-muted-foreground"}`}
         >
-          <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${searchParams.inStock === "1" ? "bg-orange-500 border-orange-500" : "border-muted-foreground"}`}>
+          <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${searchParams.inStock === "1" ? "bg-primary/100 border-primary/100" : "border-muted-foreground"}`}>
             {searchParams.inStock === "1" && <span className="text-white text-xs">✓</span>}
           </span>
           In Stock Only
@@ -218,7 +218,7 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
 
       {/* Clear filters */}
       {(searchParams.category || searchParams.inStock || searchParams.minPrice) && (
-        <a href="/products" className="block text-center text-sm text-orange-600 hover:underline py-1">
+        <a href="/products" className="block text-center text-sm text-primary hover:underline py-1">
           Clear all filters
         </a>
       )}

@@ -1,141 +1,113 @@
 import Link from "next/link";
-import { Phone, Mail, MapPin, Facebook, Twitter, Instagram, Linkedin } from "lucide-react";
+import { Phone, Mail, MapPin, Facebook, Twitter, Instagram, Linkedin, ArrowRight } from "lucide-react";
+
+const COLUMNS: { title: string; links: [string, string][] }[] = [
+  {
+    title: "Shop",
+    links: [
+      ["All products", "/products"],
+      ["Deals", "/deals"],
+      ["Brands", "/brands"],
+      ["New arrivals", "/products?sort=newest"],
+      ["Track order", "/account/orders"],
+    ],
+  },
+  {
+    title: "For business",
+    links: [
+      ["B2B portal", "/b2b"],
+      ["Request a quote", "/b2b/rfq/new"],
+      ["Become a seller", "/register"],
+      ["B2B catalog", "/products"],
+      ["Returns", "/returns"],
+    ],
+  },
+  {
+    title: "Company",
+    links: [
+      ["Support", "/support"],
+      ["Help center", "/support"],
+      ["Contact us", "/support"],
+      ["My account", "/account"],
+      ["Sign in", "/login"],
+    ],
+  },
+];
 
 export function Footer() {
   return (
-    <footer>
-      {/* Newsletter bar */}
-      <div className="bg-slate-800 border-t border-slate-700">
-        <div className="max-w-7xl mx-auto px-4 py-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+    <footer className="border-t border-border bg-background">
+      {/* Newsletter */}
+      <div className="border-b border-border">
+        <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
           <div>
-            <p className="font-semibold text-white">Subscribe to Our Newsletter</p>
-            <p className="text-slate-400 text-sm">Get the latest deals, new arrivals and industry news.</p>
+            <p className="text-lg font-bold tracking-tight">Stay in the loop</p>
+            <p className="text-muted-foreground text-sm mt-0.5">New arrivals, deals, and industry news — once a week.</p>
           </div>
-          <div className="flex gap-2 w-full sm:w-auto">
+          <form className="flex gap-2 w-full sm:w-auto">
             <input
               type="email"
-              placeholder="Enter your email address"
-              className="flex-1 sm:w-64 h-10 px-4 text-sm bg-slate-700 border border-slate-600 text-white placeholder:text-slate-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="you@company.com"
+              className="flex-1 sm:w-72 h-11 px-4 text-sm rounded-xl bg-secondary/60 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
             />
             <button
-              type="button"
-              className="h-10 px-4 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-xl transition-colors whitespace-nowrap"
+              type="submit"
+              className="inline-flex items-center gap-1.5 h-11 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98] whitespace-nowrap"
             >
-              Subscribe
+              Subscribe <ArrowRight className="h-4 w-4" />
             </button>
-          </div>
+          </form>
         </div>
       </div>
 
-      {/* Main footer */}
-      <div className="bg-slate-900 text-slate-300">
-        <div className="max-w-7xl mx-auto px-4 py-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8">
-          {/* Brand */}
-          <div className="lg:col-span-2">
-            <div className="flex items-baseline gap-0.5 mb-3">
-              <span className="text-xl font-black text-white">Avenick</span>
-              <span className="text-xl font-black text-green-500">.</span>
-            </div>
-            <p className="text-slate-400 text-sm mb-5 leading-relaxed max-w-xs">
-              B2B-first. B2C-ready. Built for modern trade. GCC&apos;s trusted marketplace for industrial supplies and B2B procurement.
-            </p>
-            <div className="space-y-2 text-sm">
-              <p className="flex items-center gap-2 text-slate-400">
-                <Phone className="h-3.5 w-3.5 text-green-500 shrink-0" /> +971 4 234 5678
-              </p>
-              <p className="flex items-center gap-2 text-slate-400">
-                <Mail className="h-3.5 w-3.5 text-green-500 shrink-0" /> info@avenick.com
-              </p>
-              <p className="flex items-center gap-2 text-slate-400">
-                <MapPin className="h-3.5 w-3.5 text-green-500 shrink-0" /> Dubai, United Arab Emirates
-              </p>
-            </div>
-          </div>
-
-          {/* Customer Service */}
-          <div>
-            <h3 className="font-semibold text-white mb-4">Customer Service</h3>
-            <ul className="space-y-2.5">
-              {[
-                ["Help Center", "#"],
-                ["Track Order", "#"],
-                ["Returns Policy", "#"],
-                ["Shipping Info", "#"],
-                ["Contact Us", "/support"],
-              ].map(([label, href]) => (
-                <li key={label}>
-                  <Link href={href} className="text-sm text-slate-400 hover:text-green-400 transition-colors">
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* About Us */}
-          <div>
-            <h3 className="font-semibold text-white mb-4">About Us</h3>
-            <ul className="space-y-2.5">
-              {[
-                ["About Avenick", "#"],
-                ["Sell on Avenick", "#"],
-                ["Careers", "#"],
-                ["Press", "#"],
-                ["Become a Partner", "#"],
-              ].map(([label, href]) => (
-                <li key={label}>
-                  <Link href={href} className="text-sm text-slate-400 hover:text-green-400 transition-colors">
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Resources */}
-          <div>
-            <h3 className="font-semibold text-white mb-4">Resources</h3>
-            <ul className="space-y-2.5">
-              {[
-                ["B2B Catalog", "#"],
-                ["RFQ Guide", "/b2b/rfq/new"],
-                ["Supplier Portal", "#"],
-                ["Compliance", "#"],
-                ["API Docs", "#"],
-              ].map(([label, href]) => (
-                <li key={label}>
-                  <Link href={href} className="text-sm text-slate-400 hover:text-green-400 transition-colors">
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+      {/* Main */}
+      <div className="max-w-7xl mx-auto px-4 py-12 grid grid-cols-2 lg:grid-cols-5 gap-8">
+        {/* Brand */}
+        <div className="col-span-2">
+          <Link href="/" className="inline-flex items-center gap-2">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-primary-500 to-accent-600 text-white font-black shadow-glow-sm">A</span>
+            <span className="text-lg font-extrabold tracking-tight">avenick</span>
+          </Link>
+          <p className="text-muted-foreground text-sm mt-4 leading-relaxed max-w-xs">
+            B2B-first. B2C-ready. Built for modern trade — the GCC&apos;s marketplace
+            for industrial supply and procurement.
+          </p>
+          <div className="space-y-2 text-sm mt-5">
+            <p className="flex items-center gap-2 text-muted-foreground"><Phone className="h-3.5 w-3.5 text-primary shrink-0" /> +971 4 234 5678</p>
+            <p className="flex items-center gap-2 text-muted-foreground"><Mail className="h-3.5 w-3.5 text-primary shrink-0" /> info@avenick.com</p>
+            <p className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-3.5 w-3.5 text-primary shrink-0" /> Dubai, United Arab Emirates</p>
           </div>
         </div>
 
-        {/* Bottom bar */}
-        <div className="border-t border-slate-800 px-4 py-4">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-            <p className="text-xs text-slate-500">
-              © 2024 Avenick Commerce. All rights reserved. Powered by Kodekinetics.
-            </p>
-            <div className="flex gap-4 text-xs text-slate-500">
-              <Link href="#" className="hover:text-slate-300">Privacy Policy</Link>
-              <Link href="#" className="hover:text-slate-300">Terms of Service</Link>
-              <Link href="#" className="hover:text-slate-300">Cookie Policy</Link>
-            </div>
-            <div className="flex gap-3">
-              {[Facebook, Twitter, Instagram, Linkedin].map((Icon, i) => (
-                <Link
-                  key={i}
-                  href="#"
-                  aria-label="Social media"
-                  className="h-7 w-7 rounded-lg bg-slate-800 flex items-center justify-center hover:bg-green-600 transition-colors group"
-                >
-                  <Icon className="h-3.5 w-3.5 text-slate-400 group-hover:text-white" />
-                </Link>
+        {COLUMNS.map((col) => (
+          <div key={col.title}>
+            <h3 className="font-semibold mb-4 text-sm">{col.title}</h3>
+            <ul className="space-y-2.5">
+              {col.links.map(([label, href]) => (
+                <li key={label}>
+                  <Link href={href} className="text-sm text-muted-foreground hover:text-primary transition-colors">{label}</Link>
+                </li>
               ))}
-            </div>
+            </ul>
+          </div>
+        ))}
+      </div>
+
+      {/* Bottom */}
+      <div className="border-t border-border">
+        <div className="max-w-7xl mx-auto px-4 py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">© 2026 Avenick Commerce. All rights reserved.</p>
+          <div className="flex gap-4 text-xs text-muted-foreground">
+            <Link href="/support" className="hover:text-foreground transition-colors">Privacy</Link>
+            <Link href="/support" className="hover:text-foreground transition-colors">Terms</Link>
+            <Link href="/support" className="hover:text-foreground transition-colors">Cookies</Link>
+          </div>
+          <div className="flex gap-2">
+            {[Facebook, Twitter, Instagram, Linkedin].map((Icon, i) => (
+              <Link key={i} href="/" aria-label="Social media" className="grid h-8 w-8 place-items-center rounded-lg border border-border text-muted-foreground hover:text-primary-foreground hover:bg-primary hover:border-primary transition-colors">
+                <Icon className="h-3.5 w-3.5" />
+              </Link>
+            ))}
           </div>
         </div>
       </div>

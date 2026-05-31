@@ -38,19 +38,19 @@ export default function RegisterPage() {
       <div className="min-h-[70vh] flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-lg">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-orange-600 mb-1">إنشاء حساب</h1>
+            <h1 className="text-3xl font-bold text-primary mb-1">إنشاء حساب</h1>
             <p className="text-muted-foreground">Create your Avenick Commerce account</p>
           </div>
 
           {mode === "select" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button onClick={() => setMode("consumer")} className="bg-white rounded-2xl border-2 border-border hover:border-orange-400 p-6 text-center transition-all group">
-                <User className="h-10 w-10 mx-auto mb-3 text-orange-500 group-hover:scale-110 transition-transform" />
+              <button onClick={() => setMode("consumer")} className="bg-white rounded-2xl border-2 border-border hover:border-primary p-6 text-center transition-all group">
+                <User className="h-10 w-10 mx-auto mb-3 text-primary/100 group-hover:scale-110 transition-transform" />
                 <h3 className="font-semibold">Personal Account</h3>
                 <p className="text-sm text-muted-foreground mt-1">حساب شخصي</p>
               </button>
-              <button onClick={() => setMode("business")} className="bg-white rounded-2xl border-2 border-border hover:border-orange-400 p-6 text-center transition-all group">
-                <Building2 className="h-10 w-10 mx-auto mb-3 text-orange-500 group-hover:scale-110 transition-transform" />
+              <button onClick={() => setMode("business")} className="bg-white rounded-2xl border-2 border-border hover:border-primary p-6 text-center transition-all group">
+                <Building2 className="h-10 w-10 mx-auto mb-3 text-primary/100 group-hover:scale-110 transition-transform" />
                 <h3 className="font-semibold">Business Account</h3>
                 <p className="text-sm text-muted-foreground mt-1">حساب تجاري B2B</p>
               </button>
@@ -59,7 +59,7 @@ export default function RegisterPage() {
 
           {(mode === "consumer" || mode === "business") && (
             <div className="bg-white rounded-2xl border border-border p-6 shadow-sm">
-              <button onClick={() => setMode("select")} className="text-sm text-orange-600 hover:underline mb-4 flex items-center gap-1">← Back</button>
+              <button onClick={() => setMode("select")} className="text-sm text-primary hover:underline mb-4 flex items-center gap-1">← Back</button>
               <h2 className="font-semibold mb-4">{mode === "consumer" ? "Personal Account" : "Business Account"}</h2>
               <form onSubmit={handleSubmit} className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
@@ -92,7 +92,7 @@ export default function RegisterPage() {
                 <Button type="submit" className="w-full" loading={loading}>Create Account</Button>
               </form>
               <p className="text-center text-sm text-muted-foreground mt-4">
-                Already have an account? <Link href="/login" className="text-orange-600 hover:underline">Sign in</Link>
+                Already have an account? <Link href="/login" className="text-primary hover:underline">Sign in</Link>
               </p>
             </div>
           )}

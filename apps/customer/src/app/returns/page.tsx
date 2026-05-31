@@ -44,8 +44,8 @@ export default function ReturnsPage() {
       <MainLayout>
         <div className="bg-slate-50 min-h-screen">
           <div className="max-w-lg mx-auto px-4 py-20 text-center">
-            <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-5">
-              <CheckCircle className="h-10 w-10 text-green-600" />
+            <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-5">
+              <CheckCircle className="h-10 w-10 text-primary" />
             </div>
             <h1 className="text-2xl font-bold mb-2">Return Submitted!</h1>
             <p className="text-muted-foreground mb-6">Your return request has been received. Our team will review it within 1–2 business days.</p>
@@ -54,7 +54,7 @@ export default function ReturnsPage() {
               <ol className="space-y-1.5 text-muted-foreground">
                 {["Return request reviewed by our team","Return label sent to your email","Ship the item back to us","Refund or exchange processed within 5 business days"].map((s, i) => (
                   <li key={i} className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-green-100 text-green-600 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                    <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
                     {s}
                   </li>
                 ))}
@@ -88,8 +88,8 @@ export default function ReturnsPage() {
                 <h2 className="font-semibold mb-3">What would you like to do?</h2>
                 <div className="space-y-2">
                   {RETURN_TYPES.map((rt) => (
-                    <label key={rt.id} className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${returnType === rt.id ? "border-green-500 bg-green-50" : "border-border hover:border-slate-300"}`}>
-                      <input type="radio" name="returnType" value={rt.id} checked={returnType === rt.id} onChange={() => setReturnType(rt.id)} className="mt-0.5 accent-green-600" />
+                    <label key={rt.id} className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${returnType === rt.id ? "border-primary/100 bg-primary/10" : "border-border hover:border-slate-300"}`}>
+                      <input type="radio" name="returnType" value={rt.id} checked={returnType === rt.id} onChange={() => setReturnType(rt.id)} className="mt-0.5 accent-primary" />
                       <div>
                         <p className="font-medium text-sm">{rt.label}</p>
                         <p className="text-xs text-muted-foreground">{rt.desc}</p>
@@ -105,12 +105,12 @@ export default function ReturnsPage() {
                 <div className="space-y-2">
                   {order?.items.map((item, i) => (
                     <label key={i} className="flex items-center gap-3 p-3 rounded-xl border border-border hover:bg-slate-50 cursor-pointer">
-                      <input type="checkbox" defaultChecked className="accent-green-600 h-4 w-4" />
+                      <input type="checkbox" defaultChecked className="accent-primary h-4 w-4" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">{item.nameEn}</p>
                         <p className="text-xs text-muted-foreground">Qty: {item.quantity}</p>
                       </div>
-                      <select aria-label="Quantity to return" className="text-sm border border-border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-green-400">
+                      <select aria-label="Quantity to return" className="text-sm border border-border rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-primary">
                         {Array.from({ length: item.quantity }, (_, j) => j + 1).map(n => <option key={n} value={n}>{n}</option>)}
                       </select>
                     </label>
@@ -122,20 +122,20 @@ export default function ReturnsPage() {
               <div className="bg-white rounded-2xl border border-border p-5">
                 <h2 className="font-semibold mb-3">Reason for return <span className="text-red-500">*</span></h2>
                 <select aria-label="Return reason" required value={reason} onChange={e => setReason(e.target.value)}
-                  className="w-full h-10 px-3 text-sm border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-green-400 mb-3">
+                  className="w-full h-10 px-3 text-sm border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary mb-3">
                   <option value="">Select a reason...</option>
                   {RETURN_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
                 <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Describe the issue in detail (optional)..." rows={3} />
               </div>
 
-              <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-700">
+              <div className="flex items-start gap-2 bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-primary">
                 <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
                 <p>Items must be returned in original packaging and unused condition. Returns are accepted within 14 days of delivery.</p>
               </div>
 
               <button type="submit" disabled={!reason || loading}
-                className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-60 text-sm">
+                className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary text-white font-semibold py-3 rounded-xl transition-colors disabled:opacity-60 text-sm">
                 {loading ? <span className="flex items-center gap-2"><span className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Submitting...</span> : <><RotateCcw className="h-4 w-4" /> Submit Return Request</>}
               </button>
             </form>
@@ -168,7 +168,7 @@ export default function ReturnsPage() {
                 <div key={order.id} className="bg-white rounded-2xl border border-border p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="font-mono text-xs font-semibold text-slate-600 mb-0.5">{order.orderNumber}</p>
+                      <p className="font-mono text-xs font-semibold text-muted-foreground mb-0.5">{order.orderNumber}</p>
                       <p className="text-sm font-medium">{order.items[0]?.nameEn}{order.items.length > 1 ? ` + ${order.items.length - 1} more` : ""}</p>
                       <p className="text-xs text-muted-foreground">Delivered on {order.createdAt} · AED {order.total.toFixed(2)}</p>
                     </div>
@@ -183,7 +183,7 @@ export default function ReturnsPage() {
           )}
 
           <div className="mt-6 bg-white rounded-2xl border border-border p-4 text-sm text-muted-foreground">
-            <p className="font-semibold text-slate-800 mb-1">Return Policy</p>
+            <p className="font-semibold text-foreground mb-1">Return Policy</p>
             <ul className="space-y-1 list-disc list-inside">
               <li>14 days from delivery date</li>
               <li>Items must be unused and in original packaging</li>

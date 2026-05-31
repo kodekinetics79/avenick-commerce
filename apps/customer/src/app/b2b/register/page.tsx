@@ -16,7 +16,7 @@ export default function B2BRegisterPage() {
       <div className="max-w-5xl mx-auto px-4 py-12">
         {/* Hero */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 bg-orange-50 text-orange-600 px-3 py-1 rounded-full text-sm mb-4">
+          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm mb-4">
             <Building2 className="h-4 w-4" />
             B2B Marketplace — للشركات
           </div>
@@ -33,7 +33,7 @@ export default function B2BRegisterPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           {FEATURES.map((f) => (
             <div key={f.title} className="bg-white rounded-2xl border border-border p-6 text-center">
-              <f.icon className="h-8 w-8 mx-auto text-orange-500 mb-3" />
+              <f.icon className="h-8 w-8 mx-auto text-primary/100 mb-3" />
               <h3 className="font-semibold mb-1">{f.title}</h3>
               <p className="text-sm text-muted-foreground">{f.desc}</p>
             </div>
@@ -41,11 +41,11 @@ export default function B2BRegisterPage() {
         </div>
 
         {/* CTA */}
-        <div className="bg-gradient-to-r from-orange-600 to-orange-500 rounded-2xl p-8 text-white text-center">
+        <div className="bg-gradient-to-r from-primary to-primary/100 rounded-2xl p-8 text-white text-center">
           <h2 className="text-2xl font-bold mb-2">Ready to get started?</h2>
-          <p className="text-orange-100 mb-6">Create a business account in minutes. No commitment required.</p>
+          <p className="text-primary/20 mb-6">Create a business account in minutes. No commitment required.</p>
           <div className="flex justify-center gap-4 flex-wrap">
-            <Button asChild size="lg" className="bg-white text-orange-600 hover:bg-orange-50">
+            <Button asChild size="lg" className="bg-white text-primary hover:bg-primary/10">
               <Link href="/register">Register Business Account</Link>
             </Button>
             <Button asChild size="lg" variant="ghost" className="text-white border border-white/30 hover:bg-white/10">

@@ -9,14 +9,14 @@ import { Button } from "@avenick/ui";
 import { formatCurrency } from "@avenick/utils";
 
 const RFQ_STATUS: Record<string, { label: string; color: string }> = {
-  DRAFT:         { label: "Draft",          color: "bg-gray-100 text-gray-600" },
-  SUBMITTED:     { label: "Submitted",      color: "bg-blue-100 text-blue-700" },
+  DRAFT:         { label: "Draft",          color: "bg-gray-100 text-muted-foreground" },
+  SUBMITTED:     { label: "Submitted",      color: "bg-blue-100 text-primary" },
   UNDER_REVIEW:  { label: "Under Review",   color: "bg-yellow-100 text-yellow-700" },
   QUOTED:        { label: "Quoted",         color: "bg-purple-100 text-purple-700" },
-  NEGOTIATING:   { label: "Negotiating",    color: "bg-orange-100 text-orange-700" },
-  ACCEPTED:      { label: "Accepted",       color: "bg-green-100 text-green-700" },
+  NEGOTIATING:   { label: "Negotiating",    color: "bg-primary/20 text-primary" },
+  ACCEPTED:      { label: "Accepted",       color: "bg-primary/20 text-primary" },
   REJECTED:      { label: "Rejected",       color: "bg-red-100 text-red-700" },
-  EXPIRED:       { label: "Expired",        color: "bg-gray-100 text-gray-500" },
+  EXPIRED:       { label: "Expired",        color: "bg-gray-100 text-muted-foreground" },
 };
 
 const QUOTE_DETAILS = [
@@ -99,9 +99,9 @@ export default function RFQDetailPage() {
                   const isBest = q.id === lowestQuote?.id;
                   const savingVsTarget = rfq.targetPrice - q.totalAmount;
                   return (
-                    <div key={q.id} className={`bg-white rounded-2xl border-2 overflow-hidden transition-shadow hover:shadow-md ${isBest ? "border-green-400" : "border-border"}`}>
+                    <div key={q.id} className={`bg-white rounded-2xl border-2 overflow-hidden transition-shadow hover:shadow-md ${isBest ? "border-primary" : "border-border"}`}>
                       {isBest && (
-                        <div className="bg-green-500 text-white text-xs font-bold px-4 py-1.5 flex items-center gap-1.5">
+                        <div className="bg-primary/100 text-white text-xs font-bold px-4 py-1.5 flex items-center gap-1.5">
                           <TrendingDown className="h-3.5 w-3.5" /> Best Price — Lowest Quote
                         </div>
                       )}
@@ -111,7 +111,7 @@ export default function RFQDetailPage() {
                           <div>
                             <div className="flex items-center gap-2 mb-0.5">
                               <p className="font-bold">{q.sellerName}</p>
-                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${q.sellerTier === "GOLD" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"}`}>
+                              <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${q.sellerTier === "GOLD" ? "bg-amber-100 text-amber-700" : "bg-primary/20 text-primary"}`}>
                                 {q.sellerTier}
                               </span>
                             </div>
@@ -121,9 +121,9 @@ export default function RFQDetailPage() {
                             </div>
                           </div>
                           <div className="text-end">
-                            <p className="text-2xl font-bold text-orange-600">{formatCurrency(q.totalAmount, q.currency as "AED")}</p>
+                            <p className="text-2xl font-bold text-primary">{formatCurrency(q.totalAmount, q.currency as "AED")}</p>
                             {savingVsTarget > 0
-                              ? <p className="text-xs text-green-600 font-medium">Save {formatCurrency(savingVsTarget, "AED")} vs target</p>
+                              ? <p className="text-xs text-primary font-medium">Save {formatCurrency(savingVsTarget, "AED")} vs target</p>
                               : <p className="text-xs text-red-500 font-medium">{formatCurrency(Math.abs(savingVsTarget), "AED")} over target</p>}
                           </div>
                         </div>
@@ -137,7 +137,7 @@ export default function RFQDetailPage() {
 
                         {q.notes && (
                           <div className="flex items-start gap-2 mb-4 text-sm text-muted-foreground bg-blue-50 rounded-xl p-3">
-                            <MessageSquare className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                            <MessageSquare className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                             <p>{q.notes}</p>
                           </div>
                         )}
@@ -155,7 +155,7 @@ export default function RFQDetailPage() {
               )}
 
               {quotes.length > 1 && (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center gap-2 text-sm text-blue-700">
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 flex items-center gap-2 text-sm text-primary">
                   <Award className="h-4 w-4 shrink-0" />
                   <p>You have {quotes.length} quotes. The lowest is <strong>{formatCurrency(lowestQuote?.totalAmount ?? 0, "AED")}</strong> from {lowestQuote?.sellerName}.</p>
                 </div>
@@ -169,7 +169,7 @@ export default function RFQDetailPage() {
                 <div className="space-y-3">
                   {TIMELINE.map((step, i) => (
                     <div key={i} className="flex items-start gap-3">
-                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-green-500" : "bg-slate-200"}`}>
+                      <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${step.done ? "bg-primary/100" : "bg-slate-200"}`}>
                         {step.done
                           ? <CheckCircle className="h-3 w-3 text-white" />
                           : <span className="h-2 w-2 rounded-full bg-white" />}
@@ -192,7 +192,7 @@ export default function RFQDetailPage() {
                     { href: "/b2b", label: "B2B Dashboard" },
                     { href: "/b2b/rfq/new", label: "Create New RFQ" },
                   ].map(({ href, label }) => (
-                    <Link key={href} href={href} className="flex items-center justify-between text-sm py-1.5 text-muted-foreground hover:text-orange-600 transition-colors">
+                    <Link key={href} href={href} className="flex items-center justify-between text-sm py-1.5 text-muted-foreground hover:text-primary transition-colors">
                       {label} <ChevronRight className="h-3.5 w-3.5" />
                     </Link>
                   ))}
@@ -200,12 +200,12 @@ export default function RFQDetailPage() {
               </div>
 
               {/* Need help */}
-              <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 text-sm">
+              <div className="bg-primary/10 border border-primary/30 rounded-2xl p-4 text-sm">
                 <p className="font-semibold text-orange-800 mb-1">Need help?</p>
-                <p className="text-orange-700 mb-3">Your account manager Sara Al-Ahmed is available to assist with this RFQ.</p>
+                <p className="text-primary mb-3">Your account manager Sara Al-Ahmed is available to assist with this RFQ.</p>
                 <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-orange-600" />
-                  <Link href="mailto:sara@avenick.com" className="text-orange-600 hover:underline text-xs font-medium">sara@avenick.com</Link>
+                  <Package className="h-4 w-4 text-primary" />
+                  <Link href="mailto:sara@avenick.com" className="text-primary hover:underline text-xs font-medium">sara@avenick.com</Link>
                 </div>
               </div>
             </div>

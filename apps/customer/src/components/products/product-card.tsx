@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ShoppingCart, Star, Heart, Truck, Package } from "lucide-react";
@@ -37,7 +38,10 @@ export function ProductCard({
 }: ProductCardProps) {
   const addItem = useCartStore((s) => s.addItem);
   const { toggle, has } = useWishlist();
-  const wishlisted = has(id);
+  // Persisted wishlist state would mismatch on hydration — gate on mount.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  const wishlisted = mounted && has(id);
   const name = locale === "ar" ? nameAr : nameEn;
   const discount = originalPrice && originalPrice > price
     ? Math.round((1 - price / originalPrice) * 100)

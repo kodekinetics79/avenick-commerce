@@ -74,7 +74,7 @@ export default function CheckoutPage() {
     return (
       <MainLayout>
         <div className="max-w-xl mx-auto px-4 py-20 text-center">
-          <CheckCircle className="h-16 w-16 mx-auto text-green-500 mb-4" />
+          <CheckCircle className="h-16 w-16 mx-auto text-primary/100 mb-4" />
           <h1 className="text-2xl font-bold mb-2">Order Placed!</h1>
           <p className="text-muted-foreground mb-2">تم تأكيد الطلب بنجاح</p>
           <p className="text-lg font-semibold text-primary mb-6">Order #{orderNumber}</p>

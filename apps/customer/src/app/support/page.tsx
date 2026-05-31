@@ -7,9 +7,9 @@ import { MOCK_SUPPORT_TICKETS } from "@avenick/database";
 import { Button, Input, Textarea } from "@avenick/ui";
 
 const STATUS_CONFIG = {
-  OPEN: { label: "Open", color: "bg-blue-100 text-blue-700", icon: Clock },
+  OPEN: { label: "Open", color: "bg-blue-100 text-primary", icon: Clock },
   IN_PROGRESS: { label: "In Progress", color: "bg-yellow-100 text-yellow-700", icon: AlertCircle },
-  CLOSED: { label: "Closed", color: "bg-green-100 text-green-700", icon: CheckCircle },
+  CLOSED: { label: "Closed", color: "bg-primary/20 text-primary", icon: CheckCircle },
   ESCALATED: { label: "Escalated", color: "bg-red-100 text-red-700", icon: AlertCircle },
 };
 
@@ -29,7 +29,7 @@ export default function SupportPage() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <MessageSquare className="h-6 w-6 text-green-600" />
+            <MessageSquare className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold">Support</h1>
           </div>
           <Button variant="primary" size="sm" onClick={() => { setShowForm(true); setSubmitted(false); }}>
@@ -38,9 +38,9 @@ export default function SupportPage() {
         </div>
 
         {submitted && (
-          <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3 mb-4">
-            <CheckCircle className="h-5 w-5 text-green-600 shrink-0" />
-            <p className="text-sm text-green-700 font-medium">Your ticket has been submitted. We&apos;ll respond within 24 hours.</p>
+          <div className="bg-primary/10 border border-primary/30 rounded-2xl p-4 flex items-center gap-3 mb-4">
+            <CheckCircle className="h-5 w-5 text-primary shrink-0" />
+            <p className="text-sm text-primary font-medium">Your ticket has been submitted. We&apos;ll respond within 24 hours.</p>
           </div>
         )}
 
@@ -85,13 +85,13 @@ export default function SupportPage() {
               const cfg = STATUS_CONFIG[ticket.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.OPEN;
               const Icon = cfg.icon;
               return (
-                <div key={ticket.id} className="bg-white rounded-2xl border border-border p-4 hover:border-green-200 transition-colors">
+                <div key={ticket.id} className="bg-white rounded-2xl border border-border p-4 hover:border-primary/30 transition-colors">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-mono text-muted-foreground">{ticket.id}</span>
                         {ticket.orderId && (
-                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+                          <span className="text-xs bg-gray-100 text-muted-foreground px-2 py-0.5 rounded-full">
                             Order: {ticket.orderId}
                           </span>
                         )}

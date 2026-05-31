@@ -15,7 +15,7 @@ const COMPANY_USERS = [
 
 const ROLE_CONFIG: Record<string, { label: string; color: string }> = {
   COMPANY_ADMIN:    { label: "Admin",    color: "bg-purple-100 text-purple-700" },
-  COMPANY_BUYER:    { label: "Buyer",    color: "bg-blue-100 text-blue-700" },
+  COMPANY_BUYER:    { label: "Buyer",    color: "bg-blue-100 text-primary" },
   COMPANY_APPROVER: { label: "Approver", color: "bg-amber-100 text-amber-700" },
 };
 
@@ -34,13 +34,13 @@ export default function CompanyProfilePage() {
           <div className="bg-white rounded-2xl border border-border p-6 mb-5">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-start gap-4">
-                <div className="h-16 w-16 rounded-2xl bg-orange-100 flex items-center justify-center shrink-0">
-                  <Building2 className="h-8 w-8 text-orange-600" />
+                <div className="h-16 w-16 rounded-2xl bg-primary/20 flex items-center justify-center shrink-0">
+                  <Building2 className="h-8 w-8 text-primary" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-0.5">
                     <h1 className="text-xl font-bold">{c.nameEn}</h1>
-                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">{c.status}</span>
+                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-primary/20 text-primary">{c.status}</span>
                   </div>
                   <p className="text-muted-foreground text-sm" dir="rtl">{c.nameAr}</p>
                   <div className="flex flex-wrap gap-3 mt-2 text-xs text-muted-foreground">
@@ -85,15 +85,15 @@ export default function CompanyProfilePage() {
               <div className="bg-white rounded-2xl border border-border overflow-hidden">
                 <div className="px-5 py-4 border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-blue-500" />
+                    <Users className="h-4 w-4 text-primary" />
                     <h2 className="font-semibold">Team Members</h2>
                     <span className="text-xs text-muted-foreground">({COMPANY_USERS.length})</span>
                   </div>
-                  <button type="button" className="text-xs text-orange-600 hover:underline font-medium">+ Invite User</button>
+                  <button type="button" className="text-xs text-primary hover:underline font-medium">+ Invite User</button>
                 </div>
                 <div className="divide-y divide-border">
                   {COMPANY_USERS.map((user) => {
-                    const rc = ROLE_CONFIG[user.role] ?? { label: user.role, color: "bg-gray-100 text-gray-600" };
+                    const rc = ROLE_CONFIG[user.role] ?? { label: user.role, color: "bg-gray-100 text-muted-foreground" };
                     return (
                       <div key={user.id} className="flex items-center justify-between px-5 py-3">
                         <div>
@@ -112,7 +112,7 @@ export default function CompanyProfilePage() {
             <div className="space-y-4">
               <div className="bg-white rounded-2xl border border-border p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <CreditCard className="h-4 w-4 text-orange-500" />
+                  <CreditCard className="h-4 w-4 text-primary/100" />
                   <h3 className="font-semibold text-sm">Credit & Payments</h3>
                 </div>
                 <div className="space-y-3 text-sm">
@@ -130,14 +130,14 @@ export default function CompanyProfilePage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Overdue Balance</span>
-                    <span className="font-bold text-green-600">None</span>
+                    <span className="font-bold text-primary">None</span>
                   </div>
                 </div>
               </div>
 
               <div className="bg-white rounded-2xl border border-border p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <FileText className="h-4 w-4 text-blue-500" />
+                  <FileText className="h-4 w-4 text-primary" />
                   <h3 className="font-semibold text-sm">Trade Documents</h3>
                 </div>
                 <div className="space-y-2 text-sm">
@@ -148,18 +148,18 @@ export default function CompanyProfilePage() {
                   ].map((doc) => (
                     <div key={doc.name} className="flex justify-between">
                       <span className="text-muted-foreground text-xs">{doc.name}</span>
-                      <span className={`text-xs font-medium ${doc.status === "Valid" ? "text-green-600" : "text-amber-600"}`}>{doc.status}</span>
+                      <span className={`text-xs font-medium ${doc.status === "Valid" ? "text-primary" : "text-amber-600"}`}>{doc.status}</span>
                     </div>
                   ))}
                 </div>
-                <button type="button" className="mt-3 text-xs text-orange-600 hover:underline w-full text-center font-medium">Manage Documents →</button>
+                <button type="button" className="mt-3 text-xs text-primary hover:underline w-full text-center font-medium">Manage Documents →</button>
               </div>
 
-              <div className="bg-orange-50 border border-orange-200 rounded-2xl p-4 text-sm">
+              <div className="bg-primary/10 border border-primary/30 rounded-2xl p-4 text-sm">
                 <p className="font-semibold text-orange-800 mb-1">Account Manager</p>
-                <p className="text-orange-700 font-medium">Sara Al-Ahmed</p>
-                <p className="text-orange-600 text-xs">sara@avenick.com</p>
-                <p className="text-orange-600 text-xs">+971 50 123 4567</p>
+                <p className="text-primary font-medium">Sara Al-Ahmed</p>
+                <p className="text-primary text-xs">sara@avenick.com</p>
+                <p className="text-primary text-xs">+971 50 123 4567</p>
               </div>
             </div>
           </div>

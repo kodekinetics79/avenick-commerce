@@ -7,14 +7,14 @@ import { Button } from "@avenick/ui";
 export const metadata = { title: "B2B Dashboard — Avenick Commerce" };
 
 const RFQ_STATUS: Record<string, { label: string; color: string }> = {
-  DRAFT:         { label: "Draft",          color: "bg-gray-100 text-gray-600" },
-  SUBMITTED:     { label: "Submitted",      color: "bg-blue-100 text-blue-700" },
+  DRAFT:         { label: "Draft",          color: "bg-gray-100 text-muted-foreground" },
+  SUBMITTED:     { label: "Submitted",      color: "bg-blue-100 text-primary" },
   UNDER_REVIEW:  { label: "Under Review",   color: "bg-yellow-100 text-yellow-700" },
   QUOTED:        { label: "Quoted",         color: "bg-purple-100 text-purple-700" },
-  NEGOTIATING:   { label: "Negotiating",    color: "bg-orange-100 text-orange-700" },
-  ACCEPTED:      { label: "Accepted",       color: "bg-green-100 text-green-700" },
+  NEGOTIATING:   { label: "Negotiating",    color: "bg-primary/20 text-primary" },
+  ACCEPTED:      { label: "Accepted",       color: "bg-primary/20 text-primary" },
   REJECTED:      { label: "Rejected",       color: "bg-red-100 text-red-700" },
-  EXPIRED:       { label: "Expired",        color: "bg-gray-100 text-gray-500" },
+  EXPIRED:       { label: "Expired",        color: "bg-gray-100 text-muted-foreground" },
 };
 
 const MOCK_APPROVALS = [
@@ -38,7 +38,7 @@ export default function B2BDashboardPage() {
           <div className="flex items-start justify-between mb-6 gap-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wide text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-full">B2B Account</span>
+                <span className="text-xs font-semibold uppercase tracking-wide text-primary bg-primary/10 border border-primary/30 px-2 py-0.5 rounded-full">B2B Account</span>
                 <span className="text-xs text-muted-foreground">·</span>
                 <span className="text-xs text-muted-foreground">{company.crNumber}</span>
               </div>
@@ -78,35 +78,35 @@ export default function B2BDashboardPage() {
             {/* Credit limit */}
             <div className="bg-white rounded-2xl border border-border p-4 col-span-2 lg:col-span-1">
               <div className="flex items-center gap-2 mb-3">
-                <CreditCard className="h-4 w-4 text-orange-500" />
+                <CreditCard className="h-4 w-4 text-primary/100" />
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Credit Limit</p>
               </div>
               <p className="text-2xl font-bold mb-1">AED {company.creditLimit.toLocaleString()}</p>
               <div className="space-y-1">
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>Used: AED {creditUsed.toLocaleString()}</span>
-                  <span className={creditPct >= 90 ? "text-red-600 font-semibold" : creditPct >= 75 ? "text-amber-600 font-semibold" : "text-green-600 font-semibold"}>
+                  <span className={creditPct >= 90 ? "text-red-600 font-semibold" : creditPct >= 75 ? "text-amber-600 font-semibold" : "text-primary font-semibold"}>
                     {creditPct}%
                   </span>
                 </div>
                 <div className="flex gap-0.5 h-1.5">
                   {Array.from({ length: 10 }).map((_, i) => (
-                    <div key={i} className={`flex-1 rounded-full ${i < Math.floor(creditPct / 10) ? (creditPct >= 90 ? "bg-red-500" : creditPct >= 75 ? "bg-amber-400" : "bg-orange-400") : "bg-slate-100"}`} />
+                    <div key={i} className={`flex-1 rounded-full ${i < Math.floor(creditPct / 10) ? (creditPct >= 90 ? "bg-red-500" : creditPct >= 75 ? "bg-amber-400" : "bg-primary") : "bg-slate-100"}`} />
                   ))}
                 </div>
-                <p className="text-xs text-green-600">AED {(company.creditLimit - creditUsed).toLocaleString()} available</p>
+                <p className="text-xs text-primary">AED {(company.creditLimit - creditUsed).toLocaleString()} available</p>
               </div>
             </div>
 
             {/* Payment terms */}
             <div className="bg-white rounded-2xl border border-border p-4">
               <div className="flex items-center gap-2 mb-2">
-                <FileText className="h-4 w-4 text-blue-500" />
+                <FileText className="h-4 w-4 text-primary" />
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Payment Terms</p>
               </div>
               <p className="text-2xl font-bold">Net {company.paymentTerms}</p>
               <p className="text-xs text-muted-foreground mt-1">Days from invoice</p>
-              <p className="text-xs text-green-600 mt-0.5 font-medium">✓ No overdue invoices</p>
+              <p className="text-xs text-primary mt-0.5 font-medium">✓ No overdue invoices</p>
             </div>
 
             {/* Active RFQs */}
@@ -117,7 +117,7 @@ export default function B2BDashboardPage() {
               </div>
               <p className="text-2xl font-bold">{rfqs.filter(r => !["ACCEPTED","REJECTED","EXPIRED"].includes(r.status)).length}</p>
               <p className="text-xs text-muted-foreground mt-1">{rfqs.filter(r => r.status === "QUOTED").length} quotes ready to review</p>
-              <Link href="/b2b/quotes" className="text-xs text-orange-600 hover:underline mt-0.5 block font-medium">View quotes →</Link>
+              <Link href="/b2b/quotes" className="text-xs text-primary hover:underline mt-0.5 block font-medium">View quotes →</Link>
             </div>
 
             {/* Account manager */}
@@ -131,7 +131,7 @@ export default function B2BDashboardPage() {
               <div className="flex items-center gap-1 mt-1">
                 {[1,2,3,4,5].map(s => <Star key={s} className="h-3 w-3 text-amber-400 fill-current" />)}
               </div>
-              <Link href="mailto:sara@avenick.com" className="text-xs text-blue-600 hover:underline mt-1 block">Contact →</Link>
+              <Link href="mailto:sara@avenick.com" className="text-xs text-primary hover:underline mt-1 block">Contact →</Link>
             </div>
           </div>
 
@@ -143,7 +143,7 @@ export default function B2BDashboardPage() {
               <div className="bg-white rounded-2xl border border-border overflow-hidden">
                 <div className="px-5 py-4 border-b border-border flex items-center justify-between">
                   <h2 className="font-semibold">My RFQs</h2>
-                  <Link href="/b2b/rfq/new" className="text-sm text-orange-600 hover:underline flex items-center gap-1 font-medium">
+                  <Link href="/b2b/rfq/new" className="text-sm text-primary hover:underline flex items-center gap-1 font-medium">
                     <Plus className="h-3.5 w-3.5" /> New RFQ
                   </Link>
                 </div>
@@ -173,7 +173,7 @@ export default function B2BDashboardPage() {
                   })}
                 </div>
                 <div className="px-5 py-3 border-t border-border bg-slate-50">
-                  <Link href="/b2b/quotes" className="text-sm text-orange-600 hover:underline flex items-center gap-1 font-medium">
+                  <Link href="/b2b/quotes" className="text-sm text-primary hover:underline flex items-center gap-1 font-medium">
                     View all quotes <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </div>
@@ -189,7 +189,7 @@ export default function B2BDashboardPage() {
                       <span className="h-5 w-5 bg-amber-500 text-white rounded-full text-xs flex items-center justify-center font-bold">{MOCK_APPROVALS.length}</span>
                     )}
                   </div>
-                  <Link href="/b2b/approvals" className="text-sm text-orange-600 hover:underline">View all</Link>
+                  <Link href="/b2b/approvals" className="text-sm text-primary hover:underline">View all</Link>
                 </div>
                 {MOCK_APPROVALS.length === 0 ? (
                   <div className="px-5 py-8 text-center text-muted-foreground text-sm">No pending approvals</div>
@@ -206,9 +206,9 @@ export default function B2BDashboardPage() {
                           <p className="text-xs text-muted-foreground">By {a.requester} · {a.submittedAgo}</p>
                         </div>
                         <div className="text-end shrink-0">
-                          <p className="font-bold text-sm text-orange-600">AED {a.amount.toLocaleString()}</p>
+                          <p className="font-bold text-sm text-primary">AED {a.amount.toLocaleString()}</p>
                           <div className="flex gap-1.5 mt-1.5">
-                            <button type="button" className="text-xs bg-green-500 text-white px-2.5 py-1 rounded-lg hover:bg-green-600 transition-colors font-medium">Approve</button>
+                            <button type="button" className="text-xs bg-primary/100 text-white px-2.5 py-1 rounded-lg hover:bg-primary transition-colors font-medium">Approve</button>
                             <button type="button" className="text-xs bg-white border border-border text-muted-foreground px-2.5 py-1 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors">Reject</button>
                           </div>
                         </div>
@@ -224,7 +224,7 @@ export default function B2BDashboardPage() {
               {/* Reorder center */}
               <div className="bg-white rounded-2xl border border-border overflow-hidden">
                 <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-                  <RotateCcw className="h-4 w-4 text-orange-500" />
+                  <RotateCcw className="h-4 w-4 text-primary/100" />
                   <h2 className="font-semibold text-sm">Reorder Center</h2>
                 </div>
                 <div className="divide-y divide-border">
@@ -235,14 +235,14 @@ export default function B2BDashboardPage() {
                         <p className="text-xs text-muted-foreground">{p.category}</p>
                       </div>
                       <div className="text-end shrink-0">
-                        <p className="text-sm font-bold text-orange-600">AED {p.price.toFixed(0)}</p>
-                        <Link href={`/products/${p.slug}`} className="text-xs text-blue-600 hover:underline">Reorder</Link>
+                        <p className="text-sm font-bold text-primary">AED {p.price.toFixed(0)}</p>
+                        <Link href={`/products/${p.slug}`} className="text-xs text-primary hover:underline">Reorder</Link>
                       </div>
                     </div>
                   ))}
                 </div>
                 <div className="px-4 py-2 border-t border-border">
-                  <Link href="/products" className="text-xs text-orange-600 hover:underline font-medium">Browse all products →</Link>
+                  <Link href="/products" className="text-xs text-primary hover:underline font-medium">Browse all products →</Link>
                 </div>
               </div>
 
@@ -251,16 +251,16 @@ export default function B2BDashboardPage() {
                 <h3 className="font-semibold text-sm mb-3">Quick Actions</h3>
                 <div className="space-y-1">
                   {[
-                    { href: "/b2b/rfq/new", label: "Create New RFQ", icon: Plus, color: "text-orange-600" },
+                    { href: "/b2b/rfq/new", label: "Create New RFQ", icon: Plus, color: "text-primary" },
                     { href: "/b2b/quotes", label: "View My Quotes", icon: ClipboardList, color: "text-purple-600" },
                     { href: "/b2b/approvals", label: "Approval Center", icon: CheckSquare, color: "text-amber-600" },
-                    { href: "/b2b/company", label: "Company Profile", icon: Building2, color: "text-blue-600" },
-                    { href: "/account/orders", label: "Order History", icon: Clock, color: "text-slate-600" },
+                    { href: "/b2b/company", label: "Company Profile", icon: Building2, color: "text-primary" },
+                    { href: "/account/orders", label: "Order History", icon: Clock, color: "text-muted-foreground" },
                   ].map(({ href, label, icon: Icon, color }) => (
                     <Link key={href} href={href}
                       className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors group">
                       <Icon className={`h-4 w-4 ${color} shrink-0`} />
-                      <span className="text-sm font-medium group-hover:text-orange-600 transition-colors">{label}</span>
+                      <span className="text-sm font-medium group-hover:text-primary transition-colors">{label}</span>
                       <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ms-auto" />
                     </Link>
                   ))}

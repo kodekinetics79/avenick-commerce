@@ -76,15 +76,15 @@ export default function WishlistPage() {
                       </div>
                     )}
                     {item.inStock && (
-                      <span className="absolute top-2 start-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">In Stock</span>
+                      <span className="absolute top-2 start-2 bg-primary/100 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">In Stock</span>
                     )}
                   </Link>
                   <div className="p-3.5">
                     {item.sellerName && <p className="text-xs text-muted-foreground mb-0.5 truncate">{item.sellerName}</p>}
                     <Link href={`/products/${item.slug}`}>
-                      <h3 className="text-sm font-semibold hover:text-orange-600 transition-colors line-clamp-2 mb-2 leading-snug min-h-[2.5rem]">{item.nameEn}</h3>
+                      <h3 className="text-sm font-semibold hover:text-primary transition-colors line-clamp-2 mb-2 leading-snug min-h-[2.5rem]">{item.nameEn}</h3>
                     </Link>
-                    <p className="text-lg font-bold text-orange-600 mb-3">{formatCurrency(item.price, item.currency as "AED")}</p>
+                    <p className="text-lg font-bold text-primary mb-3">{formatCurrency(item.price, item.currency as "AED")}</p>
                     <div className="flex gap-2">
                       <Button size="sm" variant="primary" className="flex-1" disabled={!item.inStock} onClick={() => addToCart(item)}>
                         <ShoppingCart className="h-3.5 w-3.5 me-1" />

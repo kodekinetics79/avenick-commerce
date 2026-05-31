@@ -29,8 +29,13 @@ const NAV = [
 ];
 
 export function Header() {
-  const itemCount = useCartStore((s) => s.itemCount());
+  const storeCount = useCartStore((s) => s.itemCount());
   const [search, setSearch] = React.useState("");
+  // Persisted (localStorage) cart count differs between server and client —
+  // only reflect it after mount to avoid a hydration mismatch.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  const itemCount = mounted ? storeCount : 0;
 
   return (
     <header className="sticky top-0 z-50">

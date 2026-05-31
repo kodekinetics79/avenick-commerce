@@ -23,12 +23,12 @@ const MOCK_APPROVALS: Array<{
 const URGENCY_CONFIG: Record<Urgency, { label: string; color: string; border: string }> = {
   critical: { label: "Critical", color: "text-red-600 bg-red-50",   border: "border-red-200" },
   high:     { label: "Urgent",   color: "text-amber-600 bg-amber-50", border: "border-amber-200" },
-  normal:   { label: "Normal",   color: "text-slate-600 bg-slate-100", border: "border-border" },
+  normal:   { label: "Normal",   color: "text-muted-foreground bg-slate-100", border: "border-border" },
 };
 
 const STATUS_CONFIG: Record<ApprovalStatus, { label: string; color: string; icon: typeof CheckCircle }> = {
   PENDING:  { label: "Pending Approval", color: "bg-yellow-100 text-yellow-700", icon: Clock },
-  APPROVED: { label: "Approved",         color: "bg-green-100 text-green-700",   icon: CheckCircle },
+  APPROVED: { label: "Approved",         color: "bg-primary/20 text-primary",   icon: CheckCircle },
   REJECTED: { label: "Rejected",         color: "bg-red-100 text-red-700",       icon: XCircle },
 };
 
@@ -65,11 +65,11 @@ export default function ApprovalsPage() {
               <p className="text-xs text-muted-foreground mt-0.5">Awaiting Approval</p>
             </div>
             <div className="bg-white rounded-2xl border border-border p-4 text-center">
-              <p className="text-2xl font-bold text-green-600">{MOCK_APPROVALS.filter(a => a.status === "APPROVED").length}</p>
+              <p className="text-2xl font-bold text-primary">{MOCK_APPROVALS.filter(a => a.status === "APPROVED").length}</p>
               <p className="text-xs text-muted-foreground mt-0.5">Approved (All Time)</p>
             </div>
             <div className="bg-white rounded-2xl border border-border p-4 text-center">
-              <p className="text-lg font-bold text-orange-600">{formatCurrency(pending.reduce((s, a) => s + a.amount, 0), "AED")}</p>
+              <p className="text-lg font-bold text-primary">{formatCurrency(pending.reduce((s, a) => s + a.amount, 0), "AED")}</p>
               <p className="text-xs text-muted-foreground mt-0.5">Pending Value</p>
             </div>
           </div>
@@ -126,10 +126,10 @@ export default function ApprovalsPage() {
                         )}
                       </div>
                       <div className="text-end shrink-0">
-                        <p className="text-xl font-bold text-orange-600 mb-3">{formatCurrency(approval.amount, approval.currency as "AED")}</p>
+                        <p className="text-xl font-bold text-primary mb-3">{formatCurrency(approval.amount, approval.currency as "AED")}</p>
                         {approval.status === "PENDING" && (
                           <div className="flex gap-2 justify-end">
-                            <button type="button" className="flex items-center gap-1.5 text-sm bg-green-500 text-white px-4 py-2 rounded-xl hover:bg-green-600 transition-colors font-semibold">
+                            <button type="button" className="flex items-center gap-1.5 text-sm bg-primary/100 text-white px-4 py-2 rounded-xl hover:bg-primary transition-colors font-semibold">
                               <CheckCircle className="h-4 w-4" /> Approve
                             </button>
                             <button type="button" className="flex items-center gap-1.5 text-sm border border-border text-muted-foreground px-4 py-2 rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors font-medium">
