@@ -2,6 +2,7 @@ import { B2BShell } from "@/components/b2b/b2b-shell";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
 import { createAddress, setDefaultAddress, deleteAddress } from "./actions";
+import { ValidatedForm } from "@/components/b2b/validated-form";
 import { MapPin, Plus, Building2, Star } from "lucide-react";
 
 export const metadata = { title: "Delivery Sites — Avenick for Business" };
@@ -34,7 +35,7 @@ export default async function AddressesPage() {
       description="Manage the locations orders can be shipped to across your organization."
     >
       {isAdmin && (
-        <form action={createAddress} className="rounded-2xl border border-border bg-card p-5 mb-6">
+        <ValidatedForm action={createAddress} className="rounded-2xl border border-border bg-card p-5 mb-6">
           <div className="flex items-center gap-2 text-sm font-semibold mb-4"><Plus className="h-4 w-4 text-primary" /> Add a site</div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
             <input name="label" required placeholder="Site name (e.g. Warehouse — JAFZA)" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
@@ -49,7 +50,7 @@ export default async function AddressesPage() {
               <button type="submit" className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">Add</button>
             </div>
           </div>
-        </form>
+        </ValidatedForm>
       )}
 
       {addresses.length === 0 ? (

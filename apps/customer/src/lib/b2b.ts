@@ -1,6 +1,9 @@
 import { auth } from "@/lib/auth-instance";
 import { db } from "@avenick/database";
 
+/** Return shape for B2B form server actions (used with useActionState). */
+export type B2BActionState = { error?: string; ok?: boolean; message?: string };
+
 /**
  * Resolve the signed-in user's B2B context (their company membership).
  * Returns null for users who aren't part of a company.

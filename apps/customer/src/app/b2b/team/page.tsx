@@ -3,6 +3,7 @@ import { formatCurrency } from "@avenick/utils";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
 import { inviteMember, setMemberActive } from "./actions";
+import { ValidatedForm } from "@/components/b2b/validated-form";
 import { Shield, ShoppingBag, CheckSquare, UserPlus, Building2 } from "lucide-react";
 
 export const metadata = { title: "Team & Roles — Avenick for Business" };
@@ -54,7 +55,7 @@ export default async function B2BTeamPage() {
 
       {/* Invite form (admins only) */}
       {isAdmin && (
-        <form action={inviteMember} className="rounded-2xl border border-border bg-card p-5 mb-6">
+        <ValidatedForm action={inviteMember} className="rounded-2xl border border-border bg-card p-5 mb-6">
           <div className="flex items-center gap-2 text-sm font-semibold mb-4"><UserPlus className="h-4 w-4 text-primary" /> Invite a member</div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-2">
             <input name="name" required placeholder="Full name" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
@@ -68,7 +69,7 @@ export default async function B2BTeamPage() {
             <button type="submit" className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">Send invite</button>
           </div>
           <p className="text-xs text-muted-foreground mt-2">Department is optional — invited members join with a pending status until they set a password.</p>
-        </form>
+        </ValidatedForm>
       )}
 
       {/* Members table */}

@@ -2,13 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@avenick/database";
-import { getB2BContext } from "@/lib/b2b";
+import { getB2BContext, type B2BActionState } from "@/lib/b2b";
 
 const COUNTRIES = ["AE", "SA", "QA", "KW", "OM", "BH"] as const;
 
-export async function createAddress(formData: FormData) {
+export async function createAddress(_prev: B2BActionState, formData: FormData): Promise<B2BActionState> {
   const ctx = await getB2BContext();
-  if (!ctx || ctx.member.role !== "COMPANY_ADMIN") return;
+  if (!ctx || ctx.member.role !== "COMPANY_ADMIN") return { error: "Only company admins can manage sites." };
 
   const label = String(formData.get("label") ?? "").trim();
   const line1 = String(formData.get("line1") ?? "").trim();
@@ -17,7 +17,7 @@ export async function createAddress(formData: FormData) {
   const country = String(formData.get("country") ?? "AE") as (typeof COUNTRIES)[number];
   const postalCode = String(formData.get("postalCode") ?? "").trim() || null;
 
-  if (!label || !line1 || !city) return;
+  if (!label || !line1 || !city) return { error: "Site name, address line and city are required." };
 
   const existing = await db.address.count({ where: { companyId: ctx.companyId } });
   await db.address.create({
@@ -33,7 +33,7 @@ export async function createAddress(formData: FormData) {
     },
   });
   revalidatePath("/b2b/addresses");
-  
+  return { ok: true, message: `“${label}” added as a delivery site.` };
 }
 
 export async function setDefaultAddress(id: string) {

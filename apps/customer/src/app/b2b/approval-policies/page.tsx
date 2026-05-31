@@ -3,6 +3,7 @@ import { formatCurrency } from "@avenick/utils";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
 import { createPolicy, togglePolicy } from "./actions";
+import { ValidatedForm } from "@/components/b2b/validated-form";
 import { CheckSquare, ShieldCheck, Building2 } from "lucide-react";
 
 export const metadata = { title: "Approval Policies — Avenick for Business" };
@@ -38,7 +39,7 @@ export default async function ApprovalPoliciesPage() {
       description="Require sign-off when an order exceeds a spend threshold."
     >
       {isAdmin && (
-        <form action={createPolicy} className="rounded-2xl border border-border bg-card p-5 mb-6">
+        <ValidatedForm action={createPolicy} className="rounded-2xl border border-border bg-card p-5 mb-6">
           <div className="flex items-center gap-2 text-sm font-semibold mb-4"><ShieldCheck className="h-4 w-4 text-primary" /> New policy</div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
             <input name="name" required placeholder="Policy name (e.g. High-value orders)" className="lg:col-span-2 h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
@@ -51,7 +52,7 @@ export default async function ApprovalPoliciesPage() {
               <button type="submit" className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">Add</button>
             </div>
           </div>
-        </form>
+        </ValidatedForm>
       )}
 
       <div className="rounded-2xl border border-border bg-card overflow-hidden">

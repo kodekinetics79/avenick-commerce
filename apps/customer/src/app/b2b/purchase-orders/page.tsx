@@ -3,6 +3,7 @@ import { formatCurrency } from "@avenick/utils";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
 import { createPO, approvePO, rejectPO, markOrdered, cancelPO } from "./actions";
+import { ValidatedForm } from "@/components/b2b/validated-form";
 import { FileCheck2, Clock, CheckCircle2, Truck, XCircle, FileEdit, Building2, Plus } from "lucide-react";
 
 export const metadata = { title: "Purchase Orders — Avenick for Business" };
@@ -57,7 +58,7 @@ export default async function PurchaseOrdersPage() {
   return (
     <B2BShell title="Purchase Orders" description={`Raise, approve and track POs for ${ctx.company.nameEn}.`}>
       {/* Create */}
-      <form action={createPO} className="rounded-2xl border border-border bg-card p-5 mb-6">
+      <ValidatedForm action={createPO} className="rounded-2xl border border-border bg-card p-5 mb-6">
         <div className="flex items-center gap-2 text-sm font-semibold mb-4"><Plus className="h-4 w-4 text-primary" /> Raise a purchase order</div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
           <input name="description" required placeholder="Description (e.g. Safety helmets × 200)" className="lg:col-span-2 h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
@@ -68,7 +69,7 @@ export default async function PurchaseOrdersPage() {
           </div>
         </div>
         <p className="text-xs text-muted-foreground mt-2">POs above an active approval-policy threshold route to approval automatically.</p>
-      </form>
+      </ValidatedForm>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
