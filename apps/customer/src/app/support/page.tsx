@@ -1,114 +1,97 @@
-"use client";
-
-import { useState } from "react";
-import { MessageSquare, Plus, Clock, CheckCircle, AlertCircle, X } from "lucide-react";
+import { MessageSquare, Plus, Clock, CheckCircle2, Activity, Lock } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { MOCK_SUPPORT_TICKETS } from "@avenick/database";
-import { Button, Input, Textarea } from "@avenick/ui";
+import { auth } from "@/lib/auth-instance";
+import { db } from "@avenick/database";
+import { ValidatedForm } from "@/components/b2b/validated-form";
+import { createTicket } from "./actions";
 
-const STATUS_CONFIG = {
-  OPEN: { label: "Open", color: "bg-blue-100 text-primary", icon: Clock },
-  IN_PROGRESS: { label: "In Progress", color: "bg-yellow-100 text-yellow-700", icon: AlertCircle },
-  CLOSED: { label: "Closed", color: "bg-primary/20 text-primary", icon: CheckCircle },
-  ESCALATED: { label: "Escalated", color: "bg-red-100 text-red-700", icon: AlertCircle },
+export const metadata = { title: "Support" };
+
+const STATUS: Record<string, { label: string; cls: string; icon: typeof Clock }> = {
+  OPEN: { label: "Open", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400", icon: Clock },
+  IN_PROGRESS: { label: "In progress", cls: "bg-primary/15 text-primary", icon: Activity },
+  RESOLVED: { label: "Resolved", cls: "bg-success/15 text-success", icon: CheckCircle2 },
+  CLOSED: { label: "Closed", cls: "bg-secondary text-muted-foreground", icon: CheckCircle2 },
 };
 
-export default function SupportPage() {
-  const [showForm, setShowForm] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const tickets = MOCK_SUPPORT_TICKETS;
+const CATEGORIES = ["ORDER", "DELIVERY", "PAYMENT", "PRODUCT", "ACCOUNT", "OTHER"];
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitted(true);
-    setShowForm(false);
+const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+export default async function SupportPage() {
+  const session = await auth();
+  const userId = session?.user?.id as string | undefined;
+
+  if (!userId) {
+    return (
+      <MainLayout>
+        <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+          <Lock className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
+          <p className="font-semibold">Sign in to contact support</p>
+        </div>
+      </MainLayout>
+    );
   }
+
+  const tickets = await db.supportTicket.findMany({ where: { userId }, orderBy: { createdAt: "desc" } });
 
   return (
     <MainLayout>
       <div className="max-w-3xl mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
-            <MessageSquare className="h-6 w-6 text-primary" />
-            <h1 className="text-2xl font-bold">Support</h1>
-          </div>
-          <Button variant="primary" size="sm" onClick={() => { setShowForm(true); setSubmitted(false); }}>
-            <Plus className="h-4 w-4 mr-1" /> New Ticket
-          </Button>
+        <div className="flex items-center gap-3 mb-6">
+          <MessageSquare className="h-6 w-6 text-primary" />
+          <h1 className="text-2xl font-bold tracking-tight">Support</h1>
         </div>
 
-        {submitted && (
-          <div className="bg-primary/10 border border-primary/30 rounded-2xl p-4 flex items-center gap-3 mb-4">
-            <CheckCircle className="h-5 w-5 text-primary shrink-0" />
-            <p className="text-sm text-primary font-medium">Your ticket has been submitted. We&apos;ll respond within 24 hours.</p>
-          </div>
-        )}
-
-        {showForm && (
-          <div className="bg-white rounded-2xl border border-border p-5 mb-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold">Open New Ticket</h2>
-              <button onClick={() => setShowForm(false)} className="p-1 hover:bg-muted rounded-lg transition-colors">
-                <X className="h-4 w-4" />
-              </button>
+        {/* New ticket */}
+        <ValidatedForm action={createTicket} className="rounded-2xl border border-border bg-card p-5 mb-6">
+          <div className="flex items-center gap-2 text-sm font-semibold mb-4"><Plus className="h-4 w-4 text-primary" /> Open a ticket</div>
+          <div className="space-y-3">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <input name="subject" required placeholder="Subject" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+              <select name="category" aria-label="Category" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border focus:outline-none focus:ring-2 focus:ring-ring">
+                {CATEGORIES.map((c) => <option key={c} value={c}>{c.charAt(0) + c.slice(1).toLowerCase()}</option>)}
+              </select>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Subject</label>
-                <Input placeholder="Brief description of your issue" required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Order ID (optional)</label>
-                <Input placeholder="e.g. AC-2024-00142" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Details</label>
-                <Textarea placeholder="Describe your issue in detail..." rows={4} required />
-              </div>
-              <div className="flex gap-2">
-                <Button type="submit" variant="primary" className="flex-1">Submit Ticket</Button>
-                <Button type="button" variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
-              </div>
-            </form>
+            <input name="orderRef" placeholder="Order reference (optional)" className="w-full h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <textarea name="description" required rows={4} placeholder="Describe your issue…" className="w-full px-3 py-2.5 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none" />
+            <button type="submit" className="h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">Submit ticket</button>
           </div>
-        )}
+        </ValidatedForm>
 
-        <div className="space-y-3">
-          <h2 className="font-semibold text-muted-foreground text-sm uppercase tracking-wide">My Tickets</h2>
-          {tickets.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <MessageSquare className="h-10 w-10 mx-auto mb-3 text-gray-300" />
-              <p>No tickets yet. Open one if you need help.</p>
-            </div>
-          ) : (
-            tickets.map((ticket) => {
-              const cfg = STATUS_CONFIG[ticket.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG.OPEN;
-              const Icon = cfg.icon;
+        {/* My tickets */}
+        <h2 className="font-semibold text-muted-foreground text-sm uppercase tracking-wide mb-3">My tickets</h2>
+        {tickets.length === 0 ? (
+          <div className="rounded-2xl border border-border bg-card text-center py-12 text-muted-foreground">
+            <MessageSquare className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+            <p>No tickets yet. Open one above if you need help.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {tickets.map((t) => {
+              const st = STATUS[t.status] ?? STATUS.OPEN!;
               return (
-                <div key={ticket.id} className="bg-white rounded-2xl border border-border p-4 hover:border-primary/30 transition-colors">
+                <div key={t.id} className="rounded-2xl border border-border bg-card p-4 hover:border-primary/30 transition-colors">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-mono text-muted-foreground">{ticket.id}</span>
-                        {ticket.orderId && (
-                          <span className="text-xs bg-gray-100 text-muted-foreground px-2 py-0.5 rounded-full">
-                            Order: {ticket.orderId}
-                          </span>
-                        )}
+                        <span className="text-xs font-mono text-primary">{t.ticketNumber}</span>
+                        <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full">{t.category}</span>
+                        {t.orderRef && <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full font-mono">{t.orderRef}</span>}
                       </div>
-                      <p className="font-medium text-sm">{ticket.subject}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Opened {ticket.createdAt} · Updated {ticket.lastUpdate}</p>
+                      <p className="font-medium text-sm truncate">{t.subject}</p>
+                      <p className="text-xs text-muted-foreground mt-1 line-clamp-1">{t.description}</p>
+                      <p className="text-[11px] text-muted-foreground mt-1">Opened {fmt(t.createdAt)}</p>
                     </div>
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${cfg.color}`}>
-                      <Icon className="h-3 w-3" />
-                      {cfg.label}
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold shrink-0 ${st.cls}`}>
+                      <st.icon className="h-3 w-3" /> {st.label}
                     </span>
                   </div>
                 </div>
               );
-            })
-          )}
-        </div>
+            })}
+          </div>
+        )}
       </div>
     </MainLayout>
   );

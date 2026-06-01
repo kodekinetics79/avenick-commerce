@@ -670,6 +670,21 @@ async function main() {
   }
   console.log(`✅ Reviews seeded (${reviewCount})`);
 
+  // ── SUPPORT TICKETS ─────────────────────────────────────────────────────────
+  const TICKET_SEED = [
+    { num: "TKT-2026-0001", uid: buyerUser.id, subject: "Delayed delivery on bulk order", category: "DELIVERY", priority: "HIGH" as const, status: "OPEN" as const, description: "My order was due last week and has not arrived yet.", orderRef: "AVN-2026-0188" },
+    { num: "TKT-2026-0002", uid: buyerUser.id, subject: "Wrong item received", category: "PRODUCT", priority: "NORMAL" as const, status: "IN_PROGRESS" as const, description: "Received the wrong size. Need an exchange.", orderRef: null },
+    { num: "TKT-2026-0003", uid: companyUser.id, subject: "VAT invoice request", category: "PAYMENT", priority: "NORMAL" as const, status: "RESOLVED" as const, description: "Please re-issue the tax invoice with our updated VAT number.", orderRef: null },
+  ];
+  for (const t of TICKET_SEED) {
+    await prisma.supportTicket.upsert({
+      where: { ticketNumber: t.num },
+      update: {},
+      create: { ticketNumber: t.num, userId: t.uid, subject: t.subject, category: t.category, priority: t.priority, status: t.status, description: t.description, orderRef: t.orderRef },
+    });
+  }
+  console.log(`✅ Support tickets seeded (${TICKET_SEED.length})`);
+
   // Product issues for demo
   const draftProduct = await prisma.product.findUnique({ where: { sku: "DRAFT-PUMP-DIESEL" } });
   const suppProduct = await prisma.product.findUnique({ where: { sku: "SUPP-HARDHAT-RED" } });

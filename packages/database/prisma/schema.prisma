@@ -283,6 +283,20 @@ enum RefundStatus {
   REJECTED
 }
 
+enum SupportStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum SupportPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
 // ─── USER & SESSION ───────────────────────────────────────────────────────────
 
 model User {
@@ -316,6 +330,7 @@ model User {
   sentMessages       Message[]          @relation("SentMessages")
   customerActivities CustomerActivity[]
   reviews            ProductReview[]
+  supportTickets     SupportTicket[]
 
   @@index([email])
   @@index([role, status])
@@ -1161,6 +1176,25 @@ model ProductReview {
 
   @@unique([productId, userId])
   @@index([productId])
+}
+
+model SupportTicket {
+  id           String          @id @default(cuid())
+  ticketNumber String          @unique
+  userId       String
+  subject      String
+  category     String          @default("OTHER")
+  priority     SupportPriority @default(NORMAL)
+  status       SupportStatus   @default(OPEN)
+  description  String          @db.Text
+  orderRef     String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
 }
 
 // ─── NOTIFICATIONS & AUDIT ────────────────────────────────────────────────────
