@@ -1031,6 +1031,7 @@ model RFQRequest {
 
   @@index([buyerId, status])
   @@index([sellerId, status])
+  @@index([companyId])
 }
 
 model RFQItem {
@@ -1159,6 +1160,7 @@ model RequisitionListItem {
   product Product?        @relation(fields: [productId], references: [id])
 
   @@index([listId])
+  @@index([productId])
 }
 
 model ProductReview {
@@ -1176,6 +1178,7 @@ model ProductReview {
 
   @@unique([productId, userId])
   @@index([productId])
+  @@index([userId])
 }
 
 model SupportTicket {
@@ -1234,5 +1237,6 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([actorId])
+  @@index([sellerId])
   @@index([createdAt])
 }
