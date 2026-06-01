@@ -1,6 +1,7 @@
 import { requireSellerSession } from "@/lib/auth";
 import { getSellerDashboard, db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
+import { OnboardingChecklist } from "@/components/onboarding-checklist";
 import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
 import Link from "next/link";
@@ -39,6 +40,7 @@ export default async function DashboardPage() {
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={dash.issueCount} unreadMessages={dash.unreadMessages}>
       <div className="space-y-6">
+        <OnboardingChecklist seller={seller} />
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>

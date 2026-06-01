@@ -11,7 +11,7 @@ import {
   DollarSign, FileText, CreditCard,
   FolderOpen, CheckSquare,
   LifeBuoy, MessageSquare,
-  Settings, Bell, Menu, ChevronDown, Star, LogOut, Search
+  Settings, Bell, Menu, ChevronDown, Star, LogOut, Search, BarChart3
 } from "lucide-react";
 import { cn } from "@avenick/utils";
 import { ThemeToggle } from "@avenick/ui";
@@ -24,6 +24,7 @@ const NAV_GROUPS = [
     label: "Overview",
     items: [
       { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+      { href: "/analytics", icon: BarChart3, label: "Analytics" },
       { href: "/performance", icon: TrendingUp, label: "Performance" },
     ],
   },
