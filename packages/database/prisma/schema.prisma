@@ -315,6 +315,7 @@ model User {
   auditLogs          AuditLog[]
   sentMessages       Message[]          @relation("SentMessages")
   customerActivities CustomerActivity[]
+  reviews            ProductReview[]
 
   @@index([email])
   @@index([role, status])
@@ -586,20 +587,21 @@ model Product {
   deletedAt     DateTime?
   publishedAt   DateTime?
 
-  seller      SellerProfile               @relation(fields: [sellerId], references: [id])
-  category    Category                    @relation(fields: [categoryId], references: [id])
-  brand       Brand?                      @relation(fields: [brandId], references: [id])
-  images      ProductImage[]
-  variants    ProductVariant[]
-  prices      ProductPrice[]
-  compliance  ProductComplianceDocument[]
-  issues      ProductIssue[]
-  healthSnaps ListingHealthSnapshot[]
-  orderItems  OrderItem[]
-  cartItems   CartItem[]
-  inventory   InventoryStock[]
-  rfqItems    RFQItem[]
+  seller           SellerProfile               @relation(fields: [sellerId], references: [id])
+  category         Category                    @relation(fields: [categoryId], references: [id])
+  brand            Brand?                      @relation(fields: [brandId], references: [id])
+  images           ProductImage[]
+  variants         ProductVariant[]
+  prices           ProductPrice[]
+  compliance       ProductComplianceDocument[]
+  issues           ProductIssue[]
+  healthSnaps      ListingHealthSnapshot[]
+  orderItems       OrderItem[]
+  cartItems        CartItem[]
+  inventory        InventoryStock[]
+  rfqItems         RFQItem[]
   requisitionItems RequisitionListItem[]
+  reviews          ProductReview[]
 
   @@index([sellerId, status])
   @@index([categoryId])
@@ -1142,6 +1144,23 @@ model RequisitionListItem {
   product Product?        @relation(fields: [productId], references: [id])
 
   @@index([listId])
+}
+
+model ProductReview {
+  id         String   @id @default(cuid())
+  productId  String
+  userId     String
+  rating     Int
+  title      String?
+  body       String?  @db.Text
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([productId, userId])
+  @@index([productId])
 }
 
 // ─── NOTIFICATIONS & AUDIT ────────────────────────────────────────────────────

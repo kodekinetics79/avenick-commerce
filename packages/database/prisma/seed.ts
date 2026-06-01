@@ -641,6 +641,35 @@ async function main() {
   }
   console.log(`✅ Products seeded (${createdProducts.length})`);
 
+  // ── PRODUCT REVIEWS ─────────────────────────────────────────────────────────
+  const REVIEW_SEED = [
+    { rating: 5, title: "Exactly as described", body: "Great quality and fast delivery. Will order again for our next site.", verified: true },
+    { rating: 4, title: "Good value", body: "Solid product for the price. Packaging could be a little sturdier.", verified: true },
+    { rating: 5, title: "Highly recommend", body: "Certified and arrived ahead of schedule. Supplier was responsive.", verified: false },
+    { rating: 4, title: "Does the job", body: "Works as expected. Bought in bulk for our facilities team.", verified: true },
+  ];
+  let reviewCount = 0;
+  for (let i = 0; i < Math.min(createdProducts.length, 6); i++) {
+    const reviewers = [buyerUser.id, companyUser.id];
+    for (let r = 0; r < reviewers.length; r++) {
+      const seed = REVIEW_SEED[(i + r) % REVIEW_SEED.length]!;
+      await prisma.productReview.upsert({
+        where: { productId_userId: { productId: createdProducts[i]!.id, userId: reviewers[r]! } },
+        update: {},
+        create: {
+          productId: createdProducts[i]!.id,
+          userId: reviewers[r]!,
+          rating: seed.rating,
+          title: seed.title,
+          body: seed.body,
+          isVerified: seed.verified,
+        },
+      });
+      reviewCount++;
+    }
+  }
+  console.log(`✅ Reviews seeded (${reviewCount})`);
+
   // Product issues for demo
   const draftProduct = await prisma.product.findUnique({ where: { sku: "DRAFT-PUMP-DIESEL" } });
   const suppProduct = await prisma.product.findUnique({ where: { sku: "SUPP-HARDHAT-RED" } });

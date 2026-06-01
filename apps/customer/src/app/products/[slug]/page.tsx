@@ -11,11 +11,7 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
 
-const MOCK_REVIEWS = [
-  { id: "1", author: "Ahmed Al-Rashidi", rating: 5, date: "2024-11-10", text: "Excellent quality. Fast delivery from the supplier. Highly recommended for bulk orders." },
-  { id: "2", author: "Sara M.", rating: 4, date: "2024-10-22", text: "Good product, matches the description. Packaging was secure." },
-  { id: "3", author: "Gulf Industrial Co.", rating: 5, date: "2024-09-15", text: "We order regularly. Consistent quality and on-time delivery every time." },
-];
+type Review = { id: string; rating: number; title?: string | null; body?: string | null; isVerified?: boolean; createdAt: string; user?: { firstName: string; lastName: string } };
 
 type Tab = "description" | "specs" | "reviews" | "shipping";
 
@@ -70,12 +66,14 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
   const vatPerUnit = displayPrice * 0.05;
   const productId = String(p.id);
   const wishlisted = has(productId);
-  const avgRating = 4.6;
+  const reviews = (p.reviews as Review[]) ?? [];
+  const reviewCount = reviews.length;
+  const avgRating = reviewCount > 0 ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviewCount) * 10) / 10 : 4.6;
 
   const TABS: { id: Tab; label: string }[] = [
     { id: "description", label: "Description" },
     { id: "specs", label: "Specifications" },
-    { id: "reviews", label: `Reviews (${MOCK_REVIEWS.length})` },
+    { id: "reviews", label: `Reviews (${reviewCount})` },
     { id: "shipping", label: "Shipping & Returns" },
   ];
 
@@ -147,7 +145,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                     <span className="text-sm font-semibold ms-1">{avgRating}</span>
                   </div>
                   <button type="button" onClick={() => setTab("reviews")} className="text-sm text-primary hover:underline">
-                    {MOCK_REVIEWS.length} reviews
+                    {reviewCount} reviews
                   </button>
                   <span className="text-muted-foreground text-sm">·</span>
                   <span className="text-sm text-muted-foreground">SKU: {String(p.sku)}</span>
@@ -292,23 +290,33 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                       <div className="flex justify-center mt-1">
                         {[1,2,3,4,5].map((s) => <Star key={s} className={`h-4 w-4 ${s <= Math.round(avgRating) ? "text-amber-400 fill-current" : "text-gray-200 fill-current"}`} />)}
                       </div>
-                      <p className="text-xs text-muted-foreground mt-1">{MOCK_REVIEWS.length} reviews</p>
+                      <p className="text-xs text-muted-foreground mt-1">{reviewCount} review{reviewCount !== 1 ? "s" : ""}</p>
                     </div>
                   </div>
-                  {MOCK_REVIEWS.map((r) => (
-                    <div key={r.id} className="py-4 border-b border-border last:border-0">
-                      <div className="flex items-start justify-between mb-2">
-                        <div>
-                          <p className="font-medium text-sm">{r.author}</p>
-                          <div className="flex mt-0.5">
-                            {[1,2,3,4,5].map((s) => <Star key={s} className={`h-3.5 w-3.5 ${s <= r.rating ? "text-amber-400 fill-current" : "text-gray-200 fill-current"}`} />)}
+                  {reviewCount === 0 ? (
+                    <p className="text-sm text-muted-foreground py-6 text-center">No reviews yet — be the first to review this product.</p>
+                  ) : reviews.map((r) => {
+                    const author = r.user ? `${r.user.firstName} ${r.user.lastName.charAt(0)}.`.trim() : "Verified buyer";
+                    const date = new Date(r.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                    return (
+                      <div key={r.id} className="py-4 border-b border-border last:border-0">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <p className="font-medium text-sm flex items-center gap-1.5">
+                              {author}
+                              {r.isVerified && <span className="text-[10px] font-semibold text-success bg-success/15 px-1.5 py-0.5 rounded-full">Verified</span>}
+                            </p>
+                            <div className="flex mt-0.5">
+                              {[1,2,3,4,5].map((s) => <Star key={s} className={`h-3.5 w-3.5 ${s <= r.rating ? "text-amber-400 fill-current" : "text-muted-foreground/25 fill-current"}`} />)}
+                            </div>
                           </div>
+                          <span className="text-xs text-muted-foreground">{date}</span>
                         </div>
-                        <span className="text-xs text-muted-foreground">{r.date}</span>
+                        {r.title && <p className="text-sm font-semibold mb-0.5">{r.title}</p>}
+                        {r.body && <p className="text-sm text-muted-foreground">{r.body}</p>}
                       </div>
-                      <p className="text-sm text-muted-foreground">{r.text}</p>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
 

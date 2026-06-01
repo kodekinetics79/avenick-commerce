@@ -67,6 +67,11 @@ export async function getProductBySlug(slug: string) {
       seller: { select: { id: true, businessNameEn: true, businessNameAr: true, tier: true, rating: true, reviewCount: true, city: true, country: true } },
       compliance: { where: { status: "APPROVED" } },
       variants: { include: { prices: { where: { isActive: true } } } },
+      reviews: {
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        include: { user: { select: { firstName: true, lastName: true } } },
+      },
     },
   });
 }
