@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@avenick/database";
 import { getB2BContext, type B2BActionState } from "@/lib/b2b";
+import { sendInviteEmail } from "@/lib/email";
 
 const ROLES = ["COMPANY_ADMIN", "COMPANY_BUYER", "COMPANY_APPROVER"] as const;
 type Role = (typeof ROLES)[number];
@@ -38,8 +39,21 @@ export async function inviteMember(_prev: B2BActionState, formData: FormData): P
     return { error: "Could not invite member. Please try again." };
   }
 
+  const inviter = await db.user.findUnique({ where: { id: ctx.userId }, select: { firstName: true, lastName: true } });
+  const { sent } = await sendInviteEmail({
+    to: email,
+    companyName: ctx.company.nameEn,
+    inviterName: inviter ? `${inviter.firstName} ${inviter.lastName}`.trim() : ctx.company.nameEn,
+    role,
+  });
+
   revalidatePath("/b2b/team");
-  return { ok: true, message: `Invitation sent to ${email}. They'll appear as “Invited” until they set a password.` };
+  return {
+    ok: true,
+    message: sent
+      ? `Invitation email sent to ${email}.`
+      : `${email} added — they'll show as “Invited” until they set a password. (Set RESEND_API_KEY to email invites.)`,
+  };
 }
 
 export async function updateMember(memberId: string, formData: FormData) {
