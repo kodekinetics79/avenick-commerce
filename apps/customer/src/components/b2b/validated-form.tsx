@@ -1,13 +1,15 @@
 "use client";
 
 import * as React from "react";
-import { useActionState } from "react";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import type { B2BActionState } from "@/lib/b2b";
 
 /**
- * Wraps a B2B create form with inline error/success messaging.
- * Children keep their own layout; the message renders beneath them.
+ * Wraps a create form with inline error/success messaging.
+ *
+ * Note: this project runs React 18.3, where `useActionState`/`useFormState`
+ * aren't available at runtime, so we drive the server action manually via a
+ * client form action + useState (still progressive-friendly with JS on).
  */
 export function ValidatedForm({
   action,
@@ -18,9 +20,17 @@ export function ValidatedForm({
   children: React.ReactNode;
   className?: string;
 }) {
-  const [state, formAction] = useActionState(action, {});
+  const [state, setState] = React.useState<B2BActionState>({});
+  const formRef = React.useRef<HTMLFormElement>(null);
+
+  async function handle(formData: FormData) {
+    const result = (await action(state, formData)) ?? {};
+    setState(result);
+    if (result.ok) formRef.current?.reset();
+  }
+
   return (
-    <form action={formAction} className={className}>
+    <form ref={formRef} action={handle} className={className}>
       {children}
       {state.error && (
         <p className="mt-3 flex items-center gap-1.5 text-sm text-danger"><AlertCircle className="h-4 w-4 shrink-0" /> {state.error}</p>
