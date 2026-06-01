@@ -6,6 +6,7 @@ import { SellerLayout } from "@/components/layout/seller-layout";
 import { Badge } from "@avenick/ui";
 import { formatCurrency } from "@avenick/utils";
 import { Plus, AlertTriangle } from "lucide-react";
+import { AiAssist } from "@/components/ai-assist";
 
 function HealthBar({ score }: { score: number }) {
   const color = score >= 80 ? "bg-green-500" : score >= 60 ? "bg-yellow-500" : score >= 40 ? "bg-orange-500" : "bg-red-500";
@@ -51,12 +52,14 @@ export default async function ProductsPage() {
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={products.flatMap((p) => p.issues).length}>
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Products — المنتجات ({products.length})</h1>
-          <Link href="/products/new" className="flex items-center gap-2 bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-orange-600 transition-colors">
-            <Plus className="h-4 w-4" />
-            Add Product
-          </Link>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold tracking-tight">Products <span className="text-muted-foreground font-medium">({products.length})</span></h1>
+          <div className="flex items-center gap-2">
+            <AiAssist kind="listing" label="AI listing copy" />
+            <Link href="/products/new" className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">
+              <Plus className="h-4 w-4" /> Add product
+            </Link>
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl border border-border overflow-hidden">

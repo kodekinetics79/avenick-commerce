@@ -4,6 +4,7 @@ import { SellerLayout } from "@/components/layout/seller-layout";
 import { format } from "date-fns";
 import { MessageSquare, ClipboardList, AlertCircle, Clock, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { AiAssist } from "@/components/ai-assist";
 
 export const metadata = { title: "Messages & RFQs" };
 
@@ -57,12 +58,15 @@ export default async function MessagesPage() {
             <h1 className="text-2xl font-bold">Messages & RFQs</h1>
             <p className="text-sm text-muted-foreground">RFQ requests from buyers and message threads</p>
           </div>
-          {pendingRfqs.length > 0 && (
-            <div className="flex items-center gap-1.5 text-sm text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl font-medium">
-              <AlertCircle className="h-4 w-4" />
-              {pendingRfqs.length} RFQ{pendingRfqs.length !== 1 ? "s" : ""} need response
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {pendingRfqs.length > 0 && (
+              <div className="hidden sm:flex items-center gap-1.5 text-sm text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl font-medium">
+                <AlertCircle className="h-4 w-4" />
+                {pendingRfqs.length} need response
+              </div>
+            )}
+            <AiAssist kind="rfq" label="AI draft reply" seed={pendingRfqs[0]?.description ?? ""} />
+          </div>
         </div>
 
         {/* RFQ Inbox */}
