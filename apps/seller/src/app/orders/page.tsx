@@ -1,7 +1,8 @@
 import { requireSellerSession } from "@/lib/auth";
-import { getOrdersForSeller } from "@avenick/database";
+import { getOrdersForSeller, db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { OrdersTable, type OrderRow } from "@/components/orders-table";
+import { SavedViews } from "@/components/saved-views";
 import { format } from "date-fns";
 import Link from "next/link";
 import { ShoppingCart, Package, Truck, CheckCircle } from "lucide-react";
@@ -20,6 +21,12 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
   const { seller } = await requireSellerSession();
   const { orders, total } = await getOrdersForSeller(seller.id, { status: searchParams.status as never, limit: 50 });
   const activeTab = searchParams.status ?? "";
+
+  const savedViews = await db.savedView.findMany({
+    where: { sellerId: seller.id, entity: "orders" },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, name: true, query: true },
+  });
 
   const rows: OrderRow[] = orders.map((o) => ({
     id: o.id,
@@ -59,6 +66,8 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
             </Link>
           ))}
         </div>
+
+        <SavedViews entity="orders" basePath="/orders" views={savedViews} />
 
         <OrdersTable rows={rows} total={total} />
       </div>

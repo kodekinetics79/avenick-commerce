@@ -500,9 +500,25 @@ model SellerProfile {
   auditLogs       AuditLog[]
   shipments       Shipment[]
   returnRequests  ReturnRequest[]
+  savedViews      SavedView[]
 
   @@index([status])
   @@index([country])
+}
+
+/// Persisted filter/sort presets a seller saves per list view (orders, products).
+/// `query` stores a URL query string (e.g. "status=PROCESSING") applied on click.
+model SavedView {
+  id        String   @id @default(cuid())
+  sellerId  String
+  entity    String
+  name      String
+  query     String
+  createdAt DateTime @default(now())
+
+  seller SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId, entity])
 }
 
 model SellerDocument {
