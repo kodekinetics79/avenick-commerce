@@ -1,5 +1,5 @@
 import { requireSellerSession } from "@/lib/auth";
-import { db, MOCK_SELLER_RFQ_INBOX } from "@avenick/database";
+import { db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { format } from "date-fns";
 import { MessageSquare, ClipboardList, AlertCircle, Clock, ChevronRight } from "lucide-react";
@@ -24,7 +24,29 @@ export default async function MessagesPage() {
   });
 
   const unreadCount = threads.flatMap((t) => t.messages).filter((m) => !m.isRead && m.senderType === "BUYER").length;
-  const pendingRfqs = MOCK_SELLER_RFQ_INBOX.filter((r) => r.status === "PENDING");
+
+  const rawRfqs = await db.rFQRequest.findMany({
+    where: { sellerId: seller.id },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    include: { company: { select: { nameEn: true } }, items: { take: 1, select: { nameEn: true } }, _count: { select: { items: true } } },
+  });
+  const NORMALIZE: Record<string, string> = {
+    SUBMITTED: "PENDING", UNDER_REVIEW: "PENDING", DRAFT: "PENDING",
+    QUOTED: "QUOTED", NEGOTIATING: "QUOTED",
+    ACCEPTED: "ACCEPTED", REJECTED: "DECLINED", EXPIRED: "DECLINED", CANCELLED: "DECLINED",
+  };
+  const fmtD = (d: Date | null) => (d ? format(d, "MMM d, yyyy") : "—");
+  const rfqInbox = rawRfqs.map((r) => ({
+    id: r.id,
+    rfqNumber: r.rfqNumber,
+    buyerCompany: r.company?.nameEn ?? "Direct buyer",
+    description: r.items[0]?.nameEn ?? `${r._count.items} item${r._count.items !== 1 ? "s" : ""}`,
+    status: NORMALIZE[r.status] ?? "PENDING",
+    receivedAt: format(r.createdAt, "MMM d, yyyy"),
+    dueBy: fmtD(r.requiredBy),
+  }));
+  const pendingRfqs = rfqInbox.filter((r) => r.status === "PENDING");
 
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} unreadMessages={unreadCount}>
@@ -56,7 +78,7 @@ export default async function MessagesPage() {
             )}
           </div>
           <div className="divide-y divide-border">
-            {MOCK_SELLER_RFQ_INBOX.map((rfq) => {
+            {rfqInbox.map((rfq) => {
               const sc = RFQ_STATUS[rfq.status] ?? RFQ_STATUS.PENDING!;
               const isPending = rfq.status === "PENDING";
               return (
@@ -87,7 +109,7 @@ export default async function MessagesPage() {
                 </div>
               );
             })}
-            {MOCK_SELLER_RFQ_INBOX.length === 0 && (
+            {rfqInbox.length === 0 && (
               <div className="px-5 py-12 text-center text-muted-foreground">
                 <ClipboardList className="h-10 w-10 mx-auto mb-3 opacity-30" />
                 <p className="font-medium">No RFQ requests yet</p>

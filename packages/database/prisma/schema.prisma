@@ -1076,15 +1076,16 @@ model RFQItem {
 // ─── MESSAGING ────────────────────────────────────────────────────────────────
 
 model MessageThread {
-  id        String   @id @default(cuid())
-  sellerId  String
-  buyerId   String
-  rfqId     String?
-  orderId   String?
-  subject   String?
-  isOpen    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String    @id @default(cuid())
+  sellerId        String
+  buyerId         String
+  rfqId           String?
+  orderId         String?
+  subject         String?
+  isOpen          Boolean   @default(true)
+  firstResponseAt DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   seller   SellerProfile @relation(fields: [sellerId], references: [id])
   messages Message[]
@@ -1233,6 +1234,7 @@ model Shipment {
   carrier        String?
   trackingNumber String?
   status         ShipmentStatus @default(PENDING)
+  promisedBy     DateTime?
   shippedAt      DateTime?
   deliveredAt    DateTime?
   createdAt      DateTime       @default(now())

@@ -1,5 +1,5 @@
 import { requireSellerSession } from "@/lib/auth";
-import { db, MOCK_PAYOUT_HISTORY } from "@avenick/database";
+import { db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
@@ -73,23 +73,11 @@ export default async function PayoutsPage() {
               </tbody>
             </table>
             {payouts.length === 0 && (
-              <>
-                <tbody className="divide-y divide-border">
-                  {MOCK_PAYOUT_HISTORY.map((p) => (
-                    <tr key={p.id} className="hover:bg-muted/20">
-                      <td className="px-4 py-3 text-sm">{p.period}</td>
-                      <td className="px-4 py-3">{formatCurrency(p.grossSales, "AED")}</td>
-                      <td className="px-4 py-3 text-red-600">-{formatCurrency(p.commission, "AED")}</td>
-                      <td className="px-4 py-3 font-bold text-green-600">{formatCurrency(p.net, "AED")}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.status === "PAID" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>{p.status}</span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground font-mono">—</td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground">{p.settledAt ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </>
+              <div className="px-5 py-12 text-center text-muted-foreground">
+                <DollarSign className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No payouts yet</p>
+                <p className="text-sm">Payouts are issued as your orders settle.</p>
+              </div>
             )}
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { requireSellerSession } from "@/lib/auth";
-import { getSellerDashboard, MOCK_SELLER_DOCUMENTS, MOCK_SELLER_RFQ_INBOX, MOCK_SELLER_PERFORMANCE } from "@avenick/database";
+import { getSellerDashboard, db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
@@ -12,6 +12,12 @@ import {
 export default async function DashboardPage() {
   const { seller } = await requireSellerSession();
   const dash = await getSellerDashboard(seller.id);
+
+  const [expiringDocs, pendingRfqCount] = await Promise.all([
+    db.sellerDocument.count({ where: { sellerId: seller.id, expiryDate: { gte: new Date(), lte: new Date(Date.now() + 30 * 86400000) } } }),
+    db.rFQRequest.count({ where: { sellerId: seller.id, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } }),
+  ]);
+  const perfScore = seller.accountHealth;
 
   const stats = [
     { label: "Today's Orders", labelAr: "طلبات اليوم", value: dash.todayOrderCount, icon: ShoppingCart, color: "bg-blue-500", urgent: false },
@@ -87,63 +93,38 @@ export default async function DashboardPage() {
         {/* Additional widgets row */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Expiring documents widget */}
-          {(() => {
-            const expiring = MOCK_SELLER_DOCUMENTS.filter((d) => {
-              if (!d.expiryDate) return false;
-              const days = Math.ceil((new Date(d.expiryDate).getTime() - Date.now()) / 86400000);
-              return days <= 30 && days > 0;
-            });
-            return (
-              <div className={`bg-white rounded-2xl border p-4 ${expiring.length > 0 ? "border-amber-300 bg-amber-50" : "border-border"}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <FileCheck className="h-4 w-4 text-amber-500" />
-                  <p className="text-sm font-semibold">Expiring Documents</p>
-                </div>
-                {expiring.length > 0 ? (
-                  <>
-                    <p className="text-2xl font-bold text-amber-600">{expiring.length}</p>
-                    <p className="text-xs text-amber-700 mt-1">{expiring.map((d) => d.name).join(", ")}</p>
-                    <Link href="/documents" className="text-xs text-orange-600 hover:underline mt-2 block">Manage →</Link>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-2xl font-bold text-green-600">0</p>
-                    <p className="text-xs text-muted-foreground mt-1">All documents valid</p>
-                  </>
-                )}
-              </div>
-            );
-          })()}
+          <div className={`bg-card rounded-2xl border p-4 ${expiringDocs > 0 ? "border-amber-500/30 bg-amber-500/5" : "border-border"}`}>
+            <div className="flex items-center gap-2 mb-2">
+              <FileCheck className="h-4 w-4 text-amber-500" />
+              <p className="text-sm font-semibold">Expiring documents</p>
+            </div>
+            <p className={`text-2xl font-bold font-mono ${expiringDocs > 0 ? "text-amber-600 dark:text-amber-400" : "text-success"}`}>{expiringDocs}</p>
+            <p className="text-xs text-muted-foreground mt-1">{expiringDocs > 0 ? "Renew within 30 days" : "All documents valid"}</p>
+            <Link href="/documents" className="text-xs text-primary hover:underline mt-2 block">Manage →</Link>
+          </div>
 
           {/* Pending RFQs widget */}
-          {(() => {
-            const pending = MOCK_SELLER_RFQ_INBOX.filter((r) => r.status === "PENDING");
-            return (
-              <div className={`bg-white rounded-2xl border p-4 ${pending.length > 0 ? "border-blue-300 bg-blue-50" : "border-border"}`}>
-                <div className="flex items-center gap-2 mb-2">
-                  <Activity className="h-4 w-4 text-blue-500" />
-                  <p className="text-sm font-semibold">Pending RFQs</p>
-                </div>
-                <p className="text-2xl font-bold text-primary">{pending.length}</p>
-                <p className="text-xs text-muted-foreground mt-1">Awaiting your quote response</p>
-                {pending.length > 0 && (
-                  <Link href="/messages" className="text-xs text-orange-600 hover:underline mt-2 block">Respond →</Link>
-                )}
-              </div>
-            );
-          })()}
+          <div className={`bg-card rounded-2xl border p-4 ${pendingRfqCount > 0 ? "border-primary/30 bg-primary/5" : "border-border"}`}>
+            <div className="flex items-center gap-2 mb-2">
+              <Activity className="h-4 w-4 text-primary" />
+              <p className="text-sm font-semibold">Pending RFQs</p>
+            </div>
+            <p className="text-2xl font-bold font-mono text-primary">{pendingRfqCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">Awaiting your quote response</p>
+            {pendingRfqCount > 0 && <Link href="/messages" className="text-xs text-primary hover:underline mt-2 block">Respond →</Link>}
+          </div>
 
           {/* Performance score widget */}
-          <div className="bg-white rounded-2xl border border-border p-4">
+          <div className="bg-card rounded-2xl border border-border p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Star className="h-4 w-4 text-yellow-500" />
-              <p className="text-sm font-semibold">Performance Score</p>
+              <Star className="h-4 w-4 text-amber-400" />
+              <p className="text-sm font-semibold">Account health</p>
             </div>
-            <p className={`text-2xl font-bold ${MOCK_SELLER_PERFORMANCE.overallScore >= 80 ? "text-green-600" : MOCK_SELLER_PERFORMANCE.overallScore >= 60 ? "text-yellow-600" : "text-red-600"}`}>
-              {MOCK_SELLER_PERFORMANCE.overallScore}/100
+            <p className={`text-2xl font-bold font-mono ${perfScore >= 80 ? "text-success" : perfScore >= 60 ? "text-amber-600 dark:text-amber-400" : "text-danger"}`}>
+              {perfScore}/100
             </p>
-            <p className="text-xs text-muted-foreground mt-1">On-time: {MOCK_SELLER_PERFORMANCE.onTimeDelivery}% · Returns: {MOCK_SELLER_PERFORMANCE.returnRate}%</p>
-            <Link href="/performance" className="text-xs text-orange-600 hover:underline mt-2 block">View details →</Link>
+            <p className="text-xs text-muted-foreground mt-1">{seller.reviewCount} reviews{seller.rating ? ` · ${Number(seller.rating).toFixed(1)}★` : ""}</p>
+            <Link href="/performance" className="text-xs text-primary hover:underline mt-2 block">View details →</Link>
           </div>
         </div>
 
