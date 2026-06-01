@@ -11,10 +11,13 @@ import {
   DollarSign, FileText, CreditCard,
   FolderOpen, CheckSquare,
   LifeBuoy, MessageSquare,
-  Settings, Bell, Menu, ChevronDown, Star, LogOut
+  Settings, Bell, Menu, ChevronDown, Star, LogOut, Search
 } from "lucide-react";
 import { cn } from "@avenick/utils";
 import { ThemeToggle } from "@avenick/ui";
+import { CommandPalette } from "@/components/command-palette";
+import { NotificationBell } from "@/components/notification-bell";
+import { ToastProvider } from "@/components/toast";
 
 const NAV_GROUPS = [
   {
@@ -212,7 +215,9 @@ export function SellerLayout({
   );
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <ToastProvider>
+      <CommandPalette />
+      <div className="flex h-screen bg-background overflow-hidden">
       {/* Desktop sidebar */}
       <aside className={cn("hidden lg:flex flex-col shrink-0 transition-all duration-200", collapsed ? "w-14" : "w-56")}>
         <SidebarContent />
@@ -238,10 +243,19 @@ export function SellerLayout({
               <Menu className="h-5 w-5 text-muted-foreground" />
             </button>
             <span className="font-semibold text-sm hidden sm:block">Seller Central</span>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("open-command-palette"))}
+              className="hidden md:flex items-center gap-2 h-9 ps-2.5 pe-2 ms-1 rounded-xl border border-border bg-secondary/40 text-muted-foreground hover:bg-secondary transition-colors text-sm"
+            >
+              <Search className="h-3.5 w-3.5" /> Search…
+              <kbd className="ms-3 text-[10px] font-mono border border-border rounded px-1 py-0.5">⌘K</kbd>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
             <ThemeToggle />
+            <NotificationBell />
             <Link href="/messages" className="relative p-2 hover:bg-secondary rounded-lg transition-colors" aria-label="Messages">
               <Bell className="h-5 w-5 text-muted-foreground" />
               {unreadMessages > 0 && (
@@ -276,6 +290,7 @@ export function SellerLayout({
           {children}
         </main>
       </div>
-    </div>
+      </div>
+    </ToastProvider>
   );
 }
