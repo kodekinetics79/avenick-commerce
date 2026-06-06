@@ -9,10 +9,10 @@ import { AiAssist } from "@/components/ai-assist";
 export const metadata = { title: "Messages & RFQs" };
 
 const RFQ_STATUS: Record<string, { label: string; color: string }> = {
-  PENDING:  { label: "Pending",  color: "bg-amber-100 text-amber-700" },
-  QUOTED:   { label: "Quoted",   color: "bg-blue-100 text-primary" },
-  ACCEPTED: { label: "Accepted", color: "bg-green-100 text-green-700" },
-  DECLINED: { label: "Declined", color: "bg-red-100 text-red-700" },
+  PENDING:  { label: "Pending",  color: "bg-amber-500/10 text-amber-600 dark:text-amber-400" },
+  QUOTED:   { label: "Quoted",   color: "bg-primary/10 text-primary" },
+  ACCEPTED: { label: "Accepted", color: "bg-green-500/10 text-green-600 dark:text-green-400" },
+  DECLINED: { label: "Declined", color: "bg-red-500/10 text-red-600 dark:text-red-400" },
 };
 
 export default async function MessagesPage() {
@@ -70,12 +70,12 @@ export default async function MessagesPage() {
         </div>
 
         {/* RFQ Inbox */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center gap-2">
             <ClipboardList className="h-4 w-4 text-primary" />
             <h2 className="font-semibold">RFQ Inbox</h2>
             {pendingRfqs.length > 0 && (
-              <span className="ms-auto flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2.5 py-0.5 rounded-full font-semibold">
+              <span className="ms-auto flex items-center gap-1 text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2.5 py-0.5 rounded-full font-semibold">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
                 {pendingRfqs.length} pending
               </span>
@@ -86,11 +86,11 @@ export default async function MessagesPage() {
               const sc = RFQ_STATUS[rfq.status] ?? RFQ_STATUS.PENDING!;
               const isPending = rfq.status === "PENDING";
               return (
-                <div key={rfq.id} className={`flex items-start justify-between px-5 py-4 hover:bg-slate-50 transition-colors ${isPending ? "bg-amber-50/40" : ""}`}>
+                <div key={rfq.id} className={`flex items-start justify-between px-5 py-4 hover:bg-muted/30 transition-colors ${isPending ? "bg-amber-500/5" : ""}`}>
                   <div className="flex-1 min-w-0 pe-4">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-xs font-mono text-muted-foreground font-semibold">{rfq.rfqNumber}</span>
-                      {isPending && <span className="text-[10px] font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Needs Response</span>}
+                      {isPending && <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Needs Response</span>}
                     </div>
                     <p className="text-sm font-semibold text-foreground">{rfq.buyerCompany}</p>
                     <p className="text-sm text-muted-foreground line-clamp-1">{rfq.description}</p>
@@ -129,19 +129,19 @@ export default async function MessagesPage() {
             Message Threads {unreadCount > 0 && <span className="ms-2 text-xs bg-blue-500 text-white px-1.5 py-0.5 rounded-full">{unreadCount} new</span>}
           </h2>
           {threads.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-border p-12 text-center">
-              <MessageSquare className="h-10 w-10 mx-auto text-slate-200 mb-3" />
+            <div className="bg-card rounded-2xl border border-border p-12 text-center">
+              <MessageSquare className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
               <p className="font-semibold text-muted-foreground">No messages yet</p>
               <p className="text-sm text-muted-foreground mt-1">Buyer messages and support threads appear here.</p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-border divide-y divide-border overflow-hidden">
+            <div className="bg-card rounded-2xl border border-border divide-y divide-border overflow-hidden">
               {threads.map((thread) => {
                 const lastMsg = thread.messages[0];
                 const hasUnread = lastMsg && !lastMsg.isRead && lastMsg.senderType === "BUYER";
                 return (
-                  <div key={thread.id} className={`p-4 flex items-start gap-3 hover:bg-slate-50 transition-colors cursor-pointer ${hasUnread ? "bg-blue-50/40" : ""}`}>
-                    <div className="h-9 w-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                  <div key={thread.id} className={`p-4 flex items-start gap-3 hover:bg-muted/30 transition-colors cursor-pointer ${hasUnread ? "bg-primary/5" : ""}`}>
+                    <div className="h-9 w-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
                       <MessageSquare className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">

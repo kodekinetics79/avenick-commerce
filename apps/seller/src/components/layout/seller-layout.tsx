@@ -11,8 +11,9 @@ import {
   DollarSign, FileText, CreditCard,
   FolderOpen, CheckSquare,
   LifeBuoy, MessageSquare,
-  Settings, Bell, Menu, ChevronDown, Star, LogOut, Search, BarChart3
+  Settings, Menu, ChevronDown, Star, LogOut, Search, BarChart3
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 import { cn } from "@avenick/utils";
 import { ThemeToggle } from "@avenick/ui";
 import { CommandPalette } from "@/components/command-palette";
@@ -70,8 +71,8 @@ const NAV_GROUPS = [
   {
     label: "Support",
     items: [
-      { href: "/issues", icon: LifeBuoy, label: "Tickets" },
-      { href: "/messages", icon: MessageSquare, label: "Contact Admin" },
+      { href: "/support/tickets", icon: LifeBuoy, label: "Tickets" },
+      { href: "/support/contact", icon: MessageSquare, label: "Contact Admin" },
     ],
   },
 ];
@@ -207,10 +208,14 @@ export function SellerLayout({
           <Settings className="h-4 w-4 shrink-0" />
           {!collapsed && <span>Settings</span>}
         </Link>
-        <Link href="/api/auth/signout" className={cn("flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors", collapsed && "justify-center")}>
+        <button
+          type="button"
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className={cn("w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors", collapsed && "justify-center")}
+        >
           <LogOut className="h-4 w-4 shrink-0" />
           {!collapsed && <span>Sign out</span>}
-        </Link>
+        </button>
       </div>
     </div>
   );
@@ -258,7 +263,7 @@ export function SellerLayout({
             <ThemeToggle />
             <NotificationBell />
             <Link href="/messages" className="relative p-2 hover:bg-secondary rounded-lg transition-colors" aria-label="Messages">
-              <Bell className="h-5 w-5 text-muted-foreground" />
+              <MessageSquare className="h-5 w-5 text-muted-foreground" />
               {unreadMessages > 0 && (
                 <span className="absolute top-1 right-1 h-4 min-w-4 px-1 bg-danger text-white text-[9px] rounded-full flex items-center justify-center font-bold">
                   {unreadMessages > 9 ? "9+" : unreadMessages}
@@ -280,7 +285,13 @@ export function SellerLayout({
                 </div>
                 <Link href="/performance" className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">Performance</Link>
                 <Link href="/settings" className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">Settings</Link>
-                <Link href="/api/auth/signout" className="block px-3 py-2 text-sm rounded-lg text-danger hover:bg-danger/10 transition-colors">Sign out</Link>
+                <button
+                  type="button"
+                  onClick={() => signOut({ callbackUrl: "/login" })}
+                  className="w-full text-start flex items-center gap-2 px-3 py-2 text-sm rounded-lg text-danger hover:bg-danger/10 transition-colors"
+                >
+                  <LogOut className="h-3.5 w-3.5" /> Sign out
+                </button>
               </div>
             </div>
           </div>

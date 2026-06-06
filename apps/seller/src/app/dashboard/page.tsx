@@ -52,7 +52,7 @@ export default async function DashboardPage() {
             <div className="flex items-center gap-2">
               <div className="flex gap-0.5 w-24 h-2">
                 {Array.from({ length: 10 }).map((_, i) => (
-                  <div key={i} className={`flex-1 rounded-full ${i < Math.floor(health / 10) ? healthColor : "bg-gray-200"}`} />
+                  <div key={i} className={`flex-1 rounded-full ${i < Math.floor(health / 10) ? healthColor : "bg-muted"}`} />
                 ))}
               </div>
               <span className={`text-sm font-bold ${health >= 80 ? "text-green-600" : health >= 60 ? "text-yellow-600" : "text-red-600"}`}>{health}/100</span>
@@ -62,15 +62,15 @@ export default async function DashboardPage() {
 
         {/* Action alerts */}
         {(dash.issueCount > 0 || dash.pendingCompliance > 0 || dash.lowStockItems > 0) && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-            <h3 className="font-semibold text-amber-800 mb-2 flex items-center gap-2">
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4">
+            <h3 className="font-semibold text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4" />
               Action Required — إجراء مطلوب
             </h3>
             <div className="space-y-1">
-              {dash.issueCount > 0 && <Link href="/issues" className="flex items-center gap-2 text-sm text-amber-700 hover:text-amber-900"><XCircle className="h-3.5 w-3.5 shrink-0" />{dash.issueCount} product{dash.issueCount !== 1 ? "s" : ""} have issues that may affect your sales</Link>}
-              {dash.pendingCompliance > 0 && <Link href="/compliance" className="flex items-center gap-2 text-sm text-amber-700 hover:text-amber-900"><XCircle className="h-3.5 w-3.5 shrink-0" />{dash.pendingCompliance} compliance document{dash.pendingCompliance !== 1 ? "s" : ""} pending review</Link>}
-              {dash.lowStockItems > 0 && <Link href="/inventory" className="flex items-center gap-2 text-sm text-amber-700 hover:text-amber-900"><XCircle className="h-3.5 w-3.5 shrink-0" />{dash.lowStockItems} product{dash.lowStockItems !== 1 ? "s" : ""} below reorder point</Link>}
+              {dash.issueCount > 0 && <Link href="/issues" className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300"><XCircle className="h-3.5 w-3.5 shrink-0" />{dash.issueCount} product{dash.issueCount !== 1 ? "s" : ""} have issues that may affect your sales</Link>}
+              {dash.pendingCompliance > 0 && <Link href="/compliance" className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300"><XCircle className="h-3.5 w-3.5 shrink-0" />{dash.pendingCompliance} compliance document{dash.pendingCompliance !== 1 ? "s" : ""} pending review</Link>}
+              {dash.lowStockItems > 0 && <Link href="/inventory" className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300"><XCircle className="h-3.5 w-3.5 shrink-0" />{dash.lowStockItems} product{dash.lowStockItems !== 1 ? "s" : ""} below reorder point</Link>}
             </div>
           </div>
         )}
@@ -78,7 +78,7 @@ export default async function DashboardPage() {
         {/* Stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
           {stats.map((stat) => (
-            <div key={stat.label} className={`bg-white rounded-2xl border ${stat.urgent ? "border-red-200 bg-red-50" : "border-border"} p-4`}>
+            <div key={stat.label} className={`bg-card rounded-2xl border ${stat.urgent ? "border-red-500/20 bg-red-500/10" : "border-border"} p-4`}>
               <div className="flex items-center justify-between mb-2">
                 <div className={`h-8 w-8 rounded-lg ${stat.color} flex items-center justify-center`}>
                   <stat.icon className="h-4 w-4 text-white" />
@@ -87,7 +87,7 @@ export default async function DashboardPage() {
               </div>
               <p className="text-xl font-bold">{stat.value}</p>
               <p className="text-xs text-muted-foreground">{stat.label}</p>
-              {stat.href && <Link href={stat.href} className="text-xs text-orange-600 hover:underline mt-1 block">View →</Link>}
+              {stat.href && <Link href={stat.href} className="text-xs text-primary hover:underline mt-1 block">View →</Link>}
             </div>
           ))}
         </div>
@@ -132,10 +132,10 @@ export default async function DashboardPage() {
 
         {/* Recent orders */}
         {dash.recentOrders.length > 0 && (
-          <div className="bg-white rounded-2xl border border-border overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border overflow-hidden">
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <h2 className="font-semibold">Recent Orders — الطلبات الأخيرة</h2>
-              <Link href="/orders" className="text-sm text-orange-600 hover:underline">View all</Link>
+              <Link href="/orders" className="text-sm text-primary hover:underline">View all</Link>
             </div>
             <div className="divide-y divide-border">
               {dash.recentOrders.map((order) => (
@@ -146,7 +146,7 @@ export default async function DashboardPage() {
                   </div>
                   <div className="text-end">
                     <p className="font-semibold text-sm">{formatCurrency(Number(order.total), order.currency)}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${order.status === "DELIVERED" ? "bg-green-100 text-green-700" : order.status === "PROCESSING" ? "bg-blue-100 text-primary" : "bg-gray-100 text-gray-600"}`}>{order.status}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${order.status === "DELIVERED" ? "bg-green-500/10 text-green-600 dark:text-green-400" : order.status === "PROCESSING" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{order.status}</span>
                   </div>
                 </Link>
               ))}

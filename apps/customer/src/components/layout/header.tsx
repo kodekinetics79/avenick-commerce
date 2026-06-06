@@ -10,9 +10,11 @@ import {
   Heart,
   FileText,
   Sparkles,
+  LogOut,
 } from "lucide-react";
 import { ThemeToggle } from "@avenick/ui";
 import { useCartStore } from "@/stores/cart";
+import { useSession, signOut } from "next-auth/react";
 
 function setLocaleCookie(locale: string) {
   document.cookie = `AVENICK_LOCALE=${locale}; path=/; max-age=${60 * 60 * 24 * 365}`;
@@ -29,6 +31,7 @@ const NAV = [
 ];
 
 export function Header() {
+  const { data: session } = useSession();
   const storeCount = useCartStore((s) => s.itemCount());
   const [search, setSearch] = React.useState("");
   // Persisted (localStorage) cart count differs between server and client —
@@ -115,15 +118,40 @@ export function Header() {
                 <ChevronDown className="h-3 w-3" />
               </button>
               <div className="absolute end-0 top-full mt-1.5 w-48 rounded-xl border border-border bg-popover text-popover-foreground shadow-elevated opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-1">
-                {[
-                  { href: "/account", label: "My Account" },
-                  { href: "/account/orders", label: "Orders" },
-                  { href: "/b2b", label: "B2B Portal" },
-                ].map((i) => (
-                  <Link key={i.href} href={i.href} className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">{i.label}</Link>
-                ))}
-                <div className="my-1 h-px bg-border" />
-                <Link href="/login" className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">Sign in</Link>
+                {session?.user ? (
+                  <>
+                    <div className="px-3 py-2 text-sm font-medium truncate border-b border-border mb-1">
+                      {session.user.name || session.user.email}
+                    </div>
+                    {[
+                      { href: "/account", label: "My Account" },
+                      { href: "/account/orders", label: "Orders" },
+                      { href: "/b2b", label: "B2B Portal" },
+                    ].map((i) => (
+                      <Link key={i.href} href={i.href} className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">{i.label}</Link>
+                    ))}
+                    <div className="my-1 h-px bg-border" />
+                    <button
+                      type="button"
+                      onClick={() => signOut({ callbackUrl: "/" })}
+                      className="w-full text-start flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors"
+                    >
+                      <LogOut className="h-3.5 w-3.5" /> Sign out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    {[
+                      { href: "/account", label: "My Account" },
+                      { href: "/account/orders", label: "Orders" },
+                      { href: "/b2b", label: "B2B Portal" },
+                    ].map((i) => (
+                      <Link key={i.href} href={i.href} className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">{i.label}</Link>
+                    ))}
+                    <div className="my-1 h-px bg-border" />
+                    <Link href="/login" className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">Sign in</Link>
+                  </>
+                )}
               </div>
             </div>
             <Link

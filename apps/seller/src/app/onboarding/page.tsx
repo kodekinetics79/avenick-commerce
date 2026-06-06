@@ -64,29 +64,29 @@ export default async function OnboardingPage() {
         </div>
 
         {/* Progress */}
-        <div className="bg-white rounded-2xl border border-border p-5">
+        <div className="bg-card rounded-2xl border border-border p-5">
           <div className="flex items-center justify-between mb-2">
             <p className="font-semibold text-sm">Overall Progress</p>
             <span className="text-sm font-bold text-orange-600">{progress}%</span>
           </div>
           <div className="flex gap-1 w-full h-3">
             {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className={`flex-1 rounded-full transition-colors ${i < Math.floor(progress / 10) ? "bg-green-500" : "bg-gray-100"}`} />
+              <div key={i} className={`flex-1 rounded-full transition-colors ${i < Math.floor(progress / 10) ? "bg-green-500" : "bg-muted"}`} />
             ))}
           </div>
         </div>
 
         {/* Step list */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           {STEPS.map((step, idx) => {
             const isLast = idx === STEPS.length - 1;
             const Icon = step.icon;
             return (
               <div key={step.id} className={`flex items-start gap-4 p-5 ${!isLast ? "border-b border-border" : ""}`}>
                 <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${
-                  step.status === "COMPLETE" ? "bg-green-100" :
-                  step.status === "IN_PROGRESS" ? "bg-orange-100" :
-                  "bg-gray-100"
+                  step.status === "COMPLETE" ? "bg-green-500/10" :
+                  step.status === "IN_PROGRESS" ? "bg-orange-500/10" :
+                  "bg-muted"
                 }`}>
                   {step.status === "COMPLETE" ? (
                     <CheckCircle className="h-5 w-5 text-green-600" />
@@ -100,9 +100,9 @@ export default async function OnboardingPage() {
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-sm">{step.label}</p>
                     <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                      step.status === "COMPLETE" ? "bg-green-100 text-green-700" :
-                      step.status === "IN_PROGRESS" ? "bg-orange-100 text-orange-700" :
-                      "bg-gray-100 text-muted-foreground"
+                      step.status === "COMPLETE" ? "bg-green-500/10 text-green-600 dark:text-green-400" :
+                      step.status === "IN_PROGRESS" ? "bg-orange-500/10 text-orange-600 dark:text-orange-400" :
+                      "bg-muted text-muted-foreground"
                     }`}>
                       {step.status === "COMPLETE" ? "Complete" : step.status === "IN_PROGRESS" ? "In Progress" : "Pending"}
                     </span>
@@ -115,7 +115,7 @@ export default async function OnboardingPage() {
         </div>
 
         {/* Document upload checklist */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="px-5 py-4 border-b border-border">
             <h2 className="font-semibold">Required Documents</h2>
           </div>
@@ -132,7 +132,7 @@ export default async function OnboardingPage() {
                       <CheckCircle className="h-3.5 w-3.5" /> Uploaded
                     </span>
                   ) : (
-                    <button type="button" className="flex items-center gap-1 text-xs bg-orange-50 text-orange-600 border border-orange-200 px-3 py-1.5 rounded-lg hover:bg-orange-100 transition-colors">
+                    <button type="button" className="flex items-center gap-1 text-xs bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/20 px-3 py-1.5 rounded-lg hover:bg-orange-500/20 transition-colors">
                       <Upload className="h-3.5 w-3.5" /> Upload
                     </button>
                   )}

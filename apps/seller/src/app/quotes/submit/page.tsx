@@ -57,16 +57,16 @@ export default function SubmitQuotePage() {
     return (
       <SellerLayout sellerName="Seller" tier="VERIFIED">
         <div className="max-w-lg mx-auto py-20 text-center">
-          <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-5">
-            <CheckCircle className="h-10 w-10 text-green-600" />
+          <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center mx-auto mb-5">
+            <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400" />
           </div>
           <h1 className="text-2xl font-bold mb-2">Quote Submitted!</h1>
           <p className="text-muted-foreground mb-6">Your quotation has been sent to the buyer. They will review and respond within 48 hours.</p>
           <div className="flex gap-3 justify-center">
-            <Link href="/messages" className="bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors">
+            <Link href="/messages" className="bg-primary text-primary-foreground px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors">
               Back to Messages
             </Link>
-            <Link href="/quotes" className="border border-border px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors">
+            <Link href="/quotes" className="border border-border px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-muted transition-colors">
               View Quote History
             </Link>
           </div>
@@ -89,13 +89,13 @@ export default function SubmitQuotePage() {
 
         {/* RFQ summary */}
         {rfq && (
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-5">
+          <div className="bg-primary/10 border border-primary/20 rounded-2xl p-4 mb-5">
             <div className="flex items-start gap-2">
               <AlertCircle className="h-4 w-4 text-primary shrink-0 mt-0.5" />
               <div className="text-sm">
-                <p className="font-semibold text-blue-800">RFQ Details</p>
-                <p className="text-primary">{rfq.description}</p>
-                <p className="text-primary text-xs mt-1">Received: {rfq.receivedAt} · Due: {rfq.dueBy}</p>
+                <p className="font-semibold text-primary">RFQ Details</p>
+                <p className="text-foreground">{rfq.description}</p>
+                <p className="text-muted-foreground text-xs mt-1">Received: {rfq.receivedAt} · Due: {rfq.dueBy}</p>
               </div>
             </div>
           </div>
@@ -103,7 +103,7 @@ export default function SubmitQuotePage() {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           {/* Quote header */}
-          <div className="bg-white rounded-2xl border border-border p-5">
+          <div className="bg-card rounded-2xl border border-border p-5">
             <h2 className="font-semibold mb-4">Quote Details</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -113,7 +113,7 @@ export default function SubmitQuotePage() {
               <div>
                 <label className="block text-sm font-medium mb-1">Payment Terms</label>
                 <select aria-label="Payment terms" value={paymentTerms} onChange={(e) => setPaymentTerms(e.target.value)}
-                  className="w-full h-10 px-3 text-sm border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-slate-900">
+                  className="w-full h-10 px-3 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary">
                   {[["NET_30","Net 30 Days"],["NET_15","Net 15 Days"],["NET_60","Net 60 Days"],["ADVANCE","100% Advance"],["PARTIAL","50% Advance, 50% on Delivery"]].map(([v,l]) => (
                     <option key={v} value={v}>{l}</option>
                   ))}
@@ -123,11 +123,11 @@ export default function SubmitQuotePage() {
           </div>
 
           {/* Line items */}
-          <div className="bg-white rounded-2xl border border-border p-5">
+          <div className="bg-card rounded-2xl border border-border p-5">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-semibold">Line Items</h2>
               <button type="button" onClick={addItem}
-                className="flex items-center gap-1.5 text-sm text-green-600 font-medium border border-green-200 px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors">
+                className="flex items-center gap-1.5 text-sm text-green-600 dark:text-green-400 font-medium border border-green-500/20 px-3 py-1.5 rounded-lg hover:bg-green-500/10 transition-colors">
                 <Plus className="h-3.5 w-3.5" /> Add Item
               </button>
             </div>
@@ -174,14 +174,14 @@ export default function SubmitQuotePage() {
                   <span>VAT (5%)</span><span>AED {vatAmount.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between font-bold text-base border-t border-border pt-1.5">
-                  <span>Total</span><span className="text-green-700">AED {total.toFixed(2)}</span>
+                  <span>Total</span><span className="text-green-600 dark:text-green-400">AED {total.toFixed(2)}</span>
                 </div>
               </div>
             )}
           </div>
 
           {/* Notes */}
-          <div className="bg-white rounded-2xl border border-border p-5">
+          <div className="bg-card rounded-2xl border border-border p-5">
             <h2 className="font-semibold mb-3">Notes to Buyer</h2>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Include delivery terms, product specifications, certifications, warranty, or any other relevant information..." rows={3} />
           </div>
