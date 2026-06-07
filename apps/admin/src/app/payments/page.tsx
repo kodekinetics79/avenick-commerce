@@ -8,10 +8,10 @@ import Link from "next/link";
 export const metadata = { title: "Payments" };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
-  SUCCEEDED: { label: "Succeeded", color: "bg-green-100 text-green-700",  icon: CheckCircle },
-  PENDING:   { label: "Pending",   color: "bg-amber-100 text-amber-700",  icon: Clock },
-  FAILED:    { label: "Failed",    color: "bg-red-100 text-red-700",      icon: XCircle },
-  REFUNDED:  { label: "Refunded",  color: "bg-slate-100 text-muted-foreground",  icon: RotateCcw },
+  SUCCEEDED: { label: "Succeeded", color: "bg-green-500/10 text-green-700 dark:text-green-400",  icon: CheckCircle },
+  PENDING:   { label: "Pending",   color: "bg-amber-500/10 text-amber-700 dark:text-amber-400",  icon: Clock },
+  FAILED:    { label: "Failed",    color: "bg-red-500/10 text-red-700 dark:text-red-400",      icon: XCircle },
+  REFUNDED:  { label: "Refunded",  color: "bg-muted text-muted-foreground",  icon: RotateCcw },
 };
 
 const METHOD_LABEL: Record<string, { label: string; icon: typeof CreditCard }> = {
@@ -54,10 +54,10 @@ export default async function PaymentsPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Collected", value: formatCurrency(totalCollected, "AED"), color: "text-green-700", bg: "bg-green-50 border-green-200" },
-            { label: "Pending", value: formatCurrency(pendingValue, "AED"), color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
-            { label: "Failed", value: failed.length, color: failed.length > 0 ? "text-red-600" : "text-muted-foreground", bg: failed.length > 0 ? "bg-red-50 border-red-200" : "bg-white border-border" },
-            { label: "Total Txns", value: MOCK_PAYMENTS.length, color: "text-foreground", bg: "bg-white border-border" },
+            { label: "Collected", value: formatCurrency(totalCollected, "AED"), color: "text-green-700", bg: "bg-green-500/10 border-green-500/20" },
+            { label: "Pending", value: formatCurrency(pendingValue, "AED"), color: "text-amber-600", bg: "bg-amber-500/10 border-amber-500/20" },
+            { label: "Failed", value: failed.length, color: failed.length > 0 ? "text-red-600" : "text-muted-foreground", bg: failed.length > 0 ? "bg-red-500/10 border-red-500/20" : "bg-card border-border" },
+            { label: "Total Txns", value: MOCK_PAYMENTS.length, color: "text-foreground", bg: "bg-card border-border" },
           ].map(({ label, value, color, bg }) => (
             <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
               <p className={`text-xl font-bold ${color}`}>{value}</p>
@@ -68,27 +68,27 @@ export default async function PaymentsPage() {
 
         {/* Failed alert */}
         {failed.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3">
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center gap-3">
             <XCircle className="h-5 w-5 text-red-600 shrink-0" />
             <p className="font-semibold text-red-800 text-sm">{failed.length} failed payment{failed.length !== 1 ? "s" : ""} — follow up with customers to retry</p>
           </div>
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-white border border-border rounded-xl p-1 w-fit overflow-x-auto">
+        <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit overflow-x-auto">
           {TABS.map((tab) => (
             <button key={tab} type="button"
-              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "All" ? "bg-slate-900 text-white" : "text-muted-foreground hover:text-foreground hover:bg-slate-50"}`}>
+              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "All" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}>
               {tab}
             </button>
           ))}
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
+              <thead className="bg-muted border-b border-border">
                 <tr>
                   {["Reference","Invoice","Payer","Method","Gateway","Amount","Status","Date","Action"].map(h => (
                     <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
@@ -102,7 +102,7 @@ export default async function PaymentsPage() {
                   const ml = METHOD_LABEL[p.method] ?? { label: p.method, icon: CreditCard };
                   const MethodIcon = ml.icon;
                   return (
-                    <tr key={p.id} className={`hover:bg-slate-50 transition-colors ${p.status === "FAILED" ? "bg-red-50/30" : ""}`}>
+                    <tr key={p.id} className={`hover:bg-muted/30 transition-colors ${p.status === "FAILED" ? "bg-red-500/5" : ""}`}>
                       <td className="px-4 py-3 font-mono text-xs font-semibold text-muted-foreground">{p.ref}</td>
                       <td className="px-4 py-3 font-mono text-xs text-primary">{p.invoiceNo}</td>
                       <td className="px-4 py-3 font-medium text-sm">{p.payer}</td>

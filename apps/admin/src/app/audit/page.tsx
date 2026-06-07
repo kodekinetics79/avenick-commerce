@@ -6,16 +6,16 @@ import { ScrollText, Search, Download, Shield, User, DollarSign, Package, Scale,
 export const metadata = { title: "Audit Trail" };
 
 const CATEGORY_CONFIG: Record<string, { color: string; icon: typeof Shield }> = {
-  SELLER:      { color: "bg-orange-100 text-orange-700", icon: Package },
-  PRICING:     { color: "bg-green-100 text-green-700",   icon: DollarSign },
-  DISPUTE:     { color: "bg-purple-100 text-purple-700", icon: Scale },
-  PRODUCT:     { color: "bg-cyan-100 text-cyan-700",     icon: Package },
-  FINANCE:     { color: "bg-green-100 text-green-700",   icon: DollarSign },
-  USER:        { color: "bg-blue-100 text-primary",     icon: User },
-  SECURITY:    { color: "bg-red-100 text-red-700",       icon: Lock },
-  INTEGRATION: { color: "bg-slate-100 text-muted-foreground",   icon: Plug },
-  SUPPORT:     { color: "bg-amber-100 text-amber-700",   icon: LifeBuoy },
-  AUTOMATION:  { color: "bg-indigo-100 text-indigo-700", icon: Zap },
+  SELLER:      { color: "bg-orange-500/10 text-orange-700 dark:text-orange-400", icon: Package },
+  PRICING:     { color: "bg-green-500/10 text-green-700 dark:text-green-400",   icon: DollarSign },
+  DISPUTE:     { color: "bg-purple-500/10 text-purple-700 dark:text-purple-400", icon: Scale },
+  PRODUCT:     { color: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400",     icon: Package },
+  FINANCE:     { color: "bg-green-500/10 text-green-700 dark:text-green-400",   icon: DollarSign },
+  USER:        { color: "bg-primary/10 text-primary",     icon: User },
+  SECURITY:    { color: "bg-red-500/10 text-red-700 dark:text-red-400",       icon: Lock },
+  INTEGRATION: { color: "bg-muted text-muted-foreground",   icon: Plug },
+  SUPPORT:     { color: "bg-amber-500/10 text-amber-700 dark:text-amber-400",   icon: LifeBuoy },
+  AUTOMATION:  { color: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400", icon: Zap },
 };
 
 const ACTION_COLOR: Record<string, string> = {
@@ -39,7 +39,7 @@ export default async function AuditPage() {
             <h1 className="text-2xl font-bold">Audit Trail</h1>
             <p className="text-muted-foreground text-sm">Immutable log of all administrative and system actions</p>
           </div>
-          <button type="button" className="flex items-center gap-1.5 border border-border bg-white text-muted-foreground hover:bg-slate-50 text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+          <button type="button" className="flex items-center gap-1.5 border border-border bg-card text-muted-foreground hover:bg-muted/30 text-sm font-medium px-4 py-2 rounded-xl transition-colors">
             <Download className="h-3.5 w-3.5" /> Export Log
           </button>
         </div>
@@ -52,7 +52,7 @@ export default async function AuditPage() {
             { label: "System Events", value: logs.filter(l => l.role === "SYSTEM").length, color: "text-purple-600" },
             { label: "Security Flags", value: logs.filter(l => l.category === "SECURITY").length, color: "text-red-600" },
           ].map(({ label, value, color }) => (
-            <div key={label} className="bg-white rounded-2xl border border-border p-4">
+            <div key={label} className="bg-card rounded-2xl border border-border p-4">
               <p className={`text-2xl font-bold ${color}`}>{value}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
             </div>
@@ -61,7 +61,7 @@ export default async function AuditPage() {
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex items-center gap-2 bg-white border border-border rounded-xl px-3 py-2 flex-1">
+          <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 flex-1">
             <Search className="h-4 w-4 text-muted-foreground shrink-0" />
             <input type="text" placeholder="Search by actor, action, or target..."
               className="flex-1 text-sm text-muted-foreground placeholder:text-muted-foreground outline-none bg-transparent" />
@@ -69,7 +69,7 @@ export default async function AuditPage() {
           <div className="flex gap-1.5 overflow-x-auto">
             {TABS.map((tab) => (
               <button key={tab} type="button"
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${tab === "All" ? "bg-slate-900 text-white" : "bg-white border border-border text-muted-foreground hover:border-slate-400"}`}>
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${tab === "All" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:bg-muted"}`}>
                 {tab}
               </button>
             ))}
@@ -77,10 +77,10 @@ export default async function AuditPage() {
         </div>
 
         {/* Log table */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
+              <thead className="bg-muted border-b border-border">
                 <tr>
                   {["Timestamp","Actor","Action","Target","Category","IP Address"].map(h => (
                     <th key={h} className="px-5 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
@@ -89,10 +89,10 @@ export default async function AuditPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {logs.map((log) => {
-                  const cc = CATEGORY_CONFIG[log.category] ?? { color: "bg-slate-100 text-muted-foreground", icon: ScrollText };
+                  const cc = CATEGORY_CONFIG[log.category] ?? { color: "bg-muted text-muted-foreground", icon: ScrollText };
                   const CatIcon = cc.icon;
                   return (
-                    <tr key={log.id} className={`hover:bg-slate-50 transition-colors ${log.category === "SECURITY" ? "bg-red-50/30" : ""}`}>
+                    <tr key={log.id} className={`hover:bg-muted/30 transition-colors ${log.category === "SECURITY" ? "bg-red-500/5" : ""}`}>
                       <td className="px-5 py-3 text-xs text-muted-foreground font-mono whitespace-nowrap">{log.time}</td>
                       <td className="px-5 py-3">
                         <p className="font-medium text-sm">{log.actor}</p>
@@ -116,7 +116,7 @@ export default async function AuditPage() {
               </tbody>
             </table>
           </div>
-          <div className="px-5 py-3 border-t border-border bg-slate-50 flex items-center gap-2">
+          <div className="px-5 py-3 border-t border-border bg-muted flex items-center gap-2">
             <Lock className="h-3.5 w-3.5 text-muted-foreground" />
             <p className="text-xs text-muted-foreground">Audit logs are immutable and retained for 7 years per compliance policy</p>
           </div>

@@ -30,16 +30,16 @@ const MOCK_USERS: Array<{
 ];
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; icon: typeof Shield }> = {
-  ADMIN: { label: "Admin", color: "bg-red-100 text-red-700", icon: Shield },
-  SELLER: { label: "Seller", color: "bg-orange-100 text-orange-700", icon: Store },
-  BUYER: { label: "B2B Buyer", color: "bg-blue-100 text-primary", icon: ShoppingBag },
-  CONSUMER: { label: "Consumer", color: "bg-green-100 text-green-700", icon: User },
+  ADMIN: { label: "Admin", color: "bg-red-500/10 text-red-700 dark:text-red-400", icon: Shield },
+  SELLER: { label: "Seller", color: "bg-orange-500/10 text-orange-700 dark:text-orange-400", icon: Store },
+  BUYER: { label: "B2B Buyer", color: "bg-primary/10 text-primary", icon: ShoppingBag },
+  CONSUMER: { label: "Consumer", color: "bg-green-500/10 text-green-700 dark:text-green-400", icon: User },
 };
 
 const STATUS_CONFIG: Record<UserStatus, { label: string; color: string }> = {
-  ACTIVE: { label: "Active", color: "bg-green-100 text-green-700" },
-  INACTIVE: { label: "Inactive", color: "bg-slate-100 text-muted-foreground" },
-  SUSPENDED: { label: "Suspended", color: "bg-red-100 text-red-600" },
+  ACTIVE: { label: "Active", color: "bg-green-500/10 text-green-700 dark:text-green-400" },
+  INACTIVE: { label: "Inactive", color: "bg-muted text-muted-foreground" },
+  SUSPENDED: { label: "Suspended", color: "bg-red-500/10 text-red-600 dark:text-red-400" },
 };
 
 const ROLE_TABS = ["All", "Admin", "Seller", "B2B Buyer", "Consumer"] as const;
@@ -72,10 +72,10 @@ export default async function UsersPage() {
         {/* Stats cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Admins", value: roleCounts.Admin, icon: Shield, color: "text-red-600", bg: "bg-red-50 border-red-200" },
-            { label: "Sellers", value: roleCounts.Seller, icon: Store, color: "text-orange-600", bg: "bg-orange-50 border-orange-200" },
-            { label: "B2B Buyers", value: roleCounts["B2B Buyer"], icon: ShoppingBag, color: "text-primary", bg: "bg-blue-50 border-blue-200" },
-            { label: "Consumers", value: roleCounts.Consumer, icon: User, color: "text-green-600", bg: "bg-green-50 border-green-200" },
+            { label: "Admins", value: roleCounts.Admin, icon: Shield, color: "text-red-600", bg: "bg-red-500/10 border-red-500/20" },
+            { label: "Sellers", value: roleCounts.Seller, icon: Store, color: "text-orange-600", bg: "bg-orange-500/10 border-orange-500/20" },
+            { label: "B2B Buyers", value: roleCounts["B2B Buyer"], icon: ShoppingBag, color: "text-primary", bg: "bg-primary/10 border-primary/20" },
+            { label: "Consumers", value: roleCounts.Consumer, icon: User, color: "text-green-600", bg: "bg-green-500/10 border-green-500/20" },
           ].map((stat) => {
             const Icon = stat.icon;
             return (
@@ -90,7 +90,7 @@ export default async function UsersPage() {
 
         {/* Search and filter */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <div className="flex items-center gap-2 bg-white border border-border rounded-xl px-3 py-1.5 flex-1">
+          <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-1.5 flex-1">
             <Search className="h-4 w-4 text-muted-foreground shrink-0" />
             <input type="text" placeholder="Search by name, email, or role..." className="flex-1 text-sm text-muted-foreground placeholder:text-muted-foreground outline-none" />
           </div>
@@ -99,7 +99,7 @@ export default async function UsersPage() {
               <button
                 key={tab}
                 type="button"
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${tab === "All" ? "bg-slate-700 text-white" : "bg-white border border-border text-muted-foreground hover:border-slate-400"}`}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${tab === "All" ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:bg-muted"}`}
               >
                 {tab} <span className="text-[10px]">({roleCounts[tab as keyof typeof roleCounts]})</span>
               </button>
@@ -108,10 +108,10 @@ export default async function UsersPage() {
         </div>
 
         {/* Users table */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-border text-xs text-muted-foreground uppercase tracking-wide">
+              <thead className="bg-muted border-b border-border text-xs text-muted-foreground uppercase tracking-wide">
                 <tr>
                   <th className="text-start px-5 py-3">User</th>
                   <th className="text-start px-5 py-3">Role</th>
@@ -132,7 +132,7 @@ export default async function UsersPage() {
                     <tr key={user.id} className="hover:bg-muted/20 transition-colors">
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0 text-xs font-bold text-muted-foreground">
+                          <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center shrink-0 text-xs font-bold text-muted-foreground">
                             {initials}
                           </div>
                           <div>

@@ -20,12 +20,12 @@ export default async function SellersPage({ searchParams }: { searchParams: { st
   });
 
   const STATUS_COLORS: Record<string, string> = {
-    ACTIVE: "bg-green-100 text-green-700", PENDING_REVIEW: "bg-yellow-100 text-yellow-700",
-    SUSPENDED: "bg-red-100 text-red-700", REJECTED: "bg-gray-100 text-gray-600",
+    ACTIVE: "bg-green-500/10 text-green-700 dark:text-green-400", PENDING_REVIEW: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
+    SUSPENDED: "bg-red-500/10 text-red-700 dark:text-red-400", REJECTED: "bg-muted text-muted-foreground",
   };
   const TIER_COLORS: Record<string, string> = {
-    PLATINUM: "bg-purple-100 text-purple-700", GOLD: "bg-yellow-100 text-yellow-700",
-    VERIFIED: "bg-blue-100 text-primary", STANDARD: "bg-gray-100 text-gray-600",
+    PLATINUM: "bg-purple-500/10 text-purple-700 dark:text-purple-400", GOLD: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
+    VERIFIED: "bg-primary/10 text-primary", STANDARD: "bg-muted text-muted-foreground",
   };
 
   return (
@@ -43,10 +43,10 @@ export default async function SellersPage({ searchParams }: { searchParams: { st
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
+              <thead className="bg-muted border-b border-border">
                 <tr>
                   <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Seller</th>
                   <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">CR</th>
@@ -74,7 +74,7 @@ export default async function SellersPage({ searchParams }: { searchParams: { st
                       <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[s.status] ?? ""}`}>{s.status.replace(/_/g, " ")}</span></td>
                       <td className="px-4 py-3">{s._count.products}</td>
                       <td className="px-4 py-3">
-                        {pendingDocs > 0 ? <span className="text-yellow-600 font-semibold text-xs">{pendingDocs} pending</span> : <span className="text-green-600 text-xs">✓</span>}
+                        {pendingDocs > 0 ? <span className="text-yellow-600 dark:text-yellow-400 font-semibold text-xs">{pendingDocs} pending</span> : <span className="text-green-600 dark:text-green-400 text-xs">✓</span>}
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{format(s.createdAt, "MMM d, yyyy")}</td>
                       <td className="px-4 py-3">

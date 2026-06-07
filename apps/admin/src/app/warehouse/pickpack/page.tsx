@@ -24,12 +24,12 @@ const MOCK_FULFILLMENT: Array<{
 ];
 
 const STATUS_CONFIG: Record<FulfillmentStatus, { label: string; color: string; icon: typeof Package; stage: string }> = {
-  PICK_PENDING: { label: "Pick Pending", color: "bg-slate-100 text-muted-foreground",  icon: Clock,         stage: "pick" },
-  PICKING:      { label: "Picking",      color: "bg-blue-100 text-primary",    icon: Package,       stage: "pick" },
-  PICKED:       { label: "Picked",       color: "bg-indigo-100 text-indigo-700",icon: CheckCircle,   stage: "pack" },
-  PACKING:      { label: "Packing",      color: "bg-purple-100 text-purple-700",icon: PackageCheck,  stage: "pack" },
-  PACKED:       { label: "Packed",       color: "bg-amber-100 text-amber-700",  icon: PackageCheck,  stage: "dispatch" },
-  DISPATCHED:   { label: "Dispatched",   color: "bg-green-100 text-green-700",  icon: Truck,         stage: "done" },
+  PICK_PENDING: { label: "Pick Pending", color: "bg-muted text-muted-foreground",  icon: Clock,         stage: "pick" },
+  PICKING:      { label: "Picking",      color: "bg-primary/10 text-primary",    icon: Package,       stage: "pick" },
+  PICKED:       { label: "Picked",       color: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400",icon: CheckCircle,   stage: "pack" },
+  PACKING:      { label: "Packing",      color: "bg-purple-500/10 text-purple-700 dark:text-purple-400",icon: PackageCheck,  stage: "pack" },
+  PACKED:       { label: "Packed",       color: "bg-amber-500/10 text-amber-700 dark:text-amber-400",  icon: PackageCheck,  stage: "dispatch" },
+  DISPATCHED:   { label: "Dispatched",   color: "bg-green-500/10 text-green-700 dark:text-green-400",  icon: Truck,         stage: "done" },
 };
 
 const STAGE_TABS = [
@@ -68,7 +68,7 @@ export default async function PickPackPage({ searchParams }: { searchParams: { t
             <h1 className="text-2xl font-bold">Pick / Pack / Dispatch</h1>
             <p className="text-sm text-muted-foreground">Fulfillment pipeline for outbound orders</p>
           </div>
-          <button type="button" className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+          <button type="button" className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
             <Package className="h-3.5 w-3.5" /> Generate Pick List
           </button>
         </div>
@@ -76,10 +76,10 @@ export default async function PickPackPage({ searchParams }: { searchParams: { t
         {/* Pipeline stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Pick Queue",    value: pickPendingCount, color: "text-primary",   bg: "bg-blue-50 border-blue-200",   tab: "pick" },
-            { label: "Pack Queue",    value: packQueueCount,   color: "text-purple-600", bg: "bg-purple-50 border-purple-200", tab: "pack" },
-            { label: "Ready to Ship", value: packedCount,      color: "text-amber-600",  bg: packedCount > 0 ? "bg-amber-50 border-amber-200" : "bg-white border-border", tab: "dispatch" },
-            { label: "Urgent Orders", value: urgentCount,      color: urgentCount > 0 ? "text-red-600" : "text-muted-foreground", bg: urgentCount > 0 ? "bg-red-50 border-red-200" : "bg-white border-border", tab: "" },
+            { label: "Pick Queue",    value: pickPendingCount, color: "text-primary",   bg: "bg-primary/10 border-primary/20",   tab: "pick" },
+            { label: "Pack Queue",    value: packQueueCount,   color: "text-purple-600", bg: "bg-purple-500/10 border-purple-500/20", tab: "pack" },
+            { label: "Ready to Ship", value: packedCount,      color: "text-amber-600",  bg: packedCount > 0 ? "bg-amber-500/10 border-amber-500/20" : "bg-card border-border", tab: "dispatch" },
+            { label: "Urgent Orders", value: urgentCount,      color: urgentCount > 0 ? "text-red-600" : "text-muted-foreground", bg: urgentCount > 0 ? "bg-red-500/10 border-red-500/20" : "bg-card border-border", tab: "" },
           ].map(({ label, value, color, bg, tab }) => (
             <Link key={label} href={tab ? `/warehouse/pickpack?tab=${tab}` : "/warehouse/pickpack"}
               className={`rounded-2xl border p-4 hover:shadow-sm transition-all ${bg}`}>
@@ -91,23 +91,23 @@ export default async function PickPackPage({ searchParams }: { searchParams: { t
 
         {/* Urgent alert */}
         {urgentCount > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3">
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
             <p className="font-semibold text-red-800 text-sm">{urgentCount} urgent order{urgentCount !== 1 ? "s" : ""} pending fulfillment — prioritize immediately</p>
           </div>
         )}
 
         {/* Pipeline visual */}
-        <div className="bg-white rounded-2xl border border-border p-5">
+        <div className="bg-card rounded-2xl border border-border p-5">
           <h2 className="font-semibold mb-4 text-sm text-muted-foreground uppercase tracking-wide">Fulfillment Pipeline</h2>
           <div className="flex items-center gap-0 overflow-x-auto">
             {[
-              { label: "Pick Pending", count: MOCK_FULFILLMENT.filter(f=>f.status==="PICK_PENDING").length, icon: Clock,         color: "bg-slate-100 text-muted-foreground", border: "border-border" },
-              { label: "Picking",      count: MOCK_FULFILLMENT.filter(f=>f.status==="PICKING").length,      icon: Package,       color: "bg-blue-100 text-primary",   border: "border-blue-200" },
-              { label: "Picked",       count: MOCK_FULFILLMENT.filter(f=>f.status==="PICKED").length,       icon: CheckCircle,   color: "bg-indigo-100 text-indigo-700",border: "border-indigo-200" },
-              { label: "Packing",      count: MOCK_FULFILLMENT.filter(f=>f.status==="PACKING").length,      icon: PackageCheck,  color: "bg-purple-100 text-purple-700",border: "border-purple-200" },
-              { label: "Packed",       count: MOCK_FULFILLMENT.filter(f=>f.status==="PACKED").length,       icon: PackageCheck,  color: "bg-amber-100 text-amber-700",  border: "border-amber-200" },
-              { label: "Dispatched",   count: MOCK_FULFILLMENT.filter(f=>f.status==="DISPATCHED").length,   icon: Truck,         color: "bg-green-100 text-green-700",  border: "border-green-200" },
+              { label: "Pick Pending", count: MOCK_FULFILLMENT.filter(f=>f.status==="PICK_PENDING").length, icon: Clock,         color: "bg-muted text-muted-foreground", border: "border-border" },
+              { label: "Picking",      count: MOCK_FULFILLMENT.filter(f=>f.status==="PICKING").length,      icon: Package,       color: "bg-primary/10 text-primary",   border: "border-primary/20" },
+              { label: "Picked",       count: MOCK_FULFILLMENT.filter(f=>f.status==="PICKED").length,       icon: CheckCircle,   color: "bg-indigo-500/10 text-indigo-700 dark:text-indigo-400",border: "border-indigo-500/20" },
+              { label: "Packing",      count: MOCK_FULFILLMENT.filter(f=>f.status==="PACKING").length,      icon: PackageCheck,  color: "bg-purple-500/10 text-purple-700 dark:text-purple-400",border: "border-purple-500/20" },
+              { label: "Packed",       count: MOCK_FULFILLMENT.filter(f=>f.status==="PACKED").length,       icon: PackageCheck,  color: "bg-amber-500/10 text-amber-700 dark:text-amber-400",  border: "border-amber-500/20" },
+              { label: "Dispatched",   count: MOCK_FULFILLMENT.filter(f=>f.status==="DISPATCHED").length,   icon: Truck,         color: "bg-green-500/10 text-green-700 dark:text-green-400",  border: "border-green-500/20" },
             ].map(({ label, count, icon: Icon, color, border }, i, arr) => (
               <div key={label} className="flex items-center shrink-0">
                 <div className={`flex flex-col items-center border ${border} rounded-xl px-4 py-3 min-w-[90px] text-center ${color}`}>
@@ -115,7 +115,7 @@ export default async function PickPackPage({ searchParams }: { searchParams: { t
                   <p className="text-xl font-bold">{count}</p>
                   <p className="text-[10px] font-medium mt-0.5 leading-tight">{label}</p>
                 </div>
-                {i < arr.length - 1 && <div className="w-6 h-0.5 bg-slate-200 shrink-0" />}
+                {i < arr.length - 1 && <div className="w-6 h-0.5 bg-muted shrink-0" />}
               </div>
             ))}
           </div>
@@ -125,7 +125,7 @@ export default async function PickPackPage({ searchParams }: { searchParams: { t
         <div className="flex gap-1.5 overflow-x-auto pb-1">
           {STAGE_TABS.map(({ value, label, icon: Icon }) => (
             <Link key={value} href={value ? `/warehouse/pickpack?tab=${value}` : "/warehouse/pickpack"}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${activeTab === value ? "bg-slate-900 text-white" : "bg-white border border-border text-muted-foreground hover:border-slate-400 hover:text-foreground"}`}>
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${activeTab === value ? "bg-slate-900 text-white" : "bg-card border border-border text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
               <Icon className="h-3.5 w-3.5" /> {label}
             </Link>
           ))}
@@ -138,7 +138,7 @@ export default async function PickPackPage({ searchParams }: { searchParams: { t
             const StatusIcon = sc.icon;
             const isUrgent = order.priority === "URGENT";
             return (
-              <div key={order.id} className={`bg-white rounded-2xl border-2 p-4 ${isUrgent && order.status !== "DISPATCHED" ? "border-red-200" : "border-border"}`}>
+              <div key={order.id} className={`bg-card rounded-2xl border-2 p-4 ${isUrgent && order.status !== "DISPATCHED" ? "border-red-500/20" : "border-border"}`}>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     {/* Top row */}
@@ -147,9 +147,9 @@ export default async function PickPackPage({ searchParams }: { searchParams: { t
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}>
                         <StatusIcon className="h-3 w-3" /> {sc.label}
                       </span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${order.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-primary"}`}>{order.type}</span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${order.type === "B2B" ? "bg-purple-500/10 text-purple-700 dark:text-purple-400" : "bg-primary/10 text-primary"}`}>{order.type}</span>
                       {isUrgent && order.status !== "DISPATCHED" && (
-                        <span className="flex items-center gap-0.5 text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold uppercase">
+                        <span className="flex items-center gap-0.5 text-[10px] bg-red-500/10 text-red-700 dark:text-red-400 px-1.5 py-0.5 rounded-full font-bold uppercase">
                           <AlertTriangle className="h-2.5 w-2.5" /> URGENT
                         </span>
                       )}
@@ -187,7 +187,7 @@ export default async function PickPackPage({ searchParams }: { searchParams: { t
                       {order.status === "DISPATCHED" && (
                         <span className="text-xs text-green-600 font-medium flex items-center gap-1"><CheckCircle className="h-3.5 w-3.5" /> Dispatched</span>
                       )}
-                      <button type="button" className="text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-slate-50 font-medium transition-colors">View</button>
+                      <button type="button" className="text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-muted/30 font-medium transition-colors">View</button>
                     </div>
                   </div>
                 </div>
@@ -196,7 +196,7 @@ export default async function PickPackPage({ searchParams }: { searchParams: { t
           })}
 
           {filtered.length === 0 && (
-            <div className="bg-white rounded-2xl border border-border p-16 text-center">
+            <div className="bg-card rounded-2xl border border-border p-16 text-center">
               <PackageCheck className="h-10 w-10 mx-auto text-slate-200 mb-3" />
               <p className="font-semibold text-muted-foreground">No orders in this queue</p>
             </div>

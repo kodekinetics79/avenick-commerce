@@ -23,12 +23,12 @@ const MOCK_INBOUND: Array<{
 ];
 
 const STATUS_CONFIG: Record<InboundStatus, { label: string; color: string; icon: typeof CheckCircle; border: string }> = {
-  SCHEDULED:   { label: "Scheduled",   color: "bg-slate-100 text-muted-foreground",  icon: Calendar,      border: "border-border" },
-  IN_TRANSIT:  { label: "In Transit",  color: "bg-blue-100 text-primary",    icon: Truck,          border: "border-border" },
-  ARRIVED:     { label: "Arrived",     color: "bg-amber-100 text-amber-700",  icon: Package,        border: "border-amber-200" },
-  RECEIVING:   { label: "Receiving",   color: "bg-purple-100 text-purple-700",icon: ArrowDownToLine, border: "border-border" },
-  RECEIVED:    { label: "Received",    color: "bg-green-100 text-green-700",  icon: CheckCircle,    border: "border-border" },
-  DISCREPANCY: { label: "Discrepancy", color: "bg-red-100 text-red-700",      icon: AlertTriangle,  border: "border-red-200" },
+  SCHEDULED:   { label: "Scheduled",   color: "bg-muted text-muted-foreground",  icon: Calendar,      border: "border-border" },
+  IN_TRANSIT:  { label: "In Transit",  color: "bg-primary/10 text-primary",    icon: Truck,          border: "border-border" },
+  ARRIVED:     { label: "Arrived",     color: "bg-amber-500/10 text-amber-700 dark:text-amber-400",  icon: Package,        border: "border-amber-500/20" },
+  RECEIVING:   { label: "Receiving",   color: "bg-purple-500/10 text-purple-700 dark:text-purple-400",icon: ArrowDownToLine, border: "border-border" },
+  RECEIVED:    { label: "Received",    color: "bg-green-500/10 text-green-700 dark:text-green-400",  icon: CheckCircle,    border: "border-border" },
+  DISCREPANCY: { label: "Discrepancy", color: "bg-red-500/10 text-red-700 dark:text-red-400",      icon: AlertTriangle,  border: "border-red-500/20" },
 };
 
 const TABS: { value: string; label: string }[] = [
@@ -66,7 +66,7 @@ export default async function InboundPage({ searchParams }: { searchParams: { st
             <h1 className="text-2xl font-bold">Inbound Goods</h1>
             <p className="text-sm text-muted-foreground">Track incoming shipments and receive goods into warehouse</p>
           </div>
-          <button type="button" className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+          <button type="button" className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
             <ArrowDownToLine className="h-3.5 w-3.5" /> Receive Goods
           </button>
         </div>
@@ -74,10 +74,10 @@ export default async function InboundPage({ searchParams }: { searchParams: { st
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "In Transit",     value: inTransitCount, color: "text-primary",   bg: "bg-blue-50 border-blue-200" },
-            { label: "Arrived / Dock", value: arrivedCount,   color: "text-amber-600",  bg: arrivedCount > 0 ? "bg-amber-50 border-amber-200" : "bg-white border-border" },
-            { label: "Discrepancies",  value: discrepancies,  color: "text-red-600",    bg: discrepancies > 0 ? "bg-red-50 border-red-200" : "bg-white border-border" },
-            { label: "Expected Value", value: formatCurrency(totalValue, "AED"), color: "text-green-700", bg: "bg-green-50 border-green-200" },
+            { label: "In Transit",     value: inTransitCount, color: "text-primary",   bg: "bg-primary/10 border-primary/20" },
+            { label: "Arrived / Dock", value: arrivedCount,   color: "text-amber-600 dark:text-amber-400",  bg: arrivedCount > 0 ? "bg-amber-500/10 border-amber-500/20" : "bg-card border-border" },
+            { label: "Discrepancies",  value: discrepancies,  color: "text-red-600 dark:text-red-400",    bg: discrepancies > 0 ? "bg-red-500/10 border-red-500/20" : "bg-card border-border" },
+            { label: "Expected Value", value: formatCurrency(totalValue, "AED"), color: "text-green-700 dark:text-green-400", bg: "bg-green-500/10 border-green-500/20" },
           ].map(({ label, value, color, bg }) => (
             <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
               <p className={`text-xl font-bold ${color}`}>{value}</p>
@@ -88,23 +88,23 @@ export default async function InboundPage({ searchParams }: { searchParams: { st
 
         {/* Discrepancy alert */}
         {discrepancies > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-red-800 text-sm">{discrepancies} inbound shipment{discrepancies !== 1 ? "s have" : " has"} discrepancies</p>
-              <p className="text-xs text-red-600">Review short/over-deliveries and raise supplier claims as needed.</p>
+              <p className="font-semibold text-red-800 dark:text-red-400 text-sm">{discrepancies} inbound shipment{discrepancies !== 1 ? "s have" : " has"} discrepancies</p>
+              <p className="text-xs text-red-600 dark:text-red-400">Review short/over-deliveries and raise supplier claims as needed.</p>
             </div>
           </div>
         )}
 
         {/* Arrived alert */}
         {arrivedCount > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between">
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Package className="h-5 w-5 text-amber-600 shrink-0" />
+              <Package className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
               <div>
-                <p className="font-semibold text-amber-800 text-sm">{arrivedCount} shipment{arrivedCount !== 1 ? "s" : ""} arrived at dock — awaiting receiving</p>
-                <p className="text-xs text-amber-600">Start receiving to update stock levels.</p>
+                <p className="font-semibold text-amber-800 dark:text-amber-400 text-sm">{arrivedCount} shipment{arrivedCount !== 1 ? "s" : ""} arrived at dock — awaiting receiving</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400">Start receiving to update stock levels.</p>
               </div>
             </div>
             <button type="button" className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 font-medium transition-colors whitespace-nowrap">
@@ -119,19 +119,19 @@ export default async function InboundPage({ searchParams }: { searchParams: { st
             const count = value ? MOCK_INBOUND.filter(i => i.status === value).length : MOCK_INBOUND.length;
             return (
               <Link key={value} href={value ? `/warehouse/inbound?status=${value}` : "/warehouse/inbound"}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${activeTab === value ? "bg-slate-900 text-white" : "bg-white border border-border text-muted-foreground hover:border-slate-400 hover:text-foreground"}`}>
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${activeTab === value ? "bg-primary text-primary-foreground" : "bg-secondary border border-border text-muted-foreground hover:bg-muted hover:text-foreground"}`}>
                 {label}
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === value ? "bg-white/20" : "bg-slate-100 text-muted-foreground"}`}>{count}</span>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === value ? "bg-white/20" : "bg-muted text-muted-foreground"}`}>{count}</span>
               </Link>
             );
           })}
         </div>
 
         {/* Shipments table */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
+              <thead className="bg-muted border-b border-border">
                 <tr>
                   {["PO Ref","Supplier","Warehouse","Items","Units","Est. Value","Carrier / Tracking","Expected","Status","Action"].map(h => (
                     <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
@@ -143,7 +143,7 @@ export default async function InboundPage({ searchParams }: { searchParams: { st
                   const sc = STATUS_CONFIG[item.status];
                   const StatusIcon = sc.icon;
                   return (
-                    <tr key={item.id} className={`hover:bg-slate-50 transition-colors ${item.status === "DISCREPANCY" ? "bg-red-50/30" : item.status === "ARRIVED" ? "bg-amber-50/30" : ""}`}>
+                    <tr key={item.id} className={`hover:bg-muted/20 transition-colors ${item.status === "DISCREPANCY" ? "bg-red-500/5" : item.status === "ARRIVED" ? "bg-amber-500/5" : ""}`}>
                       <td className="px-4 py-3 font-mono text-xs font-semibold text-primary">{item.ref}</td>
                       <td className="px-4 py-3 font-medium text-sm">{item.supplier}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{item.warehouse}</td>
@@ -173,7 +173,7 @@ export default async function InboundPage({ searchParams }: { searchParams: { st
                             <button type="button" className="text-xs bg-red-500 text-white px-2.5 py-1 rounded-lg hover:bg-red-600 font-medium transition-colors">Resolve</button>
                           )}
                           {item.status === "RECEIVED" && (
-                            <span className="text-xs text-green-600 font-medium flex items-center gap-0.5"><CheckCircle className="h-3 w-3" /> Done</span>
+                            <span className="text-xs text-green-600 dark:text-green-400 font-medium flex items-center gap-0.5"><CheckCircle className="h-3 w-3" /> Done</span>
                           )}
                         </div>
                       </td>
@@ -189,7 +189,7 @@ export default async function InboundPage({ searchParams }: { searchParams: { st
               </div>
             )}
           </div>
-          <div className="px-4 py-3 border-t border-border bg-slate-50">
+          <div className="px-4 py-3 border-t border-border bg-muted">
             <p className="text-xs text-muted-foreground">{filtered.length} of {MOCK_INBOUND.length} shipments shown</p>
           </div>
         </div>

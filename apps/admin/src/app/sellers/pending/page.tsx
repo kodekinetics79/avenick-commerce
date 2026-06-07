@@ -47,13 +47,13 @@ export default function PendingSellersPage() {
         {loading ? (
           <div className="animate-pulse space-y-4">{[...Array(3)].map((_, i) => <div key={i} className="h-32 bg-muted rounded-2xl" />)}</div>
         ) : sellers.length === 0 ? (
-          <div className="bg-green-50 border border-green-200 rounded-2xl p-8 text-center">
-            <CheckCircle className="h-10 w-10 mx-auto text-green-500 mb-2" />
-            <p className="text-green-700 font-semibold">All caught up! No pending reviews.</p>
+          <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-8 text-center">
+            <CheckCircle className="h-10 w-10 mx-auto text-green-500 dark:text-green-400 mb-2" />
+            <p className="text-green-700 dark:text-green-400 font-semibold">All caught up! No pending reviews.</p>
           </div>
         ) : (
           sellers.map((seller) => (
-            <div key={seller.id} className="bg-white rounded-2xl border border-border p-6">
+            <div key={seller.id} className="bg-card rounded-2xl border border-border p-6">
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h2 className="text-lg font-bold">{seller.businessNameEn}</h2>
@@ -107,13 +107,13 @@ export default function PendingSellersPage() {
 
               {/* Reject form */}
               {rejecting === seller.id && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl">
-                  <label className="text-sm font-medium text-red-700 block mb-2">Rejection reason (required):</label>
+                <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl">
+                  <label className="text-sm font-medium text-red-700 dark:text-red-400 block mb-2">Rejection reason (required):</label>
                   <textarea
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
                     rows={2}
-                    className="w-full rounded-lg border border-red-300 p-2 text-sm focus:ring-2 focus:ring-red-400"
+                    className="w-full rounded-lg border border-red-500/30 p-2 text-sm focus:ring-2 focus:ring-red-400"
                     placeholder="Explain why this seller application is being rejected..."
                   />
                   <div className="flex gap-2 mt-2">

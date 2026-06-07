@@ -36,10 +36,10 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
+              <thead className="bg-muted border-b border-border">
                 <tr>
                   <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Product</th>
                   <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Seller</th>
@@ -69,14 +69,14 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
                       <div className="flex items-center gap-1">
                         <div className="flex gap-0.5 w-12 h-1.5">
                           {Array.from({ length: 5 }).map((_, i) => (
-                            <div key={i} className={`flex-1 rounded-full ${i < Math.round(p.listingHealth / 20) ? (p.listingHealth >= 80 ? "bg-green-500" : p.listingHealth >= 60 ? "bg-yellow-500" : "bg-red-500") : "bg-gray-200"}`} />
+                            <div key={i} className={`flex-1 rounded-full ${i < Math.round(p.listingHealth / 20) ? (p.listingHealth >= 80 ? "bg-green-500" : p.listingHealth >= 60 ? "bg-yellow-500" : "bg-red-500") : "bg-muted"}`} />
                           ))}
                         </div>
                         <span className="text-xs">{p.listingHealth}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.status === "ACTIVE" ? "bg-green-100 text-green-700" : p.status === "PENDING_REVIEW" ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>{p.status.replace(/_/g, " ")}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${p.status === "ACTIVE" ? "bg-green-500/10 text-green-700 dark:text-green-400" : p.status === "PENDING_REVIEW" ? "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400" : "bg-red-500/10 text-red-700 dark:text-red-400"}`}>{p.status.replace(/_/g, " ")}</span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">

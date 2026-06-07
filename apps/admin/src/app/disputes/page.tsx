@@ -8,11 +8,11 @@ import Link from "next/link";
 export const metadata = { title: "Disputes" };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
-  OPEN:            { label: "Open",             color: "bg-blue-100 text-primary",     icon: Clock },
-  AWAITING_SELLER: { label: "Awaiting Seller",  color: "bg-amber-100 text-amber-700",   icon: Clock },
-  UNDER_REVIEW:    { label: "Under Review",     color: "bg-purple-100 text-purple-700", icon: Scale },
-  RESOLVED_BUYER:  { label: "Resolved (Buyer)", color: "bg-green-100 text-green-700",   icon: CheckCircle },
-  RESOLVED_SELLER: { label: "Resolved (Seller)",color: "bg-green-100 text-green-700",   icon: CheckCircle },
+  OPEN:            { label: "Open",             color: "bg-primary/10 text-primary",     icon: Clock },
+  AWAITING_SELLER: { label: "Awaiting Seller",  color: "bg-amber-500/10 text-amber-700 dark:text-amber-400",   icon: Clock },
+  UNDER_REVIEW:    { label: "Under Review",     color: "bg-purple-500/10 text-purple-700 dark:text-purple-400", icon: Scale },
+  RESOLVED_BUYER:  { label: "Resolved (Buyer)", color: "bg-green-500/10 text-green-700 dark:text-green-400",   icon: CheckCircle },
+  RESOLVED_SELLER: { label: "Resolved (Seller)",color: "bg-green-500/10 text-green-700 dark:text-green-400",   icon: CheckCircle },
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -53,10 +53,10 @@ export default async function DisputesPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Open Disputes", value: open.length, color: "text-primary", bg: "bg-blue-50 border-blue-200" },
-            { label: "Disputed Value", value: formatCurrency(disputedValue, "AED"), color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
-            { label: "Awaiting Seller", value: awaitingSeller, color: "text-purple-600", bg: "bg-purple-50 border-purple-200" },
-            { label: "Resolved", value: resolved, color: "text-green-600", bg: "bg-white border-border" },
+            { label: "Open Disputes", value: open.length, color: "text-primary", bg: "bg-primary/10 border-primary/20" },
+            { label: "Disputed Value", value: formatCurrency(disputedValue, "AED"), color: "text-amber-600", bg: "bg-amber-500/10 border-amber-500/20" },
+            { label: "Awaiting Seller", value: awaitingSeller, color: "text-purple-600", bg: "bg-purple-500/10 border-purple-500/20" },
+            { label: "Resolved", value: resolved, color: "text-green-600", bg: "bg-card border-border" },
           ].map(({ label, value, color, bg }) => (
             <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
               <p className={`text-xl font-bold ${color}`}>{value}</p>
@@ -66,10 +66,10 @@ export default async function DisputesPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-white border border-border rounded-xl p-1 w-fit overflow-x-auto">
+        <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit overflow-x-auto">
           {TABS.map((tab) => (
             <button key={tab} type="button"
-              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "All" ? "bg-slate-900 text-white" : "text-muted-foreground hover:text-foreground hover:bg-slate-50"}`}>
+              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "All" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}>
               {tab}
             </button>
           ))}
@@ -83,7 +83,7 @@ export default async function DisputesPage() {
             const isResolved = d.status.startsWith("RESOLVED");
             const needsAction = d.status === "OPEN" || d.status === "UNDER_REVIEW";
             return (
-              <div key={d.id} className={`bg-white rounded-2xl border-2 p-5 ${d.priority === "HIGH" && !isResolved ? "border-red-200" : "border-border"}`}>
+              <div key={d.id} className={`bg-card rounded-2xl border-2 p-5 ${d.priority === "HIGH" && !isResolved ? "border-red-500/20" : "border-border"}`}>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     {/* Top row */}
@@ -92,9 +92,9 @@ export default async function DisputesPage() {
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}>
                         <StatusIcon className="h-3 w-3" /> {sc.label}
                       </span>
-                      <span className="text-xs bg-slate-100 text-muted-foreground px-2 py-0.5 rounded font-medium">{TYPE_LABEL[d.type] ?? d.type}</span>
+                      <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded font-medium">{TYPE_LABEL[d.type] ?? d.type}</span>
                       {d.priority === "HIGH" && !isResolved && (
-                        <span className="flex items-center gap-0.5 text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold uppercase">
+                        <span className="flex items-center gap-0.5 text-[10px] bg-red-500/10 text-red-700 dark:text-red-400 px-1.5 py-0.5 rounded-full font-bold uppercase">
                           <AlertTriangle className="h-2.5 w-2.5" /> High
                         </span>
                       )}
@@ -123,11 +123,11 @@ export default async function DisputesPage() {
                     <p className="font-bold text-green-700 mb-2">{formatCurrency(d.amount, d.currency as "AED")}</p>
                     {needsAction ? (
                       <div className="flex flex-col gap-1.5">
-                        <button type="button" className="text-xs bg-slate-900 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 font-medium transition-colors">Review Case</button>
-                        <button type="button" className="text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-slate-50 font-medium transition-colors">Mediate</button>
+                        <button type="button" className="text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:bg-primary/90 font-medium transition-colors">Review Case</button>
+                        <button type="button" className="text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-muted/30 font-medium transition-colors">Mediate</button>
                       </div>
                     ) : d.status === "AWAITING_SELLER" ? (
-                      <button type="button" className="text-xs border border-amber-200 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-50 font-medium transition-colors">Remind Seller</button>
+                      <button type="button" className="text-xs border border-amber-500/20 text-amber-700 dark:text-amber-400 px-3 py-1.5 rounded-lg hover:bg-amber-500/10 font-medium transition-colors">Remind Seller</button>
                     ) : (
                       <span className="text-xs text-green-600 font-medium flex items-center gap-1 justify-end"><CheckCircle className="h-3.5 w-3.5" /> Closed</span>
                     )}

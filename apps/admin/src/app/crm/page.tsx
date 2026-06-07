@@ -14,9 +14,9 @@ const SMART_ALERTS = [
 ];
 
 const SEVERITY_CONFIG: Record<string, { dot: string; badge: string; border: string }> = {
-  HIGH:   { dot: "bg-red-500",   badge: "bg-red-100 text-red-700",     border: "border-l-red-400" },
-  MEDIUM: { dot: "bg-amber-500", badge: "bg-amber-100 text-amber-700", border: "border-l-amber-400" },
-  LOW:    { dot: "bg-blue-500",  badge: "bg-blue-100 text-primary",   border: "border-l-blue-400" },
+  HIGH:   { dot: "bg-red-500",   badge: "bg-red-500/10 text-red-700 dark:text-red-400",     border: "border-l-red-400" },
+  MEDIUM: { dot: "bg-amber-500", badge: "bg-amber-500/10 text-amber-700 dark:text-amber-400", border: "border-l-amber-400" },
+  LOW:    { dot: "bg-blue-500",  badge: "bg-primary/10 text-primary",   border: "border-l-blue-400" },
 };
 
 const STAGE_COLORS: Record<string, string> = {
@@ -41,10 +41,10 @@ export default async function CRMPage() {
             <p className="text-muted-foreground text-sm">Customer intelligence, retention, and pipeline</p>
           </div>
           <div className="flex gap-2">
-            <Link href="/campaigns" className="flex items-center gap-1.5 text-sm border border-border bg-white text-muted-foreground hover:bg-slate-50 px-3 py-2 rounded-xl font-medium transition-colors">
+            <Link href="/campaigns" className="flex items-center gap-1.5 text-sm border border-border bg-card text-muted-foreground hover:bg-muted/30 px-3 py-2 rounded-xl font-medium transition-colors">
               <Megaphone className="h-3.5 w-3.5" /> Campaigns
             </Link>
-            <Link href="/segments" className="flex items-center gap-1.5 text-sm bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl font-semibold transition-colors">
+            <Link href="/segments" className="flex items-center gap-1.5 text-sm bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-xl font-semibold transition-colors">
               <PieChart className="h-3.5 w-3.5" /> Segments
             </Link>
           </div>
@@ -58,7 +58,7 @@ export default async function CRMPage() {
             { label: "Active This Week", value: "1,203", trend: "Unique sessions", icon: Users, color: "text-green-600" },
             { label: "At-Risk Accounts", value: "36", trend: "Needs attention", icon: Heart, color: "text-red-600" },
           ].map(({ label, value, trend, icon: Icon, color }) => (
-            <div key={label} className="bg-white rounded-2xl border border-border p-4">
+            <div key={label} className="bg-card rounded-2xl border border-border p-4">
               <Icon className={`h-4 w-4 ${color} mb-2`} />
               <p className="text-2xl font-bold">{value}</p>
               <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
@@ -69,11 +69,11 @@ export default async function CRMPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Smart alerts — main column */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-border overflow-hidden">
+          <div className="lg:col-span-2 bg-card rounded-2xl border border-border overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-amber-500" />
               <h2 className="font-semibold">Smart Alerts</h2>
-              <span className="ms-auto text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-semibold">{SMART_ALERTS.length} insights</span>
+              <span className="ms-auto text-xs bg-amber-500/10 text-amber-700 dark:text-amber-400 px-2 py-0.5 rounded-full font-semibold">{SMART_ALERTS.length} insights</span>
             </div>
             <div className="divide-y divide-border">
               {SMART_ALERTS.map((alert) => {
@@ -96,7 +96,7 @@ export default async function CRMPage() {
           </div>
 
           {/* Lifecycle pipeline */}
-          <div className="bg-white rounded-2xl border border-border overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border overflow-hidden">
             <div className="px-5 py-4 border-b border-border">
               <h2 className="font-semibold">Lifecycle Pipeline</h2>
               <p className="text-xs text-muted-foreground">{totalLifecycle.toLocaleString()} total accounts</p>
@@ -112,7 +112,7 @@ export default async function CRMPage() {
                     </div>
                     <div className="flex gap-0.5 h-2">
                       {Array.from({ length: 20 }).map((_, i) => (
-                        <div key={i} className={`flex-1 rounded-full ${i < Math.max(1, Math.round(pct / 5)) ? STAGE_COLORS[stage.color] : "bg-gray-100"}`} />
+                        <div key={i} className={`flex-1 rounded-full ${i < Math.max(1, Math.round(pct / 5)) ? STAGE_COLORS[stage.color] : "bg-muted"}`} />
                       ))}
                     </div>
                   </div>
@@ -124,14 +124,14 @@ export default async function CRMPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Top accounts */}
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-border overflow-hidden">
+          <div className="lg:col-span-2 bg-card rounded-2xl border border-border overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <h2 className="font-semibold">Top Accounts</h2>
               <Link href="/segments" className="text-xs text-primary hover:underline font-medium">View segments →</Link>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b border-border">
+                <thead className="bg-muted border-b border-border">
                   <tr>
                     {["Account","Type","Orders","Lifetime Value","Health","Last Activity"].map(h => (
                       <th key={h} className="text-start px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
@@ -140,13 +140,13 @@ export default async function CRMPage() {
                 </thead>
                 <tbody className="divide-y divide-border">
                   {MOCK_CRM_ACCOUNTS.slice(0, 6).map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={c.id} className="hover:bg-muted/30 transition-colors">
                       <td className="px-5 py-3">
                         <p className="font-medium">{c.name}</p>
                         <p className="text-xs text-muted-foreground">{c.contact}</p>
                       </td>
                       <td className="px-5 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${c.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-primary"}`}>{c.type}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${c.type === "B2B" ? "bg-purple-500/10 text-purple-700 dark:text-purple-400" : "bg-primary/10 text-primary"}`}>{c.type}</span>
                       </td>
                       <td className="px-5 py-3 font-medium">{c.totalOrders}</td>
                       <td className="px-5 py-3 font-bold text-green-700">AED {c.totalSpent.toLocaleString()}</td>
@@ -154,7 +154,7 @@ export default async function CRMPage() {
                         <div className="flex items-center gap-2">
                           <div className="flex gap-0.5 w-12 h-1.5">
                             {Array.from({ length: 5 }).map((_, i) => (
-                              <div key={i} className={`flex-1 rounded-full ${i < Math.round(c.health / 20) ? HEALTH_BAR(c.health) : "bg-gray-200"}`} />
+                              <div key={i} className={`flex-1 rounded-full ${i < Math.round(c.health / 20) ? HEALTH_BAR(c.health) : "bg-muted"}`} />
                             ))}
                           </div>
                           <span className={`text-xs font-bold ${HEALTH_COLOR(c.health)}`}>{c.health}</span>
@@ -169,13 +169,13 @@ export default async function CRMPage() {
           </div>
 
           {/* Recent activity */}
-          <div className="bg-white rounded-2xl border border-border overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border overflow-hidden">
             <div className="px-5 py-4 border-b border-border">
               <h2 className="font-semibold">Recent Activity</h2>
             </div>
             <div className="divide-y divide-border">
               {MOCK_CRM_ACTIVITIES.map((activity) => (
-                <div key={activity.id} className="flex items-start gap-3 px-5 py-3 hover:bg-slate-50 transition-colors">
+                <div key={activity.id} className="flex items-start gap-3 px-5 py-3 hover:bg-muted/30 transition-colors">
                   <div className={`h-7 w-7 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold ${
                     activity.type === "ORDER" ? "bg-green-500" :
                     activity.type === "RFQ" ? "bg-blue-500" :
@@ -193,7 +193,7 @@ export default async function CRMPage() {
                 </div>
               ))}
             </div>
-            <div className="px-5 py-3 border-t border-border bg-slate-50">
+            <div className="px-5 py-3 border-t border-border bg-muted">
               <Link href="/retention" className="text-xs text-primary hover:underline font-medium flex items-center gap-1">
                 View retention dashboard <ArrowRight className="h-3 w-3" />
               </Link>

@@ -54,13 +54,13 @@ export default async function SettingsPage() {
             <h1 className="text-2xl font-bold">Marketplace Settings</h1>
             <p className="text-muted-foreground text-sm">Platform configuration and system health</p>
           </div>
-          <Link href="/audit" className="flex items-center gap-1.5 text-sm border border-border bg-white text-muted-foreground hover:bg-slate-50 px-3 py-2 rounded-xl font-medium transition-colors">
+          <Link href="/audit" className="flex items-center gap-1.5 text-sm border border-border bg-card text-muted-foreground hover:bg-muted/30 px-3 py-2 rounded-xl font-medium transition-colors">
             <Activity className="h-3.5 w-3.5" /> Audit Trail
           </Link>
         </div>
 
         {/* System health */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Server className="h-4 w-4 text-muted-foreground" />
@@ -81,7 +81,7 @@ export default async function SettingsPage() {
               { label: "API Status", value: STATUS_CONFIG[h.apiStatus]?.label ?? h.apiStatus, color: STATUS_CONFIG[h.apiStatus]?.color ?? "" },
               { label: "Last Deploy", value: h.lastDeployment.split(" ")[0], color: "text-foreground" },
             ].map(({ label, value, color }) => (
-              <div key={label} className="bg-slate-50 rounded-xl p-3">
+              <div key={label} className="bg-muted rounded-xl p-3">
                 <p className={`text-lg font-bold ${color}`}>{value}</p>
                 <p className="text-xs text-muted-foreground">{label}</p>
               </div>
@@ -114,7 +114,7 @@ export default async function SettingsPage() {
           {MARKETPLACE_SETTINGS.map((group) => {
             const Icon = group.icon;
             return (
-              <div key={group.group} className="bg-white rounded-2xl border border-border overflow-hidden">
+              <div key={group.group} className="bg-card rounded-2xl border border-border overflow-hidden">
                 <div className="px-5 py-4 border-b border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Icon className="h-4 w-4 text-muted-foreground" />
@@ -136,7 +136,7 @@ export default async function SettingsPage() {
         </div>
 
         {/* Footer note */}
-        <div className="bg-slate-50 border border-border rounded-2xl p-4 flex items-center gap-3">
+        <div className="bg-muted border border-border rounded-2xl p-4 flex items-center gap-3">
           <Settings className="h-5 w-5 text-muted-foreground shrink-0" />
           <p className="text-sm text-muted-foreground">
             Changes to marketplace settings are logged in the <Link href="/audit" className="text-primary hover:underline font-medium">audit trail</Link> and may require Super Admin approval.

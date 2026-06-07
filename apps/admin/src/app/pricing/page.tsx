@@ -13,7 +13,7 @@ function margin(b2c: number, cost: number, commissionRate: number, handling: num
   return { commission, grossMargin, marginPct };
 }
 
-const marginColor = (pct: number) => pct >= 35 ? "text-green-600" : pct >= 20 ? "text-amber-600" : "text-red-600";
+const marginColor = (pct: number) => pct >= 35 ? "text-green-600 dark:text-green-400" : pct >= 20 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400";
 
 export default async function PricingPage() {
   await requireAdminSession();
@@ -33,7 +33,7 @@ export default async function PricingPage() {
             <h1 className="text-2xl font-bold">Pricing &amp; Commission</h1>
             <p className="text-muted-foreground text-sm">Price tiers, contract pricing, commission rules, and margin analysis</p>
           </div>
-          <button type="button" className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+          <button type="button" className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
             <Plus className="h-3.5 w-3.5" /> New Rule
           </button>
         </div>
@@ -41,10 +41,10 @@ export default async function PricingPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Avg Gross Margin", value: `${avgMargin}%`, color: marginColor(avgMargin), bg: "bg-white border-border", icon: TrendingUp },
-            { label: "Active Contracts", value: activeContracts, color: "text-primary", bg: "bg-blue-50 border-blue-200", icon: FileText },
-            { label: "Commission Rules", value: activeRules, color: "text-purple-600", bg: "bg-purple-50 border-purple-200", icon: Percent },
-            { label: "Bulk Tiers", value: MOCK_BULK_TIERS.length, color: "text-green-600", bg: "bg-green-50 border-green-200", icon: Layers },
+            { label: "Avg Gross Margin", value: `${avgMargin}%`, color: marginColor(avgMargin), bg: "bg-card border-border", icon: TrendingUp },
+            { label: "Active Contracts", value: activeContracts, color: "text-primary", bg: "bg-primary/10 border-primary/20", icon: FileText },
+            { label: "Commission Rules", value: activeRules, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-500/10 border-purple-500/20", icon: Percent },
+            { label: "Bulk Tiers", value: MOCK_BULK_TIERS.length, color: "text-green-600 dark:text-green-400", bg: "bg-green-500/10 border-green-500/20", icon: Layers },
           ].map(({ label, value, color, bg, icon: Icon }) => (
             <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
               <Icon className={`h-4 w-4 ${color} mb-2`} />
@@ -55,15 +55,15 @@ export default async function PricingPage() {
         </div>
 
         {/* Margin analysis table */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-            <Coins className="h-4 w-4 text-green-600" />
+            <Coins className="h-4 w-4 text-green-600 dark:text-green-400" />
             <h2 className="font-semibold">Price &amp; Margin Analysis</h2>
             <span className="ms-auto text-xs text-muted-foreground">B2C selling price basis</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
+              <thead className="bg-muted border-b border-border">
                 <tr>
                   {["Product","Supplier Cost","B2C Price","B2B Price","Commission","Handling","VAT","Gross Margin"].map(h => (
                     <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
@@ -74,7 +74,7 @@ export default async function PricingPage() {
                 {MOCK_PRICING_PRODUCTS.map((p) => {
                   const { commission, grossMargin, marginPct } = margin(p.b2cPrice, p.supplierCost, p.commissionRate, p.handlingFee);
                   return (
-                    <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={p.id} className="hover:bg-muted/30 transition-colors">
                       <td className="px-4 py-3">
                         <p className="font-medium text-sm">{p.name}</p>
                         <p className="text-xs text-muted-foreground font-mono">{p.sku} · {p.seller}</p>
@@ -95,16 +95,16 @@ export default async function PricingPage() {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 border-t border-border bg-slate-50">
+          <div className="px-4 py-3 border-t border-border bg-muted">
             <p className="text-xs text-muted-foreground">Gross Margin = B2C Price − Supplier Cost − Commission − Handling Fee (VAT excluded, passed through)</p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Bulk pricing tiers */}
-          <div className="bg-white rounded-2xl border border-border overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-              <Layers className="h-4 w-4 text-blue-500" />
+              <Layers className="h-4 w-4 text-primary" />
               <h2 className="font-semibold">Bulk Pricing Tiers</h2>
               <span className="ms-auto text-xs text-muted-foreground">Example: SH-X200</span>
             </div>
@@ -121,8 +121,8 @@ export default async function PricingPage() {
                       </p>
                     </div>
                     <div className="text-end">
-                      <p className="font-bold text-green-700">{formatCurrency(tier.price, "AED")}</p>
-                      {savings > 0 && <p className="text-xs text-green-600">−{savings}% vs base</p>}
+                      <p className="font-bold text-green-700 dark:text-green-400">{formatCurrency(tier.price, "AED")}</p>
+                      {savings > 0 && <p className="text-xs text-green-600 dark:text-green-400">−{savings}% vs base</p>}
                     </div>
                   </div>
                 );
@@ -131,9 +131,9 @@ export default async function PricingPage() {
           </div>
 
           {/* Commission rules */}
-          <div className="bg-white rounded-2xl border border-border overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-              <Percent className="h-4 w-4 text-purple-500" />
+              <Percent className="h-4 w-4 text-purple-500 dark:text-purple-400" />
               <h2 className="font-semibold">Commission Rules</h2>
               <button type="button" className="ms-auto text-xs text-primary hover:underline font-medium">+ Add Rule</button>
             </div>
@@ -149,7 +149,7 @@ export default async function PricingPage() {
                     </div>
                     <p className="text-xs text-muted-foreground">{rule.scope}</p>
                   </div>
-                  <p className="font-bold text-purple-700 shrink-0">{rule.rate}%</p>
+                  <p className="font-bold text-purple-700 dark:text-purple-400 shrink-0">{rule.rate}%</p>
                 </div>
               ))}
             </div>
@@ -157,15 +157,15 @@ export default async function PricingPage() {
         </div>
 
         {/* Contract pricing */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-            <FileText className="h-4 w-4 text-blue-500" />
+            <FileText className="h-4 w-4 text-primary" />
             <h2 className="font-semibold">Contract Pricing (Customer-Specific)</h2>
-            <span className="ms-auto text-xs bg-blue-100 text-primary px-2 py-0.5 rounded-full font-semibold">{MOCK_CONTRACT_PRICING.length} agreements</span>
+            <span className="ms-auto text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">{MOCK_CONTRACT_PRICING.length} agreements</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
+              <thead className="bg-muted border-b border-border">
                 <tr>
                   {["Company","Product","Contract Price","Standard Price","Discount","Valid Until","Status","Action"].map(h => (
                     <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
@@ -174,20 +174,20 @@ export default async function PricingPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {MOCK_CONTRACT_PRICING.map((c) => (
-                  <tr key={c.id} className={`hover:bg-slate-50 transition-colors ${c.status === "EXPIRING" ? "bg-amber-50/30" : ""}`}>
+                  <tr key={c.id} className={`hover:bg-muted/30 transition-colors ${c.status === "EXPIRING" ? "bg-amber-500/5" : ""}`}>
                     <td className="px-4 py-3 font-medium text-sm">{c.company}</td>
                     <td className="px-4 py-3">
                       <p className="text-sm">{c.product}</p>
                       <p className="text-xs text-muted-foreground font-mono">{c.sku}</p>
                     </td>
-                    <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(c.contractPrice, "AED")}</td>
+                    <td className="px-4 py-3 font-bold text-green-700 dark:text-green-400">{formatCurrency(c.contractPrice, "AED")}</td>
                     <td className="px-4 py-3 text-muted-foreground line-through">{formatCurrency(c.standardPrice, "AED")}</td>
                     <td className="px-4 py-3"><span className="text-green-600 font-medium">−{c.discount}%</span></td>
                     <td className="px-4 py-3 text-xs text-muted-foreground">{c.validUntil}</td>
                     <td className="px-4 py-3">
                       {c.status === "ACTIVE"
-                        ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700"><CheckCircle className="h-3 w-3" /> Active</span>
-                        : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700"><AlertTriangle className="h-3 w-3" /> Expiring</span>}
+                        ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-green-500/10 text-green-700 dark:text-green-400"><CheckCircle className="h-3 w-3" /> Active</span>
+                        : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400"><AlertTriangle className="h-3 w-3" /> Expiring</span>}
                     </td>
                     <td className="px-4 py-3">
                       <button type="button" className="text-xs text-primary hover:underline font-medium">{c.status === "EXPIRING" ? "Renew" : "Edit"}</button>
