@@ -98,9 +98,9 @@ export function Footer() {
         <div className="max-w-7xl mx-auto px-4 py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">© 2026 Avenick Commerce. All rights reserved.</p>
           <div className="flex gap-4 text-xs text-muted-foreground">
-            <Link href="/support" className="hover:text-foreground transition-colors">Privacy</Link>
-            <Link href="/support" className="hover:text-foreground transition-colors">Terms</Link>
-            <Link href="/support" className="hover:text-foreground transition-colors">Cookies</Link>
+            <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+            <Link href="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+            <Link href="/cookies" className="hover:text-foreground transition-colors">Cookies</Link>
           </div>
           <div className="flex gap-2">
             {[Facebook, Twitter, Instagram, Linkedin].map((Icon, i) => (

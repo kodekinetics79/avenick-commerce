@@ -15,6 +15,7 @@ import {
 import { ThemeToggle } from "@avenick/ui";
 import { useCartStore } from "@/stores/cart";
 import { useSession, signOut } from "next-auth/react";
+import { useTranslations } from "next-intl";
 
 function setLocaleCookie(locale: string) {
   document.cookie = `AVENICK_LOCALE=${locale}; path=/; max-age=${60 * 60 * 24 * 365}`;
@@ -22,15 +23,17 @@ function setLocaleCookie(locale: string) {
 }
 
 const NAV = [
-  { href: "/", label: "Home" },
-  { href: "/products", label: "Shop" },
-  { href: "/deals", label: "Deals" },
-  { href: "/brands", label: "Brands" },
-  { href: "/b2b", label: "For Business" },
-  { href: "/support", label: "Support" },
-];
+  { href: "/", labelKey: "home" },
+  { href: "/products", labelKey: "shop" },
+  { href: "/deals", labelKey: "deals" },
+  { href: "/brands", labelKey: "brands" },
+  { href: "/b2b", labelKey: "forBusiness" },
+  { href: "/support", labelKey: "support" },
+] as const;
 
 export function Header() {
+  const t = useTranslations("nav");
+  const tc = useTranslations("common");
   const { data: session } = useSession();
   const storeCount = useCartStore((s) => s.itemCount());
   const [search, setSearch] = React.useState("");
@@ -46,10 +49,10 @@ export function Header() {
       <div className="hidden sm:block border-b border-border/60 bg-background/80 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 h-8 flex items-center justify-between text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <Sparkles className="h-3 w-3 text-primary" /> Free delivery on orders over AED 200 · GCC-wide
+            <Sparkles className="h-3 w-3 text-primary" /> {tc("freeDelivery")}
           </span>
           <div className="flex items-center gap-3">
-            <Link href="/account/orders" className="hover:text-foreground transition-colors">Track order</Link>
+            <Link href="/account/orders" className="hover:text-foreground transition-colors">{t("trackOrder")}</Link>
             <span className="opacity-40">·</span>
             <button type="button" onClick={() => setLocaleCookie("ar")} className="hover:text-foreground transition-colors">العربية</button>
             <button type="button" onClick={() => setLocaleCookie("en")} className="hover:text-foreground transition-colors">EN</button>
@@ -68,13 +71,13 @@ export function Header() {
 
           {/* Nav */}
           <nav className="hidden lg:flex items-center gap-0.5 ms-2">
-            {NAV.map(({ href, label }) => (
+            {NAV.map(({ href, labelKey }) => (
               <Link
                 key={href}
                 href={href}
                 className="px-3 py-1.5 text-sm font-medium text-muted-foreground rounded-lg hover:text-foreground hover:bg-secondary transition-colors"
               >
-                {label}
+                {t(labelKey)}
               </Link>
             ))}
           </nav>
@@ -93,7 +96,7 @@ export function Header() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full h-10 ps-9 pe-3 text-sm rounded-xl bg-secondary/60 border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:bg-background transition-all"
-                placeholder="Search products…"
+                placeholder={tc("searchPlaceholder")}
               />
             </div>
           </form>
@@ -124,9 +127,9 @@ export function Header() {
                       {session.user.name || session.user.email}
                     </div>
                     {[
-                      { href: "/account", label: "My Account" },
-                      { href: "/account/orders", label: "Orders" },
-                      { href: "/b2b", label: "B2B Portal" },
+                      { href: "/account", label: t("myAccount") },
+                      { href: "/account/orders", label: t("orders") },
+                      { href: "/b2b", label: t("forBusiness") },
                     ].map((i) => (
                       <Link key={i.href} href={i.href} className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">{i.label}</Link>
                     ))}
@@ -136,20 +139,20 @@ export function Header() {
                       onClick={() => signOut({ callbackUrl: "/" })}
                       className="w-full text-start flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors"
                     >
-                      <LogOut className="h-3.5 w-3.5" /> Sign out
+                      <LogOut className="h-3.5 w-3.5" /> {t("signOut")}
                     </button>
                   </>
                 ) : (
                   <>
                     {[
-                      { href: "/account", label: "My Account" },
-                      { href: "/account/orders", label: "Orders" },
-                      { href: "/b2b", label: "B2B Portal" },
+                      { href: "/account", label: t("myAccount") },
+                      { href: "/account/orders", label: t("orders") },
+                      { href: "/b2b", label: t("forBusiness") },
                     ].map((i) => (
                       <Link key={i.href} href={i.href} className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">{i.label}</Link>
                     ))}
                     <div className="my-1 h-px bg-border" />
-                    <Link href="/login" className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">Sign in</Link>
+                    <Link href="/login" className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">{t("signIn")}</Link>
                   </>
                 )}
               </div>
@@ -158,7 +161,7 @@ export function Header() {
               href="/b2b/rfq/new"
               className="hidden sm:inline-flex items-center gap-1.5 ms-1 h-9 px-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]"
             >
-              <FileText className="h-3.5 w-3.5" /> Get a quote
+              <FileText className="h-3.5 w-3.5" /> {t("getQuote")}
             </Link>
           </div>
         </div>

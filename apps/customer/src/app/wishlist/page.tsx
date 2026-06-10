@@ -23,13 +23,13 @@ export default function WishlistPage() {
 
   return (
     <MainLayout>
-      <div className="bg-slate-50 min-h-screen">
+      <div className="bg-background min-h-screen">
         <div className="max-w-6xl mx-auto px-4 py-8">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-red-100 flex items-center justify-center">
-                <Heart className="h-5 w-5 text-red-500" />
+              <div className="h-10 w-10 rounded-xl bg-destructive/10 flex items-center justify-center">
+                <Heart className="h-5 w-5 text-destructive" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold">My Wishlist</h1>
@@ -45,9 +45,9 @@ export default function WishlistPage() {
           </div>
 
           {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-24 bg-white rounded-2xl border border-border text-center">
-              <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mb-4">
-                <Heart className="h-8 w-8 text-red-200" />
+            <div className="flex flex-col items-center justify-center py-24 bg-card rounded-2xl border border-border text-center">
+              <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                <Heart className="h-8 w-8 text-destructive/40" />
               </div>
               <p className="text-lg font-semibold mb-1">Your wishlist is empty</p>
               <p className="text-sm text-muted-foreground mb-6 max-w-xs">
@@ -61,8 +61,8 @@ export default function WishlistPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {items.map((item) => (
-                <div key={item.id} className="bg-white rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all group">
-                  <Link href={`/products/${item.slug}`} className="block relative aspect-square bg-slate-50 overflow-hidden">
+                <div key={item.id} className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all group">
+                  <Link href={`/products/${item.slug}`} className="block relative aspect-square bg-secondary overflow-hidden">
                     {item.imageUrl ? (
                       <Image src={item.imageUrl} alt={item.nameEn} fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="(max-width: 768px) 50vw, 25vw" />
                     ) : (
@@ -72,7 +72,7 @@ export default function WishlistPage() {
                     )}
                     {!item.inStock && (
                       <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                        <span className="bg-white text-xs font-semibold px-3 py-1.5 rounded-full">Out of Stock</span>
+                        <span className="bg-card text-xs font-semibold px-3 py-1.5 rounded-full">Out of Stock</span>
                       </div>
                     )}
                     {item.inStock && (
@@ -90,7 +90,7 @@ export default function WishlistPage() {
                         <ShoppingCart className="h-3.5 w-3.5 me-1" />
                         Add to Cart
                       </Button>
-                      <button type="button" aria-label="Remove from wishlist" onClick={() => remove(item.id)} className="p-1.5 rounded-xl border border-border text-muted-foreground hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors">
+                      <button type="button" aria-label="Remove from wishlist" onClick={() => remove(item.id)} className="p-1.5 rounded-xl border border-border text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-colors">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>

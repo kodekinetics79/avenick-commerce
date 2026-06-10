@@ -7,6 +7,7 @@ import { ShoppingCart, Star, Heart, Truck, Package } from "lucide-react";
 import { formatCurrency } from "@avenick/utils";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
+import { useLocale, useTranslations } from "next-intl";
 
 interface ProductCardProps {
   id: string;
@@ -33,16 +34,19 @@ interface ProductCardProps {
 export function ProductCard({
   id, slug, nameEn, nameAr, imageUrl, price, originalPrice, currency = "AED",
   sku, sellerId, sellerName, inStock = true, moq = 1,
-  rating = 4.2, reviewCount, locale = "en", isB2B = false,
+  rating = 4.2, reviewCount, locale, isB2B = false,
   badge = null, category,
 }: ProductCardProps) {
+  const tp = useTranslations("products");
+  const nextLocale = useLocale();
+  const activeLocale = locale || (nextLocale as "en" | "ar");
   const addItem = useCartStore((s) => s.addItem);
   const { toggle, has } = useWishlist();
   // Persisted wishlist state would mismatch on hydration — gate on mount.
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
   const wishlisted = mounted && has(id);
-  const name = locale === "ar" ? nameAr : nameEn;
+  const name = activeLocale === "ar" ? nameAr : nameEn;
   const discount = originalPrice && originalPrice > price
     ? Math.round((1 - price / originalPrice) * 100)
     : null;
@@ -102,7 +106,7 @@ export function ProductCard({
 
         {!inStock && (
           <div className="absolute inset-0 grid place-items-center bg-background/60 backdrop-blur-[1px]">
-            <span className="rounded-full bg-foreground text-background text-xs font-semibold px-3 py-1">Out of stock</span>
+            <span className="rounded-full bg-foreground text-background text-xs font-semibold px-3 py-1">{tp("outOfStock")}</span>
           </div>
         )}
 
@@ -113,7 +117,7 @@ export function ProductCard({
           disabled={!inStock}
           className="absolute inset-x-2.5 bottom-2.5 translate-y-3 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 h-9 rounded-xl bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-1.5 shadow-glow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <ShoppingCart className="h-3.5 w-3.5" /> Add to cart
+          <ShoppingCart className="h-3.5 w-3.5" /> {tp("addToCart")}
         </button>
       </div>
 
@@ -131,10 +135,10 @@ export function ProductCard({
         <div className="mt-2.5 flex items-end justify-between">
           <div>
             {originalPrice && originalPrice > price && (
-              <span className="block text-xs text-muted-foreground line-through font-mono">{formatCurrency(originalPrice, currency as "AED", locale)}</span>
+              <span className="block text-xs text-muted-foreground line-through font-mono">{formatCurrency(originalPrice, currency as "AED", activeLocale)}</span>
             )}
-            <span className="text-lg font-bold font-mono tracking-tight text-foreground">{formatCurrency(price, currency as "AED", locale)}</span>
-            {moq > 1 && <span className="block text-[11px] text-muted-foreground">Min. {moq} units</span>}
+            <span className="text-lg font-bold font-mono tracking-tight text-foreground">{formatCurrency(price, currency as "AED", activeLocale)}</span>
+            {moq > 1 && <span className="block text-[11px] text-muted-foreground">{tp("minOrder")}: {moq} {tp("units")}</span>}
           </div>
           <span className="inline-flex items-center gap-1 text-[11px] text-success">
             <Truck className="h-3.5 w-3.5" /> Fast

@@ -35,6 +35,54 @@ const HASH = (pw: string) => bcrypt.hash(pw, 12);
 async function main() {
   console.log("🌱 Seeding Avenick...");
 
+  // Clear existing transactional and dynamic data to ensure idempotence
+  await prisma.auditLog.deleteMany({});
+  await prisma.customerActivity.deleteMany({});
+  await prisma.sellerCustomer.deleteMany({});
+  
+  await prisma.message.deleteMany({});
+  await prisma.messageThread.deleteMany({});
+  
+  await prisma.rFQItem.deleteMany({});
+  await prisma.rFQRequest.deleteMany({});
+  
+  await prisma.sellerPayoutItem.deleteMany({});
+  await prisma.sellerPayout.deleteMany({});
+  await prisma.commission.deleteMany({});
+  await prisma.refund.deleteMany({});
+  await prisma.taxInvoice.deleteMany({});
+  await prisma.shipmentEvent.deleteMany({});
+  await prisma.shipment.deleteMany({});
+  await prisma.returnRequest.deleteMany({});
+  
+  await prisma.payment.deleteMany({});
+  await prisma.orderStatusHistory.deleteMany({});
+  await prisma.orderItem.deleteMany({});
+  await prisma.order.deleteMany({});
+  
+  await prisma.supportTicket.deleteMany({});
+  
+  await prisma.listingHealthSnapshot.deleteMany({});
+  await prisma.productIssue.deleteMany({});
+  await prisma.productReview.deleteMany({});
+  
+  await prisma.inventoryMovement.deleteMany({});
+  await prisma.inventoryStock.deleteMany({});
+  
+  await prisma.cartItem.deleteMany({});
+  await prisma.cart.deleteMany({});
+  
+  await prisma.requisitionListItem.deleteMany({});
+  await prisma.requisitionList.deleteMany({});
+  
+  await prisma.productPrice.deleteMany({});
+  await prisma.productImage.deleteMany({});
+  await prisma.productVariant.deleteMany({});
+  await prisma.productComplianceDocument.deleteMany({});
+  
+  // We delete all products to ensure stock and other child relations are recreated cleanly
+  await prisma.product.deleteMany({});
+
   // ── ADMIN ────────────────────────────────────────────────────────────────────
   const adminUser = await prisma.user.upsert({
     where: { email: "admin@avenick.test" },
@@ -559,7 +607,7 @@ async function main() {
       origin: Country.AE, moq: 1,
       stock: 2200, b2cPrice: 285.00, b2bPrice: 240.00, b2bBulkPrice: 210.00, b2bBulkQty: 20,
       listingHealth: 91,
-      images: [{ url: "https://placehold.co/600x600/212121/fff?text=Safety+Boot", isPrimary: true }],
+      images: [{ url: "/images/safety-boot.png", isPrimary: true }],
     },
     {
       sku: "ELEC-UPS-600VA",

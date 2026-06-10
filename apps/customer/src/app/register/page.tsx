@@ -44,12 +44,12 @@ export default function RegisterPage() {
 
           {mode === "select" && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button onClick={() => setMode("consumer")} className="bg-white rounded-2xl border-2 border-border hover:border-primary p-6 text-center transition-all group">
+              <button onClick={() => setMode("consumer")} className="bg-card rounded-2xl border-2 border-border hover:border-primary p-6 text-center transition-all group">
                 <User className="h-10 w-10 mx-auto mb-3 text-primary/100 group-hover:scale-110 transition-transform" />
                 <h3 className="font-semibold">Personal Account</h3>
                 <p className="text-sm text-muted-foreground mt-1">حساب شخصي</p>
               </button>
-              <button onClick={() => setMode("business")} className="bg-white rounded-2xl border-2 border-border hover:border-primary p-6 text-center transition-all group">
+              <button onClick={() => setMode("business")} className="bg-card rounded-2xl border-2 border-border hover:border-primary p-6 text-center transition-all group">
                 <Building2 className="h-10 w-10 mx-auto mb-3 text-primary/100 group-hover:scale-110 transition-transform" />
                 <h3 className="font-semibold">Business Account</h3>
                 <p className="text-sm text-muted-foreground mt-1">حساب تجاري B2B</p>
@@ -58,7 +58,7 @@ export default function RegisterPage() {
           )}
 
           {(mode === "consumer" || mode === "business") && (
-            <div className="bg-white rounded-2xl border border-border p-6 shadow-sm">
+            <div className="bg-card rounded-2xl border border-border p-6 shadow-sm">
               <button onClick={() => setMode("select")} className="text-sm text-primary hover:underline mb-4 flex items-center gap-1">← Back</button>
               <h2 className="font-semibold mb-4">{mode === "consumer" ? "Personal Account" : "Business Account"}</h2>
               <form onSubmit={handleSubmit} className="space-y-3">
@@ -79,7 +79,7 @@ export default function RegisterPage() {
                     <Input placeholder="Commercial Registration Number" value={form.crNumber} onChange={(e) => set("crNumber", e.target.value)} required />
                     <Input placeholder="VAT Number (optional)" value={form.vatNumber} onChange={(e) => set("vatNumber", e.target.value)} />
                     <div className="grid grid-cols-2 gap-3">
-                      <select value={form.country} onChange={(e) => set("country", e.target.value)} className="h-10 rounded-xl border border-input px-3 text-sm">
+                      <select value={form.country} onChange={(e) => set("country", e.target.value)} className="h-10 rounded-xl border border-input bg-card text-foreground px-3 text-sm">
                         <option value="AE">UAE</option><option value="SA">Saudi Arabia</option><option value="QA">Qatar</option>
                         <option value="KW">Kuwait</option><option value="BH">Bahrain</option><option value="OM">Oman</option>
                       </select>

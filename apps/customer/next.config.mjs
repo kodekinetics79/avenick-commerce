@@ -8,10 +8,11 @@ const nextConfig = {
   // Lint is run as a separate `pnpm lint` step, not during the production build.
   eslint: { ignoreDuringBuilds: true },
   images: {
+    unoptimized: true,
     remotePatterns: [
-      { protocol: "https", hostname: "*.avenick.com" },
-      { protocol: "http", hostname: "localhost" },
-      { protocol: "https", hostname: "placehold.co" },
+      { protocol: "https", hostname: "*.avenick.com", pathname: "/**" },
+      { protocol: "http", hostname: "localhost", pathname: "/**" },
+      { protocol: "https", hostname: "placehold.co", pathname: "/**" },
     ],
   },
   // Copies the Prisma query engine into the serverless bundle (pnpm monorepo).
