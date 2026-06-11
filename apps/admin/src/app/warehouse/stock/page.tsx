@@ -82,10 +82,10 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
             <p className="text-sm text-muted-foreground">Real-time inventory across all warehouses</p>
           </div>
           <div className="flex gap-2">
-            <button type="button" className="flex items-center gap-1.5 text-sm border border-border bg-white text-muted-foreground hover:bg-slate-50 px-3 py-2 rounded-xl font-medium transition-colors">
+            <button type="button" className="flex items-center gap-1.5 text-sm border border-border bg-card text-muted-foreground hover:bg-muted/30 px-3 py-2 rounded-xl font-medium transition-colors">
               <RefreshCw className="h-3.5 w-3.5" /> Sync
             </button>
-            <button type="button" className="flex items-center gap-1.5 text-sm bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl font-semibold transition-colors">
+            <button type="button" className="flex items-center gap-1.5 text-sm bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-xl font-semibold transition-colors">
               <Boxes className="h-3.5 w-3.5" /> Adjust Stock
             </button>
           </div>
@@ -94,10 +94,10 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Total SKUs",    value: totalSKUs,  color: "text-foreground", bg: "bg-white border-border" },
-            { label: "Total Units",   value: totalUnits.toLocaleString(), color: "text-primary", bg: "bg-blue-50 border-blue-200" },
-            { label: "Low Stock",     value: lowCount,   color: lowCount > 0 ? "text-amber-700" : "text-muted-foreground",  bg: lowCount > 0 ? "bg-amber-50 border-amber-200" : "bg-white border-border" },
-            { label: "Out of Stock",  value: outCount,   color: outCount > 0 ? "text-red-700" : "text-muted-foreground",    bg: outCount > 0 ? "bg-red-50 border-red-200" : "bg-white border-border" },
+            { label: "Total SKUs",    value: totalSKUs,  color: "text-foreground", bg: "bg-card border-border" },
+            { label: "Total Units",   value: totalUnits.toLocaleString(), color: "text-primary", bg: "bg-primary/10 border-primary/20" },
+            { label: "Low Stock",     value: lowCount,   color: lowCount > 0 ? "text-amber-700" : "text-muted-foreground",  bg: lowCount > 0 ? "bg-amber-500/10 border-amber-500/20" : "bg-card border-border" },
+            { label: "Out of Stock",  value: outCount,   color: outCount > 0 ? "text-red-700" : "text-muted-foreground",    bg: outCount > 0 ? "bg-red-500/10 border-red-500/20" : "bg-card border-border" },
           ].map(({ label, value, color, bg }) => (
             <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
               <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -108,7 +108,7 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
 
         {/* Alerts */}
         {outCount > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center justify-between">
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
               <p className="font-semibold text-red-800 text-sm">{outCount} SKU{outCount !== 1 ? "s" : ""} out of stock — listings may be suppressed</p>
@@ -120,7 +120,7 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Search */}
-          <div className="flex items-center gap-2 bg-white border border-border rounded-xl px-3 py-2 flex-1">
+          <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 flex-1">
             <Search className="h-4 w-4 text-muted-foreground shrink-0" />
             <input type="text" placeholder="Search by SKU, product name, or category..."
               className="flex-1 text-sm text-muted-foreground placeholder:text-muted-foreground outline-none bg-transparent"
@@ -131,7 +131,7 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
             <SlidersHorizontal className="h-4 w-4 text-muted-foreground shrink-0 self-center" />
             {STOCK_FILTER.map(({ value, label }) => (
               <Link key={value} href={value ? `/warehouse/stock?filter=${value}` : "/warehouse/stock"}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${activeFilter === value ? "bg-slate-900 text-white" : "bg-white border border-border text-muted-foreground hover:border-slate-400"}`}>
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${activeFilter === value ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:bg-muted"}`}>
                 {label}
                 {value === "low"  && lowCount  > 0 && <span className="ms-1 text-amber-400 font-bold">{lowCount}</span>}
                 {value === "out"  && outCount  > 0 && <span className="ms-1 text-red-400 font-bold">{outCount}</span>}
@@ -141,10 +141,10 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
         </div>
 
         {/* Stock table */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
+              <thead className="bg-muted border-b border-border">
                 <tr>
                   {["SKU","Product","Category","Supplier","Warehouse / Bin","On Hand","Reserved","Available","Reorder Pt","Status","Action"].map(h => (
                     <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
@@ -158,7 +158,7 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
                     <p className="font-semibold text-muted-foreground">No stock records found</p>
                   </td></tr>
                 ) : filtered.map((s) => (
-                  <tr key={s.id} className={`hover:bg-slate-50 transition-colors ${s.isOut ? "bg-red-50/30" : s.isLow ? "bg-amber-50/30" : ""}`}>
+                  <tr key={s.id} className={`hover:bg-muted/30 transition-colors ${s.isOut ? "bg-red-500/5" : s.isLow ? "bg-amber-500/5" : ""}`}>
                     <td className="px-4 py-3 font-mono text-xs font-semibold text-muted-foreground">{s.product?.sku ?? "—"}</td>
                     <td className="px-4 py-3">
                       <p className="font-medium text-sm line-clamp-1">{s.product?.nameEn ?? "—"}</p>
@@ -198,7 +198,7 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
             </table>
           </div>
           {filtered.length > 0 && (
-            <div className="px-4 py-3 border-t border-border bg-slate-50 flex items-center justify-between">
+            <div className="px-4 py-3 border-t border-border bg-muted flex items-center justify-between">
               <p className="text-xs text-muted-foreground">{filtered.length} SKU{filtered.length !== 1 ? "s" : ""}</p>
               <button type="button" className="text-xs text-primary hover:underline font-medium">Export CSV →</button>
             </div>

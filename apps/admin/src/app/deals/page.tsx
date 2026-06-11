@@ -13,9 +13,9 @@ const DEALS = [
 ];
 
 const STATUS: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
-  ACTIVE:    { label: "Active",    color: "bg-green-100 text-green-700", icon: CheckCircle },
-  SCHEDULED: { label: "Scheduled", color: "bg-amber-100 text-amber-700", icon: Clock },
-  ENDED:     { label: "Ended",     color: "bg-slate-100 text-muted-foreground", icon: Clock },
+  ACTIVE:    { label: "Active",    color: "bg-green-500/10 text-green-700 dark:text-green-400", icon: CheckCircle },
+  SCHEDULED: { label: "Scheduled", color: "bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: Clock },
+  ENDED:     { label: "Ended",     color: "bg-muted text-muted-foreground", icon: Clock },
 };
 
 export default async function DealsPage() {
@@ -39,10 +39,10 @@ export default async function DealsPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Active Promotions", value: active.length, color: "text-green-600", bg: "bg-green-50 border-green-200" },
-            { label: "Total Redemptions", value: totalRedemptions.toLocaleString(), color: "text-primary", bg: "bg-blue-50 border-blue-200" },
-            { label: "Promo Revenue", value: `AED ${(totalRevenue / 1000).toFixed(0)}k`, color: "text-green-700", bg: "bg-white border-border" },
-            { label: "Avg Order Uplift", value: "+18%", color: "text-purple-600", bg: "bg-purple-50 border-purple-200" },
+            { label: "Active Promotions", value: active.length, color: "text-green-600 dark:text-green-400", bg: "bg-green-500/10 border-green-500/20" },
+            { label: "Total Redemptions", value: totalRedemptions.toLocaleString(), color: "text-primary", bg: "bg-primary/10 border-primary/20" },
+            { label: "Promo Revenue", value: `AED ${(totalRevenue / 1000).toFixed(0)}k`, color: "text-green-700 dark:text-green-400", bg: "bg-card border-border" },
+            { label: "Avg Order Uplift", value: "+18%", color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-500/10 border-purple-500/20" },
           ].map((s) => (
             <div key={s.label} className={`rounded-2xl border p-4 ${s.bg}`}>
               <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
@@ -77,7 +77,7 @@ export default async function DealsPage() {
                     </div>
                   </div>
                   <div className="text-end shrink-0">
-                    {d.revenue > 0 && <p className="font-bold text-green-700">AED {(d.revenue / 1000).toFixed(0)}k</p>}
+                    {d.revenue > 0 && <p className="font-bold text-green-700 dark:text-green-400">AED {(d.revenue / 1000).toFixed(0)}k</p>}
                     <p className="text-xs text-muted-foreground flex items-center gap-1 justify-end mt-0.5">
                       <TrendingUp className="h-3 w-3" /> {d.redemptions} redemptions
                     </p>

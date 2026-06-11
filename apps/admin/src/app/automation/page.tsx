@@ -130,9 +130,9 @@ const AUTOMATION_RULES: Array<{
 ];
 
 const STATUS_CONFIG: Record<RuleStatus, { label: string; color: string; icon: typeof CheckCircle }> = {
-  ACTIVE: { label: "Active", color: "bg-green-100 text-green-700", icon: CheckCircle },
-  PAUSED: { label: "Paused", color: "bg-amber-100 text-amber-700", icon: Pause },
-  DRAFT: { label: "Draft", color: "bg-slate-100 text-muted-foreground", icon: FileEdit },
+  ACTIVE: { label: "Active", color: "bg-green-500/10 text-green-700 dark:text-green-400", icon: CheckCircle },
+  PAUSED: { label: "Paused", color: "bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: Pause },
+  DRAFT: { label: "Draft", color: "bg-muted text-muted-foreground", icon: FileEdit },
 };
 
 export default async function AutomationPage() {
@@ -165,10 +165,10 @@ export default async function AutomationPage() {
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Active Rules", value: active, color: "text-green-600", bg: "bg-green-50 border-green-200" },
-            { label: "Paused", value: paused, color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
-            { label: "Draft", value: draft, color: "text-muted-foreground", bg: "bg-white border-border" },
-            { label: "Executions This Month", value: totalRuns.toLocaleString(), color: "text-primary", bg: "bg-blue-50 border-blue-200" },
+            { label: "Active Rules", value: active, color: "text-green-600 dark:text-green-400", bg: "bg-green-500/10 border-green-500/20" },
+            { label: "Paused", value: paused, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10 border-amber-500/20" },
+            { label: "Draft", value: draft, color: "text-muted-foreground", bg: "bg-card border-border" },
+            { label: "Executions This Month", value: totalRuns.toLocaleString(), color: "text-primary", bg: "bg-primary/10 border-primary/20" },
           ].map((stat) => (
             <div key={stat.label} className={`rounded-2xl border p-4 ${stat.bg}`}>
               <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
@@ -178,7 +178,7 @@ export default async function AutomationPage() {
         </div>
 
         {/* Rules table */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold">Workflow Rules</h2>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -188,7 +188,7 @@ export default async function AutomationPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-border text-xs text-muted-foreground uppercase tracking-wide">
+              <thead className="bg-muted border-b border-border text-xs text-muted-foreground uppercase tracking-wide">
                 <tr>
                   <th className="text-start px-5 py-3">Rule Name</th>
                   <th className="text-start px-5 py-3 hidden md:table-cell">Trigger</th>

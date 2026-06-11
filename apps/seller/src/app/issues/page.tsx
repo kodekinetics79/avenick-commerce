@@ -6,9 +6,9 @@ import { SellerLayout } from "@/components/layout/seller-layout";
 import { AlertTriangle, XCircle, AlertCircle, Info, ArrowRight } from "lucide-react";
 
 const SEVERITY_CONFIG = {
-  ERROR: { icon: XCircle, color: "text-red-600", bg: "bg-red-50 border-red-200", label: "Error" },
-  WARNING: { icon: AlertTriangle, color: "text-yellow-600", bg: "bg-yellow-50 border-yellow-200", label: "Warning" },
-  INFO: { icon: Info, color: "text-primary", bg: "bg-blue-50 border-blue-200", label: "Info" },
+  ERROR: { icon: XCircle, color: "text-red-600 dark:text-red-400", bg: "bg-red-500/10 border-red-500/20", label: "Error" },
+  WARNING: { icon: AlertTriangle, color: "text-yellow-600 dark:text-yellow-400", bg: "bg-yellow-500/10 border-yellow-500/20", label: "Warning" },
+  INFO: { icon: Info, color: "text-primary", bg: "bg-primary/10 border-primary/20", label: "Info" },
 };
 
 const ISSUE_ACTION_MAP: Record<string, { label: string; path: string }> = {
@@ -47,24 +47,24 @@ export default async function IssuesPage() {
 
         {/* Summary */}
         <div className="grid grid-cols-3 gap-4">
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-center">
-            <p className="text-3xl font-bold text-red-600">{errorCount}</p>
-            <p className="text-sm text-red-600 font-medium">Errors</p>
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-center">
+            <p className="text-3xl font-bold text-red-600 dark:text-red-400">{errorCount}</p>
+            <p className="text-sm text-red-600 dark:text-red-400 font-medium">Errors</p>
           </div>
-          <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 text-center">
-            <p className="text-3xl font-bold text-yellow-600">{warningCount}</p>
-            <p className="text-sm text-yellow-600 font-medium">Warnings</p>
+          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-4 text-center">
+            <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{warningCount}</p>
+            <p className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">Warnings</p>
           </div>
-          <div className="bg-white border border-border rounded-2xl p-4 text-center">
+          <div className="bg-card border border-border rounded-2xl p-4 text-center">
             <p className="text-3xl font-bold">{issuesWithProducts.length}</p>
             <p className="text-sm text-muted-foreground font-medium">Total Issues</p>
           </div>
         </div>
 
         {issuesWithProducts.length === 0 ? (
-          <div className="bg-green-50 border border-green-200 rounded-2xl p-8 text-center">
-            <p className="text-green-700 font-semibold text-lg">All products are healthy!</p>
-            <p className="text-green-600 text-sm mt-1">جميع منتجاتك في حالة جيدة</p>
+          <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-8 text-center">
+            <p className="text-green-600 dark:text-green-400 font-semibold text-lg">All products are healthy!</p>
+            <p className="text-green-600 dark:text-green-400 text-sm mt-1">جميع منتجاتك في حالة جيدة</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -81,7 +81,7 @@ export default async function IssuesPage() {
                     {p.images[0] ? (
                       <Image src={p.images[0].url} alt={p.nameEn} width={48} height={48} className="rounded-lg object-cover shrink-0" />
                     ) : (
-                      <div className="w-12 h-12 bg-gray-200 rounded-lg shrink-0 flex items-center justify-center text-xs text-muted-foreground">No img</div>
+                      <div className="w-12 h-12 bg-muted rounded-lg shrink-0 flex items-center justify-center text-xs text-muted-foreground">No img</div>
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">

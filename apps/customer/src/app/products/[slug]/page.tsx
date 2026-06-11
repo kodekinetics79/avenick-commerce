@@ -24,6 +24,34 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
   const addItem = useCartStore((s) => s.addItem);
   const { toggle, has } = useWishlist();
 
+  const scrollToSection = (id: Tab) => {
+    const el = document.getElementById(id);
+    if (el) {
+      const yOffset = -110; 
+      const y = el.getBoundingClientRect().top + window.pageYOffset + yOffset;
+      window.scrollTo({ top: y, behavior: "smooth" });
+      setTab(id);
+    }
+  };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const ids: Tab[] = ["description", "specs", "reviews", "shipping"];
+      const scrollPosition = window.scrollY + 130;
+
+      for (let i = ids.length - 1; i >= 0; i--) {
+        const el = document.getElementById(ids[i]);
+        if (el && el.offsetTop <= scrollPosition) {
+          setTab(ids[i]);
+          break;
+        }
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   useEffect(() => {
     fetch(`/api/products/${params.slug}`)
       .then((r) => r.json())
@@ -79,7 +107,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
 
   return (
     <MainLayout>
-      <div className="bg-secondary min-h-screen">
+      <div className="bg-background min-h-screen">
         <div className="max-w-7xl mx-auto px-4 py-8">
 
           {/* Breadcrumb */}
@@ -94,7 +122,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
             {/* Image gallery */}
             <div>
-              <div className="aspect-square bg-white rounded-2xl border border-border overflow-hidden mb-3 relative group">
+              <div className="aspect-square bg-card rounded-2xl border border-border overflow-hidden mb-3 relative group">
                 {images[activeImage] ? (
                   <Image src={images[activeImage].url} alt={String(p.nameEn)} fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="(max-width: 1024px) 100vw, 50vw" />
                 ) : (
@@ -105,7 +133,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                 )}
                 {available <= 0 && (
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <span className="bg-white font-semibold px-4 py-2 rounded-full">Out of Stock</span>
+                    <span className="bg-card font-semibold px-4 py-2 rounded-full">Out of Stock</span>
                   </div>
                 )}
               </div>
@@ -131,7 +159,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                     {!!p.nameAr && <p className="text-base text-muted-foreground mt-0.5" dir="rtl">{String(p.nameAr)}</p>}
                   </div>
                   <button type="button" aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"} onClick={() => toggle({ id: productId, slug: params.slug, nameEn: String(p.nameEn), nameAr: String(p.nameAr), imageUrl: images[0]?.url, price: displayPrice, currency: "AED", sku: String(p.sku), sellerId: String(p.sellerId), inStock: available > 0 })}
-                    className={`p-2 rounded-xl border transition-all shrink-0 ${wishlisted ? "bg-red-50 border-red-200 text-red-500" : "border-border text-muted-foreground hover:border-red-200 hover:text-red-500"}`}>
+                    className={`p-2 rounded-xl border transition-all shrink-0 ${wishlisted ? "bg-destructive/10 border-destructive/20 text-destructive" : "border-border text-muted-foreground hover:border-destructive/20 hover:text-destructive"}`}>
                     <Heart className={`h-5 w-5 ${wishlisted ? "fill-current" : ""}`} />
                   </button>
                 </div>
@@ -144,7 +172,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                     ))}
                     <span className="text-sm font-semibold ms-1">{avgRating}</span>
                   </div>
-                  <button type="button" onClick={() => setTab("reviews")} className="text-sm text-primary hover:underline">
+                  <button type="button" onClick={() => scrollToSection("reviews")} className="text-sm text-primary hover:underline">
                     {reviewCount} reviews
                   </button>
                   <span className="text-muted-foreground text-sm">·</span>
@@ -175,7 +203,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                     </p>
                     <div className="grid grid-cols-2 gap-1.5">
                       {b2bPrices.map((tier, i) => (
-                        <div key={i} className="bg-white rounded-lg px-3 py-1.5 text-xs flex justify-between">
+                        <div key={i} className="bg-card rounded-lg px-3 py-1.5 text-xs flex justify-between">
                           <span className="text-muted-foreground">{tier.minQty}+{tier.maxQty ? `–${tier.maxQty}` : ""} units</span>
                           <span className="font-semibold text-primary">{formatCurrency(Number(tier.price), "AED")}</span>
                         </div>
@@ -198,25 +226,23 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                   {available > 0 ? "Add to Cart" : "Out of Stock"}
                 </Button>
               </div>
-              {Number(p.moq) > 1 && <p className="text-xs text-muted-foreground -mt-3">Minimum order: {Number(p.moq)} units</p>}
-
-              {/* Trust badges */}
+              {Number(p.moq) > 1 && <p className="text-xs text-muted-foreground -mt-3">Minimum order: {Number(p.moq)} units</p>}              {/* Trust badges */}
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { icon: ShieldCheck, label: "Verified Supplier", color: "text-primary" },
                   { icon: Truck, label: "Free 200+ AED", color: "text-primary" },
                   { icon: RotateCcw, label: "14-day returns", color: "text-purple-600" },
                 ].map(({ icon: Icon, label, color }) => (
-                  <div key={label} className="flex flex-col items-center gap-1 bg-white rounded-xl border border-border p-2.5 text-center">
+                  <div key={label} className="flex flex-col items-center gap-1 bg-card rounded-xl border border-border p-2.5 text-center">
                     <Icon className={`h-4 w-4 ${color}`} />
                     <span className="text-xs text-muted-foreground">{label}</span>
                   </div>
                 ))}
               </div>
-
+ 
               {/* Seller */}
               {seller && (
-                <div className="border border-border rounded-2xl p-4 bg-white">
+                <div className="border border-border rounded-2xl p-4 bg-card">
                   <p className="text-xs text-muted-foreground mb-2">Sold by</p>
                   <div className="flex items-center justify-between">
                     <div>
@@ -244,27 +270,31 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
           </div>
 
           {/* Tabs */}
-          <div className="mt-10 bg-white rounded-2xl border border-border overflow-hidden">
-            <div className="flex border-b border-border overflow-x-auto">
+          <div className="mt-10 bg-card rounded-2xl border border-border overflow-hidden">
+            <div className="flex border-b border-border overflow-x-auto sticky top-[64px] bg-card/95 backdrop-blur-md z-20">
               {TABS.map((t) => (
-                <button key={t.id} type="button" onClick={() => setTab(t.id)}
-                  className={`px-5 py-3.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${tab === t.id ? "border-primary/100 text-primary" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                <button key={t.id} type="button" onClick={() => scrollToSection(t.id)}
+                  className={`px-5 py-3.5 text-sm font-medium whitespace-nowrap transition-colors border-b-2 -mb-px ${tab === t.id ? "border-primary/100 text-primary font-bold" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
                   {t.label}
                 </button>
               ))}
             </div>
 
-            <div className="p-6">
-              {tab === "description" && (
+            <div className="p-6 divide-y divide-border">
+              {/* Description */}
+              <div id="description" className="pb-8 scroll-mt-28">
+                <h3 className="text-base font-bold mb-4 text-foreground">Description</h3>
                 <div className="prose prose-sm max-w-none">
                   {p.descriptionEn
                     ? <p className="text-muted-foreground leading-relaxed">{String(p.descriptionEn)}</p>
                     : <p className="text-muted-foreground italic">No description available.</p>}
                   {!!p.descriptionAr && <p className="text-muted-foreground leading-relaxed mt-4 text-right" dir="rtl">{String(p.descriptionAr)}</p>}
                 </div>
-              )}
+              </div>
 
-              {tab === "specs" && (
+              {/* Specifications */}
+              <div id="specs" className="py-8 scroll-mt-28">
+                <h3 className="text-base font-bold mb-4 text-foreground">Specifications</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
                     { label: "SKU", value: String(p.sku) },
@@ -274,21 +304,23 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                     { label: "B2C Enabled", value: p.isB2CEnabled ? "Yes" : "No" },
                     { label: "B2B Enabled", value: p.isB2BEnabled ? "Yes" : "No" },
                   ].map(({ label, value }) => (
-                    <div key={label} className="flex justify-between py-2.5 border-b border-border text-sm">
+                    <div key={label} className="flex justify-between py-2.5 border-b border-border last:border-0 text-sm">
                       <span className="text-muted-foreground">{label}</span>
-                      <span className="font-medium">{value}</span>
+                      <span className="font-medium text-foreground">{value}</span>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
 
-              {tab === "reviews" && (
+              {/* Reviews */}
+              <div id="reviews" className="py-8 scroll-mt-28">
+                <h3 className="text-base font-bold mb-4 text-foreground">Reviews ({reviewCount})</h3>
                 <div className="space-y-4">
                   <div className="flex items-center gap-4 pb-4 border-b border-border">
                     <div className="text-center">
                       <p className="text-4xl font-bold text-primary">{avgRating}</p>
                       <div className="flex justify-center mt-1">
-                        {[1,2,3,4,5].map((s) => <Star key={s} className={`h-4 w-4 ${s <= Math.round(avgRating) ? "text-amber-400 fill-current" : "text-gray-200 fill-current"}`} />)}
+                        {[1,2,3,4,5].map((s) => <Star key={s} className={`h-4 w-4 ${s <= Math.round(avgRating) ? "text-amber-400 fill-current" : "text-secondary fill-current"}`} />)}
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">{reviewCount} review{reviewCount !== 1 ? "s" : ""}</p>
                     </div>
@@ -302,7 +334,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                       <div key={r.id} className="py-4 border-b border-border last:border-0">
                         <div className="flex items-start justify-between mb-2">
                           <div>
-                            <p className="font-medium text-sm flex items-center gap-1.5">
+                            <p className="font-medium text-sm text-foreground flex items-center gap-1.5">
                               {author}
                               {r.isVerified && <span className="text-[10px] font-semibold text-success bg-success/15 px-1.5 py-0.5 rounded-full">Verified</span>}
                             </p>
@@ -312,15 +344,17 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                           </div>
                           <span className="text-xs text-muted-foreground">{date}</span>
                         </div>
-                        {r.title && <p className="text-sm font-semibold mb-0.5">{r.title}</p>}
+                        {r.title && <p className="text-sm font-semibold mb-0.5 text-foreground">{r.title}</p>}
                         {r.body && <p className="text-sm text-muted-foreground">{r.body}</p>}
                       </div>
                     );
                   })}
                 </div>
-              )}
+              </div>
 
-              {tab === "shipping" && (
+              {/* Shipping */}
+              <div id="shipping" className="pt-8 scroll-mt-28">
+                <h3 className="text-base font-bold mb-4 text-foreground">Shipping & Returns</h3>
                 <div className="space-y-4 text-sm text-muted-foreground">
                   {[
                     { icon: Truck, title: "Standard Delivery", desc: "2–5 business days. Free for orders over AED 200." },
@@ -329,12 +363,12 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                     { icon: Award, title: "B2B Orders", desc: "Bulk orders may include special delivery terms. Contact your account manager." },
                   ].map(({ icon: Icon, title, desc }) => (
                     <div key={title} className="flex gap-3">
-                      <Icon className="h-5 w-5 text-primary/100 shrink-0 mt-0.5" />
-                      <div><p className="font-medium text-foreground">{title}</p><p>{desc}</p></div>
+                      <Icon className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                      <div><p className="font-medium text-foreground">{title}</p><p className="text-muted-foreground">{desc}</p></div>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>

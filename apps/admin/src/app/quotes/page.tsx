@@ -15,9 +15,9 @@ const QUOTES = [
 ];
 
 const STATUS: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
-  PENDING:  { label: "Pending",  color: "bg-amber-100 text-amber-700", icon: Clock },
-  ACCEPTED: { label: "Accepted", color: "bg-green-100 text-green-700", icon: CheckCircle },
-  DECLINED: { label: "Declined", color: "bg-red-100 text-red-700",     icon: XCircle },
+  PENDING:  { label: "Pending",  color: "bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: Clock },
+  ACCEPTED: { label: "Accepted", color: "bg-green-500/10 text-green-700 dark:text-green-400", icon: CheckCircle },
+  DECLINED: { label: "Declined", color: "bg-red-500/10 text-red-700 dark:text-red-400",     icon: XCircle },
 };
 
 const TABS = ["All", "Pending", "Accepted", "Declined"];
@@ -38,10 +38,10 @@ export default async function QuotesPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Total Quotes", value: QUOTES.length, color: "text-foreground", bg: "bg-white border-border" },
-            { label: "Pending", value: QUOTES.filter((q) => q.status === "PENDING").length, color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
-            { label: "Win Rate", value: `${winRate}%`, color: "text-green-600", bg: "bg-green-50 border-green-200" },
-            { label: "Accepted Value", value: formatCurrency(acceptedValue, "AED"), color: "text-green-700", bg: "bg-white border-border" },
+            { label: "Total Quotes", value: QUOTES.length, color: "text-foreground", bg: "bg-card border-border" },
+            { label: "Pending", value: QUOTES.filter((q) => q.status === "PENDING").length, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10 border-amber-500/20" },
+            { label: "Win Rate", value: `${winRate}%`, color: "text-green-600 dark:text-green-400", bg: "bg-green-500/10 border-green-500/20" },
+            { label: "Accepted Value", value: formatCurrency(acceptedValue, "AED"), color: "text-green-700 dark:text-green-400", bg: "bg-card border-border" },
           ].map((s) => (
             <div key={s.label} className={`rounded-2xl border p-4 ${s.bg}`}>
               <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
@@ -52,7 +52,7 @@ export default async function QuotesPage() {
 
         <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit">
           {TABS.map((t) => (
-            <button key={t} type="button" className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${t === "All" ? "bg-slate-900 text-white" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>{t}</button>
+            <button key={t} type="button" className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${t === "All" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}>{t}</button>
           ))}
         </div>
 
@@ -74,7 +74,7 @@ export default async function QuotesPage() {
                       <td className="px-4 py-3"><Link href="/rfqs" className="font-mono text-xs text-primary hover:underline">{q.rfq}</Link></td>
                       <td className="px-4 py-3 font-medium">{q.buyer}</td>
                       <td className="px-4 py-3 text-muted-foreground">{q.supplier}</td>
-                      <td className="px-4 py-3 font-bold text-green-700">{formatCurrency(q.amount, q.currency as "AED")}</td>
+                      <td className="px-4 py-3 font-bold text-green-700 dark:text-green-400">{formatCurrency(q.amount, q.currency as "AED")}</td>
                       <td className="px-4 py-3"><span className="inline-flex items-center gap-0.5 text-xs font-medium text-muted-foreground"><TrendingUp className="h-3 w-3" /> {q.margin}%</span></td>
                       <td className="px-4 py-3"><span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}><StatusIcon className="h-3 w-3" /> {sc.label}</span></td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{q.submitted}</td>

@@ -14,7 +14,7 @@ const SUPPLIER_SCORES = [
   { name: "OfficeZone KW", tier: "VERIFIED", score: 76, onTime: 84, returnRate: 4.1, responseTime: "6.2h", trend: -4 },
 ];
 
-const scoreColor = (s: number) => (s >= 85 ? "text-green-600" : s >= 70 ? "text-amber-600" : "text-red-600");
+const scoreColor = (s: number) => (s >= 85 ? "text-green-600 dark:text-green-400" : s >= 70 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400");
 const barColor = (s: number) => (s >= 85 ? "bg-green-500" : s >= 70 ? "bg-amber-500" : "bg-red-500");
 
 export default async function PerformancePage() {
@@ -32,10 +32,10 @@ export default async function PerformancePage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Avg Supplier Score", value: `${avg}/100`, color: scoreColor(avg), bg: "bg-white border-border", icon: Award },
-            { label: "Avg On-Time Delivery", value: "91%", color: "text-green-600", bg: "bg-green-50 border-green-200", icon: TrendingUp },
-            { label: "Avg Return Rate", value: "2.5%", color: "text-primary", bg: "bg-blue-50 border-blue-200", icon: RotateCcw },
-            { label: "Suppliers At Risk", value: atRisk, color: atRisk > 0 ? "text-red-600" : "text-muted-foreground", bg: atRisk > 0 ? "bg-red-50 border-red-200" : "bg-white border-border", icon: AlertTriangle },
+            { label: "Avg Supplier Score", value: `${avg}/100`, color: scoreColor(avg), bg: "bg-card border-border", icon: Award },
+            { label: "Avg On-Time Delivery", value: "91%", color: "text-green-600 dark:text-green-400", bg: "bg-green-500/10 border-green-500/20", icon: TrendingUp },
+            { label: "Avg Return Rate", value: "2.5%", color: "text-primary", bg: "bg-primary/10 border-primary/20", icon: RotateCcw },
+            { label: "Suppliers At Risk", value: atRisk, color: atRisk > 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground", bg: atRisk > 0 ? "bg-red-500/10 border-red-500/20" : "bg-card border-border", icon: AlertTriangle },
           ].map((s) => (
             <div key={s.label} className={`rounded-2xl border p-4 ${s.bg}`}>
               <s.icon className={`h-4 w-4 ${s.color} mb-2`} />
@@ -46,9 +46,9 @@ export default async function PerformancePage() {
         </div>
 
         {atRisk > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
-            <p className="font-semibold text-red-800 text-sm">{atRisk} supplier{atRisk !== 1 ? "s" : ""} below the 80-point performance threshold — review before it impacts marketplace NPS.</p>
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 shrink-0" />
+            <p className="font-semibold text-red-800 dark:text-red-400 text-sm">{atRisk} supplier{atRisk !== 1 ? "s" : ""} below the 80-point performance threshold — review before it impacts marketplace NPS.</p>
           </div>
         )}
 
@@ -65,12 +65,12 @@ export default async function PerformancePage() {
                 {SUPPLIER_SCORES.map((s) => (
                   <tr key={s.name} className="hover:bg-secondary/40 transition-colors">
                     <td className="px-4 py-3 font-medium">{s.name}</td>
-                    <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.tier === "GOLD" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-muted-foreground"}`}>{s.tier}</span></td>
+                    <td className="px-4 py-3"><span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.tier === "GOLD" ? "bg-amber-500/10 text-amber-700 dark:text-amber-400" : "bg-muted text-muted-foreground"}`}>{s.tier}</span></td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="flex gap-0.5 w-16 h-1.5">
                           {Array.from({ length: 10 }).map((_, i) => (
-                            <div key={i} className={`flex-1 rounded-full ${i < Math.round(s.score / 10) ? barColor(s.score) : "bg-gray-200"}`} />
+                            <div key={i} className={`flex-1 rounded-full ${i < Math.round(s.score / 10) ? barColor(s.score) : "bg-muted"}`} />
                           ))}
                         </div>
                         <span className={`text-xs font-bold ${scoreColor(s.score)}`}>{s.score}</span>
@@ -80,7 +80,7 @@ export default async function PerformancePage() {
                     <td className="px-4 py-3 text-muted-foreground">{s.returnRate}%</td>
                     <td className="px-4 py-3 flex items-center gap-1 text-muted-foreground"><Clock className="h-3 w-3" /> {s.responseTime}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${s.trend >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${s.trend >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                         <TrendingUp className={`h-3 w-3 ${s.trend < 0 ? "rotate-180" : ""}`} /> {s.trend >= 0 ? "+" : ""}{s.trend}
                       </span>
                     </td>

@@ -8,6 +8,7 @@ const nextConfig = {
   // Lint is run as a separate `pnpm lint` step, not during the production build.
   eslint: { ignoreDuringBuilds: true },
   images: {
+    unoptimized: true,
     remotePatterns: [
       { protocol: "https", hostname: "*.avenick.com" },
       { protocol: "http", hostname: "localhost" },

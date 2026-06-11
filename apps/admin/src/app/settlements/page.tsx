@@ -8,9 +8,9 @@ import Link from "next/link";
 export const metadata = { title: "Settlements" };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
-  PENDING:    { label: "Pending",    color: "bg-amber-100 text-amber-700",  icon: Clock },
-  PROCESSING: { label: "Processing", color: "bg-blue-100 text-primary",    icon: RefreshCw },
-  PAID:       { label: "Paid",       color: "bg-green-100 text-green-700",  icon: CheckCircle },
+  PENDING:    { label: "Pending",    color: "bg-amber-500/10 text-amber-700 dark:text-amber-400",  icon: Clock },
+  PROCESSING: { label: "Processing", color: "bg-primary/10 text-primary",    icon: RefreshCw },
+  PAID:       { label: "Paid",       color: "bg-green-500/10 text-green-700 dark:text-green-400",  icon: CheckCircle },
 };
 
 const TABS = ["All", "Pending", "Processing", "Paid"] as const;
@@ -49,10 +49,10 @@ export default async function SettlementsPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Pending Payout", value: formatCurrency(pendingPayout, "AED"), color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
-            { label: "Gross Sales (GMV)", value: formatCurrency(totalGross, "AED"), color: "text-foreground", bg: "bg-white border-border" },
-            { label: "Commission Earned", value: formatCurrency(totalCommission, "AED"), color: "text-green-700", bg: "bg-green-50 border-green-200" },
-            { label: "Pending Sellers", value: pending.length, color: "text-primary", bg: "bg-blue-50 border-blue-200" },
+            { label: "Pending Payout", value: formatCurrency(pendingPayout, "AED"), color: "text-amber-600", bg: "bg-amber-500/10 border-amber-500/20" },
+            { label: "Gross Sales (GMV)", value: formatCurrency(totalGross, "AED"), color: "text-foreground", bg: "bg-card border-border" },
+            { label: "Commission Earned", value: formatCurrency(totalCommission, "AED"), color: "text-green-700", bg: "bg-green-500/10 border-green-500/20" },
+            { label: "Pending Sellers", value: pending.length, color: "text-primary", bg: "bg-primary/10 border-primary/20" },
           ].map(({ label, value, color, bg }) => (
             <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
               <p className={`text-xl font-bold ${color}`}>{value}</p>
@@ -62,20 +62,20 @@ export default async function SettlementsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-white border border-border rounded-xl p-1 w-fit overflow-x-auto">
+        <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit overflow-x-auto">
           {TABS.map((tab) => (
             <button key={tab} type="button"
-              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "All" ? "bg-slate-900 text-white" : "text-muted-foreground hover:text-foreground hover:bg-slate-50"}`}>
+              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "All" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}>
               {tab}
             </button>
           ))}
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
+              <thead className="bg-muted border-b border-border">
                 <tr>
                   {["Seller","Period","Orders","Gross Sales","Commission","Handling","Net Payout","Status","Action"].map(h => (
                     <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
@@ -87,10 +87,10 @@ export default async function SettlementsPage() {
                   const sc = STATUS_CONFIG[s.status];
                   const StatusIcon = sc.icon;
                   return (
-                    <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={s.id} className="hover:bg-muted/30 transition-colors">
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <div className="h-7 w-7 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                          <div className="h-7 w-7 rounded-lg bg-muted flex items-center justify-center shrink-0">
                             <Store className="h-3.5 w-3.5 text-muted-foreground" />
                           </div>
                           <p className="font-medium text-sm">{s.seller}</p>
@@ -121,7 +121,7 @@ export default async function SettlementsPage() {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 border-t border-border bg-slate-50">
+          <div className="px-4 py-3 border-t border-border bg-muted">
             <p className="text-xs text-muted-foreground">
               Settlements processed bi-weekly · Net payout = Gross − Commission − Handling fees
             </p>

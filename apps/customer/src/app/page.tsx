@@ -12,9 +12,13 @@ import {
   BadgeCheck,
   Sparkles,
 } from "lucide-react";
+import { getTranslations } from "next-intl/server";
+import { cookies } from "next/headers";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
 import { db } from "@avenick/database";
+
+export const dynamic = "force-dynamic";
 
 const CATEGORIES = [
   { slug: "industrial-supplies", nameEn: "Industrial", icon: Factory },
@@ -26,6 +30,15 @@ const CATEGORIES = [
 ];
 
 const PARTNERS = ["SKF", "EATON", "NSK", "TIMKEN", "ABB", "BOSCH", "SIEMENS", "GATES"];
+
+const CATEGORY_TRANSLATIONS: Record<string, string> = {
+  "industrial-supplies": "catIndustrial",
+  "electronics": "catElectronics",
+  "office-supplies": "catOffice",
+  "safety-ppe": "catSafety",
+  "food-hospitality": "catHospitality",
+  "building-materials": "catBuilding",
+};
 
 async function getFeaturedProducts() {
   return db.product.findMany({
@@ -43,6 +56,9 @@ async function getFeaturedProducts() {
 }
 
 export default async function HomePage() {
+  const cookieStore = await cookies();
+  const locale = (cookieStore.get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
+  const t = await getTranslations("home");
   const products = await getFeaturedProducts();
 
   const mapped = products.map((p) => {
@@ -77,38 +93,37 @@ export default async function HomePage() {
         <div className="relative max-w-7xl mx-auto px-4 py-20 lg:py-28">
           <div className="max-w-3xl animate-fade-up">
             <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 backdrop-blur px-3 py-1 text-xs font-medium text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5 text-primary" /> The GCC's modern trade OS
+              <Sparkles className="h-3.5 w-3.5 text-primary" /> {t("heroTagline")}
             </span>
             <h1 className="mt-6 text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tighter leading-[0.95]">
-              Sourcing,
+              {t("heroTitle1")}
               <br />
-              <span className="text-gradient">re-imagined.</span>
+              <span className="text-gradient">{t("heroTitle2")}</span>
             </h1>
             <p className="mt-6 text-lg text-muted-foreground max-w-xl">
-              48,000+ products from 2,400+ verified GCC suppliers. Buy retail or
-              request volume quotes — one platform, B2B-first and B2C-ready.
+              {t("heroDesc")}
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link
                 href="/products"
                 className="inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 hover:shadow-glow transition-all active:scale-[0.98]"
               >
-                Start buying <ArrowRight className="h-4 w-4" />
+                {t("startBuying")} <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/b2b/rfq/new"
                 className="inline-flex items-center gap-2 h-12 px-6 rounded-xl border border-border bg-card/60 backdrop-blur font-semibold hover:bg-secondary transition-colors"
               >
-                Request a quote
+                {t("requestQuote")}
               </Link>
             </div>
 
             {/* trust stats */}
             <div className="mt-12 grid grid-cols-3 gap-6 max-w-lg border-t border-border pt-6">
               {[
-                { v: "2,400+", l: "Verified suppliers" },
-                { v: "48,000+", l: "Products" },
-                { v: "287", l: "B2B companies" },
+                { v: "2,400+", l: t("statSuppliers") },
+                { v: "48,000+", l: t("statProducts") },
+                { v: "287", l: t("statCompanies") },
               ].map((s) => (
                 <div key={s.l}>
                   <p className="text-2xl font-bold font-mono tracking-tight">{s.v}</p>
@@ -122,7 +137,7 @@ export default async function HomePage() {
         {/* partner marquee */}
         <div className="relative border-t border-border bg-background/40 backdrop-blur">
           <div className="max-w-7xl mx-auto px-4 py-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
-            <span className="text-[11px] uppercase tracking-widest text-muted-foreground">Trusted brands</span>
+            <span className="text-[11px] uppercase tracking-widest text-muted-foreground">{t("trustedBrands")}</span>
             {PARTNERS.map((b) => (
               <span key={b} className="text-sm font-bold tracking-wide text-muted-foreground/70 hover:text-foreground transition-colors">{b}</span>
             ))}
@@ -133,7 +148,7 @@ export default async function HomePage() {
       {/* ─── Category strip ───────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 py-10">
         <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
-          {CATEGORIES.map(({ slug, nameEn, icon: Icon }) => (
+          {CATEGORIES.map(({ slug, icon: Icon }) => (
             <Link
               key={slug}
               href={`/products?category=${slug}`}
@@ -142,40 +157,40 @@ export default async function HomePage() {
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                 <Icon className="h-4 w-4" />
               </span>
-              <span className="text-sm font-semibold whitespace-nowrap">{nameEn}</span>
+              <span className="text-sm font-semibold whitespace-nowrap">{t(CATEGORY_TRANSLATIONS[slug] || "catIndustrial")}</span>
             </Link>
           ))}
         </div>
       </section>
 
       {/* ─── Best sellers ─────────────────────────────────── */}
-      <Section title="Best sellers" subtitle="Most ordered this week" href="/products">
-        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} badge="HOT" />)}</Grid>
+      <Section title={t("bestSellers")} subtitle={t("bestSellersSub")} href="/products">
+        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} locale={locale} badge="HOT" />)}</Grid>
       </Section>
 
       {/* ─── Value props ──────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 py-12">
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { icon: BadgeCheck, t: "Verified suppliers", d: "Every seller is KYC-checked with valid trade licenses." },
-            { icon: ShieldCheck, t: "Buyer protection", d: "Secure payments, escrow, and easy refunds on every order." },
-            { icon: Truck, t: "GCC-wide logistics", d: "Integrated 3PL with live tracking across the Gulf." },
-            { icon: Sparkles, t: "AI sourcing", d: "Smart RFQs and quote comparison that save procurement hours." },
-          ].map(({ icon: Icon, t, d }) => (
-            <div key={t} className="rounded-2xl border border-border bg-card p-5 hover:border-primary/40 hover:shadow-card transition-all">
+            { icon: BadgeCheck, titleKey: "prop1Title", descKey: "prop1Desc" },
+            { icon: ShieldCheck, titleKey: "prop2Title", descKey: "prop2Desc" },
+            { icon: Truck, titleKey: "prop3Title", descKey: "prop3Desc" },
+            { icon: Sparkles, titleKey: "prop4Title", descKey: "prop4Desc" },
+          ].map(({ icon: Icon, titleKey, descKey }) => (
+            <div key={titleKey} className="rounded-2xl border border-border bg-card p-5 hover:border-primary/40 hover:shadow-card transition-all">
               <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary mb-4">
                 <Icon className="h-5 w-5" />
               </span>
-              <h3 className="font-semibold">{t}</h3>
-              <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{d}</p>
+              <h3 className="font-semibold">{t(titleKey)}</h3>
+              <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t(descKey)}</p>
             </div>
           ))}
         </div>
       </section>
 
       {/* ─── Featured ─────────────────────────────────────── */}
-      <Section title="Featured products" subtitle="Hand-picked by our team" href="/products">
-        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} badge="NEW" />)}</Grid>
+      <Section title={t("featuredProducts")} subtitle={t("featuredProductsSub")} href="/products">
+        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} locale={locale} badge="NEW" />)}</Grid>
       </Section>
 
       {/* ─── B2B CTA band ─────────────────────────────────── */}
@@ -183,16 +198,13 @@ export default async function HomePage() {
         <div className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-primary-600 to-accent-700 p-10 lg:p-14 text-white">
           <div className="absolute -bottom-20 -end-10 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
           <div className="relative max-w-xl">
-            <h2 className="text-3xl lg:text-4xl font-extrabold tracking-tight">Procuring at volume?</h2>
-            <p className="mt-3 text-white/80">
-              Submit an RFQ and get competitive quotes from 3+ verified suppliers — with
-              approval workflows, credit terms, and consolidated invoicing.
-            </p>
+            <h2 className="text-3xl lg:text-4xl font-extrabold tracking-tight">{t("b2bTitle")}</h2>
+            <p className="mt-3 text-white/80">{t("b2bDesc")}</p>
             <Link
               href="/b2b/rfq/new"
               className="mt-7 inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-white text-primary-700 font-semibold hover:bg-white/90 transition-colors active:scale-[0.98]"
             >
-              Submit an RFQ <ArrowRight className="h-4 w-4" />
+              {t("b2bCta")} <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>

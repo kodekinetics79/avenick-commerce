@@ -34,17 +34,17 @@ const MOCK_COMPANIES: Array<{
 ];
 
 const STATUS_CONFIG: Record<CompanyStatus, { label: string; color: string }> = {
-  ACTIVE: { label: "Active", color: "bg-green-100 text-green-700" },
-  SUSPENDED: { label: "Suspended", color: "bg-red-100 text-red-700" },
-  PENDING_REVIEW: { label: "Pending Review", color: "bg-amber-100 text-amber-700" },
-  CREDIT_HOLD: { label: "Credit Hold", color: "bg-orange-100 text-orange-700" },
+  ACTIVE: { label: "Active", color: "bg-green-500/10 text-green-700 dark:text-green-400" },
+  SUSPENDED: { label: "Suspended", color: "bg-red-500/10 text-red-700 dark:text-red-400" },
+  PENDING_REVIEW: { label: "Pending Review", color: "bg-amber-500/10 text-amber-700 dark:text-amber-400" },
+  CREDIT_HOLD: { label: "Credit Hold", color: "bg-orange-500/10 text-orange-700 dark:text-orange-400" },
 };
 
 const HEALTH_CONFIG: Record<HealthLevel, { color: string; dot: string }> = {
-  EXCELLENT: { color: "text-green-600", dot: "bg-green-500" },
-  GOOD: { color: "text-primary", dot: "bg-blue-500" },
-  FAIR: { color: "text-amber-600", dot: "bg-amber-500" },
-  POOR: { color: "text-red-600", dot: "bg-red-500" },
+  EXCELLENT: { color: "text-green-600 dark:text-green-400", dot: "bg-green-500" },
+  GOOD: { color: "text-primary", dot: "bg-primary" },
+  FAIR: { color: "text-amber-600 dark:text-amber-400", dot: "bg-amber-500" },
+  POOR: { color: "text-red-600 dark:text-red-400", dot: "bg-red-500" },
 };
 
 export default async function CompaniesPage() {
@@ -70,15 +70,15 @@ export default async function CompaniesPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <div className="bg-white rounded-2xl border border-border p-4">
+          <div className="bg-card rounded-2xl border border-border p-4">
             <div className="flex items-center gap-2 mb-2">
               <Building2 className="h-4 w-4 text-blue-500" />
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Accounts</p>
             </div>
             <p className="text-2xl font-bold">{MOCK_COMPANIES.length}</p>
-            <p className="text-xs text-green-600 mt-1">+18 this month</p>
+            <p className="text-xs text-green-600 dark:text-green-400 mt-1">+18 this month</p>
           </div>
-          <div className="bg-white rounded-2xl border border-border p-4">
+          <div className="bg-card rounded-2xl border border-border p-4">
             <div className="flex items-center gap-2 mb-2">
               <Users className="h-4 w-4 text-green-500" />
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Active</p>
@@ -86,15 +86,15 @@ export default async function CompaniesPage() {
             <p className="text-2xl font-bold text-green-600">{activeCount}</p>
             <p className="text-xs text-muted-foreground mt-1">Ordered this month</p>
           </div>
-          <div className="bg-white rounded-2xl border border-border p-4">
+          <div className="bg-card rounded-2xl border border-border p-4">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className="h-4 w-4 text-orange-500" />
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total GMV</p>
             </div>
             <p className="text-2xl font-bold">AED {(totalGMV / 1000).toFixed(0)}k</p>
-            <p className="text-xs text-green-600 mt-1">+24% vs last month</p>
+            <p className="text-xs text-green-600 dark:text-green-400 mt-1">+24% vs last month</p>
           </div>
-          <div className="bg-white rounded-2xl border border-border p-4">
+          <div className="bg-card rounded-2xl border border-border p-4">
             <div className="flex items-center gap-2 mb-2">
               <CreditCard className="h-4 w-4 text-purple-500" />
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Total Credit Issued</p>
@@ -105,7 +105,7 @@ export default async function CompaniesPage() {
         </div>
 
         {/* Search and filter bar */}
-        <div className="flex items-center gap-3 bg-white rounded-2xl border border-border p-3">
+        <div className="flex items-center gap-3 bg-card rounded-2xl border border-border p-3">
           <div className="flex items-center gap-2 flex-1">
             <Search className="h-4 w-4 text-muted-foreground shrink-0" />
             <input type="text" placeholder="Search by company name, CR number, city..." className="flex-1 text-sm text-muted-foreground placeholder:text-muted-foreground outline-none" />
@@ -115,7 +115,7 @@ export default async function CompaniesPage() {
               <button
                 key={f}
                 type="button"
-                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${f === "All" ? "bg-slate-700 text-white" : "bg-slate-100 text-muted-foreground hover:bg-slate-200"}`}
+                className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${f === "All" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}
               >
                 {f}
               </button>
@@ -124,10 +124,10 @@ export default async function CompaniesPage() {
         </div>
 
         {/* Companies table */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-border text-xs text-muted-foreground uppercase tracking-wide">
+              <thead className="bg-muted border-b border-border text-xs text-muted-foreground uppercase tracking-wide">
                 <tr>
                   <th className="text-start px-5 py-3">Company</th>
                   <th className="text-start px-5 py-3 hidden sm:table-cell">Location</th>
@@ -149,7 +149,7 @@ export default async function CompaniesPage() {
                     <tr key={company.id} className="hover:bg-muted/20 transition-colors">
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                          <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
                             <Building2 className="h-4 w-4 text-muted-foreground" />
                           </div>
                           <div>
@@ -171,7 +171,7 @@ export default async function CompaniesPage() {
                           </div>
                           <div className="flex gap-0.5 w-24 h-1.5">
                             {Array.from({ length: 10 }).map((_, i) => (
-                              <div key={i} className={`flex-1 rounded-full ${i < Math.floor(creditPct / 10) ? (creditPct > 85 ? "bg-amber-500" : creditPct > 60 ? "bg-blue-500" : "bg-green-500") : "bg-gray-100"}`} />
+                              <div key={i} className={`flex-1 rounded-full ${i < Math.floor(creditPct / 10) ? (creditPct > 85 ? "bg-amber-500" : creditPct > 60 ? "bg-blue-500" : "bg-green-500") : "bg-muted"}`} />
                             ))}
                           </div>
                         </div>

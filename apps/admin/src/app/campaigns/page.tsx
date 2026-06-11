@@ -8,15 +8,15 @@ import Link from "next/link";
 export const metadata = { title: "Campaigns" };
 
 const CHANNEL_CONFIG: Record<string, { icon: typeof Mail; color: string }> = {
-  EMAIL:    { icon: Mail,          color: "bg-blue-100 text-primary" },
-  SMS:      { icon: MessageSquare, color: "bg-green-100 text-green-700" },
-  WHATSAPP: { icon: Send,          color: "bg-emerald-100 text-emerald-700" },
+  EMAIL:    { icon: Mail,          color: "bg-primary/10 text-primary" },
+  SMS:      { icon: MessageSquare, color: "bg-green-500/10 text-green-700 dark:text-green-400" },
+  WHATSAPP: { icon: Send,          color: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
 };
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Play }> = {
-  ACTIVE:    { label: "Active",    color: "bg-green-100 text-green-700",  icon: Play },
-  SCHEDULED: { label: "Scheduled", color: "bg-amber-100 text-amber-700",  icon: Pause },
-  COMPLETED: { label: "Completed", color: "bg-slate-100 text-muted-foreground",  icon: CheckCircle },
+  ACTIVE:    { label: "Active",    color: "bg-green-500/10 text-green-700 dark:text-green-400",  icon: Play },
+  SCHEDULED: { label: "Scheduled", color: "bg-amber-500/10 text-amber-700 dark:text-amber-400",  icon: Pause },
+  COMPLETED: { label: "Completed", color: "bg-muted text-muted-foreground",  icon: CheckCircle },
 };
 
 const TABS = ["All", "Active", "Scheduled", "Completed"] as const;
@@ -48,7 +48,7 @@ export default async function CampaignsPage() {
             <h1 className="text-2xl font-bold">Campaign Manager</h1>
             <p className="text-sm text-muted-foreground">{active.length} active · multi-channel marketing campaigns</p>
           </div>
-          <button type="button" className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+          <button type="button" className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
             <Plus className="h-3.5 w-3.5" /> New Campaign
           </button>
         </div>
@@ -56,10 +56,10 @@ export default async function CampaignsPage() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Active Campaigns", value: active.length, color: "text-green-600", bg: "bg-green-50 border-green-200" },
-            { label: "Total Sent", value: totalSent.toLocaleString(), color: "text-primary", bg: "bg-blue-50 border-blue-200" },
-            { label: "Avg Open Rate", value: `${avgOpenRate}%`, color: "text-purple-600", bg: "bg-purple-50 border-purple-200" },
-            { label: "Attributed Revenue", value: formatCurrency(totalRevenue, "AED"), color: "text-green-700", bg: "bg-white border-border" },
+            { label: "Active Campaigns", value: active.length, color: "text-green-600", bg: "bg-green-500/10 border-green-500/20" },
+            { label: "Total Sent", value: totalSent.toLocaleString(), color: "text-primary", bg: "bg-primary/10 border-primary/20" },
+            { label: "Avg Open Rate", value: `${avgOpenRate}%`, color: "text-purple-600", bg: "bg-purple-500/10 border-purple-500/20" },
+            { label: "Attributed Revenue", value: formatCurrency(totalRevenue, "AED"), color: "text-green-700", bg: "bg-card border-border" },
           ].map(({ label, value, color, bg }) => (
             <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
               <p className={`text-xl font-bold ${color}`}>{value}</p>
@@ -69,10 +69,10 @@ export default async function CampaignsPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-white border border-border rounded-xl p-1 w-fit overflow-x-auto">
+        <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit overflow-x-auto">
           {TABS.map((tab) => (
             <button key={tab} type="button"
-              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "All" ? "bg-slate-900 text-white" : "text-muted-foreground hover:text-foreground hover:bg-slate-50"}`}>
+              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "All" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted/30"}`}>
               {tab}
             </button>
           ))}
@@ -90,7 +90,7 @@ export default async function CampaignsPage() {
             const convRate = c.clicked > 0 ? Math.round((c.converted / c.clicked) * 100) : 0;
 
             return (
-              <div key={c.id} className="bg-white rounded-2xl border border-border p-5">
+              <div key={c.id} className="bg-card rounded-2xl border border-border p-5">
                 <div className="flex items-start justify-between gap-4 mb-4">
                   <div className="flex items-start gap-3">
                     <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 ${cc.color}`}>
@@ -123,7 +123,7 @@ export default async function CampaignsPage() {
                       { label: "Clicked", value: c.clicked.toLocaleString(), sub: `${clickRate}% CTR` },
                       { label: "Converted", value: c.converted.toLocaleString(), sub: `${convRate}% conv` },
                     ].map(({ label, value, sub }) => (
-                      <div key={label} className="bg-slate-50 rounded-xl p-3">
+                      <div key={label} className="bg-muted rounded-xl p-3">
                         <p className="text-lg font-bold">{value}</p>
                         <p className="text-xs text-muted-foreground">{label}</p>
                         {sub && <p className="text-xs text-green-600 font-medium">{sub}</p>}
@@ -131,11 +131,11 @@ export default async function CampaignsPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-center justify-between">
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex items-center justify-between">
                     <p className="text-sm text-amber-700">Scheduled to launch on <strong>{c.startDate}</strong></p>
                     <div className="flex gap-2">
                       <button type="button" className="text-xs bg-green-600 text-white px-3 py-1 rounded-lg hover:bg-green-700 font-medium transition-colors">Launch Now</button>
-                      <button type="button" className="text-xs border border-border text-muted-foreground px-3 py-1 rounded-lg hover:bg-white font-medium transition-colors">Edit</button>
+                      <button type="button" className="text-xs border border-border text-muted-foreground px-3 py-1 rounded-lg hover:bg-muted/30 font-medium transition-colors">Edit</button>
                     </div>
                   </div>
                 )}

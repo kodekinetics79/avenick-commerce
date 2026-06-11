@@ -24,7 +24,7 @@ const INTEGRATIONS: Array<{
     category: "ERP",
     status: "CONNECTED",
     lastSync: "5 min ago",
-    iconBg: "bg-blue-100",
+    iconBg: "bg-primary/10"
     iconColor: "text-primary",
     icon: "ERP",
   },
@@ -35,7 +35,7 @@ const INTEGRATIONS: Array<{
     category: "CRM",
     status: "CONNECTED",
     lastSync: "12 min ago",
-    iconBg: "bg-sky-100",
+    iconBg: "bg-sky-500/10"
     iconColor: "text-sky-600",
     icon: "CRM",
   },
@@ -46,7 +46,7 @@ const INTEGRATIONS: Array<{
     category: "Payments",
     status: "CONNECTED",
     lastSync: "Real-time",
-    iconBg: "bg-violet-100",
+    iconBg: "bg-violet-500/10"
     iconColor: "text-violet-600",
     icon: "PAY",
   },
@@ -57,7 +57,7 @@ const INTEGRATIONS: Array<{
     category: "Shipping",
     status: "CONNECTED",
     lastSync: "15 min ago",
-    iconBg: "bg-amber-100",
+    iconBg: "bg-amber-500/10"
     iconColor: "text-amber-600",
     icon: "SHP",
   },
@@ -67,7 +67,7 @@ const INTEGRATIONS: Array<{
     purpose: "Warehouse management, pick/pack, and stock sync",
     category: "Warehouse",
     status: "AVAILABLE",
-    iconBg: "bg-emerald-100",
+    iconBg: "bg-emerald-500/10"
     iconColor: "text-emerald-600",
     icon: "WMS",
   },
@@ -78,7 +78,7 @@ const INTEGRATIONS: Array<{
     category: "Accounting",
     status: "CONNECTED",
     lastSync: "1 hour ago",
-    iconBg: "bg-yellow-100",
+    iconBg: "bg-yellow-500/10"
     iconColor: "text-yellow-600",
     icon: "ACC",
   },
@@ -89,7 +89,7 @@ const INTEGRATIONS: Array<{
     category: "Messaging",
     status: "CONNECTED",
     lastSync: "Real-time",
-    iconBg: "bg-green-100",
+    iconBg: "bg-green-500/10"
     iconColor: "text-green-600",
     icon: "WA",
   },
@@ -100,7 +100,7 @@ const INTEGRATIONS: Array<{
     category: "Search",
     status: "CONNECTED",
     lastSync: "Instant",
-    iconBg: "bg-pink-100",
+    iconBg: "bg-pink-500/10"
     iconColor: "text-pink-600",
     icon: "SCH",
   },
@@ -111,7 +111,7 @@ const INTEGRATIONS: Array<{
     category: "AI Provider",
     status: "CONNECTED",
     lastSync: "Real-time",
-    iconBg: "bg-indigo-100",
+    iconBg: "bg-indigo-500/10"
     iconColor: "text-indigo-600",
     icon: "AI",
   },
@@ -122,7 +122,7 @@ const INTEGRATIONS: Array<{
     category: "Storage",
     status: "CONNECTED",
     lastSync: "Real-time",
-    iconBg: "bg-amber-100",
+    iconBg: "bg-amber-500/10"
     iconColor: "text-amber-600",
     icon: "S3",
   },
@@ -132,7 +132,7 @@ const INTEGRATIONS: Array<{
     purpose: "Automated VAT filing and e-invoicing for KSA regulations",
     category: "Tax / VAT",
     status: "AVAILABLE",
-    iconBg: "bg-red-100",
+    iconBg: "bg-red-500/10"
     iconColor: "text-red-600",
     icon: "VAT",
   },
@@ -142,16 +142,16 @@ const INTEGRATIONS: Array<{
     purpose: "Single sign-on for enterprise B2B buyers and admin staff",
     category: "Identity",
     status: "COMING_SOON",
-    iconBg: "bg-slate-100",
+    iconBg: "bg-muted"
     iconColor: "text-muted-foreground",
     icon: "SSO",
   },
 ];
 
 const STATUS_CONFIG: Record<IntegrationStatus, { label: string; color: string; icon: typeof CheckCircle }> = {
-  CONNECTED: { label: "Connected", color: "bg-green-100 text-green-700", icon: CheckCircle },
-  AVAILABLE: { label: "Available", color: "bg-blue-100 text-primary", icon: Clock },
-  COMING_SOON: { label: "Coming Soon", color: "bg-slate-100 text-muted-foreground", icon: AlertTriangle },
+  CONNECTED: { label: "Connected", color: "bg-green-500/10 text-green-700 dark:text-green-400", icon: CheckCircle },
+  AVAILABLE: { label: "Available", color: "bg-primary/10 text-primary", icon: Clock },
+  COMING_SOON: { label: "Coming Soon", color: "bg-muted text-muted-foreground", icon: AlertTriangle },
 };
 
 export default async function IntegrationsPage() {
@@ -175,11 +175,11 @@ export default async function IntegrationsPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-1.5">
+            <div className="flex items-center gap-2 bg-muted rounded-lg px-3 py-1.5">
               <Search className="h-3.5 w-3.5 text-muted-foreground" />
               <input type="text" placeholder="Search integrations..." className="bg-transparent text-sm text-muted-foreground placeholder:text-muted-foreground outline-none w-36" />
             </div>
-            <button type="button" className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-muted-foreground px-3 py-1.5 rounded-lg text-sm transition-colors">
+            <button type="button" className="flex items-center gap-2 bg-muted hover:bg-muted/50 text-muted-foreground px-3 py-1.5 rounded-lg text-sm transition-colors">
               <RefreshCw className="h-3.5 w-3.5" /> Sync All
             </button>
           </div>
@@ -187,15 +187,15 @@ export default async function IntegrationsPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3">
-          <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
+          <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4">
             <p className="text-2xl font-bold text-green-700">{connected}</p>
             <p className="text-xs text-green-600 mt-1">Connected & Active</p>
           </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
+          <div className="bg-primary/10 border border-primary/20 rounded-2xl p-4">
             <p className="text-2xl font-bold text-primary">{available}</p>
             <p className="text-xs text-primary mt-1">Available to Connect</p>
           </div>
-          <div className="bg-white border border-border rounded-2xl p-4">
+          <div className="bg-card border border-border rounded-2xl p-4">
             <p className="text-2xl font-bold">{INTEGRATIONS.length}</p>
             <p className="text-xs text-muted-foreground mt-1">Total in Catalog</p>
           </div>
@@ -208,7 +208,7 @@ export default async function IntegrationsPage() {
             const StatusIcon = cfg.icon;
 
             return (
-              <div key={integration.id} className="bg-white rounded-2xl border border-border p-4 hover:shadow-sm transition-shadow">
+              <div key={integration.id} className="bg-card rounded-2xl border border-border p-4 hover:shadow-sm transition-shadow">
                 <div className="flex items-start gap-3 mb-3">
                   <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 font-mono text-xs font-bold ${integration.iconBg} ${integration.iconColor}`}>
                     {integration.icon}
@@ -217,7 +217,7 @@ export default async function IntegrationsPage() {
                     <div className="flex items-center gap-2 mb-0.5">
                       <h3 className="font-semibold text-sm text-foreground truncate">{integration.name}</h3>
                     </div>
-                    <span className="text-[10px] bg-slate-100 text-muted-foreground px-1.5 py-0.5 rounded font-medium">{integration.category}</span>
+                    <span className="text-[10px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded font-medium">{integration.category}</span>
                   </div>
                 </div>
 
@@ -236,10 +236,10 @@ export default async function IntegrationsPage() {
                 <div className="flex gap-2">
                   {integration.status === "CONNECTED" ? (
                     <>
-                      <button type="button" className="flex-1 flex items-center justify-center gap-1 text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
+                      <button type="button" className="flex-1 flex items-center justify-center gap-1 text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-muted/30 transition-colors">
                         <Settings className="h-3 w-3" /> Configure
                       </button>
-                      <button type="button" className="flex items-center justify-center gap-1 text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
+                      <button type="button" className="flex items-center justify-center gap-1 text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-muted/30 transition-colors">
                         <ExternalLink className="h-3 w-3" /> Logs
                       </button>
                     </>
@@ -248,7 +248,7 @@ export default async function IntegrationsPage() {
                       <Plug className="h-3 w-3" /> Connect
                     </button>
                   ) : (
-                    <button type="button" disabled className="flex-1 text-xs bg-slate-100 text-muted-foreground px-3 py-1.5 rounded-lg cursor-not-allowed">
+                    <button type="button" disabled className="flex-1 text-xs bg-muted text-muted-foreground px-3 py-1.5 rounded-lg cursor-not-allowed">
                       Coming Soon
                     </button>
                   )}
