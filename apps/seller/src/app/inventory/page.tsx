@@ -21,19 +21,19 @@ export default async function InventoryPage() {
         </div>
 
         {stocks.filter((s) => s.isLow || s.isOut).length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <div>
-              <p className="font-semibold text-amber-800 text-sm">
+              <p className="font-semibold text-amber-700 dark:text-amber-400 text-sm">
                 {stocks.filter((s) => s.isOut).length > 0 && `${stocks.filter((s) => s.isOut).length} product(s) out of stock. `}
                 {stocks.filter((s) => s.isLow && !s.isOut).length > 0 && `${stocks.filter((s) => s.isLow && !s.isOut).length} product(s) below reorder point.`}
               </p>
-              <p className="text-xs text-amber-600 mt-0.5">Replenish stock to avoid missed orders and listing suppression.</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Replenish stock to avoid missed orders and listing suppression.</p>
             </div>
           </div>
         )}
 
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 border-b border-border">
@@ -49,7 +49,7 @@ export default async function InventoryPage() {
               </thead>
               <tbody className="divide-y divide-border">
                 {stocks.map((s) => (
-                  <tr key={s.id} className={`hover:bg-muted/20 ${s.isOut ? "bg-red-50/50" : s.isLow ? "bg-yellow-50/50" : ""}`}>
+                  <tr key={s.id} className={`hover:bg-muted/20 ${s.isOut ? "bg-red-500/10" : s.isLow ? "bg-yellow-500/10" : ""}`}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         {s.product?.images[0] && (
@@ -70,7 +70,7 @@ export default async function InventoryPage() {
                     <td className="px-4 py-3 font-bold">{s.available}</td>
                     <td className="px-4 py-3 text-muted-foreground">{s.reorderPoint}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${s.isOut ? "bg-red-100 text-red-700" : s.isLow ? "bg-yellow-100 text-yellow-700" : "bg-green-100 text-green-700"}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${s.isOut ? "bg-red-500/10 text-red-600 dark:text-red-400" : s.isLow ? "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400" : "bg-green-500/10 text-green-600 dark:text-green-400"}`}>
                         {s.isOut ? "Out of Stock" : s.isLow ? "Low Stock" : "OK"}
                       </span>
                     </td>

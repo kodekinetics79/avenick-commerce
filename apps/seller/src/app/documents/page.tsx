@@ -58,22 +58,22 @@ export default async function DocumentsPage() {
 
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
-            <CheckCircle className="h-4 w-4 text-green-600 mb-2" />
-            <p className="text-2xl font-bold text-green-700">{validDocs.length}</p>
-            <p className="text-xs text-green-600 mt-0.5">Valid Documents</p>
+          <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4">
+            <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mb-2" />
+            <p className="text-2xl font-bold text-green-600 dark:text-green-400">{validDocs.length}</p>
+            <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">Valid Documents</p>
           </div>
-          <div className={`rounded-2xl border p-4 ${expiringDocs.length > 0 ? "bg-amber-50 border-amber-200" : "bg-white border-border"}`}>
-            <AlertTriangle className={`h-4 w-4 mb-2 ${expiringDocs.length > 0 ? "text-amber-600" : "text-muted-foreground"}`} />
-            <p className={`text-2xl font-bold ${expiringDocs.length > 0 ? "text-amber-700" : ""}`}>{expiringDocs.length}</p>
-            <p className={`text-xs mt-0.5 ${expiringDocs.length > 0 ? "text-amber-600" : "text-muted-foreground"}`}>Expiring Soon</p>
+          <div className={`rounded-2xl border p-4 ${expiringDocs.length > 0 ? "bg-amber-500/10 border-amber-500/20" : "bg-card border-border"}`}>
+            <AlertTriangle className={`h-4 w-4 mb-2 ${expiringDocs.length > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`} />
+            <p className={`text-2xl font-bold ${expiringDocs.length > 0 ? "text-amber-700 dark:text-amber-400" : ""}`}>{expiringDocs.length}</p>
+            <p className={`text-xs mt-0.5 ${expiringDocs.length > 0 ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>Expiring Soon</p>
           </div>
-          <div className={`rounded-2xl border p-4 ${expiredDocs.length > 0 ? "bg-red-50 border-red-200" : "bg-white border-border"}`}>
-            <XCircle className={`h-4 w-4 mb-2 ${expiredDocs.length > 0 ? "text-red-600" : "text-muted-foreground"}`} />
-            <p className={`text-2xl font-bold ${expiredDocs.length > 0 ? "text-red-700" : ""}`}>{expiredDocs.length}</p>
-            <p className={`text-xs mt-0.5 ${expiredDocs.length > 0 ? "text-red-600" : "text-muted-foreground"}`}>Expired</p>
+          <div className={`rounded-2xl border p-4 ${expiredDocs.length > 0 ? "bg-red-500/10 border-red-500/20" : "bg-card border-border"}`}>
+            <XCircle className={`h-4 w-4 mb-2 ${expiredDocs.length > 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`} />
+            <p className={`text-2xl font-bold ${expiredDocs.length > 0 ? "text-red-700 dark:text-red-400" : ""}`}>{expiredDocs.length}</p>
+            <p className={`text-xs mt-0.5 ${expiredDocs.length > 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}>Expired</p>
           </div>
-          <div className="bg-white border border-border rounded-2xl p-4">
+          <div className="bg-card border border-border rounded-2xl p-4">
             <Clock className="h-4 w-4 text-yellow-500 mb-2" />
             <p className="text-2xl font-bold">{documents.filter((d) => d.status === "PENDING_REVIEW").length}</p>
             <p className="text-xs text-muted-foreground mt-0.5">Under Review</p>
@@ -82,13 +82,13 @@ export default async function DocumentsPage() {
 
         {/* Alert banners */}
         {expiredDocs.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
-            <div className="h-9 w-9 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
-              <XCircle className="h-5 w-5 text-red-600" />
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-start gap-3">
+            <div className="h-9 w-9 rounded-xl bg-red-500/10 flex items-center justify-center shrink-0">
+              <XCircle className="h-5 w-5 text-red-600 dark:text-red-400" />
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-red-800 text-sm">{expiredDocs.length} document{expiredDocs.length > 1 ? "s" : ""} expired — Action required</p>
-              <p className="text-xs text-red-600 mt-0.5">{expiredDocs.map((d) => d.name).join(", ")} — Please renew immediately to avoid account suspension.</p>
+              <p className="font-semibold text-red-700 dark:text-red-400 text-sm">{expiredDocs.length} document{expiredDocs.length > 1 ? "s" : ""} expired — Action required</p>
+              <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">{expiredDocs.map((d) => d.name).join(", ")} — Please renew immediately to avoid account suspension.</p>
             </div>
             <button type="button" className="text-xs bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg font-semibold shrink-0 transition-colors">
               Renew Now
@@ -96,13 +96,13 @@ export default async function DocumentsPage() {
           </div>
         )}
         {expiringDocs.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
-            <div className="h-9 w-9 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-              <AlertTriangle className="h-5 w-5 text-amber-600" />
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-start gap-3">
+            <div className="h-9 w-9 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-amber-800 text-sm">{expiringDocs.length} document{expiringDocs.length > 1 ? "s" : ""} expiring within 30 days</p>
-              <p className="text-xs text-amber-600 mt-0.5">{expiringDocs.map((d) => d.name).join(", ")} — Upload renewed copies to avoid disruption to your account.</p>
+              <p className="font-semibold text-amber-700 dark:text-amber-400 text-sm">{expiringDocs.length} document{expiringDocs.length > 1 ? "s" : ""} expiring within 30 days</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{expiringDocs.map((d) => d.name).join(", ")} — Upload renewed copies to avoid disruption to your account.</p>
             </div>
             <button type="button" className="text-xs bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-lg font-semibold shrink-0 transition-colors">
               Upload Renewal
@@ -122,15 +122,15 @@ export default async function DocumentsPage() {
             return (
               <div
                 key={doc.id}
-                className={`bg-white rounded-2xl border p-4 hover:shadow-sm transition-shadow ${
-                  expired ? "border-red-200 bg-red-50/30" :
-                  expiring ? "border-amber-200 bg-amber-50/30" :
+                className={`bg-card rounded-2xl border p-4 hover:shadow-sm transition-shadow ${
+                  expired ? "border-red-500/20 bg-red-500/5" :
+                  expiring ? "border-amber-500/20 bg-amber-500/5" :
                   "border-border"
                 }`}
               >
                 {/* Icon + status */}
                 <div className="flex items-start justify-between mb-3">
-                  <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center">
+                  <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center">
                     <FileText className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${cfg.color}`}>
@@ -145,13 +145,13 @@ export default async function DocumentsPage() {
 
                 {/* Expiry info */}
                 {doc.expiryDate && (
-                  <div className={`flex items-center gap-1.5 text-xs mb-3 ${expired ? "text-red-600" : expiring ? "text-amber-600" : "text-muted-foreground"}`}>
+                  <div className={`flex items-center gap-1.5 text-xs mb-3 ${expired ? "text-red-600 dark:text-red-400" : expiring ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>
                     <Calendar className="h-3 w-3 shrink-0" />
                     <span>
                       {expired ? "Expired on " : "Expires "}
                       {fmtDate(doc.expiryDate)}
                       {!expired && daysLeft !== null && (
-                        <span className={`ml-1 font-semibold ${expiring ? "text-amber-600" : "text-green-600"}`}>
+                        <span className={`ml-1 font-semibold ${expiring ? "text-amber-600 dark:text-amber-400" : "text-green-600 dark:text-green-400"}`}>
                           ({daysLeft > 0 ? `${daysLeft} days left` : "today"})
                         </span>
                       )}
@@ -163,7 +163,7 @@ export default async function DocumentsPage() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    className="flex-1 flex items-center justify-center gap-1.5 text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+                    className="flex-1 flex items-center justify-center gap-1.5 text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-muted transition-colors"
                   >
                     <Eye className="h-3 w-3" /> View
                   </button>
@@ -178,7 +178,7 @@ export default async function DocumentsPage() {
                   ) : (
                     <button
                       type="button"
-                      className="flex-1 flex items-center justify-center gap-1.5 text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1.5 text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-muted transition-colors"
                     >
                       <Upload className="h-3 w-3" /> Replace
                     </button>

@@ -1,0 +1,234 @@
+import { cookies } from "next/headers";
+import { Shield, Eye, ShieldAlert, Key, HelpCircle, FileLock } from "lucide-react";
+import { MainLayout } from "@/components/layout/main-layout";
+
+export const metadata = {
+  title: "Privacy Policy — Avenick Commerce",
+  description: "Avenick Commerce privacy policy and data protection guidelines under GCC regulations.",
+};
+
+export const dynamic = "force-dynamic";
+
+interface LegalSection {
+  id: string;
+  titleEn: string;
+  titleAr: string;
+  contentEn: React.ReactNode;
+  contentAr: React.ReactNode;
+  icon: typeof Shield;
+}
+
+const SECTIONS: LegalSection[] = [
+  {
+    id: "intro",
+    titleEn: "1. Introduction",
+    titleAr: "١. مقدمة",
+    icon: Shield,
+    contentEn: (
+      <>
+        <p>Welcome to Avenick Commerce. We are committed to protecting your personal and business data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website, use our B2B procurement platform, or purchase products from us.</p>
+        <p>By accessing or using our services, you consent to the practices described in this policy. If you do not agree with these terms, please do not use our platform.</p>
+      </>
+    ),
+    contentAr: (
+      <>
+        <p>مرحباً بكم في أفينيك كومرس (Avenick Commerce). نحن ملتزمون بحماية بياناتكم الشخصية والتجارية. توضح سياسة الخصوصية هذه كيفية جمع معلوماتكم واستخدامها والإفصاح عنها وحمايتها عند زيارتكم لموقعنا أو استخدام منصة المشتريات الخاصة بنا.</p>
+        <p>من خلال الوصول إلى خدماتنا أو استخدامها، فإنكم توافقون على الممارسات الموضحة في هذه السياسة. إذا كنتم لا توافقون على هذه الشروط، يرجى عدم استخدام منصتنا.</p>
+      </>
+    ),
+  },
+  {
+    id: "data-collection",
+    titleEn: "2. Information We Collect",
+    titleAr: "٢. المعلومات التي نجمعها",
+    icon: Eye,
+    contentEn: (
+      <>
+        <p>We collect information that you provide directly to us when creating an account, placing an order, or submitting a Request for Quotation (RFQ). This includes:</p>
+        <ul className="list-disc ps-5 space-y-1 mt-2">
+          <li><strong>Personal Information:</strong> Name, email address, phone number, and password.</li>
+          <li><strong>Business Details:</strong> Company name, Commercial Registration (CR) number, VAT certificate, size, and industry.</li>
+          <li><strong>Transaction Details:</strong> Payment terms, delivery sites, purchase orders, quotes, and billing history.</li>
+        </ul>
+      </>
+    ),
+    contentAr: (
+      <>
+        <p>نقوم بجمع المعلومات التي تقدمونها لنا مباشرة عند إنشاء حساب، أو تقديم طلب شراء، أو إرسال طلب عرض أسعار (RFQ). ويشمل ذلك:</p>
+        <ul className="list-disc ps-5 space-y-1 mt-2">
+          <li><strong>معلومات شخصية:</strong> الاسم، عنوان البريد الإلكتروني، رقم الهاتف، وكلمة المرور.</li>
+          <li><strong>تفاصيل العمل التجاري:</strong> اسم الشركة، رقم السجل التجاري (CR)، شهادة ضريبة القيمة المضافة، حجم الشركة، ومجال الصناعة.</li>
+          <li><strong>تفاصيل المعاملات:</strong> شروط الدفع، مواقع التسليم، أوامر الشراء، عروض الأسعار، وتاريخ الفواتير.</li>
+        </ul>
+      </>
+    ),
+  },
+  {
+    id: "data-use",
+    titleEn: "3. How We Use Your Information",
+    titleAr: "٣. كيفية استخدام معلوماتكم",
+    icon: Key,
+    contentEn: (
+      <>
+        <p>We process your data to deliver a secure, efficient B2B/B2C trading environment. Specifically, we use it to:</p>
+        <ul className="list-disc ps-5 space-y-1 mt-2">
+          <li>Facilitate RFQ distribution, quote comparisons, and order fulfillment.</li>
+          <li>Assess company credit line eligibility and establish Net payment terms.</li>
+          <li>Send transactional updates, security alerts, and customer support messages.</li>
+          <li>Comply with tax regulations, custom declarations, and GCC trade laws.</li>
+        </ul>
+      </>
+    ),
+    contentAr: (
+      <>
+        <p>نقوم بمعالجة بياناتكم لتوفير بيئة تجارية آمنة وفعالة للشركات والأفراد. وبشكل خاص، نستخدمها لـ:</p>
+        <ul className="list-disc ps-5 space-y-1 mt-2">
+          <li>تسهيل توزيع طلبات عروض الأسعار، ومقارنة العروض، وتلبية الطلبات.</li>
+          <li>تقييم أهلية الشركة للحصول على خط ائتمان وتحديد شروط الدفع الصافية.</li>
+          <li>إرسال تحديثات المعاملات، وتنبيهات الأمان، ورسائل دعم العملاء.</li>
+          <li>الامتثال للأنظمة الضريبية، والإقرارات الجمركية، وقوانين التجارة في دول مجلس التعاون الخليجي.</li>
+        </ul>
+      </>
+    ),
+  },
+  {
+    id: "gcc-compliance",
+    titleEn: "4. GCC Privacy Laws & Compliance",
+    titleAr: "٤. قوانين الخصوصية في الخليج والامتثال لها",
+    icon: ShieldAlert,
+    contentEn: (
+      <>
+        <p>We adhere to strict data security standards in compliance with local regulations across the Gulf Cooperation Council (GCC):</p>
+        <ul className="list-disc ps-5 space-y-2 mt-2">
+          <li><strong>United Arab Emirates:</strong> Compliant with the UAE Federal Decree-Law No. 45 of 2021 on Personal Data Protection (PDPL).</li>
+          <li><strong>Saudi Arabia:</strong> Compliant with the Saudi Personal Data Protection Law (PDPL) promulgated by Royal Decree No. M/147.</li>
+          <li><strong>Data Localization:</strong> All core company financial documents and identity details are hosted securely using local regional cloud infrastructure where legally required.</li>
+        </ul>
+      </>
+    ),
+    contentAr: (
+      <>
+        <p>نلتزم بمعايير أمن بيانات صارمة وفقاً للأنظمة المحلية السارية في دول مجلس التعاون الخليجي:</p>
+        <ul className="list-disc ps-5 space-y-2 mt-2">
+          <li><strong>دولة الإمارات العربية المتحدة:</strong> متوافق مع المرسوم بقانون اتحادي رقم ٤٥ لسنة ٢٠٢١ بشأن حماية البيانات الشخصية.</li>
+          <li><strong>المملكة العربية السعودية:</strong> متوافق مع نظام حماية البيانات الشخصية الصادر بالمرسوم الملكي رقم م/١٤٧.</li>
+          <li><strong>توطين البيانات:</strong> يتم استضافة جميع المستندات المالية والبيانات الهوية للشركة بشكل آمن في البنية التحتية السحابية الإقليمية المحلية بموجب القوانين ذات الصلة.</li>
+        </ul>
+      </>
+    ),
+  },
+  {
+    id: "user-rights",
+    titleEn: "5. Your Data Rights",
+    titleAr: "٥. حقوق البيانات الخاصة بكم",
+    icon: FileLock,
+    contentEn: (
+      <>
+        <p>Under local GCC privacy laws, you possess legal rights regarding your information. You have the right to request access, rectification, restriction of processing, or erasure of your personal data stored on our servers.</p>
+        <p>To exercise these rights, please contact your B2B account manager or email our data protection team directly.</p>
+      </>
+    ),
+    contentAr: (
+      <>
+        <p>بموجب قوانين الخصوصية المعمول بها في الخليج، لديكم حقوق قانونية كاملة تجاه بياناتكم. يحق لكم طلب الوصول إلى بياناتكم الشخصية المخزنة لدينا، أو تصحيحها، أو تقييد معالجتها، أو حذفها نهائياً.</p>
+        <p>لممارسة هذه الحقوق، يرجى الاتصال بمدير حساب B2B الخاص بكم أو إرسال بريد إلكتروني لفريق حماية البيانات لدينا مباشرة.</p>
+      </>
+    ),
+  },
+  {
+    id: "support",
+    titleEn: "6. Questions & Support",
+    titleAr: "٦. الأسئلة والدعم الفني",
+    icon: HelpCircle,
+    contentEn: (
+      <>
+        <p>If you have any questions about this Privacy Policy or how your data is treated, please reach out to our privacy officer at <a href="mailto:privacy@avenick.com" className="text-primary hover:underline font-semibold">privacy@avenick.com</a> or open a ticket in our support portal.</p>
+        <p>Avenick Commerce HQ: Al Quoz Industrial Area, Dubai, UAE.</p>
+      </>
+    ),
+    contentAr: (
+      <>
+        <p>إذا كانت لديكم أي استفسارات حول سياسة الخصوصية هذه أو كيفية التعامل مع بياناتكم، يرجى التواصل مع مسؤول الخصوصية لدينا عبر البريد الإلكتروني <a href="mailto:privacy@avenick.com" className="text-primary hover:underline font-semibold">privacy@avenick.com</a> أو فتح تذكرة دعم فني.</p>
+        <p>المقر الرئيسي لأفينيك كومرس: منطقة القوز الصناعية، دبي، الإمارات العربية المتحدة.</p>
+      </>
+    ),
+  },
+];
+
+export default async function PrivacyPage() {
+  const cookieStore = await cookies();
+  const locale = cookieStore.get("AVENICK_LOCALE")?.value ?? "en";
+  const isAr = locale === "ar";
+
+  return (
+    <MainLayout>
+      <div className="relative overflow-hidden min-h-screen bg-background text-foreground py-10 lg:py-16">
+        {/* Subtle glowing accents */}
+        <div className="absolute inset-0 bg-grid opacity-30" />
+        <div className="absolute top-20 start-1/4 h-80 w-80 rounded-full bg-primary/10 blur-[120px]" />
+        <div className="absolute bottom-20 end-1/4 h-80 w-80 rounded-full bg-accent/10 blur-[120px]" />
+
+        <div className="relative max-w-6xl mx-auto px-4">
+          {/* Header */}
+          <div className="mb-10 text-center max-w-2xl mx-auto">
+            <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight mb-3">
+              {isAr ? "سياسة الخصوصية" : "Privacy Policy"}
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              {isAr 
+                ? "آخر تحديث: يونيو ٢٠٢٦ — تعرف على كيفية حماية بياناتك الشخصية والتجارية بموجب اللوائح الخليجية." 
+                : "Last updated: June 2026 — Learn how we protect your personal and business data under GCC guidelines."}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-10 items-start">
+            {/* Sidebar Sticky TOC */}
+            <aside className="hidden lg:sticky lg:top-24 h-max bg-card border border-border rounded-2xl p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">
+                {isAr ? "جدول المحتويات" : "Table of Contents"}
+              </p>
+              <nav className="flex flex-col gap-2">
+                {SECTIONS.map((sec) => (
+                  <a
+                    key={sec.id}
+                    href={`#${sec.id}`}
+                    className="text-sm text-muted-foreground hover:text-primary hover:font-medium transition-colors"
+                  >
+                    {isAr ? sec.titleAr : sec.titleEn}
+                  </a>
+                ))}
+              </nav>
+            </aside>
+
+            {/* Content Body */}
+            <div className="space-y-6">
+              {SECTIONS.map((sec) => {
+                const SecIcon = sec.icon;
+                return (
+                  <section
+                    key={sec.id}
+                    id={sec.id}
+                    className="scroll-mt-24 bg-card border border-border rounded-2xl p-6 lg:p-8 hover:shadow-card transition-shadow"
+                  >
+                    <div className="flex items-center gap-3 mb-4">
+                      <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary shrink-0">
+                        <SecIcon className="h-5 w-5" />
+                      </span>
+                      <h2 className="text-lg lg:text-xl font-bold tracking-tight">
+                        {isAr ? sec.titleAr : sec.titleEn}
+                      </h2>
+                    </div>
+                    <div className="text-muted-foreground text-sm lg:text-base leading-relaxed space-y-4">
+                      {isAr ? sec.contentAr : sec.contentEn}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </MainLayout>
+  );
+}

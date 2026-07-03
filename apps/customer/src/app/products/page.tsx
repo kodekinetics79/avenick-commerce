@@ -11,6 +11,8 @@ import type { Prisma } from "@avenick/database";
 
 export const metadata: Metadata = { title: "Products — Avenick Commerce" };
 
+export const dynamic = "force-dynamic";
+
 interface SearchParams {
   category?: string;
   search?: string;
@@ -75,7 +77,7 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
   if (products.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4">
+        <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mb-4">
           <PackageSearch className="h-8 w-8 text-muted-foreground" />
         </div>
         <h3 className="font-semibold text-lg mb-1">No products found</h3>
@@ -127,7 +129,7 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
             <Link
               key={p}
               href={`?${new URLSearchParams({ ...searchParams, page: String(p) })}`}
-              className={`w-9 h-9 flex items-center justify-center rounded-xl text-sm font-medium transition-colors ${p === page ? "bg-primary/100 text-white" : "bg-white border border-border hover:bg-primary/10"}`}
+              className={`w-9 h-9 flex items-center justify-center rounded-xl text-sm font-medium transition-colors ${p === page ? "bg-primary/100 text-white" : "bg-card border border-border hover:bg-primary/10"}`}
             >
               {p}
             </Link>
@@ -158,14 +160,14 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
   return (
     <aside className="w-full lg:w-60 shrink-0 space-y-4">
       {/* Categories */}
-      <div className="bg-white rounded-2xl border border-border p-4">
+      <div className="bg-card rounded-2xl border border-border p-4">
         <div className="flex items-center gap-2 mb-3">
           <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
           <h3 className="font-semibold text-sm">Categories</h3>
         </div>
         <ul className="space-y-0.5">
           <li>
-            <a href="/products" className={`block px-3 py-2 rounded-lg text-sm transition-colors ${!searchParams.category ? "bg-primary/10 text-primary font-medium" : "hover:bg-slate-50 text-muted-foreground"}`}>
+            <a href="/products" className={`block px-3 py-2 rounded-lg text-sm transition-colors ${!searchParams.category ? "bg-primary/10 text-primary font-medium" : "hover:bg-secondary text-muted-foreground"}`}>
               All Products
             </a>
           </li>
@@ -173,7 +175,7 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
             <li key={cat.id}>
               <a
                 href={buildUrl({ category: cat.slug })}
-                className={`block px-3 py-2 rounded-lg text-sm transition-colors ${searchParams.category === cat.slug ? "bg-primary/10 text-primary font-medium" : "hover:bg-slate-50 text-muted-foreground"}`}
+                className={`block px-3 py-2 rounded-lg text-sm transition-colors ${searchParams.category === cat.slug ? "bg-primary/10 text-primary font-medium" : "hover:bg-secondary text-muted-foreground"}`}
               >
                 {cat.nameEn}
               </a>
@@ -183,7 +185,7 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
       </div>
 
       {/* Price range */}
-      <div className="bg-white rounded-2xl border border-border p-4">
+      <div className="bg-card rounded-2xl border border-border p-4">
         <h3 className="font-semibold text-sm mb-3">Price Range</h3>
         <ul className="space-y-0.5">
           {PRICE_RANGES.map((r) => {
@@ -192,7 +194,7 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
               <li key={r.label}>
                 <a
                   href={active ? buildUrl({ minPrice: undefined, maxPrice: undefined }) : buildUrl({ minPrice: String(r.min), maxPrice: String(r.max) })}
-                  className={`block px-3 py-2 rounded-lg text-sm transition-colors ${active ? "bg-primary/10 text-primary font-medium" : "hover:bg-slate-50 text-muted-foreground"}`}
+                  className={`block px-3 py-2 rounded-lg text-sm transition-colors ${active ? "bg-primary/10 text-primary font-medium" : "hover:bg-secondary text-muted-foreground"}`}
                 >
                   {r.label}
                 </a>
@@ -203,11 +205,11 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
       </div>
 
       {/* In stock */}
-      <div className="bg-white rounded-2xl border border-border p-4">
+      <div className="bg-card rounded-2xl border border-border p-4">
         <h3 className="font-semibold text-sm mb-3">Availability</h3>
         <a
           href={searchParams.inStock === "1" ? buildUrl({ inStock: undefined }) : buildUrl({ inStock: "1" })}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${searchParams.inStock === "1" ? "bg-primary/10 text-primary font-medium" : "hover:bg-slate-50 text-muted-foreground"}`}
+          className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${searchParams.inStock === "1" ? "bg-primary/10 text-primary font-medium" : "hover:bg-secondary text-muted-foreground"}`}
         >
           <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${searchParams.inStock === "1" ? "bg-primary/100 border-primary/100" : "border-muted-foreground"}`}>
             {searchParams.inStock === "1" && <span className="text-white text-xs">✓</span>}
@@ -235,11 +237,11 @@ export default function ProductsPage({ searchParams }: { searchParams: SearchPar
 
   return (
     <MainLayout>
-      <div className="bg-slate-50 min-h-screen">
+      <div className="bg-background min-h-screen">
         <div className="max-w-7xl mx-auto px-4 py-8">
           <h1 className="text-2xl font-bold mb-6">{title}</h1>
           <div className="flex flex-col lg:flex-row gap-6">
-            <Suspense fallback={<div className="w-60 h-64 bg-white animate-pulse rounded-2xl" />}>
+            <Suspense fallback={<div className="w-60 h-64 bg-card animate-pulse rounded-2xl" />}>
               <FilterSidebar searchParams={searchParams} />
             </Suspense>
             <div className="flex-1 min-w-0">

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { cn } from "@avenick/utils";
 import { ThemeToggle } from "@avenick/ui";
+import { signOut } from "next-auth/react";
 
 const NAV_GROUPS = [
   {
@@ -110,6 +111,18 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
   const pathname = usePathname();
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [profileOpen, setProfileOpen] = React.useState(false);
+  const profileRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   React.useEffect(() => {
     try {
@@ -150,7 +163,9 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
             )}
             <div className="space-y-0.5">
               {group.items.map((item) => {
-                const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+                const isExact = pathname === item.href;
+                const isChild = item.href !== "/dashboard" && item.href !== "/sellers" && item.href !== "/sellers/pending" && pathname.startsWith(item.href + "/");
+                const isActive = isExact || isChild;
                 const badgeNum = item.badge === "pending" ? pendingCount : 0;
                 return (
                   <Link
@@ -186,13 +201,14 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
 
       {/* Footer */}
       <div className="border-t border-border p-3">
-        <Link
-          href="/api/auth/signout"
-          className={cn("flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors", collapsed && "justify-center")}
+        <button
+          type="button"
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className={cn("flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full", collapsed && "justify-center")}
         >
           <LogOut className="h-4 w-4 shrink-0" />
           {!collapsed && <span>Sign out</span>}
-        </Link>
+        </button>
       </div>
     </div>
   );
@@ -241,19 +257,21 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
                 </span>
               )}
             </button>
-            <div className="relative group">
-              <button type="button" className="flex items-center gap-2 p-1.5 hover:bg-secondary rounded-lg transition-colors">
+            <div className="relative" ref={profileRef}>
+              <button type="button" onClick={() => setProfileOpen(v => !v)} className="flex items-center gap-2 p-1.5 hover:bg-secondary rounded-lg transition-colors">
                 <div className="h-7 w-7 rounded-full bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center text-white font-bold text-xs">A</div>
-                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform", profileOpen && "rotate-180")} />
               </button>
-              <div className="absolute end-0 top-full mt-1.5 w-48 bg-popover text-popover-foreground border border-border rounded-xl shadow-elevated opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-1">
-                <div className="px-3 py-2.5 border-b border-border mb-1">
-                  <p className="text-sm font-semibold">Admin User</p>
-                  <p className="text-xs text-muted-foreground">admin@avenick.com</p>
+              {profileOpen && (
+                <div className="absolute end-0 top-full mt-1.5 w-48 bg-popover text-popover-foreground border border-border rounded-xl shadow-elevated z-50 p-1">
+                  <div className="px-3 py-2.5 border-b border-border mb-1">
+                    <p className="text-sm font-semibold">Admin User</p>
+                    <p className="text-xs text-muted-foreground">admin@avenick.com</p>
+                  </div>
+                  <Link href="/settings" onClick={() => setProfileOpen(false)} className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">Settings</Link>
+                  <button type="button" onClick={() => signOut({ callbackUrl: "/login" })} className="w-full text-start px-3 py-2 text-sm rounded-lg text-danger hover:bg-danger/10 transition-colors">Sign out</button>
                 </div>
-                <Link href="/settings" className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">Settings</Link>
-                <Link href="/api/auth/signout" className="block px-3 py-2 text-sm rounded-lg text-danger hover:bg-danger/10 transition-colors">Sign out</Link>
-              </div>
+              )}
             </div>
           </div>
         </header>

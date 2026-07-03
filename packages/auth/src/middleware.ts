@@ -17,7 +17,7 @@ const PORTAL_ROLE_MAP: Record<PortalType, UserRole[]> = {
 
 // Paths that are publicly accessible (no auth required)
 const PUBLIC_PATHS: Record<PortalType, string[]> = {
-  customer: ["/", "/products", "/search", "/login", "/register", "/auth/forgot-password", "/auth/verify-email", "/deals", "/brands", "/cart", "/wishlist", "/categories", "/returns"],
+  customer: ["/", "/products", "/search", "/login", "/register", "/auth/forgot-password", "/auth/verify-email", "/deals", "/brands", "/cart", "/wishlist", "/categories", "/returns", "/support", "/privacy", "/terms", "/cookies"],
   seller: ["/login", "/onboarding"],
   admin: ["/login"],
 };

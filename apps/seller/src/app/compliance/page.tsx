@@ -7,10 +7,10 @@ import Link from "next/link";
 
 function DocStatus({ status }: { status: string }) {
   const map: Record<string, { icon: typeof CheckCircle; color: string; label: string }> = {
-    APPROVED: { icon: CheckCircle, color: "text-green-600", label: "Approved" },
-    PENDING_REVIEW: { icon: Clock, color: "text-yellow-600", label: "Pending Review" },
-    REJECTED: { icon: XCircle, color: "text-red-600", label: "Rejected" },
-    EXPIRED: { icon: AlertTriangle, color: "text-red-600", label: "Expired" },
+    APPROVED: { icon: CheckCircle, color: "text-green-600 dark:text-green-400", label: "Approved" },
+    PENDING_REVIEW: { icon: Clock, color: "text-yellow-600 dark:text-yellow-400", label: "Pending Review" },
+    REJECTED: { icon: XCircle, color: "text-red-600 dark:text-red-400", label: "Rejected" },
+    EXPIRED: { icon: AlertTriangle, color: "text-red-600 dark:text-red-400", label: "Expired" },
   };
   const cfg = map[status] ?? map["PENDING_REVIEW"]!;
   return (
@@ -43,20 +43,20 @@ export default async function CompliancePage() {
         </div>
 
         {expired.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
-            <h3 className="font-semibold text-red-800 flex items-center gap-2"><AlertTriangle className="h-4 w-4" />Expired Documents ({expired.length})</h3>
-            <p className="text-sm text-red-600 mt-1">These documents have expired and may affect your account status.</p>
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
+            <h3 className="font-semibold text-red-700 dark:text-red-400 flex items-center gap-2"><AlertTriangle className="h-4 w-4" />Expired Documents ({expired.length})</h3>
+            <p className="text-sm text-red-600 dark:text-red-400 mt-1">These documents have expired and may affect your account status.</p>
           </div>
         )}
 
         {expiringSoon.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-            <h3 className="font-semibold text-amber-800 flex items-center gap-2"><Clock className="h-4 w-4" />Expiring Within 30 Days ({expiringSoon.length})</h3>
-            <p className="text-sm text-amber-600 mt-1">Please renew these documents soon to avoid service interruptions.</p>
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4">
+            <h3 className="font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2"><Clock className="h-4 w-4" />Expiring Within 30 Days ({expiringSoon.length})</h3>
+            <p className="text-sm text-amber-600 dark:text-amber-400 mt-1">Please renew these documents soon to avoid service interruptions.</p>
           </div>
         )}
 
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted/50 border-b border-border">
@@ -74,7 +74,7 @@ export default async function CompliancePage() {
                   const isExpired = doc.expiryDate && !isAfter(doc.expiryDate, new Date());
                   const isExpiring = doc.expiryDate && isAfter(doc.expiryDate, new Date()) && !isAfter(doc.expiryDate, addDays(new Date(), 30));
                   return (
-                    <tr key={doc.id} className={`hover:bg-muted/20 ${isExpired ? "bg-red-50/50" : isExpiring ? "bg-amber-50/50" : ""}`}>
+                    <tr key={doc.id} className={`hover:bg-muted/20 ${isExpired ? "bg-red-500/10" : isExpiring ? "bg-amber-500/10" : ""}`}>
                       <td className="px-4 py-3 font-medium">{doc.type.replace(/_/g, " ")}</td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">
                         <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-orange-600 hover:underline">{doc.fileName}</a>
@@ -82,14 +82,14 @@ export default async function CompliancePage() {
                       <td className="px-4 py-3"><DocStatus status={isExpired ? "EXPIRED" : doc.status} /></td>
                       <td className="px-4 py-3 text-sm">
                         {doc.expiryDate ? (
-                          <span className={isExpired ? "text-red-600 font-semibold" : isExpiring ? "text-amber-600 font-semibold" : ""}>
+                          <span className={isExpired ? "text-red-600 dark:text-red-400 font-semibold" : isExpiring ? "text-amber-600 dark:text-amber-400 font-semibold" : ""}>
                             {format(doc.expiryDate, "MMM d, yyyy")}
                           </span>
                         ) : "—"}
                       </td>
                       <td className="px-4 py-3 text-sm text-muted-foreground">{format(doc.uploadedAt, "MMM d, yyyy")}</td>
                       <td className="px-4 py-3">
-                        {doc.rejectionReason && <p className="text-xs text-red-600">{doc.rejectionReason}</p>}
+                        {doc.rejectionReason && <p className="text-xs text-red-600 dark:text-red-400">{doc.rejectionReason}</p>}
                       </td>
                     </tr>
                   );
