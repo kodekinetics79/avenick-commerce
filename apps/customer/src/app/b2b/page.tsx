@@ -1,273 +1,200 @@
 import Link from "next/link";
-import { Building2, CreditCard, FileText, ArrowRight, Plus, RotateCcw, ClipboardList, CheckSquare, Clock, AlertTriangle, Users, ChevronRight, Star } from "lucide-react";
+import { redirect } from "next/navigation";
+import {
+  Building2,
+  CreditCard,
+  FileText,
+  ArrowRight,
+  Plus,
+  RotateCcw,
+  ClipboardList,
+  CheckSquare,
+  Clock,
+} from "lucide-react";
 import { B2BShell } from "@/components/b2b/b2b-shell";
-import { MOCK_B2B_COMPANY, MOCK_RFQS, MOCK_PRODUCTS } from "@avenick/database";
-import { Button } from "@avenick/ui";
+import { db } from "@avenick/database";
+import { formatCurrency } from "@avenick/utils";
+import { getB2BContext } from "@/lib/b2b";
+import { format } from "date-fns";
 
-export const metadata = { title: "B2B Dashboard — Avenick Commerce" };
+export const metadata = { title: "B2B Dashboard" };
+export const dynamic = "force-dynamic";
 
-const RFQ_STATUS: Record<string, { label: string; color: string }> = {
-  DRAFT:         { label: "Draft",          color: "bg-gray-100 text-muted-foreground" },
-  SUBMITTED:     { label: "Submitted",      color: "bg-blue-100 text-primary" },
-  UNDER_REVIEW:  { label: "Under Review",   color: "bg-yellow-100 text-yellow-700" },
-  QUOTED:        { label: "Quoted",         color: "bg-purple-100 text-purple-700" },
-  NEGOTIATING:   { label: "Negotiating",    color: "bg-primary/20 text-primary" },
-  ACCEPTED:      { label: "Accepted",       color: "bg-primary/20 text-primary" },
-  REJECTED:      { label: "Rejected",       color: "bg-red-100 text-red-700" },
-  EXPIRED:       { label: "Expired",        color: "bg-gray-100 text-muted-foreground" },
-};
+export default async function B2BDashboardPage() {
+  const ctx = await getB2BContext();
+  if (!ctx) redirect("/b2b/register");
 
-const MOCK_APPROVALS = [
-  { id: "a1", orderRef: "ORD-2024-0831", description: "Safety Helmets × 200 units", amount: 8400, requester: "Khalid Al-Rashid", submittedAgo: "2 hours ago", urgency: "high" },
-  { id: "a2", orderRef: "ORD-2024-0829", description: "Nitrile Gloves × 500 boxes", amount: 19500, requester: "Fatima Hassan", submittedAgo: "1 day ago", urgency: "normal" },
-];
+  const [company, spendAgg, pendingApprovals, openRFQs, recentOrders, reorderItems] = await Promise.all([
+    db.company.findUnique({
+      where: { id: ctx.companyId },
+      include: { _count: { select: { members: true, orders: true, purchaseOrders: true } } },
+    }),
+    db.order.aggregate({ where: { companyId: ctx.companyId, paymentStatus: "PAID" }, _sum: { total: true } }),
+    db.purchaseOrder.count({ where: { companyId: ctx.companyId, status: "PENDING_APPROVAL" } }),
+    db.rFQRequest.count({
+      where: { companyId: ctx.companyId, status: { in: ["SUBMITTED", "UNDER_REVIEW", "QUOTED", "NEGOTIATING"] } },
+    }),
+    db.order.findMany({
+      where: { companyId: ctx.companyId },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      select: { id: true, orderNumber: true, status: true, total: true, currency: true, createdAt: true },
+    }),
+    // Reorder suggestions: most recently purchased products by this company.
+    db.orderItem.findMany({
+      where: { order: { companyId: ctx.companyId, paymentStatus: "PAID" } },
+      orderBy: { id: "desc" },
+      take: 4,
+      distinct: ["productId"],
+      include: {
+        product: {
+          select: {
+            id: true,
+            slug: true,
+            nameEn: true,
+            status: true,
+            images: { where: { isPrimary: true }, take: 1 },
+          },
+        },
+      },
+    }),
+  ]);
+  if (!company) redirect("/b2b/register");
 
-export default function B2BDashboardPage() {
-  const company = MOCK_B2B_COMPANY;
-  const rfqs = MOCK_RFQS;
-  const reorderProducts = MOCK_PRODUCTS.slice(0, 4);
-  const creditUsed = 117600;
-  const creditPct = Math.round((creditUsed / company.creditLimit) * 100);
+  const creditLimit = company.creditLimit ? Number(company.creditLimit) : null;
+  const lifetimeSpend = Number(spendAgg._sum.total ?? 0);
 
   return (
     <B2BShell>
-      <div className="bg-slate-50 min-h-screen">
-        <div className="max-w-6xl mx-auto px-4 py-8">
-
-          {/* Header */}
-          <div className="flex items-start justify-between mb-6 gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-semibold uppercase tracking-wide text-primary bg-primary/10 border border-primary/30 px-2 py-0.5 rounded-full">B2B Account</span>
-                <span className="text-xs text-muted-foreground">·</span>
-                <span className="text-xs text-muted-foreground">{company.crNumber}</span>
-              </div>
-              <h1 className="text-2xl font-bold">{company.nameEn}</h1>
-              <p className="text-muted-foreground text-sm" dir="rtl">{company.nameAr}</p>
-            </div>
-            <div className="flex gap-2 shrink-0">
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/b2b/company">Edit Profile</Link>
-              </Button>
-              <Button asChild variant="primary" size="sm">
-                <Link href="/b2b/rfq/new">
-                  <Plus className="h-4 w-4 me-1" /> Create RFQ
-                </Link>
-              </Button>
-            </div>
+      <div className="space-y-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Welcome back, {company.nameEn}</h1>
+            <p className="text-muted-foreground text-sm">
+              {company._count.members} team member{company._count.members === 1 ? "" : "s"} · {company._count.orders} orders to date
+            </p>
           </div>
+          <Link
+            href="/b2b/rfq/new"
+            className="inline-flex items-center gap-1.5 bg-primary text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-primary/90 transition-colors"
+          >
+            <Plus className="h-4 w-4" /> New RFQ
+          </Link>
+        </div>
 
-          {/* Approval alert */}
-          {MOCK_APPROVALS.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-5 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <CheckSquare className="h-5 w-5 text-amber-600 shrink-0" />
-                <div>
-                  <p className="font-semibold text-amber-800 text-sm">{MOCK_APPROVALS.length} orders awaiting your approval</p>
-                  <p className="text-xs text-amber-600">Review and approve pending purchase orders from your team.</p>
-                </div>
-              </div>
-              <Button asChild variant="ghost" size="sm" className="shrink-0 border border-amber-300 text-amber-800 hover:bg-amber-100">
-                <Link href="/b2b/approvals">Review Now →</Link>
-              </Button>
+        {pendingApprovals > 0 && (
+          <Link
+            href="/b2b/approvals"
+            className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4 hover:border-amber-300 transition-colors"
+          >
+            <CheckSquare className="h-5 w-5 text-amber-600 shrink-0" />
+            <p className="font-semibold text-amber-800 text-sm flex-1">
+              {pendingApprovals} purchase order{pendingApprovals === 1 ? "" : "s"} awaiting approval
+            </p>
+            <ArrowRight className="h-4 w-4 text-amber-600" />
+          </Link>
+        )}
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { label: "Lifetime spend", value: formatCurrency(lifetimeSpend, "AED"), icon: CreditCard, href: "/b2b/analytics" },
+            { label: "Credit limit", value: creditLimit ? formatCurrency(creditLimit, "AED") : "Not set", icon: Building2, href: "/b2b/billing" },
+            { label: "Open RFQs", value: openRFQs, icon: FileText, href: "/b2b/quotes" },
+            { label: "Pending approvals", value: pendingApprovals, icon: CheckSquare, href: "/b2b/approvals" },
+          ].map((k) => {
+            const Icon = k.icon;
+            return (
+              <Link key={k.label} href={k.href} className="bg-white rounded-2xl border border-border p-4 hover:border-primary/40 transition-colors">
+                <Icon className="h-4 w-4 text-muted-foreground mb-2" />
+                <p className="text-xl font-bold">{k.value}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{k.label}</p>
+              </Link>
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Recent orders */}
+          <div className="bg-white rounded-2xl border border-border overflow-hidden">
+            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+              <h2 className="font-semibold">Recent orders</h2>
+              <Link href="/account/orders" className="text-xs text-primary hover:underline">All orders →</Link>
             </div>
-          )}
-
-          {/* KPI row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {/* Credit limit */}
-            <div className="bg-white rounded-2xl border border-border p-4 col-span-2 lg:col-span-1">
-              <div className="flex items-center gap-2 mb-3">
-                <CreditCard className="h-4 w-4 text-primary/100" />
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Credit Limit</p>
+            {recentOrders.length === 0 ? (
+              <div className="px-4 py-12 text-center">
+                <ClipboardList className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                <p className="text-sm text-muted-foreground">No orders yet — browse the catalog or raise an RFQ to get started.</p>
               </div>
-              <p className="text-2xl font-bold mb-1">AED {company.creditLimit.toLocaleString()}</p>
-              <div className="space-y-1">
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Used: AED {creditUsed.toLocaleString()}</span>
-                  <span className={creditPct >= 90 ? "text-red-600 font-semibold" : creditPct >= 75 ? "text-amber-600 font-semibold" : "text-primary font-semibold"}>
-                    {creditPct}%
-                  </span>
-                </div>
-                <div className="flex gap-0.5 h-1.5">
-                  {Array.from({ length: 10 }).map((_, i) => (
-                    <div key={i} className={`flex-1 rounded-full ${i < Math.floor(creditPct / 10) ? (creditPct >= 90 ? "bg-red-500" : creditPct >= 75 ? "bg-amber-400" : "bg-primary") : "bg-slate-100"}`} />
-                  ))}
-                </div>
-                <p className="text-xs text-primary">AED {(company.creditLimit - creditUsed).toLocaleString()} available</p>
-              </div>
-            </div>
-
-            {/* Payment terms */}
-            <div className="bg-white rounded-2xl border border-border p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <FileText className="h-4 w-4 text-primary" />
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Payment Terms</p>
-              </div>
-              <p className="text-2xl font-bold">Net {company.paymentTerms}</p>
-              <p className="text-xs text-muted-foreground mt-1">Days from invoice</p>
-              <p className="text-xs text-primary mt-0.5 font-medium">✓ No overdue invoices</p>
-            </div>
-
-            {/* Active RFQs */}
-            <div className="bg-white rounded-2xl border border-border p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <ClipboardList className="h-4 w-4 text-purple-500" />
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Active RFQs</p>
-              </div>
-              <p className="text-2xl font-bold">{rfqs.filter(r => !["ACCEPTED","REJECTED","EXPIRED"].includes(r.status)).length}</p>
-              <p className="text-xs text-muted-foreground mt-1">{rfqs.filter(r => r.status === "QUOTED").length} quotes ready to review</p>
-              <Link href="/b2b/quotes" className="text-xs text-primary hover:underline mt-0.5 block font-medium">View quotes →</Link>
-            </div>
-
-            {/* Account manager */}
-            <div className="bg-white rounded-2xl border border-border p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="h-4 w-4 text-teal-500" />
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Account Manager</p>
-              </div>
-              <p className="font-semibold text-sm">Sara Al-Ahmed</p>
-              <p className="text-xs text-muted-foreground">sara@avenick.com</p>
-              <div className="flex items-center gap-1 mt-1">
-                {[1,2,3,4,5].map(s => <Star key={s} className="h-3 w-3 text-amber-400 fill-current" />)}
-              </div>
-              <Link href="mailto:sara@avenick.com" className="text-xs text-primary hover:underline mt-1 block">Contact →</Link>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* RFQ list — main column */}
-            <div className="lg:col-span-2 space-y-5">
-
-              {/* RFQs */}
-              <div className="bg-white rounded-2xl border border-border overflow-hidden">
-                <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-                  <h2 className="font-semibold">My RFQs</h2>
-                  <Link href="/b2b/rfq/new" className="text-sm text-primary hover:underline flex items-center gap-1 font-medium">
-                    <Plus className="h-3.5 w-3.5" /> New RFQ
-                  </Link>
-                </div>
-                <div className="divide-y divide-border">
-                  {rfqs.map((rfq) => {
-                    const sc = RFQ_STATUS[rfq.status] ?? RFQ_STATUS.DRAFT;
-                    const hasQuotes = rfq.status === "QUOTED";
-                    return (
-                      <Link key={rfq.id} href={`/b2b/rfq/${rfq.id}`}
-                        className="flex items-start justify-between px-5 py-3.5 hover:bg-slate-50 transition-colors group">
-                        <div className="flex-1 min-w-0 pe-4">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="text-xs font-mono text-muted-foreground">{rfq.rfqNumber}</span>
-                            {hasQuotes && <span className="text-xs bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full font-medium animate-pulse">New quote!</span>}
-                          </div>
-                          <p className="text-sm font-medium line-clamp-1">{rfq.description}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            Qty: {rfq.quantity} · Target: {rfq.currency} {rfq.targetPrice.toLocaleString()} · Due: {rfq.requiredBy}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}>{sc.label}</span>
-                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-                <div className="px-5 py-3 border-t border-border bg-slate-50">
-                  <Link href="/b2b/quotes" className="text-sm text-primary hover:underline flex items-center gap-1 font-medium">
-                    View all quotes <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
-              </div>
-
-              {/* Approvals */}
-              <div className="bg-white rounded-2xl border border-border overflow-hidden">
-                <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CheckSquare className="h-4 w-4 text-amber-500" />
-                    <h2 className="font-semibold">Pending Approvals</h2>
-                    {MOCK_APPROVALS.length > 0 && (
-                      <span className="h-5 w-5 bg-amber-500 text-white rounded-full text-xs flex items-center justify-center font-bold">{MOCK_APPROVALS.length}</span>
-                    )}
-                  </div>
-                  <Link href="/b2b/approvals" className="text-sm text-primary hover:underline">View all</Link>
-                </div>
-                {MOCK_APPROVALS.length === 0 ? (
-                  <div className="px-5 py-8 text-center text-muted-foreground text-sm">No pending approvals</div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {MOCK_APPROVALS.map((a) => (
-                      <div key={a.id} className="flex items-start justify-between px-5 py-3.5">
-                        <div className="flex-1 min-w-0 pe-4">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            <span className="text-xs font-mono text-muted-foreground">{a.orderRef}</span>
-                            {a.urgency === "high" && <AlertTriangle className="h-3 w-3 text-red-500" />}
-                          </div>
-                          <p className="text-sm font-medium">{a.description}</p>
-                          <p className="text-xs text-muted-foreground">By {a.requester} · {a.submittedAgo}</p>
-                        </div>
-                        <div className="text-end shrink-0">
-                          <p className="font-bold text-sm text-primary">AED {a.amount.toLocaleString()}</p>
-                          <div className="flex gap-1.5 mt-1.5">
-                            <button type="button" className="text-xs bg-primary/100 text-white px-2.5 py-1 rounded-lg hover:bg-primary transition-colors font-medium">Approve</button>
-                            <button type="button" className="text-xs bg-white border border-border text-muted-foreground px-2.5 py-1 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors">Reject</button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Right column */}
-            <div className="space-y-5">
-              {/* Reorder center */}
-              <div className="bg-white rounded-2xl border border-border overflow-hidden">
-                <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-                  <RotateCcw className="h-4 w-4 text-primary/100" />
-                  <h2 className="font-semibold text-sm">Reorder Center</h2>
-                </div>
-                <div className="divide-y divide-border">
-                  {reorderProducts.map((p) => (
-                    <div key={p.id} className="flex items-center justify-between px-4 py-3">
-                      <div className="min-w-0 pe-3">
-                        <p className="text-sm font-medium line-clamp-1">{p.nameEn}</p>
-                        <p className="text-xs text-muted-foreground">{p.category}</p>
-                      </div>
-                      <div className="text-end shrink-0">
-                        <p className="text-sm font-bold text-primary">AED {p.price.toFixed(0)}</p>
-                        <Link href={`/products/${p.slug}`} className="text-xs text-primary hover:underline">Reorder</Link>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="px-4 py-2 border-t border-border">
-                  <Link href="/products" className="text-xs text-primary hover:underline font-medium">Browse all products →</Link>
-                </div>
-              </div>
-
-              {/* Quick links */}
-              <div className="bg-white rounded-2xl border border-border p-4">
-                <h3 className="font-semibold text-sm mb-3">Quick Actions</h3>
-                <div className="space-y-1">
-                  {[
-                    { href: "/b2b/rfq/new", label: "Create New RFQ", icon: Plus, color: "text-primary" },
-                    { href: "/b2b/quotes", label: "View My Quotes", icon: ClipboardList, color: "text-purple-600" },
-                    { href: "/b2b/approvals", label: "Approval Center", icon: CheckSquare, color: "text-amber-600" },
-                    { href: "/b2b/company", label: "Company Profile", icon: Building2, color: "text-primary" },
-                    { href: "/account/orders", label: "Order History", icon: Clock, color: "text-muted-foreground" },
-                  ].map(({ href, label, icon: Icon, color }) => (
-                    <Link key={href} href={href}
-                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-slate-50 transition-colors group">
-                      <Icon className={`h-4 w-4 ${color} shrink-0`} />
-                      <span className="text-sm font-medium group-hover:text-primary transition-colors">{label}</span>
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground ms-auto" />
+            ) : (
+              <ul className="divide-y divide-border">
+                {recentOrders.map((o) => (
+                  <li key={o.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                    <Link href={`/orders/${o.id}`} className="min-w-0">
+                      <p className="text-sm font-medium hover:text-primary">{o.orderNumber}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(o.createdAt, "MMM d, yyyy")} · {o.status.replace(/_/g, " ").toLowerCase()}
+                      </p>
                     </Link>
-                  ))}
-                </div>
-              </div>
-            </div>
+                    <span className="text-sm font-semibold shrink-0">{formatCurrency(Number(o.total), o.currency as never)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
+
+          {/* Reorder */}
+          <div className="bg-white rounded-2xl border border-border overflow-hidden">
+            <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+              <RotateCcw className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-semibold">Buy again</h2>
+            </div>
+            {reorderItems.length === 0 ? (
+              <div className="px-4 py-12 text-center">
+                <RotateCcw className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                <p className="text-sm text-muted-foreground">Products you order will appear here for quick reordering.</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {reorderItems.map((item) => (
+                  <li key={item.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{item.nameEn}</p>
+                      <p className="text-xs text-muted-foreground">Last ordered ×{item.quantity} · SKU {item.sku}</p>
+                    </div>
+                    {item.product && item.product.status === "ACTIVE" ? (
+                      <Link
+                        href={`/products/${item.product.slug}`}
+                        className="text-xs font-semibold text-primary border border-primary/30 px-3 py-1.5 rounded-lg hover:bg-primary/10 transition-colors shrink-0"
+                      >
+                        Reorder
+                      </Link>
+                    ) : (
+                      <span className="text-xs text-muted-foreground shrink-0">Unavailable</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { href: "/b2b/quotes", label: "Quotes & RFQs", icon: FileText },
+            { href: "/b2b/purchase-orders", label: "Purchase orders", icon: ClipboardList },
+            { href: "/b2b/lists", label: "Requisition lists", icon: ClipboardList },
+            { href: "/b2b/company", label: "Company profile", icon: Building2 },
+          ].map((l) => {
+            const Icon = l.icon;
+            return (
+              <Link key={l.href} href={l.href} className="group bg-white rounded-2xl border border-border p-4 hover:border-primary/40 transition-colors flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 text-sm font-medium">
+                  <Icon className="h-4 w-4 text-muted-foreground" /> {l.label}
+                </span>
+                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              </Link>
+            );
+          })}
         </div>
       </div>
     </B2BShell>

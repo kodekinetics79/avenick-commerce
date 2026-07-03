@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@avenick/database";
 import bcrypt from "bcryptjs";
 import { RegisterConsumerSchema } from "@avenick/types";
+import { checkRateLimit, clientIpFrom, RATE_LIMITS } from "@avenick/auth";
 
 export async function POST(req: NextRequest) {
   try {
+    const rl = await checkRateLimit(RATE_LIMITS.register, clientIpFrom(req.headers));
+    if (!rl.ok) {
+      return NextResponse.json(
+        { success: false, error: "Too many registration attempts. Please try again later." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } },
+      );
+    }
+
     const body = await req.json();
     const parsed = RegisterConsumerSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ success: false, error: parsed.error.issues[0]?.message }, { status: 400 });

@@ -1,26 +1,26 @@
 import { requireAdminSession } from "@/lib/auth";
-import { getAdminDashboard, db, MOCK_EXECUTIVE, MOCK_TOP_CUSTOMERS } from "@avenick/database";
+import { getExecutiveDashboardData, db } from "@avenick/database";
 import { DashboardView } from "./dashboard-view";
 
 export const metadata = { title: "Executive Command Center" };
+export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
   await requireAdminSession();
-  const dash = await getAdminDashboard();
-  const pendingCount = await db.sellerProfile.count({ where: { status: "PENDING_REVIEW" } });
 
-  // Prefer live GMV when paid orders exist; otherwise fall back to executive mock for demo.
-  const liveGmvMonth = Number(dash.gmvMonth);
-  const gmvMonth = liveGmvMonth > 0 ? liveGmvMonth : MOCK_EXECUTIVE.kpis.gmvMonth;
+  const [{ exec, topCustomers }, pendingCount] = await Promise.all([
+    getExecutiveDashboardData(),
+    db.sellerProfile.count({ where: { status: "PENDING_REVIEW" } }),
+  ]);
 
   // Pass only plain, serializable data across the server → client boundary.
   return (
     <DashboardView
-      exec={MOCK_EXECUTIVE}
-      topCustomers={MOCK_TOP_CUSTOMERS}
-      gmvMonth={gmvMonth}
-      activeCompanies={dash.activeCompanies}
-      activeSuppliers={dash.activeSellers}
+      exec={exec}
+      topCustomers={topCustomers}
+      gmvMonth={exec.kpis.gmvMonth}
+      activeCompanies={exec.kpis.activeCompanies}
+      activeSuppliers={exec.kpis.activeSuppliers}
       pendingCount={pendingCount}
     />
   );

@@ -1,161 +1,112 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_SLA_METRICS } from "@avenick/database";
-import { Gauge, ArrowLeft, Clock, Zap, AlertTriangle, TrendingUp, CheckCircle } from "lucide-react";
+import { getSlaMetrics } from "@avenick/database";
+import { Gauge, Clock, Truck, AlertTriangle, LifeBuoy } from "lucide-react";
+import { format, formatDistanceToNow } from "date-fns";
 import Link from "next/link";
 
 export const metadata = { title: "SLA Monitor" };
+export const dynamic = "force-dynamic";
 
-const SEVERITY_COLOR: Record<string, string> = {
-  HIGH:   "bg-red-100 text-red-700",
-  MEDIUM: "bg-amber-100 text-amber-700",
-  LOW:    "bg-blue-100 text-primary",
-};
-
-function complianceColor(pct: number): string {
-  return pct >= 90 ? "bg-green-500" : pct >= 80 ? "bg-amber-500" : "bg-red-500";
-}
-function complianceText(pct: number): string {
-  return pct >= 90 ? "text-green-600" : pct >= 80 ? "text-amber-600" : "text-red-600";
-}
-
-export default async function SLAPage() {
+export default async function SlaPage() {
   await requireAdminSession();
-  const m = MOCK_SLA_METRICS;
+
+  const m = await getSlaMetrics();
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Link href="/support" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
-                <ArrowLeft className="h-3.5 w-3.5" /> Support
-              </Link>
-              <span className="text-muted-foreground">/</span>
-              <span className="text-sm font-medium">SLA Monitor</span>
-            </div>
-            <h1 className="text-2xl font-bold">SLA Monitor</h1>
-            <p className="text-sm text-muted-foreground">Service-level performance and breach tracking</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold">SLA Monitor</h1>
+          <p className="text-muted-foreground text-sm">
+            Support responsiveness and delivery promise-keeping, measured from live tickets and shipments.
+          </p>
         </div>
 
-        {/* Top metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="bg-white rounded-2xl border border-border p-4">
-            <Zap className="h-4 w-4 text-blue-500 mb-2" />
-            <p className="text-2xl font-bold">{m.avgFirstResponse}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Avg First Response</p>
-            <p className="text-xs text-green-600 mt-1">Target: {m.firstResponseTarget} ✓</p>
-          </div>
-          <div className="bg-white rounded-2xl border border-border p-4">
-            <Clock className="h-4 w-4 text-purple-500 mb-2" />
-            <p className="text-2xl font-bold">{m.avgResolution}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Avg Resolution</p>
-            <p className="text-xs text-green-600 mt-1">Target: {m.resolutionTarget} ✓</p>
-          </div>
-          <div className={`rounded-2xl border p-4 ${m.complianceRate >= 90 ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200"}`}>
-            <Gauge className={`h-4 w-4 mb-2 ${complianceText(m.complianceRate)}`} />
-            <p className={`text-2xl font-bold ${complianceText(m.complianceRate)}`}>{m.complianceRate}%</p>
-            <p className="text-xs text-muted-foreground mt-0.5">SLA Compliance</p>
-          </div>
-          <div className={`rounded-2xl border p-4 ${m.breachesThisWeek > 0 ? "bg-red-50 border-red-200" : "bg-white border-border"}`}>
-            <AlertTriangle className={`h-4 w-4 mb-2 ${m.breachesThisWeek > 0 ? "text-red-600" : "text-muted-foreground"}`} />
-            <p className={`text-2xl font-bold ${m.breachesThisWeek > 0 ? "text-red-600" : "text-foreground"}`}>{m.breachesThisWeek}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Breaches This Week</p>
-          </div>
-        </div>
-
-        {/* Compliance gauge */}
-        <div className="bg-white rounded-2xl border border-border p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold">Overall SLA Health</h2>
-            <span className="text-sm text-muted-foreground">{m.ticketsInSla} in SLA · {m.ticketsBreached} breached</span>
-          </div>
-          <div className="flex gap-0.5 h-4 mb-2">
-            {Array.from({ length: 20 }).map((_, i) => (
-              <div key={i} className={`flex-1 rounded-full ${i < Math.round(m.complianceRate / 5) ? complianceColor(m.complianceRate) : "bg-gray-100"}`} />
-            ))}
-          </div>
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>{m.complianceRate}% of tickets resolved within SLA</span>
-            <span>{100 - m.complianceRate}% breached</span>
-          </div>
-        </div>
-
-        {/* By type */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-semibold">Performance by Ticket Type</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
-                <tr>
-                  {["Type","Volume","Target","Avg Resolution","Compliance",""].map(h => (
-                    <th key={h} className="px-5 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {m.byType.map((row) => (
-                  <tr key={row.type} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-5 py-3 font-medium">{row.type}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{row.volume}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{row.target}</td>
-                    <td className="px-5 py-3">
-                      <span className={row.compliance < 80 ? "text-red-600 font-medium" : "text-muted-foreground"}>{row.avgResolution}</span>
-                    </td>
-                    <td className="px-5 py-3 w-40">
-                      <div className="flex items-center gap-2">
-                        <div className="flex gap-0.5 w-20 h-1.5">
-                          {Array.from({ length: 10 }).map((_, i) => (
-                            <div key={i} className={`flex-1 rounded-full ${i < Math.round(row.compliance / 10) ? complianceColor(row.compliance) : "bg-gray-200"}`} />
-                          ))}
-                        </div>
-                        <span className={`text-xs font-bold ${complianceText(row.compliance)}`}>{row.compliance}%</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3">
-                      {row.compliance < 80 && <span className="text-xs text-red-600 font-medium flex items-center gap-1"><AlertTriangle className="h-3 w-3" /> Below target</span>}
-                      {row.compliance >= 90 && <span className="text-xs text-green-600 font-medium flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Excellent</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Recent breaches */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-            <h2 className="font-semibold">Recent SLA Breaches</h2>
-            <span className="ms-auto text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-semibold">{m.breaches.length} this week</span>
-          </div>
-          <div className="divide-y divide-border">
-            {m.breaches.map((b) => (
-              <div key={b.id} className="flex items-center justify-between px-5 py-3.5">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <Link href={`/support/${b.id}`} className="font-mono text-xs font-semibold text-primary hover:underline">{b.id}</Link>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${SEVERITY_COLOR[b.severity]}`}>{b.severity}</span>
-                    <span className="text-xs bg-slate-100 text-muted-foreground px-1.5 py-0.5 rounded">{b.type}</span>
-                  </div>
-                  <p className="text-sm font-medium">{b.buyer}</p>
-                  <p className="text-xs text-muted-foreground">Agent: {b.agent}</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Open tickets", value: m.openTickets, icon: LifeBuoy, color: m.openTickets > 5 ? "bg-red-50 border-red-200 text-red-600" : "bg-white border-border text-muted-foreground" },
+            { label: "Resolved within 24h", value: m.resolvedWithin24hPct !== null ? `${m.resolvedWithin24hPct}%` : "—", icon: Clock, color: "bg-blue-50 border-blue-200 text-primary" },
+            { label: "On-time delivery", value: m.onTimeDeliveryPct !== null ? `${m.onTimeDeliveryPct}%` : "—", icon: Truck, color: "bg-green-50 border-green-200 text-green-700" },
+            { label: "Late shipments", value: m.lateShipments.length, icon: AlertTriangle, color: m.lateShipments.length > 0 ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-white border-border text-muted-foreground" },
+          ].map((s) => {
+            const Icon = s.icon;
+            return (
+              <div key={s.label} className={`rounded-2xl border p-4 ${s.color.split(" ").slice(0, 2).join(" ")}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">{s.label}</span>
+                  <Icon className={`h-4 w-4 ${s.color.split(" ")[2]}`} />
                 </div>
-                <div className="text-end shrink-0">
-                  <p className="text-sm font-bold text-red-600">+{b.breachedBy} over</p>
-                  <Link href={`/support/${b.id}`} className="text-xs text-primary hover:underline font-medium">Resolve now →</Link>
-                </div>
+                <p className="text-2xl font-bold mt-1">{s.value}</p>
               </div>
-            ))}
+            );
+          })}
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Aging tickets */}
+          <div className="bg-white rounded-2xl border border-border overflow-hidden">
+            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+              <h2 className="font-semibold">Oldest open tickets</h2>
+              <Link href="/support" className="text-xs text-primary hover:underline">All tickets →</Link>
+            </div>
+            {m.oldestOpen.length === 0 ? (
+              <div className="px-4 py-12 text-center">
+                <Gauge className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                <p className="text-sm text-muted-foreground">No open tickets — support queue is clear.</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {m.oldestOpen.map((t) => (
+                  <li key={t.id} className="px-5 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <Link href={`/support/${t.id}`} className="min-w-0">
+                        <p className="text-sm font-medium truncate hover:text-primary">{t.subject}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {t.ticketNumber} · {t.user.firstName} {t.user.lastName} · {t.priority}
+                        </p>
+                      </Link>
+                      <span className="text-xs text-amber-600 font-medium whitespace-nowrap shrink-0">
+                        open {formatDistanceToNow(t.createdAt)}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Late shipments */}
+          <div className="bg-white rounded-2xl border border-border overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <h2 className="font-semibold">Shipments past their promise date</h2>
+            </div>
+            {m.lateShipments.length === 0 ? (
+              <div className="px-4 py-12 text-center">
+                <Truck className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                <p className="text-sm text-muted-foreground">No shipments are past their promised delivery date.</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {m.lateShipments.map((s) => (
+                  <li key={s.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{s.shipmentNumber} · {s.order.orderNumber}</p>
+                      <p className="text-xs text-muted-foreground">{s.seller.businessNameEn} · {s.carrier ?? "no carrier"}</p>
+                    </div>
+                    <span className="text-xs text-red-600 font-medium whitespace-nowrap shrink-0">
+                      promised {s.promisedBy ? format(s.promisedBy, "MMM d") : "—"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
+
+        <p className="text-xs text-muted-foreground">
+          Delivered shipments measured: {m.deliveredShipments}. SLA targets: first response &lt; 4h, resolution &lt; 24h, delivery by promise date.
+        </p>
       </div>
     </AdminLayout>
   );

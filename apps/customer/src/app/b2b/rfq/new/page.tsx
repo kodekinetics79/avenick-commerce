@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, CheckCircle, Send, Plus, Trash2, Paperclip, AlertCircle, Building2 } from "lucide-react";
 import { B2BShell } from "@/components/b2b/b2b-shell";
 import { Button, Input, Textarea } from "@avenick/ui";
+import { submitRFQ } from "../actions";
 
 type Priority = "NORMAL" | "URGENT" | "CRITICAL";
 
@@ -32,6 +33,7 @@ const PRIORITY_CONFIG: Record<Priority, { label: string; color: string; desc: st
 export default function NewRFQPage() {
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [priority, setPriority] = useState<Priority>("NORMAL");
   const [items, setItems] = useState<RFQItem[]>([
     { id: "1", description: "", quantity: "", unit: "pcs", targetPrice: "", specs: "" },
@@ -50,10 +52,62 @@ export default function NewRFQPage() {
     setItems((prev) => prev.map((i) => i.id === id ? { ...i, [field]: value } : i));
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setError(null);
+
+    const form = new FormData(e.currentTarget);
+    const title = String(form.get("title") ?? "").trim();
+    const category = String(form.get("category") ?? "").trim();
+    const requiredBy = String(form.get("requiredBy") ?? "").trim();
+    const city = String(form.get("city") ?? "").trim();
+    const extraNotes = String(form.get("notes") ?? "").trim();
+
+    const validItems = items.filter((i) => i.description.trim() && Number(i.quantity) > 0);
+    if (validItems.length === 0) {
+      setError("Add at least one item with a description and quantity.");
+      return;
+    }
+
+    const payload = {
+      notes:
+        [
+          title && `Subject: ${title}`,
+          category && `Category: ${category}`,
+          city && `Delivery: ${city}`,
+          `Priority: ${priority}`,
+          extraNotes,
+        ]
+          .filter(Boolean)
+          .join(" · ") || undefined,
+      requiredBy: requiredBy || undefined,
+      items: validItems.map((i) => ({
+        nameEn: i.description.trim(),
+        quantity: Number(i.quantity),
+        notes:
+          [i.specs.trim(), i.targetPrice.trim() && `Target: ${i.targetPrice} AED/${i.unit}`]
+            .filter(Boolean)
+            .join(" · ") || undefined,
+      })),
+    };
+
     setLoading(true);
-    setTimeout(() => { setLoading(false); setSubmitted(true); }, 1000);
+    try {
+      const actionData = new FormData();
+      actionData.set("payload", JSON.stringify(payload));
+      // On success the server action redirects to the new RFQ's detail page.
+      const result = await submitRFQ({}, actionData);
+      if (result?.error) setError(result.error);
+      else setSubmitted(true);
+    } catch (err) {
+      // Next.js signals a successful server-action redirect by throwing.
+      if (err && typeof err === "object" && "digest" in err && String((err as { digest?: string }).digest).includes("NEXT_REDIRECT")) {
+        throw err;
+      }
+      setError("Couldn't submit the RFQ — please retry.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (submitted) {
@@ -109,22 +163,22 @@ export default function NewRFQPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
                   <label className="block text-sm font-medium mb-1">RFQ Title / Subject <span className="text-red-500">*</span></label>
-                  <Input placeholder="e.g. Safety Equipment for Construction Site — Q4 2024" required />
+                  <Input name="title" placeholder="e.g. Safety Equipment for Construction Site — Q4 2024" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Category <span className="text-red-500">*</span></label>
-                  <select aria-label="Category" required className="w-full h-10 px-3 text-sm border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary">
+                  <select name="category" aria-label="Category" required className="w-full h-10 px-3 text-sm border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary">
                     <option value="">Select category...</option>
                     {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Required By <span className="text-red-500">*</span></label>
-                  <Input type="date" required />
+                  <Input name="requiredBy" type="date" required />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Delivery City</label>
-                  <Input placeholder="e.g. Dubai, UAE" />
+                  <Input name="city" placeholder="e.g. Dubai, UAE" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Preferred Supplier (optional)</label>
@@ -200,7 +254,7 @@ export default function NewRFQPage() {
             {/* Additional notes */}
             <div className="bg-white rounded-2xl border border-border p-5">
               <h2 className="font-semibold mb-3">Additional Notes</h2>
-              <Textarea placeholder="Any special delivery requirements, packaging instructions, compliance certifications (e.g. SASO, Halal), payment preference, etc." rows={3} />
+              <Textarea name="notes" placeholder="Any special delivery requirements, packaging instructions, compliance certifications (e.g. SASO, Halal), payment preference, etc." rows={3} />
               <div className="mt-3">
                 <button type="button" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border px-3 py-2 rounded-lg hover:border-primary/40 hover:bg-primary/10 transition-all">
                   <Paperclip className="h-3.5 w-3.5" /> Attach document (PDF, XLSX) — coming soon
@@ -213,6 +267,13 @@ export default function NewRFQPage() {
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
               <p>Your RFQ will be reviewed within <strong>2 business hours</strong> and distributed to matching verified suppliers. You&apos;ll receive an email notification when quotes arrive.</p>
             </div>
+
+            {error && (
+              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                <p>{error}</p>
+              </div>
+            )}
 
             <Button type="submit" variant="primary" size="lg" className="w-full" loading={loading}>
               <Send className="h-4 w-4 me-2" />

@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db, UserRole, UserStatus } from "@avenick/database";
 import { LoginSchema } from "@avenick/types";
+import { checkRateLimit, clientIpFrom, RATE_LIMITS } from "./rate-limit";
 
 type AppName = "customer" | "seller" | "admin";
 
@@ -16,11 +17,19 @@ function buildAuthConfig(app: AppName): NextAuthConfig {
           email: { label: "Email", type: "email" },
           password: { label: "Password", type: "password" },
         },
-        async authorize(credentials) {
+        async authorize(credentials, request) {
           const parsed = LoginSchema.safeParse(credentials);
           if (!parsed.success) return null;
 
           const { email, password } = parsed.data;
+
+          // Throttle brute-force attempts per identifier and per client IP.
+          const ip = clientIpFrom(request.headers ?? new Headers());
+          const [byEmail, byIp] = await Promise.all([
+            checkRateLimit(RATE_LIMITS.login, email.toLowerCase()),
+            checkRateLimit(RATE_LIMITS.loginIp, ip),
+          ]);
+          if (!byEmail.ok || !byIp.ok) return null;
 
           const user = await db.user.findUnique({
             where: { email: email.toLowerCase() },

@@ -30,8 +30,13 @@ export function AiAssist({
     try {
       const r = await fetch("/api/ai/draft", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, context }) });
       const d = await r.json();
-      setResult(d.text ?? "");
-      if (d.ai === false && d.text) toast({ title: "Draft ready (template)", description: "Set ANTHROPIC_API_KEY for AI-generated drafts.", variant: "info" });
+      if (!r.ok || d.success === false) {
+        toast({ title: d.error ?? "Couldn't generate a draft", variant: "error" });
+        setLoading(false);
+        return;
+      }
+      setResult(d.data?.text ?? "");
+      if (d.data?.ai === false && d.data?.text) toast({ title: "Draft ready (template)", description: "Set ANTHROPIC_API_KEY for AI-generated drafts.", variant: "info" });
     } catch {
       toast({ title: "Couldn't generate a draft", variant: "error" });
     }

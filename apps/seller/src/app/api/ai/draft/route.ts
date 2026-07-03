@@ -1,20 +1,20 @@
-import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth-instance";
+import { guarded, jsonOk, jsonErr, SELLER_ROLES, checkRateLimit, RATE_LIMITS } from "@avenick/auth";
 import { generateDraft } from "@/lib/ai";
+import { z } from "zod";
 
-export async function POST(req: NextRequest) {
-  const session = await auth();
-  const role = (session?.user as { role?: string } | undefined)?.role;
-  if (!session?.user || !["SELLER_OWNER", "SELLER_STAFF"].includes(role ?? "")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+const DraftSchema = z.object({
+  kind: z.enum(["rfq", "listing"]),
+  context: z.string().max(4000).default(""),
+});
+
+export const POST = guarded({ auth, roles: SELLER_ROLES }, async ({ req, userId, requestId }) => {
+  const rl = await checkRateLimit(RATE_LIMITS.aiDraft, userId);
+  if (!rl.ok) {
+    return jsonErr("Draft limit reached for this hour. Please try again later.", 429, requestId);
   }
 
-  const body = await req.json().catch(() => ({}));
-  const kind = body.kind;
-  if (kind !== "rfq" && kind !== "listing") {
-    return NextResponse.json({ error: "Invalid kind" }, { status: 400 });
-  }
-
-  const result = await generateDraft(kind, String(body.context ?? ""));
-  return NextResponse.json(result);
-}
+  const body = DraftSchema.parse(await req.json().catch(() => ({})));
+  const result = await generateDraft(body.kind, body.context);
+  return jsonOk(result);
+});

@@ -1,167 +1,202 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { UserCog, Plus, Search, Shield, Store, ShoppingBag, User } from "lucide-react";
+import { getAdminUsers, UserRole, UserStatus } from "@avenick/database";
+import { UserStatusActions } from "./user-actions";
+import { UserCog, Search, Shield, Store, ShoppingBag, User, Users } from "lucide-react";
+import { format } from "date-fns";
+import Link from "next/link";
 
 export const metadata = { title: "User Management" };
-
-type UserRole = "ADMIN" | "SELLER" | "BUYER" | "CONSUMER";
-type UserStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED";
-
-const MOCK_USERS: Array<{
-  id: string;
-  name: string;
-  email: string;
-  role: UserRole;
-  portal: string;
-  status: UserStatus;
-  lastActive: string;
-  createdAt: string;
-}> = [
-  { id: "u001", name: "Admin User", email: "admin@avenick.com", role: "ADMIN", portal: "Admin", status: "ACTIVE", lastActive: "Just now", createdAt: "Jan 1, 2024" },
-  { id: "u002", name: "Sara Ahmed", email: "sara.ahmed@avenick.com", role: "ADMIN", portal: "Admin", status: "ACTIVE", lastActive: "2 hours ago", createdAt: "Jan 1, 2024" },
-  { id: "u003", name: "Gulf Industrial LLC", email: "procurement@gulf-industrial.ae", role: "SELLER", portal: "Seller", status: "ACTIVE", lastActive: "1 hour ago", createdAt: "Mar 12, 2024" },
-  { id: "u004", name: "Mohammed Al Sayed", email: "m.alsayed@safeguard.ae", role: "SELLER", portal: "Seller", status: "ACTIVE", lastActive: "3 hours ago", createdAt: "Feb 18, 2024" },
-  { id: "u005", name: "Ali Hassan (Al Noor)", email: "ali@alnoor-trading.sa", role: "BUYER", portal: "Customer B2B", status: "ACTIVE", lastActive: "4 hours ago", createdAt: "Apr 5, 2024" },
-  { id: "u006", name: "Ahmad Khalil", email: "ahmad.k@apexprocure.ae", role: "BUYER", portal: "Customer B2B", status: "ACTIVE", lastActive: "2 days ago", createdAt: "May 20, 2024" },
-  { id: "u007", name: "Fatima Al Zahraa", email: "fatima.z@gmail.com", role: "CONSUMER", portal: "Customer B2C", status: "ACTIVE", lastActive: "1 day ago", createdAt: "Jun 10, 2024" },
-  { id: "u008", name: "Khalid Mohammed", email: "khalid.m@hotmail.com", role: "CONSUMER", portal: "Customer B2C", status: "ACTIVE", lastActive: "5 hours ago", createdAt: "Jul 3, 2024" },
-  { id: "u009", name: "Rania Saad", email: "rania@cleanedge.ae", role: "SELLER", portal: "Seller", status: "INACTIVE", lastActive: "2 weeks ago", createdAt: "Aug 15, 2024" },
-  { id: "u010", name: "Omar Yusuf", email: "omar.y@sharjah-safety.ae", role: "BUYER", portal: "Customer B2B", status: "SUSPENDED", lastActive: "1 month ago", createdAt: "Sep 1, 2024" },
-];
+export const dynamic = "force-dynamic";
 
 const ROLE_CONFIG: Record<UserRole, { label: string; color: string; icon: typeof Shield }> = {
+  SUPER_ADMIN: { label: "Super Admin", color: "bg-red-100 text-red-700", icon: Shield },
   ADMIN: { label: "Admin", color: "bg-red-100 text-red-700", icon: Shield },
-  SELLER: { label: "Seller", color: "bg-orange-100 text-orange-700", icon: Store },
-  BUYER: { label: "B2B Buyer", color: "bg-blue-100 text-primary", icon: ShoppingBag },
+  SELLER_OWNER: { label: "Seller Owner", color: "bg-orange-100 text-orange-700", icon: Store },
+  SELLER_STAFF: { label: "Seller Staff", color: "bg-orange-100 text-orange-700", icon: Store },
+  COMPANY_ADMIN: { label: "Company Admin", color: "bg-blue-100 text-primary", icon: ShoppingBag },
+  COMPANY_BUYER: { label: "Company Buyer", color: "bg-blue-100 text-primary", icon: ShoppingBag },
+  COMPANY_APPROVER: { label: "Company Approver", color: "bg-blue-100 text-primary", icon: ShoppingBag },
   CONSUMER: { label: "Consumer", color: "bg-green-100 text-green-700", icon: User },
 };
 
 const STATUS_CONFIG: Record<UserStatus, { label: string; color: string }> = {
   ACTIVE: { label: "Active", color: "bg-green-100 text-green-700" },
-  INACTIVE: { label: "Inactive", color: "bg-slate-100 text-muted-foreground" },
+  PENDING: { label: "Pending", color: "bg-yellow-100 text-yellow-700" },
   SUSPENDED: { label: "Suspended", color: "bg-red-100 text-red-600" },
+  BANNED: { label: "Banned", color: "bg-slate-100 text-muted-foreground" },
 };
 
-const ROLE_TABS = ["All", "Admin", "Seller", "B2B Buyer", "Consumer"] as const;
+const ROLE_FILTERS: Array<{ label: string; value?: UserRole }> = [
+  { label: "All" },
+  { label: "Admins", value: UserRole.ADMIN },
+  { label: "Seller Owners", value: UserRole.SELLER_OWNER },
+  { label: "Company Admins", value: UserRole.COMPANY_ADMIN },
+  { label: "Consumers", value: UserRole.CONSUMER },
+];
 
-export default async function UsersPage() {
-  await requireAdminSession();
+interface PageProps {
+  searchParams: { role?: string; status?: string; search?: string; page?: string };
+}
 
-  const roleCounts = {
-    All: MOCK_USERS.length,
-    Admin: MOCK_USERS.filter((u) => u.role === "ADMIN").length,
-    Seller: MOCK_USERS.filter((u) => u.role === "SELLER").length,
-    "B2B Buyer": MOCK_USERS.filter((u) => u.role === "BUYER").length,
-    Consumer: MOCK_USERS.filter((u) => u.role === "CONSUMER").length,
+export default async function UsersPage({ searchParams }: PageProps) {
+  const { userId: currentUserId } = await requireAdminSession();
+
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const limit = 20;
+  const role = Object.values(UserRole).includes(searchParams.role as UserRole)
+    ? (searchParams.role as UserRole)
+    : undefined;
+  const status = Object.values(UserStatus).includes(searchParams.status as UserStatus)
+    ? (searchParams.status as UserStatus)
+    : undefined;
+  const search = searchParams.search?.trim() || undefined;
+
+  const { users, total, roleCounts } = await getAdminUsers({ page, limit, role, status, search });
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  const countFor = (roles: UserRole[]) =>
+    roleCounts.filter((r) => roles.includes(r.role)).reduce((sum, r) => sum + r._count._all, 0);
+
+  const stats = [
+    { label: "Admins", value: countFor([UserRole.SUPER_ADMIN, UserRole.ADMIN]), icon: Shield, color: "text-red-600", bg: "bg-red-50 border-red-200" },
+    { label: "Sellers", value: countFor([UserRole.SELLER_OWNER, UserRole.SELLER_STAFF]), icon: Store, color: "text-orange-600", bg: "bg-orange-50 border-orange-200" },
+    { label: "B2B Buyers", value: countFor([UserRole.COMPANY_ADMIN, UserRole.COMPANY_BUYER, UserRole.COMPANY_APPROVER]), icon: ShoppingBag, color: "text-primary", bg: "bg-blue-50 border-blue-200" },
+    { label: "Consumers", value: countFor([UserRole.CONSUMER]), icon: User, color: "text-green-600", bg: "bg-green-50 border-green-200" },
+  ];
+
+  const filterHref = (params: Record<string, string | undefined>) => {
+    const merged = { ...searchParams, page: undefined, ...params };
+    const qs = new URLSearchParams(
+      Object.entries(merged).filter((e): e is [string, string] => Boolean(e[1])),
+    ).toString();
+    return qs ? `/users?${qs}` : "/users";
   };
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">User Management</h1>
-            <p className="text-muted-foreground text-sm">Manage platform users, roles, and access permissions</p>
+            <p className="text-muted-foreground text-sm">
+              Manage platform users, roles, and access. Status changes are audit-logged.
+            </p>
           </div>
-          <button type="button" className="flex items-center gap-2 bg-primary hover:bg-primary text-white px-4 py-2 rounded-xl text-sm font-semibold transition-colors">
-            <Plus className="h-4 w-4" /> Invite User
-          </button>
         </div>
 
-        {/* Stats cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Admins", value: roleCounts.Admin, icon: Shield, color: "text-red-600", bg: "bg-red-50 border-red-200" },
-            { label: "Sellers", value: roleCounts.Seller, icon: Store, color: "text-orange-600", bg: "bg-orange-50 border-orange-200" },
-            { label: "B2B Buyers", value: roleCounts["B2B Buyer"], icon: ShoppingBag, color: "text-primary", bg: "bg-blue-50 border-blue-200" },
-            { label: "Consumers", value: roleCounts.Consumer, icon: User, color: "text-green-600", bg: "bg-green-50 border-green-200" },
-          ].map((stat) => {
+          {stats.map((stat) => {
             const Icon = stat.icon;
             return (
               <div key={stat.label} className={`rounded-2xl border p-4 ${stat.bg}`}>
-                <Icon className={`h-4 w-4 mb-2 ${stat.color}`} />
-                <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
-                <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">{stat.label}</span>
+                  <Icon className={`h-4 w-4 ${stat.color}`} />
+                </div>
+                <p className="text-2xl font-bold mt-1">{stat.value}</p>
               </div>
             );
           })}
         </div>
 
-        {/* Search and filter */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <div className="flex items-center gap-2 bg-white border border-border rounded-xl px-3 py-1.5 flex-1">
-            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-            <input type="text" placeholder="Search by name, email, or role..." className="flex-1 text-sm text-muted-foreground placeholder:text-muted-foreground outline-none" />
-          </div>
-          <div className="flex items-center gap-1.5 overflow-x-auto">
-            {ROLE_TABS.map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${tab === "All" ? "bg-slate-700 text-white" : "bg-white border border-border text-muted-foreground hover:border-slate-400"}`}
+        <div className="flex flex-wrap items-center gap-2">
+          {ROLE_FILTERS.map((f) => {
+            const active = role === f.value || (!role && !f.value);
+            return (
+              <Link
+                key={f.label}
+                href={filterHref({ role: f.value })}
+                className={`text-xs px-3 py-1.5 rounded-lg border ${active ? "bg-primary text-white border-primary" : "border-border hover:bg-muted"}`}
               >
-                {tab} <span className="text-[10px]">({roleCounts[tab as keyof typeof roleCounts]})</span>
-              </button>
-            ))}
-          </div>
+                {f.label}
+              </Link>
+            );
+          })}
+          <span className="mx-2 h-4 w-px bg-border" />
+          {([undefined, "ACTIVE", "SUSPENDED", "PENDING"] as const).map((s) => {
+            const active = status === s || (!status && !s);
+            return (
+              <Link
+                key={s ?? "any"}
+                href={filterHref({ status: s })}
+                className={`text-xs px-3 py-1.5 rounded-lg border ${active ? "bg-slate-800 text-white border-slate-800" : "border-border hover:bg-muted"}`}
+              >
+                {s ? STATUS_CONFIG[s].label : "Any status"}
+              </Link>
+            );
+          })}
         </div>
 
-        {/* Users table */}
+        <form method="get" action="/users" className="relative max-w-sm">
+          {role && <input type="hidden" name="role" value={role} />}
+          {status && <input type="hidden" name="status" value={status} />}
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="search"
+            name="search"
+            defaultValue={search ?? ""}
+            placeholder="Search by name or email…"
+            className="w-full ps-9 pe-3 py-2 text-sm rounded-xl border border-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+        </form>
+
         <div className="bg-white rounded-2xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-border text-xs text-muted-foreground uppercase tracking-wide">
+              <thead className="bg-slate-50 border-b border-border">
                 <tr>
-                  <th className="text-start px-5 py-3">User</th>
-                  <th className="text-start px-5 py-3">Role</th>
-                  <th className="text-start px-5 py-3 hidden sm:table-cell">Portal</th>
-                  <th className="text-start px-5 py-3">Status</th>
-                  <th className="text-start px-5 py-3 hidden md:table-cell">Last Active</th>
-                  <th className="text-start px-5 py-3 hidden lg:table-cell">Joined</th>
-                  <th className="text-start px-5 py-3">Actions</th>
+                  {["User", "Role", "Organization", "Status", "Joined", "Actions"].map((h) => (
+                    <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {MOCK_USERS.map((user) => {
-                  const roleCfg = ROLE_CONFIG[user.role];
-                  const statusCfg = STATUS_CONFIG[user.status];
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center">
+                      <Users className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        {search || role || status ? "No users match the current filters." : "No users yet."}
+                      </p>
+                    </td>
+                  </tr>
+                )}
+                {users.map((u) => {
+                  const roleCfg = ROLE_CONFIG[u.role];
+                  const statusCfg = STATUS_CONFIG[u.status];
                   const RoleIcon = roleCfg.icon;
-                  const initials = user.name.split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase();
+                  const org = u.sellerProfile?.businessNameEn ?? u.companyMember?.company.nameEn ?? "—";
                   return (
-                    <tr key={user.id} className="hover:bg-muted/20 transition-colors">
-                      <td className="px-5 py-3">
+                    <tr key={u.id} className="hover:bg-slate-50/60">
+                      <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0 text-xs font-bold text-muted-foreground">
-                            {initials}
+                          <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center">
+                            <UserCog className="h-4 w-4 text-muted-foreground" />
                           </div>
                           <div>
-                            <p className="font-medium">{user.name}</p>
-                            <p className="text-xs text-muted-foreground">{user.email}</p>
+                            <p className="font-medium">
+                              {u.firstName} {u.lastName}
+                              {u.id === currentUserId && <span className="ms-1.5 text-[10px] text-muted-foreground">(you)</span>}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{u.email}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${roleCfg.color}`}>
-                          <RoleIcon className="h-2.5 w-2.5" />
-                          {roleCfg.label}
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${roleCfg.color}`}>
+                          <RoleIcon className="h-3 w-3" /> {roleCfg.label}
                         </span>
                       </td>
-                      <td className="px-5 py-3 hidden sm:table-cell text-xs text-muted-foreground">{user.portal}</td>
-                      <td className="px-5 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${statusCfg.color}`}>
-                          {statusCfg.label}
-                        </span>
+                      <td className="px-4 py-3 text-muted-foreground">{org}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs font-medium px-2 py-1 rounded-full ${statusCfg.color}`}>{statusCfg.label}</span>
                       </td>
-                      <td className="px-5 py-3 hidden md:table-cell text-xs text-muted-foreground">{user.lastActive}</td>
-                      <td className="px-5 py-3 hidden lg:table-cell text-xs text-muted-foreground">{user.createdAt}</td>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-2">
-                          <button type="button" className="text-xs text-primary hover:underline">Edit</button>
-                          {user.status === "ACTIVE" && user.role !== "ADMIN" && (
-                            <button type="button" className="text-xs text-red-500 hover:underline">Suspend</button>
-                          )}
-                        </div>
+                      <td className="px-4 py-3 text-muted-foreground">{format(u.createdAt, "MMM d, yyyy")}</td>
+                      <td className="px-4 py-3">
+                        <UserStatusActions userId={u.id} status={u.status} isSelf={u.id === currentUserId} />
                       </td>
                     </tr>
                   );
@@ -169,10 +204,26 @@ export default async function UsersPage() {
               </tbody>
             </table>
           </div>
-          <div className="flex items-center gap-2 px-5 py-3 border-t border-border">
-            <UserCog className="h-4 w-4 text-muted-foreground" />
-            <p className="text-xs text-muted-foreground">{MOCK_USERS.length} users · {MOCK_USERS.filter((u) => u.status === "ACTIVE").length} active</p>
-          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border text-sm">
+              <span className="text-muted-foreground">
+                Page {page} of {totalPages} · {total} users
+              </span>
+              <div className="flex gap-2">
+                {page > 1 && (
+                  <Link href={filterHref({ page: String(page - 1), search })} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs">
+                    Previous
+                  </Link>
+                )}
+                {page < totalPages && (
+                  <Link href={filterHref({ page: String(page + 1), search })} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs">
+                    Next
+                  </Link>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </AdminLayout>

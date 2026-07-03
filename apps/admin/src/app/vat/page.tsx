@@ -1,29 +1,36 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_VAT_PERIODS } from "@avenick/database";
+import { getVatSummary, getTaxInvoices } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
-import { FileSpreadsheet, ArrowLeft, CheckCircle, Clock, Download, AlertCircle } from "lucide-react";
+import { FileSpreadsheet, ArrowLeft, Receipt } from "lucide-react";
+import { format } from "date-fns";
 import Link from "next/link";
 
 export const metadata = { title: "VAT Summary" };
+export const dynamic = "force-dynamic";
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
-  OPEN:  { label: "Open",  color: "bg-amber-100 text-amber-700", icon: Clock },
-  FILED: { label: "Filed", color: "bg-green-100 text-green-700", icon: CheckCircle },
-};
+interface PageProps {
+  searchParams: { page?: string; search?: string };
+}
 
-export default async function VATPage() {
+export default async function VATPage({ searchParams }: PageProps) {
   await requireAdminSession();
 
-  const openPeriods = MOCK_VAT_PERIODS.filter(p => p.status === "OPEN");
-  const totalDue = openPeriods.reduce((s, p) => s + p.netVatDue, 0);
-  const totalOutput = MOCK_VAT_PERIODS.reduce((s, p) => s + p.outputVat, 0);
-  const totalInput = MOCK_VAT_PERIODS.reduce((s, p) => s + p.inputVat, 0);
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const limit = 25;
+  const search = searchParams.search?.trim() || undefined;
+
+  const [summary, { invoices, total }] = await Promise.all([
+    getVatSummary(),
+    getTaxInvoices({ page, limit, search }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const totalVat = summary.byCurrency.reduce((s, c) => s + c.vat, 0);
+  const totalOrders = summary.byCurrency.reduce((s, c) => s + c.orders, 0);
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -34,89 +41,149 @@ export default async function VATPage() {
               <span className="text-sm font-medium">VAT</span>
             </div>
             <h1 className="text-2xl font-bold">VAT Summary</h1>
-            <p className="text-sm text-muted-foreground">Tax periods, filings, and net VAT liability (UAE 5% · KSA 15%)</p>
+            <p className="text-sm text-muted-foreground">
+              Output VAT collected on paid orders (UAE 5% · KSA 15%), {new Date().getFullYear()} year to date.
+            </p>
           </div>
-          <button type="button" className="flex items-center gap-1.5 border border-border bg-white text-muted-foreground hover:bg-slate-50 text-sm font-medium px-4 py-2 rounded-xl transition-colors">
-            <Download className="h-3.5 w-3.5" /> Export VAT Report
-          </button>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Net VAT Due (Open)", value: formatCurrency(totalDue, "AED"), color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
-            { label: "Output VAT (Collected)", value: formatCurrency(totalOutput, "AED"), color: "text-green-700", bg: "bg-white border-border" },
-            { label: "Input VAT (Reclaimable)", value: formatCurrency(totalInput, "AED"), color: "text-primary", bg: "bg-white border-border" },
-            { label: "Open Periods", value: openPeriods.length, color: "text-foreground", bg: "bg-white border-border" },
-          ].map(({ label, value, color, bg }) => (
-            <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
-              <p className={`text-xl font-bold ${color}`}>{value}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+            { label: "Output VAT (YTD)", value: formatCurrency(totalVat, "AED") },
+            { label: "Taxable orders (YTD)", value: String(totalOrders) },
+            { label: "Jurisdictions", value: String(summary.byCurrency.length) },
+            { label: "Tax invoices issued", value: String(summary.invoiceCount) },
+          ].map((s) => (
+            <div key={s.label} className="rounded-2xl border border-border bg-white p-4">
+              <span className="text-sm text-muted-foreground">{s.label}</span>
+              <p className="text-xl font-bold mt-1">{s.value}</p>
             </div>
           ))}
         </div>
 
-        {/* Filing reminder */}
-        {openPeriods.length > 0 && (
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
-            <div>
-              <p className="font-semibold text-amber-800 text-sm">{openPeriods.length} VAT period{openPeriods.length !== 1 ? "s" : ""} open for filing</p>
-              <p className="text-xs text-amber-600">
-                Next deadline: <strong>{openPeriods.sort((a,b) => a.filingDeadline.localeCompare(b.filingDeadline))[0]?.filingDeadline}</strong> — file via FTA / ZATCA portal
-              </p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* By currency/jurisdiction */}
+          <div className="bg-white rounded-2xl border border-border overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <h2 className="font-semibold">VAT by currency</h2>
             </div>
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b border-border">
+                <tr>
+                  {["Currency", "Orders", "Gross", "Output VAT"].map((h) => (
+                    <th key={h} className="px-4 py-2.5 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {summary.byCurrency.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                      No paid orders yet this year.
+                    </td>
+                  </tr>
+                )}
+                {summary.byCurrency.map((c) => (
+                  <tr key={c.currency}>
+                    <td className="px-4 py-3 font-medium">{c.currency}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{c.orders}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{formatCurrency(c.gross, c.currency as never)}</td>
+                    <td className="px-4 py-3 font-semibold">{formatCurrency(c.vat, c.currency as never)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
 
-        {/* Periods table */}
+          {/* By month */}
+          <div className="bg-white rounded-2xl border border-border overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <h2 className="font-semibold">VAT by month</h2>
+            </div>
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b border-border">
+                <tr>
+                  {["Month", "Taxable orders", "Output VAT"].map((h) => (
+                    <th key={h} className="px-4 py-2.5 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {summary.monthly.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-10 text-center text-sm text-muted-foreground">
+                      No VAT collected yet this year.
+                    </td>
+                  </tr>
+                )}
+                {summary.monthly.map((m) => (
+                  <tr key={String(m.month)}>
+                    <td className="px-4 py-3 font-medium">{format(m.month, "MMMM yyyy")}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{m.orders}</td>
+                    <td className="px-4 py-3 font-semibold">{formatCurrency(m.vat, "AED")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Tax invoices */}
         <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border">
-            <h2 className="font-semibold">VAT Periods</h2>
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+            <h2 className="font-semibold">Tax invoices</h2>
+            <span className="text-xs text-muted-foreground">{total} total</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-border">
                 <tr>
-                  {["Period","Country","Rate","Output VAT","Input VAT","Net Due","Deadline","Status","Action"].map(h => (
-                    <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  {["Invoice #", "Order", "Buyer", "VAT reg.", "Amount", "VAT", "Issued"].map((h) => (
+                    <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {MOCK_VAT_PERIODS.map((p) => {
-                  const sc = STATUS_CONFIG[p.status];
-                  const StatusIcon = sc.icon;
-                  return (
-                    <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-4 py-3 font-medium text-sm">{p.period}</td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs bg-slate-100 text-muted-foreground px-2 py-0.5 rounded font-mono">{p.country}</span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground">{p.rate}%</td>
-                      <td className="px-4 py-3 text-green-700 font-medium">{formatCurrency(p.outputVat, "AED")}</td>
-                      <td className="px-4 py-3 text-primary font-medium">{formatCurrency(p.inputVat, "AED")}</td>
-                      <td className="px-4 py-3 font-bold text-amber-700">{formatCurrency(p.netVatDue, "AED")}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{p.filingDeadline}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}>
-                          <StatusIcon className="h-3 w-3" /> {sc.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {p.status === "OPEN"
-                          ? <button type="button" className="text-xs bg-slate-900 text-white px-2.5 py-1 rounded-lg hover:bg-slate-800 font-medium transition-colors">File Return</button>
-                          : <button type="button" className="text-xs text-primary hover:underline font-medium">View Filing</button>}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {invoices.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-12 text-center">
+                      <Receipt className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        No tax invoices issued yet. Invoices are generated when B2B orders are confirmed.
+                      </p>
+                    </td>
+                  </tr>
+                )}
+                {invoices.map((inv) => (
+                  <tr key={inv.id} className="hover:bg-slate-50/60">
+                    <td className="px-4 py-3 font-mono text-xs font-medium">{inv.invoiceNo}</td>
+                    <td className="px-4 py-3 text-primary">{inv.order.orderNumber}</td>
+                    <td className="px-4 py-3">
+                      {inv.order.company?.nameEn ?? `${inv.order.user.firstName} ${inv.order.user.lastName}`}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{inv.order.company?.vatNumber ?? "—"}</td>
+                    <td className="px-4 py-3 font-semibold">{formatCurrency(Number(inv.totalAmount), inv.currency as never)}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{formatCurrency(Number(inv.vatAmount), inv.currency as never)}</td>
+                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{format(inv.issuedAt, "MMM d, yyyy")}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 border-t border-border bg-slate-50">
-            <p className="text-xs text-muted-foreground">Net VAT Due = Output VAT (on sales) − Input VAT (on purchases). UAE filings via FTA, KSA via ZATCA.</p>
-          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border text-sm">
+              <span className="text-muted-foreground">Page {page} of {totalPages}</span>
+              <div className="flex gap-2">
+                {page > 1 && (
+                  <Link href={`/vat?page=${page - 1}`} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs">Previous</Link>
+                )}
+                {page < totalPages && (
+                  <Link href={`/vat?page=${page + 1}`} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs">Next</Link>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </AdminLayout>

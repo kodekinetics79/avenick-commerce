@@ -28,8 +28,8 @@ export function NotificationBell() {
     try {
       const r = await fetch("/api/notifications", { cache: "no-store" });
       const d = await r.json();
-      setItems(d.items ?? []);
-      setUnread(d.unread ?? 0);
+      setItems(d.data?.items ?? []);
+      setUnread(d.data?.unread ?? 0);
     } catch {
       /* ignore */
     }

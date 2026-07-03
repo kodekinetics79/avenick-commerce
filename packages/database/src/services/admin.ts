@@ -1,4 +1,185 @@
-import { db, AuditAction, type SellerStatus, type DocumentStatus, type ProductStatus } from "../index";
+import {
+  db,
+  AuditAction,
+  Prisma,
+  type SellerStatus,
+  type DocumentStatus,
+  type ProductStatus,
+  type UserRole,
+  type UserStatus,
+  type CompanyStatus,
+} from "../index";
+
+// ─── PLATFORM USERS ───────────────────────────────────────────────────────────
+
+export interface AdminUserFilters {
+  page: number;
+  limit: number;
+  role?: UserRole;
+  status?: UserStatus;
+  search?: string;
+}
+
+export async function getAdminUsers(filters: AdminUserFilters) {
+  const where: Prisma.UserWhereInput = {
+    deletedAt: null,
+    ...(filters.role ? { role: filters.role } : {}),
+    ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.search
+      ? {
+          OR: [
+            { email: { contains: filters.search, mode: "insensitive" } },
+            { firstName: { contains: filters.search, mode: "insensitive" } },
+            { lastName: { contains: filters.search, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+
+  const [users, total, roleCounts] = await Promise.all([
+    db.user.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (filters.page - 1) * filters.limit,
+      take: filters.limit,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        sellerProfile: { select: { id: true, businessNameEn: true } },
+        companyMember: { select: { company: { select: { id: true, nameEn: true } } } },
+      },
+    }),
+    db.user.count({ where }),
+    db.user.groupBy({ by: ["role"], where: { deletedAt: null }, _count: { _all: true } }),
+  ]);
+
+  return { users, total, roleCounts };
+}
+
+/**
+ * Change a user's status (suspend/activate) with an audit trail.
+ * Refuses to modify SUPER_ADMIN accounts unless the actor is a SUPER_ADMIN.
+ */
+export async function setUserStatus(opts: {
+  userId: string;
+  status: UserStatus;
+  actorId: string;
+  actorRole: UserRole;
+  reason?: string;
+}) {
+  const target = await db.user.findUnique({
+    where: { id: opts.userId },
+    select: { id: true, status: true, role: true },
+  });
+  if (!target) throw new Error("User not found");
+  if (target.role === "SUPER_ADMIN" && opts.actorRole !== "SUPER_ADMIN") {
+    throw new Error("Only a super admin can modify a super admin account");
+  }
+  if (opts.userId === opts.actorId) {
+    throw new Error("You cannot change the status of your own account");
+  }
+
+  const [user] = await db.$transaction([
+    db.user.update({ where: { id: opts.userId }, data: { status: opts.status } }),
+    db.auditLog.create({
+      data: {
+        actorId: opts.actorId,
+        entityType: "User",
+        entityId: opts.userId,
+        action:
+          opts.status === "SUSPENDED"
+            ? AuditAction.SUSPEND
+            : opts.status === "ACTIVE"
+              ? AuditAction.ACTIVATE
+              : AuditAction.STATUS_CHANGE,
+        before: { status: target.status },
+        after: { status: opts.status, ...(opts.reason ? { reason: opts.reason } : {}) },
+      },
+    }),
+  ]);
+  return user;
+}
+
+// ─── PLATFORM COMPANIES ───────────────────────────────────────────────────────
+
+export interface AdminCompanyFilters {
+  page: number;
+  limit: number;
+  status?: CompanyStatus;
+  search?: string;
+}
+
+export async function getAdminCompanies(filters: AdminCompanyFilters) {
+  const where: Prisma.CompanyWhereInput = {
+    deletedAt: null,
+    ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.search
+      ? {
+          OR: [
+            { nameEn: { contains: filters.search, mode: "insensitive" } },
+            { nameAr: { contains: filters.search, mode: "insensitive" } },
+            { crNumber: { contains: filters.search, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+
+  const [companies, total, statusCounts] = await Promise.all([
+    db.company.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (filters.page - 1) * filters.limit,
+      take: filters.limit,
+      include: {
+        _count: { select: { members: true, orders: true, purchaseOrders: true, rfqRequests: true } },
+      },
+    }),
+    db.company.count({ where }),
+    db.company.groupBy({ by: ["status"], where: { deletedAt: null }, _count: { _all: true } }),
+  ]);
+
+  return { companies, total, statusCounts };
+}
+
+/** Change a company's status (activate/suspend/verify) with an audit trail. */
+export async function setCompanyStatus(opts: {
+  companyId: string;
+  status: CompanyStatus;
+  actorId: string;
+  reason?: string;
+}) {
+  const target = await db.company.findUnique({
+    where: { id: opts.companyId },
+    select: { id: true, status: true },
+  });
+  if (!target) throw new Error("Company not found");
+
+  const [company] = await db.$transaction([
+    db.company.update({ where: { id: opts.companyId }, data: { status: opts.status } }),
+    db.auditLog.create({
+      data: {
+        actorId: opts.actorId,
+        entityType: "Company",
+        entityId: opts.companyId,
+        action:
+          opts.status === "SUSPENDED"
+            ? AuditAction.SUSPEND
+            : opts.status === "ACTIVE"
+              ? AuditAction.ACTIVATE
+              : AuditAction.STATUS_CHANGE,
+        before: { status: target.status },
+        after: { status: opts.status, ...(opts.reason ? { reason: opts.reason } : {}) },
+      },
+    }),
+  ]);
+  return company;
+}
 
 export async function getAdminDashboard() {
   const today = new Date();

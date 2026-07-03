@@ -1,0 +1,99 @@
+# Render Blueprint — deploys the three Avenick portals + managed Postgres.
+# In the Render dashboard: New → Blueprint → select this repo.
+#
+# Notes
+# - There is no separate API server: each Next.js app contains its own
+#   backend (API routes, server actions, Prisma). Three web services total.
+# - Every build runs `prisma migrate deploy`; concurrent runs are safe
+#   (Prisma serializes via a Postgres advisory lock).
+# - AUTH_SECRET is auto-generated per service (portals have independent,
+#   cookie-prefixed sessions — they do not need to share a secret).
+# - Optional integrations (Checkout.com, Anthropic, Resend, Twilio, S3) are
+#   added later as env vars in the dashboard; the apps degrade gracefully
+#   without them. See DEPLOYMENT.md.
+
+previews:
+  generation: off
+
+databases:
+  - name: avenick-db
+    databaseName: avenick
+    user: avenick
+    region: frankfurt # closest Render region to the GCC
+    plan: basic-256mb # smallest paid tier; "free" works for trials but expires
+
+services:
+  - type: web
+    name: avenick-customer
+    runtime: node
+    region: frankfurt
+    plan: starter # free tier spins down on idle and may OOM during builds
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@avenick/customer && pnpm --filter @avenick/database db:deploy
+    startCommand: pnpm --filter @avenick/customer exec next start -p $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: avenick-db
+          property: connectionString
+      - key: DIRECT_URL
+        fromDatabase:
+          name: avenick-db
+          property: connectionString
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: AUTH_TRUST_HOST
+        value: "true"
+
+  - type: web
+    name: avenick-seller
+    runtime: node
+    region: frankfurt
+    plan: starter
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@avenick/seller && pnpm --filter @avenick/database db:deploy
+    startCommand: pnpm --filter @avenick/seller exec next start -p $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: avenick-db
+          property: connectionString
+      - key: DIRECT_URL
+        fromDatabase:
+          name: avenick-db
+          property: connectionString
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: AUTH_TRUST_HOST
+        value: "true"
+
+  - type: web
+    name: avenick-admin
+    runtime: node
+    region: frankfurt
+    plan: starter
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@avenick/admin && pnpm --filter @avenick/database db:deploy
+    startCommand: pnpm --filter @avenick/admin exec next start -p $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: avenick-db
+          property: connectionString
+      - key: DIRECT_URL
+        fromDatabase:
+          name: avenick-db
+          property: connectionString
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: AUTH_TRUST_HOST
+        value: "true"

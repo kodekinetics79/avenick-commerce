@@ -1,131 +1,115 @@
 import Link from "next/link";
-import { ArrowLeft, FileText, Plus, CheckCircle, Clock, TrendingDown, Star } from "lucide-react";
+import { redirect } from "next/navigation";
+import { FileText, Plus, Clock } from "lucide-react";
 import { B2BShell } from "@/components/b2b/b2b-shell";
-import { MOCK_RFQS } from "@avenick/database";
-import { Button } from "@avenick/ui";
+import { getRFQsForBuyer, RFQStatus } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
+import { getB2BContext } from "@/lib/b2b";
+import { format } from "date-fns";
 
-export const metadata = { title: "My Quotes — Avenick Commerce" };
+export const metadata = { title: "Quotes & RFQs" };
+export const dynamic = "force-dynamic";
 
-const EXTENDED_QUOTES = [
-  { id: "q_001", rfqId: "rfq_001", rfqNumber: "RFQ-2024-0041", rfqDesc: "Safety vests and hard hats for 50 workers", sellerName: "SafeGuard AE", sellerRating: 4.8, sellerTier: "GOLD", totalAmount: 2350, currency: "AED", validUntil: "2024-12-20", status: "RECEIVED", items: 2, leadTimeDays: 5, isLowest: true },
-  { id: "q_002", rfqId: "rfq_001", rfqNumber: "RFQ-2024-0041", rfqDesc: "Safety vests and hard hats for 50 workers", sellerName: "FireShield LLC", sellerRating: 4.5, sellerTier: "VERIFIED", totalAmount: 2600, currency: "AED", validUntil: "2024-12-18", status: "RECEIVED", items: 2, leadTimeDays: 7, isLowest: false },
-  { id: "q_003", rfqId: "rfq_003", rfqNumber: "RFQ-2024-0061", rfqDesc: "Monthly office supplies", sellerName: "OfficeZone KW", sellerRating: 4.2, sellerTier: "VERIFIED", totalAmount: 1180, currency: "AED", validUntil: "2024-12-10", status: "ACCEPTED", items: 8, leadTimeDays: 3, isLowest: true },
-];
-
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  RECEIVED: { label: "Received", color: "bg-blue-100 text-primary" },
-  ACCEPTED: { label: "Accepted", color: "bg-primary/20 text-primary" },
-  DECLINED: { label: "Declined", color: "bg-red-100 text-red-700" },
-  EXPIRED:  { label: "Expired",  color: "bg-gray-100 text-muted-foreground" },
+const STATUS_CONFIG: Record<RFQStatus, { label: string; color: string }> = {
+  DRAFT: { label: "Draft", color: "bg-slate-100 text-muted-foreground" },
+  SUBMITTED: { label: "Submitted", color: "bg-blue-100 text-primary" },
+  UNDER_REVIEW: { label: "Under Review", color: "bg-purple-100 text-purple-700" },
+  QUOTED: { label: "Quote Received", color: "bg-amber-100 text-amber-700" },
+  NEGOTIATING: { label: "Negotiating", color: "bg-orange-100 text-orange-700" },
+  ACCEPTED: { label: "Accepted", color: "bg-green-100 text-green-700" },
+  REJECTED: { label: "Rejected", color: "bg-red-100 text-red-700" },
+  EXPIRED: { label: "Expired", color: "bg-slate-100 text-muted-foreground" },
+  CANCELLED: { label: "Cancelled", color: "bg-slate-100 text-muted-foreground" },
 };
 
-export default function QuotesPage() {
-  const receivedCount = EXTENDED_QUOTES.filter((q) => q.status === "RECEIVED").length;
-  const acceptedValue = EXTENDED_QUOTES.filter((q) => q.status === "ACCEPTED").reduce((s, q) => s + q.totalAmount, 0);
-  const rfqsWithQuotes = MOCK_RFQS.filter((r) => EXTENDED_QUOTES.some((q) => q.rfqId === r.id));
+export default async function QuotesPage() {
+  const ctx = await getB2BContext();
+  if (!ctx) redirect("/b2b/register");
+
+  const rfqs = await getRFQsForBuyer({ buyerId: ctx.userId, companyId: ctx.companyId });
+
+  const awaiting = rfqs.filter((r) => ["SUBMITTED", "UNDER_REVIEW"].includes(r.status)).length;
+  const quoted = rfqs.filter((r) => ["QUOTED", "NEGOTIATING"].includes(r.status)).length;
+  const accepted = rfqs.filter((r) => r.status === "ACCEPTED").length;
 
   return (
-    <B2BShell>
-      <div className="bg-slate-50 min-h-screen">
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <Link href="/b2b" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Back to B2B Dashboard
-          </Link>
+    <B2BShell
+      title="Quotes & RFQs"
+      description="Track your requests for quotation and supplier responses."
+      actions={
+        <Link href="/b2b/rfq/new" className="inline-flex items-center gap-1.5 bg-primary text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-primary/90 transition-colors">
+          <Plus className="h-4 w-4" /> New RFQ
+        </Link>
+      }
+    >
+      <div className="space-y-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Total RFQs", value: rfqs.length, color: "bg-white border-border" },
+            { label: "Awaiting quotes", value: awaiting, color: "bg-blue-50 border-blue-200" },
+            { label: "Quotes to review", value: quoted, color: "bg-amber-50 border-amber-200" },
+            { label: "Accepted", value: accepted, color: "bg-green-50 border-green-200" },
+          ].map((s) => (
+            <div key={s.label} className={`rounded-2xl border p-4 ${s.color}`}>
+              <span className="text-sm text-muted-foreground">{s.label}</span>
+              <p className="text-2xl font-bold mt-1">{s.value}</p>
+            </div>
+          ))}
+        </div>
 
-          <div className="flex items-start justify-between mb-6 gap-4">
-            <div>
-              <h1 className="text-2xl font-bold">My Quotes</h1>
-              <p className="text-muted-foreground text-sm">Quotes received from suppliers, grouped by RFQ</p>
-            </div>
-            <Button asChild variant="primary" size="sm">
-              <Link href="/b2b/rfq/new"><Plus className="h-3.5 w-3.5 me-1" /> New RFQ</Link>
-            </Button>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-3 mb-6">
-            <div className="bg-white rounded-2xl border border-border p-4 text-center">
-              <p className="text-2xl font-bold text-primary">{receivedCount}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Awaiting Review</p>
-            </div>
-            <div className="bg-white rounded-2xl border border-border p-4 text-center">
-              <p className="text-2xl font-bold text-primary">{EXTENDED_QUOTES.filter((q) => q.status === "ACCEPTED").length}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Accepted</p>
-            </div>
-            <div className="bg-white rounded-2xl border border-border p-4 text-center">
-              <p className="text-lg font-bold text-primary">{formatCurrency(acceptedValue, "AED")}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Total Accepted</p>
-            </div>
-          </div>
-
-          {rfqsWithQuotes.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-border p-16 text-center">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-slate-200" />
-              <p className="text-lg font-semibold mb-1">No quotes yet</p>
-              <p className="text-sm text-muted-foreground mb-6">Submit an RFQ to receive competitive quotes from suppliers.</p>
-              <Button asChild variant="primary"><Link href="/b2b/rfq/new">Create Your First RFQ</Link></Button>
+        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+          {rfqs.length === 0 ? (
+            <div className="px-4 py-16 text-center">
+              <FileText className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+              <p className="text-sm text-muted-foreground mb-4">No RFQs yet — request quotes from verified suppliers for bulk purchases.</p>
+              <Link href="/b2b/rfq/new" className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
+                <Plus className="h-4 w-4" /> Create your first RFQ
+              </Link>
             </div>
           ) : (
-            <div className="space-y-4">
-              {rfqsWithQuotes.map((rfq) => {
-                const rfqQuotes = EXTENDED_QUOTES.filter((q) => q.rfqId === rfq.id);
-                return (
-                  <div key={rfq.id} className="bg-white rounded-2xl border border-border overflow-hidden">
-                    {/* RFQ header bar */}
-                    <div className="px-5 py-3 bg-slate-50 border-b border-border flex items-center justify-between">
-                      <div>
-                        <span className="text-xs font-mono text-muted-foreground">{rfq.rfqNumber}</span>
-                        <p className="font-medium text-sm">{rfq.description}</p>
-                      </div>
-                      <Link href={`/b2b/rfq/${rfq.id}`} className="text-xs text-primary hover:underline font-medium whitespace-nowrap">
-                        View RFQ →
-                      </Link>
-                    </div>
-
-                    <div className="divide-y divide-border">
-                      {rfqQuotes.map((q) => {
-                        const sc = STATUS_CONFIG[q.status] ?? STATUS_CONFIG.RECEIVED;
-                        return (
-                          <div key={q.id} className={`p-4 flex items-start justify-between gap-4 ${q.isLowest && q.status === "RECEIVED" ? "bg-primary/10/40" : ""}`}>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                <p className="font-semibold text-sm">{q.sellerName}</p>
-                                <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${q.sellerTier === "GOLD" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-muted-foreground"}`}>{q.sellerTier}</span>
-                                {q.isLowest && q.status === "RECEIVED" && (
-                                  <span className="flex items-center gap-0.5 text-xs text-primary font-semibold">
-                                    <TrendingDown className="h-3 w-3" /> Best price
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1 mb-1">
-                                {[1,2,3,4,5].map((s) => <Star key={s} className={`h-3 w-3 ${s <= Math.round(q.sellerRating) ? "text-amber-400 fill-current" : "text-gray-200 fill-current"}`} />)}
-                                <span className="text-xs text-muted-foreground">{q.sellerRating}</span>
-                              </div>
-                              <p className="text-xs text-muted-foreground">{q.items} items · {q.leadTimeDays}d lead time · Valid {q.validUntil}</p>
-                            </div>
-                            <div className="text-end shrink-0">
-                              <p className="text-lg font-bold text-primary mb-1">{formatCurrency(q.totalAmount, q.currency as "AED")}</p>
-                              <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold mb-2 ${sc.color}`}>{sc.label}</span>
-                              {q.status === "RECEIVED" && (
-                                <div className="flex gap-1.5 justify-end">
-                                  <button type="button" className="text-xs bg-primary/100 text-white px-2.5 py-1 rounded-lg hover:bg-primary transition-colors font-medium flex items-center gap-1">
-                                    <CheckCircle className="h-3 w-3" /> Accept
-                                  </button>
-                                  <button type="button" className="text-xs border border-border text-muted-foreground px-2.5 py-1 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors">Decline</button>
-                                </div>
-                              )}
-                              {q.status === "ACCEPTED" && (
-                                <button type="button" className="text-xs bg-primary text-white px-3 py-1 rounded-lg hover:bg-primary transition-colors font-medium">Convert to Order →</button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-border">
+                  <tr>
+                    {["RFQ", "Items", "Supplier", "Quoted total", "Status", "Created"].map((h) => (
+                      <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {rfqs.map((r) => {
+                    const cfg = STATUS_CONFIG[r.status];
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50/60">
+                        <td className="px-4 py-3">
+                          <Link href={`/b2b/rfq/${r.id}`} className="font-medium text-primary hover:underline">
+                            {r.rfqNumber}
+                          </Link>
+                          {r.requiredBy && (
+                            <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1 mt-0.5">
+                              <Clock className="h-3 w-3" /> needed {format(r.requiredBy, "MMM d")}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground max-w-xs">
+                          <p className="truncate">
+                            {r.items.slice(0, 2).map((i) => `${i.quantity}× ${i.nameEn}`).join(", ")}
+                            {r.items.length > 2 ? ` +${r.items.length - 2} more` : ""}
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">{r.seller?.businessNameEn ?? "—"}</td>
+                        <td className="px-4 py-3 font-semibold">
+                          {r.totalQuoted ? formatCurrency(Number(r.totalQuoted), r.currency as never) : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`text-xs font-medium px-2 py-1 rounded-full ${cfg.color}`}>{cfg.label}</span>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{format(r.createdAt, "MMM d, yyyy")}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

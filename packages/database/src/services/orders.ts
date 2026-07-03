@@ -23,6 +23,8 @@ export interface CreateOrderInput {
   paymentMethod?: PaymentMethod;
   notes?: string;
   purchaseOrderId?: string;
+  /** Client-supplied key: safe retries return the original order. */
+  idempotencyKey?: string;
 }
 
 // VAT rate by jurisdiction (KSA 15%, rest of GCC 5%).
@@ -135,11 +137,26 @@ export async function createOrder(input: CreateOrderInput) {
         paymentMethod: input.paymentMethod,
         shippingAddress: input.shippingAddress,
         notes: input.notes,
+        idempotencyKey: input.idempotencyKey,
         items: { create: itemData },
         statusHistory: { create: { status: "PENDING_PAYMENT", message: "Order created, awaiting payment" } },
       },
       include: { items: true, statusHistory: true },
     });
+  }).catch(async (e: unknown) => {
+    // Concurrent retry with the same idempotency key: the unique constraint
+    // fired after our pre-check. Return the winner's order.
+    if (
+      input.idempotencyKey &&
+      typeof e === "object" && e !== null && "code" in e && (e as { code?: string }).code === "P2002"
+    ) {
+      const existing = await db.order.findUnique({
+        where: { userId_idempotencyKey: { userId: input.userId, idempotencyKey: input.idempotencyKey } },
+        include: { items: true, statusHistory: true },
+      });
+      if (existing) return existing;
+    }
+    throw e;
   });
 }
 

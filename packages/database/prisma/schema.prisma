@@ -919,6 +919,9 @@ model Order {
   shippingAddress Json
   notes           String?
   vatInvoiceUrl   String?
+  // Client-supplied Idempotency-Key: retries of the same submission return
+  // the original order instead of creating a duplicate.
+  idempotencyKey  String?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
@@ -936,6 +939,7 @@ model Order {
   shipments      Shipment[]
   returnRequests ReturnRequest[]
 
+  @@unique([userId, idempotencyKey])
   @@index([userId, status])
   @@index([companyId])
   @@index([purchaseOrderId])

@@ -1,146 +1,109 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_SYSTEM_HEALTH } from "@avenick/database";
-import { Settings, Activity, CheckCircle, AlertTriangle, Globe, DollarSign, Bell, Shield, Server } from "lucide-react";
-import Link from "next/link";
+import { checkDatabaseHealth } from "@avenick/database";
+import { VAT_RATES } from "@avenick/utils";
+import { Settings, Database, ShieldCheck, Globe, Percent, KeyRound, CheckCircle, XCircle } from "lucide-react";
 
-export const metadata = { title: "Settings" };
+export const metadata = { title: "Platform Settings" };
+export const dynamic = "force-dynamic";
 
-const STATUS_CONFIG: Record<string, { color: string; dot: string; label: string }> = {
-  OPERATIONAL: { color: "text-green-600", dot: "bg-green-500", label: "Operational" },
-  DEGRADED:    { color: "text-amber-600", dot: "bg-amber-500", label: "Degraded" },
-  DOWN:        { color: "text-red-600",   dot: "bg-red-500",   label: "Down" },
-};
-
-const MARKETPLACE_SETTINGS = [
-  { group: "General", icon: Globe, items: [
-    { label: "Marketplace Name", value: "Avenick Commerce" },
-    { label: "Default Currency", value: "AED (UAE Dirham)" },
-    { label: "Supported Countries", value: "AE, SA, QA, KW, OM, BH" },
-    { label: "Default Language", value: "English / العربية" },
-  ]},
-  { group: "Commerce", icon: DollarSign, items: [
-    { label: "Default B2C Commission", value: "5.0%" },
-    { label: "Default B2B Commission", value: "5.5%" },
-    { label: "VAT Rate (UAE)", value: "5%" },
-    { label: "VAT Rate (KSA)", value: "15%" },
-    { label: "Free Shipping Threshold", value: "AED 200" },
-  ]},
-  { group: "Notifications", icon: Bell, items: [
-    { label: "Order Confirmations", value: "Email + SMS" },
-    { label: "Seller Payout Alerts", value: "Email" },
-    { label: "Low Stock Alerts", value: "Dashboard + Email" },
-    { label: "Dispute Notifications", value: "Email + WhatsApp" },
-  ]},
-  { group: "Security", icon: Shield, items: [
-    { label: "Two-Factor Auth (Admin)", value: "Required" },
-    { label: "Session Timeout", value: "30 minutes" },
-    { label: "Password Policy", value: "Min 12 chars, complexity" },
-    { label: "Audit Log Retention", value: "7 years" },
-  ]},
-];
+function ConfigRow({ label, configured, detail }: { label: string; configured: boolean; detail?: string }) {
+  return (
+    <li className="px-5 py-3 flex items-center justify-between gap-3">
+      <div>
+        <p className="text-sm font-medium">{label}</p>
+        {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
+      </div>
+      <span
+        className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full shrink-0 ${
+          configured ? "bg-green-100 text-green-700" : "bg-slate-100 text-muted-foreground"
+        }`}
+      >
+        {configured ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+        {configured ? "Configured" : "Not configured"}
+      </span>
+    </li>
+  );
+}
 
 export default async function SettingsPage() {
   await requireAdminSession();
-  const h = MOCK_SYSTEM_HEALTH;
-  const degraded = h.services.filter(s => s.status !== "OPERATIONAL").length;
+
+  const dbHealth = await checkDatabaseHealth();
+
+  // Presence-only checks — values are never read into the page.
+  const env = (key: string) => Boolean(process.env[key]);
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Marketplace Settings</h1>
-            <p className="text-muted-foreground text-sm">Platform configuration and system health</p>
-          </div>
-          <Link href="/audit" className="flex items-center gap-1.5 text-sm border border-border bg-white text-muted-foreground hover:bg-slate-50 px-3 py-2 rounded-xl font-medium transition-colors">
-            <Activity className="h-3.5 w-3.5" /> Audit Trail
-          </Link>
+      <div className="space-y-6 max-w-4xl">
+        <div>
+          <h1 className="text-2xl font-bold">Platform Settings</h1>
+          <p className="text-muted-foreground text-sm">
+            Operational configuration as the platform actually sees it. Values are read from the environment; secrets are never displayed.
+          </p>
         </div>
 
-        {/* System health */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Server className="h-4 w-4 text-muted-foreground" />
-              <h2 className="font-semibold">System Health</h2>
-            </div>
-            <div className="flex items-center gap-2">
-              {degraded > 0
-                ? <span className="flex items-center gap-1 text-xs text-amber-600 font-semibold"><AlertTriangle className="h-3.5 w-3.5" /> {degraded} service degraded</span>
-                : <span className="flex items-center gap-1 text-xs text-green-600 font-semibold"><CheckCircle className="h-3.5 w-3.5" /> All systems operational</span>}
-            </div>
-          </div>
-
-          {/* Health summary */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-5 border-b border-border">
-            {[
-              { label: "Uptime (30d)", value: `${h.uptime}%`, color: "text-green-600" },
-              { label: "Avg Response", value: `${h.avgResponseMs}ms`, color: "text-primary" },
-              { label: "API Status", value: STATUS_CONFIG[h.apiStatus]?.label ?? h.apiStatus, color: STATUS_CONFIG[h.apiStatus]?.color ?? "" },
-              { label: "Last Deploy", value: h.lastDeployment.split(" ")[0], color: "text-foreground" },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="bg-slate-50 rounded-xl p-3">
-                <p className={`text-lg font-bold ${color}`}>{value}</p>
-                <p className="text-xs text-muted-foreground">{label}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Services list */}
-          <div className="divide-y divide-border">
-            {h.services.map((svc) => {
-              const sc = STATUS_CONFIG[svc.status] ?? STATUS_CONFIG.OPERATIONAL;
-              return (
-                <div key={svc.name} className="flex items-center justify-between px-5 py-3">
-                  <div className="flex items-center gap-3">
-                    <span className={`h-2.5 w-2.5 rounded-full ${sc.dot} ${svc.status !== "OPERATIONAL" ? "animate-pulse" : ""}`} />
-                    <p className="font-medium text-sm">{svc.name}</p>
-                  </div>
-                  <div className="flex items-center gap-6 text-xs">
-                    <span className="text-muted-foreground">{svc.latency}</span>
-                    <span className="text-muted-foreground w-16 text-end">{svc.uptime}% up</span>
-                    <span className={`font-semibold w-24 text-end ${sc.color}`}>{sc.label}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Settings groups */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {MARKETPLACE_SETTINGS.map((group) => {
-            const Icon = group.icon;
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Database", value: dbHealth.ok ? `Healthy · ${dbHealth.latencyMs}ms` : "Unreachable", icon: Database, color: dbHealth.ok ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-600" },
+            { label: "Environment", value: process.env.NODE_ENV ?? "development", icon: Globe, color: "bg-white border-border text-muted-foreground" },
+            { label: "Auth secret", value: env("AUTH_SECRET") || env("NEXTAUTH_SECRET") ? "Set" : "Missing", icon: KeyRound, color: env("AUTH_SECRET") || env("NEXTAUTH_SECRET") ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-600" },
+            { label: "Session strategy", value: "JWT (per-portal cookies)", icon: ShieldCheck, color: "bg-white border-border text-muted-foreground" },
+          ].map((s) => {
+            const Icon = s.icon;
             return (
-              <div key={group.group} className="bg-white rounded-2xl border border-border overflow-hidden">
-                <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Icon className="h-4 w-4 text-muted-foreground" />
-                    <h2 className="font-semibold">{group.group}</h2>
-                  </div>
-                  <button type="button" className="text-xs text-primary hover:underline font-medium">Edit</button>
+              <div key={s.label} className={`rounded-2xl border p-4 ${s.color.split(" ").slice(0, 2).join(" ")}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">{s.label}</span>
+                  <Icon className={`h-4 w-4 ${s.color.split(" ")[2]}`} />
                 </div>
-                <div className="divide-y divide-border">
-                  {group.items.map((item) => (
-                    <div key={item.label} className="flex items-center justify-between px-5 py-3">
-                      <span className="text-sm text-muted-foreground">{item.label}</span>
-                      <span className="text-sm font-medium">{item.value}</span>
-                    </div>
-                  ))}
-                </div>
+                <p className="text-base font-bold mt-1">{s.value}</p>
               </div>
             );
           })}
         </div>
 
-        {/* Footer note */}
-        <div className="bg-slate-50 border border-border rounded-2xl p-4 flex items-center gap-3">
-          <Settings className="h-5 w-5 text-muted-foreground shrink-0" />
-          <p className="text-sm text-muted-foreground">
-            Changes to marketplace settings are logged in the <Link href="/audit" className="text-primary hover:underline font-medium">audit trail</Link> and may require Super Admin approval.
-          </p>
+        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+            <Settings className="h-4 w-4 text-muted-foreground" />
+            <h2 className="font-semibold">Service configuration</h2>
+          </div>
+          <ul className="divide-y divide-border">
+            <ConfigRow label="Checkout.com payments" configured={env("CHECKOUT_SECRET_KEY")} detail="Card / mada / Apple Pay processing on the customer portal" />
+            <ConfigRow label="Checkout.com webhook secret" configured={env("CHECKOUT_WEBHOOK_SECRET")} detail="HMAC verification for payment status webhooks (fails closed when missing)" />
+            <ConfigRow label="Anthropic AI drafts" configured={env("ANTHROPIC_API_KEY")} detail="Seller portal RFQ/listing draft generation (falls back to templates)" />
+            <ConfigRow label="Resend email" configured={env("RESEND_API_KEY")} detail="Transactional email delivery" />
+            <ConfigRow label="Twilio SMS/WhatsApp" configured={env("TWILIO_AUTH_TOKEN")} detail="SMS and WhatsApp notifications" />
+            <ConfigRow label="S3 / MinIO object storage" configured={env("S3_ACCESS_KEY")} detail="Product images and seller documents" />
+            <ConfigRow label="Elasticsearch" configured={env("ELASTICSEARCH_URL")} detail="Catalog search (falls back to database search)" />
+            <ConfigRow label="Redis" configured={env("REDIS_URL")} detail="Shared rate limiting and caching (in-memory fallback when unset)" />
+          </ul>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex items-center gap-2">
+            <Percent className="h-4 w-4 text-muted-foreground" />
+            <h2 className="font-semibold">VAT rates by jurisdiction</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b border-border">
+                <tr>
+                  <th className="px-4 py-2.5 text-start text-xs font-semibold text-muted-foreground uppercase">Country</th>
+                  <th className="px-4 py-2.5 text-start text-xs font-semibold text-muted-foreground uppercase">Rate</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {Object.entries(VAT_RATES).map(([country, rate]) => (
+                  <tr key={country}>
+                    <td className="px-4 py-2.5 font-medium">{country}</td>
+                    <td className="px-4 py-2.5 text-muted-foreground">{rate}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </AdminLayout>

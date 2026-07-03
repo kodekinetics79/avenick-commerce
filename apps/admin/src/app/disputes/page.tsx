@@ -1,141 +1,170 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_DISPUTES } from "@avenick/database";
+import { getAdminReturns, ReturnStatus } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
-import { Scale, ArrowLeft, AlertTriangle, Clock, CheckCircle, FileText, User, Store } from "lucide-react";
+import { ReturnActions } from "./return-actions";
+import { Scale, Clock, CheckCircle, XCircle, Truck, PackageCheck, Banknote } from "lucide-react";
+import { format } from "date-fns";
 import Link from "next/link";
 
-export const metadata = { title: "Disputes" };
+export const metadata = { title: "Disputes & Returns" };
+export const dynamic = "force-dynamic";
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
-  OPEN:            { label: "Open",             color: "bg-blue-100 text-primary",     icon: Clock },
-  AWAITING_SELLER: { label: "Awaiting Seller",  color: "bg-amber-100 text-amber-700",   icon: Clock },
-  UNDER_REVIEW:    { label: "Under Review",     color: "bg-purple-100 text-purple-700", icon: Scale },
-  RESOLVED_BUYER:  { label: "Resolved (Buyer)", color: "bg-green-100 text-green-700",   icon: CheckCircle },
-  RESOLVED_SELLER: { label: "Resolved (Seller)",color: "bg-green-100 text-green-700",   icon: CheckCircle },
+const STATUS_CONFIG: Record<ReturnStatus, { label: string; color: string; icon: typeof Clock }> = {
+  REQUESTED: { label: "Requested", color: "bg-blue-100 text-primary", icon: Clock },
+  APPROVED: { label: "Approved", color: "bg-amber-100 text-amber-700", icon: CheckCircle },
+  REJECTED: { label: "Rejected", color: "bg-red-100 text-red-700", icon: XCircle },
+  IN_TRANSIT: { label: "In Transit", color: "bg-purple-100 text-purple-700", icon: Truck },
+  RECEIVED: { label: "Received", color: "bg-indigo-100 text-indigo-700", icon: PackageCheck },
+  REFUNDED: { label: "Refunded", color: "bg-green-100 text-green-700", icon: Banknote },
 };
 
-const TYPE_LABEL: Record<string, string> = {
-  ITEM_NOT_RECEIVED: "Item Not Received",
-  NOT_AS_DESCRIBED:  "Not As Described",
-  DAMAGED:           "Damaged Item",
-  REFUND_REQUEST:    "Refund Request",
-};
+interface PageProps {
+  searchParams: { status?: string; page?: string };
+}
 
-const TABS = ["All", "Open", "Awaiting Seller", "Under Review", "Resolved"] as const;
-
-export default async function DisputesPage() {
+export default async function DisputesPage({ searchParams }: PageProps) {
   await requireAdminSession();
 
-  const open = MOCK_DISPUTES.filter(d => ["OPEN","AWAITING_SELLER","UNDER_REVIEW"].includes(d.status));
-  const disputedValue = open.reduce((s, d) => s + d.amount, 0);
-  const awaitingSeller = MOCK_DISPUTES.filter(d => d.status === "AWAITING_SELLER").length;
-  const resolved = MOCK_DISPUTES.filter(d => d.status.startsWith("RESOLVED")).length;
+  const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const limit = 25;
+  const status = Object.values(ReturnStatus).includes(searchParams.status as ReturnStatus)
+    ? (searchParams.status as ReturnStatus)
+    : undefined;
+
+  const { returns, total, statusCounts } = await getAdminReturns({ page, limit, status });
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+
+  const countFor = (statuses: ReturnStatus[]) =>
+    statusCounts.filter((c) => statuses.includes(c.status)).reduce((s, c) => s + c._count._all, 0);
+
+  const filterHref = (params: Record<string, string | undefined>) => {
+    const merged = { ...searchParams, page: undefined, ...params };
+    const qs = new URLSearchParams(
+      Object.entries(merged).filter((e): e is [string, string] => Boolean(e[1])),
+    ).toString();
+    return qs ? `/disputes?${qs}` : "/disputes";
+  };
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Link href="/support" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
-                <ArrowLeft className="h-3.5 w-3.5" /> Support
-              </Link>
-              <span className="text-muted-foreground">/</span>
-              <span className="text-sm font-medium">Disputes</span>
-            </div>
-            <h1 className="text-2xl font-bold">Disputes</h1>
-            <p className="text-sm text-muted-foreground">Buyer–seller disputes requiring marketplace mediation</p>
+            <h1 className="text-2xl font-bold">Disputes & Returns</h1>
+            <p className="text-muted-foreground text-sm">
+              Buyer return requests and their resolution. Approvals, rejections, and refunds are audit-logged.
+            </p>
           </div>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Open Disputes", value: open.length, color: "text-primary", bg: "bg-blue-50 border-blue-200" },
-            { label: "Disputed Value", value: formatCurrency(disputedValue, "AED"), color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
-            { label: "Awaiting Seller", value: awaitingSeller, color: "text-purple-600", bg: "bg-purple-50 border-purple-200" },
-            { label: "Resolved", value: resolved, color: "text-green-600", bg: "bg-white border-border" },
-          ].map(({ label, value, color, bg }) => (
-            <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
-              <p className={`text-xl font-bold ${color}`}>{value}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
+            { label: "Awaiting decision", value: countFor(["REQUESTED"]), color: "bg-blue-50 border-blue-200" },
+            { label: "In progress", value: countFor(["APPROVED", "IN_TRANSIT", "RECEIVED"]), color: "bg-amber-50 border-amber-200" },
+            { label: "Refunded", value: countFor(["REFUNDED"]), color: "bg-green-50 border-green-200" },
+            { label: "Rejected", value: countFor(["REJECTED"]), color: "bg-red-50 border-red-200" },
+          ].map((s) => (
+            <div key={s.label} className={`rounded-2xl border p-4 ${s.color}`}>
+              <span className="text-sm text-muted-foreground">{s.label}</span>
+              <p className="text-2xl font-bold mt-1">{s.value}</p>
             </div>
           ))}
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 bg-white border border-border rounded-xl p-1 w-fit overflow-x-auto">
-          {TABS.map((tab) => (
-            <button key={tab} type="button"
-              className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-colors ${tab === "All" ? "bg-slate-900 text-white" : "text-muted-foreground hover:text-foreground hover:bg-slate-50"}`}>
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        {/* Dispute cards */}
-        <div className="space-y-3">
-          {MOCK_DISPUTES.map((d) => {
-            const sc = STATUS_CONFIG[d.status] ?? STATUS_CONFIG.OPEN;
-            const StatusIcon = sc.icon;
-            const isResolved = d.status.startsWith("RESOLVED");
-            const needsAction = d.status === "OPEN" || d.status === "UNDER_REVIEW";
+        <div className="flex flex-wrap items-center gap-2">
+          {([undefined, ...Object.values(ReturnStatus)] as const).map((s) => {
+            const active = status === s || (!status && !s);
             return (
-              <div key={d.id} className={`bg-white rounded-2xl border-2 p-5 ${d.priority === "HIGH" && !isResolved ? "border-red-200" : "border-border"}`}>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    {/* Top row */}
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <span className="font-mono text-xs font-semibold text-muted-foreground">{d.id}</span>
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}>
-                        <StatusIcon className="h-3 w-3" /> {sc.label}
-                      </span>
-                      <span className="text-xs bg-slate-100 text-muted-foreground px-2 py-0.5 rounded font-medium">{TYPE_LABEL[d.type] ?? d.type}</span>
-                      {d.priority === "HIGH" && !isResolved && (
-                        <span className="flex items-center gap-0.5 text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold uppercase">
-                          <AlertTriangle className="h-2.5 w-2.5" /> High
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Parties */}
-                    <div className="flex flex-wrap items-center gap-4 text-sm mb-2">
-                      <span className="flex items-center gap-1.5"><User className="h-3.5 w-3.5 text-blue-500" /> <strong>{d.buyer}</strong></span>
-                      <span className="text-muted-foreground">vs</span>
-                      <span className="flex items-center gap-1.5"><Store className="h-3.5 w-3.5 text-purple-500" /> {d.seller}</span>
-                    </div>
-
-                    {/* Meta */}
-                    <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                      <span>Order {d.orderRef}</span>
-                      <span className="flex items-center gap-1"><FileText className="h-3 w-3" /> {d.evidence} evidence file{d.evidence !== 1 ? "s" : ""}</span>
-                      <span>Opened {d.openedAt}</span>
-                      <span className={d.sellerResponded ? "text-green-600" : "text-amber-600"}>
-                        {d.sellerResponded ? "✓ Seller responded" : "⏳ Awaiting seller response"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Right side */}
-                  <div className="text-end shrink-0">
-                    <p className="font-bold text-green-700 mb-2">{formatCurrency(d.amount, d.currency as "AED")}</p>
-                    {needsAction ? (
-                      <div className="flex flex-col gap-1.5">
-                        <button type="button" className="text-xs bg-slate-900 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 font-medium transition-colors">Review Case</button>
-                        <button type="button" className="text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-slate-50 font-medium transition-colors">Mediate</button>
-                      </div>
-                    ) : d.status === "AWAITING_SELLER" ? (
-                      <button type="button" className="text-xs border border-amber-200 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-50 font-medium transition-colors">Remind Seller</button>
-                    ) : (
-                      <span className="text-xs text-green-600 font-medium flex items-center gap-1 justify-end"><CheckCircle className="h-3.5 w-3.5" /> Closed</span>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <Link
+                key={s ?? "all"}
+                href={filterHref({ status: s })}
+                className={`text-xs px-3 py-1.5 rounded-lg border ${active ? "bg-primary text-white border-primary" : "border-border hover:bg-muted"}`}
+              >
+                {s ? STATUS_CONFIG[s].label : "All"}
+              </Link>
             );
           })}
+        </div>
+
+        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b border-border">
+                <tr>
+                  {["Return", "Order", "Buyer", "Seller", "Reason", "Refund", "Status", "Opened", "Actions"].map((h) => (
+                    <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {returns.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-12 text-center">
+                      <Scale className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        {status ? "No returns match the current filter." : "No return requests yet."}
+                      </p>
+                    </td>
+                  </tr>
+                )}
+                {returns.map((r) => {
+                  const cfg = STATUS_CONFIG[r.status];
+                  const StatusIcon = cfg.icon;
+                  return (
+                    <tr key={r.id} className="hover:bg-slate-50/60">
+                      <td className="px-4 py-3 font-medium">{r.returnNumber}</td>
+                      <td className="px-4 py-3">
+                        <Link href={`/orders/${r.order.id}`} className="text-primary hover:underline">
+                          {r.order.orderNumber}
+                        </Link>
+                        <p className="text-[11px] text-muted-foreground">
+                          {formatCurrency(Number(r.order.total), r.order.currency as never)}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="font-medium">{r.order.user.firstName} {r.order.user.lastName}</p>
+                        <p className="text-xs text-muted-foreground">{r.order.user.email}</p>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground">{r.seller.businessNameEn}</td>
+                      <td className="px-4 py-3 text-muted-foreground max-w-[16rem]">
+                        <p className="truncate" title={r.reason}>{r.reason}</p>
+                        {r.resolution && (
+                          <p className="text-[11px] text-muted-foreground/80 truncate" title={r.resolution}>↳ {r.resolution}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-semibold">
+                        {r.refundAmount ? formatCurrency(Number(r.refundAmount), r.order.currency as never) : "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${cfg.color}`}>
+                          <StatusIcon className="h-3 w-3" /> {cfg.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{format(r.createdAt, "MMM d, yyyy")}</td>
+                      <td className="px-4 py-3">
+                        <ReturnActions returnId={r.id} status={r.status} orderTotal={Number(r.order.total)} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border text-sm">
+              <span className="text-muted-foreground">Page {page} of {totalPages} · {total} returns</span>
+              <div className="flex gap-2">
+                {page > 1 && (
+                  <Link href={filterHref({ page: String(page - 1) })} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs">Previous</Link>
+                )}
+                {page < totalPages && (
+                  <Link href={filterHref({ page: String(page + 1) })} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs">Next</Link>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </AdminLayout>

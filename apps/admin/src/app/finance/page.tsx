@@ -1,33 +1,38 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_FINANCE_INVOICES, MOCK_SETTLEMENTS, MOCK_CREDIT_ACCOUNTS } from "@avenick/database";
+import { getFinanceOverview, getCommissions } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
-import { DollarSign, TrendingUp, Clock, AlertCircle, Receipt, CreditCard, FileSpreadsheet, ArrowRight } from "lucide-react";
+import { TrendingUp, Clock, Receipt, CreditCard, FileSpreadsheet, ArrowRight, Percent, RotateCcw } from "lucide-react";
+import { format } from "date-fns";
 import Link from "next/link";
 
 export const metadata = { title: "Finance Overview" };
+export const dynamic = "force-dynamic";
 
 export default async function FinancePage() {
   await requireAdminSession();
 
-  const totalInvoiced = MOCK_FINANCE_INVOICES.reduce((s, i) => s + i.amount, 0);
-  const collected = MOCK_FINANCE_INVOICES.filter((i) => i.status === "COLLECTED").reduce((s, i) => s + i.amount, 0);
-  const outstanding = MOCK_FINANCE_INVOICES.filter((i) => i.status === "OUTSTANDING").reduce((s, i) => s + i.amount, 0);
-  const totalVat = MOCK_FINANCE_INVOICES.reduce((s, i) => s + i.vatAmount, 0);
+  const [overview, { commissions }] = await Promise.all([
+    getFinanceOverview(),
+    getCommissions({ page: 1, limit: 8 }),
+  ]);
 
-  const pendingSettlements = MOCK_SETTLEMENTS.filter(s => s.status === "PENDING");
-  const pendingPayout = pendingSettlements.reduce((s, x) => s + x.netPayout, 0);
-  const totalCommission = MOCK_SETTLEMENTS.reduce((s, x) => s + x.commission, 0);
-  const creditOverdue = MOCK_CREDIT_ACCOUNTS.reduce((s, c) => s + c.overdue, 0);
+  const kpis = [
+    { label: "GMV (month)", value: formatCurrency(overview.gmvMonth, "AED"), sub: `${formatCurrency(overview.gmvYear, "AED")} YTD`, icon: TrendingUp, color: "bg-green-50 border-green-200 text-green-600" },
+    { label: "Commission revenue (month)", value: formatCurrency(overview.commissionMonth, "AED"), sub: `${formatCurrency(overview.commissionYear, "AED")} YTD`, icon: Percent, color: "bg-blue-50 border-blue-200 text-primary" },
+    { label: "Pending payouts", value: formatCurrency(overview.pendingPayoutAmount, "AED"), sub: `${overview.pendingPayoutCount} payout${overview.pendingPayoutCount === 1 ? "" : "s"} awaiting settlement`, icon: Clock, color: "bg-amber-50 border-amber-200 text-amber-600" },
+    { label: "Refunds in flight", value: formatCurrency(overview.refundsPendingAmount, "AED"), sub: `${overview.refundsPendingCount} open refund${overview.refundsPendingCount === 1 ? "" : "s"}`, icon: RotateCcw, color: "bg-red-50 border-red-200 text-red-600" },
+  ];
+
+  const maxGmv = Math.max(1, ...overview.monthly.map((m) => m.gmv));
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex items-start justify-between">
           <div>
             <h1 className="text-2xl font-bold">Finance Overview</h1>
-            <p className="text-muted-foreground text-sm">Revenue, invoices, settlements, and VAT</p>
+            <p className="text-muted-foreground text-sm">Live revenue, commissions, payouts, and VAT from the order ledger.</p>
           </div>
           <div className="flex gap-2">
             <Link href="/payments" className="flex items-center gap-1.5 text-sm border border-border bg-white text-muted-foreground hover:bg-slate-50 px-3 py-2 rounded-xl font-medium transition-colors">
@@ -39,114 +44,98 @@ export default async function FinancePage() {
           </div>
         </div>
 
-        {/* Summary cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div className="bg-white rounded-2xl border border-border p-4">
-            <TrendingUp className="h-4 w-4 text-green-500 mb-2" />
-            <p className="text-2xl font-bold">{formatCurrency(totalInvoiced, "AED")}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Total Invoiced</p>
-          </div>
-          <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
-            <DollarSign className="h-4 w-4 text-green-600 mb-2" />
-            <p className="text-2xl font-bold text-green-700">{formatCurrency(collected, "AED")}</p>
-            <p className="text-xs text-green-600 mt-0.5">{Math.round((collected / totalInvoiced) * 100)}% collection rate</p>
-          </div>
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-            <Clock className="h-4 w-4 text-amber-600 mb-2" />
-            <p className="text-2xl font-bold text-amber-700">{formatCurrency(outstanding, "AED")}</p>
-            <p className="text-xs text-amber-600 mt-0.5">{MOCK_FINANCE_INVOICES.filter((i) => i.status === "OUTSTANDING").length} invoices pending</p>
-          </div>
-          <Link href="/vat" className="bg-white border border-border rounded-2xl p-4 hover:shadow-sm transition-all">
-            <FileSpreadsheet className="h-4 w-4 text-blue-500 mb-2" />
-            <p className="text-2xl font-bold">{formatCurrency(totalVat, "AED")}</p>
-            <p className="text-xs text-primary mt-0.5 flex items-center gap-0.5 font-medium">VAT payable <ArrowRight className="h-3 w-3" /></p>
-          </Link>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {kpis.map((k) => {
+            const Icon = k.icon;
+            return (
+              <div key={k.label} className={`rounded-2xl border p-4 ${k.color.split(" ").slice(0, 2).join(" ")}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">{k.label}</span>
+                  <Icon className={`h-4 w-4 ${k.color.split(" ")[2]}`} />
+                </div>
+                <p className="text-xl font-bold mt-1">{k.value}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{k.sub}</p>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Settlement + credit alerts row */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Supplier settlements */}
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Receipt className="h-5 w-5 text-amber-600 shrink-0" />
-              <div>
-                <p className="font-semibold text-amber-800 text-sm">{pendingSettlements.length} supplier settlements pending</p>
-                <p className="text-xs text-amber-600">{formatCurrency(pendingPayout, "AED")} net payout due</p>
-              </div>
+          {/* Monthly GMV bars */}
+          <div className="bg-white rounded-2xl border border-border p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold">Paid GMV by month ({new Date().getFullYear()})</h2>
+              <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
             </div>
-            <Link href="/settlements" className="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg hover:bg-amber-700 font-medium transition-colors whitespace-nowrap">Process →</Link>
-          </div>
-
-          {/* Credit overdue */}
-          <div className={`rounded-2xl p-4 flex items-center justify-between border ${creditOverdue > 0 ? "bg-red-50 border-red-200" : "bg-white border-border"}`}>
-            <div className="flex items-center gap-3">
-              <AlertCircle className={`h-5 w-5 shrink-0 ${creditOverdue > 0 ? "text-red-600" : "text-muted-foreground"}`} />
-              <div>
-                <p className={`font-semibold text-sm ${creditOverdue > 0 ? "text-red-800" : "text-foreground"}`}>Credit Exposure</p>
-                <p className={`text-xs ${creditOverdue > 0 ? "text-red-600" : "text-muted-foreground"}`}>
-                  {creditOverdue > 0 ? `${formatCurrency(creditOverdue, "AED")} overdue across accounts` : "All credit accounts current"}
-                </p>
-              </div>
-            </div>
-            <span className="text-xs text-primary font-medium">{MOCK_CREDIT_ACCOUNTS.length} accounts</span>
-          </div>
-        </div>
-
-        {/* Commission revenue */}
-        <div className="bg-white rounded-2xl border border-border p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold">Marketplace Commission — This Month</h2>
-            <span className="text-xs text-green-600 font-medium">+12% vs last month</span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-            {[
-              { label: "Gross Commission", value: formatCurrency(totalCommission, "AED") },
-              { label: "Avg Rate", value: "5.4%" },
-              { label: "B2B Commission", value: formatCurrency(Math.round(totalCommission * 0.68), "AED") },
-              { label: "B2C Commission", value: formatCurrency(Math.round(totalCommission * 0.32), "AED") },
-            ].map((item) => (
-              <div key={item.label} className="bg-slate-50 rounded-xl p-3">
-                <p className="text-lg font-bold text-green-700">{item.value}</p>
-                <p className="text-xs text-muted-foreground">{item.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent invoices */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-            <h2 className="font-semibold">Recent Invoices</h2>
-            <span className="text-xs text-muted-foreground">{MOCK_FINANCE_INVOICES.length} invoices</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
-                <tr>
-                  {["Invoice #","Buyer","Type","Amount","VAT","Status","Issued"].map(h => (
-                    <th key={h} className="text-start px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {MOCK_FINANCE_INVOICES.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-5 py-3 font-mono text-xs font-semibold text-primary">{inv.invoiceNo}</td>
-                    <td className="px-5 py-3 font-medium">{inv.buyer}</td>
-                    <td className="px-5 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${inv.type === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-primary"}`}>{inv.type}</span>
-                    </td>
-                    <td className="px-5 py-3 font-bold text-green-700">{formatCurrency(inv.amount, "AED")}</td>
-                    <td className="px-5 py-3 text-muted-foreground">{formatCurrency(inv.vatAmount, "AED")}</td>
-                    <td className="px-5 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${inv.status === "COLLECTED" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>{inv.status}</span>
-                    </td>
-                    <td className="px-5 py-3 text-xs text-muted-foreground">{inv.issuedAt}</td>
-                  </tr>
+            {overview.monthly.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">No paid orders yet this year.</p>
+            ) : (
+              <div className="space-y-2">
+                {overview.monthly.map((m) => (
+                  <div key={String(m.month)} className="flex items-center gap-3">
+                    <span className="text-xs text-muted-foreground w-8">{format(m.month, "MMM")}</span>
+                    <div className="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
+                      <div className="bg-primary h-full rounded-full" style={{ width: `${Math.max(2, (m.gmv / maxGmv) * 100)}%` }} />
+                    </div>
+                    <span className="text-xs font-medium w-28 text-end">{formatCurrency(m.gmv, "AED")}</span>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-4">
+              VAT collected YTD: <span className="font-semibold text-foreground">{formatCurrency(overview.vatCollectedYear, "AED")}</span>
+              {" · "}
+              <Link href="/vat" className="text-primary hover:underline">VAT summary →</Link>
+            </p>
           </div>
+
+          {/* Recent commissions */}
+          <div className="bg-white rounded-2xl border border-border p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold">Recent commissions</h2>
+              <span className="text-xs text-muted-foreground">
+                {overview.unsettledCommissionCount} unsettled · {formatCurrency(overview.unsettledCommissionAmount, "AED")}
+              </span>
+            </div>
+            {commissions.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">No commissions recorded yet.</p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {commissions.map((c) => (
+                  <li key={c.id} className="py-2.5 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{c.seller.businessNameEn}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {c.order.orderNumber} · {Number(c.rate)}% of {formatCurrency(Number(c.order.total), c.currency as never)}
+                      </p>
+                    </div>
+                    <div className="text-end shrink-0">
+                      <p className="text-sm font-semibold">{formatCurrency(Number(c.amount), c.currency as never)}</p>
+                      <p className={`text-[11px] ${c.settledAt ? "text-green-600" : "text-amber-600"}`}>
+                        {c.settledAt ? `Settled ${format(c.settledAt, "MMM d")}` : "Unsettled"}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {[
+            { href: "/payments", label: "Payments ledger", desc: "Every gateway transaction with status and reference" },
+            { href: "/settlements", label: "Supplier settlements", desc: `${overview.pendingPayoutCount} payouts awaiting processing` },
+            { href: "/vat", label: "VAT summary", desc: "Output VAT by month and jurisdiction" },
+          ].map((l) => (
+            <Link key={l.href} href={l.href} className="group bg-white rounded-2xl border border-border p-4 hover:border-primary/40 transition-colors">
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-sm">{l.label}</p>
+                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">{l.desc}</p>
+            </Link>
+          ))}
         </div>
       </div>
     </AdminLayout>

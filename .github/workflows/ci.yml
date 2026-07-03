@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DATABASE_URL: postgresql://avenick:avenick@localhost:5432/avenick?schema=public
+  DIRECT_URL: postgresql://avenick:avenick@localhost:5432/avenick?schema=public
+  AUTH_SECRET: ci-only-secret-not-used-in-production
+  NEXTAUTH_SECRET: ci-only-secret-not-used-in-production
+  NEXTAUTH_URL: http://localhost:13100
+
+jobs:
+  verify:
+    name: Typecheck, lint, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: avenick
+          POSTGRES_PASSWORD: avenick
+          POSTGRES_DB: avenick
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U avenick"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply database migrations
+        run: pnpm --filter @avenick/database db:deploy
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit and integration tests
+        run: pnpm test
+
+      - name: Build all apps
+        run: pnpm build

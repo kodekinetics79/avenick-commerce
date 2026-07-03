@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth-instance";
 import { createOrder, db } from "@avenick/database";
+import { checkRateLimit, RATE_LIMITS } from "@avenick/auth";
 import { z } from "zod";
 import type { PaymentMethod, Currency } from "@avenick/database";
 
@@ -24,6 +25,27 @@ export async function POST(req: NextRequest) {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
 
+    const rl = await checkRateLimit(RATE_LIMITS.orderCreate, session.user.id);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { success: false, error: "Too many order attempts. Please wait a moment and retry." },
+        { status: 429, headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } },
+      );
+    }
+
+    // Idempotency: a retry carrying the same Idempotency-Key returns the
+    // original order instead of creating a duplicate.
+    const idempotencyKey = req.headers.get("idempotency-key")?.trim() || undefined;
+    if (idempotencyKey) {
+      const existing = await db.order.findUnique({
+        where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } },
+        select: { id: true, orderNumber: true },
+      });
+      if (existing) {
+        return NextResponse.json({ success: true, data: existing, idempotent: true });
+      }
+    }
+
     const body = await req.json();
     const parsed = CreateOrderSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ success: false, error: parsed.error.issues[0]?.message }, { status: 400 });
@@ -36,6 +58,7 @@ export async function POST(req: NextRequest) {
       shippingAddress: parsed.data.shippingAddress,
       paymentMethod: (parsed.data.paymentMethod ?? "MOCK") as PaymentMethod,
       notes: parsed.data.notes,
+      idempotencyKey,
     });
 
     // For MOCK payment method, immediately mark as paid

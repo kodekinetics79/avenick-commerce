@@ -1,128 +1,113 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { MOCK_SEGMENTS } from "@avenick/database";
+import { getCustomerSegments } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
-import { PieChart, Plus, ArrowLeft, TrendingUp, TrendingDown, Users, Megaphone, ArrowRight } from "lucide-react";
-import Link from "next/link";
+import { PieChart, Users, Crown, Moon, Zap } from "lucide-react";
 
-export const metadata = { title: "Segments" };
+export const metadata = { title: "Customer Segments" };
+export const dynamic = "force-dynamic";
 
-const COLOR_MAP: Record<string, { bg: string; text: string; dot: string; ring: string }> = {
-  purple: { bg: "bg-purple-50", text: "text-purple-700", dot: "bg-purple-500", ring: "border-purple-200" },
-  blue:   { bg: "bg-blue-50",   text: "text-primary",   dot: "bg-blue-500",   ring: "border-blue-200" },
-  red:    { bg: "bg-red-50",    text: "text-red-700",    dot: "bg-red-500",    ring: "border-red-200" },
-  green:  { bg: "bg-green-50",  text: "text-green-700",  dot: "bg-green-500",  ring: "border-green-200" },
-  amber:  { bg: "bg-amber-50",  text: "text-amber-700",  dot: "bg-amber-500",  ring: "border-amber-200" },
-  orange: { bg: "bg-orange-50", text: "text-orange-700", dot: "bg-orange-500", ring: "border-orange-200" },
-  slate:  { bg: "bg-slate-50",  text: "text-muted-foreground",  dot: "bg-slate-500",  ring: "border-border" },
-  cyan:   { bg: "bg-cyan-50",   text: "text-cyan-700",   dot: "bg-cyan-500",   ring: "border-cyan-200" },
+const ROLE_LABEL: Record<string, string> = {
+  CONSUMER: "B2C consumers",
+  COMPANY_ADMIN: "Company admins",
+  COMPANY_BUYER: "Company buyers",
+  COMPANY_APPROVER: "Company approvers",
 };
 
 export default async function SegmentsPage() {
   await requireAdminSession();
 
-  const totalCustomers = MOCK_SEGMENTS.reduce((s, seg) => s + seg.count, 0);
-  const growing = MOCK_SEGMENTS.filter(s => s.growth > 0).length;
+  const s = await getCustomerSegments();
+  const totalUsers = s.byRole.reduce((sum, r) => sum + r.count, 0);
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Link href="/crm" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
-                <ArrowLeft className="h-3.5 w-3.5" /> CRM
-              </Link>
-              <span className="text-muted-foreground">/</span>
-              <span className="text-sm font-medium">Segments</span>
-            </div>
-            <h1 className="text-2xl font-bold">Customer Segments</h1>
-            <p className="text-sm text-muted-foreground">{MOCK_SEGMENTS.length} segments · {totalCustomers.toLocaleString()} customers grouped</p>
-          </div>
-          <button type="button" className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
-            <Plus className="h-3.5 w-3.5" /> Create Segment
-          </button>
+        <div>
+          <h1 className="text-2xl font-bold">Customer Segments</h1>
+          <p className="text-muted-foreground text-sm">
+            Segments computed live from user roles and purchase behaviour — no manual lists to maintain.
+          </p>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Total Segments", value: MOCK_SEGMENTS.length, color: "text-foreground" },
-            { label: "Customers Grouped", value: totalCustomers.toLocaleString(), color: "text-primary" },
-            { label: "Growing Segments", value: growing, color: "text-green-600" },
-            { label: "VIP Accounts", value: MOCK_SEGMENTS.find(s => s.id === "seg1")?.count ?? 0, color: "text-purple-600" },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="bg-white rounded-2xl border border-border p-4">
-              <p className={`text-2xl font-bold ${color}`}>{value}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Segment cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {MOCK_SEGMENTS.map((seg) => {
-            const c = COLOR_MAP[seg.color] ?? COLOR_MAP.slate;
-            const isGrowing = seg.growth >= 0;
+            { label: "Buyer accounts", value: totalUsers, icon: Users, color: "bg-white border-border text-muted-foreground" },
+            { label: "Active (30d)", value: s.activeLast30d, icon: Zap, color: "bg-green-50 border-green-200 text-green-700" },
+            { label: "High value (top 20%)", value: s.highValue.length, icon: Crown, color: "bg-amber-50 border-amber-200 text-amber-700" },
+            { label: "Dormant (60d+)", value: s.dormant60d, icon: Moon, color: "bg-slate-50 border-border text-muted-foreground" },
+          ].map((k) => {
+            const Icon = k.icon;
             return (
-              <div key={seg.id} className={`bg-white rounded-2xl border ${c.ring} overflow-hidden`}>
-                <div className={`px-5 py-4 ${c.bg} border-b ${c.ring}`}>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className={`h-2.5 w-2.5 rounded-full ${c.dot}`} />
-                      <div>
-                        <h3 className="font-semibold text-sm">{seg.name}</h3>
-                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${c.bg} ${c.text}`}>{seg.type}</span>
-                      </div>
-                    </div>
-                    <div className="text-end">
-                      <p className="text-2xl font-bold">{seg.count.toLocaleString()}</p>
-                      <p className={`text-xs flex items-center gap-0.5 justify-end font-medium ${isGrowing ? "text-green-600" : "text-red-600"}`}>
-                        {isGrowing ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                        {isGrowing ? "+" : ""}{seg.growth}%
-                      </p>
-                    </div>
-                  </div>
+              <div key={k.label} className={`rounded-2xl border p-4 ${k.color.split(" ").slice(0, 2).join(" ")}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">{k.label}</span>
+                  <Icon className={`h-4 w-4 ${k.color.split(" ")[2]}`} />
                 </div>
-                <div className="p-5">
-                  <p className="text-sm text-muted-foreground mb-4">{seg.description}</p>
-                  <div className="flex items-center justify-between">
-                    {seg.avgSpend > 0 ? (
-                      <div>
-                        <p className="text-xs text-muted-foreground">Avg Lifetime Value</p>
-                        <p className="font-bold text-green-700">{formatCurrency(seg.avgSpend, "AED")}</p>
-                      </div>
-                    ) : (
-                      <div>
-                        <p className="text-xs text-muted-foreground">Conversion opportunity</p>
-                        <p className="font-bold text-amber-600">Not yet purchased</p>
-                      </div>
-                    )}
-                    <div className="flex gap-2">
-                      <button type="button" className="flex items-center gap-1 text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-slate-50 font-medium transition-colors">
-                        <Users className="h-3 w-3" /> View
-                      </button>
-                      <Link href="/campaigns" className="flex items-center gap-1 text-xs bg-slate-900 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 font-medium transition-colors">
-                        <Megaphone className="h-3 w-3" /> Target
-                      </Link>
-                    </div>
-                  </div>
-                </div>
+                <p className="text-2xl font-bold mt-1">{k.value}</p>
               </div>
             );
           })}
         </div>
 
-        {/* CTA */}
-        <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl p-6 flex items-center justify-between text-white">
-          <div>
-            <h3 className="font-bold mb-1">Turn segments into revenue</h3>
-            <p className="text-muted-foreground text-sm">Launch targeted campaigns to any segment with one click.</p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* By role */}
+          <div className="bg-white rounded-2xl border border-border p-5">
+            <h2 className="font-semibold mb-4 inline-flex items-center gap-2">
+              <PieChart className="h-4 w-4 text-primary" /> Buyer accounts by role
+            </h2>
+            {s.byRole.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">No buyer accounts yet.</p>
+            ) : (
+              <ul className="space-y-3">
+                {s.byRole.map((r) => (
+                  <li key={r.role} className="flex items-center gap-3">
+                    <span className="text-sm w-40 shrink-0">{ROLE_LABEL[r.role] ?? r.role}</span>
+                    <div className="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
+                      <div
+                        className="bg-primary h-full rounded-full"
+                        style={{ width: `${Math.max(3, (r.count / Math.max(1, totalUsers)) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-sm font-semibold w-10 text-end">{r.count}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          <Link href="/campaigns" className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors whitespace-nowrap">
-            Create Campaign <ArrowRight className="h-4 w-4" />
-          </Link>
+
+          {/* High value buyers */}
+          <div className="bg-white rounded-2xl border border-border overflow-hidden">
+            <div className="px-5 py-4 border-b border-border">
+              <h2 className="font-semibold inline-flex items-center gap-2">
+                <Crown className="h-4 w-4 text-amber-500" /> High-value buyers
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Top 20% by lifetime spend ({s.totalWithPurchases} buyers with purchases)
+              </p>
+            </div>
+            {s.highValue.length === 0 ? (
+              <div className="px-4 py-12 text-center">
+                <Crown className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
+                <p className="text-sm text-muted-foreground">No purchases yet — high-value buyers appear after first orders.</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-border">
+                {s.highValue.map((b) => (
+                  <li key={b.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{b.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{b.email}</p>
+                    </div>
+                    <div className="text-end shrink-0">
+                      <p className="text-sm font-semibold">{formatCurrency(b.spent, "AED")}</p>
+                      <p className="text-[11px] text-muted-foreground">{b.orders} order{b.orders === 1 ? "" : "s"}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </div>
     </AdminLayout>

@@ -1,262 +1,97 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { Plug, Search, RefreshCw, CheckCircle, Clock, AlertTriangle, ExternalLink, Settings } from "lucide-react";
+import { checkDatabaseHealth } from "@avenick/database";
+import { Plug, CheckCircle, XCircle, Database } from "lucide-react";
 
 export const metadata = { title: "Integration Hub" };
+export const dynamic = "force-dynamic";
 
-type IntegrationStatus = "CONNECTED" | "AVAILABLE" | "COMING_SOON";
-
-const INTEGRATIONS: Array<{
-  id: string;
+interface Integration {
   name: string;
   purpose: string;
   category: string;
-  status: IntegrationStatus;
-  lastSync?: string;
+  connected: boolean;
+  detail: string;
   iconBg: string;
   iconColor: string;
   icon: string;
-}> = [
-  {
-    id: "int_erp",
-    name: "SAP ERP",
-    purpose: "Sync orders, inventory, and financials with your SAP system",
-    category: "ERP",
-    status: "CONNECTED",
-    lastSync: "5 min ago",
-    iconBg: "bg-blue-100",
-    iconColor: "text-primary",
-    icon: "ERP",
-  },
-  {
-    id: "int_crm",
-    name: "Salesforce CRM",
-    purpose: "Sync B2B accounts, contacts, and deal pipeline",
-    category: "CRM",
-    status: "CONNECTED",
-    lastSync: "12 min ago",
-    iconBg: "bg-sky-100",
-    iconColor: "text-sky-600",
-    icon: "CRM",
-  },
-  {
-    id: "int_payment",
-    name: "Stripe / Telr",
-    purpose: "Accept cards, mada, BNPL, and B2B invoice payments",
-    category: "Payments",
-    status: "CONNECTED",
-    lastSync: "Real-time",
-    iconBg: "bg-violet-100",
-    iconColor: "text-violet-600",
-    icon: "PAY",
-  },
-  {
-    id: "int_shipping",
-    name: "Aramex / DHL",
-    purpose: "Book shipments, generate AWBs, and track deliveries",
-    category: "Shipping",
-    status: "CONNECTED",
-    lastSync: "15 min ago",
-    iconBg: "bg-amber-100",
-    iconColor: "text-amber-600",
-    icon: "SHP",
-  },
-  {
-    id: "int_wms",
-    name: "Deposco WMS",
-    purpose: "Warehouse management, pick/pack, and stock sync",
-    category: "Warehouse",
-    status: "AVAILABLE",
-    iconBg: "bg-emerald-100",
-    iconColor: "text-emerald-600",
-    icon: "WMS",
-  },
-  {
-    id: "int_accounting",
-    name: "Zoho Books",
-    purpose: "Auto-generate invoices, reconcile payments, and manage VAT",
-    category: "Accounting",
-    status: "CONNECTED",
-    lastSync: "1 hour ago",
-    iconBg: "bg-yellow-100",
-    iconColor: "text-yellow-600",
-    icon: "ACC",
-  },
-  {
-    id: "int_whatsapp",
-    name: "WhatsApp Business API",
-    purpose: "Send order updates, RFQ alerts, and marketing messages",
-    category: "Messaging",
-    status: "CONNECTED",
-    lastSync: "Real-time",
-    iconBg: "bg-green-100",
-    iconColor: "text-green-600",
-    icon: "WA",
-  },
-  {
-    id: "int_search",
-    name: "Algolia Search",
-    purpose: "AI-powered product search, faceting, and recommendations",
-    category: "Search",
-    status: "CONNECTED",
-    lastSync: "Instant",
-    iconBg: "bg-pink-100",
-    iconColor: "text-pink-600",
-    icon: "SCH",
-  },
-  {
-    id: "int_ai",
-    name: "OpenAI / Claude",
-    purpose: "AI recommendations, content generation, and risk scoring",
-    category: "AI Provider",
-    status: "CONNECTED",
-    lastSync: "Real-time",
-    iconBg: "bg-indigo-100",
-    iconColor: "text-indigo-600",
-    icon: "AI",
-  },
-  {
-    id: "int_storage",
-    name: "AWS S3 / Cloudflare R2",
-    purpose: "Store product images, documents, and export files",
-    category: "Storage",
-    status: "CONNECTED",
-    lastSync: "Real-time",
-    iconBg: "bg-amber-100",
-    iconColor: "text-amber-600",
-    icon: "S3",
-  },
-  {
-    id: "int_vat",
-    name: "Zatca / GAZT VAT",
-    purpose: "Automated VAT filing and e-invoicing for KSA regulations",
-    category: "Tax / VAT",
-    status: "AVAILABLE",
-    iconBg: "bg-red-100",
-    iconColor: "text-red-600",
-    icon: "VAT",
-  },
-  {
-    id: "int_sso",
-    name: "Azure AD SSO",
-    purpose: "Single sign-on for enterprise B2B buyers and admin staff",
-    category: "Identity",
-    status: "COMING_SOON",
-    iconBg: "bg-slate-100",
-    iconColor: "text-muted-foreground",
-    icon: "SSO",
-  },
-];
-
-const STATUS_CONFIG: Record<IntegrationStatus, { label: string; color: string; icon: typeof CheckCircle }> = {
-  CONNECTED: { label: "Connected", color: "bg-green-100 text-green-700", icon: CheckCircle },
-  AVAILABLE: { label: "Available", color: "bg-blue-100 text-primary", icon: Clock },
-  COMING_SOON: { label: "Coming Soon", color: "bg-slate-100 text-muted-foreground", icon: AlertTriangle },
-};
+}
 
 export default async function IntegrationsPage() {
   await requireAdminSession();
 
-  const connected = INTEGRATIONS.filter((i) => i.status === "CONNECTED").length;
-  const available = INTEGRATIONS.filter((i) => i.status === "AVAILABLE").length;
+  const dbHealth = await checkDatabaseHealth();
+  const env = (key: string) => Boolean(process.env[key]);
+
+  // Status reflects the environment this deployment is actually running with.
+  const integrations: Integration[] = [
+    { name: "PostgreSQL", purpose: "Primary data store for all portals", category: "Database", connected: dbHealth.ok, detail: dbHealth.ok ? `Live · ${dbHealth.latencyMs}ms` : dbHealth.error ?? "Unreachable", iconBg: "bg-indigo-100", iconColor: "text-indigo-600", icon: "SQL" },
+    { name: "Checkout.com", purpose: "Card, mada, and Apple Pay processing with signed webhooks", category: "Payments", connected: env("CHECKOUT_SECRET_KEY"), detail: env("CHECKOUT_WEBHOOK_SECRET") ? "Keys + webhook secret set" : "Webhook secret missing", iconBg: "bg-violet-100", iconColor: "text-violet-600", icon: "PAY" },
+    { name: "Anthropic Claude", purpose: "AI draft generation for seller RFQ replies and listings", category: "AI", connected: env("ANTHROPIC_API_KEY"), detail: env("ANTHROPIC_API_KEY") ? "API key set" : "Template fallback active", iconBg: "bg-amber-100", iconColor: "text-amber-600", icon: "AI" },
+    { name: "Resend", purpose: "Transactional email (order confirmations, approvals)", category: "Messaging", connected: env("RESEND_API_KEY"), detail: env("RESEND_API_KEY") ? "API key set" : "Emails disabled", iconBg: "bg-sky-100", iconColor: "text-sky-600", icon: "EML" },
+    { name: "Twilio", purpose: "SMS and WhatsApp buyer notifications", category: "Messaging", connected: env("TWILIO_AUTH_TOKEN"), detail: env("TWILIO_AUTH_TOKEN") ? "Credentials set" : "SMS disabled", iconBg: "bg-red-100", iconColor: "text-red-600", icon: "SMS" },
+    { name: "S3 / MinIO", purpose: "Product images and compliance document storage", category: "Storage", connected: env("S3_ACCESS_KEY"), detail: env("S3_ENDPOINT") ? "Endpoint configured" : "Uploads disabled", iconBg: "bg-orange-100", iconColor: "text-orange-600", icon: "S3" },
+    { name: "Elasticsearch", purpose: "Catalog search and faceting", category: "Search", connected: env("ELASTICSEARCH_URL"), detail: env("ELASTICSEARCH_URL") ? "URL configured" : "DB search fallback", iconBg: "bg-emerald-100", iconColor: "text-emerald-600", icon: "ES" },
+    { name: "Redis", purpose: "Shared rate limiting and caching across instances", category: "Infrastructure", connected: env("REDIS_URL"), detail: env("REDIS_URL") ? "URL configured" : "In-memory fallback", iconBg: "bg-rose-100", iconColor: "text-rose-600", icon: "RDS" },
+  ];
+
+  const connectedCount = integrations.filter((i) => i.connected).length;
+  const categories = [...new Set(integrations.map((i) => i.category))];
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center">
-              <Plug className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">Integration Hub</h1>
-              <p className="text-muted-foreground text-sm">Connect external services and manage data flows</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-slate-100 rounded-lg px-3 py-1.5">
-              <Search className="h-3.5 w-3.5 text-muted-foreground" />
-              <input type="text" placeholder="Search integrations..." className="bg-transparent text-sm text-muted-foreground placeholder:text-muted-foreground outline-none w-36" />
-            </div>
-            <button type="button" className="flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-muted-foreground px-3 py-1.5 rounded-lg text-sm transition-colors">
-              <RefreshCw className="h-3.5 w-3.5" /> Sync All
-            </button>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold">Integration Hub</h1>
+          <p className="text-muted-foreground text-sm">
+            Real status of every external service this deployment is wired to — read from the runtime environment, never from a static list.
+          </p>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
-            <p className="text-2xl font-bold text-green-700">{connected}</p>
-            <p className="text-xs text-green-600 mt-1">Connected & Active</p>
-          </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4">
-            <p className="text-2xl font-bold text-primary">{available}</p>
-            <p className="text-xs text-primary mt-1">Available to Connect</p>
-          </div>
-          <div className="bg-white border border-border rounded-2xl p-4">
-            <p className="text-2xl font-bold">{INTEGRATIONS.length}</p>
-            <p className="text-xs text-muted-foreground mt-1">Total in Catalog</p>
-          </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: "Connected", value: connectedCount, color: "bg-green-50 border-green-200" },
+            { label: "Not configured", value: integrations.length - connectedCount, color: "bg-slate-50 border-border" },
+            { label: "Categories", value: categories.length, color: "bg-white border-border" },
+            { label: "Database latency", value: dbHealth.ok ? `${dbHealth.latencyMs}ms` : "—", color: dbHealth.ok ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200" },
+          ].map((s) => (
+            <div key={s.label} className={`rounded-2xl border p-4 ${s.color}`}>
+              <span className="text-sm text-muted-foreground">{s.label}</span>
+              <p className="text-2xl font-bold mt-1">{s.value}</p>
+            </div>
+          ))}
         </div>
 
-        {/* Integration cards grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {INTEGRATIONS.map((integration) => {
-            const cfg = STATUS_CONFIG[integration.status];
-            const StatusIcon = cfg.icon;
-
-            return (
-              <div key={integration.id} className="bg-white rounded-2xl border border-border p-4 hover:shadow-sm transition-shadow">
-                <div className="flex items-start gap-3 mb-3">
-                  <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 font-mono text-xs font-bold ${integration.iconBg} ${integration.iconColor}`}>
-                    {integration.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <h3 className="font-semibold text-sm text-foreground truncate">{integration.name}</h3>
-                    </div>
-                    <span className="text-[10px] bg-slate-100 text-muted-foreground px-1.5 py-0.5 rounded font-medium">{integration.category}</span>
-                  </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {integrations.map((i) => (
+            <div key={i.name} className="bg-white rounded-2xl border border-border p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className={`h-10 w-10 rounded-xl flex items-center justify-center text-xs font-bold ${i.iconBg} ${i.iconColor}`}>
+                  {i.icon === "SQL" ? <Database className="h-5 w-5" /> : i.icon}
                 </div>
-
-                <p className="text-xs text-muted-foreground mb-3 leading-relaxed">{integration.purpose}</p>
-
-                <div className="flex items-center justify-between mb-3">
-                  <span className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-semibold ${cfg.color}`}>
-                    <StatusIcon className="h-3 w-3" />
-                    {cfg.label}
-                  </span>
-                  {integration.lastSync && (
-                    <span className="text-xs text-muted-foreground">Synced {integration.lastSync}</span>
-                  )}
-                </div>
-
-                <div className="flex gap-2">
-                  {integration.status === "CONNECTED" ? (
-                    <>
-                      <button type="button" className="flex-1 flex items-center justify-center gap-1 text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
-                        <Settings className="h-3 w-3" /> Configure
-                      </button>
-                      <button type="button" className="flex items-center justify-center gap-1 text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
-                        <ExternalLink className="h-3 w-3" /> Logs
-                      </button>
-                    </>
-                  ) : integration.status === "AVAILABLE" ? (
-                    <button type="button" className="flex-1 flex items-center justify-center gap-1 text-xs bg-primary hover:bg-primary text-white px-3 py-1.5 rounded-lg transition-colors">
-                      <Plug className="h-3 w-3" /> Connect
-                    </button>
-                  ) : (
-                    <button type="button" disabled className="flex-1 text-xs bg-slate-100 text-muted-foreground px-3 py-1.5 rounded-lg cursor-not-allowed">
-                      Coming Soon
-                    </button>
-                  )}
-                </div>
+                <span
+                  className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${
+                    i.connected ? "bg-green-100 text-green-700" : "bg-slate-100 text-muted-foreground"
+                  }`}
+                >
+                  {i.connected ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                  {i.connected ? "Connected" : "Not configured"}
+                </span>
               </div>
-            );
-          })}
+              <p className="font-semibold text-sm">{i.name}</p>
+              <p className="text-xs text-muted-foreground mt-1">{i.purpose}</p>
+              <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
+                <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-slate-100 text-muted-foreground">{i.category}</span>
+                <span className="text-[11px] text-muted-foreground">{i.detail}</span>
+              </div>
+            </div>
+          ))}
         </div>
+
+        <p className="text-xs text-muted-foreground inline-flex items-center gap-1.5">
+          <Plug className="h-3.5 w-3.5" />
+          Connection status is presence-based (environment variables); secret values are never read into this page.
+        </p>
       </div>
     </AdminLayout>
   );
