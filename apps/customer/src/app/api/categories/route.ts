@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { db } from "@avenick/database";
 
+// Must not be statically executed at build time (no DB on build machines).
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const categories = await db.category.findMany({

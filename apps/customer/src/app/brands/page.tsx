@@ -4,6 +4,8 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { db } from "@avenick/database";
 
 export const metadata = { title: "Brands" };
+// Live catalog data — must not prerender at build time (no DB on build machines).
+export const dynamic = "force-dynamic";
 
 const COUNTRY_LABEL: Record<string, string> = { AE: "UAE", SA: "Saudi Arabia", QA: "Qatar", KW: "Kuwait", OM: "Oman", BH: "Bahrain" };
 

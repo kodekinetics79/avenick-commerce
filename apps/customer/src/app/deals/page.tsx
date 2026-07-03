@@ -5,6 +5,8 @@ import { ProductCard } from "@/components/products/product-card";
 import { db } from "@avenick/database";
 
 export const metadata = { title: "Deals & Promotions" };
+// Live catalog data — must not prerender at build time (no DB on build machines).
+export const dynamic = "force-dynamic";
 
 const CATEGORIES = [
   { label: "All", slug: "" },

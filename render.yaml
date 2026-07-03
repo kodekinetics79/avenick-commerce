@@ -28,7 +28,9 @@ services:
     runtime: node
     region: frankfurt
     plan: starter # free tier spins down on idle and may OOM during builds
-    buildCommand: npm install -g pnpm@11.4.0 && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@avenick/customer && pnpm --filter @avenick/database db:deploy
+    buildCommand: npm install -g pnpm@11.4.0 && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@avenick/customer
+    # Migrations run pre-deploy (inside the private network; builds can't reach the DB).
+    preDeployCommand: pnpm --filter @avenick/database db:deploy
     startCommand: pnpm --filter @avenick/customer exec next start -p $PORT
     healthCheckPath: /api/health
     autoDeploy: true
@@ -53,7 +55,8 @@ services:
     runtime: node
     region: frankfurt
     plan: starter
-    buildCommand: npm install -g pnpm@11.4.0 && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@avenick/seller && pnpm --filter @avenick/database db:deploy
+    buildCommand: npm install -g pnpm@11.4.0 && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@avenick/seller
+    preDeployCommand: pnpm --filter @avenick/database db:deploy
     startCommand: pnpm --filter @avenick/seller exec next start -p $PORT
     healthCheckPath: /api/health
     autoDeploy: true
@@ -78,7 +81,8 @@ services:
     runtime: node
     region: frankfurt
     plan: starter
-    buildCommand: npm install -g pnpm@11.4.0 && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@avenick/admin && pnpm --filter @avenick/database db:deploy
+    buildCommand: npm install -g pnpm@11.4.0 && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@avenick/admin
+    preDeployCommand: pnpm --filter @avenick/database db:deploy
     startCommand: pnpm --filter @avenick/admin exec next start -p $PORT
     healthCheckPath: /api/health
     autoDeploy: true
