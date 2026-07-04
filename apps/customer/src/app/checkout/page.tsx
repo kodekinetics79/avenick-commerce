@@ -10,12 +10,17 @@ import { MainLayout } from "@/components/layout/main-layout";
 
 type Step = "address" | "payment" | "review" | "success";
 
+// Pilot payment options. Live card/mada/Apple Pay processing (Checkout.com) is
+// integrated at the platform level but disabled for the pilot — orders are
+// placed in test mode so nothing is charged. Real gateways are shown as
+// "coming soon" rather than a dead card form so a self-serve tester never hits
+// a broken step.
 const PAYMENT_METHODS = [
-  { id: "MOCK", label: "Test Payment (Dev)", labelAr: "دفع تجريبي", icon: CheckCircle, desc: "Mock payment for development" },
-  { id: "CREDIT_CARD", label: "Credit / Debit Card", labelAr: "بطاقة ائتمانية / مدينة", icon: CreditCard, desc: "Visa, Mastercard" },
-  { id: "MADA", label: "mada", labelAr: "مدى", icon: CreditCard, desc: "Saudi debit card" },
-  { id: "BANK_TRANSFER", label: "Bank Transfer", labelAr: "تحويل بنكي", icon: Building2, desc: "Pay by IBAN transfer" },
-  { id: "APPLE_PAY", label: "Apple Pay", labelAr: "آبل باي", icon: Smartphone, desc: "Available on Safari iOS/Mac" },
+  { id: "MOCK", label: "Test payment (pilot)", labelAr: "دفع تجريبي (تجريبي)", icon: CheckCircle, desc: "Places the order — no card is charged", enabled: true },
+  { id: "CREDIT_CARD", label: "Credit / Debit Card", labelAr: "بطاقة ائتمانية / مدينة", icon: CreditCard, desc: "Visa, Mastercard — live at launch", enabled: false },
+  { id: "MADA", label: "mada", labelAr: "مدى", icon: CreditCard, desc: "Live at launch", enabled: false },
+  { id: "BANK_TRANSFER", label: "Bank Transfer", labelAr: "تحويل بنكي", icon: Building2, desc: "Pay by IBAN — live at launch", enabled: false },
+  { id: "APPLE_PAY", label: "Apple Pay", labelAr: "آبل باي", icon: Smartphone, desc: "Live at launch", enabled: false },
 ];
 
 export default function CheckoutPage() {
@@ -127,22 +132,36 @@ export default function CheckoutPage() {
             {step === "payment" && (
               <div className="bg-white rounded-2xl border border-border p-6">
                 <h2 className="font-semibold mb-4">Payment Method</h2>
+                <div className="mb-4 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+                  This is a pilot environment — orders are placed in <span className="font-medium text-foreground">test mode</span> and no card is charged. / بيئة تجريبية — لن يتم خصم أي مبلغ.
+                </div>
                 <div className="space-y-2">
                   {PAYMENT_METHODS.map((pm) => (
                     <button
                       key={pm.id}
-                      onClick={() => setPaymentMethod(pm.id)}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-start ${paymentMethod === pm.id ? "border-primary/100 bg-primary/10" : "border-border hover:border-primary/40"}`}
+                      onClick={() => pm.enabled && setPaymentMethod(pm.id)}
+                      disabled={!pm.enabled}
+                      className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-start ${
+                        paymentMethod === pm.id
+                          ? "border-primary/100 bg-primary/10"
+                          : pm.enabled
+                            ? "border-border hover:border-primary/40"
+                            : "border-border opacity-55 cursor-not-allowed"
+                      }`}
                     >
                       <pm.icon className={`h-5 w-5 shrink-0 ${paymentMethod === pm.id ? "text-primary/100" : "text-muted-foreground"}`} />
-                      <div>
+                      <div className="flex-1">
                         <p className="font-medium text-sm">{pm.label} — {pm.labelAr}</p>
                         <p className="text-xs text-muted-foreground">{pm.desc}</p>
                       </div>
+                      {!pm.enabled && (
+                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Coming soon
+                        </span>
+                      )}
                     </button>
                   ))}
                 </div>
-                {/* TODO: Checkout.com hosted fields for CREDIT_CARD */}
                 <div className="flex gap-3 mt-4">
                   <Button variant="outline" onClick={() => setStep("address")}>Back</Button>
                   <Button className="flex-1" onClick={() => setStep("review")}>Review Order</Button>

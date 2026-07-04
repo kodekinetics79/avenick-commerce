@@ -12,57 +12,49 @@ import {
   Clock,
 } from "lucide-react";
 import { B2BShell } from "@/components/b2b/b2b-shell";
-import { db } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
-import { getB2BContext } from "@/lib/b2b";
+import { fetchB2BJson } from "@/lib/b2b";
 import { format } from "date-fns";
 
 export const metadata = { title: "B2B Dashboard" };
 export const dynamic = "force-dynamic";
 
+type DashboardData = {
+  company: {
+    nameEn: string;
+    creditLimit: string | number | null;
+    _count: { members: number; orders: number; purchaseOrders: number };
+  };
+  lifetimeSpend: number;
+  pendingApprovals: number;
+  openRFQs: number;
+  recentOrders: Array<{
+    id: string;
+    orderNumber: string;
+    status: string;
+    total: string | number;
+    currency: string;
+    createdAt: string;
+  }>;
+  reorderItems: Array<{
+    id: string;
+    nameEn: string;
+    quantity: number;
+    sku: string;
+    product: { slug: string; status: string } | null;
+  }>;
+};
+
 export default async function B2BDashboardPage() {
-  const ctx = await getB2BContext();
-  if (!ctx) redirect("/b2b/register");
+  let data: DashboardData;
+  try {
+    data = await fetchB2BJson<DashboardData>("/api/b2b/dashboard");
+  } catch {
+    redirect("/b2b/register");
+  }
 
-  const [company, spendAgg, pendingApprovals, openRFQs, recentOrders, reorderItems] = await Promise.all([
-    db.company.findUnique({
-      where: { id: ctx.companyId },
-      include: { _count: { select: { members: true, orders: true, purchaseOrders: true } } },
-    }),
-    db.order.aggregate({ where: { companyId: ctx.companyId, paymentStatus: "PAID" }, _sum: { total: true } }),
-    db.purchaseOrder.count({ where: { companyId: ctx.companyId, status: "PENDING_APPROVAL" } }),
-    db.rFQRequest.count({
-      where: { companyId: ctx.companyId, status: { in: ["SUBMITTED", "UNDER_REVIEW", "QUOTED", "NEGOTIATING"] } },
-    }),
-    db.order.findMany({
-      where: { companyId: ctx.companyId },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      select: { id: true, orderNumber: true, status: true, total: true, currency: true, createdAt: true },
-    }),
-    // Reorder suggestions: most recently purchased products by this company.
-    db.orderItem.findMany({
-      where: { order: { companyId: ctx.companyId, paymentStatus: "PAID" } },
-      orderBy: { id: "desc" },
-      take: 4,
-      distinct: ["productId"],
-      include: {
-        product: {
-          select: {
-            id: true,
-            slug: true,
-            nameEn: true,
-            status: true,
-            images: { where: { isPrimary: true }, take: 1 },
-          },
-        },
-      },
-    }),
-  ]);
-  if (!company) redirect("/b2b/register");
-
+  const { company, lifetimeSpend, pendingApprovals, openRFQs, recentOrders, reorderItems } = data;
   const creditLimit = company.creditLimit ? Number(company.creditLimit) : null;
-  const lifetimeSpend = Number(spendAgg._sum.total ?? 0);
 
   return (
     <B2BShell>
@@ -132,7 +124,7 @@ export default async function B2BDashboardPage() {
                     <Link href={`/orders/${o.id}`} className="min-w-0">
                       <p className="text-sm font-medium hover:text-primary">{o.orderNumber}</p>
                       <p className="text-xs text-muted-foreground">
-                        {format(o.createdAt, "MMM d, yyyy")} · {o.status.replace(/_/g, " ").toLowerCase()}
+                        {format(new Date(o.createdAt), "MMM d, yyyy")} · {o.status.replace(/_/g, " ").toLowerCase()}
                       </p>
                     </Link>
                     <span className="text-sm font-semibold shrink-0">{formatCurrency(Number(o.total), o.currency as never)}</span>

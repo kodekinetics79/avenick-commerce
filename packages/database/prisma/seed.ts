@@ -17,6 +17,7 @@ import {
   PricingType,
   OrderType,
   OrderStatus,
+  POStatus,
   PaymentMethod,
   PaymentStatus,
   FulfillmentType,
@@ -32,7 +33,42 @@ const prisma = new PrismaClient();
 
 const HASH = (pw: string) => bcrypt.hash(pw, 12);
 
+/**
+ * The seed performs an unconditional cascade of deleteMany() across ~40 tables.
+ * That is safe for a dev/pilot database and catastrophic against production.
+ * Refuse to run in production unless the operator explicitly opts in, and never
+ * run against a host that looks like the managed production database. This is a
+ * code guard, not a convention — one stale DATABASE_URL should not be able to
+ * wipe live pilot data.
+ */
+function assertDestructiveSeedAllowed() {
+  const override = process.env.ALLOW_DESTRUCTIVE_SEED === "1";
+  const dbUrl = process.env.DATABASE_URL ?? "";
+  const directUrl = process.env.DIRECT_URL ?? "";
+  const targets = `${dbUrl} ${directUrl}`.toLowerCase();
+
+  // Production Neon hosts end in neon.tech and are pooled/direct managed URLs.
+  // Local/dev is localhost or a docker service name; CI uses a throwaway host.
+  const looksLikeProd =
+    targets.includes("neon.tech") &&
+    !targets.includes("localhost") &&
+    !targets.includes("127.0.0.1");
+
+  if ((process.env.NODE_ENV === "production" || looksLikeProd) && !override) {
+    console.error(
+      "\n✋ Refusing to run the destructive seed.\n" +
+        "   DATABASE_URL points at what looks like a production database\n" +
+        `   (NODE_ENV=${process.env.NODE_ENV ?? "unset"}).\n` +
+        "   This seed deletes ALL transactional data across ~40 tables.\n\n" +
+        "   If you are ABSOLUTELY sure this is the dedicated pilot/dev database,\n" +
+        "   re-run with ALLOW_DESTRUCTIVE_SEED=1 set.\n",
+    );
+    process.exit(1);
+  }
+}
+
 async function main() {
+  assertDestructiveSeedAllowed();
   console.log("🌱 Seeding Avenick...");
 
   // Clear existing transactional and dynamic data to ensure idempotence
@@ -59,6 +95,8 @@ async function main() {
   await prisma.orderStatusHistory.deleteMany({});
   await prisma.orderItem.deleteMany({});
   await prisma.order.deleteMany({});
+  await prisma.purchaseOrder.deleteMany({});
+  await prisma.approvalPolicy.deleteMany({});
   
   await prisma.supportTicket.deleteMany({});
   
@@ -230,6 +268,56 @@ async function main() {
     },
   });
   console.log(`✅ B2B Company: ${company.nameEn}`);
+
+  // ── B2B APPROVAL WORKFLOW ────────────────────────────────────────────────
+  await prisma.approvalPolicy.create({
+    data: {
+      companyId: company.id,
+      name: "Procurement manager approval",
+      thresholdAmount: 10000,
+      currency: Currency.AED,
+      approverRole: UserRole.COMPANY_ADMIN,
+      isActive: true,
+    },
+  });
+
+  await prisma.purchaseOrder.createMany({
+    data: [
+      {
+        poNumber: "PO-2026-001",
+        companyId: company.id,
+        requesterId: companyUser.id,
+        status: POStatus.PENDING_APPROVAL,
+        currency: Currency.AED,
+        total: 28500,
+        requiredDate: new Date(Date.now() + 21 * 86400000),
+        notes: "Safety helmets and high-visibility vests for the Marina project",
+      },
+      {
+        poNumber: "PO-2026-002",
+        companyId: company.id,
+        requesterId: companyUser.id,
+        approverId: companyUser.id,
+        status: POStatus.APPROVED,
+        currency: Currency.AED,
+        total: 8750,
+        requiredDate: new Date(Date.now() + 14 * 86400000),
+        notes: "Power tools and replacement drill bits for site operations",
+      },
+      {
+        poNumber: "PO-2026-003",
+        companyId: company.id,
+        requesterId: companyUser.id,
+        approverId: companyUser.id,
+        status: POStatus.REJECTED,
+        currency: Currency.AED,
+        total: 64000,
+        notes: "Temporary site-office furniture package",
+        rejectionReason: "Please obtain two additional supplier quotations.",
+      },
+    ],
+  });
+  console.log("✅ B2B approval policy and purchase orders seeded");
 
   // ── CATEGORIES ──────────────────────────────────────────────────────────────
   const cats = await Promise.all([

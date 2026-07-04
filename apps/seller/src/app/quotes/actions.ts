@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { submitQuote } from "@avenick/database";
-import { requireSellerSession } from "@/lib/auth";
+import { fetchSellerBackend } from "@/lib/backend";
 import { z } from "zod";
 
 export type QuoteActionState = { error?: string; ok?: boolean };
@@ -20,8 +19,6 @@ export async function submitQuoteAction(
   _prev: QuoteActionState,
   formData: FormData,
 ): Promise<QuoteActionState> {
-  const { session, seller } = await requireSellerSession();
-
   let payload: z.infer<typeof SubmitQuoteSchema>;
   try {
     payload = SubmitQuoteSchema.parse(JSON.parse(String(formData.get("payload") ?? "{}")));
@@ -31,12 +28,10 @@ export async function submitQuoteAction(
   }
 
   try {
-    await submitQuote({
-      rfqId: payload.rfqId,
-      sellerId: seller.id,
-      actorId: (session.user as { id: string }).id,
-      items: payload.items,
-      notes: payload.notes,
+    await fetchSellerBackend(`/api/seller/rfqs/${payload.rfqId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ items: payload.items, notes: payload.notes }),
     });
   } catch (e) {
     return { error: e instanceof Error ? e.message : "Failed to submit the quote" };

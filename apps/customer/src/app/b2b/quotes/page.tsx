@@ -2,9 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { FileText, Plus, Clock } from "lucide-react";
 import { B2BShell } from "@/components/b2b/b2b-shell";
-import { getRFQsForBuyer, RFQStatus } from "@avenick/database";
+import type { RFQStatus } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
-import { getB2BContext } from "@/lib/b2b";
+import { fetchB2BJson } from "@/lib/b2b";
 import { format } from "date-fns";
 
 export const metadata = { title: "Quotes & RFQs" };
@@ -23,10 +23,23 @@ const STATUS_CONFIG: Record<RFQStatus, { label: string; color: string }> = {
 };
 
 export default async function QuotesPage() {
-  const ctx = await getB2BContext();
-  if (!ctx) redirect("/b2b/register");
-
-  const rfqs = await getRFQsForBuyer({ buyerId: ctx.userId, companyId: ctx.companyId });
+  type RFQRow = {
+    id: string;
+    rfqNumber: string;
+    status: RFQStatus;
+    requiredBy: string | null;
+    totalQuoted: string | number | null;
+    currency: string;
+    createdAt: string;
+    items: Array<{ quantity: number; nameEn: string }>;
+    seller: { businessNameEn: string } | null;
+  };
+  let rfqs: RFQRow[];
+  try {
+    rfqs = await fetchB2BJson<RFQRow[]>("/api/b2b/rfqs");
+  } catch {
+    redirect("/b2b/register");
+  }
 
   const awaiting = rfqs.filter((r) => ["SUBMITTED", "UNDER_REVIEW"].includes(r.status)).length;
   const quoted = rfqs.filter((r) => ["QUOTED", "NEGOTIATING"].includes(r.status)).length;
@@ -87,7 +100,7 @@ export default async function QuotesPage() {
                           </Link>
                           {r.requiredBy && (
                             <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1 mt-0.5">
-                              <Clock className="h-3 w-3" /> needed {format(r.requiredBy, "MMM d")}
+                              <Clock className="h-3 w-3" /> needed {format(new Date(r.requiredBy), "MMM d")}
                             </p>
                           )}
                         </td>
@@ -104,7 +117,7 @@ export default async function QuotesPage() {
                         <td className="px-4 py-3">
                           <span className={`text-xs font-medium px-2 py-1 rounded-full ${cfg.color}`}>{cfg.label}</span>
                         </td>
-                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{format(r.createdAt, "MMM d, yyyy")}</td>
+                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{format(new Date(r.createdAt), "MMM d, yyyy")}</td>
                       </tr>
                     );
                   })}

@@ -1,7 +1,6 @@
 import { B2BShell } from "@/components/b2b/b2b-shell";
 import { formatCurrency } from "@avenick/utils";
-import { db } from "@avenick/database";
-import { getB2BContext } from "@/lib/b2b";
+import { fetchB2BJson } from "@/lib/b2b";
 import { createPO, approvePO, rejectPO, markOrdered, cancelPO } from "./actions";
 import { ValidatedForm } from "@/components/b2b/validated-form";
 import { FileCheck2, Clock, CheckCircle2, Truck, XCircle, FileEdit, Building2, Plus } from "lucide-react";
@@ -17,13 +16,32 @@ const STATUS: Record<string, { label: string; cls: string; icon: typeof Clock }>
   CANCELLED: { label: "Cancelled", cls: "bg-secondary text-muted-foreground", icon: XCircle },
 };
 
-function fmtDate(d: Date) {
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+function fmtDate(d: string) {
+  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
 export default async function PurchaseOrdersPage() {
-  const ctx = await getB2BContext();
-  if (!ctx) {
+  type PurchaseOrderRow = {
+    id: string;
+    poNumber: string;
+    requesterId: string;
+    status: string;
+    currency: string;
+    total: string | number;
+    notes: string | null;
+    requiredDate: string | null;
+    createdAt: string;
+  };
+  type PurchaseOrderData = {
+    company: { nameEn: string };
+    isApprover: boolean;
+    purchaseOrders: PurchaseOrderRow[];
+    requesters: Array<{ id: string; firstName: string; lastName: string }>;
+  };
+  let data: PurchaseOrderData;
+  try {
+    data = await fetchB2BJson<PurchaseOrderData>("/api/b2b/purchase-orders");
+  } catch {
     return (
       <B2BShell title="Purchase Orders">
         <div className="rounded-2xl border border-border bg-card p-10 text-center">
@@ -35,15 +53,9 @@ export default async function PurchaseOrdersPage() {
     );
   }
 
-  const pos = await db.purchaseOrder.findMany({
-    where: { companyId: ctx.companyId },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-  });
-  const reqIds = [...new Set(pos.map((p) => p.requesterId))];
-  const users = await db.user.findMany({ where: { id: { in: reqIds } }, select: { id: true, firstName: true, lastName: true } });
-  const nameOf = new Map(users.map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim()]));
-  const isApprover = ["COMPANY_ADMIN", "COMPANY_APPROVER"].includes(ctx.member.role);
+  const pos = data.purchaseOrders;
+  const nameOf = new Map(data.requesters.map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim()]));
+  const isApprover = data.isApprover;
 
   const open = pos.filter((p) => ["DRAFT", "PENDING_APPROVAL", "APPROVED"].includes(p.status)).length;
   const pending = pos.filter((p) => p.status === "PENDING_APPROVAL").length;
@@ -56,7 +68,7 @@ export default async function PurchaseOrdersPage() {
   ];
 
   return (
-    <B2BShell title="Purchase Orders" description={`Raise, approve and track POs for ${ctx.company.nameEn}.`}>
+    <B2BShell title="Purchase Orders" description={`Raise, approve and track POs for ${data.company.nameEn}.`}>
       {/* Create */}
       <ValidatedForm action={createPO} className="rounded-2xl border border-border bg-card p-5 mb-6">
         <div className="flex items-center gap-2 text-sm font-semibold mb-4"><Plus className="h-4 w-4 text-primary" /> Raise a purchase order</div>

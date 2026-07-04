@@ -1,19 +1,28 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth-instance";
 import { db, getSellerDashboard } from "@avenick/database";
+import { getServerSellerContext } from "@/lib/seller-server";
 
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    const user = session.user as { id: string; role: string };
-    if (!["SELLER_OWNER", "SELLER_STAFF"].includes(user.role)) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    const ctx = await getServerSellerContext();
+    if (!ctx) return NextResponse.json({ success: false, error: "Seller account required" }, { status: 401 });
 
-    const seller = await db.sellerProfile.findUnique({ where: { userId: user.id } });
-    if (!seller) return NextResponse.json({ success: false, error: "Seller profile not found" }, { status: 404 });
-
-    const data = await getSellerDashboard(seller.id);
-    return NextResponse.json({ success: true, data });
+    const [dashboard, expiringDocs, pendingRfqCount] = await Promise.all([
+      getSellerDashboard(ctx.seller.id),
+      db.sellerDocument.count({
+        where: {
+          sellerId: ctx.seller.id,
+          expiryDate: { gte: new Date(), lte: new Date(Date.now() + 30 * 86400000) },
+        },
+      }),
+      db.rFQRequest.count({
+        where: { sellerId: ctx.seller.id, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } },
+      }),
+    ]);
+    return NextResponse.json({
+      success: true,
+      data: { seller: ctx.seller, dashboard, expiringDocs, pendingRfqCount },
+    });
   } catch {
     return NextResponse.json({ success: false, error: "Failed" }, { status: 500 });
   }

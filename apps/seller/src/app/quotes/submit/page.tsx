@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, FileQuestion, Building2, Clock } from "lucide-react";
 import { SellerLayout } from "@/components/layout/seller-layout";
-import { requireSellerSession } from "@/lib/auth";
-import { db, getRFQsForSeller } from "@avenick/database";
+import { fetchSellerBackend } from "@/lib/backend";
 import { QuoteForm } from "./quote-form";
 import { format } from "date-fns";
 
@@ -14,21 +13,25 @@ interface PageProps {
 }
 
 export default async function SubmitQuotePage({ searchParams }: PageProps) {
-  const { seller } = await requireSellerSession();
-
-  // With ?rfq=<id>: quote that specific RFQ (must be open+unassigned or ours).
-  const rfq = searchParams.rfq
-    ? await db.rFQRequest.findFirst({
-        where: {
-          id: searchParams.rfq,
-          OR: [{ status: { in: ["SUBMITTED", "UNDER_REVIEW"] }, sellerId: null }, { sellerId: seller.id }],
-        },
-        include: { items: true, company: { select: { nameEn: true } } },
-      })
-    : null;
-
-  // Without one (or if not found): show the open RFQ inbox to pick from.
-  const inbox = rfq ? [] : await getRFQsForSeller(seller.id);
+  type RFQRow = {
+    id: string;
+    rfqNumber: string;
+    status: string;
+    currency: string;
+    notes: string | null;
+    requiredBy: string | null;
+    company: { nameEn: string } | null;
+    items: Array<{ id: string; nameEn: string; quantity: number; notes: string | null }>;
+  };
+  let rfq: RFQRow | null = null;
+  let inbox: RFQRow[] = [];
+  if (searchParams.rfq) {
+    const data = await fetchSellerBackend<{ rfq: RFQRow }>(`/api/seller/rfqs/${searchParams.rfq}`);
+    rfq = data.rfq;
+  } else {
+    const data = await fetchSellerBackend<{ inbox: RFQRow[] }>("/api/seller/rfqs");
+    inbox = data.inbox;
+  }
   const openInbox = inbox.filter((r) => ["SUBMITTED", "UNDER_REVIEW"].includes(r.status));
 
   return (
@@ -49,7 +52,7 @@ export default async function SubmitQuotePage({ searchParams }: PageProps) {
                   {rfq.requiredBy && (
                     <>
                       <span>·</span>
-                      <Clock className="h-3.5 w-3.5" /> needed by {format(rfq.requiredBy, "MMM d, yyyy")}
+                      <Clock className="h-3.5 w-3.5" /> needed by {format(new Date(rfq.requiredBy), "MMM d, yyyy")}
                     </>
                   )}
                 </p>
@@ -96,7 +99,7 @@ export default async function SubmitQuotePage({ searchParams }: PageProps) {
                       </p>
                       {r.requiredBy && (
                         <p className="text-[11px] text-muted-foreground mt-0.5 inline-flex items-center gap-1">
-                          <Clock className="h-3 w-3" /> needed by {format(r.requiredBy, "MMM d, yyyy")}
+                          <Clock className="h-3 w-3" /> needed by {format(new Date(r.requiredBy), "MMM d, yyyy")}
                         </p>
                       )}
                     </div>

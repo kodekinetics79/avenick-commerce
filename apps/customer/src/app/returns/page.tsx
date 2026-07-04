@@ -2,15 +2,16 @@ import Link from "next/link";
 import { RotateCcw, Package, Clock, CheckCircle, XCircle, Truck, Banknote, LogIn } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { auth } from "@/lib/auth-instance";
-import { db, ReturnStatus } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
 import { ReturnForm } from "./return-form";
 import { format } from "date-fns";
+import { cookies } from "next/headers";
+import { cookieHeaderFromStore, fetchBackendJsonWithCookies } from "@/lib/backend";
 
 export const metadata = { title: "Returns" };
 export const dynamic = "force-dynamic";
 
-const STATUS_CONFIG: Record<ReturnStatus, { label: string; color: string; icon: typeof Clock }> = {
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   REQUESTED: { label: "Under review", color: "bg-blue-100 text-primary", icon: Clock },
   APPROVED: { label: "Approved", color: "bg-amber-100 text-amber-700", icon: CheckCircle },
   REJECTED: { label: "Rejected", color: "bg-red-100 text-red-700", icon: XCircle },
@@ -45,23 +46,13 @@ export default async function ReturnsPage() {
     );
   }
 
-  const [eligibleOrders, myReturns] = await Promise.all([
-    db.order.findMany({
-      where: {
-        userId,
-        status: "DELIVERED",
-        returnRequests: { none: { status: { notIn: ["REJECTED"] } } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      include: { items: { select: { nameEn: true, quantity: true } } },
-    }),
-    db.returnRequest.findMany({
-      where: { order: { userId } },
-      orderBy: { createdAt: "desc" },
-      include: { order: { select: { orderNumber: true, total: true, currency: true } } },
-    }),
-  ]);
+  const cookieStore = await cookies();
+  const cookieHeader = cookieHeaderFromStore(cookieStore);
+  const { eligibleOrders, myReturns } = await fetchBackendJsonWithCookies<{ eligibleOrders: any[]; myReturns: any[] }>(
+    "/api/returns",
+    undefined,
+    cookieHeader,
+  );
 
   return (
     <MainLayout>
@@ -128,7 +119,7 @@ export default async function ReturnsPage() {
                   total: Number(o.total),
                   currency: o.currency,
                   createdAt: o.createdAt.toISOString(),
-                  summary: o.items.map((i) => `${i.quantity}× ${i.nameEn}`).join(", "),
+                  summary: o.items.map((i: { quantity: number; nameEn: string }) => `${i.quantity}× ${i.nameEn}`).join(", "),
                 }))}
               />
             ) : (

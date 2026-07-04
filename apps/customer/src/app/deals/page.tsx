@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Tag, Clock, Filter } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
-import { db } from "@avenick/database";
+import { fetchBackendJson } from "@/lib/backend";
 
 export const metadata = { title: "Deals & Promotions" };
 // Live catalog data — must not prerender at build time (no DB on build machines).
@@ -24,38 +24,27 @@ function dealDiscount(sku: string) {
 }
 
 export default async function DealsPage() {
-  const products = await db.product.findMany({
-    where: { status: "ACTIVE", isB2CEnabled: true, deletedAt: null },
-    take: 12,
-    orderBy: { createdAt: "desc" },
-    include: {
-      images: { where: { isPrimary: true }, take: 1 },
-      prices: { where: { type: "B2C", isActive: true }, take: 1 },
-      seller: { select: { businessNameEn: true } },
-      inventory: { select: { qty: true, reservedQty: true }, take: 1 },
-      category: { select: { nameEn: true } },
-    },
-  });
+  const { products } = await fetchBackendJson<{ products: any[] }>("/api/products?limit=12&b2c=true");
 
   const deals = products
     .map((p) => {
-      const base = p.prices[0] ? Number(p.prices[0].price) : 0;
+      const base = p.prices?.[0] ? Number(p.prices[0].price) : 0;
       if (base <= 0) return null;
       const discount = dealDiscount(p.sku);
       const price = Math.round(base * (1 - discount / 100) * 100) / 100;
-      const stock = p.inventory[0];
+      const stock = p.inventory?.[0];
       const available = stock ? stock.qty - stock.reservedQty : 0;
       return {
         id: p.id,
         slug: p.slug,
         nameEn: p.nameEn,
         nameAr: p.nameAr,
-        imageUrl: p.images[0]?.url,
+        imageUrl: p.images?.[0]?.url,
         price,
         originalPrice: base,
         sku: p.sku,
         sellerId: p.sellerId,
-        sellerName: p.seller.businessNameEn,
+        sellerName: p.seller?.businessNameEn,
         inStock: available > 0,
         moq: p.moq,
         category: p.category?.nameEn ?? "Industrial",

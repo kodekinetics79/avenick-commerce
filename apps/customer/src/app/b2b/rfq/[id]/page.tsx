@@ -2,9 +2,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, FileText, CheckCircle, XCircle, Clock, Store, MessageSquare } from "lucide-react";
 import { B2BShell } from "@/components/b2b/b2b-shell";
-import { getRFQForBuyer, RFQStatus } from "@avenick/database";
+import type { RFQStatus } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
-import { getB2BContext } from "@/lib/b2b";
+import { fetchB2BJson } from "@/lib/b2b";
 import { acceptRFQQuote, rejectRFQQuote } from "../actions";
 import { format } from "date-fns";
 
@@ -24,11 +24,37 @@ const STATUS_CONFIG: Record<RFQStatus, { label: string; color: string }> = {
 };
 
 export default async function RFQDetailPage({ params }: { params: { id: string } }) {
-  const ctx = await getB2BContext();
-  if (!ctx) redirect("/b2b/register");
-
-  const rfq = await getRFQForBuyer({ rfqId: params.id, buyerId: ctx.userId, companyId: ctx.companyId });
-  if (!rfq) notFound();
+  type RFQDetail = {
+    id: string;
+    rfqNumber: string;
+    status: RFQStatus;
+    currency: string;
+    notes: string | null;
+    totalQuoted: string | number | null;
+    createdAt: string;
+    requiredBy: string | null;
+    seller: { businessNameEn: string; tier: string } | null;
+    items: Array<{
+      id: string;
+      nameEn: string;
+      notes: string | null;
+      quantity: number;
+      unitQuoted: string | number | null;
+    }>;
+    messages: Array<{
+      id: string;
+      senderType: string;
+      body: string;
+      createdAt: string;
+    }>;
+  };
+  let rfq: RFQDetail;
+  try {
+    rfq = await fetchB2BJson<RFQDetail>(`/api/b2b/rfqs/${params.id}`);
+  } catch (error) {
+    if (error instanceof Error && error.message === "RFQ not found") notFound();
+    redirect("/b2b/register");
+  }
 
   const cfg = STATUS_CONFIG[rfq.status];
   const quoted = rfq.status === "QUOTED" || rfq.status === "NEGOTIATING";
@@ -47,8 +73,8 @@ export default async function RFQDetailPage({ params }: { params: { id: string }
               <div>
                 <h1 className="text-xl font-bold">{rfq.rfqNumber}</h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Created {format(rfq.createdAt, "MMM d, yyyy")}
-                  {rfq.requiredBy && <> · required by {format(rfq.requiredBy, "MMM d, yyyy")}</>}
+                  Created {format(new Date(rfq.createdAt), "MMM d, yyyy")}
+                  {rfq.requiredBy && <> · required by {format(new Date(rfq.requiredBy), "MMM d, yyyy")}</>}
                 </p>
               </div>
               <span className={`text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${cfg.color}`}>{cfg.label}</span>
@@ -142,7 +168,7 @@ export default async function RFQDetailPage({ params }: { params: { id: string }
                   {rfq.messages.map((m) => (
                     <li key={m.id} className="rounded-xl border border-border p-3 text-sm">
                       <p className="text-xs text-muted-foreground mb-1">
-                        {m.senderType} · {format(m.createdAt, "MMM d, HH:mm")}
+                        {m.senderType} · {format(new Date(m.createdAt), "MMM d, HH:mm")}
                       </p>
                       {m.body}
                     </li>
