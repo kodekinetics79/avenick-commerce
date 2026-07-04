@@ -1,13 +1,10 @@
 import { NextResponse } from "next/server";
+import { liveness } from "@avenick/observability";
 
 export const dynamic = "force-dynamic";
 
 /** Liveness probe: the process is up and serving requests. No dependencies. */
 export async function GET() {
-  return NextResponse.json({
-    status: "ok",
-    app: "admin",
-    uptimeSeconds: Math.floor(process.uptime()),
-    timestamp: new Date().toISOString(),
-  });
+  const { status, body } = liveness("admin");
+  return NextResponse.json(body, { status });
 }

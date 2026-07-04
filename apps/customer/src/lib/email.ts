@@ -3,6 +3,8 @@
  * No-ops gracefully when RESEND_API_KEY isn't configured so local/demo
  * environments keep working.
  */
+import { log } from "@avenick/observability";
+
 export async function sendInviteEmail(opts: {
   to: string;
   companyName: string;
@@ -11,11 +13,14 @@ export async function sendInviteEmail(opts: {
 }): Promise<{ sent: boolean }> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.RESEND_FROM_EMAIL ?? "Avenick Commerce <noreply@avenick.com>";
-  const appUrl = process.env.NEXTAUTH_URL ?? "http://localhost:13100";
+  const appUrl =
+    process.env.NEXTAUTH_URL ??
+    process.env.RENDER_EXTERNAL_URL ??
+    "http://localhost:13100";
   const acceptUrl = `${appUrl}/register?email=${encodeURIComponent(opts.to)}`;
 
   if (!key) {
-    console.log(`[email] RESEND_API_KEY not set — skipping invite email to ${opts.to}`);
+    log.info("email skipped: RESEND_API_KEY not set", { to: opts.to });
     return { sent: false };
   }
 
@@ -47,12 +52,16 @@ export async function sendInviteEmail(opts: {
       }),
     });
     if (!res.ok) {
-      console.error("[email] Resend send failed:", res.status, await res.text().catch(() => ""));
+      log.error("email send failed", undefined, {
+        provider: "resend",
+        status: res.status,
+        body: await res.text().catch(() => ""),
+      });
       return { sent: false };
     }
     return { sent: true };
   } catch (e) {
-    console.error("[email] Resend request error:", e);
+    log.error("email request error", e, { provider: "resend" });
     return { sent: false };
   }
 }

@@ -12,6 +12,7 @@
   "dependencies": {
     "@avenick/auth": "workspace:*",
     "@avenick/database": "workspace:*",
+    "@avenick/observability": "workspace:*",
     "@avenick/types": "workspace:*",
     "@avenick/ui": "workspace:*",
     "@avenick/utils": "workspace:*",

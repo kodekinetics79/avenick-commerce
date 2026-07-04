@@ -3,6 +3,7 @@ import { db } from "@avenick/database";
 import bcrypt from "bcryptjs";
 import { RegisterConsumerSchema } from "@avenick/types";
 import { checkRateLimit, clientIpFrom, RATE_LIMITS } from "@avenick/auth";
+import { log } from "@avenick/observability";
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, message: "Account created successfully" });
   } catch (e) {
-    console.error(e);
+    log.error("register.consumer failed", e, { path: "/api/auth/register/consumer" });
     return NextResponse.json({ success: false, error: "Registration failed" }, { status: 500 });
   }
 }

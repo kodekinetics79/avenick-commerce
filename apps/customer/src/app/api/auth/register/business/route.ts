@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { RegisterBusinessSchema } from "@avenick/types";
 import type { Country, Industry, CompanySize } from "@avenick/database";
 import { checkRateLimit, clientIpFrom, RATE_LIMITS } from "@avenick/auth";
+import { log } from "@avenick/observability";
 
 export async function POST(req: NextRequest) {
   try {
@@ -69,7 +70,7 @@ export async function POST(req: NextRequest) {
       const target = (e as { meta?: { target?: string[] } }).meta?.target?.join(", ") ?? "field";
       return NextResponse.json({ success: false, error: `Already registered: ${target}` }, { status: 409 });
     }
-    console.error(e);
+    log.error("register.business failed", e, { path: "/api/auth/register/business" });
     return NextResponse.json({ success: false, error: "Registration failed" }, { status: 500 });
   }
 }

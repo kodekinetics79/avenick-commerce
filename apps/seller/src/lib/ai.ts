@@ -4,6 +4,7 @@
  * a sensible template when ANTHROPIC_API_KEY isn't configured, so the feature
  * works in local/demo environments.
  */
+import { log } from "@avenick/observability";
 
 type Kind = "rfq" | "listing";
 
@@ -37,14 +38,14 @@ export async function generateDraft(kind: Kind, context: string): Promise<{ text
       }),
     });
     if (!res.ok) {
-      console.error("[ai] anthropic error", res.status);
+      log.error("ai draft failed", undefined, { provider: "anthropic", status: res.status, kind });
       return { text: "Couldn't reach the AI service. Please try again.", ai: false };
     }
     const data = await res.json();
     const text = (data?.content?.[0]?.text as string) ?? "";
     return { text: text.trim(), ai: true };
   } catch (e) {
-    console.error("[ai] request failed", e);
+    log.error("ai request failed", e, { provider: "anthropic", kind });
     return { text: "Couldn't reach the AI service. Please try again.", ai: false };
   }
 }

@@ -1,0 +1,124 @@
+# SLO burn-rate alerts (Prometheus / Grafana Cloud Mimir).
+#
+# These mirror packages/observability/src/slo.ts — keep the numbers in sync.
+#
+# The pattern is Google SRE's multi-window, multi-burn-rate alerting:
+#   - A "burn rate" is how fast we are consuming the error budget relative to
+#     spending it evenly across the whole window. Burn rate 1 = exactly on track
+#     to exhaust the budget at the window's end. Burn rate 14.4 = we'd exhaust a
+#     30-day budget in ~2 days.
+#   - Fast burn (page): high burn rate over a short window → an acute outage.
+#     Two windows (5m AND 1h) must both breach, so a brief blip doesn't page.
+#   - Slow burn (ticket): lower burn rate over a long window → a chronic issue
+#     quietly eating the budget. Warn, don't wake someone up.
+#
+# SLIs come from the RED metrics emitted in metrics.ts:
+#   http_server_requests_total{service, http_route, http_status_class}
+#   http_server_duration_bucket / _count  (for latency)
+#
+# Metric names below use the Prometheus-normalised form of the OTLP instruments
+# (dots → underscores, unit suffixes appended by the OTLP→Prometheus mapping).
+
+groups:
+  # ── Customer API availability: SLO 99.9% (error budget 0.1%) ───────────────
+  - name: slo-customer-api-availability
+    rules:
+      # Error ratio recording rules over the windows the alerts compare.
+      - record: job:slo_errors:ratio_rate5m
+        expr: |
+          sum(rate(http_server_requests_total{service="avenick-customer", http_status_class="5xx"}[5m]))
+            /
+          sum(rate(http_server_requests_total{service="avenick-customer"}[5m]))
+      - record: job:slo_errors:ratio_rate1h
+        expr: |
+          sum(rate(http_server_requests_total{service="avenick-customer", http_status_class="5xx"}[1h]))
+            /
+          sum(rate(http_server_requests_total{service="avenick-customer"}[1h]))
+      - record: job:slo_errors:ratio_rate6h
+        expr: |
+          sum(rate(http_server_requests_total{service="avenick-customer", http_status_class="5xx"}[6h]))
+            /
+          sum(rate(http_server_requests_total{service="avenick-customer"}[6h]))
+
+      # Fast burn → PAGE. 14.4x budget burn on both 5m and 1h windows.
+      - alert: CustomerApiErrorBudgetFastBurn
+        expr: |
+          job:slo_errors:ratio_rate5m > (14.4 * 0.001)
+          and
+          job:slo_errors:ratio_rate1h > (14.4 * 0.001)
+        for: 2m
+        labels: { severity: page, slo: customer-api-availability }
+        annotations:
+          summary: "Customer API burning error budget fast (5xx spike)"
+          description: >
+            5xx ratio is >1.44% over 5m and 1h. At this rate the 30-day error
+            budget is gone in ~2 days. Likely an active outage on the money path.
+          runbook: "OBSERVABILITY.md#fast-burn"
+
+      # Slow burn → TICKET. 3x budget burn on 1h and 6h windows.
+      - alert: CustomerApiErrorBudgetSlowBurn
+        expr: |
+          job:slo_errors:ratio_rate1h > (3 * 0.001)
+          and
+          job:slo_errors:ratio_rate6h > (3 * 0.001)
+        for: 15m
+        labels: { severity: ticket, slo: customer-api-availability }
+        annotations:
+          summary: "Customer API chronically erroring (slow error-budget burn)"
+          description: >
+            5xx ratio is >0.3% over 1h and 6h. Not an outage, but the budget is
+            eroding — investigate before it becomes a page.
+          runbook: "OBSERVABILITY.md#slow-burn"
+
+  # ── Customer API latency: SLO 99% under 800ms ─────────────────────────────
+  - name: slo-customer-api-latency
+    rules:
+      - record: job:slo_latency_bad:ratio_rate1h
+        expr: |
+          1 - (
+            sum(rate(http_server_duration_milliseconds_bucket{service="avenick-customer", le="800"}[1h]))
+              /
+            sum(rate(http_server_duration_milliseconds_count{service="avenick-customer"}[1h]))
+          )
+      - alert: CustomerApiLatencySlowBurn
+        expr: job:slo_latency_bad:ratio_rate1h > (3 * 0.01)
+        for: 15m
+        labels: { severity: ticket, slo: customer-api-latency }
+        annotations:
+          summary: "Customer API latency SLO burning (p99 > 800ms)"
+          description: >
+            >3% of requests over the last hour took longer than 800ms. The
+            latency error budget (1%) is burning ~3x too fast.
+          runbook: "OBSERVABILITY.md#latency"
+
+  # ── Readiness / dependency down: the app-down signal ──────────────────────
+  - name: slo-readiness
+    rules:
+      # Any portal's /api/ready returning 503 means a critical dependency (DB)
+      # is unreachable. This is the "is the app actually usable" page.
+      - alert: ReadinessProbeFailing
+        expr: |
+          sum by (service) (rate(http_server_requests_total{http_route="/api/ready", http_status_code="503"}[5m])) > 0
+        for: 2m
+        labels: { severity: page, slo: readiness-availability }
+        annotations:
+          summary: "{{ $labels.service }} readiness FAILING — a dependency is down"
+          description: >
+            /api/ready has returned 503 for >2m. The database probe is failing;
+            the portal cannot serve authenticated traffic. Check the readiness
+            trace for the db.health span latency/error.
+          runbook: "OBSERVABILITY.md#readiness-down"
+
+      # No requests being handled at all — the process is down or unreachable.
+      # (Absence of the request metric for 5m across a service.)
+      - alert: NoTrafficReceived
+        expr: |
+          sum by (service) (rate(http_server_requests_total[5m])) == 0
+        for: 5m
+        labels: { severity: page, slo: readiness-availability }
+        annotations:
+          summary: "{{ $labels.service }} is receiving no requests — possibly down"
+          description: >
+            No HTTP requests recorded for 5m. Either the service is down, or the
+            OTLP metric pipeline stopped. Cross-check the external uptime monitor.
+          runbook: "OBSERVABILITY.md#no-traffic"
