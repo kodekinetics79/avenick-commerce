@@ -1,0 +1,66 @@
+# External uptime monitors — the independent, third-party "is it up?" check that
+# runs OUTSIDE our infrastructure, so it can still tell us we're down when our own
+# infra (and its alerting) is the thing that's down. This is the last line of the
+# "know before the customer" defense.
+#
+# This is declarative config you load into an external monitor. It is written to
+# match Better Stack / Checkly / Uptime-style monitors; adapt field names to your
+# provider. The KEY DECISIONS (what to hit, how often, when to page) are here in
+# version control regardless of provider so they are reviewable and reproducible.
+#
+# Why /api/ready (not /api/health): readiness returns 503 when the database is
+# unreachable, so the monitor detects a real can't-serve-traffic outage, not just
+# "the Node process is alive". /api/status is polled separately to drive the
+# public status page.
+
+defaults:
+  interval_seconds: 60          # check cadence
+  timeout_seconds: 10
+  regions: [eu-central, us-east] # check from multiple regions to avoid false alarms
+  # Page only after 2 consecutive failures from ≥2 regions, so a single blip or a
+  # single-region network hiccup doesn't wake anyone.
+  confirmations: 2
+  escalation:
+    page_after_failures: 2
+    channels: [oncall-phone, slack-incidents]
+
+monitors:
+  - name: customer-readiness
+    url: https://avenick.vercel.app/api/ready
+    method: GET
+    expect_status: 200            # 503 = a dependency (DB) is down → page
+    assert_json:
+      status: ready
+    severity: page
+
+  - name: seller-readiness
+    url: https://avenick-seller.vercel.app/api/ready
+    method: GET
+    expect_status: 200
+    severity: page
+
+  - name: admin-readiness
+    url: https://avenick-admin.vercel.app/api/ready
+    method: GET
+    expect_status: 200
+    severity: page
+
+  - name: customer-liveness
+    url: https://avenick.vercel.app/api/health
+    method: GET
+    expect_status: 200
+    severity: ticket              # process-up but DB-agnostic; lower urgency
+
+  # Drives the public status page; also alerts if overall status degrades.
+  - name: customer-status
+    url: https://avenick.vercel.app/api/status
+    method: GET
+    expect_status: 200
+    assert_json:
+      status: operational
+    severity: ticket
+
+# Status page: point a hosted status page (Better Stack / Instatus / statuspage.io)
+# at the *-readiness monitors above for the top-line up/down, and surface
+# /api/status components (api, database, database-circuit) as sub-components.
+# Public URL suggestion: status.avenick.com

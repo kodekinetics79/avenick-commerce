@@ -32,9 +32,9 @@ describe("portal middleware — anonymous access", () => {
     expect(body).toEqual({ success: false, error: "Authentication required" });
   });
 
-  it("lets health and readiness probes through unauthenticated", async () => {
+  it("lets health, readiness and status probes through unauthenticated", async () => {
     const mw = createMiddleware("seller", anon);
-    for (const path of ["/api/health", "/api/ready"]) {
+    for (const path of ["/api/health", "/api/ready", "/api/status"]) {
       const res = await mw(req(path));
       expect(res!.status).toBe(200);
       expect(res!.headers.get("location")).toBeNull();

@@ -11,7 +11,13 @@ export async function GET() {
       orderBy: { sortOrder: "asc" },
       include: { children: { where: { isActive: true } } },
     });
-    return NextResponse.json({ success: true, data: categories });
+    return NextResponse.json(
+      { success: true, data: categories },
+      // Category tree is very slow-changing; cache aggressively at the edge with
+      // background revalidation. force-dynamic prevents build-time execution;
+      // this header still lets shared/edge caches serve responses.
+      { headers: { "Cache-Control": "public, s-maxage=600, stale-while-revalidate=3600" } },
+    );
   } catch {
     return NextResponse.json({ success: false, error: "Failed" }, { status: 500 });
   }
