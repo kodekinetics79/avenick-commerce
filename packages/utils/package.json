@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./s3": "./src/s3.ts",
+    "./crypto": "./src/crypto.ts"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

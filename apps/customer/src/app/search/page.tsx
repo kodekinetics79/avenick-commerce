@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Search, PackageSearch, TrendingUp } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
-import { db } from "@avenick/database";
+import { fetchBackendJson } from "@/lib/backend";
 
 export const metadata: Metadata = { title: "Search — Avenick Commerce" };
 
@@ -22,29 +22,9 @@ const POPULAR_CATEGORIES = [
 export default async function SearchPage({ searchParams }: { searchParams: { q?: string; sort?: string } }) {
   const query = (searchParams.q ?? "").trim();
 
-  const products = query
-    ? await db.product.findMany({
-        where: {
-          status: "ACTIVE",
-          deletedAt: null,
-          OR: [
-            { nameEn: { contains: query, mode: "insensitive" } },
-            { nameAr: { contains: query, mode: "insensitive" } },
-            { sku: { contains: query, mode: "insensitive" } },
-          ],
-        },
-        take: 24,
-        orderBy: searchParams.sort === "price_asc"
-          ? undefined
-          : { publishedAt: "desc" },
-        include: {
-          images: { where: { isPrimary: true }, take: 1 },
-          prices: { where: { isActive: true }, take: 1 },
-          seller: { select: { businessNameEn: true } },
-          inventory: { select: { qty: true, reservedQty: true }, take: 1 },
-        },
-      })
-    : [];
+  const { products } = query
+    ? await fetchBackendJson<{ products: any[] }>(`/api/products?limit=24&search=${encodeURIComponent(query)}&b2c=true`)
+    : { products: [] as any[] };
 
   return (
     <MainLayout>
@@ -118,8 +98,8 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
           {query && products.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {products.map((p) => {
-                const price = p.prices[0];
-                const stock = p.inventory[0];
+                const price = p.prices?.[0];
+                const stock = p.inventory?.[0];
                 return (
                   <ProductCard
                     key={p.id}
@@ -127,11 +107,11 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
                     slug={p.slug}
                     nameEn={p.nameEn}
                     nameAr={p.nameAr}
-                    imageUrl={p.images[0]?.url}
+                    imageUrl={p.images?.[0]?.url}
                     price={price ? Number(price.price) : 0}
                     sku={p.sku}
                     sellerId={p.sellerId}
-                    sellerName={p.seller.businessNameEn}
+                    sellerName={p.seller?.businessNameEn}
                     inStock={stock ? stock.qty - stock.reservedQty > 0 : false}
                     moq={p.moq}
                   />

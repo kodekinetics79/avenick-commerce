@@ -1,29 +1,30 @@
 # Deployment
 
-There is no separate API server in this repo: each Next.js app (customer,
-seller, admin) contains its own backend — API routes, server actions, and
-Prisma. Deploying "the backend" means deploying the apps themselves.
+There is no separate API server package in this repo. Each Next.js app contains
+its API runtime. The pilot deployment shape is:
 
-Two supported paths: **Render** (one-click Blueprint, includes managed
-Postgres) or **Vercel + Neon**.
+- Vercel hosts the customer, seller, and admin frontends
+- Render hosts the matching API/runtime for each portal
+- Neon is the single PostgreSQL system of record
+- Vercel proxies `/api/*` to Render; server-rendered pilot pages use the same
+  backend URL explicitly
 
-## Option A — Render (Blueprint)
+## Render Backends
 
 1. Push this repo to GitHub, then in Render: **New → Blueprint** → select the
    repo. Render reads [render.yaml](render.yaml) and creates:
    - `avenick-customer`, `avenick-seller`, `avenick-admin` web services
      (Frankfurt, health-checked on `/api/health`)
-   - `avenick-db` managed Postgres, wired into every service as
-     `DATABASE_URL`/`DIRECT_URL`
-   - a generated `AUTH_SECRET` per service (`AUTH_TRUST_HOST=true` is set;
-     the auth config already has `trustHost: true`)
-2. Every deploy runs `prisma migrate deploy` automatically (safe under
+   - prompts for the Neon `DATABASE_URL` and `DIRECT_URL`
+   - prompts for each portal's `AUTH_SECRET` and `NEXTAUTH_SECRET`
+2. Use the same auth-secret values on each matching Vercel/Render portal pair.
+   Customer, seller, and admin may each use a different pair.
+3. Every deploy runs `prisma migrate deploy` automatically (safe under
    concurrency — Prisma serializes with an advisory lock).
-3. Seed demo data once (optional), from your machine against the Render DB's
-   **external** connection string (Dashboard → avenick-db → Connect):
+4. Seed demo data once against the dedicated Neon pilot database:
 
    ```bash
-   DATABASE_URL="<external-url>" DIRECT_URL="<external-url>" pnpm --filter @avenick/database db:seed
+   DATABASE_URL="<neon-pooled>" DIRECT_URL="<neon-direct>" pnpm --filter @avenick/database db:seed
    ```
 
 4. Optional integrations — add in each service's Environment tab when ready
@@ -31,6 +32,8 @@ Postgres) or **Vercel + Neon**.
    - customer: `CHECKOUT_PUBLIC_KEY`, `CHECKOUT_SECRET_KEY`, `CHECKOUT_WEBHOOK_SECRET`
    - seller: `ANTHROPIC_API_KEY`
    - any: `REDIS_URL` (shared rate limiting)
+   - any: `NEXTAUTH_URL` is optional on Render; the customer email flow falls
+     back to `RENDER_EXTERNAL_URL` automatically
 5. Verify: `GET /api/health` → `ok`, `GET /api/ready` → `ready` on each
    service URL. Point the Checkout.com webhook at
    `https://<avenick-customer>.onrender.com/api/payments/webhook`.
@@ -43,7 +46,7 @@ Notes:
   services that is globally correct until you scale to multiple instances —
   then plug Redis into `setRateLimitStore()`.
 
-## Option B — Vercel + Neon
+## Vercel Frontends
 
 Three Vercel projects, one repo (monorepo). One Neon Postgres shared by all three.
 
@@ -77,20 +80,36 @@ Vercel detects Next.js and the pnpm workspace automatically; the default
 build command (`next build`) is correct. `@prisma/nextjs-monorepo-workaround-plugin`
 is already wired into each app's Next config.
 
-### 3. Environment variables (all three projects)
+### 3. Environment variables
 
-Required:
+Every frontend requires:
 
-- `DATABASE_URL` — Neon pooled URL
-- `DIRECT_URL` — Neon direct URL
-- `AUTH_SECRET` / `NEXTAUTH_SECRET` — generate with `openssl rand -base64 32` (same value across the three projects is fine)
+- `AUTH_SECRET` / `NEXTAUTH_SECRET` — identical to its matching Render service
 - `NEXTAUTH_URL` — that project's public URL
+
+Backend URL by project:
+
+- Customer: `NEXT_PUBLIC_BACKEND_URL=https://avenick-commerce.onrender.com`
+- Seller: `NEXT_PUBLIC_SELLER_BACKEND_URL=https://avenick-seller.onrender.com`
+- Admin: `NEXT_PUBLIC_ADMIN_BACKEND_URL=https://avenick-admin.onrender.com`
+
+Do not put `DATABASE_URL` or `DIRECT_URL` on Vercel. Database access belongs to
+the Render services.
 
 Per-feature (only where used):
 
 - Customer: `CHECKOUT_PUBLIC_KEY`, `CHECKOUT_SECRET_KEY`, `CHECKOUT_WEBHOOK_SECRET`
 - Seller: `ANTHROPIC_API_KEY` (AI drafts degrade gracefully without it)
 - Optional: `REDIS_URL` (rate limiting falls back to per-instance in-memory when unset)
+
+For the customer frontend on Vercel, set:
+
+- `NEXTAUTH_URL` = `https://avenick.vercel.app`
+- `NEXT_PUBLIC_BACKEND_URL` = `https://avenick-commerce.onrender.com`
+- `AUTH_SECRET` and `NEXTAUTH_SECRET` must match the Render backend values so the frontend can read the same session cookies
+
+The complete environment blocks and the rehearsal sequence are in
+[PILOT_DEMO.md](PILOT_DEMO.md).
 
 ### 4. Post-deploy checks
 

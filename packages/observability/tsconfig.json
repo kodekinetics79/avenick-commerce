@@ -1,0 +1,9 @@
+{
+  "extends": "@avenick/config/typescript",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src",
+    "composite": true
+  },
+  "include": ["src/**/*"]
+}

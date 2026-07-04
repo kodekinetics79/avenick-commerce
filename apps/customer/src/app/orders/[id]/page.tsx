@@ -6,8 +6,9 @@ import {
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { auth } from "@/lib/auth-instance";
-import { db } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
+import { cookies } from "next/headers";
+import { cookieHeaderFromStore, fetchBackendJsonWithCookies } from "@/lib/backend";
 
 const MACRO_STEPS = [
   { key: "CONFIRMED", label: "Order confirmed", icon: CheckCircle, rank: 1, desc: "Payment received and order confirmed." },
@@ -32,20 +33,43 @@ const STATUS_BADGE: Record<string, string> = {
 
 const fmt = (d: Date) => d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
+type OrderStatusHistoryEntry = {
+  id: string;
+  status: string;
+  message?: string | null;
+  createdAt: Date;
+};
+
+type OrderDetail = {
+  id: string;
+  orderNumber: string;
+  status: string;
+  type: string;
+  createdAt: Date;
+  total: string | number;
+  subtotal: string | number;
+  vatAmount: string | number;
+  paymentStatus: string;
+  currency: string;
+  shippingAddress: { line1?: string; city?: string; country?: string } | null;
+  items: Array<{ id: string; nameEn: string; quantity: number; unitPrice: string | number; total: string | number }>;
+  statusHistory: OrderStatusHistoryEntry[];
+  taxInvoice?: { invoiceNo: string } | null;
+};
+
 export default async function OrderDetailPage({ params }: { params: { id: string } }) {
   const session = await auth();
   const userId = session?.user?.id as string | undefined;
   if (!userId) notFound();
 
-  const order = await db.order.findFirst({
-    where: { id: params.id, userId },
-    include: {
-      items: true,
-      statusHistory: { orderBy: { createdAt: "asc" } },
-      taxInvoice: { select: { invoiceNo: true } },
-    },
-  });
-  if (!order) notFound();
+  const cookieStore = await cookies();
+  const cookieHeader = cookieHeaderFromStore(cookieStore);
+  let order: OrderDetail;
+  try {
+    order = await fetchBackendJsonWithCookies<OrderDetail>(`/api/orders/${params.id}`, undefined, cookieHeader);
+  } catch {
+    notFound();
+  }
 
   const currentRank = RANK[order.status] ?? 0;
   const addr = (order.shippingAddress as { line1?: string; city?: string; country?: string } | null) ?? {};
@@ -101,7 +125,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                 const isCurrent = currentRank === step.rank;
                 const isLast = idx === MACRO_STEPS.length - 1;
                 const Icon = step.icon;
-                const entry = order.statusHistory.find((h) => h.status === step.key);
+                const entry = order.statusHistory.find((h: OrderStatusHistoryEntry) => h.status === step.key);
                 return (
                   <div key={step.key} className="flex gap-4">
                     <div className="flex flex-col items-center">

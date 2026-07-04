@@ -1,6 +1,5 @@
-import { requireSellerSession } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
-import { db } from "@avenick/database";
+import { fetchSellerBackend } from "@/lib/backend";
 import { formatCurrency } from "@avenick/utils";
 import Link from "next/link";
 import { FileText, CheckCircle, Clock, XCircle, TrendingUp } from "lucide-react";
@@ -19,20 +18,24 @@ const STATUS: Record<string, { label: string; cls: string; icon: typeof CheckCir
   DRAFT: { label: "Draft", cls: "bg-secondary text-muted-foreground", icon: Clock },
 };
 
-const fmt = (d: Date | null) => (d ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
+const fmt = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
 
 export default async function QuoteHistoryPage() {
-  const { seller } = await requireSellerSession();
-
-  const rfqs = await db.rFQRequest.findMany({
-    where: { sellerId: seller.id },
-    orderBy: { updatedAt: "desc" },
-    take: 100,
-    include: {
-      company: { select: { nameEn: true } },
-      _count: { select: { items: true } },
-    },
-  });
+  type RFQRow = {
+    id: string;
+    rfqNumber: string;
+    status: string;
+    totalQuoted: string | number | null;
+    requiredBy: string | null;
+    company: { nameEn: string } | null;
+    _count: { items: number };
+  };
+  const data = await fetchSellerBackend<{
+    seller: { businessNameEn: string; tier: string };
+    history: RFQRow[];
+  }>("/api/seller/rfqs");
+  const seller = data.seller;
+  const rfqs = data.history;
 
   const accepted = rfqs.filter((r) => r.status === "ACCEPTED");
   const responded = rfqs.filter((r) => ["ACCEPTED", "REJECTED", "EXPIRED"].includes(r.status));

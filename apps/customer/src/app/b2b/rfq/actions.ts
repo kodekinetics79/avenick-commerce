@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createRFQ, decideRFQ } from "@avenick/database";
-import { getB2BContext, type B2BActionState } from "@/lib/b2b";
+import { fetchB2BJson, type B2BActionState } from "@/lib/b2b";
 import { z } from "zod";
 
 const RFQItemSchema = z.object({
@@ -19,9 +18,6 @@ const CreateRFQSchema = z.object({
 });
 
 export async function submitRFQ(_prev: B2BActionState, formData: FormData): Promise<B2BActionState> {
-  const ctx = await getB2BContext();
-  if (!ctx) return { error: "Sign in with a company account to request quotes." };
-
   let payload: z.infer<typeof CreateRFQSchema>;
   try {
     payload = CreateRFQSchema.parse(JSON.parse(String(formData.get("payload") ?? "{}")));
@@ -35,23 +31,32 @@ export async function submitRFQ(_prev: B2BActionState, formData: FormData): Prom
     return { error: "Enter a valid required-by date" };
   }
 
-  const rfq = await createRFQ({
-    buyerId: ctx.userId,
-    companyId: ctx.companyId,
-    notes: payload.notes,
-    requiredBy,
-    items: payload.items,
-  });
+  let rfq: { id: string };
+  try {
+    rfq = await fetchB2BJson<{ id: string }>("/api/b2b/rfqs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        notes: payload.notes,
+        requiredBy: requiredBy?.toISOString(),
+        items: payload.items,
+      }),
+    });
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Unable to create RFQ." };
+  }
 
   revalidatePath("/b2b/quotes");
   redirect(`/b2b/rfq/${rfq.id}`);
 }
 
 export async function acceptRFQQuote(id: string) {
-  const ctx = await getB2BContext();
-  if (!ctx) return;
   try {
-    await decideRFQ({ rfqId: id, buyerId: ctx.userId, companyId: ctx.companyId, decision: "ACCEPTED" });
+    await fetchB2BJson(`/api/b2b/rfqs/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ decision: "ACCEPTED" }),
+    });
   } catch {
     return;
   }
@@ -60,10 +65,12 @@ export async function acceptRFQQuote(id: string) {
 }
 
 export async function rejectRFQQuote(id: string) {
-  const ctx = await getB2BContext();
-  if (!ctx) return;
   try {
-    await decideRFQ({ rfqId: id, buyerId: ctx.userId, companyId: ctx.companyId, decision: "REJECTED" });
+    await fetchB2BJson(`/api/b2b/rfqs/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ decision: "REJECTED" }),
+    });
   } catch {
     return;
   }

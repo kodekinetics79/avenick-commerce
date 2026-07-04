@@ -6,8 +6,7 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
 import { SortSelect } from "@/components/products/sort-select";
 import { PageLoader } from "@avenick/ui";
-import { db } from "@avenick/database";
-import type { Prisma } from "@avenick/database";
+import { fetchBackendJson } from "@/lib/backend";
 
 export const metadata: Metadata = { title: "Products — Avenick Commerce" };
 
@@ -30,51 +29,30 @@ const PRICE_RANGES = [
   { label: "AED 500+", min: 500, max: 999999 },
 ];
 
-function buildOrderBy(sort?: string): Prisma.ProductOrderByWithRelationInput {
-  if (sort === "name_asc") return { nameEn: "asc" };
-  return { publishedAt: "desc" };
-}
-
 async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10));
   const limit = 24;
-  const skip = (page - 1) * limit;
+  const qs = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+    b2c: "true",
+    ...(searchParams.search ? { search: searchParams.search } : {}),
+    ...(searchParams.category ? { categorySlug: searchParams.category } : {}),
+    ...(searchParams.inStock === "1" ? { inStock: "true" } : {}),
+    ...(searchParams.sort ? { sort: searchParams.sort } : {}),
+  });
+  const { products, totalPages, total } = await fetchBackendJson<{ products: any[]; total: number; totalPages: number }>(`/api/products?${qs.toString()}`);
 
-  const where: Prisma.ProductWhereInput = {
-    status: "ACTIVE",
-    deletedAt: null,
-    ...(searchParams.category && { category: { slug: searchParams.category } }),
-    ...(searchParams.inStock === "1" && {
-      inventory: { some: { qty: { gt: 0 } } },
-    }),
-    ...(searchParams.search && {
-      OR: [
-        { nameEn: { contains: searchParams.search, mode: "insensitive" } },
-        { nameAr: { contains: searchParams.search, mode: "insensitive" } },
-        { sku: { contains: searchParams.search, mode: "insensitive" } },
-      ],
-    }),
-  };
+  const sortedProducts =
+    searchParams.sort === "price_asc" || searchParams.sort === "price_desc"
+      ? [...products].sort((a, b) => {
+          const aPrice = Number(a.prices?.find((pr: { type: string }) => pr.type === "B2C")?.price ?? a.prices?.[0]?.price ?? 0);
+          const bPrice = Number(b.prices?.find((pr: { type: string }) => pr.type === "B2C")?.price ?? b.prices?.[0]?.price ?? 0);
+          return searchParams.sort === "price_desc" ? bPrice - aPrice : aPrice - bPrice;
+        })
+      : products;
 
-  const [products, total] = await Promise.all([
-    db.product.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: buildOrderBy(searchParams.sort),
-      include: {
-        images: { where: { isPrimary: true }, take: 1 },
-        prices: { where: { isActive: true }, take: 2 },
-        seller: { select: { businessNameEn: true } },
-        inventory: { select: { qty: true, reservedQty: true }, take: 1 },
-      },
-    }),
-    db.product.count({ where }),
-  ]);
-
-  const totalPages = Math.ceil(total / limit);
-
-  if (products.length === 0) {
+  if (sortedProducts.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mb-4">
@@ -100,9 +78,9 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-        {products.map((p) => {
-          const b2cPrice = p.prices.find((pr) => pr.type === "B2C") ?? p.prices[0];
-          const stock = p.inventory[0];
+        {sortedProducts.map((p) => {
+          const b2cPrice = p.prices?.find((pr: { type: string; price: number }) => pr.type === "B2C") ?? p.prices?.[0];
+          const stock = p.inventory?.[0];
           return (
             <ProductCard
               key={p.id}
@@ -110,11 +88,11 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
               slug={p.slug}
               nameEn={p.nameEn}
               nameAr={p.nameAr}
-              imageUrl={p.images[0]?.url}
+              imageUrl={p.images?.[0]?.url}
               price={b2cPrice ? Number(b2cPrice.price) : 0}
               sku={p.sku}
               sellerId={p.sellerId}
-              sellerName={p.seller.businessNameEn}
+              sellerName={p.seller?.businessNameEn}
               inStock={stock ? stock.qty - stock.reservedQty > 0 : false}
               moq={p.moq}
             />
@@ -141,10 +119,7 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
 }
 
 async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
-  const categories = await db.category.findMany({
-    where: { isActive: true, parentId: null },
-    orderBy: { sortOrder: "asc" },
-  });
+  const categories = await fetchBackendJson<any[]>("/api/categories");
 
   const buildUrl = (updates: Record<string, string | undefined>) => {
     const params = new URLSearchParams();

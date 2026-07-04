@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Building2, ArrowRight } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
-import { db } from "@avenick/database";
+import { fetchBackendJson } from "@/lib/backend";
 
 export const metadata = { title: "Brands" };
 // Live catalog data — must not prerender at build time (no DB on build machines).
@@ -10,11 +10,7 @@ export const dynamic = "force-dynamic";
 const COUNTRY_LABEL: Record<string, string> = { AE: "UAE", SA: "Saudi Arabia", QA: "Qatar", KW: "Kuwait", OM: "Oman", BH: "Bahrain" };
 
 export default async function BrandsPage() {
-  const brands = await db.brand.findMany({
-    where: { isActive: true },
-    include: { _count: { select: { products: { where: { status: "ACTIVE", deletedAt: null } } } } },
-    orderBy: { nameEn: "asc" },
-  });
+  const brands = await fetchBackendJson<any[]>("/api/brands");
 
   return (
     <MainLayout>

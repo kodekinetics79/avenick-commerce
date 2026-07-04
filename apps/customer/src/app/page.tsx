@@ -16,7 +16,7 @@ import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
-import { db } from "@avenick/database";
+import { fetchBackendJson } from "@/lib/backend";
 
 export const dynamic = "force-dynamic";
 
@@ -41,18 +41,8 @@ const CATEGORY_TRANSLATIONS: Record<string, string> = {
 };
 
 async function getFeaturedProducts() {
-  return db.product.findMany({
-    where: { status: "ACTIVE", isB2CEnabled: true, deletedAt: null },
-    take: 10,
-    orderBy: { createdAt: "desc" },
-    include: {
-      images: { where: { isPrimary: true }, take: 1 },
-      prices: { where: { type: "B2C", isActive: true }, take: 1 },
-      seller: { select: { businessNameEn: true } },
-      inventory: { select: { qty: true, reservedQty: true }, take: 1 },
-      category: { select: { nameEn: true } },
-    },
-  });
+  const result = await fetchBackendJson<{ products: any[] }>("/api/products?limit=10&b2c=true");
+  return result.products;
 }
 
 export default async function HomePage() {
@@ -62,19 +52,19 @@ export default async function HomePage() {
   const products = await getFeaturedProducts();
 
   const mapped = products.map((p) => {
-    const price = p.prices[0];
-    const stock = p.inventory[0];
+    const price = p.prices?.find((pr: { type: string; price: number }) => pr.type === "B2C") ?? p.prices?.[0];
+    const stock = p.inventory?.[0];
     const available = stock ? stock.qty - stock.reservedQty : 0;
     return {
       id: p.id,
       slug: p.slug,
       nameEn: p.nameEn,
       nameAr: p.nameAr,
-      imageUrl: p.images[0]?.url,
+      imageUrl: p.images?.[0]?.url,
       price: price ? Number(price.price) : 0,
       sku: p.sku,
       sellerId: p.sellerId,
-      sellerName: p.seller.businessNameEn,
+      sellerName: p.seller?.businessNameEn,
       inStock: available > 0,
       moq: p.moq,
       category: p.category?.nameEn ?? "Industrial",

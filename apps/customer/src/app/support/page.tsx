@@ -3,9 +3,9 @@ import Link from "next/link";
 import { MessageSquare, Plus, Clock, CheckCircle2, Activity, Lock, Phone, Mail, MapPin, HelpCircle, Shield } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { auth } from "@/lib/auth-instance";
-import { db } from "@avenick/database";
 import { ValidatedForm } from "@/components/b2b/validated-form";
 import { createTicket } from "./actions";
+import { cookieHeaderFromStore, fetchBackendJsonWithCookies } from "@/lib/backend";
 
 export const metadata = { title: "Support & Help Center — Avenick Commerce" };
 
@@ -57,7 +57,7 @@ export default async function SupportPage() {
   const userId = session?.user?.id as string | undefined;
 
   const tickets = userId
-    ? await db.supportTicket.findMany({ where: { userId }, orderBy: { createdAt: "desc" } })
+    ? await fetchBackendJsonWithCookies<any[]>("/api/support", undefined, cookieHeaderFromStore(cookieStore))
     : [];
 
   return (

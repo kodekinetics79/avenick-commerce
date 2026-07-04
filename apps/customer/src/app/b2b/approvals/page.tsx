@@ -2,42 +2,49 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CheckSquare, Clock, CheckCircle, XCircle, FileText } from "lucide-react";
 import { B2BShell } from "@/components/b2b/b2b-shell";
-import { db } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
-import { getB2BContext } from "@/lib/b2b";
+import { fetchB2BJson } from "@/lib/b2b";
 import { approvePO, rejectPO } from "../purchase-orders/actions";
 import { format, formatDistanceToNow } from "date-fns";
 
 export const metadata = { title: "Approvals" };
 export const dynamic = "force-dynamic";
 
-const APPROVER_ROLES = ["COMPANY_ADMIN", "COMPANY_APPROVER"];
-
 export default async function ApprovalsPage() {
-  const ctx = await getB2BContext();
-  if (!ctx) redirect("/b2b/register");
+  type PurchaseOrderRow = {
+    id: string;
+    poNumber: string;
+    requesterId: string;
+    status: string;
+    currency: string;
+    total: string | number;
+    notes: string | null;
+    rejectionReason: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+  type ApprovalData = {
+    isApprover: boolean;
+    purchaseOrders: PurchaseOrderRow[];
+    policies: Array<{ id: string }>;
+    requesters: Array<{ id: string; firstName: string; lastName: string }>;
+  };
+  let data: ApprovalData;
+  try {
+    data = await fetchB2BJson<ApprovalData>("/api/b2b/purchase-orders");
+  } catch {
+    redirect("/b2b/register");
+  }
 
-  const isApprover = APPROVER_ROLES.includes(ctx.member.role);
-
-  const [pending, decided, policies] = await Promise.all([
-    db.purchaseOrder.findMany({
-      where: { companyId: ctx.companyId, status: "PENDING_APPROVAL" },
-      orderBy: { createdAt: "asc" },
-    }),
-    db.purchaseOrder.findMany({
-      where: { companyId: ctx.companyId, status: { in: ["APPROVED", "REJECTED", "ORDERED"] } },
-      orderBy: { updatedAt: "desc" },
-      take: 10,
-    }),
-    db.approvalPolicy.findMany({ where: { companyId: ctx.companyId, isActive: true } }),
-  ]);
-
-  // Requester names for display.
-  const requesterIds = [...new Set([...pending, ...decided].map((p) => p.requesterId))];
-  const requesters = await db.user.findMany({
-    where: { id: { in: requesterIds } },
-    select: { id: true, firstName: true, lastName: true },
-  });
+  const isApprover = data.isApprover;
+  const pending = data.purchaseOrders
+    .filter((po) => po.status === "PENDING_APPROVAL")
+    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const decided = data.purchaseOrders
+    .filter((po) => ["APPROVED", "REJECTED", "ORDERED"].includes(po.status))
+    .slice(0, 10);
+  const policies = data.policies;
+  const requesters = data.requesters;
   const nameOf = (id: string) => {
     const u = requesters.find((r) => r.id === id);
     return u ? `${u.firstName} ${u.lastName}` : "Unknown";
@@ -88,7 +95,7 @@ export default async function ApprovalsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="font-medium">{po.poNumber}</p>
                     <p className="text-xs text-muted-foreground">
-                      {po.notes ?? "—"} · requested by {nameOf(po.requesterId)} · {formatDistanceToNow(po.createdAt, { addSuffix: true })}
+                      {po.notes ?? "—"} · requested by {nameOf(po.requesterId)} · {formatDistanceToNow(new Date(po.createdAt), { addSuffix: true })}
                     </p>
                   </div>
                   <p className="font-bold">{formatCurrency(Number(po.total), po.currency as never)}</p>
@@ -128,7 +135,7 @@ export default async function ApprovalsPage() {
                   <div className="min-w-0">
                     <p className="text-sm font-medium">{po.poNumber}</p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {nameOf(po.requesterId)} · {format(po.updatedAt, "MMM d, yyyy")}
+                      {nameOf(po.requesterId)} · {format(new Date(po.updatedAt), "MMM d, yyyy")}
                       {po.rejectionReason ? ` · ${po.rejectionReason}` : ""}
                     </p>
                   </div>

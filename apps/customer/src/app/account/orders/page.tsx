@@ -1,11 +1,12 @@
 import { auth } from "@/lib/auth-instance";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { db } from "@avenick/database";
 import { MainLayout } from "@/components/layout/main-layout";
 import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
 import { ShoppingBag, Package, Truck, CheckCircle, Clock, ChevronRight, RotateCcw } from "lucide-react";
+import { cookies } from "next/headers";
+import { cookieHeaderFromStore, fetchBackendJsonWithCookies } from "@/lib/backend";
 
 export const metadata = { title: "My Orders" };
 
@@ -28,25 +29,35 @@ const FILTER_TABS = [
   { value: "CANCELLED",  label: "Cancelled" },
 ];
 
+type OrderListItem = {
+  id: string;
+  nameEn: string;
+  quantity: number;
+};
+
+type OrderListEntry = {
+  id: string;
+  orderNumber: string;
+  createdAt: string;
+  total: string | number;
+  currency: string;
+  status: string;
+  type: string;
+  items: OrderListItem[];
+};
+
 export default async function OrdersPage({ searchParams }: { searchParams: { status?: string } }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
   const statusFilter = searchParams.status;
-
-  const orders = await db.order.findMany({
-    where: {
-      userId: session.user.id,
-      ...(statusFilter ? { status: statusFilter as never } : {}),
-    },
-    orderBy: { createdAt: "desc" },
-    include: {
-      items: {
-        take: 2,
-        include: { product: { include: { images: { where: { isPrimary: true }, take: 1 } } } },
-      },
-    },
-  });
+  const cookieStore = await cookies();
+  const cookieHeader = cookieHeaderFromStore(cookieStore);
+  const orders = await fetchBackendJsonWithCookies<OrderListEntry[]>(
+    `/api/orders${statusFilter ? `?status=${encodeURIComponent(statusFilter)}` : ""}`,
+    undefined,
+    cookieHeader,
+  );
 
   const activeTab = statusFilter ?? "";
   const deliveredCount  = orders.filter(o => o.status === "DELIVERED").length;
@@ -136,15 +147,15 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
                           <p className="text-xs text-muted-foreground">{format(order.createdAt, "MMM d, yyyy 'at' h:mm a")}</p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-primary">{formatCurrency(Number(order.total), order.currency)}</span>
+                          <span className="font-bold text-primary">{formatCurrency(Number(order.total), order.currency as never)}</span>
                           <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                         </div>
                       </div>
 
                       {/* Items preview */}
                       <div className="flex items-center gap-2">
-                        {order.items.map((item, i) => (
-                          <div key={i} className="flex items-center gap-1.5">
+                          {order.items.map((item: OrderListItem, i: number) => (
+                            <div key={i} className="flex items-center gap-1.5">
                             {i > 0 && <span className="text-muted-foreground text-xs">·</span>}
                             <p className="text-sm text-muted-foreground line-clamp-1">
                               {item.nameEn}

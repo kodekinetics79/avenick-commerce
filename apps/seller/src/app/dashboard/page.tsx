@@ -1,7 +1,7 @@
-import { requireSellerSession } from "@/lib/auth";
-import { getSellerDashboard, db } from "@avenick/database";
+import type { SellerProfile } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
+import { fetchSellerBackend } from "@/lib/backend";
 import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
 import Link from "next/link";
@@ -11,13 +11,34 @@ import {
 } from "lucide-react";
 
 export default async function DashboardPage() {
-  const { seller } = await requireSellerSession();
-  const dash = await getSellerDashboard(seller.id);
-
-  const [expiringDocs, pendingRfqCount] = await Promise.all([
-    db.sellerDocument.count({ where: { sellerId: seller.id, expiryDate: { gte: new Date(), lte: new Date(Date.now() + 30 * 86400000) } } }),
-    db.rFQRequest.count({ where: { sellerId: seller.id, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } }),
-  ]);
+  type DashboardData = {
+    seller: SellerProfile;
+    dashboard: {
+      todayOrderCount: number;
+      monthRevenue: string | number;
+      activeListings: number;
+      pendingPayoutAmount: string | number;
+      pendingOrders: number;
+      issueCount: number;
+      pendingCompliance: number;
+      lowStockItems: number;
+      unreadMessages: number;
+      rfqCount: number;
+      recentOrders: Array<{
+        id: string;
+        orderNumber: string;
+        type: string;
+        status: string;
+        total: string | number;
+        currency: "AED" | "SAR" | "USD";
+        createdAt: string;
+      }>;
+    };
+    expiringDocs: number;
+    pendingRfqCount: number;
+  };
+  const data = await fetchSellerBackend<DashboardData>("/api/seller/dashboard");
+  const { seller, dashboard: dash, expiringDocs, pendingRfqCount } = data;
   const perfScore = seller.accountHealth;
 
   const stats = [
@@ -142,7 +163,7 @@ export default async function DashboardPage() {
                 <Link key={order.id} href={`/orders/${order.id}`} className="flex items-center justify-between px-6 py-3 hover:bg-muted/30 transition-colors">
                   <div>
                     <p className="font-medium text-sm">{order.orderNumber}</p>
-                    <p className="text-xs text-muted-foreground">{format(order.createdAt, "MMM d, yyyy")} · {order.type}</p>
+                    <p className="text-xs text-muted-foreground">{format(new Date(order.createdAt), "MMM d, yyyy")} · {order.type}</p>
                   </div>
                   <div className="text-end">
                     <p className="font-semibold text-sm">{formatCurrency(Number(order.total), order.currency)}</p>

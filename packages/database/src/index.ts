@@ -32,3 +32,23 @@ export * from "./services/workflow";
 export * from "./services/warehouse";
 export * from "./services/analytics";
 export * from "./services/rfq";
+export * from "./services/data-rights";
+
+// Resilience layer: circuit breaker, timeouts/retries, and cache fallback that
+// keep reads available and writes fail-fast when Postgres is degraded.
+export {
+  resilient,
+  dbCircuitState,
+  CircuitOpenError,
+  DbTimeoutError,
+  type ResilienceConfig,
+  type ResilientOptions,
+} from "./resilience";
+export {
+  cachedRead,
+  setCacheStore,
+  type CacheStore,
+  type CacheEntry,
+  type CachedResult,
+} from "./cache";
+export { read, write, type ReadOptions } from "./resilient-ops";
