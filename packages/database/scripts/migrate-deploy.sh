@@ -21,10 +21,17 @@ if [[ -z "${DIRECT_URL}" ]]; then
   exit 1
 fi
 
-# Warn (don't fail) if the migration URL looks pooled — a common misconfig.
+# Fail fast on the #1 misconfig: a POOLED DIRECT_URL. Neon's pooler (PgBouncer)
+# drops the long advisory-lock connection `prisma migrate deploy` needs, which
+# surfaces as the cryptic `PostgreSQL connection: kind: Closed`. Retrying a
+# pooled URL can never succeed, so error clearly instead of burning retries.
 if [[ "${DIRECT_URL}" == *"-pooler."* ]]; then
-  echo "[migrate] WARNING: DIRECT_URL points at a POOLED endpoint (-pooler). " \
-       "prisma migrate needs the DIRECT endpoint; set DIRECT_URL accordingly." >&2
+  echo "[migrate] FATAL: DIRECT_URL points at a POOLED endpoint (contains '-pooler')." >&2
+  echo "[migrate] Migrations require the DIRECT (unpooled) Neon endpoint." >&2
+  echo "[migrate] Fix: in the Neon console 'Connect' dialog, turn Connection Pooling" >&2
+  echo "[migrate]      OFF, copy that string (host has no '-pooler'), and set it as" >&2
+  echo "[migrate]      DIRECT_URL. Keep DATABASE_URL pooled for the app runtime." >&2
+  exit 1
 fi
 
 ATTEMPTS="${MIGRATE_MAX_ATTEMPTS:-5}"
