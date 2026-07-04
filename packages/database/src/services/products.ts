@@ -1,29 +1,35 @@
 import { db } from "../index";
+import { read } from "../resilient-ops";
 import type { Prisma, ProductStatus, Currency, PricingType } from "@prisma/client";
 
 export interface ProductListParams {
   page?: number;
   limit?: number;
   search?: string;
+  categorySlug?: string;
   categoryId?: string;
   sellerId?: string;
   status?: ProductStatus;
   b2c?: boolean;
   b2b?: boolean;
+  inStock?: boolean;
+  sort?: "newest" | "name_asc";
   currency?: Currency;
 }
 
 export async function listProducts(params: ProductListParams) {
-  const { page = 1, limit = 20, search, categoryId, sellerId, status, b2c, b2b } = params;
+  const { page = 1, limit = 20, search, categoryId, categorySlug, sellerId, status, b2c, b2b, inStock, sort } = params;
   const skip = (page - 1) * limit;
 
   const where: Prisma.ProductWhereInput = {
     deletedAt: null,
     ...(status && { status }),
     ...(categoryId && { categoryId }),
+    ...(categorySlug && { category: { slug: categorySlug } }),
     ...(sellerId && { sellerId }),
     ...(b2c !== undefined && { isB2CEnabled: b2c }),
     ...(b2b !== undefined && { isB2BEnabled: b2b }),
+    ...(inStock && { inventory: { some: { qty: { gt: 0 } } } }),
     ...(search && {
       OR: [
         { nameEn: { contains: search, mode: "insensitive" } },
@@ -33,26 +39,36 @@ export async function listProducts(params: ProductListParams) {
     }),
   };
 
-  const [products, total] = await Promise.all([
-    db.product.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { createdAt: "desc" },
-      include: {
-        images: { where: { isPrimary: true }, take: 1 },
-        prices: { where: { isActive: true } },
-        inventory: { select: { qty: true, reservedQty: true } },
-        category: { select: { nameEn: true, nameAr: true, slug: true } },
-        brand: { select: { nameEn: true, nameAr: true } },
-        seller: { select: { businessNameEn: true, businessNameAr: true, tier: true, rating: true } },
-        issues: { where: { resolvedAt: null } },
-      },
-    }),
-    db.product.count({ where }),
-  ]);
+  // Catalog listing is a "must stay up" read: run it through the resilience
+  // layer with a short-lived, stale-on-failure cache so a DB blip degrades to
+  // last-known-good results instead of a 500 on the browse/search path.
+  const cacheKey = `products:list:${JSON.stringify({ page, limit, sort, where })}`;
+  const { data } = await read(
+    async () => {
+      const [products, total] = await Promise.all([
+        db.product.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: sort === "name_asc" ? { nameEn: "asc" } : { createdAt: "desc" },
+          include: {
+            images: { where: { isPrimary: true }, take: 1 },
+            prices: { where: { isActive: true } },
+            inventory: { select: { qty: true, reservedQty: true } },
+            category: { select: { nameEn: true, nameAr: true, slug: true } },
+            brand: { select: { nameEn: true, nameAr: true } },
+            seller: { select: { businessNameEn: true, businessNameAr: true, tier: true, rating: true } },
+            issues: { where: { resolvedAt: null } },
+          },
+        }),
+        db.product.count({ where }),
+      ]);
+      return { products, total, page, limit, totalPages: Math.ceil(total / limit) };
+    },
+    { name: "products.list", cache: { key: cacheKey, ttlMs: 60_000 } },
+  );
 
-  return { products, total, page, limit, totalPages: Math.ceil(total / limit) };
+  return data;
 }
 
 export async function getProductBySlug(slug: string) {

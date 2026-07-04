@@ -12,15 +12,16 @@
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
-    "db:deploy": "prisma migrate deploy",
+    "db:deploy": "bash -lc 'export DIRECT_URL=\"${DIRECT_URL:-$DATABASE_URL}\" && prisma migrate deploy'",
     "db:migrate": "prisma migrate dev",
-    "db:migrate:prod": "prisma migrate deploy",
+    "db:migrate:prod": "bash -lc 'export DIRECT_URL=\"${DIRECT_URL:-$DATABASE_URL}\" && prisma migrate deploy'",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
     "test": "vitest run"
   },
   "dependencies": {
+    "@avenick/observability": "workspace:*",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3"
   },
