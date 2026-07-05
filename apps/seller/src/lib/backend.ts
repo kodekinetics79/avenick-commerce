@@ -6,7 +6,7 @@ function backendUrl(path: string) {
   const base = (
     process.env.NEXT_PUBLIC_SELLER_BACKEND_URL?.trim() ||
     process.env.RENDER_EXTERNAL_URL?.trim() ||
-    process.env.NEXTAUTH_URL?.trim() ||
+    (process.env.NODE_ENV === "production" ? "https://avenick-seller.onrender.com" : "") ||
     ""
   ).replace(/\/$/, "");
   return base ? new URL(path, `${base}/`).toString() : path;

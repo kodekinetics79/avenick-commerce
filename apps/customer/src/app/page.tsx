@@ -41,8 +41,13 @@ const CATEGORY_TRANSLATIONS: Record<string, string> = {
 };
 
 async function getFeaturedProducts() {
-  const result = await fetchBackendJson<{ products: any[] }>("/api/products?limit=10&b2c=true");
-  return result.products;
+  try {
+    const result = await fetchBackendJson<{ products?: any[] }>("/api/products?limit=10&b2c=true");
+    return Array.isArray(result.products) ? result.products : [];
+  } catch (error) {
+    console.error("Unable to load featured products", error);
+    return [];
+  }
 }
 
 export default async function HomePage() {

@@ -8,7 +8,7 @@ export function getBackendBaseUrl() {
   return (
     process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
     process.env.RENDER_EXTERNAL_URL?.trim() ||
-    process.env.NEXTAUTH_URL?.trim() ||
+    (process.env.NODE_ENV === "production" ? "https://avenick-commerce.onrender.com" : "") ||
     ""
   ).replace(/\/$/, "");
 }
