@@ -148,14 +148,14 @@ export default async function RFQDetailPage({ params }: { params: { id: string }
                     <XCircle className="h-4 w-4" /> Decline
                   </button>
                 </form>
-                <p className="text-xs text-muted-foreground ms-auto">Accepting notifies the supplier and moves this RFQ to your order pipeline.</p>
+                <p className="text-xs text-muted-foreground ms-auto">Review price, validity, delivery, and payment terms before accepting.</p>
               </div>
             )}
 
             {!quoted && rfq.status === "SUBMITTED" && (
               <div className="flex items-center gap-2 rounded-xl bg-blue-50 border border-blue-200 p-3 text-sm text-primary">
                 <Clock className="h-4 w-4 shrink-0" />
-                Waiting for supplier quotes — you&apos;ll be notified when pricing arrives.
+                Waiting for supplier quotes — check this workspace for pricing updates.
               </div>
             )}
 

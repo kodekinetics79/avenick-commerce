@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingCart, Star, Heart, Truck, Package } from "lucide-react";
+import { ShoppingCart, Star, Heart, Package } from "lucide-react";
 import { formatCurrency } from "@avenick/utils";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
@@ -34,7 +34,7 @@ interface ProductCardProps {
 export function ProductCard({
   id, slug, nameEn, nameAr, imageUrl, price, originalPrice, currency = "AED",
   sku, sellerId, sellerName, inStock = true, moq = 1,
-  rating = 4.2, reviewCount, locale, isB2B = false,
+  rating, reviewCount, locale, isB2B = false,
   badge = null, category,
 }: ProductCardProps) {
   const tp = useTranslations("products");
@@ -99,7 +99,8 @@ export function ProductCard({
           type="button"
           onClick={handleWishlist}
           className={`absolute top-2.5 end-2.5 grid h-8 w-8 place-items-center rounded-full backdrop-blur transition-all ${wishlisted ? "bg-danger text-white" : "bg-background/70 text-muted-foreground hover:text-danger"}`}
-          title={wishlisted ? "Remove from wishlist" : "Add to wishlist"}
+          title={wishlisted ? tp("removeFromWishlist") : tp("addToWishlist")}
+          aria-label={wishlisted ? tp("removeFromWishlist") : tp("addToWishlist")}
         >
           <Heart className={`h-4 w-4 ${wishlisted ? "fill-current" : ""}`} />
         </button>
@@ -126,11 +127,13 @@ export function ProductCard({
         <p className="text-[11px] font-medium text-primary mb-1 truncate">{category ?? sellerName ?? "Avenick"}</p>
         <h3 className="text-sm font-semibold leading-snug line-clamp-2 min-h-[2.5rem] text-foreground">{name}</h3>
 
-        <div className="flex items-center gap-1.5 mt-1.5 text-muted-foreground">
-          <Star className="h-3.5 w-3.5 text-amber-400 fill-current" />
-          <span className="text-xs font-medium text-foreground">{rating.toFixed(1)}</span>
-          {reviewCount ? <span className="text-xs">({reviewCount})</span> : null}
-        </div>
+        {typeof rating === "number" && reviewCount && reviewCount > 0 ? (
+          <div className="flex items-center gap-1.5 mt-1.5 text-muted-foreground">
+            <Star className="h-3.5 w-3.5 text-amber-400 fill-current" />
+            <span className="text-xs font-medium text-foreground">{rating.toFixed(1)}</span>
+            <span className="text-xs">({reviewCount})</span>
+          </div>
+        ) : null}
 
         <div className="mt-2.5 flex items-end justify-between">
           <div>
@@ -140,9 +143,6 @@ export function ProductCard({
             <span className="text-lg font-bold font-mono tracking-tight text-foreground">{formatCurrency(price, currency as "AED", activeLocale)}</span>
             {moq > 1 && <span className="block text-[11px] text-muted-foreground">{tp("minOrder")}: {moq} {tp("units")}</span>}
           </div>
-          <span className="inline-flex items-center gap-1 text-[11px] text-success">
-            <Truck className="h-3.5 w-3.5" /> Fast
-          </span>
         </div>
       </div>
     </Link>

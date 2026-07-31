@@ -4,10 +4,10 @@ import { Button } from "@avenick/ui";
 import { MainLayout } from "@/components/layout/main-layout";
 
 const FEATURES = [
-  { icon: TrendingUp, title: "Bulk & B2B Pricing", desc: "Access exclusive tiered pricing and volume discounts" },
+  { icon: TrendingUp, title: "Business purchasing", desc: "Review eligible business pricing and volume terms when available" },
   { icon: FileText, title: "Purchase Orders", desc: "Create and manage POs with approval workflows" },
   { icon: Users, title: "Team Management", desc: "Add buyers with role-based spend limits" },
-  { icon: ShieldCheck, title: "Credit Terms", desc: "Net-30/60/90 payment terms for approved companies" },
+  { icon: ShieldCheck, title: "Company controls", desc: "Keep purchasing roles, limits, and approvals in one workspace" },
 ];
 
 export default function B2BRegisterPage() {
@@ -25,7 +25,7 @@ export default function B2BRegisterPage() {
             <span className="block text-2xl font-normal text-muted-foreground mt-2">طوّر أعمالك مع Avenick Commerce</span>
           </h1>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Join thousands of businesses sourcing industrial supplies, safety equipment, and more from verified GCC suppliers — with B2B pricing, purchase orders, and approval workflows built in.
+            Create a business workspace for product sourcing, quote requests, purchase orders, team roles, and approval workflows.
           </p>
         </div>
 
@@ -43,7 +43,7 @@ export default function B2BRegisterPage() {
         {/* CTA */}
         <div className="bg-gradient-to-r from-primary to-primary/100 rounded-2xl p-8 text-white text-center">
           <h2 className="text-2xl font-bold mb-2">Ready to get started?</h2>
-          <p className="text-primary/20 mb-6">Create a business account in minutes. No commitment required.</p>
+          <p className="text-white/80 mb-6">Create a business account and provide the company details required for review.</p>
           <div className="flex justify-center gap-4 flex-wrap">
             <Button asChild size="lg" className="bg-white text-primary hover:bg-primary/10">
               <Link href="/register">Register Business Account</Link>

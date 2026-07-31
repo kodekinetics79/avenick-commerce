@@ -29,8 +29,6 @@ const CATEGORIES = [
   { slug: "building-materials", nameEn: "Building", icon: Building2 },
 ];
 
-const PARTNERS = ["SKF", "EATON", "NSK", "TIMKEN", "ABB", "BOSCH", "SIEMENS", "GATES"];
-
 const CATEGORY_TRANSLATIONS: Record<string, string> = {
   "industrial-supplies": "catIndustrial",
   "electronics": "catElectronics",
@@ -113,29 +111,6 @@ export default async function HomePage() {
               </Link>
             </div>
 
-            {/* trust stats */}
-            <div className="mt-12 grid grid-cols-3 gap-6 max-w-lg border-t border-border pt-6">
-              {[
-                { v: "2,400+", l: t("statSuppliers") },
-                { v: "48,000+", l: t("statProducts") },
-                { v: "287", l: t("statCompanies") },
-              ].map((s) => (
-                <div key={s.l}>
-                  <p className="text-2xl font-bold font-mono tracking-tight">{s.v}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{s.l}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* partner marquee */}
-        <div className="relative border-t border-border bg-background/40 backdrop-blur">
-          <div className="max-w-7xl mx-auto px-4 py-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
-            <span className="text-[11px] uppercase tracking-widest text-muted-foreground">{t("trustedBrands")}</span>
-            {PARTNERS.map((b) => (
-              <span key={b} className="text-sm font-bold tracking-wide text-muted-foreground/70 hover:text-foreground transition-colors">{b}</span>
-            ))}
           </div>
         </div>
       </section>
@@ -159,8 +134,8 @@ export default async function HomePage() {
       </section>
 
       {/* ─── Best sellers ─────────────────────────────────── */}
-      <Section title={t("bestSellers")} subtitle={t("bestSellersSub")} href="/products">
-        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} locale={locale} badge="HOT" />)}</Grid>
+      <Section title={t("bestSellers")} subtitle={t("bestSellersSub")} href="/products" viewAllLabel={t("viewAll")}>
+        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>
       </Section>
 
       {/* ─── Value props ──────────────────────────────────── */}
@@ -184,8 +159,8 @@ export default async function HomePage() {
       </section>
 
       {/* ─── Featured ─────────────────────────────────────── */}
-      <Section title={t("featuredProducts")} subtitle={t("featuredProductsSub")} href="/products">
-        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} locale={locale} badge="NEW" />)}</Grid>
+      <Section title={t("featuredProducts")} subtitle={t("featuredProductsSub")} href="/products" viewAllLabel={t("viewAll")}>
+        <Grid>{mapped.slice(5, 10).map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>
       </Section>
 
       {/* ─── B2B CTA band ─────────────────────────────────── */}
@@ -209,7 +184,7 @@ export default async function HomePage() {
 }
 
 /* ── local layout helpers ─────────────────────────────── */
-function Section({ title, subtitle, href, children }: { title: string; subtitle?: string; href: string; children: React.ReactNode }) {
+function Section({ title, subtitle, href, viewAllLabel, children }: { title: string; subtitle?: string; href: string; viewAllLabel: string; children: React.ReactNode }) {
   return (
     <section className="max-w-7xl mx-auto px-4 py-8">
       <div className="flex items-end justify-between mb-6">
@@ -218,7 +193,7 @@ function Section({ title, subtitle, href, children }: { title: string; subtitle?
           {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
         </div>
         <Link href={href} className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:gap-2 transition-all">
-          View all <ArrowRight className="h-4 w-4" />
+          {viewAllLabel} <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
       {children}

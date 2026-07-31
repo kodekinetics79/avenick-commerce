@@ -25,9 +25,9 @@ const CATEGORIES = [
 ];
 
 const PRIORITY_CONFIG: Record<Priority, { label: string; color: string; desc: string }> = {
-  NORMAL:   { label: "Normal",   color: "border-border",       desc: "Standard processing, 48h response" },
-  URGENT:   { label: "Urgent",   color: "border-amber-400",    desc: "Priority handling, 24h response" },
-  CRITICAL: { label: "Critical", color: "border-red-500",      desc: "Immediate attention required" },
+  NORMAL:   { label: "Normal",   color: "border-border",       desc: "Use for routine purchasing requirements" },
+  URGENT:   { label: "Urgent",   color: "border-amber-400",    desc: "Use when the requested delivery date is time-sensitive" },
+  CRITICAL: { label: "Critical", color: "border-red-500",      desc: "Use only when operational impact is immediate" },
 };
 
 export default function NewRFQPage() {
@@ -118,16 +118,16 @@ export default function NewRFQPage() {
             <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-5">
               <CheckCircle className="h-10 w-10 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold mb-2">RFQ Submitted!</h1>
-            <p className="text-muted-foreground mb-1">Your Request for Quotation has been sent to verified suppliers.</p>
-            <p className="text-sm text-muted-foreground mb-6">Expected response time: <strong>24–48 hours</strong>. You&apos;ll be notified when quotes arrive.</p>
+            <h1 className="text-2xl font-bold mb-2">Request for quotation submitted</h1>
+            <p className="text-muted-foreground mb-1">Your request has been recorded.</p>
+            <p className="text-sm text-muted-foreground mb-6">Follow its status in your quote workspace. Any supplier responses will appear there.</p>
             <div className="bg-white border border-border rounded-2xl p-4 mb-6 text-sm text-start">
               <p className="font-semibold mb-2">What happens next?</p>
               <ol className="space-y-1.5 text-muted-foreground">
-                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</span> RFQ reviewed by Avenick Commerce team</li>
-                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</span> Assigned to matching verified suppliers</li>
-                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span> You receive and compare quotes</li>
-                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">4</span> Accept best quote → convert to order</li>
+                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</span> Request details are recorded</li>
+                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</span> Eligible suppliers may respond</li>
+                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span> Compare any quotes received</li>
+                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">4</span> Accept a quote when its terms meet your needs</li>
               </ol>
             </div>
             <div className="flex gap-3 justify-center">
@@ -150,7 +150,7 @@ export default function NewRFQPage() {
 
           <div className="mb-6">
             <h1 className="text-2xl font-bold">Create Request for Quotation</h1>
-            <p className="text-muted-foreground text-sm mt-1">Submit an RFQ to receive competitive quotes from verified suppliers.</p>
+            <p className="text-muted-foreground text-sm mt-1">Describe your requirements so eligible suppliers can choose whether to respond.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -265,7 +265,7 @@ export default function NewRFQPage() {
             {/* Info callout */}
             <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-primary">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-              <p>Your RFQ will be reviewed within <strong>2 business hours</strong> and distributed to matching verified suppliers. You&apos;ll receive an email notification when quotes arrive.</p>
+              <p>Response timing and supplier participation depend on the request details and current availability. Track updates in your quote workspace.</p>
             </div>
 
             {error && (
@@ -277,7 +277,7 @@ export default function NewRFQPage() {
 
             <Button type="submit" variant="primary" size="lg" className="w-full" loading={loading}>
               <Send className="h-4 w-4 me-2" />
-              Submit RFQ to Suppliers
+              Submit request
             </Button>
           </form>
         </div>
