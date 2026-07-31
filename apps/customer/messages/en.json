@@ -122,6 +122,7 @@
       "mode": "Interactive 3D",
       "regionLabel": "Interactive mechanical assembly viewer",
       "loading": "Loading interactive assembly",
+      "retry": "Retry 3D viewer",
       "unavailable": "Interactive 3D is unavailable on this device. Use the SKU list and part controls instead.",
       "error": "The interactive assembly could not be displayed. The standard SKU workflow remains available.",
       "partsLabel": "Mechanical assembly parts",
@@ -159,7 +160,7 @@
       "none": "Select a SKU to identify its assembly part.",
       "mapped": "Selected {item}. Its mapped assembly part is highlighted.",
       "unmapped": "Selected {item}. A 3D view is unavailable for this item.",
-      "sequence": "Selection update {revision}."
+      "sequence": "Selection confirmed again; the mapped-part highlight restarted."
     }
   },
   "home": {

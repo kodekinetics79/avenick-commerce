@@ -5,18 +5,20 @@ import { Cuboid, Eye, EyeOff, Info } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@avenick/utils";
 import { createSpatialBindingIndex } from "../domain/bindings";
-import type { MechanicalSku } from "../domain/contracts";
+import type { MechanicalSku, ProductionMechanicalSku } from "../domain/contracts";
 import type { SkuSpatialBinding } from "../domain/bindings";
 import { INITIAL_SPATIAL_SELECTION, spatialSelectionReducer, type SpatialSelectionSource } from "../state/selection-reducer";
-import { useReducedSpatialMotion } from "../state/use-spatial-motion";
+import { useSpatialRuntimePolicy } from "../state/use-spatial-motion";
 import { SpatialSkuTable } from "./sku-table";
 import { SpatialScene, skuIdForSpatialTarget, type SpatialSceneLabels } from "./scene";
 
-export interface SpatialCommerceShellProps {
-  items: readonly MechanicalSku[];
+type SpatialCommerceDataProps =
+  | { fixtureMode: true; items: readonly MechanicalSku[] }
+  | { fixtureMode?: false; items: readonly ProductionMechanicalSku[] };
+
+export type SpatialCommerceShellProps = SpatialCommerceDataProps & {
   bindings: readonly SkuSpatialBinding[];
-  fixtureMode?: boolean;
-}
+};
 
 function useDesktopViewport() {
   const [desktop, setDesktop] = React.useState(false);
@@ -36,7 +38,7 @@ export function SpatialCommerceShell({ items, bindings, fixtureMode = false }: S
   const [selection, dispatch] = React.useReducer(spatialSelectionReducer, INITIAL_SPATIAL_SELECTION);
   const [mobileViewerOpen, setMobileViewerOpen] = React.useState(false);
   const desktop = useDesktopViewport();
-  const reducedMotion = useReducedSpatialMotion();
+  const { reducedMotion, allowWebGLLoad } = useSpatialRuntimePolicy();
   const tableRegion = React.useRef<HTMLDivElement>(null);
   const displayItems = React.useMemo(() => locale.startsWith("ar")
     ? items.map((item) => ({
@@ -56,10 +58,11 @@ export function SpatialCommerceShell({ items, bindings, fixtureMode = false }: S
     dispatch({ type: "select", skuId, nodeId, source });
   }, [bindingIndex]);
 
-  const selectNode = React.useCallback((nodeId: string) => {
+  const selectNode = React.useCallback((nodeId: string, origin: "scene" | "accessible-control") => {
     const skuId = skuIdForSpatialTarget(nodeId, bindingIndex);
     if (!skuId) return;
     dispatch({ type: "select", skuId, nodeId, source: "scene" });
+    if (origin === "accessible-control") return;
     window.requestAnimationFrame(() => {
       const surface = desktop ? "desktop" : "mobile";
       const row = tableRegion.current?.querySelector<HTMLElement>(`[data-spatial-surface="${surface}"][data-spatial-sku-id="${CSS.escape(skuId)}"]`);
@@ -71,6 +74,7 @@ export function SpatialCommerceShell({ items, bindings, fixtureMode = false }: S
   const sceneLabels: SpatialSceneLabels = {
     regionLabel: t("viewer.regionLabel"),
     loading: t("viewer.loading"),
+    retry: t("viewer.retry"),
     unavailable: t("viewer.unavailable"),
     error: t("viewer.error"),
     partsLabel: t("viewer.partsLabel"),
@@ -113,6 +117,8 @@ export function SpatialCommerceShell({ items, bindings, fixtureMode = false }: S
       data-spatial-state={selectedItem ? "selected" : "idle"}
       data-selected-node={selectedNodeId ?? ""}
       data-pulse-revision={selection.pulseRevision}
+      data-reduced-motion={String(reducedMotion)}
+      data-webgl-load={String(allowWebGLLoad)}
     >
       {fixtureMode && (
         <div role="note" className="flex items-start gap-3 rounded-2xl border border-warning-border bg-warning-soft p-4 text-sm text-foreground">
@@ -143,12 +149,13 @@ export function SpatialCommerceShell({ items, bindings, fixtureMode = false }: S
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary rtl:normal-case rtl:tracking-normal">{t("viewer.eyebrow")}</p>
               <h2 id="spatial-viewer-heading" className="mt-1 font-semibold">{t("viewer.title")}</h2>
             </div>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-1 text-xs text-foreground">
               <Cuboid aria-hidden="true" className="h-3.5 w-3.5" /> {t("viewer.mode")}
             </span>
           </div>
           {renderViewer && (
             <SpatialScene
+              allowWebGLLoad={allowWebGLLoad}
               labels={sceneLabels}
               selectedNodeId={selectedNodeId}
               pulseRevision={selection.pulseRevision}
@@ -178,7 +185,7 @@ export function SpatialCommerceShell({ items, bindings, fixtureMode = false }: S
           <p role="status" aria-live="polite" className="mt-3 min-h-5 px-1 text-sm text-muted-foreground">
             {selectedItem && <><bdi dir="ltr">{selectedItem.sku}</bdi><span> — </span></>}
             {selectionAnnouncement}
-            {selectedItem && <span className="sr-only"> {t("selection.sequence", { revision: selection.pulseRevision })}</span>}
+            {selectedItem && <span key={selection.pulseRevision} className="sr-only"> {t("selection.sequence")}</span>}
           </p>
         </section>
       </div>

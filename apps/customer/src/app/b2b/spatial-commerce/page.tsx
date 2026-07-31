@@ -2,18 +2,22 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Boxes } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { CompanyStatus, db, UserStatus } from "@avenick/database";
+import { CompanyStatus, db } from "@avenick/database";
 import { MainLayout } from "@/components/layout/main-layout";
 import { getB2BContext } from "@/lib/b2b";
 import { getSpatialCommerceRuntime } from "@/lib/spatial-commerce-flag";
 import { SpatialCommerceShell } from "@/features/spatial-commerce/components/spatial-commerce-shell";
 import { getDevelopmentMechanicalFixture } from "@/features/spatial-commerce/fixtures/development-mechanical-skus";
+import { hasLiveSpatialCommerceRole } from "@/lib/spatial-commerce-access";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata() {
   const t = await getTranslations("spatialCommerce");
-  return { title: t("metadataTitle") };
+  return {
+    title: t("metadataTitle"),
+    robots: { index: false, follow: false },
+  };
 }
 
 export default async function SpatialCommercePage() {
@@ -24,13 +28,10 @@ export default async function SpatialCommercePage() {
   if (!context) redirect("/b2b/register");
   const currentUser = await db.user.findUnique({
     where: { id: context.userId },
-    select: { status: true, deletedAt: true },
+    select: { role: true, status: true, deletedAt: true },
   });
   if (
-    !currentUser
-    || currentUser.status !== UserStatus.ACTIVE
-    || currentUser.deletedAt
-    || !context.member.isActive
+    !hasLiveSpatialCommerceRole(currentUser, context.member)
     || context.company.status !== CompanyStatus.ACTIVE
     || context.company.deletedAt
   ) notFound();
@@ -58,11 +59,11 @@ export default async function SpatialCommercePage() {
             </div>
             <span className="rounded-full border border-border bg-card px-3 py-1.5 text-xs font-semibold text-muted-foreground">{t("phase")}</span>
           </header>
-          <SpatialCommerceShell
-            items={fixture?.skus ?? []}
-            bindings={fixture?.bindings ?? []}
-            fixtureMode={runtime.fixtureMode}
-          />
+          {runtime.fixtureMode && fixture ? (
+            <SpatialCommerceShell fixtureMode items={fixture.skus} bindings={fixture.bindings} />
+          ) : (
+            <SpatialCommerceShell items={[]} bindings={[]} />
+          )}
         </div>
       </div>
     </MainLayout>

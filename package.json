@@ -15,9 +15,11 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
     "@next/swc-win32-x64-msvc": "14.2.33",
-    "turbo": "^2.3.0",
+    "@playwright/test": "1.62.1",
     "prettier": "^3.3.3",
+    "turbo": "^2.3.0",
     "typescript": "^5.7.2"
   },
   "engines": {

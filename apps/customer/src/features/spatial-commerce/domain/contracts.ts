@@ -45,3 +45,18 @@ export interface MechanicalSku {
   readonly leadTimeDays: number;
   readonly availability: SpatialAvailability;
 }
+
+/**
+ * Production catalog adapters must return complete Arabic commerce content.
+ * The looser MechanicalSku remains useful for explicitly disclosed fixtures and
+ * migration inputs, while this type prevents an Arabic production surface from
+ * silently falling back to mixed-direction English product content.
+ */
+export type ProductionMechanicalSku = MechanicalSku & {
+  readonly nameAr: string;
+  readonly descriptionAr: string;
+};
+
+export function hasProductionArabicContent(item: MechanicalSku): item is ProductionMechanicalSku {
+  return Boolean(item.nameAr?.trim() && item.descriptionAr?.trim());
+}

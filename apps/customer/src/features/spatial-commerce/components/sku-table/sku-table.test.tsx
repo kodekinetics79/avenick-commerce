@@ -85,10 +85,15 @@ describe("SpatialSkuTable", () => {
   it("renders a semantic desktop table and native mobile selection controls", () => {
     renderTable();
 
+    const table = screen.getByRole("table", { name: labels.caption });
+    expect(within(table).getAllByRole("columnheader")).toHaveLength(6);
+    expect(within(desktopSkuRow("FIX-1")).getAllByRole("cell")).toHaveLength(6);
     expect(desktopSkuButton("FIX-1").getAttribute("aria-pressed")).toBe("true");
     expect(desktopSkuButton("FIX-1").getAttribute("data-spatial-sku-id")).toBe("sku-1");
     const mobileButton = document.querySelector<HTMLButtonElement>('[data-spatial-surface="mobile"][data-spatial-sku-id="sku-1"]')!;
     expect(mobileButton.getAttribute("aria-pressed")).toBe("true");
+    expect(mobileButton.querySelector("dl")).toBeNull();
+    expect(mobileButton.closest("li")?.querySelector("dl")).not.toBeNull();
     expect(screen.getAllByText("3D unavailable")).toHaveLength(2);
     expect(desktopSkuButton("FIX-2").getAttribute("data-binding-cardinality")).toBe("missing");
   });
@@ -127,9 +132,16 @@ describe("SpatialSkuTable", () => {
   it.each([
     ["loading", { loading: true }, "Loading SKUs"],
     ["empty", { items: [] }, "No SKUs"],
-    ["error", { error: "network offline" }, "Unable to load SKUs: network offline"],
+    ["error", { error: "network offline" }, "Unable to load SKUs"],
   ])("renders the %s state", (_state, overrides, expected) => {
     renderTable(overrides);
     expect(screen.getAllByText(expected)).toHaveLength(2);
+  });
+
+  it("does not disclose raw error details", () => {
+    renderTable({ error: new Error("provider token expired at internal-host") });
+
+    expect(screen.queryByText(/provider token|internal-host/i)).toBeNull();
+    expect(screen.getAllByText(labels.error)).toHaveLength(2);
   });
 });

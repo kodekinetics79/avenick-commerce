@@ -6,11 +6,12 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input, Button } from "@avenick/ui";
 import { MainLayout } from "@/components/layout/main-layout";
+import { safeCallbackPath } from "@/lib/safe-callback-url";
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const urlError = searchParams.get("error");
-  const callbackUrl = searchParams.get("callbackUrl") || "/account/orders";
+  const callbackUrl = safeCallbackPath(searchParams.get("callbackUrl"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -50,19 +51,18 @@ export default function LoginPage() {
           <div className="glass-strong rounded-2xl p-6 shadow-elevated">
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5">Email / البريد الإلكتروني</label>
-                <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <label htmlFor="login-email" className="block text-sm font-medium mb-1.5">Email / البريد الإلكتروني</label>
+                <Input id="login-email" name="email" autoComplete="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">Password / كلمة المرور</label>
-                <Input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <label htmlFor="login-password" className="block text-sm font-medium mb-1.5">Password / كلمة المرور</label>
+                <Input id="login-password" name="password" autoComplete="current-password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
-              {error && <p className="text-sm text-danger">{error}</p>}
+              {error && <p role="alert" className="text-sm text-danger">{error}</p>}
               <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
             </form>
             <div className="mt-4 text-center text-sm text-muted-foreground">
               <p>Don&apos;t have an account? <Link href="/register" className="text-primary font-medium hover:underline">Register</Link></p>
-              <p className="mt-1 text-xs">buyer@avenick.test · Password123!</p>
             </div>
           </div>
         </div>

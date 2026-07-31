@@ -21,14 +21,17 @@ export interface SpatialSceneLabels {
   loading: string;
   unavailable: string;
   error: string;
+  retry: string;
   partsLabel: string;
   nodes: Record<SpatialAssemblyNodeId, string>;
 }
 
 export interface SpatialSceneProps extends SpatialSceneSnapshot {
   className?: string;
+  /** Progressive-enhancement gate; false prevents the lazy canvas from mounting. */
+  allowWebGLLoad?: boolean;
   labels: SpatialSceneLabels;
-  onNodeSelect?: (nodeId: string) => void;
+  onNodeSelect?: (nodeId: string, origin: "scene" | "accessible-control") => void;
 }
 
 export interface SpatialSceneCanvasProps extends SpatialSceneProps {

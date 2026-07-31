@@ -56,13 +56,13 @@ export function SpatialSkuTable({
   className,
 }: SpatialSkuTableProps) {
   const mobileListLabelId = React.useId();
-  const errorMessage = error instanceof Error ? error.message : error;
+  const hasError = Boolean(error);
   const select = (skuId: string) => onSelect(skuId, "sku-table");
 
   const stateMessage = loading
     ? { message: labels.loading, live: "polite" as const }
-    : errorMessage
-      ? { message: `${labels.error}: ${errorMessage}`, live: "assertive" as const }
+    : hasError
+      ? { message: labels.error, live: "assertive" as const }
       : items.length === 0
         ? { message: labels.empty, live: "polite" as const }
         : null;
@@ -79,22 +79,12 @@ export function SpatialSkuTable({
               const binding = bindings.get(item.id) ?? missingBinding(item.id);
               const selected = selectedSkuId === item.id;
               return (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    aria-pressed={selected}
-                    data-spatial-surface="mobile"
-                    data-spatial-sku-id={item.id}
-                    data-binding-cardinality={binding.cardinality}
-                    onClick={() => select(item.id)}
-                    className={cn(
-                      "w-full cursor-pointer p-3 text-start outline-none transition-colors hover:bg-secondary/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-                      selected && "bg-primary/10",
-                    )}
-                  >
+                <li
+                  key={item.id}
+                  className={cn("p-3 transition-colors", selected && "bg-primary/10")}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-mono text-xs font-semibold text-muted-foreground"><bdi dir="ltr">{item.sku}</bdi></p>
                       <p className="truncate text-sm font-semibold">{item.name}</p>
                       <p className="text-xs text-muted-foreground">{labels.price(item.unitPrice, item.currency)}</p>
                     </div>
@@ -105,6 +95,18 @@ export function SpatialSkuTable({
                     <SkuFact label={labels.minimumOrderQuantity} value={labels.quantity(item.minimumOrderQuantity)} />
                     <SkuFact label={labels.leadTime} value={labels.days(item.leadTimeDays)} />
                   </dl>
+                  <button
+                    type="button"
+                    aria-pressed={selected}
+                    data-spatial-surface="mobile"
+                    data-spatial-sku-id={item.id}
+                    data-binding-cardinality={binding.cardinality}
+                    onClick={() => select(item.id)}
+                    className="mt-3 inline-flex min-h-11 max-w-full items-center gap-2 rounded-xl border border-border bg-background px-3 font-mono text-xs font-semibold text-foreground outline-none transition-colors hover:border-primary/40 hover:bg-secondary/50 focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="font-sans font-medium text-muted-foreground">{labels.sku}</span>
+                    <bdi dir="ltr" className="truncate">{item.sku}</bdi>
+                    <span className="sr-only"> — {item.name}</span>
                   </button>
                 </li>
               );
@@ -118,10 +120,12 @@ export function SpatialSkuTable({
           <caption className="sr-only">{labels.caption}</caption>
           <thead className="sticky top-0 z-10 border-b border-border bg-secondary">
             <tr>
-              <th scope="col" className="w-[19%] px-3 py-2 text-start text-xs font-semibold text-muted-foreground">{labels.sku}</th>
-              <th scope="col" className="w-[31%] px-3 py-2 text-start text-xs font-semibold text-muted-foreground">{labels.item}</th>
-              <th scope="col" className="w-[29%] px-3 py-2 text-start text-xs font-semibold text-muted-foreground">{labels.availability}</th>
-              <th scope="col" className="w-[21%] px-3 py-2 text-start text-xs font-semibold text-muted-foreground">{labels.spatialStatus}</th>
+              <th scope="col" className="w-[18%] px-2 py-2 text-start text-xs font-semibold text-foreground">{labels.sku}</th>
+              <th scope="col" className="w-[25%] px-2 py-2 text-start text-xs font-semibold text-foreground">{labels.item}</th>
+              <th scope="col" className="w-[15%] px-2 py-2 text-start text-xs font-semibold text-foreground">{labels.availability}</th>
+              <th scope="col" className="w-[12%] px-2 py-2 text-start text-xs font-semibold text-foreground">{labels.minimumOrderQuantity}</th>
+              <th scope="col" className="w-[14%] px-2 py-2 text-start text-xs font-semibold text-foreground">{labels.leadTime}</th>
+              <th scope="col" className="w-[16%] px-2 py-2 text-start text-xs font-semibold text-foreground">{labels.spatialStatus}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -147,23 +151,22 @@ export function SpatialSkuTable({
                         data-spatial-sku-id={item.id}
                         data-binding-cardinality={binding.cardinality}
                         onClick={() => select(item.id)}
-                        className="min-h-11 w-full px-3 py-2 text-start outline-none hover:bg-secondary/50"
+                        className="min-h-11 w-full px-2 py-2 text-start outline-none hover:bg-secondary/50"
                       >
                         <bdi dir="ltr">{item.sku}</bdi>
                         <span className="sr-only"> — {item.name}</span>
                       </button>
                     </td>
-                    <td className="min-w-0 px-3 py-2">
+                    <td className="min-w-0 px-2 py-2">
                       <p className="truncate font-semibold">{item.name}</p>
                       <p className="truncate text-xs text-muted-foreground">{labels.price(item.unitPrice, item.currency)}</p>
                     </td>
-                    <td className="px-3 py-2 text-xs">
+                    <td className="px-2 py-2 text-xs">
                       <p>{labels.availabilityValue(item.availability)}</p>
-                      <p className="truncate text-muted-foreground">
-                        {labels.minimumOrderQuantity}: {labels.quantity(item.minimumOrderQuantity)} · {labels.leadTime}: {labels.days(item.leadTimeDays)}
-                      </p>
                     </td>
-                    <td className="px-3 py-2">
+                    <td className="px-2 py-2 text-xs font-medium">{labels.quantity(item.minimumOrderQuantity)}</td>
+                    <td className="px-2 py-2 text-xs font-medium">{labels.days(item.leadTimeDays)}</td>
+                    <td className="px-2 py-2">
                       <SpatialStatus binding={binding} labels={labels} />
                     </td>
                   </tr>
@@ -180,7 +183,7 @@ export function SpatialSkuTable({
 function StatusRow({ message, live }: { message: string; live: "polite" | "assertive" }) {
   return (
     <tr>
-      <td colSpan={4} className="px-4 py-10 text-center text-sm text-muted-foreground" aria-live={live}>
+      <td colSpan={6} className="px-4 py-10 text-center text-sm text-muted-foreground" aria-live={live}>
         {message}
       </td>
     </tr>
@@ -206,7 +209,7 @@ function SpatialStatus({ binding, labels }: { binding: ResolvedSkuBinding; label
       className={cn(
         "inline-flex min-h-6 items-center rounded-full px-2 text-xs font-semibold",
         binding.hasSpatialRepresentation
-          ? "bg-success/15 text-success"
+          ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200"
           : "bg-warning-soft text-warning-foreground",
       )}
     >

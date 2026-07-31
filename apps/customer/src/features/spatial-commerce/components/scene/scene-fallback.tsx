@@ -7,7 +7,8 @@ import type { SpatialSceneLabels } from "./scene.types";
 interface SceneFallbackProps {
   labels: SpatialSceneLabels;
   selectedNodeId: string | null;
-  onNodeSelect?: (nodeId: string) => void;
+  onNodeSelect?: (nodeId: string, origin: "scene" | "accessible-control") => void;
+  onRetry?: () => void;
   reason?: "loading" | "unavailable" | "error";
 }
 
@@ -27,10 +28,19 @@ export function SceneLoading({ label, overlay = false }: { label: string; overla
   );
 }
 
-export function SceneDomFallback({ labels, selectedNodeId, onNodeSelect, reason = "unavailable" }: SceneFallbackProps) {
+export function SceneDomFallback({ labels, selectedNodeId, onNodeSelect, onRetry, reason = "unavailable" }: SceneFallbackProps) {
   return (
     <div className="rounded-3xl border border-border bg-secondary/30 p-5">
       <p role={reason === "error" ? "alert" : "status"} className="text-sm text-muted-foreground">{labels[reason]}</p>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-3 inline-flex min-h-11 items-center rounded-xl border border-border bg-background px-4 text-sm font-semibold hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {labels.retry}
+        </button>
+      )}
       <SceneAccessibleControls labels={labels} selectedNodeId={selectedNodeId} onNodeSelect={onNodeSelect} className="mt-4" />
     </div>
   );
@@ -59,7 +69,7 @@ export function SceneAccessibleControls({ labels, selectedNodeId, onNodeSelect, 
               key={node.id}
               type="button"
               aria-pressed={selected}
-              onClick={() => onNodeSelect(node.id)}
+              onClick={() => onNodeSelect(node.id, "accessible-control")}
               className={`${className} hover:border-primary/40 hover:text-foreground`}
             >
               {labels.nodes[node.id]}

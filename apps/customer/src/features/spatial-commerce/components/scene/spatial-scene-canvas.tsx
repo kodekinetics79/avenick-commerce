@@ -17,7 +17,7 @@ interface AssemblyNodeProps {
   pulseRevision: number;
   active: boolean;
   reducedMotion: boolean;
-  onSelect?: (nodeId: string) => void;
+  onSelect?: (nodeId: string, origin: "scene" | "accessible-control") => void;
   children: React.ReactNode;
 }
 
@@ -51,7 +51,7 @@ function AssemblyNode({ id, selected, pulseRevision, active, reducedMotion, onSe
 
   const handleClick = (event: ThreeEvent<MouseEvent>) => {
     event.stopPropagation();
-    onSelect?.(id);
+    onSelect?.(id, "scene");
   };
 
   return <group ref={group} name={id} userData={{ nodeId: id }} onClick={handleClick}>{children}</group>;
@@ -73,10 +73,19 @@ function MechanicalAssembly({ selectedNodeId, pulseRevision, reducedMotion, acti
   const assembly = React.useRef<Group>(null);
   const invalidate = useThree((state) => state.invalidate);
 
+  React.useEffect(() => {
+    if (!active || reducedMotion) return;
+    // Low-frequency invalidation provides restrained idle life without turning
+    // demand rendering into an unrestricted 60fps loop.
+    const timer = window.setInterval(invalidate, 120);
+    return () => window.clearInterval(timer);
+  }, [active, invalidate, reducedMotion]);
+
   useFrame((state, delta) => {
     if (!assembly.current || !active || reducedMotion) return;
     const targetX = state.pointer.y * 0.035;
-    const targetY = state.pointer.x * 0.06;
+    const idleY = Math.sin(state.clock.elapsedTime * 0.32) * 0.018;
+    const targetY = state.pointer.x * 0.06 + idleY;
     assembly.current.rotation.x = MathUtils.damp(assembly.current.rotation.x, targetX, 3, delta);
     assembly.current.rotation.y = MathUtils.damp(assembly.current.rotation.y, targetY, 3, delta);
     if (
