@@ -22,13 +22,34 @@ export type ErpOrderResult =
 
 export interface ErpAdapter {
   readonly system: string;
-  healthCheck(): Promise<{ ok: true; system: string }>;
+  healthCheck(): Promise<{ ok: boolean; system: string }>;
   resolveCustomer(input: { companyId: string }): Promise<{ externalCustomerId: string }>;
   resolveProduct(input: { productId: string; sku: string }): Promise<{ externalProductId: string }>;
   resolvePrice(input: { productId: string; customerId?: string; quantity: number; currency: string }): Promise<{ unitPrice: number; currency: string }>;
   resolveAvailability(input: { productId: string; quantity: number }): Promise<{ available: boolean; availableQty: number }>;
   submitOrder(input: ErpSubmitOrder): Promise<ErpOrderResult>;
   getOrderStatus(input: { externalOrderId: string }): Promise<{ status: "ACCEPTED" | "REJECTED" | "UNKNOWN" }>;
+}
+
+export class HttpErpAdapter implements ErpAdapter {
+  constructor(readonly system: string, private readonly baseUrl: string, private readonly token: string) {}
+  private async call<T>(path: string, body?: unknown): Promise<T> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      method: body ? "POST" : "GET",
+      headers: { authorization: `Bearer ${this.token}`, "content-type": "application/json" },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!response.ok) throw new ErpAdapterError(response.status >= 500 ? "HTTP_500" : "HTTP_500", `ERP HTTP ${response.status}`, response.status >= 500);
+    return response.json() as Promise<T>;
+  }
+  healthCheck() { return this.call<{ ok: boolean; system: string }>("/health"); }
+  resolveCustomer(input: { companyId: string }) { return this.call<{ externalCustomerId: string }>("/customers/resolve", input); }
+  resolveProduct(input: { productId: string; sku: string }) { return this.call<{ externalProductId: string }>("/products/resolve", input); }
+  resolvePrice(input: { productId: string; customerId?: string; quantity: number; currency: string }) { return this.call<{ unitPrice: number; currency: string }>("/prices/resolve", input); }
+  resolveAvailability(input: { productId: string; quantity: number }) { return this.call<{ available: boolean; availableQty: number }>("/availability/resolve", input); }
+  submitOrder(input: ErpSubmitOrder) { return this.call<ErpOrderResult>("/orders", input); }
+  getOrderStatus(input: { externalOrderId: string }) { return this.call<{ status: "ACCEPTED" | "REJECTED" | "UNKNOWN" }>(`/orders/${encodeURIComponent(input.externalOrderId)}`); }
 }
 
 export class ErpAdapterError extends Error {

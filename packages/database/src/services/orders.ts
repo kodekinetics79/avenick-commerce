@@ -380,6 +380,7 @@ export async function createOrder(input: CreateOrderInput) {
               aggregateId: order.id,
               eventType: "ORDER_SUBMIT_REQUESTED",
               destination: erpConnection.system,
+              connectionId: erpConnection.id,
               idempotencyKey: `order:${order.id}:${erpConnection.system}:submit`,
               payload: {
                 orderId: order.id,

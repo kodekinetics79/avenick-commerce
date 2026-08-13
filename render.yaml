@@ -18,6 +18,25 @@ previews:
   generation: off
 
 services:
+  - type: worker
+    name: avenick-integration-worker
+    runtime: node
+    region: frankfurt
+    plan: starter
+    buildCommand: npm install -g pnpm@11.4.0 && pnpm install --frozen-lockfile && pnpm --filter @avenick/database db:generate
+    preDeployCommand: bash -lc 'export DIRECT_URL="${DIRECT_URL:-$DATABASE_URL}" && pnpm --filter @avenick/database db:deploy'
+    startCommand: pnpm --filter @avenick/database integration:worker
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: INTEGRATION_WORKER_ID
+        value: "render-primary"
+
   - type: web
     name: avenick-customer
     runtime: node
@@ -27,7 +46,7 @@ services:
     # Migrations run pre-deploy (inside the private network; builds can't reach the DB).
     preDeployCommand: bash -lc 'export DIRECT_URL="${DIRECT_URL:-$DATABASE_URL}" && pnpm --filter @avenick/database db:deploy'
     startCommand: pnpm --filter @avenick/customer exec next start -p $PORT
-    healthCheckPath: /api/health
+    healthCheckPath: /api/ready
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
@@ -61,7 +80,7 @@ services:
     buildCommand: npm install -g pnpm@11.4.0 && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@avenick/seller
     preDeployCommand: bash -lc 'export DIRECT_URL="${DIRECT_URL:-$DATABASE_URL}" && pnpm --filter @avenick/database db:deploy'
     startCommand: pnpm --filter @avenick/seller exec next start -p $PORT
-    healthCheckPath: /api/health
+    healthCheckPath: /api/ready
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
@@ -95,7 +114,7 @@ services:
     buildCommand: npm install -g pnpm@11.4.0 && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@avenick/admin
     preDeployCommand: bash -lc 'export DIRECT_URL="${DIRECT_URL:-$DATABASE_URL}" && pnpm --filter @avenick/database db:deploy'
     startCommand: pnpm --filter @avenick/admin exec next start -p $PORT
-    healthCheckPath: /api/health
+    healthCheckPath: /api/ready
     autoDeploy: true
     envVars:
       - key: NODE_VERSION

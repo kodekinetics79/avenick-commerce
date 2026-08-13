@@ -6,8 +6,9 @@ const DEFAULT_MAX_ATTEMPTS = 8;
 
 export type IntegrationLease = Pick<
   IntegrationOutbox,
-  "id" | "leaseOwner" | "leaseExpiresAt" | "fencingToken" | "attempts"
+  "id" | "tenantKey" | "connectionId" | "leaseOwner" | "leaseExpiresAt" | "fencingToken" | "attempts"
 >;
+export type IntegrationInboxLease = Pick<IntegrationInbox, "id" | "leaseOwner" | "leaseExpiresAt" | "fencingToken" | "attempts">;
 
 export class StaleIntegrationLeaseError extends Error {
   constructor(id: string) {
@@ -107,7 +108,12 @@ export async function finalizeOrderIntegrationOutbox(
     if (completed.count !== 1) throw new StaleIntegrationLeaseError(lease.id);
 
     const now = new Date();
-    const key = { tenantKey_orderId_system: { tenantKey: "default", orderId: result.orderId, system: result.system } };
+    const key = { tenantKey_orderId_system: { tenantKey: lease.tenantKey, orderId: result.orderId, system: result.system } };
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`erp-state:${lease.tenantKey}:${result.orderId}:${result.system}`}))`);
+    const current = await tx.orderIntegrationState.findUnique({ where: key });
+    if (current && ["ACCEPTED", "REJECTED"].includes(current.state) && current.state !== result.disposition) {
+      throw new Error(`ERP terminal state is monotonic: ${current.state} cannot become ${result.disposition}`);
+    }
     if (result.disposition === "ACCEPTED") {
       return tx.orderIntegrationState.upsert({
         where: key,
@@ -123,7 +129,7 @@ export async function finalizeOrderIntegrationOutbox(
           rejectionReason: null,
         },
         create: {
-          tenantKey: "default",
+          tenantKey: lease.tenantKey,
           orderId: result.orderId,
           system: result.system,
           state: "ACCEPTED",
@@ -149,7 +155,7 @@ export async function finalizeOrderIntegrationOutbox(
         rejectionReason: result.reason.slice(0, 4000),
       },
       create: {
-        tenantKey: "default",
+        tenantKey: lease.tenantKey,
         orderId: result.orderId,
         system: result.system,
         state: "REJECTED",
@@ -288,19 +294,41 @@ export async function recordIntegrationInbound(input: {
   }
 }
 
-export async function markIntegrationInboxProcessed(id: string) {
-  return db.integrationInbox.update({
-    where: { id },
-    data: { status: "PROCESSED", processedAt: new Date(), lastError: null },
-  });
+export async function claimIntegrationInbox(workerId: string, limit = 20, leaseMs = DEFAULT_LEASE_MS) {
+  const leaseUntil = new Date(Date.now() + Math.max(30_000, leaseMs));
+  return db.$queryRaw<IntegrationInbox[]>(Prisma.sql`
+    WITH candidates AS (
+      SELECT "id" FROM "IntegrationInbox"
+      WHERE (("status" IN ('RECEIVED','RETRY') AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= NOW()))
+        OR ("status" = 'PROCESSING' AND "leaseExpiresAt" <= NOW()))
+      ORDER BY "receivedAt" FOR UPDATE SKIP LOCKED LIMIT ${boundedLimit(limit)}
+    ) UPDATE "IntegrationInbox" AS inbox SET "status"='PROCESSING', "attempts"=inbox."attempts"+1,
+      "leaseOwner"=${workerId}, "leaseExpiresAt"=${leaseUntil}, "fencingToken"=inbox."fencingToken"+1, "lastError"=NULL
+    FROM candidates WHERE inbox."id"=candidates."id" RETURNING inbox.*`);
 }
 
-export async function markIntegrationInboxFailed(id: string, error: unknown) {
-  const message = error instanceof Error ? error.message : String(error || "Unknown integration processing failure");
-  return db.integrationInbox.update({
-    where: { id },
-    data: { status: "FAILED", lastError: message.slice(0, 4000) },
+function activeInboxLeaseWhere(lease: IntegrationInboxLease) {
+  if (!lease.leaseOwner) throw new StaleIntegrationLeaseError(lease.id);
+  return { id: lease.id, status: "PROCESSING", leaseOwner: lease.leaseOwner, fencingToken: lease.fencingToken, leaseExpiresAt: { gt: new Date() } } as const;
+}
+
+export async function markIntegrationInboxProcessed(lease: IntegrationInboxLease) {
+  const result = await db.integrationInbox.updateMany({
+    where: activeInboxLeaseWhere(lease),
+    data: { status: "PROCESSED", processedAt: new Date(), leaseOwner: null, leaseExpiresAt: null, lastError: null },
   });
+  if (result.count !== 1) throw new StaleIntegrationLeaseError(lease.id);
+}
+
+export async function markIntegrationInboxFailed(lease: IntegrationInboxLease, error: unknown, maxAttempts = DEFAULT_MAX_ATTEMPTS) {
+  const message = error instanceof Error ? error.message : String(error || "Unknown integration processing failure");
+  const dead = lease.attempts >= maxAttempts;
+  const result = await db.integrationInbox.updateMany({
+    where: activeInboxLeaseWhere(lease),
+    data: { status: dead ? "DEAD" : "RETRY", nextAttemptAt: dead ? null : new Date(Date.now() + retryDelayMs(lease.attempts)), leaseOwner: null, leaseExpiresAt: null, lastError: message.slice(0, 4000) },
+  });
+  if (result.count !== 1) throw new StaleIntegrationLeaseError(lease.id);
+  return { dead };
 }
 
 export async function markOrderIntegrationAccepted(input: {
@@ -313,7 +341,11 @@ export async function markOrderIntegrationAccepted(input: {
 }) {
   const tenantKey = input.tenantKey ?? "default";
   const now = new Date();
-  return db.orderIntegrationState.upsert({
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`erp-state:${tenantKey}:${input.orderId}:${input.system}`}))`);
+    const current = await tx.orderIntegrationState.findUnique({ where: { tenantKey_orderId_system: { tenantKey, orderId: input.orderId, system: input.system } } });
+    if (current?.state === "REJECTED") throw new Error("ERP terminal state is monotonic: REJECTED cannot become ACCEPTED");
+    return tx.orderIntegrationState.upsert({
     where: { tenantKey_orderId_system: { tenantKey, orderId: input.orderId, system: input.system } },
     update: {
       state: "ACCEPTED",
@@ -338,6 +370,7 @@ export async function markOrderIntegrationAccepted(input: {
       lastAttemptAt: now,
       acceptedAt: now,
     },
+    });
   });
 }
 
@@ -351,7 +384,11 @@ export async function markOrderIntegrationRejected(input: {
 }) {
   const tenantKey = input.tenantKey ?? "default";
   const now = new Date();
-  return db.orderIntegrationState.upsert({
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`erp-state:${tenantKey}:${input.orderId}:${input.system}`}))`);
+    const current = await tx.orderIntegrationState.findUnique({ where: { tenantKey_orderId_system: { tenantKey, orderId: input.orderId, system: input.system } } });
+    if (current?.state === "ACCEPTED") throw new Error("ERP terminal state is monotonic: ACCEPTED cannot become REJECTED");
+    return tx.orderIntegrationState.upsert({
     where: { tenantKey_orderId_system: { tenantKey, orderId: input.orderId, system: input.system } },
     update: {
       state: "REJECTED",
@@ -375,6 +412,7 @@ export async function markOrderIntegrationRejected(input: {
       rejectedAt: now,
       rejectionReason: input.reason.slice(0, 4000),
     },
+    });
   });
 }
 

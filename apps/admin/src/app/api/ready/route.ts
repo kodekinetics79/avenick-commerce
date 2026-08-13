@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { checkDatabaseHealth, dbCircuitState } from "@avenick/database";
+import { checkDatabaseHealth, dbCircuitState, getIntegrationRuntimeReadiness } from "@avenick/database";
 import { readiness } from "@avenick/observability";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const { status, body } = await readiness(
     "admin",
-    { database: () => checkDatabaseHealth() },
+    { database: () => checkDatabaseHealth(), integration: async () => ({ ...(await getIntegrationRuntimeReadiness()), latencyMs: 0 }) },
     { dbCircuit: dbCircuitState() },
   );
   return NextResponse.json(body, { status });
