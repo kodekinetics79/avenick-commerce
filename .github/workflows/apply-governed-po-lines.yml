@@ -1,0 +1,35 @@
+name: Apply governed PO lines
+
+on:
+  push:
+    branches:
+      - pilot-overhaul/2026-08-12
+    paths:
+      - scripts/apply-governed-po-lines.mjs
+      - .github/workflows/apply-governed-po-lines.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: pilot-overhaul/2026-08-12
+          fetch-depth: 0
+      - run: node scripts/apply-governed-po-lines.mjs
+      - name: Commit generated schema and migration
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No generated changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add packages/database/prisma/schema.prisma packages/database/prisma/migrations/20260813020500_governed_purchase_order_lines/migration.sql
+          git commit -m "feat(database): add governed purchase-order lines"
+          git push origin HEAD:pilot-overhaul/2026-08-12
