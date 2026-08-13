@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { AuditAction, db } from "@avenick/database";
-import { requireSellerPermission } from "@/lib/auth";
+import { requireSellerPermission, requireSellerSession } from "@/lib/auth";
+import { assertProductImportPermissions } from "@/lib/product-import-policy";
 
 const STATUSES = ["DRAFT", "ACTIVE", "SUPPRESSED", "INACTIVE"] as const;
 type BulkStatus = (typeof STATUSES)[number];
@@ -67,11 +68,12 @@ export type ImportResult = {
  * catalog authoritative and avoids accidental duplicates.
  */
 export async function importProductsCsv(rows: ImportRow[]): Promise<ImportResult> {
-  const { seller, userId } = await requireSellerPermission("catalog.manage");
+  const { seller, userId, membership } = await requireSellerSession();
   const result: ImportResult = { updated: 0, skipped: 0, errors: [] };
 
   // Limit to a sane batch to keep the request bounded.
   const batch = rows.slice(0, 1000);
+  assertProductImportPermissions(membership.permissions ?? [], batch);
 
   for (const row of batch) {
     const sku = (row.sku ?? "").trim();
@@ -117,7 +119,13 @@ export async function importProductsCsv(rows: ImportRow[]): Promise<ImportResult
         if (row.stock?.trim() && Number.isInteger(stockNum) && stockNum >= 0) {
           const inv = product.inventory[0];
           if (inv) {
-            await tx.inventoryStock.update({ where: { id: inv.id }, data: { qty: stockNum } });
+            // The conditional write closes the race with checkout reservations:
+            // a CSV can never lower on-hand stock below the current reservation.
+            const changed = await tx.inventoryStock.updateMany({
+              where: { id: inv.id, reservedQty: { lte: stockNum } },
+              data: { qty: stockNum },
+            });
+            if (changed.count !== 1) throw new Error("Stock quantity cannot be below reserved quantity");
           }
           // No inventory row yet → skip (location unknown); name/status/price still applied.
         }

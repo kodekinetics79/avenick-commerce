@@ -1,4 +1,5 @@
-import { db, AuditAction, type Currency, type Prisma } from "../index";
+import { Prisma } from "@prisma/client";
+import { db, AuditAction, type Currency } from "../index";
 
 function generateRfqNumber(): string {
   const year = new Date().getFullYear();
@@ -145,45 +146,55 @@ export interface SubmitQuoteInput {
 
 /** Seller submits unit prices for an open RFQ; totals are computed server-side. */
 export async function submitQuote(input: SubmitQuoteInput) {
-  const rfq = await db.rFQRequest.findUnique({
-    where: { id: input.rfqId },
-    include: { items: true },
-  });
-  if (!rfq) throw new Error("RFQ not found");
-  if (rfq.sellerId && rfq.sellerId !== input.sellerId) {
-    throw new Error("This RFQ is assigned to another seller");
-  }
-  if (!["SUBMITTED", "UNDER_REVIEW", "QUOTED", "NEGOTIATING"].includes(rfq.status)) {
-    throw new Error("This RFQ is no longer open for quotes");
-  }
+  return db.$transaction(async (tx) => {
+    // Only one seller can claim an unassigned RFQ. The lock also serializes a
+    // seller's own re-quotes so item prices, aggregate total and audit agree.
+    await tx.$executeRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`rfq-claim:${input.rfqId}`}))`,
+    );
 
-  const itemMap = new Map(rfq.items.map((i) => [i.id, i]));
-  for (const quoted of input.items) {
-    if (!itemMap.has(quoted.itemId)) throw new Error("Quoted item does not belong to this RFQ");
-    if (!Number.isFinite(quoted.unitQuoted) || quoted.unitQuoted <= 0) {
-      throw new Error("Quoted unit prices must be positive");
-    }
-  }
-
-  const totalQuoted = input.items.reduce((sum, q) => {
-    const item = itemMap.get(q.itemId)!;
-    return sum + q.unitQuoted * item.quantity;
-  }, 0);
-
-  const [updated] = await db.$transaction([
-    db.rFQRequest.update({
+    const rfq = await tx.rFQRequest.findUnique({
       where: { id: input.rfqId },
+      include: { items: true },
+    });
+    if (!rfq) throw new Error("RFQ not found");
+    if (rfq.sellerId && rfq.sellerId !== input.sellerId) {
+      throw new Error("This RFQ is assigned to another seller");
+    }
+    if (!["SUBMITTED", "UNDER_REVIEW", "QUOTED", "NEGOTIATING"].includes(rfq.status)) {
+      throw new Error("This RFQ is no longer open for quotes");
+    }
+
+    const itemMap = new Map(rfq.items.map((i) => [i.id, i]));
+    for (const quoted of input.items) {
+      if (!itemMap.has(quoted.itemId)) throw new Error("Quoted item does not belong to this RFQ");
+      if (!Number.isFinite(quoted.unitQuoted) || quoted.unitQuoted <= 0) {
+        throw new Error("Quoted unit prices must be positive");
+      }
+    }
+
+    const totalQuoted = input.items.reduce((sum, q) => {
+      const item = itemMap.get(q.itemId)!;
+      return sum + q.unitQuoted * item.quantity;
+    }, 0);
+
+    const claimed = await tx.rFQRequest.updateMany({
+      where: {
+        id: input.rfqId,
+        OR: [{ sellerId: null }, { sellerId: input.sellerId }],
+      },
       data: {
         sellerId: input.sellerId,
         status: "QUOTED",
         totalQuoted,
         ...(input.notes ? { notes: input.notes } : {}),
       },
-    }),
-    ...input.items.map((q) =>
-      db.rFQItem.update({ where: { id: q.itemId }, data: { unitQuoted: q.unitQuoted } }),
-    ),
-    db.auditLog.create({
+    });
+    if (claimed.count !== 1) throw new Error("This RFQ is assigned to another seller");
+    for (const quoted of input.items) {
+      await tx.rFQItem.update({ where: { id: quoted.itemId }, data: { unitQuoted: quoted.unitQuoted } });
+    }
+    await tx.auditLog.create({
       data: {
         actorId: input.actorId,
         sellerId: input.sellerId,
@@ -193,7 +204,8 @@ export async function submitQuote(input: SubmitQuoteInput) {
         before: { status: rfq.status },
         after: { status: "QUOTED", totalQuoted },
       },
-    }),
-  ]);
-  return updated;
+    });
+    const updated = await tx.rFQRequest.findUniqueOrThrow({ where: { id: input.rfqId } });
+    return updated;
+  });
 }

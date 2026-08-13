@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProductBySlug, type Currency } from "@avenick/database";
 import { getServerB2BContext } from "@/lib/b2b-server";
+import { toCatalogDetailDto } from "@/lib/catalog-detail-dto";
 
 const CURRENCIES = new Set<Currency>(["AED", "SAR", "QAR", "KWD", "OMR", "BHD", "USD"]);
 
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
     }
 
     return NextResponse.json(
-      { success: true, data: product },
+      { success: true, data: toCatalogDetailDto(product) },
       {
         headers: {
           "Cache-Control": wantsB2B

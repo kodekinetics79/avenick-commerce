@@ -88,8 +88,8 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
   const b2cPrice = prices.find((pr) => pr.type === "B2C");
   const b2bPrices = prices.filter((pr) => pr.type === "B2B").sort((a, b) => a.minQty - b.minQty);
   const seller = p.seller as Record<string, unknown>;
-  const inventory = (p.inventory as { qty: number; reservedQty: number }[])?.[0];
-  const available = inventory ? inventory.qty - inventory.reservedQty : 0;
+  const inventory = (p.inventory as { inStock: boolean }[])?.[0];
+  const inStock = inventory?.inStock === true;
   const displayPrice = b2cPrice ? Number(b2cPrice.price) : b2bPrices[0] ? Number(b2bPrices[0].price) : 0;
   const vatPerUnit = displayPrice * 0.05;
   const productId = String(p.id);
@@ -131,7 +131,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                     <p className="text-sm">No image available</p>
                   </div>
                 )}
-                {available <= 0 && (
+                {!inStock && (
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                     <span className="bg-card font-semibold px-4 py-2 rounded-full">Out of Stock</span>
                   </div>
@@ -158,7 +158,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                     <h1 className="text-2xl font-bold leading-tight">{String(p.nameEn)}</h1>
                     {!!p.nameAr && <p className="text-base text-muted-foreground mt-0.5" dir="rtl">{String(p.nameAr)}</p>}
                   </div>
-                  <button type="button" aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"} onClick={() => toggle({ id: productId, slug: params.slug, nameEn: String(p.nameEn), nameAr: String(p.nameAr), imageUrl: images[0]?.url, price: displayPrice, currency: "AED", sku: String(p.sku), sellerId: String(p.sellerId), inStock: available > 0 })}
+                  <button type="button" aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"} onClick={() => toggle({ id: productId, slug: params.slug, nameEn: String(p.nameEn), nameAr: String(p.nameAr), imageUrl: images[0]?.url, price: displayPrice, currency: "AED", sku: String(p.sku), sellerId: String(p.sellerId), inStock })}
                     className={`p-2 rounded-xl border transition-all shrink-0 ${wishlisted ? "bg-destructive/10 border-destructive/20 text-destructive" : "border-border text-muted-foreground hover:border-destructive/20 hover:text-destructive"}`}>
                     <Heart className={`h-5 w-5 ${wishlisted ? "fill-current" : ""}`} />
                   </button>
@@ -181,8 +181,8 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
 
                 <div className="flex flex-wrap gap-2 mt-3">
                   {!!p.origin && <Badge variant="secondary">{String(p.origin)}</Badge>}
-                  {available > 0
-                    ? <Badge variant="success">In Stock ({available} available)</Badge>
+                  {inStock
+                    ? <Badge variant="success">In Stock</Badge>
                     : <Badge variant="error">Out of Stock</Badge>}
                   {!!p.isB2BEnabled && <Badge variant="info">B2B Available</Badge>}
                 </div>
@@ -220,10 +220,10 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                   <span className="px-4 text-sm font-semibold min-w-[2.5rem] text-center">{qty}</span>
                   <button type="button" onClick={() => setQty((q) => q + 1)} className="p-2.5 hover:bg-muted transition-colors"><Plus className="h-4 w-4" /></button>
                 </div>
-                <Button size="lg" variant="primary" className="flex-1" disabled={available <= 0}
+                <Button size="lg" variant="primary" className="flex-1" disabled={!inStock}
                   onClick={() => addItem({ productId, nameEn: String(p.nameEn), nameAr: String(p.nameAr), imageUrl: images[0]?.url, sku: String(p.sku), qty, unitPrice: displayPrice, sellerId: String(p.sellerId), currency: "AED" })}>
                   <ShoppingCart className="h-4 w-4 me-2" />
-                  {available > 0 ? "Add to Cart" : "Out of Stock"}
+                  {inStock ? "Add to Cart" : "Out of Stock"}
                 </Button>
               </div>
               {Number(p.moq) > 1 && <p className="text-xs text-muted-foreground -mt-3">Minimum order: {Number(p.moq)} units</p>}              {/* Trust badges */}
