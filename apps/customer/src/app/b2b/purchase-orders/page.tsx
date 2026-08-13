@@ -1,5 +1,5 @@
 import { B2BShell } from "@/components/b2b/b2b-shell";
-import { formatCurrency } from "@avenick/utils";
+import { formatCurrency, type SupportedCurrency } from "@avenick/utils";
 import { fetchB2BJson } from "@/lib/b2b";
 import { approvePO, rejectPO, markOrdered, cancelPO } from "./actions";
 import { FileCheck2, Clock, CheckCircle2, Truck, XCircle, FileEdit, Building2, Plus, ShoppingCart } from "lucide-react";
@@ -25,7 +25,7 @@ export default async function PurchaseOrdersPage() {
     poNumber: string;
     requesterId: string;
     status: string;
-    currency: string;
+    currency: SupportedCurrency;
     total: string | number;
     notes: string | null;
     requiredDate: string | null;
@@ -59,7 +59,7 @@ export default async function PurchaseOrdersPage() {
   const isApprover = data.isApprover;
   const open = pos.filter((p) => ["DRAFT", "PENDING_APPROVAL", "APPROVED"].includes(p.status)).length;
   const pending = pos.filter((p) => p.status === "PENDING_APPROVAL").length;
-  const orderedByCurrency = new Map<string, number>();
+  const orderedByCurrency = new Map<SupportedCurrency, number>();
   for (const po of pos.filter((row) => row.status === "ORDERED")) {
     orderedByCurrency.set(po.currency, (orderedByCurrency.get(po.currency) ?? 0) + Number(po.total));
   }
