@@ -1,6 +1,7 @@
 import { AuditAction, type Currency, type Prisma } from "@prisma/client";
 import { db } from "../index";
 import { secureCreateOrder } from "./secure-checkout";
+import { finalizeInternalOrderPayment } from "./payments";
 
 export interface PurchaseOrderLineInput {
   productId: string;
@@ -116,9 +117,11 @@ export async function createGovernedPurchaseOrder(input: {
   }
 
   const priced = await pricePOLines(input.currency, input.items);
+  // Highest applicable threshold wins. Ascending + first-match previously let a
+  // high-value PO fall into the weakest approval tier (e.g. 100k matching 1k).
   const policies = await db.approvalPolicy.findMany({
     where: { companyId: input.companyId, isActive: true, currency: input.currency },
-    orderBy: { thresholdAmount: "asc" },
+    orderBy: { thresholdAmount: "desc" },
   });
   const matchingPolicy = policies.find((policy) => priced.gross >= Number(policy.thresholdAmount));
   const overRequesterLimit = input.requesterSpendLimit != null && priced.gross > input.requesterSpendLimit;
@@ -171,7 +174,7 @@ export async function createGovernedPurchaseOrder(input: {
           total: Number(purchaseOrder.total),
           lineCount: purchaseOrder.items.length,
           approvalReason: matchingPolicy
-            ? `Policy ${matchingPolicy.name} threshold ${matchingPolicy.thresholdAmount}`
+            ? `Policy ${matchingPolicy.name} threshold ${matchingPolicy.thresholdAmount} ${matchingPolicy.currency}`
             : overRequesterLimit
               ? `Requester spend limit ${input.requesterSpendLimit}`
               : "AUTO_APPROVED",
@@ -198,7 +201,10 @@ export async function placeGovernedPurchaseOrder(input: {
   if (!po) throw new Error("Purchase order not found");
   if (po.status === "ORDERED") {
     const existing = await db.order.findFirst({ where: { purchaseOrderId: po.id }, orderBy: { createdAt: "asc" } });
-    if (existing) return existing;
+    if (existing) {
+      await finalizeInternalOrderPayment({ orderId: existing.id, method: "BANK_TRANSFER", actorId: input.actorId });
+      return existing;
+    }
     throw new Error("Purchase order is marked ordered but has no linked order");
   }
   if (po.status !== "APPROVED") throw new Error("Only an approved purchase order can be placed");
@@ -266,24 +272,14 @@ export async function placeGovernedPurchaseOrder(input: {
     idempotencyKey: `po:${po.id}`,
   });
 
-  await db.$transaction(async (tx) => {
-    await tx.purchaseOrder.updateMany({
-      where: { id: po.id, status: "APPROVED" },
-      data: { status: "ORDERED" },
-    });
-    const paymentExists = await tx.payment.findFirst({ where: { orderId: order.id, method: "BANK_TRANSFER" } });
-    if (!paymentExists) {
-      await tx.payment.create({
-        data: {
-          orderId: order.id,
-          method: "BANK_TRANSFER",
-          status: "UNPAID",
-          amount: order.total,
-          currency: order.currency,
-        },
-      });
-    }
-    await tx.auditLog.create({
+  await finalizeInternalOrderPayment({ orderId: order.id, method: "BANK_TRANSFER", actorId: input.actorId });
+
+  const transitioned = await db.purchaseOrder.updateMany({
+    where: { id: po.id, status: "APPROVED" },
+    data: { status: "ORDERED" },
+  });
+  if (transitioned.count === 1) {
+    await db.auditLog.create({
       data: {
         actorId: input.actorId,
         entityType: "PurchaseOrder",
@@ -299,7 +295,7 @@ export async function placeGovernedPurchaseOrder(input: {
         },
       },
     });
-  });
+  }
 
   return order;
 }
