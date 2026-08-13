@@ -16,7 +16,7 @@ type Review = { id: string; rating: number; title?: string | null; body?: string
 
 type Tab = "description" | "specs" | "reviews" | "shipping";
 
-export default function ProductPage({ params, searchParams }: { params: { slug: string }; searchParams: { currency?: string } }) {
+export default function ProductPage({ params, searchParams }: { params: { slug: string }; searchParams: { currency?: string; b2b?: string; variantId?: string; qty?: string } }) {
   const [product, setProduct] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [qty, setQty] = useState(1);
@@ -56,19 +56,22 @@ export default function ProductPage({ params, searchParams }: { params: { slug: 
 
   useEffect(() => {
     const currency = searchParams.currency?.toUpperCase();
-    fetch(`/api/products/${params.slug}${currency ? `?currency=${encodeURIComponent(currency)}` : ""}`)
+    const query = new URLSearchParams({ ...(currency ? { currency } : {}), ...(searchParams.b2b === "true" ? { b2b: "true" } : {}) });
+    fetch(`/api/products/${params.slug}${query.size ? `?${query}` : ""}`)
       .then((r) => r.json())
       .then((data) => {
         setProduct(data.data);
         setLoading(false);
         if (data.data) {
-          setQty(data.data.moq ?? 1);
+          const requestedQty = Number(searchParams.qty);
+          setQty(Number.isInteger(requestedQty) && requestedQty >= (data.data.moq ?? 1) ? requestedQty : data.data.moq ?? 1);
           const variants = data.data.variants ?? [];
-          setSelectedVariantId(variants.find((variant: { inStock: boolean }) => variant.inStock)?.id ?? variants[0]?.id);
+          setSelectedVariantId(variants.some((variant: { id: string }) => variant.id === searchParams.variantId)
+            ? searchParams.variantId : variants.find((variant: { inStock: boolean }) => variant.inStock)?.id ?? variants[0]?.id);
         }
       })
       .catch(() => setLoading(false));
-  }, [params.slug, searchParams.currency]);
+  }, [params.slug, searchParams.currency, searchParams.b2b, searchParams.variantId, searchParams.qty]);
 
   if (loading) return (
     <MainLayout>
@@ -165,7 +168,7 @@ export default function ProductPage({ params, searchParams }: { params: { slug: 
                     <h1 className="text-2xl font-bold leading-tight">{String(p.nameEn)}</h1>
                     {!!p.nameAr && <p className="text-base text-muted-foreground mt-0.5" dir="rtl">{String(p.nameAr)}</p>}
                   </div>
-                  <button type="button" disabled={!selection} aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"} onClick={() => selection && toggle(toStorefrontWishlistItem(p, params.slug, selection, qty, images[0]?.url))}
+                  <button type="button" disabled={!selection} aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"} onClick={() => selection && toggle(toStorefrontWishlistItem(p, params.slug, selection, qty, searchParams.b2b === "true" ? "B2B" : "B2C", images[0]?.url))}
                     className={`p-2 rounded-xl border transition-all shrink-0 ${wishlisted ? "bg-destructive/10 border-destructive/20 text-destructive" : "border-border text-muted-foreground hover:border-destructive/20 hover:text-destructive"}`}>
                     <Heart className={`h-5 w-5 ${wishlisted ? "fill-current" : ""}`} />
                   </button>
@@ -237,10 +240,10 @@ export default function ProductPage({ params, searchParams }: { params: { slug: 
                 <div className="flex items-center border border-border rounded-xl overflow-hidden">
                   <button type="button" onClick={() => setQty((q) => Math.max(Number(p.moq) || 1, q - 1))} className="p-2.5 hover:bg-muted transition-colors"><Minus className="h-4 w-4" /></button>
                   <span className="px-4 text-sm font-semibold min-w-[2.5rem] text-center">{qty}</span>
-                  <button type="button" onClick={() => setQty((q) => q + 1)} className="p-2.5 hover:bg-muted transition-colors"><Plus className="h-4 w-4" /></button>
+                  <button type="button" disabled={selection != null && qty >= selection.availableQty} onClick={() => setQty((q) => q + 1)} className="p-2.5 hover:bg-muted transition-colors disabled:opacity-40"><Plus className="h-4 w-4" /></button>
                 </div>
                 <Button size="lg" variant="primary" className="flex-1" disabled={!inStock || !selection}
-                  onClick={() => selection && addItem(toStorefrontCartLine(p, selection, qty, images[0]?.url))}>
+                  onClick={() => selection && addItem(toStorefrontCartLine(p, selection, qty, searchParams.b2b === "true" ? "B2B" : "B2C", images[0]?.url))}>
                   <ShoppingCart className="h-4 w-4 me-2" />
                   {inStock ? "Add to Cart" : "Out of Stock"}
                 </Button>

@@ -21,17 +21,17 @@ describe("public catalog detail privacy DTO", () => {
       }],
     } as never);
 
-    expect(dto.inventory).toEqual([{ inStock: false }]);
+    expect(dto.inventory).toEqual([{ inStock: false, availableQty: 0 }]);
     expect(dto.variants).toEqual([{
       id: "variant-selector", sku: "SKU-V", nameEn: "Blue", nameAr: null,
-      attributes: { color: "blue" }, inStock: true,
+      attributes: { color: "blue" }, inStock: true, availableQty: 4,
       prices: [{ type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 12, vatRate: 0 }],
     }]);
     expect(dto.images).toEqual([{ url: "https://images.test/item.png", altEn: null, altAr: null, isPrimary: true, sortOrder: 0 }]);
     const serialized = JSON.stringify(dto);
     for (const privateValue of [
       "listingHealth", "updatedAt", "compliance", "fileUrl", "secret-certificate.pdf", "CERT-PRIVATE",
-      "price-id", "variant-price-id", "private-user", "productId", "available",
+      "price-id", "variant-price-id", "private-user", "productId",
     ]) expect(serialized).not.toContain(privateValue);
   });
 
@@ -46,7 +46,8 @@ describe("public catalog detail privacy DTO", () => {
       inventory: [{ variantId: null, available: 9 }, { variantId: "v", available: 5 }, { variantId: "v", available: 5 }],
     };
     const dto = toCatalogDetailDto(source);
-    expect(dto.inventory).toEqual([{ inStock: false }]);
+    expect(dto.inventory).toEqual([{ inStock: false, availableQty: 9 }]);
     expect(dto.variants[0]?.inStock).toBe(true);
+    expect(dto.variants[0]?.availableQty).toBe(10);
   });
 });

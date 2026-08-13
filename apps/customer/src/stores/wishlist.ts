@@ -6,6 +6,7 @@ import { persist } from "zustand/middleware";
 export interface WishlistItem {
   id: string;
   slug: string;
+  channel?: "B2C" | "B2B";
   variantId?: string;
   nameEn: string;
   nameAr: string;
@@ -35,6 +36,7 @@ export function toWishlistCartLine(item: WishlistItem) {
   return {
     productId: item.id,
     slug: item.slug,
+    channel: item.channel,
     variantId: item.variantId,
     nameEn: item.nameEn,
     nameAr: item.nameAr,

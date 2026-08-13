@@ -7,6 +7,7 @@ export interface CartItem {
   id: string;
   productId: string;
   slug?: string;
+  channel?: "B2C" | "B2B";
   variantId?: string;
   nameEn: string;
   nameAr: string;
@@ -30,7 +31,14 @@ interface CartStore {
   itemCount: () => number;
 }
 
-export const cartQuantityChangeHref = (item: Pick<CartItem, "slug">) => item.slug ? `/products/${item.slug}` : "/products";
+export const cartQuantityChangeHref = (item: Pick<CartItem, "slug" | "currency" | "channel" | "variantId" | "qty">) => item.slug
+  ? `/products/${item.slug}?${new URLSearchParams({
+      currency: item.currency,
+      ...(item.channel === "B2B" ? { b2b: "true" } : {}),
+      ...(item.variantId ? { variantId: item.variantId } : {}),
+      qty: String(item.qty),
+    }).toString()}`
+  : "/products";
 export const replaceCartCommercialSelection = (existing: CartItem, selected: Omit<CartItem, "id"> & { id?: string }): CartItem => ({
   ...selected,
   id: existing.id,

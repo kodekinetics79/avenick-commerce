@@ -15,6 +15,7 @@ export type StorefrontVariant = {
   attributes: unknown;
   prices: StorefrontPrice[];
   inStock: boolean;
+  availableQty: number;
 };
 
 export type StorefrontProduct = {
@@ -25,7 +26,7 @@ export type StorefrontProduct = {
   nameEn: string;
   nameAr: string;
   prices: StorefrontPrice[];
-  inventory: Array<{ inStock: boolean }>;
+  inventory: Array<{ inStock: boolean; availableQty: number }>;
   variants: StorefrontVariant[];
   moq?: number;
 };
@@ -60,6 +61,7 @@ export function resolveStorefrontSelection(
   const unitPrice = Number(tier.price);
   const vatRate = Number(tier.vatRate);
   if (!Number.isFinite(unitPrice) || !Number.isFinite(vatRate) || vatRate < 0) return null;
+  const availableQty = variant?.availableQty ?? product.inventory[0]?.availableQty ?? 0;
   return {
     variantId: variant?.id,
     sku: variant?.sku ?? product.sku,
@@ -71,7 +73,8 @@ export function resolveStorefrontSelection(
     vatRate,
     vatPerUnit: money(unitPrice * vatRate / 100),
     grossTotal: money(unitPrice * quantity * (1 + vatRate / 100)),
-    inStock: variant?.inStock ?? product.inventory[0]?.inStock === true,
+    availableQty,
+    inStock: quantity <= availableQty,
   };
 }
 
@@ -79,11 +82,13 @@ export function toStorefrontCartLine(
   product: StorefrontProduct,
   selection: NonNullable<ReturnType<typeof resolveStorefrontSelection>>,
   quantity: number,
+  channel: "B2C" | "B2B" = "B2C",
   imageUrl?: string,
 ) {
   return {
     productId: product.id,
     slug: product.slug,
+    channel,
     variantId: selection.variantId,
     nameEn: selection.nameEn,
     nameAr: selection.nameAr,
@@ -103,11 +108,13 @@ export function toStorefrontWishlistItem(
   slug: string,
   selection: NonNullable<ReturnType<typeof resolveStorefrontSelection>>,
   quantity: number,
+  channel: "B2C" | "B2B" = "B2C",
   imageUrl?: string,
 ) {
   return {
     id: product.id,
     slug,
+    channel,
     variantId: selection.variantId,
     nameEn: selection.nameEn,
     nameAr: selection.nameAr,

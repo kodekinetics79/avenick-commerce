@@ -16,6 +16,12 @@ export function productCardReviewState(rating: number | undefined, reviewCount: 
     : { kind: "UNRATED" as const };
 }
 
-export function storefrontProductHref(slug: string, currency?: string) {
-  return currency ? `/products/${slug}?currency=${encodeURIComponent(currency)}` : `/products/${slug}`;
+export function storefrontProductHref(slug: string, context: { currency?: string; b2b?: boolean; variantId?: string; quantity?: number } = {}) {
+  const params = new URLSearchParams();
+  if (context.currency) params.set("currency", context.currency);
+  if (context.b2b) params.set("b2b", "true");
+  if (context.variantId) params.set("variantId", context.variantId);
+  if (context.quantity && context.quantity > 0) params.set("qty", String(context.quantity));
+  const query = params.toString();
+  return `/products/${slug}${query ? `?${query}` : ""}`;
 }

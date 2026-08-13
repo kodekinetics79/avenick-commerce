@@ -19,7 +19,7 @@ export default function CartPage() {
 
   function saveForLater(item: typeof items[0]) {
     if (!item.slug) return;
-    toggle({ id: item.productId, slug: item.slug, variantId: item.variantId, nameEn: item.nameEn, nameAr: item.nameAr, imageUrl: item.imageUrl, price: item.unitPrice, quantity: item.qty, moq: item.moq, vatRate: item.vatRate, currency: item.currency, sku: item.sku, sellerId: item.sellerId, inStock: true });
+    toggle({ id: item.productId, slug: item.slug, channel: item.channel, variantId: item.variantId, nameEn: item.nameEn, nameAr: item.nameAr, imageUrl: item.imageUrl, price: item.unitPrice, quantity: item.qty, moq: item.moq, vatRate: item.vatRate, currency: item.currency, sku: item.sku, sellerId: item.sellerId, inStock: true });
     removeItem(item.id);
   }
 

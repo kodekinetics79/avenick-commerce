@@ -57,9 +57,9 @@ export type CatalogDetailSource = {
 
 /** Explicit anonymous/B2B storefront detail projection. */
 export function toCatalogDetailDto(source: CatalogDetailSource) {
-  const availableFor = (variantId: string | null) => source.inventory
+  const availableFor = (variantId: string | null) => Math.max(0, source.inventory
     .filter((stock) => stock.variantId === variantId)
-    .reduce((sum, stock) => sum + stock.available, 0) >= source.moq;
+    .reduce((sum, stock) => sum + stock.available, 0));
   return {
     id: source.id,
     sellerId: source.sellerId,
@@ -80,7 +80,7 @@ export function toCatalogDetailDto(source: CatalogDetailSource) {
     prices: source.prices.map(({ type, currency, minQty, maxQty, price, vatRate }) => ({
       type, currency, minQty, maxQty, price, vatRate,
     })),
-    inventory: [{ inStock: availableFor(null) }],
+    inventory: [{ inStock: availableFor(null) >= source.moq, availableQty: availableFor(null) }],
     variants: source.variants
       .filter((variant) => variant.isActive)
       .map((variant) => ({
@@ -92,7 +92,8 @@ export function toCatalogDetailDto(source: CatalogDetailSource) {
         prices: variant.prices.map(({ type, currency, minQty, maxQty, price, vatRate }) => ({
           type, currency, minQty, maxQty, price, vatRate,
         })),
-        inStock: availableFor(variant.id),
+        inStock: availableFor(variant.id) >= source.moq,
+        availableQty: availableFor(variant.id),
       })),
     seller: source.seller,
     reviews: source.reviews.map(({ id, rating, title, body, isVerified, createdAt, user }) => ({

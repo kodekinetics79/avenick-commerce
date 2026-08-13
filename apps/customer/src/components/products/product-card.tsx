@@ -58,7 +58,7 @@ export function ProductCard({
     : null;
   const review = productCardReviewState(rating, reviewCount);
   const pricePresentation = productCardPricePresentation(price, hasVariants);
-  const productHref = storefrontProductHref(slug, currency);
+  const productHref = storefrontProductHref(slug, { currency, b2b: isB2B });
 
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault();
@@ -67,7 +67,7 @@ export function ProductCard({
       return;
     }
     if (price == null || !currency || vatRate == null) return;
-    addItem({ productId: id, slug, nameEn, nameAr, imageUrl, sku, qty: moq, moq, unitPrice: price, vatRate, sellerId, currency });
+    addItem({ productId: id, slug, channel: isB2B ? "B2B" : "B2C", nameEn, nameAr, imageUrl, sku, qty: moq, moq, unitPrice: price, vatRate, sellerId, currency });
   }
 
   function handleWishlist(e: React.MouseEvent) {
@@ -77,7 +77,7 @@ export function ProductCard({
       return;
     }
     if (price == null || !currency || vatRate == null) return;
-    toggle({ id, slug, nameEn, nameAr, imageUrl, price, quantity: moq, moq, vatRate, currency, sku, sellerId, sellerName, inStock });
+    toggle({ id, slug, channel: isB2B ? "B2B" : "B2C", nameEn, nameAr, imageUrl, price, quantity: moq, moq, vatRate, currency, sku, sellerId, sellerName, inStock });
   }
 
   const badgeClass =

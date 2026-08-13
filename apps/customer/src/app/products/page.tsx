@@ -7,6 +7,8 @@ import { ProductCard } from "@/components/products/product-card";
 import { SortSelect } from "@/components/products/sort-select";
 import { PageLoader } from "@avenick/ui";
 import { fetchBackendJson } from "@/lib/backend";
+import { getServerB2BContext } from "@/lib/b2b-server";
+import { companyCurrencyForCountry } from "@/lib/company-currency";
 
 export const metadata: Metadata = { title: "Products — Avenick Commerce" };
 
@@ -20,6 +22,8 @@ interface SearchParams {
   inStock?: string;
   minPrice?: string;
   maxPrice?: string;
+  b2b?: string;
+  currency?: string;
 }
 
 const PRICE_RANGES = [
@@ -30,12 +34,16 @@ const PRICE_RANGES = [
 ];
 
 async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
+  const wantsB2B = searchParams.b2b === "true";
+  const context = wantsB2B ? await getServerB2BContext() : null;
+  const currency = searchParams.currency?.toUpperCase() ?? (context ? companyCurrencyForCountry(context.company.country) : undefined);
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10));
   const limit = 24;
   const qs = new URLSearchParams({
     page: String(page),
     limit: String(limit),
-    b2c: "true",
+    ...(wantsB2B ? { b2b: "true" } : { b2c: "true" }),
+    ...(currency ? { currency } : {}),
     ...(searchParams.search ? { search: searchParams.search } : {}),
     ...(searchParams.category ? { categorySlug: searchParams.category } : {}),
     ...(searchParams.inStock === "1" ? { inStock: "true" } : {}),
@@ -97,6 +105,7 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
               sellerName={p.seller?.businessNameEn}
               inStock={stock?.inStock === true}
               hasVariants={p.hasVariants === true}
+              isB2B={wantsB2B}
               moq={p.moq}
             />
           );

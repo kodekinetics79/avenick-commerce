@@ -9,6 +9,7 @@ import { toWishlistCartLine, wishlistItemKey } from "../../stores/wishlist";
 import { cartQuantityChangeHref, replaceCartCommercialSelection } from "../../stores/cart";
 import { summarizeCartCommercial } from "../cart-commercial";
 import { toCatalogListDto } from "../catalog-list-dto";
+import { canonicalRequisitionCartLines } from "../requisition-reprice";
 
 const fallbackProduct: StorefrontProduct = {
   id: "base-priced-product",
@@ -21,7 +22,7 @@ const fallbackProduct: StorefrontProduct = {
     { type: "B2C", currency: "SAR", minQty: 1, maxQty: null, price: 80, vatRate: 0 },
     { type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 100, vatRate: 15 },
   ],
-  inventory: [{ inStock: false }],
+  inventory: [{ inStock: false, availableQty: 0 }],
   variants: [{
     id: "blue-42",
     sku: "BLUE-42",
@@ -30,6 +31,7 @@ const fallbackProduct: StorefrontProduct = {
     attributes: { color: "blue", size: 42 },
     prices: [],
     inStock: true,
+    availableQty: 20,
   }],
 };
 
@@ -72,7 +74,7 @@ describe("variant wishlist, list card, and base-price fallback", () => {
 
   it("preserves selector identity and commercial facts through wishlist to cart", () => {
     const selection = resolveStorefrontSelection(fallbackProduct, "blue-42", 1, "SAR")!;
-    const wishlist = toStorefrontWishlistItem(fallbackProduct, "boot", selection, 1, "/boot.png");
+    const wishlist = toStorefrontWishlistItem(fallbackProduct, "boot", selection, 1, "B2C", "/boot.png");
     expect(wishlist).toMatchObject({
       id: "base-priced-product",
       variantId: "blue-42",
@@ -109,7 +111,7 @@ describe("variant wishlist, list card, and base-price fallback", () => {
     expect({ currency: cartLine.currency, items: [{ productId: cartLine.productId, variantId: cartLine.variantId, quantity: cartLine.qty }] })
       .toEqual({ currency: "SAR", items: [{ productId: "base-priced-product", variantId: "blue-42", quantity: 20 }] });
     expect(cartLine).toMatchObject({ slug: "boot", moq: 10 });
-    expect(cartQuantityChangeHref(cartLine)).toBe("/products/boot");
+    expect(cartQuantityChangeHref(cartLine)).toBe("/products/boot?currency=SAR&variantId=blue-42&qty=20");
   });
 
   it("replaces a 10-unit commercial snapshot after product re-selection at a 20-unit tier", () => {
@@ -164,6 +166,13 @@ describe("variant wishlist, list card, and base-price fallback", () => {
     expect(productCardPurchaseAction(false)).toBe("ADD_TO_CART");
   });
 
+  it("accepts only a complete canonical requisition basket before cart mutation", () => {
+    const line = { productId: "p", slug: "p", nameEn: "P", nameAr: "P", sku: "P", qty: 10, moq: 10, unitPrice: 8, vatRate: 15, sellerId: "s", currency: "SAR" };
+    expect(canonicalRequisitionCartLines(1, { currency: "SAR", lines: [line] })).toEqual([line]);
+    expect(() => canonicalRequisitionCartLines(2, { currency: "SAR", lines: [line] })).toThrow(/incomplete/i);
+    expect(() => canonicalRequisitionCartLines(1, { currency: "AED", lines: [line] })).toThrow(/incomplete/i);
+  });
+
   it("keeps advertised currency reachable and resolves own-tier then base fallback deterministically", () => {
     const dto = toCatalogListDto({
       id: "p", sellerId: "s", sku: "P", slug: "multi", nameEn: "P", nameAr: "P",
@@ -179,6 +188,8 @@ describe("variant wishlist, list card, and base-price fallback", () => {
       seller: { businessNameEn: "S", businessNameAr: null, tier: "VERIFIED", rating: 0 },
     }, "B2C");
     expect(dto.cardPrice).toEqual({ amount: 100, currency: "AED", vatRate: 5, isFrom: true });
-    expect(storefrontProductHref(dto.slug, dto.cardPrice.currency)).toBe("/products/multi?currency=AED");
+    expect(storefrontProductHref(dto.slug, { currency: dto.cardPrice.currency })).toBe("/products/multi?currency=AED");
+    expect(storefrontProductHref(dto.slug, { currency: "SAR", b2b: true, variantId: "v", quantity: 20 }))
+      .toBe("/products/multi?currency=SAR&b2b=true&variantId=v&qty=20");
   });
 });

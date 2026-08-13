@@ -9,16 +9,16 @@ const product: StorefrontProduct = {
   nameEn: "Variant-only product",
   nameAr: "Variant-only product",
   prices: [],
-  inventory: [{ inStock: false }],
+  inventory: [{ inStock: false, availableQty: 0 }],
   variants: [
     {
       id: "zero-sar", sku: "ZERO-SAR", nameEn: "Zero rated", nameAr: null,
-      attributes: { size: "S" }, inStock: true,
+      attributes: { size: "S" }, inStock: true, availableQty: 2,
       prices: [{ type: "B2C", currency: "SAR", minQty: 1, maxQty: null, price: 100, vatRate: 0 }],
     },
     {
       id: "standard-aed", sku: "STANDARD-AED", nameEn: "Standard rated", nameAr: null,
-      attributes: { size: "L" }, inStock: false,
+      attributes: { size: "L" }, inStock: false, availableQty: 0,
       prices: [{ type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 200, vatRate: 15 }],
     },
   ],
@@ -49,5 +49,10 @@ describe("variant storefront commercial journey", () => {
       unitPrice: 200, vatRate: 15, vatPerUnit: 30, grossTotal: 230,
     });
     expect(resolveStorefrontSelection(product, undefined, 1)).toBeNull();
+  });
+
+  it("bounds selected availability by aggregate quantity", () => {
+    expect(resolveStorefrontSelection(product, "zero-sar", 2, "SAR")).toMatchObject({ inStock: true, availableQty: 2 });
+    expect(resolveStorefrontSelection(product, "zero-sar", 3, "SAR")).toMatchObject({ inStock: false, availableQty: 2 });
   });
 });
