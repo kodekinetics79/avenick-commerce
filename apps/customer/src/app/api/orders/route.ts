@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth-instance";
-import { secureCreateOrder, accrueCommissions, db } from "@avenick/database";
+import { secureCreateOrder, finalizeInternalOrderPayment, db } from "@avenick/database";
 import { checkRateLimit, RATE_LIMITS } from "@avenick/auth";
 import { log } from "@avenick/observability";
 import { z } from "zod";
@@ -66,6 +66,17 @@ function orderResponse(order: {
   };
 }
 
+async function repairInternalPaymentIfNeeded(order: {
+  id: string;
+  paymentMethod: PaymentMethod | null;
+}, actorId: string) {
+  if (order.paymentMethod === "BANK_TRANSFER") {
+    await finalizeInternalOrderPayment({ orderId: order.id, method: "BANK_TRANSFER", actorId });
+  } else if (order.paymentMethod === "MOCK" && pilotMockPaymentsEnabled()) {
+    await finalizeInternalOrderPayment({ orderId: order.id, method: "MOCK", pilotMockAllowed: true, actorId });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
@@ -86,9 +97,20 @@ export async function POST(req: NextRequest) {
     if (idempotencyKey) {
       const existing = await db.order.findUnique({
         where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } },
-        select: { id: true, orderNumber: true, total: true, discountAmount: true, vatAmount: true, currency: true },
+        select: {
+          id: true,
+          orderNumber: true,
+          total: true,
+          discountAmount: true,
+          vatAmount: true,
+          currency: true,
+          paymentMethod: true,
+        },
       });
-      if (existing) return NextResponse.json({ success: true, data: orderResponse(existing), idempotent: true });
+      if (existing) {
+        await repairInternalPaymentIfNeeded(existing, session.user.id);
+        return NextResponse.json({ success: true, data: orderResponse(existing), idempotent: true });
+      }
     }
 
     const body = await req.json();
@@ -132,41 +154,24 @@ export async function POST(req: NextRequest) {
     });
 
     if (paymentMethod === "MOCK") {
-      await db.$transaction(async (tx) => {
-        await tx.order.update({ where: { id: order.id }, data: { paymentStatus: "PAID", status: "CONFIRMED" } });
-        await tx.payment.create({
-          data: {
-            orderId: order.id,
-            method: "MOCK",
-            status: "PAID",
-            amount: order.total,
-            currency: order.currency,
-            gatewayRef: `PILOT-${order.orderNumber}`,
-            gatewayData: { pilotMode: true },
-            paidAt: new Date(),
-          },
-        });
-        await tx.orderStatusHistory.create({
-          data: { orderId: order.id, status: "CONFIRMED", message: "Pilot test payment confirmed" },
-        });
-        await accrueCommissions(tx, order.id);
+      await finalizeInternalOrderPayment({
+        orderId: order.id,
+        method: "MOCK",
+        pilotMockAllowed: true,
+        actorId: session.user.id,
       });
     } else if (paymentMethod === "BANK_TRANSFER") {
-      await db.payment.create({
-        data: {
-          orderId: order.id,
-          method: "BANK_TRANSFER",
-          status: "UNPAID",
-          amount: order.total,
-          currency: order.currency,
-        },
+      await finalizeInternalOrderPayment({
+        orderId: order.id,
+        method: "BANK_TRANSFER",
+        actorId: session.user.id,
       });
     }
 
     return NextResponse.json({ success: true, data: orderResponse(order) });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to create order";
-    const isBusinessError = /price|stock|unavailable|at least one item|account|company|purchase order|B2B|B2C|permitted|coupon|promotion|quantity/i.test(message);
+    const isBusinessError = /price|stock|unavailable|at least one item|account|company|purchase order|B2B|B2C|permitted|coupon|promotion|quantity|payment/i.test(message);
     if (!isBusinessError) log.error("orders.create failed", e, { path: "/api/orders" });
     return NextResponse.json({ success: false, error: message }, { status: isBusinessError ? 409 : 500 });
   }
