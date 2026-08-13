@@ -82,7 +82,7 @@ function vatRateForCurrency(currency: Currency): number {
 }
 
 function resolveUnitPrice(
-  prices: { type: string; currency: string; minQty: number; maxQty: number | null; price: Prisma.Decimal; isActive: boolean; vatRate: Prisma.Decimal }[],
+  prices: { id: string; type: string; currency: string; minQty: number; maxQty: number | null; price: Prisma.Decimal; isActive: boolean; vatRate: Prisma.Decimal }[],
   channel: "B2C" | "B2B",
   currency: Currency,
   quantity: number,
