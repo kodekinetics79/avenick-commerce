@@ -6,9 +6,10 @@
 activation remains externally blocked.**
 
 The final code candidate certified before the release-evidence commit is
-`adca21ab5d6549eab631ae8afb547537c273c21c`. It includes the deployed-Chrome finding that removed
+`b7f8bb52e6ef8f10b64235f07edc629478438f72`. It includes the deployed-Chrome findings that removed
 unsupported free-shipping, escrow, fixed marketplace-scale, multi-quote, credit, and integrated-3PL
-claims from live storefront surfaces, with a regression test for those commercial statements. The
+claims from live storefront surfaces and made credential sign-in use same-origin CSRF/callback
+requests instead of the production `NEXTAUTH_URL` on preview hosts. Both have regressions. The
 earlier evidence head,
 `83fa941ad5617b59f1e6ae2a4ffe840b6477bd93`, passed GitHub CI and reached READY on all three
 Vercel projects. This document correction necessarily creates one final evidence-only SHA; its CI,
@@ -55,6 +56,8 @@ handling) appeared during tests; no test failed.
   VAT/MOQ facts, and remove fabricated discounts, ratings, availability, and shipping promises.
 - Storefront and support copy no longer advertises unsupported free delivery, escrow, marketplace
   scale, integrated logistics, guaranteed quote volume, or unimplemented credit applications.
+- Customer, seller, and admin credential clients keep auth requests and cookies on the current
+  portal deployment even when the split backend advertises a production callback URL.
 
 ## Local Chrome evidence
 
