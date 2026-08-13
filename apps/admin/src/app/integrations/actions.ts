@@ -122,15 +122,6 @@ export async function setIntegrationConnectionStatus(id: string, status: string)
 
 export async function redriveIntegrationMessage(id: string) {
   const { userId } = await requireAdminSession();
-  const row = await redriveIntegrationOutbox(id);
-  await db.auditLog.create({
-    data: {
-      actorId: userId,
-      entityType: "IntegrationOutbox",
-      entityId: row.id,
-      action: AuditAction.STATUS_CHANGE,
-      after: { status: row.status, action: "MANUAL_REDRIVE", destination: row.destination },
-    },
-  });
+  await redriveIntegrationOutbox(id, userId);
   revalidatePath("/integrations");
 }

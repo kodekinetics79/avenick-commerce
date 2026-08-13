@@ -4,6 +4,18 @@ import { db } from "../index";
 const DEFAULT_LEASE_MS = 5 * 60 * 1000;
 const DEFAULT_MAX_ATTEMPTS = 8;
 
+export type IntegrationLease = Pick<
+  IntegrationOutbox,
+  "id" | "leaseOwner" | "leaseExpiresAt" | "fencingToken" | "attempts"
+>;
+
+export class StaleIntegrationLeaseError extends Error {
+  constructor(id: string) {
+    super(`Integration lease is stale or no longer owned: ${id}`);
+    this.name = "StaleIntegrationLeaseError";
+  }
+}
+
 function boundedLimit(limit: number) {
   return Math.max(1, Math.min(100, Math.trunc(limit || 1)));
 }
@@ -20,100 +32,218 @@ function retryDelayMs(attempts: number) {
  * A stale PROCESSING row becomes claimable after its lease timestamp.
  */
 export async function claimIntegrationOutbox(input: {
+  workerId: string;
   destination?: string;
   limit?: number;
   leaseMs?: number;
-} = {}): Promise<IntegrationOutbox[]> {
+}): Promise<IntegrationOutbox[]> {
+  const workerId = input.workerId.trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.:-]{1,127}$/.test(workerId)) throw new Error("A stable integration worker id is required");
   const limit = boundedLimit(input.limit ?? 20);
   const leaseMs = Math.max(30_000, Math.min(30 * 60 * 1000, input.leaseMs ?? DEFAULT_LEASE_MS));
   const leaseUntil = new Date(Date.now() + leaseMs);
 
   return db.$transaction(async (tx) => {
-    const ids = input.destination
-      ? await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-          SELECT "id"
-          FROM "IntegrationOutbox"
-          WHERE "destination" = ${input.destination}
-            AND (
-              ("status" IN ('PENDING', 'RETRY') AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= NOW()))
-              OR ("status" = 'PROCESSING' AND "nextAttemptAt" <= NOW())
-            )
-          ORDER BY "createdAt" ASC
-          FOR UPDATE SKIP LOCKED
-          LIMIT ${limit}
-        `)
-      : await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
-          SELECT "id"
-          FROM "IntegrationOutbox"
-          WHERE (
-            ("status" IN ('PENDING', 'RETRY') AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= NOW()))
-            OR ("status" = 'PROCESSING' AND "nextAttemptAt" <= NOW())
-          )
-          ORDER BY "createdAt" ASC
-          FOR UPDATE SKIP LOCKED
-          LIMIT ${limit}
-        `);
+    const destination = input.destination
+      ? Prisma.sql`AND "destination" = ${input.destination}`
+      : Prisma.empty;
+    return tx.$queryRaw<IntegrationOutbox[]>(Prisma.sql`
+      WITH candidates AS (
+        SELECT "id"
+        FROM "IntegrationOutbox"
+        WHERE (
+          ("status" IN ('PENDING', 'RETRY') AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= NOW()))
+          OR ("status" = 'PROCESSING' AND "leaseExpiresAt" <= NOW())
+        )
+        ${destination}
+        ORDER BY "createdAt" ASC
+        FOR UPDATE SKIP LOCKED
+        LIMIT ${limit}
+      )
+      UPDATE "IntegrationOutbox" AS outbox
+      SET "status" = 'PROCESSING',
+          "attempts" = outbox."attempts" + 1,
+          "nextAttemptAt" = NULL,
+          "leaseOwner" = ${workerId},
+          "leaseExpiresAt" = ${leaseUntil},
+          "fencingToken" = outbox."fencingToken" + 1,
+          "lastError" = NULL
+      FROM candidates
+      WHERE outbox."id" = candidates."id"
+      RETURNING outbox.*
+    `);
+  });
+}
 
-    if (ids.length === 0) return [];
-    const claimIds = ids.map((row) => row.id);
-    await tx.integrationOutbox.updateMany({
-      where: { id: { in: claimIds } },
+function activeLeaseWhere(lease: IntegrationLease) {
+  if (!lease.leaseOwner) throw new StaleIntegrationLeaseError(lease.id);
+  return {
+    id: lease.id,
+    status: "PROCESSING",
+    leaseOwner: lease.leaseOwner,
+    fencingToken: lease.fencingToken,
+    leaseExpiresAt: { gt: new Date() },
+  } as const;
+}
+
+export async function finalizeOrderIntegrationOutbox(
+  lease: IntegrationLease,
+  result:
+    | { disposition: "ACCEPTED"; system: string; orderId: string; externalOrderId: string; correlationId: string; authoritativeTotals?: Prisma.InputJsonValue }
+    | { disposition: "REJECTED"; system: string; orderId: string; reason: string; correlationId: string; authoritativeTotals?: Prisma.InputJsonValue },
+) {
+  return db.$transaction(async (tx) => {
+    const completed = await tx.integrationOutbox.updateMany({
+      where: activeLeaseWhere(lease),
       data: {
-        status: "PROCESSING",
-        attempts: { increment: 1 },
-        nextAttemptAt: leaseUntil,
+        status: "PROCESSED",
+        processedAt: new Date(),
+        nextAttemptAt: null,
+        leaseOwner: null,
+        leaseExpiresAt: null,
         lastError: null,
       },
     });
+    if (completed.count !== 1) throw new StaleIntegrationLeaseError(lease.id);
 
-    return tx.integrationOutbox.findMany({
-      where: { id: { in: claimIds } },
-      orderBy: { createdAt: "asc" },
+    const now = new Date();
+    const key = { tenantKey_orderId_system: { tenantKey: "default", orderId: result.orderId, system: result.system } };
+    if (result.disposition === "ACCEPTED") {
+      return tx.orderIntegrationState.upsert({
+        where: key,
+        update: {
+          state: "ACCEPTED",
+          externalOrderId: result.externalOrderId,
+          correlationId: result.correlationId,
+          authoritativeTotals: result.authoritativeTotals,
+          lastValidatedAt: now,
+          lastAttemptAt: now,
+          acceptedAt: now,
+          rejectedAt: null,
+          rejectionReason: null,
+        },
+        create: {
+          tenantKey: "default",
+          orderId: result.orderId,
+          system: result.system,
+          state: "ACCEPTED",
+          externalOrderId: result.externalOrderId,
+          correlationId: result.correlationId,
+          authoritativeTotals: result.authoritativeTotals,
+          lastValidatedAt: now,
+          lastAttemptAt: now,
+          acceptedAt: now,
+        },
+      });
+    }
+    return tx.orderIntegrationState.upsert({
+      where: key,
+      update: {
+        state: "REJECTED",
+        correlationId: result.correlationId,
+        authoritativeTotals: result.authoritativeTotals,
+        lastValidatedAt: now,
+        lastAttemptAt: now,
+        acceptedAt: null,
+        rejectedAt: now,
+        rejectionReason: result.reason.slice(0, 4000),
+      },
+      create: {
+        tenantKey: "default",
+        orderId: result.orderId,
+        system: result.system,
+        state: "REJECTED",
+        correlationId: result.correlationId,
+        authoritativeTotals: result.authoritativeTotals,
+        lastValidatedAt: now,
+        lastAttemptAt: now,
+        rejectedAt: now,
+        rejectionReason: result.reason.slice(0, 4000),
+      },
     });
   });
 }
 
-export async function completeIntegrationOutbox(id: string) {
-  return db.integrationOutbox.update({
-    where: { id },
+export async function heartbeatIntegrationOutbox(lease: IntegrationLease, leaseMs = DEFAULT_LEASE_MS) {
+  const boundedLeaseMs = Math.max(30_000, Math.min(30 * 60 * 1000, leaseMs));
+  const leaseExpiresAt = new Date(Date.now() + boundedLeaseMs);
+  const result = await db.integrationOutbox.updateMany({
+    where: activeLeaseWhere(lease),
+    data: { leaseExpiresAt },
+  });
+  if (result.count !== 1) throw new StaleIntegrationLeaseError(lease.id);
+  return { ...lease, leaseExpiresAt };
+}
+
+export async function completeIntegrationOutbox(lease: IntegrationLease) {
+  const result = await db.integrationOutbox.updateMany({
+    where: activeLeaseWhere(lease),
     data: {
       status: "PROCESSED",
       processedAt: new Date(),
       nextAttemptAt: null,
+      leaseOwner: null,
+      leaseExpiresAt: null,
       lastError: null,
     },
   });
+  if (result.count !== 1) throw new StaleIntegrationLeaseError(lease.id);
 }
 
 export async function failIntegrationOutbox(
-  id: string,
+  lease: IntegrationLease,
   error: unknown,
   maxAttempts = DEFAULT_MAX_ATTEMPTS,
 ) {
-  const row = await db.integrationOutbox.findUnique({ where: { id } });
-  if (!row) throw new Error("Integration outbox message not found");
   const message = error instanceof Error ? error.message : String(error || "Unknown integration failure");
-  const dead = row.attempts >= Math.max(1, maxAttempts);
+  const dead = lease.attempts >= Math.max(1, maxAttempts);
+  const nextAttemptAt = dead ? null : new Date(Date.now() + retryDelayMs(lease.attempts));
 
-  return db.integrationOutbox.update({
-    where: { id },
+  const result = await db.integrationOutbox.updateMany({
+    where: activeLeaseWhere(lease),
     data: {
       status: dead ? "DEAD" : "RETRY",
-      nextAttemptAt: dead ? null : new Date(Date.now() + retryDelayMs(row.attempts)),
+      nextAttemptAt,
+      leaseOwner: null,
+      leaseExpiresAt: null,
       lastError: message.slice(0, 4000),
     },
   });
+  if (result.count !== 1) throw new StaleIntegrationLeaseError(lease.id);
+  return { dead, nextAttemptAt };
 }
 
-export async function redriveIntegrationOutbox(id: string) {
-  const row = await db.integrationOutbox.findUnique({ where: { id } });
-  if (!row) throw new Error("Integration outbox message not found");
-  if (!["DEAD", "RETRY"].includes(row.status)) {
-    throw new Error("Only failed or dead-letter integration messages can be redriven");
-  }
-  return db.integrationOutbox.update({
-    where: { id },
-    data: { status: "PENDING", nextAttemptAt: new Date(), lastError: null, processedAt: null },
+export async function redriveIntegrationOutbox(id: string, actorId: string) {
+  if (!actorId) throw new Error("Manual redrive actor is required");
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`integration-redrive:${id}`}))`);
+    const row = await tx.integrationOutbox.findUnique({ where: { id } });
+    if (!row) throw new Error("Integration outbox message not found");
+    if (!["DEAD", "RETRY"].includes(row.status)) {
+      throw new Error("Only failed or dead-letter integration messages can be redriven");
+    }
+    const updated = await tx.integrationOutbox.update({
+      where: { id },
+      data: {
+        status: "PENDING",
+        nextAttemptAt: new Date(),
+        leaseOwner: null,
+        leaseExpiresAt: null,
+        lastError: null,
+        processedAt: null,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorId,
+        entityType: "IntegrationOutbox",
+        entityId: id,
+        action: "STATUS_CHANGE",
+        before: { status: row.status, attempts: row.attempts, lastError: row.lastError },
+        after: { status: updated.status, action: "MANUAL_REDRIVE", destination: updated.destination },
+      },
+    });
+    return updated;
   });
 }
 

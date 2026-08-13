@@ -34,6 +34,8 @@ export * from "./services/promotions";
 // would pull node:crypto/bcrypt into browser/edge bundles. Admin and CLI callers
 // use the explicit @avenick/database/pilot-catalog subpath instead.
 export * from "./services/integrations";
+export * from "./services/integration-worker";
+export * from "./services/erp-adapter";
 export * from "./services/inventory";
 export * from "./services/admin";
 export * from "./services/audit";

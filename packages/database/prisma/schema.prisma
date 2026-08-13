@@ -1636,11 +1636,15 @@ model IntegrationOutbox {
   status         String   @default("PENDING")
   attempts       Int      @default(0)
   nextAttemptAt  DateTime?
+  leaseOwner     String?
+  leaseExpiresAt DateTime?
+  fencingToken   Int      @default(0)
   lastError      String?
   createdAt      DateTime @default(now())
   processedAt    DateTime?
 
   @@index([status, nextAttemptAt, createdAt])
+  @@index([status, leaseExpiresAt])
   @@index([aggregateType, aggregateId])
 }
 
