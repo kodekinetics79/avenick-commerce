@@ -1,12 +1,11 @@
 import { auth } from "@/lib/auth-instance";
+import { db, type OrderStatus } from "@avenick/database";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { MainLayout } from "@/components/layout/main-layout";
 import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
 import { ShoppingBag, Package, Truck, CheckCircle, Clock, ChevronRight, RotateCcw } from "lucide-react";
-import { cookies } from "next/headers";
-import { cookieHeaderFromStore, fetchBackendJsonWithCookies } from "@/lib/backend";
 
 export const metadata = { title: "My Orders" };
 
@@ -29,35 +28,18 @@ const FILTER_TABS = [
   { value: "CANCELLED",  label: "Cancelled" },
 ];
 
-type OrderListItem = {
-  id: string;
-  nameEn: string;
-  quantity: number;
-};
-
-type OrderListEntry = {
-  id: string;
-  orderNumber: string;
-  createdAt: string;
-  total: string | number;
-  currency: string;
-  status: string;
-  type: string;
-  items: OrderListItem[];
-};
-
 export default async function OrdersPage({ searchParams }: { searchParams: { status?: string } }) {
   const session = await auth();
-  if (!session?.user) redirect("/login");
+  if (!session?.user?.id) redirect("/login");
 
-  const statusFilter = searchParams.status;
-  const cookieStore = await cookies();
-  const cookieHeader = cookieHeaderFromStore(cookieStore);
-  const orders = await fetchBackendJsonWithCookies<OrderListEntry[]>(
-    `/api/orders${statusFilter ? `?status=${encodeURIComponent(statusFilter)}` : ""}`,
-    undefined,
-    cookieHeader,
-  );
+  const statusFilter = searchParams.status && Object.hasOwn(STATUS_CONFIG, searchParams.status)
+    ? searchParams.status as OrderStatus
+    : undefined;
+  const orders = await db.order.findMany({
+    where: { userId: session.user.id, ...(statusFilter ? { status: statusFilter } : {}) },
+    orderBy: { createdAt: "desc" },
+    include: { items: true, statusHistory: { orderBy: { createdAt: "desc" }, take: 1 } },
+  });
 
   const activeTab = statusFilter ?? "";
   const deliveredCount  = orders.filter(o => o.status === "DELIVERED").length;

@@ -1,7 +1,6 @@
-import type { SellerProfile } from "@avenick/database";
+import { db, getSellerDashboard } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
-import { fetchSellerBackend } from "@/lib/backend";
 import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
 import Link from "next/link";
@@ -12,35 +11,19 @@ import {
 } from "lucide-react";
 
 export default async function DashboardPage() {
-  const { membership } = await requireSellerPermission("dashboard.view");
-  type DashboardData = {
-    seller: SellerProfile;
-    dashboard: {
-      todayOrderCount: number;
-      monthRevenue: string | number;
-      activeListings: number;
-      pendingPayoutAmount: string | number;
-      pendingOrders: number;
-      issueCount: number;
-      pendingCompliance: number;
-      lowStockItems: number;
-      unreadMessages: number;
-      rfqCount: number;
-      recentOrders: Array<{
-        id: string;
-        orderNumber: string;
-        type: string;
-        status: string;
-        total: string | number;
-        currency: "AED" | "SAR" | "USD";
-        createdAt: string;
-      }>;
-    };
-    expiringDocs: number;
-    pendingRfqCount: number;
-  };
-  const data = await fetchSellerBackend<DashboardData>("/api/seller/dashboard");
-  const { seller, dashboard: dash, expiringDocs, pendingRfqCount } = data;
+  const { seller, membership } = await requireSellerPermission("dashboard.view");
+  const [dash, expiringDocs, pendingRfqCount] = await Promise.all([
+    getSellerDashboard(seller.id),
+    db.sellerDocument.count({
+      where: {
+        sellerId: seller.id,
+        expiryDate: { gte: new Date(), lte: new Date(Date.now() + 30 * 86_400_000) },
+      },
+    }),
+    db.rFQRequest.count({
+      where: { sellerId: seller.id, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } },
+    }),
+  ]);
   const perfScore = seller.accountHealth;
 
   const stats = [
