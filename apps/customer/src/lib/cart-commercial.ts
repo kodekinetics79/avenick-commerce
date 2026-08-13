@@ -3,7 +3,16 @@ export type CommercialCartLine = {
   qty: number;
   currency: string;
   vatRate?: number;
+  channel?: "B2C" | "B2B";
 };
+
+export function cartDestination(lines: CommercialCartLine[]) {
+  const channels = [...new Set(lines.map((line) => line.channel))];
+  if (lines.length === 0 || channels.length !== 1 || !channels[0]) return { valid: false as const, reason: "MIXED_OR_UNKNOWN_CHANNEL" as const };
+  return channels[0] === "B2B"
+    ? { valid: true as const, href: "/b2b/purchase-orders/new", label: "Create purchase order" }
+    : { valid: true as const, href: "/checkout", label: "Proceed to Checkout" };
+}
 
 const money = (value: number) => Number(value.toFixed(2));
 

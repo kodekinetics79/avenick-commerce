@@ -8,12 +8,13 @@ import { formatCurrency } from "@avenick/utils";
 import { cartQuantityChangeHref, useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
 import { MainLayout } from "@/components/layout/main-layout";
-import { summarizeCartCommercial } from "@/lib/cart-commercial";
+import { cartDestination, summarizeCartCommercial } from "@/lib/cart-commercial";
 
 export default function CartPage() {
   const { items, removeItem } = useCartStore();
   const { toggle } = useWishlist();
   const summary = summarizeCartCommercial(items);
+  const destination = cartDestination(items);
   const subtotal = summary.valid ? summary.subtotal : 0;
   const orderTotal = summary.valid ? summary.total : 0;
 
@@ -115,9 +116,9 @@ export default function CartPage() {
                   Eligible coupon codes are validated and priced by the server during checkout.
                 </p>
 
-                {!summary.valid && <p className="mb-3 text-xs text-destructive">Cart currency or VAT facts are inconsistent. Remove affected items before checkout.</p>}
-                {summary.valid ? <Button asChild variant="primary" size="lg" className="w-full mb-3">
-                  <Link href="/checkout">Proceed to Checkout <ArrowRight className="ms-2 h-4 w-4" /></Link>
+                {(!summary.valid || !destination.valid) && <p className="mb-3 text-xs text-destructive">Cart currency, VAT, or sales channel is inconsistent. Separate B2B and B2C items before continuing.</p>}
+                {summary.valid && destination.valid ? <Button asChild variant="primary" size="lg" className="w-full mb-3">
+                  <Link href={destination.href}>{destination.label} <ArrowRight className="ms-2 h-4 w-4" /></Link>
                 </Button> : <Button variant="primary" size="lg" className="w-full mb-3" disabled>Checkout unavailable</Button>}
                 <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                   <ShieldCheck className="h-3.5 w-3.5 text-primary" />

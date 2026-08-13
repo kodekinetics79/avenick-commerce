@@ -8,7 +8,7 @@ export function canonicalRequisitionCartLines(
     throw new Error("Requisition pricing response was incomplete");
   }
   for (const line of response.lines) {
-    if (!line.productId || !line.slug || !line.sellerId || line.currency !== response.currency
+    if (!line.productId || !line.slug || line.channel !== "B2B" || !line.sellerId || line.currency !== response.currency
       || !Number.isInteger(line.qty) || line.qty < (line.moq ?? 1)
       || !Number.isFinite(line.unitPrice) || line.vatRate == null || !Number.isFinite(line.vatRate)) {
       throw new Error("Requisition pricing response was incomplete");

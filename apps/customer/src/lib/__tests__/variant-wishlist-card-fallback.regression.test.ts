@@ -7,7 +7,7 @@ import {
 import { productCardPricePresentation, productCardPurchaseAction, productCardReviewState, storefrontProductHref } from "../product-card-commerce";
 import { toWishlistCartLine, wishlistItemKey } from "../../stores/wishlist";
 import { cartQuantityChangeHref, replaceCartCommercialSelection } from "../../stores/cart";
-import { summarizeCartCommercial } from "../cart-commercial";
+import { cartDestination, summarizeCartCommercial } from "../cart-commercial";
 import { toCatalogListDto } from "../catalog-list-dto";
 import { canonicalRequisitionCartLines } from "../requisition-reprice";
 
@@ -167,10 +167,41 @@ describe("variant wishlist, list card, and base-price fallback", () => {
   });
 
   it("accepts only a complete canonical requisition basket before cart mutation", () => {
-    const line = { productId: "p", slug: "p", nameEn: "P", nameAr: "P", sku: "P", qty: 10, moq: 10, unitPrice: 8, vatRate: 15, sellerId: "s", currency: "SAR" };
+    const line = { productId: "p", slug: "p", nameEn: "P", nameAr: "P", sku: "P", qty: 10, moq: 10, unitPrice: 8, vatRate: 15, sellerId: "s", currency: "SAR", channel: "B2B" as const };
     expect(canonicalRequisitionCartLines(1, { currency: "SAR", lines: [line] })).toEqual([line]);
     expect(() => canonicalRequisitionCartLines(2, { currency: "SAR", lines: [line] })).toThrow(/incomplete/i);
     expect(() => canonicalRequisitionCartLines(1, { currency: "AED", lines: [line] })).toThrow(/incomplete/i);
+  });
+
+  it("routes a canonical B2B requisition basket only to governed PO creation", () => {
+    const b2bLine = { productId: "p", slug: "b2b-only", variantId: "v", nameEn: "P", nameAr: "P", sku: "V", qty: 10, moq: 10, unitPrice: 8, vatRate: 15, sellerId: "s", currency: "SAR", channel: "B2B" as const };
+    const lines = canonicalRequisitionCartLines(1, { currency: "SAR", lines: [b2bLine] });
+
+    expect(cartDestination(lines)).toEqual({
+      valid: true,
+      href: "/b2b/purchase-orders/new",
+      label: "Create purchase order",
+    });
+    expect(storefrontProductHref(b2bLine.slug, {
+      currency: lines[0]!.currency,
+      b2b: true,
+      variantId: lines[0]!.variantId,
+      quantity: lines[0]!.qty,
+    })).toBe("/products/b2b-only?currency=SAR&b2b=true&variantId=v&qty=10");
+  });
+
+  it("routes B2C to checkout and fails closed for mixed or legacy channels", () => {
+    const commercial = { unitPrice: 10, qty: 1, currency: "AED", vatRate: 5 };
+    expect(cartDestination([{ ...commercial, channel: "B2C" }])).toEqual({
+      valid: true,
+      href: "/checkout",
+      label: "Proceed to Checkout",
+    });
+    expect(cartDestination([
+      { ...commercial, channel: "B2C" },
+      { ...commercial, channel: "B2B" },
+    ])).toEqual({ valid: false, reason: "MIXED_OR_UNKNOWN_CHANNEL" });
+    expect(cartDestination([commercial])).toEqual({ valid: false, reason: "MIXED_OR_UNKNOWN_CHANNEL" });
   });
 
   it("keeps advertised currency reachable and resolves own-tier then base fallback deterministically", () => {

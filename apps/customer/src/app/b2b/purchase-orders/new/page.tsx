@@ -5,6 +5,7 @@ import { ArrowLeft, Building2, CheckCircle2, ShoppingCart } from "lucide-react";
 import { B2BShell } from "@/components/b2b/b2b-shell";
 import { useCartStore } from "@/stores/cart";
 import { formatCurrency, type SupportedCurrency } from "@avenick/utils";
+import { storefrontProductHref } from "@/lib/product-card-commerce";
 
 const SUPPORTED_CURRENCIES = new Set<SupportedCurrency>(["AED", "SAR", "QAR", "KWD", "BHD", "OMR", "USD"]);
 
@@ -57,10 +58,11 @@ export default function NewPurchaseOrderPage() {
     () => Boolean(context) && items.every((item) => item.currency === context!.currency),
     [context, items],
   );
+  const allB2B = items.length > 0 && items.every((item) => item.channel === "B2B");
   const displayEstimate = useMemo(() => items.reduce((sum, item) => sum + item.unitPrice * item.qty, 0), [items]);
 
   async function submit() {
-    if (!context || items.length === 0 || submitting) return;
+    if (!context || items.length === 0 || !allB2B || submitting) return;
     setSubmitting(true);
     setError("");
     try {
@@ -144,7 +146,7 @@ export default function NewPurchaseOrderPage() {
                     </div>
                     <div className="text-right">
                       <span className="text-sm font-medium">Qty {item.qty}</span>
-                      <a href={item.slug ? `/products/${item.slug}` : "/products"} className="text-xs text-primary hover:underline">Change selection</a>
+                      <a href={item.slug ? storefrontProductHref(item.slug, { currency: item.currency, b2b: true, variantId: item.variantId, quantity: item.qty }) : "/products?b2b=true"} className="text-xs text-primary hover:underline">Change selection</a>
                       <button type="button" onClick={() => removeItem(item.id)} className="mt-2 block ml-auto text-xs text-muted-foreground hover:text-danger">Remove</button>
                     </div>
                   </div>
@@ -177,7 +179,8 @@ export default function NewPurchaseOrderPage() {
               )}
               <p className="mt-3 text-xs text-muted-foreground">The authoritative PO total is calculated from current B2B price tiers and VAT. No amount from this browser is accepted as the commercial total.</p>
               {error && <p className="mt-3 rounded-lg bg-danger/10 p-2 text-xs text-danger">{error}</p>}
-              <button type="button" disabled={items.length === 0 || submitting} onClick={submit} className="mt-4 h-11 w-full rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+              {!allB2B && items.length > 0 && <p className="mt-3 text-xs text-danger">Remove B2C or legacy unknown-channel lines before creating a governed purchase order.</p>}
+              <button type="button" disabled={items.length === 0 || !allB2B || submitting} onClick={submit} className="mt-4 h-11 w-full rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50">
                 {submitting ? "Creating…" : "Create purchase order"}
               </button>
             </div>

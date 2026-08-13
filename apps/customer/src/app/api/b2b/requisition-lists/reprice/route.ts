@@ -43,7 +43,7 @@ export async function POST(request: Request) {
         .sort((a, b) => b.minQty - a.minQty)[0];
       if (!tier) throw new Error(`No active B2B ${currency} price for "${product.nameEn}"`);
       return {
-        productId: product.id, slug: product.slug, nameEn: product.nameEn, nameAr: product.nameAr,
+        productId: product.id, slug: product.slug, channel: "B2B" as const, nameEn: product.nameEn, nameAr: product.nameAr,
         sku: product.sku, qty: item.quantity, moq: product.moq, unitPrice: Number(tier.price),
         vatRate: Number(tier.vatRate), sellerId: product.seller.id, currency,
       };
