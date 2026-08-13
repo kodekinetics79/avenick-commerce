@@ -415,6 +415,10 @@ export async function placeGovernedPurchaseOrder(input: {
   purchaseOrderId: string;
   companyId: string;
   actorId: string;
+  /** Deterministic post-claim seam used only by PostgreSQL race regressions. */
+  afterPlacementClaim?: () => Promise<void>;
+  /** Deterministic transactional fault seam used only by PostgreSQL regression tests. */
+  faultAfterOrderedTransition?: () => void;
 }) {
   const claim = await db.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
@@ -426,13 +430,6 @@ export async function placeGovernedPurchaseOrder(input: {
     if (!po) throw new Error("Purchase order not found");
     const existing = await tx.order.findFirst({ where: { purchaseOrderId: po.id }, orderBy: { createdAt: "asc" } });
     if (existing) {
-      if (po.status === "PLACING") {
-        await tx.purchaseOrder.update({ where: { id: po.id }, data: { status: "ORDERED" } });
-        await tx.auditLog.create({ data: {
-          actorId: input.actorId, entityType: "PurchaseOrder", entityId: po.id, action: AuditAction.STATUS_CHANGE,
-          before: { status: "PLACING" }, after: { status: "ORDERED", orderId: existing.id, recovered: true },
-        } });
-      }
       return { kind: "existing" as const, order: existing };
     }
     if (po.status !== "APPROVED" && po.status !== "PLACING" && po.status !== "ORDERED") {
@@ -491,12 +488,14 @@ export async function placeGovernedPurchaseOrder(input: {
 
   if (claim.kind === "existing") {
     await finalizeInternalOrderPayment({ orderId: claim.order.id, method: "BANK_TRANSFER", actorId: input.actorId });
+    await finalizePlacedPurchaseOrder({ ...input, order: claim.order, recovered: true });
     return claim.order;
   }
   if (claim.kind === "invalidated") {
     throw new Error(`${claim.detail}; the purchase order has been returned for approval`);
   }
   const { po } = claim;
+  await input.afterPlacementClaim?.();
 
   const orderRequest = {
     userId: po.requesterId,
@@ -575,28 +574,62 @@ export async function placeGovernedPurchaseOrder(input: {
 
   await finalizeInternalOrderPayment({ orderId: order.id, method: "BANK_TRANSFER", actorId: input.actorId });
 
-  const ordered = await db.purchaseOrder.updateMany({
-    where: { id: po.id, status: "PLACING" }, data: { status: "ORDERED" },
-  });
+  await finalizePlacedPurchaseOrder({ ...input, order, recovered: false });
 
-  if (ordered.count === 1) {
-    await db.auditLog.create({
-      data: {
+  return order;
+}
+
+async function finalizePlacedPurchaseOrder(input: {
+  purchaseOrderId: string;
+  companyId: string;
+  actorId: string;
+  order: { id: string; orderNumber: string; total: Prisma.Decimal };
+  recovered: boolean;
+  faultAfterOrderedTransition?: () => void;
+}) {
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`purchase-order:${input.purchaseOrderId}`}))`);
+    const po = await tx.purchaseOrder.findFirst({
+      where: { id: input.purchaseOrderId, companyId: input.companyId },
+      select: { id: true, status: true, total: true },
+    });
+    if (!po) throw new Error("Purchase order not found while finalizing placement");
+    const linked = await tx.order.count({ where: { id: input.order.id, purchaseOrderId: po.id } });
+    if (linked !== 1) throw new Error("Placed order is not linked to the governed purchase order");
+    if (!["PLACING", "ORDERED"].includes(po.status)) {
+      throw new Error(`Cannot finalize placement from ${po.status.toLowerCase()} status`);
+    }
+
+    const existingAudit = await tx.auditLog.findFirst({
+      where: {
+        entityType: "PurchaseOrder",
+        entityId: po.id,
+        action: AuditAction.STATUS_CHANGE,
+        after: { path: ["status"], equals: "ORDERED" },
+      },
+      select: { id: true },
+    });
+    if (po.status === "PLACING") {
+      await tx.purchaseOrder.update({ where: { id: po.id }, data: { status: "ORDERED" } });
+      input.faultAfterOrderedTransition?.();
+    }
+    if (!existingAudit) {
+      await tx.auditLog.create({ data: {
         actorId: input.actorId,
         entityType: "PurchaseOrder",
         entityId: po.id,
         action: AuditAction.STATUS_CHANGE,
-        before: { status: "PLACING" },
+        before: { status: po.status },
         after: {
           status: "ORDERED",
-          orderId: order.id,
-          orderNumber: order.orderNumber,
+          orderId: input.order.id,
+          orderNumber: input.order.orderNumber,
           approvedTotal: Number(po.total),
-          placedTotal: Number(order.total),
+          placedTotal: Number(input.order.total),
+          recovered: input.recovered,
         },
-      },
-    });
-  }
-
-  return order;
+      } });
+    }
+  });
 }

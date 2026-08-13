@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { db } from "../index";
 import { createGovernedPurchaseOrder, placeGovernedPurchaseOrder } from "../services/b2b-purchase-orders";
 import { createCustomerReturnRequests } from "../services/customer-returns";
@@ -91,24 +91,19 @@ run("variant and refund commercial truth", () => {
     // product read is secure checkout after those placement locks are released.
     // Mutate at that exact boundary to deterministically reproduce the former
     // catalog-price TOCTOU rather than relying on scheduler timing.
-    const originalFindMany = db.product.findMany.bind(db.product);
     let mutatedAfterClaim = false;
-    const productRead = vi.spyOn(db.product, "findMany").mockImplementation((async (...args: unknown[]) => {
-      if (!mutatedAfterClaim) {
+    const placed = await placeGovernedPurchaseOrder({
+      purchaseOrderId: po.id,
+      companyId: company.id,
+      actorId: requester.id,
+      afterPlacementClaim: async () => {
         mutatedAfterClaim = true;
         await db.productPrice.updateMany({
           where: { variantId: variant.id, type: "B2B", currency: "AED" },
           data: { price: 999, vatRate: 0 },
         });
-      }
-      return originalFindMany(args[0] as never);
-    }) as never);
-    let placed;
-    try {
-      placed = await placeGovernedPurchaseOrder({ purchaseOrderId: po.id, companyId: company.id, actorId: requester.id });
-    } finally {
-      productRead.mockRestore();
-    }
+      },
+    });
     expect(mutatedAfterClaim).toBe(true);
     const changedPrice = await db.productPrice.findFirstOrThrow({ where: { variantId: variant.id, type: "B2B" } });
     expect(Number(changedPrice.price)).toBe(999);
@@ -116,6 +111,30 @@ run("variant and refund commercial truth", () => {
     const placedItem = await db.orderItem.findFirstOrThrow({ where: { orderId: placed.id } });
     expect(Number(placedItem.unitPrice)).toBe(80);
     expect(Number(placedItem.vatAmount)).toBe(12);
+
+    const faultPo = await createGovernedPurchaseOrder({
+      companyId: company.id, requesterId: requester.id, currency: "AED",
+      items: [{ productId: product.id, variantId: variant.id, quantity: 1 }],
+    });
+    await expect(placeGovernedPurchaseOrder({
+      purchaseOrderId: faultPo.id,
+      companyId: company.id,
+      actorId: requester.id,
+      faultAfterOrderedTransition: () => { throw new Error("FAULT_AFTER_ORDERED_TRANSITION"); },
+    })).rejects.toThrow("FAULT_AFTER_ORDERED_TRANSITION");
+    await expect(db.purchaseOrder.findUniqueOrThrow({ where: { id: faultPo.id } }))
+      .resolves.toMatchObject({ status: "PLACING" });
+    expect(await db.auditLog.count({
+      where: { entityType: "PurchaseOrder", entityId: faultPo.id, after: { path: ["status"], equals: "ORDERED" } },
+    })).toBe(0);
+    const faultOrder = await db.order.findFirstOrThrow({ where: { purchaseOrderId: faultPo.id } });
+    const repaired = await placeGovernedPurchaseOrder({ purchaseOrderId: faultPo.id, companyId: company.id, actorId: requester.id });
+    expect(repaired.id).toBe(faultOrder.id);
+    await expect(db.purchaseOrder.findUniqueOrThrow({ where: { id: faultPo.id } }))
+      .resolves.toMatchObject({ status: "ORDERED" });
+    expect(await db.auditLog.count({
+      where: { entityType: "PurchaseOrder", entityId: faultPo.id, after: { path: ["status"], equals: "ORDERED" } },
+    })).toBe(1);
   });
 
   it("uses exact mixed-VAT returned-line facts and recognizes an old sale's refund in the completion period", async () => {

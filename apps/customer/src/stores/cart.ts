@@ -13,6 +13,7 @@ export interface CartItem {
   sku: string;
   qty: number;
   unitPrice: number;
+  vatRate?: number;
   sellerId: string;
   currency: string;
 }

@@ -32,13 +32,18 @@ export default function CheckoutPage() {
   const idempotencyKeyRef = useRef<string | null>(null);
 
   const subtotal = total();
-  const vatRate = VAT_RATES[address.country] ?? 5;
-  const vatAmount = subtotal * (vatRate / 100);
+  const fallbackVatRate = VAT_RATES[address.country] ?? 5;
+  const currencies = [...new Set(items.map((item) => item.currency))];
+  const checkoutCurrency = currencies[0] ?? "AED";
+  const mixedCurrencies = currencies.length > 1;
+  const vatAmount = items.reduce((sum, item) =>
+    sum + item.unitPrice * item.qty * ((item.vatRate ?? fallbackVatRate) / 100), 0);
   const orderTotal = subtotal + vatAmount;
 
   async function placeOrder() {
     setLoading(true);
     try {
+      if (mixedCurrencies) throw new Error("Cart items must use one currency per checkout");
       if (!idempotencyKeyRef.current) {
         idempotencyKeyRef.current = globalThis.crypto?.randomUUID?.() ?? `checkout-${Date.now()}-${Math.random()}`;
       }
@@ -55,7 +60,7 @@ export default function CheckoutPage() {
           items: items.map((i) => ({ productId: i.productId, variantId: i.variantId, quantity: i.qty })),
           shippingAddress: address,
           paymentMethod,
-          currency: "AED",
+          currency: checkoutCurrency,
           type: "B2C",
           couponCode: couponCode.trim() || undefined,
         }),
@@ -101,10 +106,10 @@ export default function CheckoutPage() {
           {finalSummary.total != null && (
             <div className="mx-auto mb-5 max-w-sm rounded-xl bg-muted p-3 text-sm text-left">
               {finalSummary.discountAmount != null && finalSummary.discountAmount > 0 && (
-                <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(finalSummary.discountAmount, "AED")}</span></div>
+                <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(finalSummary.discountAmount, checkoutCurrency as never)}</span></div>
               )}
-              {finalSummary.vatAmount != null && <div className="flex justify-between"><span>VAT</span><span>{formatCurrency(finalSummary.vatAmount, "AED")}</span></div>}
-              <div className="flex justify-between font-semibold mt-1"><span>Final total</span><span>{formatCurrency(finalSummary.total, "AED")}</span></div>
+              {finalSummary.vatAmount != null && <div className="flex justify-between"><span>VAT</span><span>{formatCurrency(finalSummary.vatAmount, checkoutCurrency as never)}</span></div>}
+              <div className="flex justify-between font-semibold mt-1"><span>Final total</span><span>{formatCurrency(finalSummary.total, checkoutCurrency as never)}</span></div>
             </div>
           )}
           <p className="text-sm text-muted-foreground mb-6">
@@ -184,8 +189,8 @@ export default function CheckoutPage() {
                 <div className="space-y-2 mb-4">
                   {items.map((item) => (
                     <div key={item.id} className="flex justify-between text-sm py-2 border-b border-border last:border-0">
-                      <div><p className="font-medium">{item.nameAr}</p><p className="text-xs text-muted-foreground">x{item.qty} @ {formatCurrency(item.unitPrice, "AED")}</p></div>
-                      <span className="font-semibold">{formatCurrency(item.unitPrice * item.qty, "AED")}</span>
+                      <div><p className="font-medium">{item.nameAr}</p><p className="text-xs text-muted-foreground">x{item.qty} @ {formatCurrency(item.unitPrice, item.currency as never)} · VAT {item.vatRate ?? fallbackVatRate}%</p></div>
+                      <span className="font-semibold">{formatCurrency(item.unitPrice * item.qty, item.currency as never)}</span>
                     </div>
                   ))}
                 </div>
@@ -197,12 +202,13 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="bg-muted rounded-xl p-3 text-sm space-y-1 mb-4">
-                  <div className="flex justify-between"><span className="text-muted-foreground">Displayed subtotal</span><span>{formatCurrency(subtotal, "AED")}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Estimated VAT ({vatRate}%)</span><span>{formatCurrency(vatAmount, "AED")}</span></div>
-                  <div className="flex justify-between font-bold"><span>Pre-validation estimate</span><span className="text-primary">{formatCurrency(orderTotal, "AED")}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Displayed subtotal</span><span>{formatCurrency(subtotal, checkoutCurrency as never)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Estimated VAT</span><span>{formatCurrency(vatAmount, checkoutCurrency as never)}</span></div>
+                  <div className="flex justify-between font-bold"><span>Pre-validation estimate</span><span className="text-primary">{formatCurrency(orderTotal, checkoutCurrency as never)}</span></div>
+                  {mixedCurrencies && <p className="pt-1 text-[11px] text-destructive">Remove items in other currencies before checkout.</p>}
                   <p className="pt-1 text-[11px] text-muted-foreground">Final price, discounts, availability and tax are revalidated by the server. An eligible coupon may reduce this total.</p>
                 </div>
-                <div className="flex gap-3"><Button variant="outline" onClick={() => setStep("payment")}>Back</Button><Button className="flex-1" loading={loading} onClick={placeOrder}>Submit Order</Button></div>
+                <div className="flex gap-3"><Button variant="outline" onClick={() => setStep("payment")}>Back</Button><Button className="flex-1" loading={loading} disabled={mixedCurrencies} onClick={placeOrder}>Submit Order</Button></div>
               </div>
             )}
           </div>
@@ -210,10 +216,10 @@ export default function CheckoutPage() {
           <div className="bg-white rounded-2xl border border-border p-4 h-fit">
             <h3 className="font-semibold mb-3 text-sm">Order Summary ({items.length} items)</h3>
             <div className="space-y-1 text-sm mb-3">
-              <div className="flex justify-between"><span className="text-muted-foreground">Displayed subtotal</span><span>{formatCurrency(subtotal, "AED")}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Estimated VAT {vatRate}%</span><span>{formatCurrency(vatAmount, "AED")}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Displayed subtotal</span><span>{formatCurrency(subtotal, checkoutCurrency as never)}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Estimated VAT</span><span>{formatCurrency(vatAmount, checkoutCurrency as never)}</span></div>
               <hr />
-              <div className="flex justify-between font-bold"><span>Estimate</span><span className="text-primary">{formatCurrency(orderTotal, "AED")}</span></div>
+              <div className="flex justify-between font-bold"><span>Estimate</span><span className="text-primary">{formatCurrency(orderTotal, checkoutCurrency as never)}</span></div>
               {couponCode && <p className="pt-2 text-[11px] text-muted-foreground">Code <span className="font-mono">{couponCode}</span> will be validated on submit.</p>}
             </div>
           </div>

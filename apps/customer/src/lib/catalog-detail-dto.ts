@@ -7,6 +7,16 @@ type DetailPrice = {
   vatRate: unknown;
 };
 
+type DetailVariant = {
+  id: string;
+  sku: string;
+  nameEn: string;
+  nameAr: string | null;
+  attributes: unknown;
+  isActive: boolean;
+  prices: DetailPrice[];
+};
+
 export type CatalogDetailSource = {
   id: string;
   sellerId: string;
@@ -23,7 +33,8 @@ export type CatalogDetailSource = {
   moq: number;
   images: Array<{ url: string; altEn: string | null; altAr: string | null; isPrimary: boolean; sortOrder: number }>;
   prices: DetailPrice[];
-  inventory: Array<{ available: number }>;
+  inventory: Array<{ variantId: string | null; available: number }>;
+  variants: DetailVariant[];
   seller: {
     businessNameEn: string;
     businessNameAr: string | null;
@@ -66,7 +77,20 @@ export function toCatalogDetailDto(source: CatalogDetailSource) {
     prices: source.prices.map(({ type, currency, minQty, maxQty, price, vatRate }) => ({
       type, currency, minQty, maxQty, price, vatRate,
     })),
-    inventory: [{ inStock: source.inventory.some((stock) => stock.available > 0) }],
+    inventory: [{ inStock: source.inventory.some((stock) => stock.variantId == null && stock.available > 0) }],
+    variants: source.variants
+      .filter((variant) => variant.isActive)
+      .map((variant) => ({
+        id: variant.id,
+        sku: variant.sku,
+        nameEn: variant.nameEn,
+        nameAr: variant.nameAr,
+        attributes: variant.attributes,
+        prices: variant.prices.map(({ type, currency, minQty, maxQty, price, vatRate }) => ({
+          type, currency, minQty, maxQty, price, vatRate,
+        })),
+        inStock: source.inventory.some((stock) => stock.variantId === variant.id && stock.available > 0),
+      })),
     seller: source.seller,
     reviews: source.reviews.map(({ id, rating, title, body, isVerified, createdAt, user }) => ({
       id, rating, title, body, isVerified, createdAt, user,

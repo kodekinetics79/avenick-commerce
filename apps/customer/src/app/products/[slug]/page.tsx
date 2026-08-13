@@ -10,6 +10,7 @@ import { formatCurrency } from "@avenick/utils";
 import { MainLayout } from "@/components/layout/main-layout";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
+import { resolveStorefrontSelection, toStorefrontCartLine, type StorefrontProduct } from "@/lib/catalog-commercial";
 
 type Review = { id: string; rating: number; title?: string | null; body?: string | null; isVerified?: boolean; createdAt: string; user?: { firstName: string; lastName: string } };
 
@@ -21,6 +22,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
   const [qty, setQty] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
   const [tab, setTab] = useState<Tab>("description");
+  const [selectedVariantId, setSelectedVariantId] = useState<string>();
   const addItem = useCartStore((s) => s.addItem);
   const { toggle, has } = useWishlist();
 
@@ -58,7 +60,11 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
       .then((data) => {
         setProduct(data.data);
         setLoading(false);
-        if (data.data) setQty(data.data.moq ?? 1);
+        if (data.data) {
+          setQty(data.data.moq ?? 1);
+          const variants = data.data.variants ?? [];
+          setSelectedVariantId(variants.find((variant: { inStock: boolean }) => variant.inStock)?.id ?? variants[0]?.id);
+        }
       })
       .catch(() => setLoading(false));
   }, [params.slug]);
@@ -82,16 +88,16 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
 
   if (!product) return notFound();
 
-  const p = product as Record<string, unknown>;
+  const p = product as Record<string, unknown> & StorefrontProduct;
   const images = (p.images as { url: string }[]) ?? [];
-  const prices = (p.prices as { type: string; price: number; minQty: number; maxQty: number | null }[]) ?? [];
-  const b2cPrice = prices.find((pr) => pr.type === "B2C");
-  const b2bPrices = prices.filter((pr) => pr.type === "B2B").sort((a, b) => a.minQty - b.minQty);
+  const variants = p.variants ?? [];
+  const selection = resolveStorefrontSelection(p, selectedVariantId, qty);
   const seller = p.seller as Record<string, unknown>;
-  const inventory = (p.inventory as { inStock: boolean }[])?.[0];
-  const inStock = inventory?.inStock === true;
-  const displayPrice = b2cPrice ? Number(b2cPrice.price) : b2bPrices[0] ? Number(b2bPrices[0].price) : 0;
-  const vatPerUnit = displayPrice * 0.05;
+  const inStock = selection?.inStock === true;
+  const displayPrice = selection?.unitPrice ?? 0;
+  const displayCurrency = selection?.currency ?? "AED";
+  const vatRate = selection?.vatRate ?? 0;
+  const vatPerUnit = selection?.vatPerUnit ?? 0;
   const productId = String(p.id);
   const wishlisted = has(productId);
   const reviews = (p.reviews as Review[]) ?? [];
@@ -158,7 +164,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                     <h1 className="text-2xl font-bold leading-tight">{String(p.nameEn)}</h1>
                     {!!p.nameAr && <p className="text-base text-muted-foreground mt-0.5" dir="rtl">{String(p.nameAr)}</p>}
                   </div>
-                  <button type="button" aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"} onClick={() => toggle({ id: productId, slug: params.slug, nameEn: String(p.nameEn), nameAr: String(p.nameAr), imageUrl: images[0]?.url, price: displayPrice, currency: "AED", sku: String(p.sku), sellerId: String(p.sellerId), inStock })}
+                  <button type="button" aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"} onClick={() => toggle({ id: productId, slug: params.slug, nameEn: selection?.nameEn ?? String(p.nameEn), nameAr: selection?.nameAr ?? String(p.nameAr), imageUrl: images[0]?.url, price: displayPrice, currency: displayCurrency, sku: selection?.sku ?? String(p.sku), sellerId: String(p.sellerId), inStock })}
                     className={`p-2 rounded-xl border transition-all shrink-0 ${wishlisted ? "bg-destructive/10 border-destructive/20 text-destructive" : "border-border text-muted-foreground hover:border-destructive/20 hover:text-destructive"}`}>
                     <Heart className={`h-5 w-5 ${wishlisted ? "fill-current" : ""}`} />
                   </button>
@@ -176,7 +182,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                     {reviewCount} reviews
                   </button>
                   <span className="text-muted-foreground text-sm">·</span>
-                  <span className="text-sm text-muted-foreground">SKU: {String(p.sku)}</span>
+                  <span className="text-sm text-muted-foreground">SKU: {selection?.sku ?? String(p.sku)}</span>
                 </div>
 
                 <div className="flex flex-wrap gap-2 mt-3">
@@ -188,29 +194,39 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                 </div>
               </div>
 
+              {variants.length > 0 && (
+                <div className="rounded-2xl border border-border bg-card p-4">
+                  <p className="mb-2 text-sm font-semibold">Select variant</p>
+                  <div className="flex flex-wrap gap-2">
+                    {variants.map((variant) => (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        onClick={() => setSelectedVariantId(variant.id)}
+                        className={`rounded-xl border px-3 py-2 text-start text-sm transition-colors ${
+                          selectedVariantId === variant.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <span className="block font-medium">{variant.nameEn}</span>
+                        <span className="block text-xs text-muted-foreground">
+                          {Object.entries((variant.attributes ?? {}) as Record<string, unknown>).map(([key, value]) => `${key}: ${String(value)}`).join(" · ") || variant.sku}
+                          {!variant.inStock ? " · Out of stock" : ""}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Price section */}
               <div className="bg-primary/10 border border-primary/20 rounded-2xl p-4">
-                <div className="flex items-end gap-2 mb-1">
-                  <span className="text-3xl font-bold text-primary">{formatCurrency(displayPrice, "AED")}</span>
-                  <span className="text-sm text-muted-foreground pb-1">+ {formatCurrency(vatPerUnit, "AED")} VAT/unit</span>
-                </div>
-                <p className="text-xs text-muted-foreground">Total with VAT: <strong>{formatCurrency(displayPrice * qty * 1.05, "AED")}</strong> for {qty} unit{qty !== 1 ? "s" : ""}</p>
-
-                {b2bPrices.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-primary/30">
-                    <p className="text-xs font-semibold text-primary mb-2 flex items-center gap-1">
-                      <Award className="h-3.5 w-3.5" /> B2B BULK PRICING
-                    </p>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {b2bPrices.map((tier, i) => (
-                        <div key={i} className="bg-card rounded-lg px-3 py-1.5 text-xs flex justify-between">
-                          <span className="text-muted-foreground">{tier.minQty}+{tier.maxQty ? `–${tier.maxQty}` : ""} units</span>
-                          <span className="font-semibold text-primary">{formatCurrency(Number(tier.price), "AED")}</span>
-                        </div>
-                      ))}
-                    </div>
+                {selection ? <>
+                  <div className="flex items-end gap-2 mb-1">
+                    <span className="text-3xl font-bold text-primary">{formatCurrency(displayPrice, displayCurrency as never)}</span>
+                    <span className="text-sm text-muted-foreground pb-1">+ {formatCurrency(vatPerUnit, displayCurrency as never)} VAT/unit ({vatRate}%)</span>
                   </div>
-                )}
+                  <p className="text-xs text-muted-foreground">Total with VAT: <strong>{formatCurrency(selection.grossTotal, displayCurrency as never)}</strong> for {qty} unit{qty !== 1 ? "s" : ""}</p>
+                </> : <p className="text-sm font-medium text-destructive">No applicable price is available for this selection and quantity.</p>}
               </div>
 
               {/* Qty + CTA */}
@@ -220,8 +236,8 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                   <span className="px-4 text-sm font-semibold min-w-[2.5rem] text-center">{qty}</span>
                   <button type="button" onClick={() => setQty((q) => q + 1)} className="p-2.5 hover:bg-muted transition-colors"><Plus className="h-4 w-4" /></button>
                 </div>
-                <Button size="lg" variant="primary" className="flex-1" disabled={!inStock}
-                  onClick={() => addItem({ productId, nameEn: String(p.nameEn), nameAr: String(p.nameAr), imageUrl: images[0]?.url, sku: String(p.sku), qty, unitPrice: displayPrice, sellerId: String(p.sellerId), currency: "AED" })}>
+                <Button size="lg" variant="primary" className="flex-1" disabled={!inStock || !selection}
+                  onClick={() => selection && addItem(toStorefrontCartLine(p, selection, qty, images[0]?.url))}>
                   <ShoppingCart className="h-4 w-4 me-2" />
                   {inStock ? "Add to Cart" : "Out of Stock"}
                 </Button>
