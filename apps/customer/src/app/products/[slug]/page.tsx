@@ -248,7 +248,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
               <div className="grid grid-cols-3 gap-2">
                 {[
                   { icon: ShieldCheck, label: "Verified Supplier", color: "text-primary" },
-                  { icon: Truck, label: "Free 200+ AED", color: "text-primary" },
+                  { icon: Truck, label: "Delivery at checkout", color: "text-primary" },
                   { icon: RotateCcw, label: "14-day returns", color: "text-purple-600" },
                 ].map(({ icon: Icon, label, color }) => (
                   <div key={label} className="flex flex-col items-center gap-1 bg-card rounded-xl border border-border p-2.5 text-center">
@@ -375,8 +375,8 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                 <h3 className="text-base font-bold mb-4 text-foreground">Shipping & Returns</h3>
                 <div className="space-y-4 text-sm text-muted-foreground">
                   {[
-                    { icon: Truck, title: "Standard Delivery", desc: "2–5 business days. Free for orders over AED 200." },
-                    { icon: ShieldCheck, title: "Express Delivery", desc: "Next business day available for most UAE locations." },
+                    { icon: Truck, title: "Delivery", desc: "Available delivery terms are confirmed during order processing." },
+                    { icon: ShieldCheck, title: "Order protection", desc: "Price, tax and availability are revalidated when the order is submitted." },
                     { icon: RotateCcw, title: "Returns Policy", desc: "14-day returns for B2C orders. Items must be unused and in original packaging." },
                     { icon: Award, title: "B2B Orders", desc: "Bulk orders may include special delivery terms. Contact your account manager." },
                   ].map(({ icon: Icon, title, desc }) => (

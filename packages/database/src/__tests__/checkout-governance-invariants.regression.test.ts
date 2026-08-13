@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assertGenericCheckoutHasNoPurchaseOrder,
+  assertMinimumOrderQuantity,
   assertRequiredVariantSelection,
   inventoryStockIdentityWhere,
   resolveConfiguredVatRate,
@@ -31,5 +32,10 @@ describe("checkout governance invariants", () => {
     expect(() => assertRequiredVariantSelection("Safety Boot", variants)).toThrow(/select a product variant/i);
     expect(() => assertRequiredVariantSelection("Safety Boot", variants, "active")).not.toThrow();
     expect(() => assertRequiredVariantSelection("Plain Glove", [], undefined)).not.toThrow();
+  });
+
+  it("rejects quantities below the authoritative product MOQ", () => {
+    expect(() => assertMinimumOrderQuantity("Bulk Item", 1, 10)).toThrow(/minimum order quantity.*10/i);
+    expect(() => assertMinimumOrderQuantity("Bulk Item", 10, 10)).not.toThrow();
   });
 });

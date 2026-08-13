@@ -2,6 +2,7 @@ import { db } from "../index";
 import { write } from "../resilient-ops";
 import { enforcePromotionRedemptionCapacity, evaluateCommercePromotions } from "./promotions";
 import {
+  assertMinimumOrderQuantity,
   inventoryStockIdentityWhere,
   lockInventoryStockRows,
   resolveConfiguredVatRate,
@@ -150,6 +151,7 @@ export async function createOrder(input: CreateOrderInput) {
   const pricedLines = input.items.map((item, index) => {
     const product = productMap.get(item.productId);
     if (!product) throw new Error(`Product ${item.productId} is unavailable`);
+    assertMinimumOrderQuantity(product.nameEn, item.quantity, product.moq);
     const variant = item.variantId
       ? product.variants.find((candidate) => candidate.id === item.variantId)
       : undefined;

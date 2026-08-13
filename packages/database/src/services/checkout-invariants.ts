@@ -59,3 +59,9 @@ export function assertRequiredVariantSelection(
     throw new Error(`Select a product variant for "${productName}"`);
   }
 }
+
+export function assertMinimumOrderQuantity(productName: string, quantity: number, moq: number): void {
+  if (!Number.isInteger(quantity) || quantity < Math.max(1, moq)) {
+    throw new Error(`Minimum order quantity for "${productName}" is ${Math.max(1, moq)}`);
+  }
+}

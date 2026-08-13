@@ -12,6 +12,7 @@ export interface CartItem {
   imageUrl?: string;
   sku: string;
   qty: number;
+  moq?: number;
   unitPrice: number;
   vatRate?: number;
   sellerId: string;
@@ -28,6 +29,8 @@ interface CartStore {
   total: () => number;
   itemCount: () => number;
 }
+
+export const clampCartQuantity = (quantity: number, moq?: number) => Math.max(moq ?? 1, quantity);
 
 export const useCartStore = create<CartStore>()(
   persist(
@@ -48,7 +51,7 @@ export const useCartStore = create<CartStore>()(
 
       updateQty: (id, qty) => {
         if (qty <= 0) { get().removeItem(id); return; }
-        set((state) => ({ items: state.items.map((i) => i.id === id ? { ...i, qty } : i) }));
+        set((state) => ({ items: state.items.map((i) => i.id === id ? { ...i, qty: clampCartQuantity(qty, i.moq) } : i) }));
       },
 
       removeItem: (id) => set((state) => ({ items: state.items.filter((i) => i.id !== id) })),

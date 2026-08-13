@@ -182,6 +182,19 @@ afterAll(async () => {
 });
 
 describe("secureCreateOrder", () => {
+  it("rejects a direct checkout request below product MOQ", async () => {
+    await db.product.update({ where: { id: productId }, data: { moq: 10 } });
+    try {
+      await expect(secureCreateOrder({
+        userId: buyerId, type: "B2C", currency: "AED",
+        items: [{ productId, quantity: 1 }],
+        shippingAddress: { label: "Office", line1: "1 Test Street", city: "Dubai", country: "AE" },
+      })).rejects.toThrow(/minimum order quantity.*10/i);
+    } finally {
+      await db.product.update({ where: { id: productId }, data: { moq: 1 } });
+    }
+  });
+
   it("ignores a forged sellerId and persists the product's authoritative seller", async () => {
     const order = await secureCreateOrder({
       userId: buyerId,

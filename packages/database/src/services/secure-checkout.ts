@@ -1,7 +1,7 @@
 import type { Currency, PaymentMethod, UserRole } from "@prisma/client";
 import { db } from "../index";
 import { createOrder } from "./orders";
-import { assertRequiredVariantSelection } from "./checkout-invariants";
+import { assertMinimumOrderQuantity, assertRequiredVariantSelection } from "./checkout-invariants";
 
 const CUSTOMER_ROLES = new Set<UserRole>([
   "CONSUMER",
@@ -113,6 +113,7 @@ export async function secureCreateOrder(input: SecureCheckoutInput) {
       status: true,
       isB2CEnabled: true,
       isB2BEnabled: true,
+      moq: true,
       seller: { select: { status: true, deletedAt: true } },
       variants: { select: { id: true, isActive: true } },
     },
@@ -153,6 +154,10 @@ export async function secureCreateOrder(input: SecureCheckoutInput) {
       quantity,
       sellerId: product.sellerId,
     });
+  }
+  for (const line of trustedByLine.values()) {
+    const product = productMap.get(line.productId)!;
+    assertMinimumOrderQuantity(product.nameEn, line.quantity, product.moq);
   }
 
   return createOrder({

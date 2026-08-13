@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Trash2, Minus, Plus, ShoppingBag, ArrowRight, Truck, ShieldCheck, Heart } from "lucide-react";
+import { Trash2, Minus, Plus, ShoppingBag, ArrowRight, ShieldCheck, Heart } from "lucide-react";
 import { Button } from "@avenick/ui";
 import { formatCurrency } from "@avenick/utils";
 import { useCartStore } from "@/stores/cart";
@@ -15,8 +15,7 @@ export default function CartPage() {
   const { toggle } = useWishlist();
   const summary = summarizeCartCommercial(items);
   const subtotal = summary.valid ? summary.subtotal : 0;
-  const shipping = summary.valid && subtotal >= 200 ? 0 : 20;
-  const orderTotal = summary.valid ? summary.total + shipping : 0;
+  const orderTotal = summary.valid ? summary.total : 0;
 
   function saveForLater(item: typeof items[0]) {
     toggle({ id: item.productId, slug: item.productId, variantId: item.variantId, nameEn: item.nameEn, nameAr: item.nameAr, imageUrl: item.imageUrl, price: item.unitPrice, quantity: item.qty, vatRate: item.vatRate, currency: item.currency, sku: item.sku, sellerId: item.sellerId, inStock: true });
@@ -55,27 +54,6 @@ export default function CartPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Items list */}
             <div className="lg:col-span-2 space-y-3">
-              {/* Free shipping progress */}
-              {summary.valid && subtotal < 200 && (
-                <div className="bg-white rounded-2xl border border-border p-4">
-                  <div className="flex items-center gap-2 text-sm mb-2">
-                    <Truck className="h-4 w-4 text-primary" />
-                    <span>Add <strong>{formatCurrency(200 - subtotal, summary.valid ? summary.currency as never : "AED")}</strong> more for free shipping</span>
-                  </div>
-                  <div className="flex gap-0.5 h-2">
-                    {Array.from({ length: 10 }).map((_, i) => (
-                      <div key={i} className={`flex-1 rounded-full transition-colors ${i < Math.min(10, Math.floor(subtotal / 20)) ? "bg-primary/100" : "bg-slate-100"}`} />
-                    ))}
-                  </div>
-                </div>
-              )}
-              {subtotal >= 200 && (
-                <div className="bg-primary/10 border border-primary/30 rounded-2xl p-3 flex items-center gap-2 text-sm text-primary">
-                  <Truck className="h-4 w-4" />
-                  <span className="font-medium">You qualify for free shipping!</span>
-                </div>
-              )}
-
               {items.map((item) => (
                 <div key={item.id} className="flex gap-4 bg-white rounded-2xl border border-border p-4 hover:shadow-sm transition-shadow">
                   <Link href={`/products/${item.productId}`} className="w-20 h-20 shrink-0 bg-secondary rounded-xl overflow-hidden relative border border-border">
@@ -129,12 +107,6 @@ export default function CartPage() {
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">VAT</span>
                     <span>{summary.valid ? formatCurrency(summary.vatAmount, summary.currency as never) : "—"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Shipping</span>
-                    {shipping === 0
-                      ? <span className="text-primary font-medium">Free</span>
-                      : <span>{summary.valid ? formatCurrency(shipping, summary.currency as never) : "—"}</span>}
                   </div>
                   <div className="border-t border-border pt-2.5 flex justify-between font-bold text-base">
                     <span>Total</span>

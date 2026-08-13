@@ -9,7 +9,7 @@ export type CatalogListSource = {
   tags: string[]; moq: number; isB2CEnabled: boolean; isB2BEnabled: boolean;
   images: Array<{ url: string; altText?: string | null }>;
   prices: CatalogPrice[];
-  inventory: Array<{ qty: number; reservedQty: number }>;
+  inventory: Array<{ variantId: string | null; qty: number; reservedQty: number }>;
   variants: Array<{ id: string; prices: CatalogPrice[] }>;
   category: { nameEn: string; nameAr: string; slug: string };
   brand: { nameEn: string; nameAr: string | null } | null;
@@ -23,8 +23,18 @@ export function toCatalogListDto(source: CatalogListSource, channel: "B2C" | "B2
     && price.minQty <= source.moq
     && (price.maxQty == null || source.moq <= price.maxQty);
   const basePrices = source.prices.filter(applicableAtMoq);
-  const variantPrices = source.variants.flatMap((variant) => variant.prices.filter(applicableAtMoq));
-  const cardCandidates = basePrices.length > 0 ? basePrices : variantPrices;
+  const availableVariantIds = new Set(source.inventory
+    .filter((stock) => stock.variantId != null && stock.qty - stock.reservedQty > 0)
+    .map((stock) => stock.variantId));
+  const variantPrices = source.variants
+    .filter((variant) => availableVariantIds.has(variant.id))
+    .flatMap((variant) => {
+      const own = variant.prices.filter(applicableAtMoq);
+      return own.length > 0 ? own : basePrices;
+    });
+  const hasVariants = source.variants.length > 0;
+  const baseInStock = source.inventory.some((stock) => stock.variantId == null && stock.qty - stock.reservedQty > 0);
+  const cardCandidates = hasVariants ? variantPrices : baseInStock ? basePrices : [];
   const cardCurrency = currency ?? cardCandidates[0]?.currency;
   const cardPrice = cardCandidates
     .filter((price) => price.currency === cardCurrency)
@@ -51,9 +61,9 @@ export function toCatalogListDto(source: CatalogListSource, channel: "B2C" | "B2
       .map(({ type, currency: priceCurrency, minQty, maxQty, price, vatRate }) => ({
         type, currency: priceCurrency, minQty, maxQty, price, vatRate,
       })),
-    inventory: [{ inStock: source.inventory.some((stock) => stock.qty - stock.reservedQty > 0) }],
-    hasVariants: source.variants.length > 0,
-    cardPrice: cardPrice && { ...cardPrice, isFrom: source.variants.length > 0 },
+    inventory: [{ inStock: hasVariants ? availableVariantIds.size > 0 : baseInStock }],
+    hasVariants,
+    cardPrice: cardPrice && { ...cardPrice, isFrom: hasVariants },
     category: source.category,
     brand: source.brand,
     seller: source.seller,

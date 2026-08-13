@@ -54,7 +54,7 @@ export async function listProducts(params: ProductListParams) {
           include: {
             images: { where: { isPrimary: true }, take: 1 },
             prices: { where: { isActive: true } },
-            inventory: { select: { qty: true, reservedQty: true } },
+            inventory: { select: { variantId: true, qty: true, reservedQty: true } },
             variants: {
               where: { isActive: true },
               select: { id: true, prices: { where: { isActive: true } } },

@@ -12,7 +12,7 @@ describe("public catalog list privacy DTO", () => {
         { type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 10, vatRate: 5 },
         { type: "B2B", currency: "AED", minQty: 10, maxQty: null, price: 7, vatRate: 5 },
       ],
-      inventory: [{ qty: 50, reservedQty: 49 }],
+      inventory: [{ variantId: "variant", qty: 50, reservedQty: 49 }],
       variants: [{ id: "variant", prices: [] }],
       category: { nameEn: "Category", nameAr: "Category", slug: "category" }, brand: null,
       seller: { businessNameEn: "Seller", businessNameAr: null, tier: "VERIFIED", rating: 5 },

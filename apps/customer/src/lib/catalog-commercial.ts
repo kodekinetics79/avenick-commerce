@@ -26,6 +26,7 @@ export type StorefrontProduct = {
   prices: StorefrontPrice[];
   inventory: Array<{ inStock: boolean }>;
   variants: StorefrontVariant[];
+  moq?: number;
 };
 
 const money = (value: number) => Number(value.toFixed(2));
@@ -87,6 +88,7 @@ export function toStorefrontCartLine(
     imageUrl,
     sku: selection.sku,
     qty: quantity,
+    moq: product.moq ?? 1,
     unitPrice: selection.unitPrice,
     vatRate: selection.vatRate,
     sellerId: product.sellerId,

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingCart, Star, Heart, Truck, Package } from "lucide-react";
+import { ShoppingCart, Star, Heart, Package } from "lucide-react";
 import { formatCurrency } from "@avenick/utils";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
@@ -66,7 +66,7 @@ export function ProductCard({
       return;
     }
     if (price == null || !currency || vatRate == null) return;
-    addItem({ productId: id, nameEn, nameAr, imageUrl, sku, qty: moq, unitPrice: price, vatRate, sellerId, currency });
+    addItem({ productId: id, nameEn, nameAr, imageUrl, sku, qty: moq, moq, unitPrice: price, vatRate, sellerId, currency });
   }
 
   function handleWishlist(e: React.MouseEvent) {
@@ -160,9 +160,6 @@ export function ProductCard({
             <span className="text-lg font-bold font-mono tracking-tight text-foreground">{price != null && currency ? `${pricePresentation === "FROM" || priceIsFrom ? "From " : ""}${formatCurrency(price, currency as "AED", activeLocale)}` : "See options"}</span>
             {moq > 1 && <span className="block text-[11px] text-muted-foreground">{tp("minOrder")}: {moq} {tp("units")}</span>}
           </div>
-          <span className="inline-flex items-center gap-1 text-[11px] text-success">
-            <Truck className="h-3.5 w-3.5" /> Fast
-          </span>
         </div>
       </div>
     </Link>

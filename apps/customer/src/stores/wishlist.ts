@@ -39,6 +39,7 @@ export function toWishlistCartLine(item: WishlistItem) {
     imageUrl: item.imageUrl,
     sku: item.sku,
     qty: item.quantity ?? 1,
+    moq: item.quantity ?? 1,
     unitPrice: item.price,
     vatRate: item.vatRate,
     sellerId: item.sellerId,

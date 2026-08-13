@@ -8,6 +8,7 @@ import {
   canonicalOrderRequest,
   commercialSnapshotFingerprint,
 } from "./commerce-governance";
+import { assertMinimumOrderQuantity } from "./checkout-invariants";
 
 export interface PurchaseOrderLineInput {
   productId: string;
@@ -75,6 +76,7 @@ async function pricePOLines(
     if (!product || product.status !== "ACTIVE" || !product.isB2BEnabled) {
       throw new Error(`Product ${input.productId} is not available for B2B purchasing`);
     }
+    assertMinimumOrderQuantity(product.nameEn, input.quantity, product.moq);
     if (product.seller.status !== "ACTIVE" || product.seller.deletedAt) {
       throw new Error(`Seller for "${product.nameEn}" is unavailable`);
     }

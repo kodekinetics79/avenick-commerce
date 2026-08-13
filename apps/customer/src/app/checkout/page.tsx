@@ -94,6 +94,18 @@ export default function CheckoutPage() {
     );
   }
 
+  if (!summary.valid && step !== "success") {
+    return (
+      <MainLayout>
+        <div className="max-w-xl mx-auto px-4 py-20 text-center">
+          <h1 className="text-xl font-bold mb-2">Checkout unavailable</h1>
+          <p className="text-destructive mb-5">Cart items must have one currency and complete VAT facts. No estimate or order has been submitted.</p>
+          <Button asChild variant="primary"><a href="/cart">Review cart</a></Button>
+        </div>
+      </MainLayout>
+    );
+  }
+
   if (step === "success") {
     return (
       <MainLayout>

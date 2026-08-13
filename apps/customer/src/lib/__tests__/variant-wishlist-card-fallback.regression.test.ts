@@ -6,6 +6,7 @@ import {
 } from "../catalog-commercial";
 import { productCardPricePresentation, productCardPurchaseAction, productCardReviewState } from "../product-card-commerce";
 import { toWishlistCartLine, wishlistItemKey } from "../../stores/wishlist";
+import { clampCartQuantity } from "../../stores/cart";
 import { summarizeCartCommercial } from "../cart-commercial";
 import { toCatalogListDto } from "../catalog-list-dto";
 
@@ -105,13 +106,31 @@ describe("variant wishlist, list card, and base-price fallback", () => {
     });
     expect({ currency: cartLine.currency, items: [{ productId: cartLine.productId, variantId: cartLine.variantId, quantity: cartLine.qty }] })
       .toEqual({ currency: "SAR", items: [{ productId: "base-priced-product", variantId: "blue-42", quantity: 10 }] });
+    expect(clampCartQuantity(1, cartLine.moq)).toBe(10);
+  });
+
+  it("uses the minimum purchasable variant price, excluding unavailable variants", () => {
+    const dto = toCatalogListDto({
+      id: "p", sellerId: "s", sku: "P", slug: "p", nameEn: "P", nameAr: "P",
+      descriptionEn: null, descriptionAr: null, origin: null, tags: [], moq: 1,
+      isB2CEnabled: true, isB2BEnabled: false, images: [], prices: [], inventory: [
+        { variantId: "cheap", qty: 0, reservedQty: 0 }, { variantId: "available", qty: 2, reservedQty: 0 },
+      ],
+      variants: [
+        { id: "cheap", prices: [{ type: "B2C", currency: "SAR", minQty: 1, maxQty: null, price: 20, vatRate: 0 }] },
+        { id: "available", prices: [{ type: "B2C", currency: "SAR", minQty: 1, maxQty: null, price: 90, vatRate: 15 }] },
+      ],
+      category: { nameEn: "C", nameAr: "C", slug: "c" }, brand: null,
+      seller: { businessNameEn: "S", businessNameAr: null, tier: "VERIFIED", rating: 0 },
+    }, "B2C");
+    expect(dto.cardPrice).toEqual({ amount: 90, currency: "SAR", vatRate: 15, isFrom: true });
   });
 
   it("publishes a truthful SAR variant-only card price without exposing variant topology", () => {
     const dto = toCatalogListDto({
       id: "p", sellerId: "s", sku: "P", slug: "p", nameEn: "P", nameAr: "P",
       descriptionEn: null, descriptionAr: null, origin: null, tags: [], moq: 1,
-      isB2CEnabled: true, isB2BEnabled: false, images: [], prices: [], inventory: [{ qty: 2, reservedQty: 0 }],
+      isB2CEnabled: true, isB2BEnabled: false, images: [], prices: [], inventory: [{ variantId: "private-topology-id", qty: 2, reservedQty: 0 }],
       variants: [{ id: "private-topology-id", prices: [
         { type: "B2C", currency: "SAR", minQty: 1, maxQty: null, price: 125, vatRate: 15 },
       ] }],
