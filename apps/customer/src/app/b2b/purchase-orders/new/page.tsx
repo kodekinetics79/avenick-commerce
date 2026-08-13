@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Building2, CheckCircle2, ShoppingCart } from "lucide-react";
 import { B2BShell } from "@/components/b2b/b2b-shell";
 import { useCartStore } from "@/stores/cart";
-import { formatCurrency } from "@avenick/utils";
+import { formatCurrency, type SupportedCurrency } from "@avenick/utils";
 
 type CompanyContext = {
   companyName: string;
   country: string;
-  currency: string;
+  currency: SupportedCurrency;
   memberRole: string;
   spendLimit: number | null;
   paymentTermsDays: number;
@@ -21,7 +21,7 @@ type CreatedPO = {
   poNumber: string;
   status: string;
   total: string | number;
-  currency: string;
+  currency: SupportedCurrency;
 };
 
 export default function NewPurchaseOrderPage() {
