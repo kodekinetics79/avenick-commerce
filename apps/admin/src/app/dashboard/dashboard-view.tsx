@@ -127,7 +127,7 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
         <div className="relative px-6 py-7 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
           <div>
             <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" /> Live · Modern Trade OS
+              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" /> Database-backed marketplace overview
             </span>
             <h1 className="mt-2 text-3xl font-extrabold tracking-tight">Executive Command Center</h1>
             <p className="mt-1.5 text-sm text-muted-foreground max-w-xl">
