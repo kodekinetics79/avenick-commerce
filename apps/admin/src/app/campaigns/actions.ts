@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdminSession } from "@/lib/auth";
-import { AuditAction, db, type Currency, type Prisma } from "@avenick/database";
+import { AuditAction, db, lockPromotionCommercialRows, type Currency, type Prisma } from "@avenick/database";
 
 const PROMOTION_TYPES = new Set(["PERCENTAGE", "FIXED_AMOUNT"]);
 const PROMOTION_STATUSES = new Set(["DRAFT", "ACTIVE", "PAUSED", "ENDED"]);
@@ -88,19 +88,19 @@ export async function setPromotionStatus(id: string, status: string) {
   const { userId } = await requireAdminSession();
   const next = status.toUpperCase();
   if (!PROMOTION_STATUSES.has(next)) throw new Error("Unsupported promotion status");
-  const current = await db.commercePromotion.findUnique({ where: { id } });
-  if (!current || current.status === next) return;
-  if (next === "ACTIVE" && current.endsAt && current.endsAt < new Date()) throw new Error("Expired promotion cannot be activated");
-
-  await db.$transaction([
-    db.commercePromotion.update({
+  await db.$transaction(async (tx) => {
+    await lockPromotionCommercialRows(tx, [id]);
+    const current = await tx.commercePromotion.findUnique({ where: { id } });
+    if (!current || current.status === next) return;
+    if (next === "ACTIVE" && current.endsAt && current.endsAt < new Date()) throw new Error("Expired promotion cannot be activated");
+    await tx.commercePromotion.update({
       where: { id },
       data: {
         status: next,
         ...(next === "ACTIVE" ? { approvedById: userId } : {}),
       },
-    }),
-    db.auditLog.create({
+    });
+    await tx.auditLog.create({
       data: {
         actorId: userId,
         entityType: "CommercePromotion",
@@ -109,8 +109,8 @@ export async function setPromotionStatus(id: string, status: string) {
         before: { status: current.status },
         after: { status: next },
       },
-    }),
-  ]);
+    });
+  });
   revalidatePath("/campaigns");
 }
 
@@ -119,18 +119,17 @@ export async function createCoupon(formData: FormData) {
   const promotionId = text(formData, "promotionId");
   const code = text(formData, "code").toUpperCase().replace(/\s+/g, "");
   if (!/^[A-Z0-9_-]{3,40}$/.test(code)) throw new Error("Coupon code must be 3-40 letters/numbers/_/-");
-  const promotion = await db.commercePromotion.findUnique({ where: { id: promotionId } });
-  if (!promotion) throw new Error("Promotion not found");
-
   const startsAt = optionalDate(formData, "startsAt");
   const endsAt = optionalDate(formData, "endsAt");
   if (startsAt && endsAt && endsAt <= startsAt) throw new Error("Coupon end must be after start");
-  const eligibility: Prisma.InputJsonObject = {
-    ...jsonObject(promotion.eligibility),
-    requiresCoupon: true,
-  };
-
   const coupon = await db.$transaction(async (tx) => {
+    await lockPromotionCommercialRows(tx, [promotionId]);
+    const promotion = await tx.commercePromotion.findUnique({ where: { id: promotionId } });
+    if (!promotion) throw new Error("Promotion not found");
+    const eligibility: Prisma.InputJsonObject = {
+      ...jsonObject(promotion.eligibility),
+      requiresCoupon: true,
+    };
     // Once a coupon exists against a promotion, that promotion becomes coupon-
     // gated. Otherwise checkout could apply the same rule automatically and then
     // apply it again when the buyer supplies the code.

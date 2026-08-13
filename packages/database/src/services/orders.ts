@@ -312,6 +312,17 @@ export async function createOrder(input: CreateOrderInput) {
           await enforcePromotionRedemptionCapacity(tx, {
             userId: input.userId,
             currency: input.currency,
+            companyId: input.companyId,
+            country: input.shippingAddress["country"],
+            lines: pricedLines.map((line) => ({
+              key: line.key,
+              productId: line.productId,
+              categoryId: line.categoryId,
+              brandId: line.brandId,
+              sellerId: line.sellerId,
+              quantity: line.quantity,
+              baseUnitPrice: line.unitPrice,
+            })),
             applied: promotion.applied,
           });
         }

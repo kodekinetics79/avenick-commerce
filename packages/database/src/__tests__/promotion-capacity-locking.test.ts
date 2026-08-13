@@ -10,13 +10,24 @@ function transaction(overrides: Record<string, unknown> = {}) {
         id: "promo_1",
         status: "ACTIVE",
         currency: "AED",
+        type: "PERCENTAGE",
+        value: 20,
+        scope: "PLATFORM",
+        eligibility: {},
+        startsAt: null,
+        endsAt: null,
+        minOrderAmount: null,
+        maxDiscountAmount: null,
         usageLimit: 10,
         perCustomerLimit: 2,
         campaignBudget: 100,
       }),
     },
     promotionCoupon: {
-      findUnique: vi.fn().mockResolvedValue({ id: "coupon_1", status: "ACTIVE", usageLimit: 5, perCustomerLimit: 1 }),
+      findUnique: vi.fn().mockResolvedValue({
+        id: "coupon_1", promotionId: "promo_1", status: "ACTIVE", usageLimit: 5, perCustomerLimit: 1,
+        startsAt: null, endsAt: null,
+      }),
     },
     promotionRedemption: {
       count: vi.fn().mockResolvedValue(0),
@@ -27,12 +38,18 @@ function transaction(overrides: Record<string, unknown> = {}) {
 }
 
 describe("promotion redemption concurrency capacity", () => {
+  const lines = [{
+    key: "line-1", productId: "product-1", categoryId: "category-1", sellerId: "seller-1",
+    quantity: 1, baseUnitPrice: 200,
+  }];
+
   it("takes transaction advisory locks before accepting available campaign capacity", async () => {
     const tx = transaction();
     await expect(enforcePromotionRedemptionCapacity(tx as unknown as Prisma.TransactionClient, {
       userId: "user_1",
       currency: "AED",
-      applied: [{ promotionId: "promo_1", couponId: "coupon_1", discount: 30 }],
+      lines,
+      applied: [{ promotionId: "promo_1", couponId: "coupon_1", source: "COUPON", discount: 30, eligibleLineKeys: ["line-1"] }],
     })).resolves.toBeUndefined();
     expect(tx.$executeRaw).toHaveBeenCalledTimes(2);
     expect(tx.commercePromotion.findUnique.mock.invocationCallOrder[0]).toBeGreaterThan(
@@ -45,7 +62,8 @@ describe("promotion redemption concurrency capacity", () => {
     await expect(enforcePromotionRedemptionCapacity(tx as unknown as Prisma.TransactionClient, {
       userId: "user_1",
       currency: "AED",
-      applied: [{ promotionId: "promo_1", discount: 30.01 }],
+      lines,
+      applied: [{ promotionId: "promo_1", source: "AUTOMATIC", discount: 30.01, eligibleLineKeys: ["line-1"] }],
     })).rejects.toThrow(/campaign budget/);
   });
 
@@ -59,7 +77,8 @@ describe("promotion redemption concurrency capacity", () => {
     await expect(enforcePromotionRedemptionCapacity(tx as unknown as Prisma.TransactionClient, {
       userId: "user_1",
       currency: "AED",
-      applied: [{ promotionId: "promo_1", couponId: "coupon_1", discount: 20 }],
+      lines,
+      applied: [{ promotionId: "promo_1", couponId: "coupon_1", source: "COUPON", discount: 20, eligibleLineKeys: ["line-1"] }],
     })).rejects.toThrow(/this account/);
   });
 });

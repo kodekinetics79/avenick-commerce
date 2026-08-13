@@ -61,6 +61,50 @@ run("deployed inbound integration worker", () => {
     })).resolves.toMatchObject({ state: "ACCEPTED", externalOrderId: "ERP-100", correlationId: "corr-100" });
   });
 
+  it("allows only one terminal winner for two claimed opposing ERP statuses", async () => {
+    const source = `${marker}-opposing`;
+    await Promise.all([
+      recordIntegrationInbound({
+        tenantKey: marker, source, externalEventId: `${marker}-opposing-accepted`, eventType: "ORDER_STATUS_CHANGED",
+        payload: { orderId, status: "ACCEPTED", externalOrderId: "ERP-WINNER" },
+      }),
+      recordIntegrationInbound({
+        tenantKey: marker, source, externalEventId: `${marker}-opposing-rejected`, eventType: "ORDER_STATUS_CHANGED",
+        payload: { orderId, status: "REJECTED", reason: "ERP_REJECTED" },
+      }),
+    ]);
+    const [first] = await claimIntegrationInbox({ workerId: `${marker}-opposing-a`, source, limit: 1 });
+    const [second] = await claimIntegrationInbox({ workerId: `${marker}-opposing-b`, source, limit: 1 });
+    expect(first?.id).not.toBe(second?.id);
+
+    let release!: () => void;
+    let locked!: () => void;
+    const releaseSignal = new Promise<void>((resolve) => { release = resolve; });
+    const lockedSignal = new Promise<void>((resolve) => { locked = resolve; });
+    const blocker = db.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`erp-state:${marker}:${orderId}:${source}`}))`;
+      locked();
+      await releaseSignal;
+    });
+    await lockedSignal;
+    const processes = [first!, second!].map((lease) => processIntegrationInboxMessage(
+      lease,
+      DEPLOYED_INTEGRATION_INBOX_HANDLERS["*:ORDER_STATUS_CHANGED"]!,
+    ));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    release();
+    await blocker;
+    const results = await Promise.all(processes);
+
+    expect(results.map((result) => result.status).sort()).toEqual(["PROCESSED", "RETRY"]);
+    const state = await db.orderIntegrationState.findUniqueOrThrow({
+      where: { tenantKey_orderId_system: { tenantKey: marker, orderId, system: source } },
+    });
+    expect(["ACCEPTED", "REJECTED"]).toContain(state.state);
+    const inbox = await db.integrationInbox.findMany({ where: { source }, select: { status: true } });
+    expect(inbox.map((row) => row.status).sort()).toEqual(["PROCESSED", "RETRY"]);
+  });
+
   it("retries, dead-letters, redrives and commits handler writes with acknowledgement", async () => {
     const source = `${marker}-retry`;
     const received = await recordIntegrationInbound({

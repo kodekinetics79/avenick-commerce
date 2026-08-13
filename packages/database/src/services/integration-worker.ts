@@ -212,14 +212,13 @@ const orderStatusHandler: IntegrationInboxHandler = async ({ message, tx }) => {
   const order = await tx.order.findUnique({ where: { id: orderId }, select: { id: true } });
   if (!order) throw new Error("Inbound ERP status references an unknown order");
   const key = { tenantKey_orderId_system: { tenantKey: message.tenantKey, orderId, system } };
+  await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`erp-state:${message.tenantKey}:${orderId}:${system}`}))`);
   const current = await tx.orderIntegrationState.findUnique({ where: key });
   if (current && ["ACCEPTED", "REJECTED"].includes(current.state) && current.state !== status) {
     throw new Error(`ERP terminal state is monotonic: ${current.state} cannot become ${status}`);
   }
   const now = new Date();
-  await tx.orderIntegrationState.upsert({
-    where: key,
-    update: {
+  const data = {
       state: status,
       externalOrderId: typeof payload.externalOrderId === "string" ? payload.externalOrderId : current?.externalOrderId,
       correlationId: typeof payload.correlationId === "string" ? payload.correlationId : current?.correlationId,
@@ -227,8 +226,15 @@ const orderStatusHandler: IntegrationInboxHandler = async ({ message, tx }) => {
       ...(status === "ACCEPTED"
         ? { acceptedAt: current?.acceptedAt ?? now, rejectedAt: null, rejectionReason: null }
         : { rejectedAt: current?.rejectedAt ?? now, rejectionReason: typeof payload.reason === "string" ? payload.reason.slice(0, 4000) : "ERP_REJECTED" }),
-    },
-    create: {
+  };
+  if (current) {
+    const changed = await tx.orderIntegrationState.updateMany({
+      where: { id: current.id, state: current.state },
+      data,
+    });
+    if (changed.count !== 1) throw new Error("ERP state changed concurrently; retry the inbound event");
+  } else {
+    await tx.orderIntegrationState.create({ data: {
       tenantKey: message.tenantKey,
       orderId,
       system,
@@ -239,8 +245,8 @@ const orderStatusHandler: IntegrationInboxHandler = async ({ message, tx }) => {
       ...(status === "ACCEPTED"
         ? { acceptedAt: now }
         : { rejectedAt: now, rejectionReason: typeof payload.reason === "string" ? payload.reason.slice(0, 4000) : "ERP_REJECTED" }),
-    },
-  });
+    } });
+  }
 };
 
 export const DEPLOYED_INTEGRATION_INBOX_HANDLERS: IntegrationInboxHandlers = {

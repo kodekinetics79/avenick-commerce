@@ -30,6 +30,7 @@ export type AppliedPromotion = {
   couponId?: string;
   couponCode?: string;
   discount: number;
+  eligibleLineKeys: string[];
 };
 
 export type PromotionEvaluation = {
@@ -39,7 +40,7 @@ export type PromotionEvaluation = {
   explanation: Array<Record<string, unknown>>;
 };
 
-export type PromotionRedemptionCandidate = Pick<AppliedPromotion, "promotionId" | "couponId" | "discount">;
+export type PromotionRedemptionCandidate = Pick<AppliedPromotion, "promotionId" | "couponId" | "discount" | "source" | "eligibleLineKeys">;
 
 const money = (value: number) => Math.max(0, Number(value.toFixed(2)));
 const nowActive = (startsAt: Date | null, endsAt: Date | null, now: Date) =>
@@ -132,6 +133,21 @@ function mergeLineDiscounts(target: Record<string, number>, addition: Record<str
   }
 }
 
+/** Campaign mutations and redemption decisions use one globally ordered fence. */
+export async function lockPromotionCommercialRows(
+  tx: Pick<Prisma.TransactionClient, "$executeRaw">,
+  promotionIds: string[],
+  couponIds: string[] = [],
+) {
+  const keys = [
+    ...new Set(promotionIds.map((id) => `promotion:${id}`)),
+    ...new Set(couponIds.map((id) => `coupon:${id}`)),
+  ].sort();
+  for (const key of keys) {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${key}))`);
+  }
+}
+
 /**
  * Must be called inside the same transaction that creates PromotionRedemption
  * rows. Sorted transaction-scoped advisory locks serialize every checkout that
@@ -143,23 +159,45 @@ export async function enforcePromotionRedemptionCapacity(
   input: {
     userId: string;
     currency: Currency;
+    companyId?: string;
+    country?: string;
+    lines: PromotionLine[];
     applied: PromotionRedemptionCandidate[];
   },
 ) {
   const promotionIds = [...new Set(input.applied.map((item) => item.promotionId))].sort();
   const couponIds = [...new Set(input.applied.flatMap((item) => item.couponId ? [item.couponId] : []))].sort();
-  for (const key of [...promotionIds.map((id) => `promotion:${id}`), ...couponIds.map((id) => `coupon:${id}`)].sort()) {
-    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${key}))`);
-  }
+  await lockPromotionCommercialRows(tx, promotionIds, couponIds);
 
   for (const promotionId of promotionIds) {
     const promotion = await tx.commercePromotion.findUnique({ where: { id: promotionId } });
-    if (!promotion || promotion.status !== "ACTIVE" || (promotion.currency && promotion.currency !== input.currency)) {
+    const now = new Date();
+    if (!promotion || promotion.status !== "ACTIVE" || (promotion.currency && promotion.currency !== input.currency)
+      || !nowActive(promotion.startsAt, promotion.endsAt, now)) {
       throw new Error("Promotion changed while the order was being submitted");
+    }
+    const candidates = input.applied.filter((item) => item.promotionId === promotionId);
+    const eligibility = asEligibility(promotion.eligibility);
+    if (candidates.some((item) => item.source === "AUTOMATIC") && eligibility.requiresCoupon) {
+      throw new Error("Promotion changed to coupon-only while the order was being submitted");
+    }
+    if (promotion.scope === "SELLER" && promotion.sellerId && !input.lines.some((line) => line.sellerId === promotion.sellerId)) {
+      throw new Error("Promotion eligibility changed while the order was being submitted");
+    }
+    if (promotion.scope === "COMPANY" && promotion.companyId !== input.companyId) {
+      throw new Error("Promotion eligibility changed while the order was being submitted");
+    }
+    const recalculated = calculatePromotionDiscount(promotion, input.lines, input.companyId, input.country);
+    const eligibleLineKeys = [...recalculated.eligibleLineKeys].sort();
+    if (candidates.some((item) => JSON.stringify([...item.eligibleLineKeys].sort()) !== JSON.stringify(eligibleLineKeys))) {
+      throw new Error("Promotion eligibility changed while the order was being submitted");
     }
     const candidateDiscount = money(input.applied
       .filter((item) => item.promotionId === promotionId)
       .reduce((sum, item) => sum + item.discount, 0));
+    if (recalculated.discount <= 0 || candidateDiscount > recalculated.discount) {
+      throw new Error("Promotion eligibility changed while the order was being submitted");
+    }
     const [usage, customerUsage, spent] = await Promise.all([
       tx.promotionRedemption.count({ where: { promotionId } }),
       tx.promotionRedemption.count({ where: { promotionId, userId: input.userId } }),
@@ -181,7 +219,11 @@ export async function enforcePromotionRedemptionCapacity(
 
   for (const couponId of couponIds) {
     const coupon = await tx.promotionCoupon.findUnique({ where: { id: couponId } });
-    if (!coupon || coupon.status !== "ACTIVE") throw new Error("Coupon changed while the order was being submitted");
+    const candidate = input.applied.find((item) => item.couponId === couponId);
+    if (!coupon || coupon.status !== "ACTIVE" || !nowActive(coupon.startsAt, coupon.endsAt, new Date())
+      || !candidate || candidate.source !== "COUPON" || coupon.promotionId !== candidate.promotionId) {
+      throw new Error("Coupon changed while the order was being submitted");
+    }
     const [usage, customerUsage] = await Promise.all([
       tx.promotionRedemption.count({ where: { couponId } }),
       tx.promotionRedemption.count({ where: { couponId, userId: input.userId } }),
@@ -274,6 +316,7 @@ export async function evaluateCommercePromotions(input: {
       name: candidate.promotion.name,
       source: "AUTOMATIC",
       discount,
+      eligibleLineKeys: candidate.eligibleLineKeys,
     });
     explanation.push({
       step: "PROMOTION",
@@ -336,6 +379,7 @@ export async function evaluateCommercePromotions(input: {
       couponId: coupon.id,
       couponCode: coupon.code,
       discount,
+      eligibleLineKeys: calculated.eligibleLineKeys,
     });
     explanation.push({
       step: "COUPON",
