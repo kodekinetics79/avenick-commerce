@@ -10,6 +10,79 @@ import { governedIntegrationPolicy } from "./integration-policy";
 
 const ORDER_SYSTEMS = ["D365", "SAP", "ERP"];
 
+export async function saveGovernedIntegrationConnection(input: {
+  tenantKey?: string;
+  system: string;
+  connectionKey: string;
+  name: string;
+  baseUrl: string | null;
+  credentialsRef: string | null;
+  actorId: string;
+  afterGovernanceLocks?: () => Promise<void>;
+}) {
+  const tenantKey = input.tenantKey ?? "default";
+  return db.$transaction(async (tx) => {
+    await lockIntegrationRegistry(tx, tenantKey);
+    const existing = await tx.integrationConnection.findUnique({
+      where: { tenantKey_system_connectionKey: { tenantKey, system: input.system, connectionKey: input.connectionKey } },
+    });
+    if (existing) await lockIntegrationConnections(tx, [existing.id]);
+    await requireCurrentAdminActor(tx, input.actorId);
+    await input.afterGovernanceLocks?.();
+
+    if ((input.baseUrl == null) !== (input.credentialsRef == null)) {
+      throw new Error("Integration endpoint and credential reference must be configured together");
+    }
+    if (existing?.status === "ACTIVE" && (!input.baseUrl || !input.credentialsRef)) {
+      throw new Error("Active integration metadata cannot remove its endpoint or credential reference; disable it first");
+    }
+    const connectionPolicyChanged = !existing || existing.baseUrl !== input.baseUrl || existing.credentialsRef !== input.credentialsRef;
+    if (connectionPolicyChanged && input.baseUrl && input.credentialsRef) {
+      governedIntegrationPolicy({ system: input.system, baseUrl: input.baseUrl, credentialsRef: input.credentialsRef });
+    }
+    if (existing) {
+      const unresolved = await tx.integrationOutbox.count({
+        where: { connectionId: existing.id, status: { in: ["PENDING", "PROCESSING", "RETRY"] } },
+      });
+      if (unresolved > 0) throw new Error("Integration connection cannot be edited while outbound work is unresolved");
+      const updated = await tx.integrationConnection.update({
+        where: { id: existing.id },
+        data: { name: input.name, baseUrl: input.baseUrl, credentialsRef: input.credentialsRef },
+      });
+      await tx.auditLog.create({ data: {
+        actorId: input.actorId,
+        entityType: "IntegrationConnection",
+        entityId: existing.id,
+        action: "UPDATE",
+        before: { name: existing.name, baseUrl: existing.baseUrl, credentialsRef: existing.credentialsRef ? "REFERENCE_SET" : "NOT_SET", status: existing.status },
+        after: { name: updated.name, baseUrl: updated.baseUrl, credentialsRef: updated.credentialsRef ? "REFERENCE_SET" : "NOT_SET", status: updated.status },
+      } });
+      return updated;
+    }
+
+    const created = await tx.integrationConnection.create({ data: {
+      tenantKey,
+      system: input.system,
+      connectionKey: input.connectionKey,
+      name: input.name,
+      baseUrl: input.baseUrl,
+      credentialsRef: input.credentialsRef,
+      status: "DISABLED",
+    } });
+    await tx.auditLog.create({ data: {
+      actorId: input.actorId,
+      entityType: "IntegrationConnection",
+      entityId: created.id,
+      action: "CREATE",
+      after: {
+        system: created.system, connectionKey: created.connectionKey, name: created.name,
+        baseUrl: created.baseUrl, credentialsRef: created.credentialsRef ? "REFERENCE_SET" : "NOT_SET", status: created.status,
+      },
+    } });
+    return created;
+  });
+}
+
 /** Resolve the one governed outbound ERP route while its registry is fenced. */
 export async function resolveCompanyOrderIntegration(
   tx: Prisma.TransactionClient,

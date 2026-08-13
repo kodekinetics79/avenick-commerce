@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { db } from "../index";
 import { secureCreateOrder } from "../services/secure-checkout";
-import { setGovernedIntegrationConnectionStatus } from "../services/integration-routing";
+import { saveGovernedIntegrationConnection, setGovernedIntegrationConnectionStatus } from "../services/integration-routing";
 
 const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
 const users: string[] = [];
@@ -159,5 +159,59 @@ run("company ERP routing governance", () => {
     release();
     await expect(disable).resolves.toMatchObject({ status: "DISABLED" });
     await expect(order).rejects.toThrow(/unavailable|disconnected/i);
+  });
+
+  it("lets an order commit first and rejects a metadata edit with unresolved work", async () => {
+    const f = await fixture("order-before-edit");
+    await db.integrationCompanyRoute.create({ data: { companyId: f.company.id, connectionId: f.first.id } });
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let locked!: () => void;
+    const signal = new Promise<void>((resolve) => { locked = resolve; });
+    const order = place(f, "order-before-edit", async () => { locked(); await held; });
+    await signal;
+    const edit = saveGovernedIntegrationConnection({
+      system: "ERP", connectionKey: f.first.connectionKey, name: "Edited after order",
+      baseUrl: f.first.baseUrl, credentialsRef: f.first.credentialsRef, actorId: f.admin.id,
+    });
+    release();
+    await expect(order).resolves.toMatchObject({ companyId: f.company.id });
+    await expect(edit).rejects.toThrow(/unresolved/i);
+    await expect(db.integrationConnection.findUniqueOrThrow({ where: { id: f.first.id } })).resolves.toMatchObject({
+      name: f.first.name,
+      status: "ACTIVE",
+    });
+  });
+
+  it("preserves ACTIVE status when metadata edit wins before order routing", async () => {
+    const f = await fixture("edit-before-order");
+    await db.integrationCompanyRoute.create({ data: { companyId: f.company.id, connectionId: f.first.id } });
+    const priorBaseUrl = process.env.INTEGRATION_ERP_BASE_URL;
+    const priorCredentialRef = process.env.INTEGRATION_ERP_CREDENTIAL_REF;
+    process.env.INTEGRATION_ERP_BASE_URL = f.first.baseUrl!;
+    process.env.INTEGRATION_ERP_CREDENTIAL_REF = f.first.credentialsRef!;
+    try {
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      let locked!: () => void;
+      const signal = new Promise<void>((resolve) => { locked = resolve; });
+      const edit = saveGovernedIntegrationConnection({
+        system: "ERP", connectionKey: f.first.connectionKey, name: "Edited before order",
+        baseUrl: f.first.baseUrl, credentialsRef: f.first.credentialsRef, actorId: f.admin.id,
+        afterGovernanceLocks: async () => { locked(); await held; },
+      });
+      await signal;
+      const order = place(f, "edit-before-order");
+      release();
+      await expect(edit).resolves.toMatchObject({ name: "Edited before order", status: "ACTIVE" });
+      const created = await order;
+      await expect(db.integrationOutbox.findFirstOrThrow({ where: { aggregateId: created.id } }))
+        .resolves.toMatchObject({ connectionId: f.first.id });
+    } finally {
+      if (priorBaseUrl === undefined) delete process.env.INTEGRATION_ERP_BASE_URL;
+      else process.env.INTEGRATION_ERP_BASE_URL = priorBaseUrl;
+      if (priorCredentialRef === undefined) delete process.env.INTEGRATION_ERP_CREDENTIAL_REF;
+      else process.env.INTEGRATION_ERP_CREDENTIAL_REF = priorCredentialRef;
+    }
   });
 });

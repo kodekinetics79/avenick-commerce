@@ -2,13 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  AuditAction,
-  db,
   governedIntegrationPolicy,
-  lockIntegrationRegistry,
   redriveIntegrationInbox,
   redriveIntegrationOutbox,
-  requireCurrentAdminActor,
+  saveGovernedIntegrationConnection,
   setCompanyIntegrationRoute,
   setGovernedIntegrationConnectionStatus,
 } from "@avenick/database";
@@ -35,51 +32,8 @@ export async function createIntegrationConnection(formData: FormData) {
     : null;
   const baseUrl = configured?.baseUrl ?? null;
   const credentialsRef = configured?.credentialsRef ?? null;
-  await db.$transaction(async (tx) => {
-    await lockIntegrationRegistry(tx);
-    await requireCurrentAdminActor(tx, userId);
-    const connection = await tx.integrationConnection.upsert({
-    where: {
-      tenantKey_system_connectionKey: {
-        tenantKey: "default",
-        system,
-        connectionKey,
-      },
-    },
-    update: {
-      name,
-      baseUrl,
-      credentialsRef,
-      // Editing connection metadata never silently makes it active.
-      status: "DISABLED",
-      lastError: null,
-    },
-    create: {
-      tenantKey: "default",
-      system,
-      connectionKey,
-      name,
-      baseUrl,
-      credentialsRef,
-      status: "DISABLED",
-    },
-    });
-    await tx.auditLog.create({
-    data: {
-      actorId: userId,
-      entityType: "IntegrationConnection",
-      entityId: connection.id,
-      action: AuditAction.UPDATE,
-      after: {
-        system,
-        connectionKey,
-        name,
-        baseUrl,
-        credentialsRef: credentialsRef ? "REFERENCE_SET" : "NOT_SET",
-        status: "DISABLED",
-      },
-    },
-    });
+  await saveGovernedIntegrationConnection({
+    system, connectionKey, name, baseUrl, credentialsRef, actorId: userId,
   });
   revalidatePath("/integrations");
 }
