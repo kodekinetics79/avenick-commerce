@@ -182,10 +182,6 @@ export async function createGovernedPurchaseOrder(input: {
   });
 }
 
-async function assertApprovedPriceSnapshotStillCurrent(po: Awaited<ReturnType<typeof db.purchaseOrder.findUnique>> & { items?: never }) {
-  void po;
-}
-
 /**
  * Converts an approved line-based PO through the same hardened checkout service
  * used by direct orders. Header-only legacy POs are deliberately refused.

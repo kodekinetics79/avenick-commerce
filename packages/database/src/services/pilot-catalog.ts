@@ -436,7 +436,7 @@ export async function applyPilotCatalog(file: PilotCatalogFile, options: {
         actorId: options.actorId,
         entityType: "PilotCatalogImport",
         entityId: createHash("sha256").update(JSON.stringify(result)).digest("hex").slice(0, 24),
-        action: "IMPORT",
+        action: "CREATE",
         after: result,
       },
     });

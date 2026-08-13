@@ -26,6 +26,7 @@ export * from "./services/orders";
 export * from "./services/secure-checkout";
 export * from "./services/b2b-purchase-orders";
 export * from "./services/promotions";
+export * from "./services/pilot-catalog";
 export * from "./services/integrations";
 export * from "./services/inventory";
 export * from "./services/admin";
