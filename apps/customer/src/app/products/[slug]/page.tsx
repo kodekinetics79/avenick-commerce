@@ -10,7 +10,7 @@ import { formatCurrency } from "@avenick/utils";
 import { MainLayout } from "@/components/layout/main-layout";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
-import { resolveStorefrontSelection, toStorefrontCartLine, type StorefrontProduct } from "@/lib/catalog-commercial";
+import { resolveStorefrontSelection, toStorefrontCartLine, toStorefrontWishlistItem, type StorefrontProduct } from "@/lib/catalog-commercial";
 
 type Review = { id: string; rating: number; title?: string | null; body?: string | null; isVerified?: boolean; createdAt: string; user?: { firstName: string; lastName: string } };
 
@@ -99,7 +99,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
   const vatRate = selection?.vatRate ?? 0;
   const vatPerUnit = selection?.vatPerUnit ?? 0;
   const productId = String(p.id);
-  const wishlisted = has(productId);
+  const wishlisted = has(productId, selection?.variantId);
   const reviews = (p.reviews as Review[]) ?? [];
   const reviewCount = reviews.length;
   const avgRating = reviewCount > 0 ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviewCount) * 10) / 10 : 4.6;
@@ -164,7 +164,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                     <h1 className="text-2xl font-bold leading-tight">{String(p.nameEn)}</h1>
                     {!!p.nameAr && <p className="text-base text-muted-foreground mt-0.5" dir="rtl">{String(p.nameAr)}</p>}
                   </div>
-                  <button type="button" aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"} onClick={() => toggle({ id: productId, slug: params.slug, nameEn: selection?.nameEn ?? String(p.nameEn), nameAr: selection?.nameAr ?? String(p.nameAr), imageUrl: images[0]?.url, price: displayPrice, currency: displayCurrency, sku: selection?.sku ?? String(p.sku), sellerId: String(p.sellerId), inStock })}
+                  <button type="button" disabled={!selection} aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"} onClick={() => selection && toggle(toStorefrontWishlistItem(p, params.slug, selection, images[0]?.url))}
                     className={`p-2 rounded-xl border transition-all shrink-0 ${wishlisted ? "bg-destructive/10 border-destructive/20 text-destructive" : "border-border text-muted-foreground hover:border-destructive/20 hover:text-destructive"}`}>
                     <Heart className={`h-5 w-5 ${wishlisted ? "fill-current" : ""}`} />
                   </button>

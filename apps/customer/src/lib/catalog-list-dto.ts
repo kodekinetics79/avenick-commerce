@@ -10,6 +10,7 @@ export type CatalogListSource = {
   images: Array<{ url: string; altText?: string | null }>;
   prices: CatalogPrice[];
   inventory: Array<{ qty: number; reservedQty: number }>;
+  variants: Array<{ id: string }>;
   category: { nameEn: string; nameAr: string; slug: string };
   brand: { nameEn: string; nameAr: string | null } | null;
   seller: { businessNameEn: string; businessNameAr: string | null; tier: string; rating: unknown };
@@ -38,6 +39,7 @@ export function toCatalogListDto(source: CatalogListSource, channel: "B2C" | "B2
         type, currency: priceCurrency, minQty, maxQty, price, vatRate,
       })),
     inventory: [{ inStock: source.inventory.some((stock) => stock.qty - stock.reservedQty > 0) }],
+    hasVariants: source.variants.length > 0,
     category: source.category,
     brand: source.brand,
     seller: source.seller,

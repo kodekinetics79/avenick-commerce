@@ -31,7 +31,7 @@ export default async function CategoryPage({ params }: Props) {
             const price = p.prices?.[0];
             const stock = p.inventory?.[0];
             return (
-              <ProductCard key={p.id} id={p.id} slug={p.slug} nameEn={p.nameEn} nameAr={p.nameAr} imageUrl={p.images?.[0]?.url} price={price ? Number(price.price) : 0} sku={p.sku} sellerId={p.sellerId} sellerName={p.seller?.businessNameEn} inStock={stock?.inStock === true} moq={p.moq} />
+              <ProductCard key={p.id} id={p.id} slug={p.slug} nameEn={p.nameEn} nameAr={p.nameAr} imageUrl={p.images?.[0]?.url} price={price ? Number(price.price) : 0} sku={p.sku} sellerId={p.sellerId} sellerName={p.seller?.businessNameEn} inStock={stock?.inStock === true} hasVariants={p.hasVariants === true} moq={p.moq} />
             );
           })}
         </div>

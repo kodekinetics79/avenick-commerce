@@ -71,6 +71,7 @@ export default async function HomePage() {
       sellerId: p.sellerId,
       sellerName: p.seller?.businessNameEn,
       inStock: available > 0,
+      hasVariants: p.hasVariants === true,
       moq: p.moq,
       category: p.category?.nameEn ?? "Industrial",
     };

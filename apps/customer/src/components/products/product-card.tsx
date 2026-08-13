@@ -8,6 +8,8 @@ import { formatCurrency } from "@avenick/utils";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
 import { useLocale, useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
+import { productCardPurchaseAction } from "@/lib/product-card-commerce";
 
 interface ProductCardProps {
   id: string;
@@ -22,6 +24,7 @@ interface ProductCardProps {
   sellerId: string;
   sellerName?: string;
   inStock?: boolean;
+  hasVariants?: boolean;
   moq?: number;
   rating?: number;
   reviewCount?: number;
@@ -33,11 +36,12 @@ interface ProductCardProps {
 
 export function ProductCard({
   id, slug, nameEn, nameAr, imageUrl, price, originalPrice, currency = "AED",
-  sku, sellerId, sellerName, inStock = true, moq = 1,
+  sku, sellerId, sellerName, inStock = true, moq = 1, hasVariants = false,
   rating = 4.2, reviewCount, locale, isB2B = false,
   badge = null, category,
 }: ProductCardProps) {
   const tp = useTranslations("products");
+  const router = useRouter();
   const nextLocale = useLocale();
   const activeLocale = locale || (nextLocale as "en" | "ar");
   const addItem = useCartStore((s) => s.addItem);
@@ -53,11 +57,19 @@ export function ProductCard({
 
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault();
+    if (productCardPurchaseAction(hasVariants) === "SELECT_VARIANT") {
+      router.push(`/products/${slug}`);
+      return;
+    }
     addItem({ productId: id, nameEn, nameAr, imageUrl, sku, qty: moq, unitPrice: price, sellerId, currency });
   }
 
   function handleWishlist(e: React.MouseEvent) {
     e.preventDefault();
+    if (hasVariants) {
+      router.push(`/products/${slug}`);
+      return;
+    }
     toggle({ id, slug, nameEn, nameAr, imageUrl, price, currency, sku, sellerId, sellerName, inStock });
   }
 
@@ -117,7 +129,7 @@ export function ProductCard({
           disabled={!inStock}
           className="absolute inset-x-2.5 bottom-2.5 translate-y-3 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 h-9 rounded-xl bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-1.5 shadow-glow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <ShoppingCart className="h-3.5 w-3.5" /> {tp("addToCart")}
+          <ShoppingCart className="h-3.5 w-3.5" /> {hasVariants ? "Select options" : tp("addToCart")}
         </button>
       </div>
 

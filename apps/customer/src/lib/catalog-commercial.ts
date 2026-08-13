@@ -39,16 +39,21 @@ export function resolveStorefrontSelection(
 ) {
   const variant = variantId ? product.variants.find((candidate) => candidate.id === variantId) : undefined;
   if (product.variants.length > 0 && !variant) return null;
-  const prices = variant?.prices ?? product.prices;
-  const applicable = prices.filter((price) =>
+  const variantApplicable = (variant?.prices ?? []).filter((price) =>
     price.minQty <= quantity && (price.maxQty == null || quantity <= price.maxQty),
   );
-  const currency = applicable.some((price) => price.currency === preferredCurrency)
+  const productApplicable = product.prices.filter((price) =>
+    price.minQty <= quantity && (price.maxQty == null || quantity <= price.maxQty),
+  );
+  const currency = [...variantApplicable, ...productApplicable].some((price) => price.currency === preferredCurrency)
     ? preferredCurrency
-    : applicable[0]?.currency;
-  const tier = applicable
+    : variantApplicable[0]?.currency ?? productApplicable[0]?.currency;
+  // Match authoritative checkout: resolve the selected variant tier first for
+  // the checkout currency/quantity, then deliberately fall back to base price.
+  const bestTier = (prices: StorefrontPrice[]) => prices
     .filter((price) => price.currency === currency)
     .sort((a, b) => b.minQty - a.minQty)[0];
+  const tier = bestTier(variantApplicable) ?? bestTier(productApplicable);
   if (!tier) return null;
   const unitPrice = Number(tier.price);
   const vatRate = Number(tier.vatRate);
@@ -86,5 +91,27 @@ export function toStorefrontCartLine(
     vatRate: selection.vatRate,
     sellerId: product.sellerId,
     currency: selection.currency,
+  };
+}
+
+export function toStorefrontWishlistItem(
+  product: StorefrontProduct,
+  slug: string,
+  selection: NonNullable<ReturnType<typeof resolveStorefrontSelection>>,
+  imageUrl?: string,
+) {
+  return {
+    id: product.id,
+    slug,
+    variantId: selection.variantId,
+    nameEn: selection.nameEn,
+    nameAr: selection.nameAr,
+    imageUrl,
+    price: selection.unitPrice,
+    vatRate: selection.vatRate,
+    currency: selection.currency,
+    sku: selection.sku,
+    sellerId: product.sellerId,
+    inStock: selection.inStock,
   };
 }

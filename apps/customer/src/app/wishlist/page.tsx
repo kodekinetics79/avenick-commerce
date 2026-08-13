@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Heart, ShoppingCart, Trash2, PackageSearch } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Button } from "@avenick/ui";
-import { useWishlist } from "@/stores/wishlist";
+import { toWishlistCartLine, useWishlist, wishlistItemKey } from "@/stores/wishlist";
 import { useCartStore } from "@/stores/cart";
 import { formatCurrency } from "@avenick/utils";
 
@@ -14,7 +14,7 @@ export default function WishlistPage() {
   const addItem = useCartStore((s) => s.addItem);
 
   function addToCart(item: typeof items[0]) {
-    addItem({ productId: item.id, nameEn: item.nameEn, nameAr: item.nameAr, imageUrl: item.imageUrl, sku: item.sku, qty: 1, unitPrice: item.price, sellerId: item.sellerId, currency: item.currency });
+    addItem(toWishlistCartLine(item));
   }
 
   function addAllToCart() {
@@ -61,7 +61,7 @@ export default function WishlistPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {items.map((item) => (
-                <div key={item.id} className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all group">
+                <div key={wishlistItemKey(item.id, item.variantId)} className="bg-card rounded-2xl border border-border overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all group">
                   <Link href={`/products/${item.slug}`} className="block relative aspect-square bg-secondary overflow-hidden">
                     {item.imageUrl ? (
                       <Image src={item.imageUrl} alt={item.nameEn} fill className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="(max-width: 768px) 50vw, 25vw" />
@@ -90,7 +90,7 @@ export default function WishlistPage() {
                         <ShoppingCart className="h-3.5 w-3.5 me-1" />
                         Add to Cart
                       </Button>
-                      <button type="button" aria-label="Remove from wishlist" onClick={() => remove(item.id)} className="p-1.5 rounded-xl border border-border text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-colors">
+                      <button type="button" aria-label="Remove from wishlist" onClick={() => remove(item.id, item.variantId)} className="p-1.5 rounded-xl border border-border text-muted-foreground hover:bg-destructive/10 hover:text-destructive hover:border-destructive/20 transition-colors">
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>

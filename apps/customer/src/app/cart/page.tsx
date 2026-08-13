@@ -20,7 +20,7 @@ export default function CartPage() {
   const orderTotal = subtotal + vatAmount + shipping;
 
   function saveForLater(item: typeof items[0]) {
-    toggle({ id: item.productId, slug: item.productId, nameEn: item.nameEn, nameAr: item.nameAr, imageUrl: item.imageUrl, price: item.unitPrice, currency: item.currency, sku: item.sku, sellerId: item.sellerId, inStock: true });
+    toggle({ id: item.productId, slug: item.productId, variantId: item.variantId, nameEn: item.nameEn, nameAr: item.nameAr, imageUrl: item.imageUrl, price: item.unitPrice, vatRate: item.vatRate, currency: item.currency, sku: item.sku, sellerId: item.sellerId, inStock: true });
     removeItem(item.id);
   }
 

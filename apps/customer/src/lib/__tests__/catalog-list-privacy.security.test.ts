@@ -13,12 +13,14 @@ describe("public catalog list privacy DTO", () => {
         { type: "B2B", currency: "AED", minQty: 10, maxQty: null, price: 7, vatRate: 5 },
       ],
       inventory: [{ qty: 50, reservedQty: 49 }],
+      variants: [{ id: "variant" }],
       category: { nameEn: "Category", nameAr: "Category", slug: "category" }, brand: null,
       seller: { businessNameEn: "Seller", businessNameAr: null, tier: "VERIFIED", rating: 5 },
       listingHealth: 12, issues: [{ message: "Missing confidential document" }], createdAt: new Date(),
     } as never, "B2C", "AED");
     expect(dto.prices).toHaveLength(1);
     expect(dto.inventory).toEqual([{ inStock: true }]);
+    expect(dto.hasVariants).toBe(true);
     const serialized = JSON.stringify(dto);
     for (const privateField of ["reservedQty", "qty", "listingHealth", "issues", "createdAt", "Missing confidential document"]) {
       expect(serialized).not.toContain(privateField);
