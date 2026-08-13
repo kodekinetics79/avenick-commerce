@@ -1,0 +1,40 @@
+name: Diagnose typecheck
+
+on:
+  push:
+    branches:
+      - pilot-overhaul/2026-08-12
+    paths:
+      - .github/workflows/diagnose-typecheck.yml
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @avenick/database db:generate
+      - name: Capture typecheck output
+        shell: bash
+        run: |
+          set +e
+          pnpm typecheck > typecheck.log 2>&1
+          code=$?
+          echo "TYPECHECK_EXIT_CODE=$code" >> typecheck.log
+          exit 0
+      - uses: actions/upload-artifact@v4
+        with:
+          name: typecheck-diagnostics
+          path: typecheck.log
+          if-no-files-found: error
+          retention-days: 1
