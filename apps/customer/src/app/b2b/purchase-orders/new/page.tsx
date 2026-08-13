@@ -6,6 +6,15 @@ import { B2BShell } from "@/components/b2b/b2b-shell";
 import { useCartStore } from "@/stores/cart";
 import { formatCurrency, type SupportedCurrency } from "@avenick/utils";
 
+const SUPPORTED_CURRENCIES = new Set<SupportedCurrency>(["AED", "SAR", "QAR", "KWD", "BHD", "OMR", "USD"]);
+
+function formatCartCurrency(amount: number, currency: string) {
+  if (SUPPORTED_CURRENCIES.has(currency as SupportedCurrency)) {
+    return formatCurrency(amount, currency as SupportedCurrency);
+  }
+  return `${currency || "UNKNOWN"} ${amount.toFixed(2)}`;
+}
+
 type CompanyContext = {
   companyName: string;
   country: string;
@@ -131,7 +140,7 @@ export default function NewPurchaseOrderPage() {
                     <div className="min-w-0">
                       <p className="truncate font-medium text-sm">{item.nameEn}</p>
                       <p className="mt-1 font-mono text-xs text-muted-foreground">{item.sku}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Displayed cart price: {formatCurrency(item.unitPrice, item.currency)}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Displayed cart price: {formatCartCurrency(item.unitPrice, item.currency)}</p>
                     </div>
                     <div className="text-right">
                       <input aria-label={`Quantity for ${item.sku}`} type="number" min={1} max={100000} value={item.qty} onChange={(event) => updateQty(item.id, Math.max(1, Number(event.target.value) || 1))} className="h-9 w-24 rounded-lg border border-input bg-background px-2 text-right text-sm" />
