@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 
 const sellerServer = `import { auth } from "@/lib/auth-instance";
 import { db } from "@avenick/database";
@@ -10,7 +10,7 @@ const SELLER_ROLES = new Set(["SELLER_OWNER", "SELLER_STAFF"]);
  *
  * SellerProfile.userId belongs to the seller owner only. Staff must resolve
  * through SellerMembership; otherwise SELLER_STAFF can authenticate but every
- * seller API rejects them. All callers receive a sellerId derived from server
+ * seller API rejects them. All callers receive seller scope derived from server
  * membership, never from request payload/query parameters.
  */
 export async function getServerSellerContext() {
@@ -24,6 +24,7 @@ export async function getServerSellerContext() {
     return {
       session,
       user,
+      userId: user.id,
       sellerId: seller.id,
       seller,
       membership: {
@@ -47,6 +48,7 @@ export async function getServerSellerContext() {
   return {
     session,
     user,
+    userId: user.id,
     sellerId: membership.sellerId,
     seller: membership.seller,
     membership,
@@ -65,8 +67,6 @@ export function sellerHasPermission(
 
 await writeFile("apps/seller/src/lib/seller-server.ts", sellerServer);
 
-// Remove temporary compiler-diagnostic machinery. The stabilization workflow
-// itself produces the exact-head evidence report instead.
 for (const path of [
   ".github/workflows/diagnose-typecheck.yml",
   "docs/qa/typecheck-diagnostic.txt",
