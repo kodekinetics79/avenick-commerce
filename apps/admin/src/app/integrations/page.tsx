@@ -2,7 +2,7 @@ import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { checkDatabaseHealth, db, getIntegrationOperationalSummary } from "@avenick/database";
 import { AlertTriangle, CheckCircle, Database, Plug, RefreshCcw, ServerCog, XCircle } from "lucide-react";
-import { createIntegrationConnection, redriveInboundIntegrationMessage, redriveIntegrationMessage, setIntegrationConnectionStatus } from "./actions";
+import { configureCompanyOrderRoute, createIntegrationConnection, redriveInboundIntegrationMessage, redriveIntegrationMessage, setIntegrationConnectionStatus } from "./actions";
 
 export const metadata = { title: "Integration Hub" };
 export const dynamic = "force-dynamic";
@@ -15,7 +15,7 @@ function fmtDate(value: Date | null) {
 
 export default async function IntegrationsPage() {
   await requireAdminSession();
-  const [dbHealth, summary, failedMessages, failedInboundMessages] = await Promise.all([
+  const [dbHealth, summary, failedMessages, failedInboundMessages, companies, routes] = await Promise.all([
     checkDatabaseHealth(),
     getIntegrationOperationalSummary(),
     db.integrationOutbox.findMany({
@@ -28,6 +28,8 @@ export default async function IntegrationsPage() {
       orderBy: { receivedAt: "desc" },
       take: 20,
     }),
+    db.company.findMany({ where: { deletedAt: null }, orderBy: { nameEn: "asc" }, select: { id: true, nameEn: true } }),
+    db.integrationCompanyRoute.findMany({ where: { tenantKey: "default", purpose: "ORDER_SUBMISSION" } }),
   ]);
   const env = (key: string) => Boolean(process.env[key]);
 
@@ -162,7 +164,7 @@ export default async function IntegrationsPage() {
                     <td className="p-3 text-xs text-muted-foreground"><p className="max-w-[260px] truncate">{connection.baseUrl ?? "No endpoint"}</p><p>{connection.credentialsRef ? "Secret reference set" : "No secret reference"}</p></td>
                     <td className="p-3 text-xs"><p className={verified ? "text-green-700" : "text-muted-foreground"}>{verified ? "Last result: verified success" : "No verified success"}</p><p className="text-muted-foreground">Success: {fmtDate(connection.lastSuccessAt)}</p>{connection.lastError && <p className="mt-1 max-w-[260px] truncate text-danger">{connection.lastError}</p>}</td>
                     <td className="p-3"><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${stateClass(connection.status)}`}>{connection.status}</span></td>
-                    <td className="p-3"><div className="flex flex-wrap gap-1">{connection.status !== "ACTIVE" && <form action={setIntegrationConnectionStatus.bind(null, connection.id, "ACTIVE")}><button className="rounded-lg border px-2 py-1 text-xs" type="submit">Activate</button></form>}{connection.status !== "DISABLED" && <form action={setIntegrationConnectionStatus.bind(null, connection.id, "DISABLED")}><button className="rounded-lg border px-2 py-1 text-xs" type="submit">Disable</button></form>}</div></td>
+                    <td className="p-3"><div className="flex flex-col gap-2"><div className="flex flex-wrap gap-1">{connection.status !== "ACTIVE" && <form action={setIntegrationConnectionStatus.bind(null, connection.id, "ACTIVE")}><button className="rounded-lg border px-2 py-1 text-xs" type="submit">Activate</button></form>}{connection.status !== "DISABLED" && <form action={setIntegrationConnectionStatus.bind(null, connection.id, "DISABLED")}><button className="rounded-lg border px-2 py-1 text-xs" type="submit">Disable</button></form>}</div>{["D365", "SAP", "ERP"].includes(connection.system) && <form action={configureCompanyOrderRoute.bind(null, connection.id)} className="flex max-w-[260px] gap-1"><select name="companyId" className="min-w-0 flex-1 rounded-lg border px-2 py-1 text-xs" required defaultValue=""><option value="" disabled>Route company…</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.nameEn}</option>)}</select><select name="enabled" className="rounded-lg border px-1 py-1 text-xs" defaultValue="true"><option value="true">Assign</option><option value="false">Remove</option></select><button className="rounded-lg border px-2 py-1 text-xs" type="submit">Apply</button></form>}<p className="text-[10px] text-muted-foreground">{routes.filter((route) => route.connectionId === connection.id).length} company route(s)</p></div></td>
                   </tr>;
                 })}
               </tbody></table></div>

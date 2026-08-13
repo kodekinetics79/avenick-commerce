@@ -11,6 +11,7 @@ import {
   lockUserCommerceRows,
   resolveConfiguredVatRate,
 } from "./checkout-invariants";
+import { resolveCompanyOrderIntegration } from "./integration-routing";
 import { assertMatchingIdempotencyFingerprint } from "./commerce-governance";
 import type { Prisma, OrderStatus, Currency, PaymentMethod } from "@prisma/client";
 
@@ -102,6 +103,8 @@ export interface CreateOrderInput {
       nameEn: string;
     }>;
   };
+  /** Deterministic seam after governed integration routing locks are held. */
+  afterIntegrationRoutingLocks?: () => Promise<void>;
 }
 
 // VAT rate by jurisdiction (KSA 15%, rest of GCC 5%).
@@ -140,20 +143,16 @@ export async function createOrder(input: CreateOrderInput) {
     throw new Error("Governed purchase-order lines do not match the checkout request");
   }
 
-  // If a live ERP connector exists, order creation records an explicit pending
-  // integration state and durable outbox request. Local creation is never
-  // mistaken for ERP acceptance.
-  const erpConnection = input.type === "B2B"
-    ? await db.integrationConnection.findFirst({
-        where: { tenantKey: "default", status: "ACTIVE", system: { in: ["D365", "SAP", "ERP"] } },
-        orderBy: { updatedAt: "desc" },
-      })
-    : null;
-
   return write(
     () =>
       db.$transaction(async (tx) => {
         await lockCompanyApprovalRows(tx, input.companyId ? [input.companyId] : []);
+        const erpConnection = input.type === "B2B" && input.companyId
+          ? await resolveCompanyOrderIntegration(tx, {
+              companyId: input.companyId,
+              afterRoutingLocks: input.afterIntegrationRoutingLocks,
+            })
+          : null;
         await lockUserCommerceRows(tx, [input.userId]);
         const currentUser = await tx.user.findUnique({
           where: { id: input.userId },

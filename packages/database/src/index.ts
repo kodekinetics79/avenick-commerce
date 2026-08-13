@@ -17,6 +17,7 @@ export * from "./services/promotions";
 export * from "./services/integrations";
 export * from "./services/integration-worker";
 export * from "./services/integration-policy";
+export * from "./services/integration-routing";
 export * from "./services/erp-adapter";
 export * from "./services/inventory";
 export * from "./services/admin";

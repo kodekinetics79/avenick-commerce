@@ -43,6 +43,8 @@ export interface SecureCheckoutInput {
       nameEn: string;
     }>;
   };
+  /** PostgreSQL concurrency-test seam; never supplied by an HTTP caller. */
+  afterIntegrationRoutingLocks?: () => Promise<void>;
 }
 
 /**
@@ -175,5 +177,6 @@ export async function secureCreateOrder(input: SecureCheckoutInput) {
     idempotencyKey: input.idempotencyKey,
     requestFingerprint: input.requestFingerprint,
     governedCommercial: input.governedCommercial,
+    afterIntegrationRoutingLocks: input.afterIntegrationRoutingLocks,
   });
 }

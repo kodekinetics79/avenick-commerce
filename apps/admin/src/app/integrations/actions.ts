@@ -1,7 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AuditAction, db, governedIntegrationPolicy, redriveIntegrationInbox, redriveIntegrationOutbox, requireCurrentAdminActor } from "@avenick/database";
+import {
+  AuditAction,
+  db,
+  governedIntegrationPolicy,
+  lockIntegrationRegistry,
+  redriveIntegrationInbox,
+  redriveIntegrationOutbox,
+  requireCurrentAdminActor,
+  setCompanyIntegrationRoute,
+  setGovernedIntegrationConnectionStatus,
+} from "@avenick/database";
 import { requireAdminSession } from "@/lib/auth";
 
 const SYSTEMS = new Set(["D365", "SAP", "ERP", "WMS", "PIM"]);
@@ -26,6 +36,7 @@ export async function createIntegrationConnection(formData: FormData) {
   const baseUrl = configured?.baseUrl ?? null;
   const credentialsRef = configured?.credentialsRef ?? null;
   await db.$transaction(async (tx) => {
+    await lockIntegrationRegistry(tx);
     await requireCurrentAdminActor(tx, userId);
     const connection = await tx.integrationConnection.upsert({
     where: {
@@ -77,34 +88,16 @@ export async function setIntegrationConnectionStatus(id: string, status: string)
   const { userId } = await requireAdminSession();
   const next = status.toUpperCase();
   if (!STATUSES.has(next)) throw new Error("Unsupported connection status");
-  await db.$transaction(async (tx) => {
-    await requireCurrentAdminActor(tx, userId);
-    const connection = await tx.integrationConnection.findUnique({ where: { id } });
-    if (!connection) throw new Error("Integration connection not found");
-    if (next === "ACTIVE") {
-      if (!connection.baseUrl) throw new Error("A base URL is required before activation");
-      if (!connection.credentialsRef) throw new Error("A secret-manager credential reference is required before activation");
-      governedIntegrationPolicy({ system: connection.system, baseUrl: connection.baseUrl, credentialsRef: connection.credentialsRef });
-    }
-    await tx.integrationConnection.update({
-      where: { id },
-      data: {
-        status: next,
-        // Activation means administratively enabled, NOT connectivity verified.
-        ...(next === "DISABLED" ? { lastError: null } : {}),
-      },
-    });
-    await tx.auditLog.create({
-      data: {
-        actorId: userId,
-        entityType: "IntegrationConnection",
-        entityId: id,
-        action: AuditAction.STATUS_CHANGE,
-        before: { status: connection.status },
-        after: { status: next },
-      },
-    });
-  });
+  await setGovernedIntegrationConnectionStatus({ id, status: next, actorId: userId });
+  revalidatePath("/integrations");
+}
+
+export async function configureCompanyOrderRoute(connectionId: string, formData: FormData) {
+  const { userId } = await requireAdminSession();
+  const companyId = value(formData, "companyId");
+  const enabled = value(formData, "enabled") === "true";
+  if (!companyId) throw new Error("Company is required");
+  await setCompanyIntegrationRoute({ companyId, connectionId, enabled, actorId: userId });
   revalidatePath("/integrations");
 }
 

@@ -410,6 +410,7 @@ model Company {
   rfqRequests      RFQRequest[]
   requisitionLists RequisitionList[]
   externalAccountLinks ExternalAccountLink[]
+  integrationRoutes IntegrationCompanyRoute[]
 
   @@index([status])
   @@index([country])
@@ -1616,9 +1617,30 @@ model IntegrationConnection {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   outboxMessages    IntegrationOutbox[]
+  companyRoutes     IntegrationCompanyRoute[]
 
   @@unique([tenantKey, system, connectionKey])
   @@index([tenantKey, status])
+}
+
+/// Explicit outbound routing. Multiple rows are representable so corrupted or
+/// overlapping governance fails closed in the resolver instead of silently
+/// selecting one connection by timestamp.
+model IntegrationCompanyRoute {
+  id           String   @id @default(cuid())
+  tenantKey    String   @default("default")
+  companyId    String
+  connectionId String
+  purpose      String   @default("ORDER_SUBMISSION")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company    Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  connection IntegrationConnection @relation(fields: [connectionId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantKey, companyId, connectionId, purpose])
+  @@index([tenantKey, companyId, purpose])
+  @@index([connectionId])
 }
 
 model ExternalAccountLink {
