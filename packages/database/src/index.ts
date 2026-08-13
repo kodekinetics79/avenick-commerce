@@ -26,7 +26,10 @@ export * from "./services/orders";
 export * from "./services/secure-checkout";
 export * from "./services/b2b-purchase-orders";
 export * from "./services/promotions";
-export * from "./services/pilot-catalog";
+// Node-only pilot catalog ingestion is intentionally NOT re-exported here.
+// Customer/seller middleware imports this shared barrel; exporting the importer
+// would pull node:crypto/bcrypt into browser/edge bundles. Admin and CLI callers
+// use the explicit @avenick/database/pilot-catalog subpath instead.
 export * from "./services/integrations";
 export * from "./services/inventory";
 export * from "./services/admin";
