@@ -2,6 +2,7 @@ import { B2BShell } from "@/components/b2b/b2b-shell";
 import { formatCurrency } from "@avenick/utils";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
+import { companyCurrencyForCountry } from "@/lib/company-currency";
 import { createPolicy, togglePolicy } from "./actions";
 import { ValidatedForm } from "@/components/b2b/validated-form";
 import { CheckSquare, ShieldCheck, Building2 } from "lucide-react";
@@ -32,6 +33,7 @@ export default async function ApprovalPoliciesPage() {
     orderBy: { thresholdAmount: "asc" },
   });
   const isAdmin = ctx.member.role === "COMPANY_ADMIN";
+  const companyCurrency = companyCurrencyForCountry(ctx.company.country);
 
   return (
     <B2BShell
@@ -43,7 +45,7 @@ export default async function ApprovalPoliciesPage() {
           <div className="flex items-center gap-2 text-sm font-semibold mb-4"><ShieldCheck className="h-4 w-4 text-primary" /> New policy</div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
             <input name="name" required placeholder="Policy name (e.g. High-value orders)" className="lg:col-span-2 h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            <input name="threshold" type="number" required placeholder="Threshold (AED)" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <input name="threshold" type="number" required placeholder={`Threshold (${companyCurrency})`} className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             <div className="flex gap-2">
               <select name="approverRole" aria-label="Approver role" className="flex-1 h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border focus:outline-none focus:ring-2 focus:ring-ring">
                 <option value="COMPANY_APPROVER">Approver signs off</option>
@@ -71,7 +73,7 @@ export default async function ApprovalPoliciesPage() {
                   <div className="min-w-0">
                     <p className="font-semibold truncate">{p.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      Orders over <span className="font-mono font-medium text-foreground">{formatCurrency(Number(p.thresholdAmount), "AED")}</span> · {ROLE_LABEL[p.approverRole] ?? "Approver"} approval
+                      Orders over <span className="font-mono font-medium text-foreground">{formatCurrency(Number(p.thresholdAmount), p.currency)}</span> · {ROLE_LABEL[p.approverRole] ?? "Approver"} approval
                     </p>
                   </div>
                 </div>
