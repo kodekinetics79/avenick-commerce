@@ -7,6 +7,7 @@ const ids = { users: [] as string[], sellers: [] as string[], products: [] as st
 let orderId = "";
 let categoryId = "";
 let actorId = "";
+let sellerTwoActorId = "";
 let sellerOneId = "";
 let sellerTwoId = "";
 let payoutId = "";
@@ -17,6 +18,7 @@ beforeAll(async () => {
   const ownerTwo = await db.user.create({ data: { email: `returns-two-${stamp}@example.test`, firstName: "Seller", lastName: "Two", role: "SELLER_OWNER", status: "ACTIVE" } });
   ids.users.push(buyer.id, ownerOne.id, ownerTwo.id);
   actorId = ownerOne.id;
+  sellerTwoActorId = ownerTwo.id;
 
   const sellerOne = await db.sellerProfile.create({ data: { userId: ownerOne.id, businessNameEn: `Returns One ${stamp}`, crNumber: `RET1-${stamp}`, type: "DISTRIBUTOR", country: "AE", city: "Dubai", status: "ACTIVE" } });
   const sellerTwo = await db.sellerProfile.create({ data: { userId: ownerTwo.id, businessNameEn: `Returns Two ${stamp}`, crNumber: `RET2-${stamp}`, type: "DISTRIBUTOR", country: "AE", city: "Dubai", status: "ACTIVE" } });
@@ -94,8 +96,8 @@ describe("marketplace return isolation", () => {
   it("serializes concurrent refund attempts and creates exactly one refund", async () => {
     const returnId = ids.returns[1]!;
     const outcomes = await Promise.allSettled([
-      setReturnStatus({ returnId, status: "REFUNDED", actorId, refundReference: `REF-B-${stamp}` }),
-      setReturnStatus({ returnId, status: "REFUNDED", actorId, refundReference: `REF-B-${stamp}` }),
+      setReturnStatus({ returnId, status: "REFUNDED", actorId: sellerTwoActorId, refundReference: `REF-B-${stamp}` }),
+      setReturnStatus({ returnId, status: "REFUNDED", actorId: sellerTwoActorId, refundReference: `REF-B-${stamp}` }),
     ]);
     expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
     expect(outcomes.filter((outcome) => outcome.status === "rejected")).toHaveLength(1);
