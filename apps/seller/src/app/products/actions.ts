@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AuditAction, db } from "@avenick/database";
+import { AuditAction, db, Prisma } from "@avenick/database";
 import { requireSellerPermission, requireSellerSession } from "@/lib/auth";
 import { assertProductImportPermissions } from "@/lib/product-import-policy";
 
@@ -84,7 +84,7 @@ export async function importProductsCsv(rows: ImportRow[]): Promise<ImportResult
 
     const product = await db.product.findFirst({
       where: { sku, sellerId: seller.id, deletedAt: null },
-      include: { prices: { where: { isActive: true }, take: 1 }, inventory: { take: 1 } },
+      select: { id: true },
     });
 
     if (!product) {
@@ -101,47 +101,63 @@ export async function importProductsCsv(rows: ImportRow[]): Promise<ImportResult
 
     try {
       await db.$transaction(async (tx) => {
+        await tx.$executeRaw(
+          Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`seller-product-import:${product.id}`}))`,
+        );
+        const currentProduct = await tx.product.findFirstOrThrow({
+          where: { id: product.id, sellerId: seller.id, deletedAt: null },
+          include: { prices: { where: { isActive: true } }, inventory: true },
+        });
         if (Object.keys(data).length > 0) {
-          await tx.product.update({ where: { id: product.id }, data });
+          await tx.product.update({ where: { id: currentProduct.id }, data });
         }
 
         const priceNum = Number(row.price);
         if (row.price?.trim() && Number.isFinite(priceNum) && priceNum >= 0) {
-          const existing = product.prices[0];
+          if (currentProduct.prices.length > 1) {
+            throw new Error("Price import is ambiguous across multiple active price identities");
+          }
+          const existing = currentProduct.prices[0];
           if (existing) {
             await tx.productPrice.update({ where: { id: existing.id }, data: { price: priceNum } });
           } else {
-            await tx.productPrice.create({ data: { productId: product.id, type: "B2C", price: priceNum } });
+            await tx.productPrice.create({
+              data: { productId: currentProduct.id, type: "B2C", currency: "AED", price: priceNum },
+            });
           }
         }
 
         const stockNum = Number(row.stock);
         if (row.stock?.trim() && Number.isInteger(stockNum) && stockNum >= 0) {
-          const inv = product.inventory[0];
-          if (inv) {
-            // The conditional write closes the race with checkout reservations:
-            // a CSV can never lower on-hand stock below the current reservation.
-            const changed = await tx.inventoryStock.updateMany({
-              where: { id: inv.id, reservedQty: { lte: stockNum } },
-              data: { qty: stockNum },
-            });
-            if (changed.count !== 1) throw new Error("Stock quantity cannot be below reserved quantity");
+          if (currentProduct.inventory.length !== 1) {
+            throw new Error(
+              currentProduct.inventory.length === 0
+                ? "Stock import requires an existing inventory identity"
+                : "Stock import is ambiguous across multiple location or variant identities",
+            );
           }
-          // No inventory row yet → skip (location unknown); name/status/price still applied.
+          const inv = currentProduct.inventory[0];
+          // The conditional write closes the race with checkout reservations:
+          // a CSV can never lower on-hand stock below the current reservation.
+          const changed = await tx.inventoryStock.updateMany({
+            where: { id: inv.id, reservedQty: { lte: stockNum } },
+            data: { qty: stockNum },
+          });
+          if (changed.count !== 1) throw new Error("Stock quantity cannot be below reserved quantity");
         }
         await tx.auditLog.create({
           data: {
             actorId: userId,
             sellerId: seller.id,
             entityType: "Product",
-            entityId: product.id,
+            entityId: currentProduct.id,
             action: AuditAction.UPDATE,
             before: {
-              nameEn: product.nameEn,
-              nameAr: product.nameAr,
-              status: product.status,
-              price: product.prices[0] ? Number(product.prices[0].price) : null,
-              stock: product.inventory[0]?.qty ?? null,
+              nameEn: currentProduct.nameEn,
+              nameAr: currentProduct.nameAr,
+              status: currentProduct.status,
+              price: currentProduct.prices.length === 1 ? Number(currentProduct.prices[0]!.price) : null,
+              stock: currentProduct.inventory.length === 1 ? currentProduct.inventory[0]!.qty : null,
             },
             after: {
               source: "SELLER_CSV_IMPORT",

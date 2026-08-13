@@ -166,6 +166,14 @@ export async function submitQuote(input: SubmitQuoteInput) {
     }
 
     const itemMap = new Map(rfq.items.map((i) => [i.id, i]));
+    const quotedItemIds = new Set(input.items.map((quoted) => quoted.itemId));
+    if (
+      input.items.length !== rfq.items.length ||
+      quotedItemIds.size !== input.items.length ||
+      rfq.items.some((item) => !quotedItemIds.has(item.id))
+    ) {
+      throw new Error("Quote must contain each RFQ item exactly once");
+    }
     for (const quoted of input.items) {
       if (!itemMap.has(quoted.itemId)) throw new Error("Quoted item does not belong to this RFQ");
       if (!Number.isFinite(quoted.unitQuoted) || quoted.unitQuoted <= 0) {
@@ -173,10 +181,15 @@ export async function submitQuote(input: SubmitQuoteInput) {
       }
     }
 
-    const totalQuoted = input.items.reduce((sum, q) => {
-      const item = itemMap.get(q.itemId)!;
-      return sum + q.unitQuoted * item.quantity;
+    const quotedByItemId = new Map(input.items.map((quoted) => [quoted.itemId, quoted.unitQuoted]));
+    const canonicalQuote = rfq.items.map((item) => ({
+      item,
+      unitQuoted: quotedByItemId.get(item.id)!,
+    }));
+    const totalQuoted = canonicalQuote.reduce((sum, quoted) => {
+      return sum + quoted.unitQuoted * quoted.item.quantity;
     }, 0);
+    if (!Number.isFinite(totalQuoted)) throw new Error("Quoted total is invalid");
 
     const claimed = await tx.rFQRequest.updateMany({
       where: {
@@ -191,8 +204,8 @@ export async function submitQuote(input: SubmitQuoteInput) {
       },
     });
     if (claimed.count !== 1) throw new Error("This RFQ is assigned to another seller");
-    for (const quoted of input.items) {
-      await tx.rFQItem.update({ where: { id: quoted.itemId }, data: { unitQuoted: quoted.unitQuoted } });
+    for (const quoted of canonicalQuote) {
+      await tx.rFQItem.update({ where: { id: quoted.item.id }, data: { unitQuoted: quoted.unitQuoted } });
     }
     await tx.auditLog.create({
       data: {

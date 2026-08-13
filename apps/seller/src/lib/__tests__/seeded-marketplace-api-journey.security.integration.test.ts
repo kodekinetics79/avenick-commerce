@@ -127,6 +127,76 @@ describe.skipIf(!process.env.DATABASE_URL)("seeded-role marketplace API journey"
       .toMatchObject({ qty: 10, reservedQty: 4 });
   });
 
+  it("fails closed when a CSV price cannot identify one active tier", async () => {
+    const product = await db.product.findUniqueOrThrow({ where: { sku: productASku } });
+    const prices = await Promise.all([
+      db.productPrice.create({ data: {
+        productId: product.id, type: "B2C", currency: "AED", minQty: 1, maxQty: 9, price: 100,
+      } }),
+      db.productPrice.create({ data: {
+        productId: product.id, type: "B2B", currency: "AED", minQty: 10, price: 80,
+      } }),
+    ]);
+
+    try {
+      sessionFor(sellerAOwnerId);
+      const result = await importProductsCsv([{ sku: productASku, price: "1" }]);
+      expect(result).toMatchObject({ updated: 0, skipped: 1 });
+      expect(result.errors[0]).toMatch(/price import is ambiguous/i);
+
+      const unchanged = await db.productPrice.findMany({
+        where: { id: { in: prices.map((price) => price.id) } },
+        orderBy: { minQty: "asc" },
+      });
+      expect(unchanged.map((price) => Number(price.price))).toEqual([100, 80]);
+    } finally {
+      await db.productPrice.deleteMany({ where: { id: { in: prices.map((price) => price.id) } } });
+    }
+  });
+
+  it("fails closed when CSV stock spans location or variant identities", async () => {
+    const product = await db.product.findUniqueOrThrow({ where: { sku: productASku } });
+    const variant = await db.productVariant.create({ data: {
+      productId: product.id,
+      sku: `${productASku}-VARIANT`,
+      nameEn: "Ambiguous variant",
+      attributes: { size: "test" },
+    } });
+    const warehouse = await db.warehouse.create({ data: {
+      sellerId: sellerAId,
+      nameEn: `API Secondary Warehouse ${stamp}`,
+      type: "SELLER",
+      country: "AE",
+      city: "Dubai",
+    } });
+    const location = await db.inventoryLocation.create({ data: { warehouseId: warehouse.id, code: "SECONDARY" } });
+    const secondStock = await db.inventoryStock.create({ data: {
+      productId: product.id,
+      variantId: variant.id,
+      locationId: location.id,
+      qty: 25,
+      reservedQty: 2,
+    } });
+
+    try {
+      sessionFor(sellerAOwnerId);
+      const result = await importProductsCsv([{ sku: productASku, stock: "99" }]);
+      expect(result).toMatchObject({ updated: 0, skipped: 1 });
+      expect(result.errors[0]).toMatch(/stock import is ambiguous/i);
+
+      const unchanged = await db.inventoryStock.findMany({
+        where: { id: { in: [stockId, secondStock.id] } },
+        orderBy: { qty: "asc" },
+      });
+      expect(unchanged.map((stock) => stock.qty)).toEqual([10, 25]);
+    } finally {
+      await db.inventoryStock.deleteMany({ where: { id: secondStock.id } });
+      await db.inventoryLocation.deleteMany({ where: { id: location.id } });
+      await db.warehouse.deleteMany({ where: { id: warehouse.id } });
+      await db.productVariant.deleteMany({ where: { id: variant.id } });
+    }
+  });
+
   it("projects only Seller B lines to the Seller B owner", async () => {
     sessionFor(sellerBOwnerId);
     const response = await getSellerOrders(new NextRequest("http://seller.test/api/seller/orders"));
