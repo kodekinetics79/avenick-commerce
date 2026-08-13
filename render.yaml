@@ -3,9 +3,10 @@
 #
 # Notes
 # - Neon is the single PostgreSQL system of record.
-# - Vercel hosts each frontend and proxies /api/* to its matching service.
-# - Each Vercel/Render portal pair must use the same AUTH_SECRET and
-#   NEXTAUTH_SECRET values so Render can validate forwarded sessions.
+# - Vercel hosts each portal as a complete Next.js application, including its
+#   API routes. It does not proxy authenticated sessions across runtimes.
+# - Render hosts the integration worker and can host independent portal
+#   runtimes when an operator deliberately selects that topology.
 # - Optional integrations (Checkout.com, Anthropic, Resend, Twilio, S3) are
 #   added later as env vars in the dashboard; the apps degrade gracefully
 #   without them. See DEPLOYMENT.md.

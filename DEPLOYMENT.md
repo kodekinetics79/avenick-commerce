@@ -3,11 +3,14 @@
 There is no separate API server package in this repo. Each Next.js app contains
 its API runtime. The pilot deployment shape is:
 
-- Vercel hosts the customer, seller, and admin frontends
-- Render hosts the matching API/runtime for each portal
+- Vercel hosts each customer, seller, and admin Next.js application, including
+  its API routes, in one authentication trust boundary
+- Render hosts the integration worker and may host independent full portal
+  runtimes when that topology is explicitly provisioned
 - Neon is the single PostgreSQL system of record
-- Vercel proxies `/api/*` to Render; server-rendered pilot pages use the same
-  backend URL explicitly
+
+Vercel must not proxy authenticated `/api/*` traffic to another runtime. Doing
+so splits JWT issuance and validation across independently configured secrets.
 
 ## Render Backends
 
@@ -17,8 +20,8 @@ its API runtime. The pilot deployment shape is:
      (Frankfurt, health-checked on `/api/health`)
    - prompts for the Neon `DATABASE_URL` and `DIRECT_URL`
    - prompts for each portal's `AUTH_SECRET` and `NEXTAUTH_SECRET`
-2. Use the same auth-secret values on each matching Vercel/Render portal pair.
-   Customer, seller, and admin may each use a different pair.
+2. Each independently exposed portal runtime owns its own auth-secret values.
+   Do not forward its authenticated traffic into another portal runtime.
 3. Every deploy runs `prisma migrate deploy` automatically (safe under
    concurrency — Prisma serializes with an advisory lock).
 4. Seed demo data once against the dedicated Neon pilot database:
