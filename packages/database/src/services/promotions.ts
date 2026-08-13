@@ -1,5 +1,5 @@
 import { db } from "../index";
-import type { Currency } from "@prisma/client";
+import { Prisma, type Currency } from "@prisma/client";
 
 export type PromotionEligibility = {
   productIds?: string[];
@@ -38,6 +38,8 @@ export type PromotionEvaluation = {
   applied: AppliedPromotion[];
   explanation: Array<Record<string, unknown>>;
 };
+
+export type PromotionRedemptionCandidate = Pick<AppliedPromotion, "promotionId" | "couponId" | "discount">;
 
 const money = (value: number) => Math.max(0, Number(value.toFixed(2)));
 const nowActive = (startsAt: Date | null, endsAt: Date | null, now: Date) =>
@@ -131,6 +133,67 @@ function mergeLineDiscounts(target: Record<string, number>, addition: Record<str
 }
 
 /**
+ * Must be called inside the same transaction that creates PromotionRedemption
+ * rows. Sorted transaction-scoped advisory locks serialize every checkout that
+ * consumes the same campaign/coupon, making count and budget checks authoritative
+ * under concurrency without adding a separate reservation table.
+ */
+export async function enforcePromotionRedemptionCapacity(
+  tx: Prisma.TransactionClient,
+  input: {
+    userId: string;
+    currency: Currency;
+    applied: PromotionRedemptionCandidate[];
+  },
+) {
+  const promotionIds = [...new Set(input.applied.map((item) => item.promotionId))].sort();
+  const couponIds = [...new Set(input.applied.flatMap((item) => item.couponId ? [item.couponId] : []))].sort();
+  for (const key of [...promotionIds.map((id) => `promotion:${id}`), ...couponIds.map((id) => `coupon:${id}`)].sort()) {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${key}))`);
+  }
+
+  for (const promotionId of promotionIds) {
+    const promotion = await tx.commercePromotion.findUnique({ where: { id: promotionId } });
+    if (!promotion || promotion.status !== "ACTIVE" || (promotion.currency && promotion.currency !== input.currency)) {
+      throw new Error("Promotion changed while the order was being submitted");
+    }
+    const candidateDiscount = money(input.applied
+      .filter((item) => item.promotionId === promotionId)
+      .reduce((sum, item) => sum + item.discount, 0));
+    const [usage, customerUsage, spent] = await Promise.all([
+      tx.promotionRedemption.count({ where: { promotionId } }),
+      tx.promotionRedemption.count({ where: { promotionId, userId: input.userId } }),
+      promotion.campaignBudget
+        ? tx.promotionRedemption.aggregate({ where: { promotionId }, _sum: { discountAmount: true } })
+        : Promise.resolve(null),
+    ]);
+    if (promotion.usageLimit && usage >= promotion.usageLimit) throw new Error("Promotion usage limit has been reached");
+    if (promotion.perCustomerLimit && customerUsage >= promotion.perCustomerLimit) {
+      throw new Error("Promotion usage limit has been reached for this account");
+    }
+    if (promotion.campaignBudget) {
+      const consumed = Number(spent?._sum.discountAmount ?? 0);
+      if (money(consumed + candidateDiscount) > Number(promotion.campaignBudget)) {
+        throw new Error("Promotion campaign budget has been reached");
+      }
+    }
+  }
+
+  for (const couponId of couponIds) {
+    const coupon = await tx.promotionCoupon.findUnique({ where: { id: couponId } });
+    if (!coupon || coupon.status !== "ACTIVE") throw new Error("Coupon changed while the order was being submitted");
+    const [usage, customerUsage] = await Promise.all([
+      tx.promotionRedemption.count({ where: { couponId } }),
+      tx.promotionRedemption.count({ where: { couponId, userId: input.userId } }),
+    ]);
+    if (coupon.usageLimit && usage >= coupon.usageLimit) throw new Error("Coupon usage limit has been reached");
+    if (coupon.perCustomerLimit && customerUsage >= coupon.perCustomerLimit) {
+      throw new Error("Coupon usage limit has been reached for this account");
+    }
+  }
+}
+
+/**
  * Server-side commercial promotion evaluation. The browser may supply only a
  * coupon code; it never supplies a discount amount. ERP/contract price should
  * already be represented by baseUnitPrice before this function runs.
@@ -184,6 +247,13 @@ export async function evaluateCommercePromotions(input: {
       if (customerUsage >= promotion.perCustomerLimit) continue;
     }
     const calculated = calculatePromotionDiscount(promotion, input.lines, input.companyId, input.country);
+    if (promotion.campaignBudget && calculated.discount > 0) {
+      const spent = await db.promotionRedemption.aggregate({
+        where: { promotionId: promotion.id },
+        _sum: { discountAmount: true },
+      });
+      if (money(Number(spent._sum.discountAmount ?? 0) + calculated.discount) > Number(promotion.campaignBudget)) continue;
+    }
     if (calculated.discount > 0) eligibleAutomatic.push({ promotion, ...calculated });
   }
 
@@ -235,6 +305,15 @@ export async function evaluateCommercePromotions(input: {
 
     const calculated = calculatePromotionDiscount(couponPromotion, input.lines, input.companyId, input.country);
     if (calculated.discount <= 0) throw new Error("Coupon is not eligible for this order");
+    if (couponPromotion.campaignBudget) {
+      const spent = await db.promotionRedemption.aggregate({
+        where: { promotionId: couponPromotion.id },
+        _sum: { discountAmount: true },
+      });
+      if (money(Number(spent._sum.discountAmount ?? 0) + calculated.discount) > Number(couponPromotion.campaignBudget)) {
+        throw new Error("Coupon promotion campaign budget has been reached");
+      }
+    }
 
     if (!couponPromotion.stackable) {
       const currentTotal = Object.values(lineDiscounts).reduce((a, b) => a + b, 0);

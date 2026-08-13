@@ -1,6 +1,6 @@
 import { db } from "../index";
 import { write } from "../resilient-ops";
-import { evaluateCommercePromotions } from "./promotions";
+import { enforcePromotionRedemptionCapacity, evaluateCommercePromotions } from "./promotions";
 import { inventoryStockIdentityWhere, resolveConfiguredVatRate } from "./checkout-invariants";
 import type { Prisma, OrderStatus, Currency, PaymentMethod } from "@prisma/client";
 
@@ -229,6 +229,13 @@ export async function createOrder(input: CreateOrderInput) {
         // Recheck promotion/coupon caps immediately before redemption evidence is
         // written. The calculation itself already validated eligibility; this
         // catches most stale usage-limit races without trusting browser state.
+        if (promotion.applied.length > 0) {
+          await enforcePromotionRedemptionCapacity(tx, {
+            userId: input.userId,
+            currency: input.currency,
+            applied: promotion.applied,
+          });
+        }
         for (const applied of promotion.applied) {
           const rule = await tx.commercePromotion.findUnique({ where: { id: applied.promotionId } });
           if (!rule || rule.status !== "ACTIVE") throw new Error("Promotion changed while the order was being submitted");
