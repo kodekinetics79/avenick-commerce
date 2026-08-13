@@ -1,0 +1,99 @@
+name: Pilot stabilization gate
+
+on:
+  push:
+    branches:
+      - pilot-overhaul/2026-08-12
+    paths:
+      - scripts/pilot-stabilize.trigger
+
+permissions:
+  contents: write
+
+jobs:
+  stabilize-and-certify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: avenick
+          POSTGRES_PASSWORD: avenick
+          POSTGRES_DB: avenick_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U avenick -d avenick_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      DATABASE_URL: postgresql://avenick:avenick@localhost:5432/avenick_test?schema=public
+      DIRECT_URL: postgresql://avenick:avenick@localhost:5432/avenick_test?schema=public
+      NEXTAUTH_SECRET: pilot-stabilization-ci-secret-not-for-runtime
+      NEXTAUTH_URL: http://localhost:3000
+      PILOT_MODE: "false"
+      ALLOW_MOCK_PAYMENTS: "false"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: pilot-overhaul/2026-08-12
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Activate repository pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.4 --activate
+      - run: node scripts/pilot-stabilize.mjs
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @avenick/database db:generate
+      - name: Apply migrations
+        run: pnpm --filter @avenick/database db:deploy
+      - name: Exact-head typecheck
+        run: pnpm typecheck
+      - name: Exact-head lint
+        run: pnpm lint
+      - name: Exact-head unit and integration tests
+        run: pnpm test
+      - name: Build customer
+        run: pnpm --filter @avenick/customer build
+      - name: Build seller
+        run: pnpm --filter @avenick/seller build
+      - name: Build admin
+        run: pnpm --filter @avenick/admin build
+      - name: Write certification evidence
+        shell: bash
+        run: |
+          mkdir -p docs/qa
+          cat > docs/qa/PILOT_STABILIZATION_EVIDENCE.md <<EOF
+          # Pilot Stabilization Evidence
+
+          - Source trigger SHA: ${GITHUB_SHA}
+          - Workflow run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          - PostgreSQL 16 migrations: PASS
+          - Monorepo TypeScript, including @avenick/database: PASS
+          - Lint: PASS
+          - Unit/integration tests: PASS
+          - Customer production build: PASS
+          - Seller production build: PASS
+          - Admin production build: PASS
+          - Seller API staff membership boundary: patched to resolve SellerMembership
+          - Mock payments during certification: DISABLED
+
+          This evidence certifies only repository-local gates. Hosted browser, real pilot-catalog load,
+          object-storage media, external payment initiation and ERP-provider acceptance remain separate gates.
+          EOF
+      - name: Remove one-time workflow and scripts
+        shell: bash
+        run: |
+          rm -f .github/workflows/pilot-stabilize.yml scripts/pilot-stabilize.mjs scripts/pilot-stabilize.trigger
+      - name: Commit stabilized exact-head tree
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(pilot): stabilize seller scope and certify repository gates"
+          git push origin HEAD:pilot-overhaul/2026-08-12
