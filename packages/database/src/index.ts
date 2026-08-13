@@ -24,6 +24,7 @@ export * from "./services/listing-health";
 export * from "./services/products";
 export * from "./services/orders";
 export * from "./services/secure-checkout";
+export * from "./services/promotions";
 export * from "./services/inventory";
 export * from "./services/admin";
 export * from "./services/audit";
