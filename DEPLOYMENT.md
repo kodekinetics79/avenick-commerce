@@ -30,6 +30,11 @@ its API runtime. The pilot deployment shape is:
 4. Optional integrations — add in each service's Environment tab when ready
    (apps degrade gracefully without them):
    - customer: `CHECKOUT_PUBLIC_KEY`, `CHECKOUT_SECRET_KEY`, `CHECKOUT_WEBHOOK_SECRET`
+   - admin ERP ingress: the applicable `INTEGRATION_<D365|SAP|ERP>_WEBHOOK_SECRET`;
+     configure the provider URL as
+     `https://<avenick-admin>.onrender.com/api/integrations/inbound/<system>`
+     and sign `<x-avenick-timestamp>.<raw body>` with HMAC-SHA256 hex in
+     `x-avenick-signature`
    - seller: `ANTHROPIC_API_KEY`
    - any: `REDIS_URL` (shared rate limiting)
    - any: `NEXTAUTH_URL` is optional on Render; the customer email flow falls

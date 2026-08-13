@@ -49,6 +49,13 @@ describe("portal middleware — anonymous access", () => {
     }
   });
 
+  it("lets only the signed ERP ingress prefix reach admin route authentication", async () => {
+    const mw = createMiddleware("admin", anon);
+    expect((await mw(req("/api/integrations/inbound/ERP")))!.status).toBe(200);
+    expect((await mw(req("/api/integrations")))!.status).toBe(401);
+    expect((await mw(req("/api/integrations/inboundness")))!.status).toBe(401);
+  });
+
   it("does not leak the customer /products public rule into the seller portal", async () => {
     const mw = createMiddleware("seller", anon);
     const res = await mw(req("/products/123"));

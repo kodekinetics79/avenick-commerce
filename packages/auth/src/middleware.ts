@@ -27,7 +27,7 @@ const PUBLIC_PATHS: Record<PortalType, string[]> = {
 const PUBLIC_API_PATHS: Record<PortalType, string[]> = {
   customer: ["/api/products", "/api/categories", "/api/payments/webhook"],
   seller: [],
-  admin: [],
+  admin: ["/api/integrations/inbound"],
 };
 
 function isPublicApiPath(pathname: string, portal: PortalType): boolean {
