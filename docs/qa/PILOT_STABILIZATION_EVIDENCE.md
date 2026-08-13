@@ -5,8 +5,11 @@
 **CODE MERGE READY, pending final exact-evidence-SHA CI/deployment/Chrome confirmation. Pilot
 activation remains externally blocked.**
 
-The final code candidate certified before the release-evidence commits was
-`68cd0be8e5c5b5470767aa5025035b076f7cfba2`. The first evidence-only head,
+The final code candidate certified before the release-evidence commit is
+`adca21ab5d6549eab631ae8afb547537c273c21c`. It includes the deployed-Chrome finding that removed
+unsupported free-shipping, escrow, fixed marketplace-scale, multi-quote, credit, and integrated-3PL
+claims from live storefront surfaces, with a regression test for those commercial statements. The
+earlier evidence head,
 `83fa941ad5617b59f1e6ae2a4ffe840b6477bd93`, passed GitHub CI and reached READY on all three
 Vercel projects. This document correction necessarily creates one final evidence-only SHA; its CI,
 deployment IDs, and deployed smoke result are recorded on PR #4 after the checks finish. No source,
@@ -50,6 +53,8 @@ handling) appeared during tests; no test failed.
   system, and connection binding—not a caller-selected connection ID—authorize each event.
 - Public catalog DTOs minimize operational data, preserve authoritative variant/channel/currency/
   VAT/MOQ facts, and remove fabricated discounts, ratings, availability, and shipping promises.
+- Storefront and support copy no longer advertises unsupported free delivery, escrow, marketplace
+  scale, integrated logistics, guaranteed quote volume, or unimplemented credit applications.
 
 ## Local Chrome evidence
 
