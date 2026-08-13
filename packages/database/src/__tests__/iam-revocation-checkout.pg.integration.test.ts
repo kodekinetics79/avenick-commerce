@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { db } from "../index";
-import { setUserStatus } from "../services/admin";
-import { createGovernedPurchaseOrder, placeGovernedPurchaseOrder, updateGovernedCompanyMember } from "../services/b2b-purchase-orders";
+import { setCompanyStatus, setUserStatus } from "../services/admin";
+import { createGovernedPurchaseOrder, placeGovernedPurchaseOrder, transitionGovernedPurchaseOrder, updateGovernedCompanyMember } from "../services/b2b-purchase-orders";
 import { lockInventoryStockRows } from "../services/checkout-invariants";
 import { secureCreateOrder } from "../services/secure-checkout";
 
@@ -14,7 +14,7 @@ async function fixture(label: string, b2b: boolean) {
   const [buyer, owner, admin] = await Promise.all([
     db.user.create({ data: { email: `${stamp}-buyer@test.invalid`, firstName: "IAM", lastName: "Buyer", role: b2b ? "COMPANY_BUYER" : "CONSUMER", status: "ACTIVE" } }),
     db.user.create({ data: { email: `${stamp}-owner@test.invalid`, firstName: "IAM", lastName: "Owner", role: "SELLER_OWNER", status: "ACTIVE" } }),
-    db.user.create({ data: { email: `${stamp}-admin@test.invalid`, firstName: "IAM", lastName: "Admin", role: "SUPER_ADMIN", status: "ACTIVE" } }),
+    db.user.create({ data: { email: `${stamp}-admin@test.invalid`, firstName: "IAM", lastName: "Admin", role: b2b ? "COMPANY_ADMIN" : "SUPER_ADMIN", status: "ACTIVE" } }),
   ]);
   users.push(buyer.id, owner.id, admin.id);
   const seller = await db.sellerProfile.create({ data: {
@@ -36,6 +36,7 @@ async function fixture(label: string, b2b: boolean) {
     company = await db.company.create({ data: { nameEn: stamp, industry: "OTHER", size: "SMALL", country: "AE", city: "Dubai", status: "ACTIVE" } });
     companies.push(company.id);
     member = await db.companyMember.create({ data: { companyId: company.id, userId: buyer.id, role: "COMPANY_BUYER", isActive: true } });
+    await db.companyMember.create({ data: { companyId: company.id, userId: admin.id, role: "COMPANY_ADMIN", isActive: true } });
   }
   return { buyer, admin, product, stock, company, member };
 }
@@ -72,6 +73,57 @@ afterEach(async () => {
 });
 
 run("IAM revocation and order serialization", () => {
+  it("rejects B2B checkout and PO creation after company suspension wins", async () => {
+    const f = await fixture("company-first", true);
+    const po = await createGovernedPurchaseOrder({ companyId: f.company!.id, requesterId: f.buyer.id, currency: "AED", items: [{ productId: f.product.id, quantity: 1 }] });
+    await setCompanyStatus({ companyId: f.company!.id, status: "SUSPENDED", actorId: f.admin.id });
+    await expect(placeGovernedPurchaseOrder({ purchaseOrderId: po.id, companyId: f.company!.id, actorId: f.buyer.id })).rejects.toThrow(/active current company membership|approved purchase order/i);
+    await expect(createGovernedPurchaseOrder({ companyId: f.company!.id, requesterId: f.buyer.id, currency: "AED", items: [{ productId: f.product.id, quantity: 1 }] })).rejects.toThrow(/active current company membership/i);
+  });
+
+  it("lets earlier PO creation finish then suspension invalidates its approval", async () => {
+    const f = await fixture("po-before-company", true);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let locked!: () => void;
+    const lockSignal = new Promise<void>((resolve) => { locked = resolve; });
+    const creation = createGovernedPurchaseOrder({
+      companyId: f.company!.id, requesterId: f.buyer.id, currency: "AED", items: [{ productId: f.product.id, quantity: 1 }],
+      afterGovernanceLocks: async () => { locked(); await held; },
+    });
+    await lockSignal;
+    const suspension = setCompanyStatus({ companyId: f.company!.id, status: "SUSPENDED", actorId: f.admin.id });
+    release();
+    const [po] = await Promise.all([creation, suspension]);
+    await expect(db.purchaseOrder.findUniqueOrThrow({ where: { id: po.id } })).resolves.toMatchObject({ status: "PENDING_APPROVAL" });
+  });
+
+  it("revoked company admin cannot mutate members, cancel, or place", async () => {
+    const f = await fixture("actor-revoked", true);
+    const po = await createGovernedPurchaseOrder({ companyId: f.company!.id, requesterId: f.buyer.id, currency: "AED", items: [{ productId: f.product.id, quantity: 1 }] });
+    await setUserStatus({ userId: f.admin.id, status: "SUSPENDED", actorId: f.buyer.id, actorRole: "SUPER_ADMIN" });
+    await expect(updateGovernedCompanyMember({ memberId: f.member!.id, companyId: f.company!.id, actorId: f.admin.id, role: "COMPANY_BUYER", spendLimit: 50 })).rejects.toThrow(/active current company membership/i);
+    await expect(transitionGovernedPurchaseOrder({ purchaseOrderId: po.id, companyId: f.company!.id, actorId: f.admin.id, action: "cancel" })).rejects.toThrow(/active current company membership/i);
+    await expect(placeGovernedPurchaseOrder({ purchaseOrderId: po.id, companyId: f.company!.id, actorId: f.admin.id })).rejects.toThrow(/active current company membership/i);
+  });
+
+  it("lets an earlier member mutation commit before actor suspension", async () => {
+    const f = await fixture("mutation-before-revoke", true);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let locked!: () => void;
+    const lockSignal = new Promise<void>((resolve) => { locked = resolve; });
+    const mutation = updateGovernedCompanyMember({
+      memberId: f.member!.id, companyId: f.company!.id, actorId: f.admin.id, role: "COMPANY_BUYER", spendLimit: 50,
+      afterGovernanceLock: async () => { locked(); await held; },
+    });
+    await lockSignal;
+    const suspension = setUserStatus({ userId: f.admin.id, status: "SUSPENDED", actorId: f.buyer.id, actorRole: "SUPER_ADMIN" });
+    release();
+    await expect(mutation).resolves.toMatchObject({ member: { spendLimit: expect.anything() } });
+    await expect(suspension).resolves.toMatchObject({ status: "SUSPENDED" });
+  });
+
   it("invalidates an approved PO when membership deactivation wins", async () => {
     const f = await fixture("member-first", true);
     const po = await createGovernedPurchaseOrder({ companyId: f.company!.id, requesterId: f.buyer.id, currency: "AED", items: [{ productId: f.product.id, quantity: 1 }] });

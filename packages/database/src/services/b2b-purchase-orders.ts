@@ -159,6 +159,21 @@ function approvalEvidence(
   return { commercialFingerprint, snapshot };
 }
 
+async function currentCompanyActor(
+  tx: Prisma.TransactionClient,
+  input: { companyId: string; actorId: string },
+) {
+  const actor = await tx.companyMember.findFirst({
+    where: { companyId: input.companyId, userId: input.actorId },
+    include: { user: { select: { role: true, status: true, deletedAt: true } }, company: { select: { status: true, deletedAt: true } } },
+  });
+  if (!actor?.isActive || actor.user.status !== "ACTIVE" || actor.user.deletedAt
+    || actor.company.status !== "ACTIVE" || actor.company.deletedAt || actor.role !== actor.user.role) {
+    throw new Error("An active current company membership is required");
+  }
+  return actor;
+}
+
 async function invalidateApprovedPOs(
   tx: Prisma.TransactionClient,
   input: { companyId: string; currency: Currency; actorId: string; reason: string },
@@ -213,11 +228,15 @@ export async function updateGovernedCompanyMember(input: {
   return db.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
     await input.afterGovernanceLock?.();
-    const current = await tx.companyMember.findFirst({
+    const candidate = await tx.companyMember.findFirst({
       where: { id: input.memberId, companyId: input.companyId },
     });
+    if (!candidate) throw new Error("Company member not found");
+    await lockUserCommerceRows(tx, [input.actorId, candidate.userId]);
+    const actor = await currentCompanyActor(tx, input);
+    if (actor.role !== "COMPANY_ADMIN") throw new Error("Current company admin authority is required");
+    const current = await tx.companyMember.findFirst({ where: { id: input.memberId, companyId: input.companyId } });
     if (!current) throw new Error("Company member not found");
-    await lockUserCommerceRows(tx, [current.userId]);
 
     const roleChanged = current.role !== input.role;
     const spendChanged = current.spendLimit == null
@@ -345,14 +364,10 @@ export async function createGovernedPurchaseOrder(input: {
   items: PurchaseOrderLineInput[];
   notes?: string;
   requiredDate?: Date;
+  /** Deterministic seam after company and requester commerce locks are held. */
+  afterGovernanceLocks?: () => Promise<void>;
 }) {
-  const company = await db.company.findUnique({ where: { id: input.companyId } });
-  if (!company || company.deletedAt || company.status !== "ACTIVE") {
-    throw new Error("An active company account is required to create a purchase order");
-  }
-
   const priced = await pricePOLines(input.currency, input.items);
-  const overRequesterLimit = input.requesterSpendLimit != null && priced.gross > input.requesterSpendLimit;
 
   const stamp = Date.now().toString(36).toUpperCase().slice(-6);
   const random = Math.floor(100 + Math.random() * 900);
@@ -360,11 +375,16 @@ export async function createGovernedPurchaseOrder(input: {
 
   return db.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
+    await lockUserCommerceRows(tx, [input.requesterId]);
+    await input.afterGovernanceLocks?.();
+    const requester = await currentCompanyActor(tx, { companyId: input.companyId, actorId: input.requesterId });
+    const requesterSpendLimit = requester.spendLimit == null ? null : Number(requester.spendLimit);
     // Resolve again under the company policy lock so creation cannot race a
     // policy mutation and accidentally auto-approve under stale rules.
     const lockedPolicy = await governingPolicy(tx, input.companyId, input.currency, priced.gross);
-    const lockedNeedsApproval = Boolean(lockedPolicy || overRequesterLimit);
-    const evidence = approvalEvidence(input.currency, priced.gross, priced.lines, lockedPolicy, input.requesterSpendLimit);
+    const lockedOverRequesterLimit = requesterSpendLimit != null && priced.gross > requesterSpendLimit;
+    const lockedNeedsApproval = Boolean(lockedPolicy || lockedOverRequesterLimit);
+    const evidence = approvalEvidence(input.currency, priced.gross, priced.lines, lockedPolicy, requesterSpendLimit);
     const purchaseOrder = await tx.purchaseOrder.create({
       data: {
         poNumber,
@@ -414,8 +434,8 @@ export async function createGovernedPurchaseOrder(input: {
           lineCount: purchaseOrder.items.length,
           approvalReason: lockedPolicy
             ? `Policy ${lockedPolicy.name} threshold ${lockedPolicy.thresholdAmount} ${lockedPolicy.currency}`
-            : overRequesterLimit
-              ? `Requester spend limit ${input.requesterSpendLimit}`
+            : lockedOverRequesterLimit
+              ? `Requester spend limit ${requesterSpendLimit}`
               : "AUTO_APPROVED",
         },
       },
@@ -438,6 +458,7 @@ export async function transitionGovernedPurchaseOrder(input: {
 }) {
   return db.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
+    await lockUserCommerceRows(tx, [input.actorId]);
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`purchase-order:${input.purchaseOrderId}`}))`);
     await input.afterApprovalLocks?.();
     const po = await tx.purchaseOrder.findFirst({
@@ -459,15 +480,12 @@ export async function transitionGovernedPurchaseOrder(input: {
     const requesterSpendLimit = requesterMembership?.isActive && requesterMembership.companyId === po.companyId
       ? requesterMembership.spendLimit == null ? null : Number(requesterMembership.spendLimit)
       : null;
+    const actorMembership = await currentCompanyActor(tx, input);
+    if (input.action === "cancel") {
+      const canCancel = po.requesterId === input.actorId || ["COMPANY_ADMIN", "COMPANY_APPROVER"].includes(actorMembership.role);
+      if (!canCancel) throw new Error("Only the requester or a current approver can cancel this purchase order");
+    }
     if (["approve", "reject"].includes(input.action)) {
-      const actorMembership = await tx.companyMember.findFirst({
-        where: { userId: input.actorId, companyId: input.companyId },
-        include: { user: { select: { role: true, status: true, deletedAt: true } } },
-      });
-      if (!actorMembership?.isActive || actorMembership.user.status !== "ACTIVE" || actorMembership.user.deletedAt
-        || actorMembership.role !== actorMembership.user.role) {
-        throw new Error("An active current company approver membership is required");
-      }
       const actorRole = actorMembership.role;
       const permitted = actorRole === "COMPANY_ADMIN" || (!policy
         ? actorRole === "COMPANY_APPROVER"
@@ -549,6 +567,7 @@ export async function placeGovernedPurchaseOrder(input: {
 }) {
   const claim = await db.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
+    await lockUserCommerceRows(tx, [input.actorId]);
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`purchase-order:${input.purchaseOrderId}`}))`);
     await input.afterPlacementLocks?.();
     const po = await tx.purchaseOrder.findFirst({
@@ -556,6 +575,9 @@ export async function placeGovernedPurchaseOrder(input: {
       include: { items: true, company: true },
     });
     if (!po) throw new Error("Purchase order not found");
+    const actor = await currentCompanyActor(tx, input);
+    const canPlace = po.requesterId === input.actorId || ["COMPANY_ADMIN", "COMPANY_APPROVER"].includes(actor.role);
+    if (!canPlace) throw new Error("Only the requester or a current approver can place this purchase order");
     const existing = await tx.order.findFirst({ where: { purchaseOrderId: po.id }, orderBy: { createdAt: "asc" } });
     if (existing) {
       return { kind: "existing" as const, order: existing };

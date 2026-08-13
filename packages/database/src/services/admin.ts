@@ -73,6 +73,8 @@ export async function setUserStatus(opts: {
   actorId: string;
   actorRole: UserRole;
   reason?: string;
+  /** Deterministic seam after company and user commerce locks are held. */
+  afterGovernanceLocks?: () => Promise<void>;
 }) {
   const target = await db.user.findUnique({
     where: { id: opts.userId },
@@ -89,6 +91,7 @@ export async function setUserStatus(opts: {
   return db.$transaction(async (tx) => {
     await lockCompanyApprovalRows(tx, target.companyMember ? [target.companyMember.companyId] : []);
     await lockUserCommerceRows(tx, [opts.userId]);
+    await opts.afterGovernanceLocks?.();
     const current = await tx.user.findUnique({ where: { id: opts.userId }, select: { status: true } });
     if (!current) throw new Error("User not found");
     const affected = target.companyMember && current.status !== opts.status
@@ -184,17 +187,40 @@ export async function setCompanyStatus(opts: {
   status: CompanyStatus;
   actorId: string;
   reason?: string;
+  /** Deterministic seam for PostgreSQL concurrency regressions. */
+  afterCompanyLock?: () => Promise<void>;
 }) {
-  const target = await db.company.findUnique({
-    where: { id: opts.companyId },
-    select: { id: true, status: true },
-  });
-  if (!target) throw new Error("Company not found");
-
-  const [company] = await db.$transaction([
-    db.company.update({ where: { id: opts.companyId }, data: { status: opts.status } }),
-    db.auditLog.create({
-      data: {
+  return db.$transaction(async (tx) => {
+    await lockCompanyApprovalRows(tx, [opts.companyId]);
+    await opts.afterCompanyLock?.();
+    const target = await tx.company.findUnique({
+      where: { id: opts.companyId }, select: { id: true, status: true },
+    });
+    if (!target) throw new Error("Company not found");
+    const affected = opts.status !== "ACTIVE" && target.status !== opts.status
+      ? await tx.purchaseOrder.findMany({
+          where: { companyId: opts.companyId, status: "APPROVED" },
+          select: { id: true, approvalVersion: true },
+        })
+      : [];
+    const company = await tx.company.update({ where: { id: opts.companyId }, data: { status: opts.status } });
+    if (affected.length) {
+      await tx.purchaseOrder.updateMany({
+        where: { id: { in: affected.map(({ id }) => id) }, status: "APPROVED" },
+        data: {
+          status: "PENDING_APPROVAL", approverId: null, approvedAt: null,
+          approvalSnapshot: Prisma.DbNull, approvedCommercialFingerprint: null,
+          rejectionReason: "Company status changed; reapproval required", approvalVersion: { increment: 1 },
+        },
+      });
+      await tx.auditLog.createMany({ data: affected.map((po) => ({
+        actorId: opts.actorId, entityType: "PurchaseOrder", entityId: po.id,
+        action: AuditAction.STATUS_CHANGE,
+        before: { status: "APPROVED", approvalVersion: po.approvalVersion },
+        after: { status: "PENDING_APPROVAL", reason: "COMPANY_STATUS_CHANGED" },
+      })) });
+    }
+    await tx.auditLog.create({ data: {
         actorId: opts.actorId,
         entityType: "Company",
         entityId: opts.companyId,
@@ -205,11 +231,11 @@ export async function setCompanyStatus(opts: {
               ? AuditAction.ACTIVATE
               : AuditAction.STATUS_CHANGE,
         before: { status: target.status },
-        after: { status: opts.status, ...(opts.reason ? { reason: opts.reason } : {}) },
+        after: { status: opts.status, invalidatedPurchaseOrderIds: affected.map(({ id }) => id), ...(opts.reason ? { reason: opts.reason } : {}) },
       },
-    }),
-  ]);
-  return company;
+    });
+    return company;
+  });
 }
 
 export async function getAdminDashboard() {

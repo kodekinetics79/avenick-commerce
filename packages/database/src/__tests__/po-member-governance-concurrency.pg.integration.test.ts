@@ -14,12 +14,13 @@ const companies: string[] = [];
 
 async function fixture(label: string, requiresApproval = false) {
   const stamp = `${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-  const [requester, approver, owner] = await Promise.all([
+  const [requester, approver, admin, owner] = await Promise.all([
     db.user.create({ data: { email: `member-buyer-${stamp}@example.test`, firstName: "Member", lastName: "Buyer", role: "COMPANY_BUYER", status: "ACTIVE" } }),
     db.user.create({ data: { email: `member-approver-${stamp}@example.test`, firstName: "Member", lastName: "Approver", role: "COMPANY_APPROVER", status: "ACTIVE" } }),
+    db.user.create({ data: { email: `member-admin-${stamp}@example.test`, firstName: "Member", lastName: "Admin", role: "COMPANY_ADMIN", status: "ACTIVE" } }),
     db.user.create({ data: { email: `member-owner-${stamp}@example.test`, firstName: "Member", lastName: "Owner", role: "SELLER_OWNER", status: "ACTIVE" } }),
   ]);
-  users.push(requester.id, approver.id, owner.id);
+  users.push(requester.id, approver.id, admin.id, owner.id);
   const seller = await db.sellerProfile.create({ data: {
     userId: owner.id, businessNameEn: stamp, crNumber: `MG-${stamp}`, type: "DISTRIBUTOR",
     country: "AE", city: "Dubai", status: "ACTIVE",
@@ -29,6 +30,7 @@ async function fixture(label: string, requiresApproval = false) {
     members: { create: [
       { userId: requester.id, role: "COMPANY_BUYER", isActive: true, spendLimit: null },
       { userId: approver.id, role: "COMPANY_APPROVER", isActive: true, spendLimit: null },
+      { userId: admin.id, role: "COMPANY_ADMIN", isActive: true, spendLimit: null },
     ] },
   }, include: { members: true } });
   companies.push(company.id);
@@ -51,7 +53,7 @@ async function fixture(label: string, requiresApproval = false) {
   });
   expect(po.status).toBe(requiresApproval ? "PENDING_APPROVAL" : "APPROVED");
   return {
-    requester, approver, company,
+    requester, approver, admin, company,
     member: company.members.find((row) => row.userId === requester.id)!,
     approverMember: company.members.find((row) => row.userId === approver.id)!,
     po,
@@ -82,13 +84,13 @@ afterEach(async () => {
 
 run("PO member-governance concurrency", () => {
   it("rejects approval when role demotion wins the company lock", async () => {
-    const { requester, approver, company, approverMember, po } = await fixture("demotion-first", true);
+    const { approver, admin, company, approverMember, po } = await fixture("demotion-first", true);
     let release!: () => void;
     const held = new Promise<void>((resolve) => { release = resolve; });
     let locked!: () => void;
     const lockAcquired = new Promise<void>((resolve) => { locked = resolve; });
     const demotion = updateGovernedCompanyMember({
-      memberId: approverMember.id, companyId: company.id, actorId: requester.id,
+      memberId: approverMember.id, companyId: company.id, actorId: admin.id,
       role: "COMPANY_BUYER", spendLimit: null,
       afterGovernanceLock: async () => { locked(); await held; },
     });
@@ -109,7 +111,7 @@ run("PO member-governance concurrency", () => {
   });
 
   it("invalidates and audits approval when approval wins before role demotion", async () => {
-    const { requester, approver, company, approverMember, po } = await fixture("approval-first", true);
+    const { approver, admin, company, approverMember, po } = await fixture("approval-first", true);
     let release!: () => void;
     const held = new Promise<void>((resolve) => { release = resolve; });
     let locked!: () => void;
@@ -120,7 +122,7 @@ run("PO member-governance concurrency", () => {
     });
     await lockAcquired;
     const demotion = updateGovernedCompanyMember({
-      memberId: approverMember.id, companyId: company.id, actorId: requester.id,
+      memberId: approverMember.id, companyId: company.id, actorId: admin.id,
       role: "COMPANY_BUYER", spendLimit: null,
     });
     release();
@@ -139,13 +141,13 @@ run("PO member-governance concurrency", () => {
   });
 
   it("invalidates approval and creates no order when a lowered limit wins the company lock", async () => {
-    const { requester, company, member, po } = await fixture("limit-first");
+    const { requester, admin, company, member, po } = await fixture("limit-first");
     let release!: () => void;
     const held = new Promise<void>((resolve) => { release = resolve; });
     let locked!: () => void;
     const lockAcquired = new Promise<void>((resolve) => { locked = resolve; });
     const update = updateGovernedCompanyMember({
-      memberId: member.id, companyId: company.id, actorId: requester.id,
+      memberId: member.id, companyId: company.id, actorId: admin.id,
       role: "COMPANY_BUYER", spendLimit: 50,
       afterGovernanceLock: async () => { locked(); await held; },
     });
@@ -165,7 +167,7 @@ run("PO member-governance concurrency", () => {
   });
 
   it("preserves and records an earlier placement claim before applying the lowered limit", async () => {
-    const { requester, company, member, po } = await fixture("placement-first");
+    const { requester, admin, company, member, po } = await fixture("placement-first");
     let release!: () => void;
     const held = new Promise<void>((resolve) => { release = resolve; });
     let locked!: () => void;
@@ -178,7 +180,7 @@ run("PO member-governance concurrency", () => {
     });
     await lockAcquired;
     update = updateGovernedCompanyMember({
-      memberId: member.id, companyId: company.id, actorId: requester.id,
+      memberId: member.id, companyId: company.id, actorId: admin.id,
       role: "COMPANY_BUYER", spendLimit: 50,
     });
     release();
