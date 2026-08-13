@@ -9,7 +9,7 @@ import {
   type UserStatus,
   type CompanyStatus,
 } from "../index";
-import { lockProductCommercialRows, lockSellerCommercialRows } from "./checkout-invariants";
+import { lockCompanyApprovalRows, lockProductCommercialRows, lockSellerCommercialRows, lockUserCommerceRows } from "./checkout-invariants";
 
 // ─── PLATFORM USERS ───────────────────────────────────────────────────────────
 
@@ -76,7 +76,7 @@ export async function setUserStatus(opts: {
 }) {
   const target = await db.user.findUnique({
     where: { id: opts.userId },
-    select: { id: true, status: true, role: true },
+    select: { id: true, status: true, role: true, companyMember: { select: { companyId: true } } },
   });
   if (!target) throw new Error("User not found");
   if (target.role === "SUPER_ADMIN" && opts.actorRole !== "SUPER_ADMIN") {
@@ -86,9 +86,39 @@ export async function setUserStatus(opts: {
     throw new Error("You cannot change the status of your own account");
   }
 
-  const [user] = await db.$transaction([
-    db.user.update({ where: { id: opts.userId }, data: { status: opts.status } }),
-    db.auditLog.create({
+  return db.$transaction(async (tx) => {
+    await lockCompanyApprovalRows(tx, target.companyMember ? [target.companyMember.companyId] : []);
+    await lockUserCommerceRows(tx, [opts.userId]);
+    const current = await tx.user.findUnique({ where: { id: opts.userId }, select: { status: true } });
+    if (!current) throw new Error("User not found");
+    const affected = target.companyMember && current.status !== opts.status
+      ? await tx.purchaseOrder.findMany({
+          where: {
+            companyId: target.companyMember.companyId,
+            status: "APPROVED",
+            OR: [{ requesterId: opts.userId }, { approverId: opts.userId }],
+          },
+          select: { id: true, approvalVersion: true },
+        })
+      : [];
+    const user = await tx.user.update({ where: { id: opts.userId }, data: { status: opts.status } });
+    if (affected.length) {
+      await tx.purchaseOrder.updateMany({
+        where: { id: { in: affected.map(({ id }) => id) }, status: "APPROVED" },
+        data: {
+          status: "PENDING_APPROVAL", approverId: null, approvedAt: null,
+          approvalSnapshot: Prisma.DbNull, approvedCommercialFingerprint: null,
+          rejectionReason: "User account status changed; reapproval required", approvalVersion: { increment: 1 },
+        },
+      });
+      await tx.auditLog.createMany({ data: affected.map((po) => ({
+        actorId: opts.actorId, entityType: "PurchaseOrder", entityId: po.id,
+        action: AuditAction.STATUS_CHANGE,
+        before: { status: "APPROVED", approvalVersion: po.approvalVersion },
+        after: { status: "PENDING_APPROVAL", reason: "USER_STATUS_CHANGED" },
+      })) });
+    }
+    await tx.auditLog.create({
       data: {
         actorId: opts.actorId,
         entityType: "User",
@@ -99,12 +129,12 @@ export async function setUserStatus(opts: {
             : opts.status === "ACTIVE"
               ? AuditAction.ACTIVATE
               : AuditAction.STATUS_CHANGE,
-        before: { status: target.status },
-        after: { status: opts.status, ...(opts.reason ? { reason: opts.reason } : {}) },
+        before: { status: current.status },
+        after: { status: opts.status, invalidatedPurchaseOrderIds: affected.map(({ id }) => id), ...(opts.reason ? { reason: opts.reason } : {}) },
       },
-    }),
-  ]);
-  return user;
+    });
+    return user;
+  });
 }
 
 // ─── PLATFORM COMPANIES ───────────────────────────────────────────────────────

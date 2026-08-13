@@ -3,6 +3,30 @@ import { Prisma } from "@prisma/client";
 type InventoryLockClient = Pick<Prisma.TransactionClient, "$executeRaw">;
 type CommercialLockClient = Pick<Prisma.TransactionClient, "$executeRaw">;
 
+/** Company governance is always acquired before user and catalog fences. */
+export async function lockCompanyApprovalRows(
+  tx: CommercialLockClient,
+  companyIds: string[],
+): Promise<void> {
+  for (const companyId of [...new Set(companyIds)].sort()) {
+    await tx.$executeRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${companyId}`}))`,
+    );
+  }
+}
+
+/** User activation/deletion decisions share this fence with order commit. */
+export async function lockUserCommerceRows(
+  tx: CommercialLockClient,
+  userIds: string[],
+): Promise<void> {
+  for (const userId of [...new Set(userIds)].sort()) {
+    await tx.$executeRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`user-commerce:${userId}`}))`,
+    );
+  }
+}
+
 /**
  * Product publication, channel, variant, MOQ, and price writers share this
  * transaction-scoped lock with checkout. Sorting prevents multi-product carts

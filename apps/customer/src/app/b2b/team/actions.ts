@@ -98,18 +98,13 @@ export async function setMemberActive(memberId: string, isActive: boolean) {
   if (!target || target.companyId !== ctx.companyId) return;
   if (target.userId === ctx.userId) return;
 
-  await db.$transaction(async (tx) => {
-    await tx.companyMember.update({ where: { id: memberId }, data: { isActive } });
-    await tx.auditLog.create({
-      data: {
-        actorId: ctx.userId,
-        entityType: "CompanyMember",
-        entityId: memberId,
-        action: "UPDATE",
-        before: { companyId: ctx.companyId, isActive: target.isActive },
-        after: { companyId: ctx.companyId, isActive },
-      },
-    });
+  await updateGovernedCompanyMember({
+    memberId,
+    companyId: ctx.companyId,
+    actorId: ctx.userId,
+    role: target.role as Role,
+    spendLimit: target.spendLimit == null ? null : Number(target.spendLimit),
+    isActive,
   });
   revalidatePath("/b2b/team");
   

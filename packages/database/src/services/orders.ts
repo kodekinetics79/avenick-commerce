@@ -4,9 +4,11 @@ import { enforcePromotionRedemptionCapacity, evaluateCommercePromotions } from "
 import {
   assertMinimumOrderQuantity,
   inventoryStockIdentityWhere,
+  lockCompanyApprovalRows,
   lockInventoryStockRows,
   lockProductCommercialRows,
   lockSellerCommercialRows,
+  lockUserCommerceRows,
   resolveConfiguredVatRate,
 } from "./checkout-invariants";
 import { assertMatchingIdempotencyFingerprint } from "./commerce-governance";
@@ -151,6 +153,25 @@ export async function createOrder(input: CreateOrderInput) {
   return write(
     () =>
       db.$transaction(async (tx) => {
+        await lockCompanyApprovalRows(tx, input.companyId ? [input.companyId] : []);
+        await lockUserCommerceRows(tx, [input.userId]);
+        const currentUser = await tx.user.findUnique({
+          where: { id: input.userId },
+          include: { companyMember: { include: { company: true } } },
+        });
+        if (!currentUser || currentUser.deletedAt || currentUser.status !== "ACTIVE") {
+          throw new Error("Customer account is not active");
+        }
+        if (!["CONSUMER", "COMPANY_ADMIN", "COMPANY_BUYER", "COMPANY_APPROVER"].includes(currentUser.role)) {
+          throw new Error("This account is not permitted to place customer orders");
+        }
+        if (input.type === "B2B") {
+          const member = currentUser.companyMember;
+          if (!input.companyId || !member || member.companyId !== input.companyId || !member.isActive
+            || member.company.status !== "ACTIVE" || member.company.deletedAt) {
+            throw new Error("An active verified company membership is required for B2B checkout");
+          }
+        }
         const sellerIds = (await tx.product.findMany({
           where: { id: { in: productIds } },
           select: { sellerId: true },
