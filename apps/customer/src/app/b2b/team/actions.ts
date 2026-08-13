@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db } from "@avenick/database";
+import { db, updateGovernedCompanyMember } from "@avenick/database";
 import { getB2BContext, type B2BActionState } from "@/lib/b2b";
 import { sendInviteEmail } from "@/lib/email";
 
@@ -76,23 +76,15 @@ export async function updateMember(memberId: string, formData: FormData) {
   const spendRaw = String(formData.get("spendLimit") ?? "").trim();
   const spendLimit = spendRaw ? Number(spendRaw) : null;
 
-  const nextRole = ROLES.includes(role) ? role : target.role;
-  await db.$transaction(async (tx) => {
-    await tx.companyMember.update({
-      where: { id: memberId },
-      data: { role: nextRole, spendLimit },
-    });
-    await tx.user.update({ where: { id: target.userId }, data: { role: nextRole } });
-    await tx.auditLog.create({
-      data: {
-        actorId: ctx.userId,
-        entityType: "CompanyMember",
-        entityId: memberId,
-        action: "UPDATE",
-        before: { companyId: ctx.companyId, role: target.role, spendLimit: target.spendLimit },
-        after: { companyId: ctx.companyId, role: nextRole, spendLimit },
-      },
-    });
+  if (!ROLES.includes(role)) return;
+  const nextRole = role;
+  if (spendRaw && (!Number.isFinite(spendLimit) || (spendLimit ?? 0) < 0)) return;
+  await updateGovernedCompanyMember({
+    memberId,
+    companyId: ctx.companyId,
+    actorId: ctx.userId,
+    role: nextRole,
+    spendLimit,
   });
   revalidatePath("/b2b/team");
   

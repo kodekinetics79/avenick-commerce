@@ -192,6 +192,96 @@ async function invalidateApprovedPOs(
   });
 }
 
+/**
+ * Updates approval-relevant company membership facts under the same company
+ * fence as PO approval and placement. A placement that already claimed
+ * PLACING is the earlier operation; only still-APPROVED work is invalidated.
+ */
+export async function updateGovernedCompanyMember(input: {
+  memberId: string;
+  companyId: string;
+  actorId: string;
+  role: Extract<UserRole, "COMPANY_ADMIN" | "COMPANY_BUYER" | "COMPANY_APPROVER">;
+  spendLimit: number | null;
+  /** Deterministic seam for PostgreSQL concurrency regressions. */
+  afterGovernanceLock?: () => Promise<void>;
+}) {
+  if (input.spendLimit != null && (!Number.isFinite(input.spendLimit) || input.spendLimit < 0)) {
+    throw new Error("Spend limit must be a non-negative number");
+  }
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
+    await input.afterGovernanceLock?.();
+    const current = await tx.companyMember.findFirst({
+      where: { id: input.memberId, companyId: input.companyId },
+    });
+    if (!current) throw new Error("Company member not found");
+
+    const roleChanged = current.role !== input.role;
+    const spendChanged = current.spendLimit == null
+      ? input.spendLimit != null
+      : input.spendLimit == null || Number(current.spendLimit) !== input.spendLimit;
+    const affected = roleChanged || spendChanged
+      ? await tx.purchaseOrder.findMany({
+          where: {
+            companyId: input.companyId,
+            status: "APPROVED",
+            OR: [
+              { requesterId: current.userId },
+              ...(roleChanged ? [{ approverId: current.userId }] : []),
+            ],
+          },
+          select: { id: true, approvalVersion: true },
+        })
+      : [];
+    const inFlight = roleChanged || spendChanged
+      ? await tx.purchaseOrder.findMany({
+          where: {
+            companyId: input.companyId,
+            status: { in: ["PLACING", "ORDERED"] },
+            OR: [
+              { requesterId: current.userId },
+              ...(roleChanged ? [{ approverId: current.userId }] : []),
+            ],
+          },
+          select: { id: true, status: true },
+        })
+      : [];
+
+    const member = await tx.companyMember.update({
+      where: { id: current.id }, data: { role: input.role, spendLimit: input.spendLimit },
+    });
+    await tx.user.update({ where: { id: current.userId }, data: { role: input.role } });
+    const reason = "Company member approval authority or spend limit changed; reapproval required";
+    if (affected.length) {
+      await tx.purchaseOrder.updateMany({
+        where: { id: { in: affected.map((po) => po.id) }, status: "APPROVED" },
+        data: {
+          status: "PENDING_APPROVAL", approverId: null, approvedAt: null,
+          approvalSnapshot: Prisma.DbNull, approvedCommercialFingerprint: null,
+          rejectionReason: reason, approvalVersion: { increment: 1 },
+        },
+      });
+      await tx.auditLog.createMany({ data: affected.map((po) => ({
+        actorId: input.actorId, entityType: "PurchaseOrder", entityId: po.id,
+        action: AuditAction.STATUS_CHANGE,
+        before: { status: "APPROVED", approvalVersion: po.approvalVersion },
+        after: { status: "PENDING_APPROVAL", reason: "MEMBER_GOVERNANCE_CHANGED", detail: reason },
+      })) });
+    }
+    await tx.auditLog.create({ data: {
+      actorId: input.actorId, entityType: "CompanyMember", entityId: current.id, action: AuditAction.UPDATE,
+      before: { companyId: input.companyId, role: current.role, spendLimit: current.spendLimit },
+      after: {
+        companyId: input.companyId, role: input.role, spendLimit: input.spendLimit,
+        invalidatedPurchaseOrderIds: affected.map((po) => po.id),
+        preservedPlacementClaims: inFlight,
+      },
+    } });
+    return { member, invalidatedPurchaseOrderIds: affected.map((po) => po.id), preservedPlacementClaims: inFlight };
+  });
+}
+
 export async function createGovernedApprovalPolicy(input: {
   companyId: string;
   actorId: string;
@@ -420,12 +510,15 @@ export async function placeGovernedPurchaseOrder(input: {
   actorId: string;
   /** Deterministic post-claim seam used only by PostgreSQL race regressions. */
   afterPlacementClaim?: () => Promise<void>;
+  /** Deterministic seam after both approval locks are held. */
+  afterPlacementLocks?: () => Promise<void>;
   /** Deterministic transactional fault seam used only by PostgreSQL regression tests. */
   faultAfterOrderedTransition?: () => void;
 }) {
   const claim = await db.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`purchase-order:${input.purchaseOrderId}`}))`);
+    await input.afterPlacementLocks?.();
     const po = await tx.purchaseOrder.findFirst({
       where: { id: input.purchaseOrderId, companyId: input.companyId },
       include: { items: true, company: true },
