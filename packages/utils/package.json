@@ -5,7 +5,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./s3": "./src/s3.ts",
-    "./crypto": "./src/crypto.ts"
+    "./crypto": "./src/crypto.ts",
+    "./browser-upload-policy": "./src/browser-upload-policy.ts"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

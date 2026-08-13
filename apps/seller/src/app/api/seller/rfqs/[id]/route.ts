@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db, submitQuote } from "@avenick/database";
 import { z } from "zod";
-import { getServerSellerContext } from "@/lib/seller-server";
+import { getServerSellerContext, sellerHasPermission } from "@/lib/seller-server";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +16,9 @@ const SubmitQuoteSchema = z.object({
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   const ctx = await getServerSellerContext();
   if (!ctx) return NextResponse.json({ success: false, error: "Seller account required" }, { status: 401 });
+  if (!sellerHasPermission(ctx, "rfqs.view")) {
+    return NextResponse.json({ success: false, error: "RFQ-view permission required" }, { status: 403 });
+  }
 
   const rfq = await db.rFQRequest.findFirst({
     where: {
@@ -40,6 +43,9 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const ctx = await getServerSellerContext();
   if (!ctx) return NextResponse.json({ success: false, error: "Seller account required" }, { status: 401 });
+  if (!sellerHasPermission(ctx, "quotes.submit")) {
+    return NextResponse.json({ success: false, error: "Quote-submission permission required" }, { status: 403 });
+  }
 
   const parsed = SubmitQuoteSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {

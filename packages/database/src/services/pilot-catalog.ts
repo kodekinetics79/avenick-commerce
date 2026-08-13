@@ -74,6 +74,8 @@ const SELLERS: Record<string, { name: string; city: string }> = {
   "3m": { name: "Pilot Catalog — 3M", city: "Riyadh" },
 };
 
+type CatalogClient = Prisma.TransactionClient;
+
 const slugify = (value: string) =>
   value.normalize("NFKD").replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "").toLowerCase().slice(0, 90) || "item";
 const clean = (value: unknown) => {
@@ -137,12 +139,12 @@ export function validatePilotCatalog(file: PilotCatalogFile) {
   return { errors, warnings, counts, verifiedPriceRows, sourceStockRows, mediaMappedRows };
 }
 
-async function ensureSeller(sellerKey: string, testPassword?: string) {
+async function ensureSeller(client: CatalogClient, sellerKey: string, testPassword?: string) {
   const config = SELLERS[sellerKey];
   if (!config) throw new Error(`Unsupported seller ${sellerKey}`);
   const email = `pilot.catalog+${sellerKey}@avenick.test`;
   const passwordHash = testPassword ? await bcrypt.hash(testPassword, 12) : null;
-  const user = await db.user.upsert({
+  const user = await client.user.upsert({
     where: { email },
     update: {
       role: UserRole.SELLER_OWNER,
@@ -159,7 +161,7 @@ async function ensureSeller(sellerKey: string, testPassword?: string) {
       language: "EN",
     },
   });
-  const seller = await db.sellerProfile.upsert({
+  const seller = await client.sellerProfile.upsert({
     where: { userId: user.id },
     update: { businessNameEn: config.name, status: SellerStatus.ACTIVE, tier: SellerTier.VERIFIED },
     create: {
@@ -176,12 +178,12 @@ async function ensureSeller(sellerKey: string, testPassword?: string) {
       commissionRate: 5,
     },
   });
-  const warehouse = await db.warehouse.upsert({
+  const warehouse = await client.warehouse.upsert({
     where: { id: `pilot-wh-${sellerKey}` },
     update: { sellerId: seller.id, isActive: true },
     create: { id: `pilot-wh-${sellerKey}`, sellerId: seller.id, nameEn: `${config.name} Warehouse`, type: "SELLER", country: "SA", city: config.city },
   });
-  const location = await db.inventoryLocation.upsert({
+  const location = await client.inventoryLocation.upsert({
     where: { warehouseId_code: { warehouseId: warehouse.id, code: "MAIN" } },
     update: { isActive: true },
     create: { warehouseId: warehouse.id, code: "MAIN", zone: "PILOT" },
@@ -189,27 +191,27 @@ async function ensureSeller(sellerKey: string, testPassword?: string) {
   return { seller, location };
 }
 
-async function ensureCategory(family?: string | null, subcategory?: string | null) {
+async function ensureCategory(client: CatalogClient, family?: string | null, subcategory?: string | null) {
   const familyName = family?.trim() || "Industrial Products";
   const familySlug = `pilot-${slugify(familyName)}`;
-  const parent = await db.category.upsert({
+  const parent = await client.category.upsert({
     where: { slug: familySlug },
     update: { nameEn: familyName, isActive: true },
     create: { nameEn: familyName, nameAr: familyName, slug: familySlug, isActive: true },
   });
   const childName = subcategory?.trim() || "General";
   const childSlug = `${familySlug}-${slugify(childName)}`;
-  return db.category.upsert({
+  return client.category.upsert({
     where: { slug: childSlug },
     update: { nameEn: childName, parentId: parent.id, isActive: true },
     create: { nameEn: childName, nameAr: childName, slug: childSlug, parentId: parent.id, isActive: true },
   });
 }
 
-async function ensureBrand(name?: string | null) {
+async function ensureBrand(client: CatalogClient, name?: string | null) {
   const brandName = name?.trim() || "Unspecified";
   const slug = `pilot-${slugify(brandName)}`;
-  return db.brand.upsert({
+  return client.brand.upsert({
     where: { slug },
     update: { nameEn: brandName, isActive: true },
     create: { nameEn: brandName, nameAr: brandName, slug, isActive: true },
@@ -234,16 +236,16 @@ function commercialPayload(row: PilotCatalogRecord): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(payload)) as Prisma.InputJsonValue;
 }
 
-async function upsertProduct(row: PilotCatalogRecord, sellerId: string, locationId: string, assetBaseUrl?: string) {
-  const category = await ensureCategory(row.family, row.subcategory);
-  const brand = await ensureBrand(row.brand ?? row.manufacturer ?? row.sourceSheet);
+async function upsertProduct(client: CatalogClient, row: PilotCatalogRecord, sellerId: string, locationId: string, assetBaseUrl?: string) {
+  const category = await ensureCategory(client, row.family, row.subcategory);
+  const brand = await ensureBrand(client, row.brand ?? row.manufacturer ?? row.sourceSheet);
   const verifiedPrice = Number(row.unitPriceSAR) > 0 ? Number(row.unitPriceSAR) : null;
   const status = verifiedPrice ? ProductStatus.ACTIVE : ProductStatus.DRAFT;
   const fingerprint = pilotCatalogFingerprint(row);
   const slug = `${slugify(row.sku)}-${fingerprint.slice(0, 8)}`;
   const moq = positiveInt(row.moqSales, 1);
 
-  const product = await db.product.upsert({
+  const product = await client.product.upsert({
     where: { sku: row.sku },
     update: {
       sellerId,
@@ -285,7 +287,7 @@ async function upsertProduct(row: PilotCatalogRecord, sellerId: string, location
     },
   });
 
-  await db.productCommercialMetadata.upsert({
+  await client.productCommercialMetadata.upsert({
     where: { productId: product.id },
     update: {
       sourceSystem: "CLIENT_PILOT_CATALOG",
@@ -339,19 +341,19 @@ async function upsertProduct(row: PilotCatalogRecord, sellerId: string, location
     },
   });
 
-  await db.productPrice.deleteMany({ where: { productId: product.id, type: "B2B", currency: "SAR" } });
+  await client.productPrice.deleteMany({ where: { productId: product.id, type: "B2B", currency: "SAR" } });
   if (verifiedPrice) {
-    await db.productPrice.create({ data: { productId: product.id, type: "B2B", currency: "SAR", minQty: moq, price: verifiedPrice, vatRate: 15, isActive: true } });
+    await client.productPrice.create({ data: { productId: product.id, type: "B2B", currency: "SAR", minQty: moq, price: verifiedPrice, vatRate: 15, isActive: true } });
   }
 
-  await db.productIssue.deleteMany({
+  await client.productIssue.deleteMany({
     where: {
       productId: product.id,
       issueType: { in: [ProductIssueType.NO_PRICE, ProductIssueType.MISSING_ARABIC_TITLE, ProductIssueType.MISSING_ENGLISH_DESCRIPTION] },
       resolvedAt: null,
     },
   });
-  await db.productIssue.create({
+  await client.productIssue.create({
     data: {
       productId: product.id,
       issueType: ProductIssueType.MISSING_ARABIC_TITLE,
@@ -360,19 +362,19 @@ async function upsertProduct(row: PilotCatalogRecord, sellerId: string, location
     },
   });
   if (!row.description?.trim()) {
-    await db.productIssue.create({
+    await client.productIssue.create({
       data: { productId: product.id, issueType: ProductIssueType.MISSING_ENGLISH_DESCRIPTION, severity: "WARNING", message: "Source catalog did not include an English product description." },
     });
   }
   if (!verifiedPrice) {
-    await db.productIssue.create({
+    await client.productIssue.create({
       data: { productId: product.id, issueType: ProductIssueType.NO_PRICE, severity: "ERROR", message: "No verified SAR sales price exists in the supplied source. Product remains DRAFT and cannot be ordered." },
     });
   }
 
-  await db.inventoryStock.deleteMany({ where: { productId: product.id, locationId } });
+  await client.inventoryStock.deleteMany({ where: { productId: product.id, locationId } });
   if (row.stockAvailable != null && Number.isFinite(Number(row.stockAvailable))) {
-    await db.inventoryStock.create({
+    await client.inventoryStock.create({
       data: {
         productId: product.id,
         locationId,
@@ -384,9 +386,9 @@ async function upsertProduct(row: PilotCatalogRecord, sellerId: string, location
   }
 
   if (assetBaseUrl && row.assets?.images?.length) {
-    await db.productImage.deleteMany({ where: { productId: product.id } });
+    await client.productImage.deleteMany({ where: { productId: product.id } });
     const base = assetBaseUrl.replace(/\/+$/, "");
-    await db.productImage.createMany({
+    await client.productImage.createMany({
       data: row.assets.images.map((filename, index) => ({
         productId: product.id,
         url: `${base}/${encodeURIComponent(row.sellerKey)}/${encodeURIComponent(filename)}`,
@@ -407,44 +409,68 @@ export async function applyPilotCatalog(file: PilotCatalogFile, options: {
   const validation = validatePilotCatalog(file);
   if (validation.errors.length) throw new Error(`Catalog validation failed: ${validation.errors.slice(0, 10).join("; ")}`);
 
-  const contexts = new Map<string, Awaited<ReturnType<typeof ensureSeller>>>();
-  for (const key of new Set(file.records.map((row) => row.sellerKey))) {
-    contexts.set(key, await ensureSeller(key, options.testPassword));
-  }
+  // One transaction makes the import all-or-nothing, including its audit row.
+  // A generous explicit timeout is required for the bounded 20k-row pilot file.
+  return db.$transaction(async (tx) => {
+    const contexts = new Map<string, Awaited<ReturnType<typeof ensureSeller>>>();
+    for (const key of new Set(file.records.map((row) => row.sellerKey))) {
+      contexts.set(key, await ensureSeller(tx, key, options.testPassword));
+    }
 
-  let activeWithVerifiedPrice = 0;
-  let draftMissingPrice = 0;
-  let rowsWithSourceStock = 0;
-  let rowsWithMappedMedia = 0;
-  for (const row of file.records) {
-    const context = contexts.get(row.sellerKey);
-    if (!context) throw new Error(`Seller context missing for ${row.sellerKey}`);
-    const result = await upsertProduct(row, context.seller.id, context.location.id, options.assetBaseUrl);
-    if (result.active) activeWithVerifiedPrice += 1;
-    else draftMissingPrice += 1;
-    if (result.hasSourceStock) rowsWithSourceStock += 1;
-    if (result.hasMappedMedia) rowsWithMappedMedia += 1;
-  }
-
-  const result = {
-    imported: file.records.length,
-    activeWithVerifiedPrice,
-    draftMissingPrice,
-    rowsWithSourceStock,
-    rowsWithMappedMedia,
-    sellerKeys: [...contexts.keys()],
-    source: file.generatedFrom ?? "client-supplied pilot catalog",
-  };
-  if (options.actorId) {
-    await db.auditLog.create({
-      data: {
-        actorId: options.actorId,
-        entityType: "PilotCatalogImport",
-        entityId: createHash("sha256").update(JSON.stringify(result)).digest("hex").slice(0, 24),
-        action: AuditAction.CREATE,
-        after: result,
-      },
+    // SKU is globally unique. Re-import may update only a product previously
+    // created by this importer for the same deterministic pilot seller; never
+    // transfer another seller's catalog merely because an input SKU collides.
+    const existing = await tx.product.findMany({
+      where: { sku: { in: file.records.map((row) => row.sku) } },
+      select: { sku: true, sellerId: true, commercialMetadata: { select: { sourceSystem: true } } },
     });
-  }
-  return result;
+    const rowBySku = new Map(file.records.map((row) => [row.sku, row]));
+    for (const product of existing) {
+      const row = rowBySku.get(product.sku);
+      const expectedSeller = row ? contexts.get(row.sellerKey)?.seller.id : undefined;
+      if (
+        !expectedSeller ||
+        product.sellerId !== expectedSeller ||
+        product.commercialMetadata?.sourceSystem !== "CLIENT_PILOT_CATALOG"
+      ) {
+        throw new Error(`Catalog SKU ${product.sku} already belongs to a non-pilot or different seller product`);
+      }
+    }
+
+    let activeWithVerifiedPrice = 0;
+    let draftMissingPrice = 0;
+    let rowsWithSourceStock = 0;
+    let rowsWithMappedMedia = 0;
+    for (const row of file.records) {
+      const context = contexts.get(row.sellerKey);
+      if (!context) throw new Error(`Seller context missing for ${row.sellerKey}`);
+      const applied = await upsertProduct(tx, row, context.seller.id, context.location.id, options.assetBaseUrl);
+      if (applied.active) activeWithVerifiedPrice += 1;
+      else draftMissingPrice += 1;
+      if (applied.hasSourceStock) rowsWithSourceStock += 1;
+      if (applied.hasMappedMedia) rowsWithMappedMedia += 1;
+    }
+
+    const result = {
+      imported: file.records.length,
+      activeWithVerifiedPrice,
+      draftMissingPrice,
+      rowsWithSourceStock,
+      rowsWithMappedMedia,
+      sellerKeys: [...contexts.keys()],
+      source: file.generatedFrom ?? "client-supplied pilot catalog",
+    };
+    if (options.actorId) {
+      await tx.auditLog.create({
+        data: {
+          actorId: options.actorId,
+          entityType: "PilotCatalogImport",
+          entityId: createHash("sha256").update(JSON.stringify(result)).digest("hex").slice(0, 24),
+          action: AuditAction.CREATE,
+          after: result,
+        },
+      });
+    }
+    return result;
+  }, { maxWait: 10_000, timeout: 15 * 60_000 });
 }

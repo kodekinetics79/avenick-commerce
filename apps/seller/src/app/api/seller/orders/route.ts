@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrdersForSeller } from "@avenick/database";
 import type { OrderStatus } from "@avenick/database";
-import { getServerSellerContext } from "@/lib/seller-server";
+import { getServerSellerContext, sellerHasPermission } from "@/lib/seller-server";
 
 const ORDER_STATUSES = new Set<OrderStatus>([
   "PENDING_PAYMENT",
@@ -20,6 +20,9 @@ export async function GET(req: NextRequest) {
   try {
     const context = await getServerSellerContext();
     if (!context) return NextResponse.json({ success: false, error: "Seller account required" }, { status: 401 });
+    if (!sellerHasPermission(context, "orders.view")) {
+      return NextResponse.json({ success: false, error: "Order-view permission required" }, { status: 403 });
+    }
 
     const { searchParams } = new URL(req.url);
     const rawStatus = searchParams.get("status")?.trim();

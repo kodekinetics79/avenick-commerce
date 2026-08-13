@@ -1,46 +1,27 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
 import { auth } from "@/lib/auth-instance";
-import { isObjectStorageConfigured, presignPutUrl, objectPublicUrl, buildObjectKey } from "@avenick/utils/s3";
+import { browserDirectUploadsEnabled } from "@avenick/utils/browser-upload-policy";
 
 export const dynamic = "force-dynamic";
 
-const Body = z.object({
-  filename: z.string().min(1).max(255),
-  contentType: z.string().max(160).optional(),
-  // Where the object lives; constrained to known namespaces so a caller can't
-  // write anywhere in the bucket.
-  namespace: z.enum(["rfq-documents", "compliance", "product-images"]).default("rfq-documents"),
-});
-
 /**
- * Vend a short-lived presigned PUT URL so the browser can upload a file
- * directly to object storage. Auth-gated: only signed-in users get a URL.
- * Returns 503 with a clear message when object storage isn't configured, so
- * the UI can show "uploads unavailable" instead of a broken control.
+ * Browser PUT presigning is deliberately disabled. The current S3-compatible
+ * signer cannot bind an object-size ceiling, verified media type, or a user's
+ * role to a namespace. Returning a URL would therefore permit unbounded public
+ * object hosting. Re-enable only behind a storage policy/post-upload verifier.
  */
-export async function POST(request: Request) {
+export async function POST(_request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ success: false, error: "Sign in to upload files" }, { status: 401 });
   }
-  if (!isObjectStorageConfigured()) {
-    return NextResponse.json(
-      { success: false, error: "File uploads are not available in this environment" },
-      { status: 503 },
-    );
+  // Keep this explicit check at the route boundary so a future implementation
+  // must consciously replace the fail-closed policy before issuing any URL.
+  if (browserDirectUploadsEnabled()) {
+    return NextResponse.json({ success: false, error: "Upload policy is not implemented" }, { status: 503 });
   }
-
-  const parsed = Body.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) {
-    return NextResponse.json({ success: false, error: "Invalid upload request" }, { status: 400 });
-  }
-
-  const key = buildObjectKey(parsed.data.namespace, parsed.data.filename);
-  const uploadUrl = presignPutUrl(key, { contentType: parsed.data.contentType, expiresIn: 300 });
-
-  return NextResponse.json({
-    success: true,
-    data: { uploadUrl, key, publicUrl: objectPublicUrl(key), expiresIn: 300 },
-  });
+  return NextResponse.json(
+    { success: false, error: "Direct file uploads are disabled until storage-enforced size and content validation is available" },
+    { status: 503 },
+  );
 }

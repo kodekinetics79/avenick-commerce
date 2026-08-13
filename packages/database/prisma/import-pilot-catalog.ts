@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
 import { extname, resolve } from "node:path";
 import {
@@ -7,9 +7,21 @@ import {
   type PilotCatalogFile,
 } from "../src/services/pilot-catalog";
 
+const MAX_IMPORT_BYTES = 8 * 1024 * 1024;
+const MAX_DECOMPRESSED_BYTES = 32 * 1024 * 1024;
+
 async function load(path: string): Promise<PilotCatalogFile> {
+  const metadata = await stat(path);
+  if (metadata.size === 0 || metadata.size > MAX_IMPORT_BYTES) {
+    throw new Error("Catalog file is empty or exceeds the 8 MB import limit");
+  }
   const bytes = await readFile(path);
-  const raw = extname(path).toLowerCase() === ".gz" ? gunzipSync(bytes) : bytes;
+  const raw = extname(path).toLowerCase() === ".gz"
+    ? gunzipSync(bytes, { maxOutputLength: MAX_DECOMPRESSED_BYTES })
+    : bytes;
+  if (raw.byteLength > MAX_DECOMPRESSED_BYTES) {
+    throw new Error("Catalog expands beyond the 32 MB decompressed limit");
+  }
   return JSON.parse(raw.toString("utf8")) as PilotCatalogFile;
 }
 

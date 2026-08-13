@@ -119,34 +119,53 @@ export async function setReturnStatus(opts: {
   resolution?: string;
   refundAmount?: number;
 }) {
-  const target = await db.returnRequest.findUnique({
-    where: { id: opts.returnId },
-    select: { id: true, status: true, orderId: true, sellerId: true, refundAmount: true, order: { select: { total: true } } },
-  });
-  if (!target) throw new Error("Return request not found");
-  if (!RETURN_TRANSITIONS[target.status].includes(opts.status)) {
-    throw new Error(`Cannot move a ${target.status.toLowerCase()} return to ${opts.status.toLowerCase()}`);
-  }
+  return db.$transaction(async (tx) => {
+    // Serialize transitions for this return. Without this lock, two REFUNDED
+    // requests can both observe RECEIVED and create two financial records.
+    await tx.$executeRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`return-transition:${opts.returnId}`}))`,
+    );
 
-  const refundAmount =
-    opts.refundAmount ?? (target.refundAmount ? Number(target.refundAmount) : Number(target.order.total));
-  if (opts.status === "REFUNDED" && (!Number.isFinite(refundAmount) || refundAmount <= 0)) {
-    throw new Error("A positive refund amount is required to refund a return");
-  }
-  if (opts.status === "REFUNDED" && refundAmount > Number(target.order.total)) {
-    throw new Error("Refund amount cannot exceed the order total");
-  }
+    const target = await tx.returnRequest.findUnique({
+      where: { id: opts.returnId },
+      select: {
+        id: true,
+        status: true,
+        orderId: true,
+        sellerId: true,
+        refundAmount: true,
+        order: {
+          select: {
+            items: { select: { sellerId: true, total: true } },
+          },
+        },
+      },
+    });
+    if (!target) throw new Error("Return request not found");
+    if (!RETURN_TRANSITIONS[target.status].includes(opts.status)) {
+      throw new Error(`Cannot move a ${target.status.toLowerCase()} return to ${opts.status.toLowerCase()}`);
+    }
 
-  const [ret] = await db.$transaction([
-    db.returnRequest.update({
+    const sellerMaximum = target.order.items
+      .filter((item) => item.sellerId === target.sellerId)
+      .reduce((sum, item) => sum + Number(item.total), 0);
+    const refundAmount = opts.refundAmount ?? (target.refundAmount ? Number(target.refundAmount) : sellerMaximum);
+    if (opts.status === "REFUNDED" && (!Number.isFinite(refundAmount) || refundAmount <= 0)) {
+      throw new Error("A positive refund amount is required to refund a return");
+    }
+    if (opts.status === "REFUNDED" && refundAmount > sellerMaximum) {
+      throw new Error("Refund amount cannot exceed this seller's order lines");
+    }
+
+    const ret = await tx.returnRequest.update({
       where: { id: opts.returnId },
       data: {
         status: opts.status,
         ...(opts.resolution ? { resolution: opts.resolution } : {}),
         ...(opts.status === "REFUNDED" ? { refundAmount } : {}),
       },
-    }),
-    db.auditLog.create({
+    });
+    await tx.auditLog.create({
       data: {
         actorId: opts.actorId,
         sellerId: target.sellerId,
@@ -165,21 +184,19 @@ export async function setReturnStatus(opts: {
           ...(opts.status === "REFUNDED" ? { refundAmount } : {}),
         },
       },
-    }),
-    ...(opts.status === "REFUNDED"
-      ? [
-          db.refund.create({
-            data: {
-              orderId: target.orderId,
-              amount: refundAmount,
-              reason: opts.resolution ?? "Return refunded",
-              status: "PENDING",
-            },
-          }),
-        ]
-      : []),
-  ]);
-  return ret;
+    });
+    if (opts.status === "REFUNDED") {
+      await tx.refund.create({
+        data: {
+          orderId: target.orderId,
+          amount: refundAmount,
+          reason: opts.resolution ?? `Seller return ${target.id} refunded`,
+          status: "PENDING",
+        },
+      });
+    }
+    return ret;
+  });
 }
 
 // ─── SUPPORT ──────────────────────────────────────────────────────────────────

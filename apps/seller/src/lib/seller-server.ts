@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth-instance";
 import { db } from "@avenick/database";
+export { sellerHasPermission } from "./seller-permissions";
 
 const SELLER_ROLES = new Set(["SELLER_OWNER", "SELLER_STAFF"]);
 
@@ -51,13 +52,4 @@ export async function getServerSellerContext() {
     seller: membership.seller,
     membership,
   };
-}
-
-export function sellerHasPermission(
-  context: { user: { role: string }; membership?: { permissions?: string[] } | null },
-  permission: string,
-) {
-  if (context.user.role === "SELLER_OWNER") return true;
-  const permissions = context.membership?.permissions ?? [];
-  return permissions.includes("*") || permissions.includes(permission);
 }
