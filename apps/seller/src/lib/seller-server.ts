@@ -8,7 +8,7 @@ const SELLER_ROLES = new Set(["SELLER_OWNER", "SELLER_STAFF"]);
  *
  * SellerProfile.userId belongs to the seller owner only. Staff must resolve
  * through SellerMembership; otherwise SELLER_STAFF can authenticate but every
- * seller API rejects them. All callers receive a sellerId derived from server
+ * seller API rejects them. All callers receive seller scope derived from server
  * membership, never from request payload/query parameters.
  */
 export async function getServerSellerContext() {
