@@ -4,6 +4,7 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
+    "./client": "./src/client.ts",
     "./middleware": "./src/middleware.ts",
     "./guards": "./src/guards.ts",
     "./api": "./src/api.ts"

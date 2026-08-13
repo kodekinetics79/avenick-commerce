@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signInWithCredentials } from "@avenick/auth/client";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input, Button } from "@avenick/ui";
@@ -21,8 +21,8 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await signIn("credentials", { email, password, redirect: false });
-      if (res?.error) {
+      const res = await signInWithCredentials(email, password, callbackUrl);
+      if (!res.ok) {
         setError("Invalid email or password. / بيانات الدخول غير صحيحة.");
         setLoading(false);
       } else {
