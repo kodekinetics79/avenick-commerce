@@ -2,7 +2,7 @@ import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { checkDatabaseHealth, db, getIntegrationOperationalSummary } from "@avenick/database";
 import { AlertTriangle, CheckCircle, Database, Plug, RefreshCcw, ServerCog, XCircle } from "lucide-react";
-import { createIntegrationConnection, redriveIntegrationMessage, setIntegrationConnectionStatus } from "./actions";
+import { createIntegrationConnection, redriveInboundIntegrationMessage, redriveIntegrationMessage, setIntegrationConnectionStatus } from "./actions";
 
 export const metadata = { title: "Integration Hub" };
 export const dynamic = "force-dynamic";
@@ -15,12 +15,17 @@ function fmtDate(value: Date | null) {
 
 export default async function IntegrationsPage() {
   await requireAdminSession();
-  const [dbHealth, summary, failedMessages] = await Promise.all([
+  const [dbHealth, summary, failedMessages, failedInboundMessages] = await Promise.all([
     checkDatabaseHealth(),
     getIntegrationOperationalSummary(),
     db.integrationOutbox.findMany({
       where: { status: { in: ["DEAD", "RETRY"] } },
       orderBy: { createdAt: "desc" },
+      take: 20,
+    }),
+    db.integrationInbox.findMany({
+      where: { status: { in: ["DEAD", "RETRY"] } },
+      orderBy: { receivedAt: "desc" },
       take: 20,
     }),
   ]);
@@ -102,7 +107,8 @@ export default async function IntegrationsPage() {
             ["Processing", summary.outbox.processing],
             ["Retry", summary.outbox.retry],
             ["Dead-letter", summary.outbox.dead],
-            ["Inbound failed", summary.inbox.failed],
+            ["Inbound retry", summary.inbox.retry ?? 0],
+            ["Inbound dead", summary.inbox.dead ?? 0],
           ].map(([label, value]) => (
             <div key={String(label)} className="rounded-2xl border border-border bg-white p-4">
               <p className="text-xs text-muted-foreground">{label}</p>
@@ -165,8 +171,13 @@ export default async function IntegrationsPage() {
         </section>
 
         <section className="rounded-2xl border border-border bg-white overflow-hidden">
-          <div className="flex items-center justify-between gap-3 border-b p-5"><div><h2 className="font-semibold">Retry / dead-letter queue</h2><p className="mt-1 text-xs text-muted-foreground">Manual redrive is explicit and audited; processed messages cannot be replayed from this control.</p></div><RefreshCcw className="h-5 w-5 text-muted-foreground" /></div>
+          <div className="flex items-center justify-between gap-3 border-b p-5"><div><h2 className="font-semibold">Outbound retry / dead-letter queue</h2><p className="mt-1 text-xs text-muted-foreground">Manual redrive is explicit and audited; processed messages cannot be replayed from this control.</p></div><RefreshCcw className="h-5 w-5 text-muted-foreground" /></div>
           {failedMessages.length === 0 ? <div className="p-6 text-sm text-muted-foreground">No retry or dead-letter integration messages.</div> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-muted/50 text-left"><tr><th className="p-3">Event</th><th className="p-3">Destination</th><th className="p-3">Attempts</th><th className="p-3">Last error</th><th className="p-3">State</th><th className="p-3"></th></tr></thead><tbody>{failedMessages.map((message) => <tr key={message.id} className="border-t"><td className="p-3"><p className="font-medium">{message.eventType}</p><p className="text-xs font-mono text-muted-foreground">{message.aggregateType}:{message.aggregateId}</p></td><td className="p-3">{message.destination}</td><td className="p-3 font-mono">{message.attempts}</td><td className="p-3 max-w-[320px] truncate text-xs text-danger">{message.lastError ?? "—"}</td><td className="p-3"><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${stateClass(message.status)}`}>{message.status}</span></td><td className="p-3"><form action={redriveIntegrationMessage.bind(null, message.id)}><button type="submit" className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-muted">Redrive</button></form></td></tr>)}</tbody></table></div>}
+        </section>
+
+        <section className="rounded-2xl border border-border bg-white overflow-hidden">
+          <div className="flex items-center justify-between gap-3 border-b p-5"><div><h2 className="font-semibold">Inbound retry / dead-letter queue</h2><p className="mt-1 text-xs text-muted-foreground">Provider deliveries retain source identity, attempt history and audited manual redrive.</p></div><RefreshCcw className="h-5 w-5 text-muted-foreground" /></div>
+          {failedInboundMessages.length === 0 ? <div className="p-6 text-sm text-muted-foreground">No inbound retry or dead-letter integration messages.</div> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="bg-muted/50 text-left"><tr><th className="p-3">Event</th><th className="p-3">Source</th><th className="p-3">Attempts</th><th className="p-3">Last error</th><th className="p-3">State</th><th className="p-3"></th></tr></thead><tbody>{failedInboundMessages.map((message) => <tr key={message.id} className="border-t"><td className="p-3"><p className="font-medium">{message.eventType}</p><p className="text-xs font-mono text-muted-foreground">{message.externalEventId}</p></td><td className="p-3">{message.source}</td><td className="p-3 font-mono">{message.attempts}</td><td className="p-3 max-w-[320px] truncate text-xs text-danger">{message.lastError ?? "—"}</td><td className="p-3"><span className={`rounded-full px-2 py-1 text-[10px] font-semibold ${stateClass(message.status)}`}>{message.status}</span></td><td className="p-3"><form action={redriveInboundIntegrationMessage.bind(null, message.id)}><button type="submit" className="rounded-lg border px-2 py-1 text-xs font-medium hover:bg-muted">Redrive</button></form></td></tr>)}</tbody></table></div>}
         </section>
 
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs leading-5 text-amber-900">

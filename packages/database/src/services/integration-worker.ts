@@ -1,4 +1,4 @@
-import { Prisma, type IntegrationInbox, type IntegrationOutbox } from "@prisma/client";
+import { Prisma, type IntegrationConnection, type IntegrationInbox, type IntegrationOutbox } from "@prisma/client";
 import { DeterministicCertificationErpAdapter, HttpErpAdapter, type ErpAdapter, type ErpSubmitOrder } from "./erp-adapter";
 import { db } from "../index";
 import { governedIntegrationPolicy } from "./integration-policy";
@@ -248,11 +248,7 @@ export const DEPLOYED_INTEGRATION_INBOX_HANDLERS: IntegrationInboxHandlers = {
   "*:ORDER_STATUS_CHANGED": orderStatusHandler,
 };
 
-export async function resolveAdapterForMessage(message: IntegrationOutbox): Promise<ErpAdapter> {
-  if (!message.connectionId) throw new Error("ERP_DISCONNECTED_PILOT: outbox message has no governed connection");
-  const connection = await db.integrationConnection.findFirst({
-    where: { id: message.connectionId, tenantKey: message.tenantKey, system: message.destination, status: "ACTIVE" },
-  });
+export async function resolveAdapterForConnection(connection: IntegrationConnection): Promise<ErpAdapter> {
   if (!connection?.baseUrl || !connection.credentialsRef) throw new Error("ERP_DISCONNECTED_PILOT: live ERP connection is unavailable");
   if (connection.system === "CERTIFICATION_ERP" && process.env.ERP_CERTIFICATION_MODE === "true") {
     return new DeterministicCertificationErpAdapter("ACCEPT");
@@ -265,6 +261,66 @@ export async function resolveAdapterForMessage(message: IntegrationOutbox): Prom
   const token = process.env[policy.credentialEnvironmentKey];
   if (!token) throw new Error("ERP_DISCONNECTED_PILOT: ERP credential is not present at runtime");
   return new HttpErpAdapter(connection.system, policy.baseUrl, token);
+}
+
+export async function resolveAdapterForMessage(message: IntegrationOutbox): Promise<ErpAdapter> {
+  if (!message.connectionId) throw new Error("ERP_DISCONNECTED_PILOT: outbox message has no governed connection");
+  const connection = await db.integrationConnection.findFirst({
+    where: { id: message.connectionId, tenantKey: message.tenantKey, system: message.destination, status: "ACTIVE" },
+  });
+  if (!connection) throw new Error("ERP_DISCONNECTED_PILOT: live ERP connection is unavailable");
+  return resolveAdapterForConnection(connection);
+}
+
+/**
+ * Persist connector health even while queues are idle. `lastHealthCheckAt` is
+ * first claimed with a conditional write, so multiple workers do not all probe
+ * the same provider. A crash merely defers the next probe until the interval.
+ */
+export async function probeDueIntegrationConnections(input: {
+  now?: Date;
+  minIntervalMs?: number;
+  limit?: number;
+  connectionId?: string;
+  resolveAdapter?: (connection: IntegrationConnection) => Promise<ErpAdapter>;
+} = {}) {
+  const now = input.now ?? new Date();
+  const cutoff = new Date(now.getTime() - Math.max(10_000, input.minIntervalMs ?? 60_000));
+  const candidates = await db.integrationConnection.findMany({
+    where: { status: "ACTIVE", ...(input.connectionId ? { id: input.connectionId } : {}), OR: [{ lastHealthCheckAt: null }, { lastHealthCheckAt: { lte: cutoff } }] },
+    orderBy: { lastHealthCheckAt: { sort: "asc", nulls: "first" } },
+    take: Math.max(1, Math.min(20, input.limit ?? 1)),
+  });
+  const outcomes = [];
+  for (const connection of candidates) {
+    const claimed = await db.integrationConnection.updateMany({
+      where: {
+        id: connection.id,
+        status: "ACTIVE",
+        OR: [{ lastHealthCheckAt: null }, { lastHealthCheckAt: { lte: cutoff } }],
+      },
+      data: { lastHealthCheckAt: now },
+    });
+    if (claimed.count !== 1) continue;
+    try {
+      const adapter = await (input.resolveAdapter ?? resolveAdapterForConnection)(connection);
+      const health = await adapter.healthCheck();
+      if (!health.ok) throw new Error(`Integration ${connection.system} health check failed`);
+      await db.integrationConnection.update({
+        where: { id: connection.id },
+        data: { lastSuccessAt: new Date(), lastError: null },
+      });
+      outcomes.push({ connectionId: connection.id, ok: true as const });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error || "Integration health check failed");
+      await db.integrationConnection.update({
+        where: { id: connection.id },
+        data: { lastFailureAt: new Date(), lastError: message.slice(0, 4000) },
+      });
+      outcomes.push({ connectionId: connection.id, ok: false as const, error: message });
+    }
+  }
+  return outcomes;
 }
 
 export async function recordWorkerHeartbeat(workerId: string, event?: "CLAIM" | "SUCCESS" | "FAILURE", error?: unknown) {
@@ -288,6 +344,17 @@ export async function recordWorkerHeartbeat(workerId: string, event?: "CLAIM" | 
   });
 }
 
+async function recordConnectionEvidence(connectionId: string | null, ok: boolean, error?: unknown) {
+  if (!connectionId) return;
+  const now = new Date();
+  await db.integrationConnection.updateMany({
+    where: { id: connectionId },
+    data: ok
+      ? { lastHealthCheckAt: now, lastSuccessAt: now, lastError: null }
+      : { lastHealthCheckAt: now, lastFailureAt: now, lastError: String(error ?? "Integration transaction failed").slice(0, 4000) },
+  }).catch(() => undefined);
+}
+
 export async function runGovernedIntegrationWorkerOnce(workerId: string) {
   await recordWorkerHeartbeat(workerId);
   const outbound = await claimIntegrationOutbox({ workerId, limit: 1 });
@@ -299,9 +366,15 @@ export async function runGovernedIntegrationWorkerOnce(workerId: string) {
       outboundResult = await processIntegrationOutboxMessage(outbound[0], adapter);
       const status = (outboundResult as { status: string }).status;
       await recordWorkerHeartbeat(workerId, status === "ACCEPTED" || status === "REJECTED" ? "SUCCESS" : "FAILURE", status);
+      await recordConnectionEvidence(
+        outbound[0].connectionId,
+        status === "ACCEPTED" || status === "REJECTED",
+        (outboundResult as { error?: unknown }).error ?? status,
+      );
     } catch (error) {
       await failIntegrationOutbox(outbound[0], error);
       await recordWorkerHeartbeat(workerId, "FAILURE", error);
+      await recordConnectionEvidence(outbound[0].connectionId, false, error);
       outboundResult = { status: "RETRY", error };
     }
   }
@@ -316,14 +389,19 @@ export async function runGovernedIntegrationWorkerOnce(workerId: string) {
       await recordWorkerHeartbeat(workerId, result.status === "PROCESSED" ? "SUCCESS" : "FAILURE", result.status);
     }
   }
+  if (outbound.length === 0 && inbound.claimed === 0) await probeDueIntegrationConnections();
   return { claimed: outbound.length + inbound.claimed, outbound: outboundResult, inbound: inbound.results };
 }
 
 export async function getIntegrationRuntimeReadiness(maxHeartbeatAgeMs = 90_000) {
   const cutoff = new Date(Date.now() - maxHeartbeatAgeMs);
-  const [activeConnections, healthyWorkers, dead, overdue, oldestPending, inboxBacklog, inboxDead, inboxOverdue, oldestInbound] = await Promise.all([
-    db.integrationConnection.count({ where: { status: "ACTIVE", system: { in: ["D365", "SAP", "ERP", "CERTIFICATION_ERP"] } } }),
+  const [activeConnectionRows, healthyWorkers, outboundBacklog, dead, overdue, oldestPending, inboxBacklog, inboxDead, inboxOverdue, oldestInbound] = await Promise.all([
+    db.integrationConnection.findMany({
+      where: { status: "ACTIVE", system: { in: ["D365", "SAP", "ERP", "CERTIFICATION_ERP"] } },
+      select: { lastSuccessAt: true, lastFailureAt: true },
+    }),
     db.integrationWorkerHealth.count({ where: { lastHeartbeatAt: { gte: cutoff } } }),
+    db.integrationOutbox.count({ where: { status: { in: ["PENDING", "RETRY"] } } }),
     db.integrationOutbox.count({ where: { status: "DEAD" } }),
     db.integrationOutbox.count({ where: { status: "PROCESSING", leaseExpiresAt: { lt: new Date() } } }),
     db.integrationOutbox.findFirst({ where: { status: { in: ["PENDING", "RETRY"] } }, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
@@ -332,10 +410,17 @@ export async function getIntegrationRuntimeReadiness(maxHeartbeatAgeMs = 90_000)
     db.integrationInbox.count({ where: { status: "PROCESSING", leaseExpiresAt: { lt: new Date() } } }),
     db.integrationInbox.findFirst({ where: { status: { in: ["RECEIVED", "RETRY"] } }, orderBy: { receivedAt: "asc" }, select: { receivedAt: true } }),
   ]);
+  const activeConnections = activeConnectionRows.length;
+  const unhealthyConnections = activeConnectionRows.filter((connection) => connection.lastFailureAt
+    && (!connection.lastSuccessAt || connection.lastFailureAt > connection.lastSuccessAt)).length;
   const pendingAgeMs = oldestPending ? Date.now() - oldestPending.createdAt.getTime() : 0;
   const inboundAgeMs = oldestInbound ? Date.now() - oldestInbound.receivedAt.getTime() : 0;
-  const hasIntegrationWork = activeConnections > 0 || inboxBacklog > 0 || inboxDead > 0 || inboxOverdue > 0;
-  const ok = !hasIntegrationWork || (healthyWorkers > 0 && overdue === 0 && dead === 0 && pendingAgeMs < 5 * 60_000
-    && inboxDead === 0 && inboxOverdue === 0 && inboundAgeMs < 5 * 60_000);
-  return { ok, activeConnections, healthyWorkers, dead, overdue, pendingAgeMs, inboxBacklog, inboxDead, inboxOverdue, inboundAgeMs };
+  const hasIntegrationWork = activeConnections > 0 || outboundBacklog > 0 || dead > 0 || overdue > 0
+    || inboxBacklog > 0 || inboxDead > 0 || inboxOverdue > 0;
+  const degraded = hasIntegrationWork && (healthyWorkers === 0 || unhealthyConnections > 0 || overdue > 0 || dead > 0
+    || pendingAgeMs >= 5 * 60_000 || inboxDead > 0 || inboxOverdue > 0 || inboundAgeMs >= 5 * 60_000);
+  // Queue/provider health is operational evidence, not a serving dependency for
+  // the web portals. Keep HTTP readiness green while exposing degradation for
+  // alerts and the Integration Hub; database readiness remains independently fatal.
+  return { ok: true, degraded, activeConnections, unhealthyConnections, healthyWorkers, outboundBacklog, dead, overdue, pendingAgeMs, inboxBacklog, inboxDead, inboxOverdue, inboundAgeMs };
 }

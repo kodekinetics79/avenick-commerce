@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AuditAction, db, governedIntegrationPolicy, redriveIntegrationOutbox } from "@avenick/database";
+import { AuditAction, db, governedIntegrationPolicy, redriveIntegrationInbox, redriveIntegrationOutbox } from "@avenick/database";
 import { requireAdminSession } from "@/lib/auth";
 
 const SYSTEMS = new Set(["D365", "SAP", "ERP", "WMS", "PIM"]);
@@ -110,5 +110,11 @@ export async function setIntegrationConnectionStatus(id: string, status: string)
 export async function redriveIntegrationMessage(id: string) {
   const { userId } = await requireAdminSession();
   await redriveIntegrationOutbox(id, userId);
+  revalidatePath("/integrations");
+}
+
+export async function redriveInboundIntegrationMessage(id: string) {
+  const { userId } = await requireAdminSession();
+  await redriveIntegrationInbox(id, userId);
   revalidatePath("/integrations");
 }

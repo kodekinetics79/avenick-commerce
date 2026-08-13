@@ -491,7 +491,7 @@ export async function markOrderIntegrationRejected(input: {
 }
 
 export async function getIntegrationOperationalSummary(tenantKey = "default") {
-  const [connections, pending, processing, retry, dead, receivedFailed, orderStates] = await Promise.all([
+  const [connections, pending, processing, retry, dead, inboxStates, orderStates] = await Promise.all([
     db.integrationConnection.findMany({
       where: { tenantKey },
       orderBy: [{ system: "asc" }, { name: "asc" }],
@@ -500,7 +500,11 @@ export async function getIntegrationOperationalSummary(tenantKey = "default") {
     db.integrationOutbox.count({ where: { tenantKey, status: "PROCESSING" } }),
     db.integrationOutbox.count({ where: { tenantKey, status: "RETRY" } }),
     db.integrationOutbox.count({ where: { tenantKey, status: "DEAD" } }),
-    db.integrationInbox.count({ where: { tenantKey, status: "FAILED" } }),
+    db.integrationInbox.groupBy({
+      by: ["status"],
+      where: { tenantKey },
+      _count: { _all: true },
+    }),
     db.orderIntegrationState.groupBy({
       by: ["state"],
       where: { tenantKey },
@@ -511,7 +515,7 @@ export async function getIntegrationOperationalSummary(tenantKey = "default") {
   return {
     connections,
     outbox: { pending, processing, retry, dead },
-    inbox: { failed: receivedFailed },
+    inbox: Object.fromEntries(inboxStates.map((row) => [row.status.toLowerCase(), row._count._all])) as Record<string, number>,
     orderStates: Object.fromEntries(orderStates.map((row) => [row.state, row._count._all])),
   };
 }

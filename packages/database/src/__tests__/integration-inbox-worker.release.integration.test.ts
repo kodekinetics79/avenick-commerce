@@ -73,6 +73,10 @@ run("deployed inbound integration worker", () => {
       .resolves.toMatchObject({ status: "DEAD", attempts: 1, lastError: "handler unavailable" });
 
     await redriveIntegrationInbox(received.row.id, actorId);
+    await expect(db.auditLog.findFirst({
+      where: { actorId, entityType: "IntegrationInbox", entityId: received.row.id },
+      orderBy: { createdAt: "desc" },
+    })).resolves.toMatchObject({ action: "STATUS_CHANGE", after: { action: "MANUAL_REDRIVE", source } });
     const completed = await runIntegrationInboxWorkerOnce({
       workerId: `${marker}-redrive`, source, limit: 1,
       handlers: {
@@ -113,6 +117,7 @@ run("deployed inbound integration worker", () => {
     expect(readiness.inboxDead).toBeGreaterThanOrEqual(1);
     expect(readiness.inboxOverdue).toBeGreaterThanOrEqual(1);
     expect(readiness.inboundAgeMs).toBeGreaterThanOrEqual(9_000);
-    expect(readiness.ok).toBe(false);
+    expect(readiness.ok).toBe(true);
+    expect(readiness.degraded).toBe(true);
   });
 });
