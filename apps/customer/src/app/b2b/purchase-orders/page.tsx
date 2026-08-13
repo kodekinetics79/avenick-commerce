@@ -1,9 +1,8 @@
 import { B2BShell } from "@/components/b2b/b2b-shell";
 import { formatCurrency } from "@avenick/utils";
 import { fetchB2BJson } from "@/lib/b2b";
-import { createPO, approvePO, rejectPO, markOrdered, cancelPO } from "./actions";
-import { ValidatedForm } from "@/components/b2b/validated-form";
-import { FileCheck2, Clock, CheckCircle2, Truck, XCircle, FileEdit, Building2, Plus } from "lucide-react";
+import { approvePO, rejectPO, markOrdered, cancelPO } from "./actions";
+import { FileCheck2, Clock, CheckCircle2, Truck, XCircle, FileEdit, Building2, Plus, ShoppingCart } from "lucide-react";
 
 export const metadata = { title: "Purchase Orders — Avenick for Business" };
 
@@ -31,13 +30,15 @@ export default async function PurchaseOrdersPage() {
     notes: string | null;
     requiredDate: string | null;
     createdAt: string;
+    items: Array<{ id: string; sku: string; nameEn: string; quantity: number }>;
   };
   type PurchaseOrderData = {
-    company: { nameEn: string };
+    company: { nameEn: string; country: string };
     isApprover: boolean;
     purchaseOrders: PurchaseOrderRow[];
     requesters: Array<{ id: string; firstName: string; lastName: string }>;
   };
+
   let data: PurchaseOrderData;
   try {
     data = await fetchB2BJson<PurchaseOrderData>("/api/b2b/purchase-orders");
@@ -46,8 +47,8 @@ export default async function PurchaseOrdersPage() {
       <B2BShell title="Purchase Orders">
         <div className="rounded-2xl border border-border bg-card p-10 text-center">
           <Building2 className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-          <p className="font-semibold">No company account</p>
-          <p className="text-sm text-muted-foreground mt-1">Sign in with a company account to manage purchase orders.</p>
+          <p className="font-semibold">No active company account</p>
+          <p className="text-sm text-muted-foreground mt-1">Sign in with an active company membership to manage purchase orders.</p>
         </div>
       </B2BShell>
     );
@@ -56,57 +57,57 @@ export default async function PurchaseOrdersPage() {
   const pos = data.purchaseOrders;
   const nameOf = new Map(data.requesters.map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim()]));
   const isApprover = data.isApprover;
-
   const open = pos.filter((p) => ["DRAFT", "PENDING_APPROVAL", "APPROVED"].includes(p.status)).length;
   const pending = pos.filter((p) => p.status === "PENDING_APPROVAL").length;
-  const ordered = pos.filter((p) => p.status === "ORDERED").reduce((s, p) => s + Number(p.total), 0);
+  const orderedByCurrency = new Map<string, number>();
+  for (const po of pos.filter((row) => row.status === "ORDERED")) {
+    orderedByCurrency.set(po.currency, (orderedByCurrency.get(po.currency) ?? 0) + Number(po.total));
+  }
+  const orderedValue = orderedByCurrency.size === 0
+    ? "—"
+    : [...orderedByCurrency.entries()].map(([currency, amount]) => formatCurrency(amount, currency)).join(" · ");
+
   const stats = [
-    { label: "Open POs", value: open, icon: FileCheck2 },
-    { label: "Pending approval", value: pending, icon: Clock },
-    { label: "Ordered value", value: formatCurrency(ordered, "AED"), icon: Truck },
-    { label: "Total POs", value: pos.length, icon: FileEdit },
+    { label: "Open POs", value: String(open), icon: FileCheck2 },
+    { label: "Pending approval", value: String(pending), icon: Clock },
+    { label: "Ordered value", value: orderedValue, icon: Truck },
+    { label: "Total POs", value: String(pos.length), icon: FileEdit },
   ];
 
   return (
-    <B2BShell title="Purchase Orders" description={`Raise, approve and track POs for ${data.company.nameEn}.`}>
-      {/* Create */}
-      <ValidatedForm action={createPO} className="rounded-2xl border border-border bg-card p-5 mb-6">
-        <div className="flex items-center gap-2 text-sm font-semibold mb-4"><Plus className="h-4 w-4 text-primary" /> Raise a purchase order</div>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
-          <input name="description" required placeholder="Description (e.g. Safety helmets × 200)" className="lg:col-span-2 h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          <input name="total" type="number" required placeholder="Total (AED)" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-          <div className="flex gap-2">
-            <input name="requiredDate" type="date" aria-label="Required by" className="flex-1 h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border focus:outline-none focus:ring-2 focus:ring-ring" />
-            <button type="submit" className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">Create</button>
-          </div>
+    <B2BShell title="Purchase Orders" description={`Raise, approve and place governed POs for ${data.company.nameEn}.`}>
+      <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="flex items-center gap-2 font-semibold"><ShoppingCart className="h-4 w-4 text-primary" /> Purchase orders now come from real catalog lines</div>
+          <p className="mt-1 text-xs text-muted-foreground">Add products to your cart, then create a company PO. A browser-entered total is never trusted.</p>
         </div>
-        <p className="text-xs text-muted-foreground mt-2">POs above an active approval-policy threshold route to approval automatically.</p>
-      </ValidatedForm>
+        <a href="/b2b/purchase-orders/new" className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground hover:bg-primary/90">
+          <Plus className="h-4 w-4" /> Create PO from cart
+        </a>
+      </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
         {stats.map((s) => (
           <div key={s.label} className="rounded-2xl border border-border bg-card p-4">
             <div className="flex items-center gap-2 text-muted-foreground mb-2"><s.icon className="h-4 w-4" /><span className="text-[11px]">{s.label}</span></div>
-            <p className="text-xl font-bold font-mono tracking-tight">{s.value}</p>
+            <p className="text-lg font-bold font-mono tracking-tight break-words">{s.value}</p>
           </div>
         ))}
       </div>
 
-      {/* Table */}
       <div className="rounded-2xl border border-border bg-card overflow-hidden">
         {pos.length === 0 ? (
           <div className="p-10 text-center">
             <FileCheck2 className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
             <p className="font-semibold">No purchase orders yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Raise your first PO with the form above.</p>
+            <p className="text-sm text-muted-foreground mt-1">Build your first one from products already in the cart.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-secondary/50 border-b border-border">
                 <tr>
-                  {["PO #", "Description", "Requester", "Total", "Status", "Required", ""].map((h) => (
+                  {["PO #", "Lines", "Requester", "Approved value", "Status", "Required", ""].map((h) => (
                     <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -115,14 +116,18 @@ export default async function PurchaseOrdersPage() {
                 {pos.map((po) => {
                   const st = STATUS[po.status] ?? STATUS.DRAFT!;
                   return (
-                    <tr key={po.id} className="hover:bg-secondary/40 transition-colors">
+                    <tr key={po.id} className="hover:bg-secondary/40 transition-colors align-top">
                       <td className="px-4 py-3 font-mono text-xs font-semibold text-primary whitespace-nowrap">{po.poNumber}</td>
-                      <td className="px-4 py-3 max-w-[220px]"><p className="font-medium truncate">{po.notes ?? "—"}</p></td>
-                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{nameOf.get(po.requesterId) ?? "—"}</td>
-                      <td className="px-4 py-3 font-mono font-semibold whitespace-nowrap">{formatCurrency(Number(po.total), "AED")}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${st.cls}`}><st.icon className="h-3 w-3" /> {st.label}</span>
+                      <td className="px-4 py-3 min-w-[220px]">
+                        {po.items.length === 0 ? (
+                          <span className="text-xs font-medium text-danger">Legacy header-only PO — recreate before placement</span>
+                        ) : (
+                          <div><p className="font-medium">{po.items.length} product line{po.items.length === 1 ? "" : "s"}</p><p className="text-xs text-muted-foreground mt-1 truncate max-w-[280px]">{po.items.slice(0, 3).map((item) => `${item.sku} × ${item.quantity}`).join(" · ")}{po.items.length > 3 ? " …" : ""}</p></div>
+                        )}
                       </td>
+                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{nameOf.get(po.requesterId) ?? "—"}</td>
+                      <td className="px-4 py-3 font-mono font-semibold whitespace-nowrap">{formatCurrency(Number(po.total), po.currency)}</td>
+                      <td className="px-4 py-3"><span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${st.cls}`}><st.icon className="h-3 w-3" /> {st.label}</span></td>
                       <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap">{po.requiredDate ? fmtDate(po.requiredDate) : "—"}</td>
                       <td className="px-4 py-3 text-end whitespace-nowrap">
                         <div className="flex items-center justify-end gap-2">
@@ -132,7 +137,7 @@ export default async function PurchaseOrdersPage() {
                               <form action={rejectPO.bind(null, po.id)}><button type="submit" className="text-xs font-medium text-muted-foreground hover:text-danger">Reject</button></form>
                             </>
                           )}
-                          {po.status === "APPROVED" && (
+                          {po.status === "APPROVED" && po.items.length > 0 && (
                             <form action={markOrdered.bind(null, po.id)}><button type="submit" className="text-xs font-semibold text-primary hover:underline">Place order</button></form>
                           )}
                           {["DRAFT", "PENDING_APPROVAL", "APPROVED"].includes(po.status) && (
