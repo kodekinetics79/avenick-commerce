@@ -11,6 +11,7 @@ on:
 permissions:
   contents: write
 
+# One-time deterministic schema materialization; removed after it commits output.
 jobs:
   apply:
     if: github.actor != 'github-actions[bot]'
