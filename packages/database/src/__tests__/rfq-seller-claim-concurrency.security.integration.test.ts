@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
-import { submitQuote } from "../services/rfq";
+import { decideRFQ, submitQuote } from "../services/rfq";
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const created = { users: [] as string[], sellers: [] as string[] };
@@ -139,5 +139,65 @@ describe("unassigned RFQ seller claim", () => {
     expect(pricesById.get(firstItem!.id)).toBe(expectedPrices[0]);
     expect(pricesById.get(secondItem!.id)).toBe(expectedPrices[1]);
     expect(await db.auditLog.count({ where: { entityType: "RFQRequest", entityId: rfq.id } })).toBe(1);
+  });
+
+  it("serializes buyer acceptance against a requote and audits the immutable accepted version", async () => {
+    const rfq = await createOpenRfq("DECISION-RACE");
+    const [firstItem, secondItem] = rfq.items;
+    await submitQuote({
+      rfqId: rfq.id,
+      sellerId: sellerAId,
+      actorId: actorAId,
+      items: [
+        { itemId: firstItem!.id, unitQuoted: 10 },
+        { itemId: secondItem!.id, unitQuoted: 5 },
+      ],
+    });
+
+    const [decision, requote] = await Promise.allSettled([
+      decideRFQ({ rfqId: rfq.id, buyerId, decision: "ACCEPTED" }),
+      submitQuote({
+        rfqId: rfq.id,
+        sellerId: sellerAId,
+        actorId: actorAId,
+        items: [
+          { itemId: firstItem!.id, unitQuoted: 12 },
+          { itemId: secondItem!.id, unitQuoted: 7 },
+        ],
+      }),
+    ]);
+    expect(decision.status).toBe("fulfilled");
+    expect(["fulfilled", "rejected"]).toContain(requote.status);
+
+    const accepted = await db.rFQRequest.findUniqueOrThrow({
+      where: { id: rfq.id },
+      include: { items: true },
+    });
+    expect(accepted.status).toBe("ACCEPTED");
+    const acceptedPrices = accepted.items.map((item) => Number(item.unitQuoted)).sort((a, b) => a - b);
+    expect([[5, 10], [7, 12]]).toContainEqual(acceptedPrices);
+
+    const decisionAudit = await db.auditLog.findFirstOrThrow({
+      where: { entityType: "RFQRequest", entityId: rfq.id, action: "APPROVE" },
+    });
+    expect(decisionAudit.after).toMatchObject({
+      status: "ACCEPTED",
+      acceptedQuoteVersion: accepted.quoteVersion,
+      totalQuoted: Number(accepted.totalQuoted),
+    });
+
+    await expect(submitQuote({
+      rfqId: rfq.id,
+      sellerId: sellerAId,
+      actorId: actorAId,
+      items: [
+        { itemId: firstItem!.id, unitQuoted: 99 },
+        { itemId: secondItem!.id, unitQuoted: 99 },
+      ],
+    })).rejects.toThrow(/no longer open/);
+    const unchanged = await db.rFQRequest.findUniqueOrThrow({ where: { id: rfq.id }, include: { items: true } });
+    expect(unchanged.quoteVersion).toBe(accepted.quoteVersion);
+    expect(Number(unchanged.totalQuoted)).toBe(Number(accepted.totalQuoted));
+    expect(unchanged.items.map((item) => Number(item.unitQuoted)).sort((a, b) => a - b)).toEqual(acceptedPrices);
   });
 });

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AuditAction, db, Prisma } from "@avenick/database";
+import { AuditAction, db, lockInventoryStockRows, Prisma } from "@avenick/database";
 import { requireSellerPermission, requireSellerSession } from "@/lib/auth";
 import { assertProductImportPermissions } from "@/lib/product-import-policy";
 
@@ -137,10 +137,16 @@ export async function importProductsCsv(rows: ImportRow[]): Promise<ImportResult
             );
           }
           const inv = currentProduct.inventory[0];
+          await lockInventoryStockRows(tx, [inv.id]);
+          const currentStock = await tx.inventoryStock.findUniqueOrThrow({ where: { id: inv.id } });
           // The conditional write closes the race with checkout reservations:
           // a CSV can never lower on-hand stock below the current reservation.
           const changed = await tx.inventoryStock.updateMany({
-            where: { id: inv.id, reservedQty: { lte: stockNum } },
+            where: {
+              id: currentStock.id,
+              qty: currentStock.qty,
+              reservedQty: { lte: stockNum },
+            },
             data: { qty: stockNum },
           });
           if (changed.count !== 1) throw new Error("Stock quantity cannot be below reserved quantity");

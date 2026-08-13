@@ -86,34 +86,49 @@ export async function decideRFQ(opts: {
   companyId?: string;
   decision: "ACCEPTED" | "REJECTED";
 }) {
-  const rfq = await db.rFQRequest.findFirst({
-    where: {
-      id: opts.rfqId,
-      ...(opts.companyId
-        ? { OR: [{ buyerId: opts.buyerId }, { companyId: opts.companyId }] }
-        : { buyerId: opts.buyerId }),
-    },
-    select: { id: true, status: true },
-  });
-  if (!rfq) throw new Error("RFQ not found");
-  if (!["QUOTED", "NEGOTIATING"].includes(rfq.status)) {
-    throw new Error("Only quoted RFQs can be accepted or rejected");
-  }
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`rfq-claim:${opts.rfqId}`}))`,
+    );
+    const rfq = await tx.rFQRequest.findFirst({
+      where: {
+        id: opts.rfqId,
+        ...(opts.companyId
+          ? { OR: [{ buyerId: opts.buyerId }, { companyId: opts.companyId }] }
+          : { buyerId: opts.buyerId }),
+      },
+      select: { id: true, status: true, quoteVersion: true, totalQuoted: true },
+    });
+    if (!rfq) throw new Error("RFQ not found");
+    if (!["QUOTED", "NEGOTIATING"].includes(rfq.status)) {
+      throw new Error("Only quoted RFQs can be accepted or rejected");
+    }
 
-  const [updated] = await db.$transaction([
-    db.rFQRequest.update({ where: { id: opts.rfqId }, data: { status: opts.decision } }),
-    db.auditLog.create({
+    const decided = await tx.rFQRequest.updateMany({
+      where: { id: rfq.id, status: rfq.status, quoteVersion: rfq.quoteVersion },
+      data: { status: opts.decision },
+    });
+    if (decided.count !== 1) throw new Error("RFQ changed concurrently; reload and retry");
+    await tx.auditLog.create({
       data: {
         actorId: opts.buyerId,
         entityType: "RFQRequest",
         entityId: opts.rfqId,
         action: opts.decision === "ACCEPTED" ? AuditAction.APPROVE : AuditAction.REJECT,
-        before: { status: rfq.status },
-        after: { status: opts.decision },
+        before: {
+          status: rfq.status,
+          quoteVersion: rfq.quoteVersion,
+          totalQuoted: rfq.totalQuoted == null ? null : Number(rfq.totalQuoted),
+        },
+        after: {
+          status: opts.decision,
+          acceptedQuoteVersion: opts.decision === "ACCEPTED" ? rfq.quoteVersion : undefined,
+          totalQuoted: rfq.totalQuoted == null ? null : Number(rfq.totalQuoted),
+        },
       },
-    }),
-  ]);
-  return updated;
+    });
+    return tx.rFQRequest.findUniqueOrThrow({ where: { id: rfq.id } });
+  });
 }
 
 // ─── SELLER SIDE ──────────────────────────────────────────────────────────────
@@ -191,14 +206,18 @@ export async function submitQuote(input: SubmitQuoteInput) {
     }, 0);
     if (!Number.isFinite(totalQuoted)) throw new Error("Quoted total is invalid");
 
+    const nextQuoteVersion = rfq.quoteVersion + 1;
     const claimed = await tx.rFQRequest.updateMany({
       where: {
         id: input.rfqId,
+        status: rfq.status,
+        quoteVersion: rfq.quoteVersion,
         OR: [{ sellerId: null }, { sellerId: input.sellerId }],
       },
       data: {
         sellerId: input.sellerId,
         status: "QUOTED",
+        quoteVersion: nextQuoteVersion,
         totalQuoted,
         ...(input.notes ? { notes: input.notes } : {}),
       },
@@ -214,8 +233,12 @@ export async function submitQuote(input: SubmitQuoteInput) {
         entityType: "RFQRequest",
         entityId: input.rfqId,
         action: AuditAction.UPDATE,
-        before: { status: rfq.status },
-        after: { status: "QUOTED", totalQuoted },
+        before: {
+          status: rfq.status,
+          quoteVersion: rfq.quoteVersion,
+          totalQuoted: rfq.totalQuoted == null ? null : Number(rfq.totalQuoted),
+        },
+        after: { status: "QUOTED", quoteVersion: nextQuoteVersion, totalQuoted },
       },
     });
     const updated = await tx.rFQRequest.findUniqueOrThrow({ where: { id: input.rfqId } });

@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { db } from "@avenick/database";
+import { db, Prisma, secureCreateOrder } from "@avenick/database";
 
 const { authMock } = vi.hoisted(() => ({ authMock: vi.fn() }));
 vi.mock("@/lib/auth-instance", () => ({ auth: authMock }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { GET as getSellerOrders } from "@/app/api/seller/orders/route";
 import { importProductsCsv } from "@/app/products/actions";
@@ -12,6 +13,7 @@ const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const created = { users: [] as string[], sellers: [] as string[], products: [] as string[] };
 let categoryId = "";
 let orderId = "";
+let buyerId = "";
 let fulfillmentStaffId = "";
 let catalogStaffId = "";
 let sellerAOwnerId = "";
@@ -19,6 +21,7 @@ let sellerBOwnerId = "";
 let sellerAId = "";
 let sellerBId = "";
 let productASku = "";
+let productAId = "";
 let stockId = "";
 let locationId = "";
 let warehouseId = "";
@@ -37,6 +40,7 @@ beforeAll(async () => {
     db.user.create({ data: { email: `api-seller-b-owner-${stamp}@example.test`, firstName: "Seller B", lastName: "Owner", role: "SELLER_OWNER", status: "ACTIVE" } }),
   ]);
   created.users.push(buyer.id, ownerA.id, staffFulfillment.id, staffCatalog.id, ownerB.id);
+  buyerId = buyer.id;
   fulfillmentStaffId = staffFulfillment.id;
   catalogStaffId = staffCatalog.id;
   sellerAOwnerId = ownerA.id;
@@ -57,10 +61,11 @@ beforeAll(async () => {
   const category = await db.category.create({ data: { nameEn: `API ${stamp}`, nameAr: `API ${stamp}`, slug: `api-${stamp}` } });
   categoryId = category.id;
   const [productA, productB] = await Promise.all([
-    db.product.create({ data: { sellerId: sellerA.id, categoryId, sku: `API-A-${stamp}`, slug: `api-a-${stamp}`, nameEn: "Seller A line", nameAr: "Seller A line", status: "ACTIVE" } }),
+    db.product.create({ data: { sellerId: sellerA.id, categoryId, sku: `API-A-${stamp}`, slug: `api-a-${stamp}`, nameEn: "Seller A line", nameAr: "Seller A line", status: "ACTIVE", isB2CEnabled: true } }),
     db.product.create({ data: { sellerId: sellerB.id, categoryId, sku: `API-B-${stamp}`, slug: `api-b-${stamp}`, nameEn: "Seller B line", nameAr: "Seller B line", status: "ACTIVE" } }),
   ]);
   created.products.push(productA.id, productB.id);
+  productAId = productA.id;
   productASku = productA.sku;
   const warehouse = await db.warehouse.create({ data: {
     sellerId: sellerA.id, nameEn: `API Warehouse ${stamp}`, type: "SELLER", country: "AE", city: "Dubai",
@@ -96,6 +101,75 @@ afterAll(async () => {
 });
 
 describe.skipIf(!process.env.DATABASE_URL)("seeded-role marketplace API journey", () => {
+  async function runCsvCheckoutStockRace(first: "csv" | "checkout") {
+    const price = await db.productPrice.create({ data: {
+      productId: productAId,
+      type: "B2C",
+      currency: "AED",
+      price: 100,
+    } });
+    await db.inventoryStock.update({ where: { id: stockId }, data: { qty: 10, reservedQty: 4 } });
+    sessionFor(sellerAOwnerId);
+
+    let releaseBlock!: () => void;
+    let markLocked!: () => void;
+    const release = new Promise<void>((resolve) => { releaseBlock = resolve; });
+    const locked = new Promise<void>((resolve) => { markLocked = resolve; });
+    const blocker = db.$transaction(async (tx) => {
+      await tx.$executeRaw(
+        Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`inventory-stock:${stockId}`}))`,
+      );
+      markLocked();
+      await release;
+    });
+    await locked;
+
+    const csv = () => importProductsCsv([{ sku: productASku, stock: "5" }]);
+    const checkout = () => secureCreateOrder({
+      userId: buyerId,
+      type: "B2C",
+      currency: "AED",
+      items: [{ productId: productAId, quantity: 3 }],
+      shippingAddress: { line1: "Race", city: "Dubai", country: "AE" },
+      paymentMethod: "BANK_TRANSFER",
+      idempotencyKey: `stock-race-${first}-${stamp}`,
+      requestFingerprint: `stock-race-${first}-${stamp}`,
+    });
+
+    let csvPromise: ReturnType<typeof csv>;
+    let checkoutPromise: ReturnType<typeof checkout>;
+    if (first === "csv") {
+      csvPromise = csv();
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      checkoutPromise = checkout();
+    } else {
+      checkoutPromise = checkout();
+      await new Promise((resolve) => setTimeout(resolve, 25));
+      csvPromise = csv();
+    }
+    releaseBlock();
+    await blocker;
+
+    const [csvOutcome, checkoutOutcome] = await Promise.allSettled([csvPromise, checkoutPromise]);
+    try {
+      if (csvOutcome.status === "rejected") throw csvOutcome.reason;
+      const csvUpdated = csvOutcome.status === "fulfilled" && csvOutcome.value.updated === 1;
+      const checkoutSucceeded = checkoutOutcome.status === "fulfilled";
+      expect(csvUpdated && checkoutSucceeded).toBe(false);
+
+      const stock = await db.inventoryStock.findUniqueOrThrow({ where: { id: stockId } });
+      expect(stock.reservedQty).toBeLessThanOrEqual(stock.qty);
+      if (csvUpdated) expect(stock).toMatchObject({ qty: 5, reservedQty: 4 });
+      if (checkoutSucceeded) expect(stock).toMatchObject({ qty: 10, reservedQty: 7 });
+    } finally {
+      if (checkoutOutcome.status === "fulfilled") {
+        await db.order.deleteMany({ where: { id: checkoutOutcome.value.id } });
+      }
+      await db.inventoryStock.update({ where: { id: stockId }, data: { qty: 10, reservedQty: 4 } });
+      await db.productPrice.deleteMany({ where: { id: price.id } });
+    }
+  }
+
   it("projects only Seller A lines to its fulfillment staff", async () => {
     sessionFor(fulfillmentStaffId);
     const response = await getSellerOrders(new NextRequest("http://seller.test/api/seller/orders"));
@@ -125,6 +199,14 @@ describe.skipIf(!process.env.DATABASE_URL)("seeded-role marketplace API journey"
     expect(result.errors[0]).toMatch(/below reserved quantity/);
     expect(await db.inventoryStock.findUnique({ where: { id: stockId } }))
       .toMatchObject({ qty: 10, reservedQty: 4 });
+  });
+
+  it("serializes CSV first against checkout without violating reserved stock", async () => {
+    await runCsvCheckoutStockRace("csv");
+  });
+
+  it("serializes checkout first against CSV without violating reserved stock", async () => {
+    await runCsvCheckoutStockRace("checkout");
   });
 
   it("fails closed when a CSV price cannot identify one active tier", async () => {

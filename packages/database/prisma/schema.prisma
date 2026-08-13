@@ -1118,6 +1118,7 @@ model RFQRequest {
   currency    Currency  @default(AED)
   notes       String?
   totalQuoted Decimal?  @db.Decimal(12, 2)
+  quoteVersion Int      @default(0)
   requiredBy  DateTime?
   expiresAt   DateTime?
   createdAt   DateTime  @default(now())

@@ -1,4 +1,21 @@
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+
+type InventoryLockClient = Pick<Prisma.TransactionClient, "$executeRaw">;
+
+/**
+ * All stock writers lock the same physical rows in deterministic order. The
+ * identity includes product/variant/location through the immutable stock id.
+ */
+export async function lockInventoryStockRows(
+  tx: InventoryLockClient,
+  stockIds: string[],
+): Promise<void> {
+  for (const stockId of [...new Set(stockIds)].sort()) {
+    await tx.$executeRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`inventory-stock:${stockId}`}))`,
+    );
+  }
+}
 
 /**
  * Generic cart checkout must never consume a governed purchase order. Approved

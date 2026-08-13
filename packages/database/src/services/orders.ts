@@ -1,7 +1,11 @@
 import { db } from "../index";
 import { write } from "../resilient-ops";
 import { enforcePromotionRedemptionCapacity, evaluateCommercePromotions } from "./promotions";
-import { inventoryStockIdentityWhere, resolveConfiguredVatRate } from "./checkout-invariants";
+import {
+  inventoryStockIdentityWhere,
+  lockInventoryStockRows,
+  resolveConfiguredVatRate,
+} from "./checkout-invariants";
 import { assertMatchingIdempotencyFingerprint } from "./commerce-governance";
 import type { Prisma, OrderStatus, Currency, PaymentMethod } from "@prisma/client";
 
@@ -248,7 +252,15 @@ export async function createOrder(input: CreateOrderInput) {
   return write(
     () =>
       db.$transaction(async (tx) => {
+        const initialStockRows = await Promise.all(input.items.map((item) => tx.inventoryStock.findMany({
+          where: inventoryStockIdentityWhere(item.productId, item.variantId),
+          select: { id: true },
+        })));
+        await lockInventoryStockRows(tx, initialStockRows.flat().map((stock) => stock.id));
+
         for (const item of input.items) {
+          // Re-read only after holding every involved row lock. CSV on-hand
+          // changes and other checkouts therefore linearize before this read.
           const stockRows = await tx.inventoryStock.findMany({
             where: inventoryStockIdentityWhere(item.productId, item.variantId),
             orderBy: { updatedAt: "asc" },
@@ -265,7 +277,7 @@ export async function createOrder(input: CreateOrderInput) {
             const want = Math.min(remaining, s.qty - s.reservedQty);
             if (want <= 0) continue;
             const { count } = await tx.inventoryStock.updateMany({
-              where: { id: s.id, reservedQty: { lte: s.qty - want } },
+              where: { id: s.id, qty: s.qty, reservedQty: s.reservedQty },
               data: { reservedQty: { increment: want } },
             });
             if (count === 1) remaining -= want;
