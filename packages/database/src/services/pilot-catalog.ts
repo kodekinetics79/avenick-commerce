@@ -12,7 +12,7 @@ import {
   type Prisma,
 } from "@prisma/client";
 import { db } from "../client";
-import { lockInventoryStockRows, lockProductCommercialRows, lockSellerCommercialRows } from "./checkout-invariants";
+import { lockInventoryStockRows, lockPilotSellerKeys, lockProductCommercialRows, lockSellerCommercialRows } from "./checkout-invariants";
 
 export type PilotAssetSet = { images?: string[]; documents?: string[] };
 
@@ -162,11 +162,6 @@ async function ensureSeller(client: CatalogClient, sellerKey: string, testPasswo
       language: "EN",
     },
   });
-  const currentSeller = await client.sellerProfile.findUnique({
-    where: { userId: user.id },
-    select: { id: true },
-  });
-  if (currentSeller) await lockSellerCommercialRows(client, [currentSeller.id]);
   const seller = await client.sellerProfile.upsert({
     where: { userId: user.id },
     update: { businessNameEn: config.name, status: SellerStatus.ACTIVE, tier: SellerTier.VERIFIED },
@@ -243,9 +238,6 @@ function commercialPayload(row: PilotCatalogRecord): Prisma.InputJsonValue {
 }
 
 async function upsertProduct(client: CatalogClient, row: PilotCatalogRecord, sellerId: string, locationId: string, assetBaseUrl?: string) {
-  const currentProduct = await client.product.findUnique({ where: { sku: row.sku }, select: { id: true } });
-  if (currentProduct) await lockProductCommercialRows(client, [currentProduct.id]);
-  await lockSellerCommercialRows(client, [sellerId]);
   const category = await ensureCategory(client, row.family, row.subcategory);
   const brand = await ensureBrand(client, row.brand ?? row.manufacturer ?? row.sourceSheet);
   const verifiedPrice = Number(row.unitPriceSAR) > 0 ? Number(row.unitPriceSAR) : null;
@@ -444,8 +436,25 @@ export async function applyPilotCatalog(file: PilotCatalogFile, options: {
   // One transaction makes the import all-or-nothing, including its audit row.
   // A generous explicit timeout is required for the bounded 20k-row pilot file.
   return db.$transaction(async (tx) => {
+    const sellerKeys = [...new Set(file.records.map((row) => row.sellerKey))].sort();
+    await lockPilotSellerKeys(tx, sellerKeys);
+
+    // Every commercial transaction acquires the complete lock set once in the
+    // global order: sellers, then products. This prevents checkout/import and
+    // reversed multi-seller imports from deadlocking.
+    const existingUsers = await tx.user.findMany({
+      where: { email: { in: sellerKeys.map((key) => `pilot.catalog+${key}@avenick.test`) } },
+      select: { sellerProfile: { select: { id: true } } },
+    });
+    const existingProductsForLocks = await tx.product.findMany({
+      where: { sku: { in: file.records.map((row) => row.sku) } },
+      select: { id: true },
+    });
+    await lockSellerCommercialRows(tx, existingUsers.flatMap((user) => user.sellerProfile ? [user.sellerProfile.id] : []));
+    await lockProductCommercialRows(tx, existingProductsForLocks.map(({ id }) => id));
+
     const contexts = new Map<string, Awaited<ReturnType<typeof ensureSeller>>>();
-    for (const key of new Set(file.records.map((row) => row.sellerKey))) {
+    for (const key of sellerKeys) {
       contexts.set(key, await ensureSeller(tx, key, options.testPassword));
     }
 

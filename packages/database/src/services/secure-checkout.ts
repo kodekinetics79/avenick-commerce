@@ -1,7 +1,7 @@
 import type { Currency, PaymentMethod, UserRole } from "@prisma/client";
 import { db } from "../index";
 import { createOrder } from "./orders";
-import { assertMinimumOrderQuantity, assertRequiredVariantSelection } from "./checkout-invariants";
+import { assertGovernedB2BCheckout, assertMinimumOrderQuantity, assertRequiredVariantSelection } from "./checkout-invariants";
 
 const CUSTOMER_ROLES = new Set<UserRole>([
   "CONSUMER",
@@ -60,6 +60,7 @@ export interface SecureCheckoutInput {
  */
 export async function secureCreateOrder(input: SecureCheckoutInput) {
   if (input.items.length === 0) throw new Error("Order must contain at least one item");
+  assertGovernedB2BCheckout(input.type, input.purchaseOrderId, Boolean(input.governedCommercial));
   if (input.governedCommercial && (input.type !== "B2B" || !input.purchaseOrderId || input.couponCode)) {
     throw new Error("Governed commercial terms require a B2B purchase-order placement without promotions");
   }

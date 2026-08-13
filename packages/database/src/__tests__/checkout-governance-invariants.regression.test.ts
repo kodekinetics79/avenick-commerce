@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertGovernedB2BCheckout,
   assertGenericCheckoutHasNoPurchaseOrder,
   assertMinimumOrderQuantity,
   assertRequiredVariantSelection,
@@ -8,6 +9,12 @@ import {
 } from "../services/checkout-invariants";
 
 describe("checkout governance invariants", () => {
+  it("rejects direct B2B checkout unless immutable governed PO terms are present", () => {
+    expect(() => assertGovernedB2BCheckout("B2B")).toThrow(/governed purchase-order/i);
+    expect(() => assertGovernedB2BCheckout("B2B", "po-1", false)).toThrow(/governed purchase-order/i);
+    expect(() => assertGovernedB2BCheckout("B2B", "po-1", true)).not.toThrow();
+    expect(() => assertGovernedB2BCheckout("B2C")).not.toThrow();
+  });
   it("rejects governed purchase orders at the generic cart boundary", () => {
     expect(() => assertGenericCheckoutHasNoPurchaseOrder("po-approved")).toThrow(/governed purchase-order workflow/i);
     expect(() => assertGenericCheckoutHasNoPurchaseOrder()).not.toThrow();

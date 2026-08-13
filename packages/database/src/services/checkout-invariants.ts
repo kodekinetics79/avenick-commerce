@@ -31,6 +31,18 @@ export async function lockSellerCommercialRows(
   }
 }
 
+/** Stable pilot keys serialize concurrent imports before database IDs exist. */
+export async function lockPilotSellerKeys(
+  tx: CommercialLockClient,
+  sellerKeys: string[],
+): Promise<void> {
+  for (const sellerKey of [...new Set(sellerKeys)].sort()) {
+    await tx.$executeRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`pilot-seller-key:${sellerKey}`}))`,
+    );
+  }
+}
+
 /**
  * All stock writers lock the same physical rows in deterministic order. The
  * identity includes product/variant/location through the immutable stock id.
@@ -54,6 +66,17 @@ export async function lockInventoryStockRows(
 export function assertGenericCheckoutHasNoPurchaseOrder(purchaseOrderId?: string): void {
   if (purchaseOrderId) {
     throw new Error("Purchase orders must be placed through the governed purchase-order workflow");
+  }
+}
+
+/** B2B price access and order creation are exclusive to the governed PO path. */
+export function assertGovernedB2BCheckout(
+  type: "B2C" | "B2B",
+  purchaseOrderId?: string,
+  hasGovernedCommercialTerms = false,
+): void {
+  if (type === "B2B" && (!purchaseOrderId || !hasGovernedCommercialTerms)) {
+    throw new Error("B2B orders must be created through the governed purchase-order workflow");
   }
 }
 

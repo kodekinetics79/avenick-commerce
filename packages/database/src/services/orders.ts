@@ -151,12 +151,12 @@ export async function createOrder(input: CreateOrderInput) {
   return write(
     () =>
       db.$transaction(async (tx) => {
-        await lockProductCommercialRows(tx, productIds);
         const sellerIds = (await tx.product.findMany({
           where: { id: { in: productIds } },
           select: { sellerId: true },
         })).map(({ sellerId }) => sellerId);
         await lockSellerCommercialRows(tx, sellerIds);
+        await lockProductCommercialRows(tx, productIds);
         const products = await tx.product.findMany({
           where: { id: { in: productIds }, deletedAt: null },
           include: {
