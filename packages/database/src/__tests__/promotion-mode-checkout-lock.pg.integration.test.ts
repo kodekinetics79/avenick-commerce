@@ -77,7 +77,7 @@ run("promotion mode mutation and checkout serialization", () => {
     await db.user.deleteMany({ where: { id: { in: [buyerId, ownerId].filter(Boolean) } } });
   });
 
-  it("rejects stale automatic evaluation after the promotion becomes coupon-only", async () => {
+  it("never redeems a stale automatic evaluation after the promotion becomes coupon-only", async () => {
     let release!: () => void;
     let locked!: () => void;
     const releaseSignal = new Promise<void>((resolve) => { release = resolve; });
@@ -102,7 +102,8 @@ run("promotion mode mutation and checkout serialization", () => {
     release();
     await blocker;
 
-    await expect(checkout).rejects.toThrow(/coupon-only/i);
-    await expect(db.order.count({ where: { userId: buyerId } })).resolves.toBe(0);
+    const order = await checkout;
+    expect(Number(order.discountAmount)).toBe(0);
+    await expect(db.promotionRedemption.count({ where: { promotionId, orderId: order.id } })).resolves.toBe(0);
   });
 });
