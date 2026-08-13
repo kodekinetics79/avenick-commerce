@@ -350,6 +350,7 @@ model User {
   customerActivities CustomerActivity[]
   reviews            ProductReview[]
   supportTickets     SupportTicket[]
+  sellerMemberships SellerMembership[]
 
   @@index([email])
   @@index([role, status])
@@ -501,6 +502,7 @@ model SellerProfile {
   shipments       Shipment[]
   returnRequests  ReturnRequest[]
   savedViews      SavedView[]
+  sellerMemberships SellerMembership[]
 
   @@index([status])
   @@index([country])
@@ -654,6 +656,7 @@ model Product {
   rfqItems         RFQItem[]
   requisitionItems RequisitionListItem[]
   reviews          ProductReview[]
+  commercialMetadata ProductCommercialMetadata?
 
   @@index([sellerId, status])
   @@index([categoryId])
@@ -1341,4 +1344,355 @@ model AuditLog {
   @@index([actorId])
   @@index([sellerId])
   @@index([createdAt])
+}
+
+
+// ─── COMMERCE CONTROL PLANE / PILOT OVERHAUL
+
+/// Explicit organization membership for seller users. SELLER_STAFF is no longer
+/// treated as an owner-only alias; authorization resolves through this table.
+model SellerMembership {
+  id          String   @id @default(cuid())
+  sellerId    String
+  userId      String   @unique
+  title       String?
+  permissions String[] @default([])
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  seller SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId, isActive])
+}
+
+/// Industrial/B2B attributes supplied by ERP/catalog sources. Product remains
+/// merchandising-facing; this record preserves source identifiers and commercial
+/// provenance without hiding them in free text or generic tags.
+model ProductCommercialMetadata {
+  id                     String   @id @default(cuid())
+  productId              String   @unique
+  sourceSystem           String   @default("CATALOG_IMPORT")
+  sourceSheet            String?
+  sourceRow              Int?
+  erpCode                String?
+  externalItemNumber     String?
+  manufacturerPartNumber String?
+  supplierPartNumber     String?
+  uom                    String?
+  purchaseUom            String?
+  moqPurchase            Int?
+  deliveryLeadTimeDays   Int?
+  leadTimeText           String?
+  hsCode                 String?
+  incoterms              String?
+  purchasePrice          Decimal? @db.Decimal(14, 4)
+  purchaseCurrencyCode   String?
+  landedCost             Decimal? @db.Decimal(14, 4)
+  packQty                Int?
+  palletQty              Int?
+  vendorCode             String?
+  vendorLegalName        String?
+  productGroup           String?
+  sourcePayload          Json?
+  sourceFingerprint      String
+  observedAt             DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([erpCode])
+  @@index([manufacturerPartNumber])
+  @@index([externalItemNumber])
+  @@index([sourceSystem, observedAt])
+}
+
+/// Platform/client-admin governed promotion definition. Eligibility is a typed
+/// JSON policy envelope (seller/company/product/category/brand/territory/segment)
+/// so checkout evaluates one canonical policy rather than scattered coupon logic.
+model CommercePromotion {
+  id                  String   @id @default(cuid())
+  tenantKey           String   @default("default")
+  name                String
+  description         String?
+  type                String
+  status              String   @default("DRAFT")
+  scope               String   @default("PLATFORM")
+  sellerId            String?
+  companyId           String?
+  currency            Currency?
+  value               Decimal  @db.Decimal(14, 4)
+  minOrderAmount      Decimal? @db.Decimal(14, 2)
+  maxDiscountAmount   Decimal? @db.Decimal(14, 2)
+  usageLimit          Int?
+  perCustomerLimit    Int?
+  stackable           Boolean  @default(false)
+  priority            Int      @default(100)
+  eligibility         Json?
+  campaignBudget      Decimal? @db.Decimal(14, 2)
+  accountingTreatment String?
+  startsAt            DateTime?
+  endsAt              DateTime?
+  createdById         String?
+  approvedById        String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([tenantKey, status, startsAt, endsAt])
+  @@index([sellerId])
+  @@index([companyId])
+}
+
+model PromotionCoupon {
+  id               String   @id @default(cuid())
+  promotionId      String
+  code             String   @unique
+  status           String   @default("ACTIVE")
+  usageLimit       Int?
+  perCustomerLimit Int?
+  startsAt         DateTime?
+  endsAt           DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([promotionId, status])
+}
+
+model PromotionRedemption {
+  id             String   @id @default(cuid())
+  promotionId    String
+  couponId       String?
+  userId         String
+  companyId      String?
+  orderId        String
+  discountAmount Decimal  @db.Decimal(14, 2)
+  currency       Currency
+  createdAt      DateTime @default(now())
+
+  @@unique([promotionId, orderId])
+  @@index([couponId, userId])
+  @@index([companyId])
+}
+
+model ReferralProgram {
+  id               String   @id @default(cuid())
+  tenantKey        String   @default("default")
+  name             String
+  status           String   @default("DRAFT")
+  referrerRewardType String
+  referrerRewardValue Decimal @db.Decimal(14, 4)
+  refereeRewardType String
+  refereeRewardValue Decimal @db.Decimal(14, 4)
+  currency         Currency?
+  maxUsesPerCode   Int?
+  startsAt         DateTime?
+  endsAt           DateTime?
+  eligibility      Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([tenantKey, status])
+}
+
+model ReferralCode {
+  id        String   @id @default(cuid())
+  programId String
+  ownerUserId String
+  code      String   @unique
+  isActive  Boolean  @default(true)
+  uses      Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([programId, ownerUserId])
+}
+
+model ReferralAttribution {
+  id             String   @id @default(cuid())
+  referralCodeId String
+  referredUserId String
+  orderId        String?
+  status         String   @default("ATTRIBUTED")
+  rewardAmount   Decimal? @db.Decimal(14, 2)
+  currency       Currency?
+  createdAt      DateTime @default(now())
+  rewardedAt     DateTime?
+
+  @@unique([referralCodeId, referredUserId])
+  @@index([orderId])
+}
+
+/// One canonical integration registry for Dynamics 365, SAP, generic ERP/WMS/PIM
+/// and future systems. credentialsRef stores a secret-manager reference only.
+model IntegrationConnection {
+  id                String   @id @default(cuid())
+  tenantKey         String   @default("default")
+  system            String
+  connectionKey     String
+  name              String
+  status            String   @default("DISABLED")
+  baseUrl           String?
+  credentialsRef    String?
+  settings          Json?
+  lastHealthCheckAt DateTime?
+  lastSuccessAt     DateTime?
+  lastFailureAt     DateTime?
+  lastError         String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([tenantKey, system, connectionKey])
+  @@index([tenantKey, status])
+}
+
+model ExternalAccountLink {
+  id                 String   @id @default(cuid())
+  tenantKey          String   @default("default")
+  companyId          String
+  system             String
+  externalCustomerId String
+  salesArea          String?
+  priceGroup         String?
+  metadata           Json?
+  lastSyncedAt       DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@unique([tenantKey, companyId, system])
+  @@index([system, externalCustomerId])
+}
+
+model ExternalProductLink {
+  id                String   @id @default(cuid())
+  tenantKey         String   @default("default")
+  productId         String
+  system            String
+  externalProductId String
+  externalSku       String?
+  metadata          Json?
+  lastSyncedAt      DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([tenantKey, productId, system])
+  @@index([system, externalProductId])
+}
+
+/// Short-lived source observations. These are evidence, not a second inventory
+/// ledger: checkout must revalidate stale/unknown availability before acceptance.
+model AvailabilitySnapshot {
+  id             String   @id @default(cuid())
+  tenantKey      String   @default("default")
+  productId      String
+  variantId      String?
+  warehouseCode  String?
+  sourceSystem   String
+  state          String
+  availableQty   Int?
+  reservedQty    Int?
+  expectedRestockAt DateTime?
+  provenance     Json?
+  observedAt     DateTime @default(now())
+  expiresAt      DateTime
+
+  @@index([tenantKey, productId, observedAt])
+  @@index([expiresAt])
+}
+
+/// Immutable evidence of the commercial answer used for a customer/quantity.
+model CommercialPriceSnapshot {
+  id              String   @id @default(cuid())
+  tenantKey       String   @default("default")
+  productId       String
+  variantId       String?
+  companyId       String?
+  source          String
+  sourceSystem    String?
+  sourceReference String?
+  currency        Currency
+  quantity        Int
+  unitPrice       Decimal  @db.Decimal(14, 4)
+  explanation     Json
+  validFrom       DateTime?
+  validUntil      DateTime?
+  observedAt      DateTime @default(now())
+
+  @@index([tenantKey, productId, companyId, currency, observedAt])
+}
+
+/// Transactional outbox/inbox makes ERP submission retryable and idempotent.
+model IntegrationOutbox {
+  id             String   @id @default(cuid())
+  tenantKey      String   @default("default")
+  aggregateType  String
+  aggregateId    String
+  eventType      String
+  destination    String
+  payload        Json
+  idempotencyKey String   @unique
+  status         String   @default("PENDING")
+  attempts       Int      @default(0)
+  nextAttemptAt  DateTime?
+  lastError      String?
+  createdAt      DateTime @default(now())
+  processedAt    DateTime?
+
+  @@index([status, nextAttemptAt, createdAt])
+  @@index([aggregateType, aggregateId])
+}
+
+model IntegrationInbox {
+  id              String   @id @default(cuid())
+  tenantKey       String   @default("default")
+  source          String
+  externalEventId String
+  eventType       String
+  payload         Json
+  status          String   @default("RECEIVED")
+  receivedAt      DateTime @default(now())
+  processedAt     DateTime?
+  lastError       String?
+
+  @@unique([tenantKey, source, externalEventId])
+  @@index([status, receivedAt])
+}
+
+/// ERP acceptance is separate from the marketplace order status so the UI can
+/// never imply that a locally-created order has been accepted by the ERP.
+model OrderIntegrationState {
+  id                  String   @id @default(cuid())
+  tenantKey           String   @default("default")
+  orderId             String
+  system              String
+  state               String   @default("PENDING_VALIDATION")
+  externalOrderId     String?
+  correlationId       String?
+  lastValidatedAt     DateTime?
+  lastAttemptAt       DateTime?
+  acceptedAt          DateTime?
+  rejectedAt          DateTime?
+  rejectionReason     String?
+  authoritativeTotals Json?
+  updatedAt           DateTime @updatedAt
+  createdAt           DateTime @default(now())
+
+  @@unique([tenantKey, orderId, system])
+  @@index([state, updatedAt])
+}
+
+/// Reconstructable line-level pricing explanation for support, finance and audit.
+model OrderLinePriceTrace {
+  id                String   @id @default(cuid())
+  orderItemId       String   @unique
+  currency          Currency
+  listPrice         Decimal? @db.Decimal(14, 4)
+  contractPrice     Decimal? @db.Decimal(14, 4)
+  volumeAdjustment  Decimal  @default(0) @db.Decimal(14, 4)
+  promotionDiscount Decimal  @default(0) @db.Decimal(14, 4)
+  couponDiscount    Decimal  @default(0) @db.Decimal(14, 4)
+  referralCredit    Decimal  @default(0) @db.Decimal(14, 4)
+  finalUnitPrice    Decimal  @db.Decimal(14, 4)
+  sourceSystem      String?
+  explanation       Json
+  validatedAt       DateTime @default(now())
 }
