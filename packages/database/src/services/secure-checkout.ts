@@ -1,6 +1,7 @@
 import type { Currency, PaymentMethod, UserRole } from "@prisma/client";
 import { db } from "../index";
 import { createOrder } from "./orders";
+import { assertRequiredVariantSelection } from "./checkout-invariants";
 
 const CUSTOMER_ROLES = new Set<UserRole>([
   "CONSUMER",
@@ -34,7 +35,7 @@ export interface SecureCheckoutInput {
  * Browser/cart state is intentionally treated as untrusted. In particular:
  *  - sellerId is derived from Product.sellerId, never accepted from the caller;
  *  - product publication/channel eligibility is re-checked at checkout;
- *  - variants must belong to the requested product and be active;
+ *  - products with active variants require an explicit active selection;
  *  - sellers must still be active;
  *  - B2B company identity is derived from the authenticated user's membership;
  *  - a B2B PO, when supplied, must belong to that same company and be approved;
@@ -115,6 +116,7 @@ export async function secureCreateOrder(input: SecureCheckoutInput) {
       throw new Error(`"${product.nameEn}" is not available for B2C ordering`);
     }
 
+    assertRequiredVariantSelection(product.nameEn, product.variants, item.variantId);
     if (item.variantId) {
       const variant = product.variants.find((v) => v.id === item.variantId);
       if (!variant || !variant.isActive) {

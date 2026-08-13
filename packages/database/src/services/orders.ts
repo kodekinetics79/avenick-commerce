@@ -1,6 +1,7 @@
 import { db } from "../index";
 import { write } from "../resilient-ops";
 import { evaluateCommercePromotions } from "./promotions";
+import { inventoryStockIdentityWhere, resolveConfiguredVatRate } from "./checkout-invariants";
 import type { Prisma, OrderStatus, Currency, PaymentMethod } from "@prisma/client";
 
 // Prisma interactive-transaction client — the subset of the client available
@@ -131,7 +132,7 @@ export async function createOrder(input: CreateOrderInput) {
       quantity: item.quantity,
       unitPrice,
       lineSubtotal: money(unitPrice * item.quantity),
-      vatRate: Number(tier.vatRate) || defaultVat,
+      vatRate: resolveConfiguredVatRate(tier.vatRate, defaultVat),
       sourcePriceId: tier.id,
     };
   });
@@ -199,7 +200,7 @@ export async function createOrder(input: CreateOrderInput) {
       db.$transaction(async (tx) => {
         for (const item of input.items) {
           const stockRows = await tx.inventoryStock.findMany({
-            where: { productId: item.productId, ...(item.variantId ? { variantId: item.variantId } : {}) },
+            where: inventoryStockIdentityWhere(item.productId, item.variantId),
             orderBy: { updatedAt: "asc" },
           });
           const available = stockRows.reduce((sum, s) => sum + (s.qty - s.reservedQty), 0);
@@ -440,7 +441,7 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus, ac
       for (const item of current.items) {
         let remaining = item.quantity;
         const rows = await tx.inventoryStock.findMany({
-          where: { productId: item.productId, ...(item.variantId ? { variantId: item.variantId } : {}) },
+          where: inventoryStockIdentityWhere(item.productId, item.variantId),
           orderBy: { updatedAt: "asc" },
         });
         for (const s of rows) {

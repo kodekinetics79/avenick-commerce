@@ -24,6 +24,7 @@ export * from "./services/listing-health";
 export * from "./services/products";
 export * from "./services/orders";
 export * from "./services/secure-checkout";
+export * from "./services/checkout-invariants";
 export * from "./services/payments";
 export * from "./services/seller-fulfillment";
 export * from "./services/b2b-purchase-orders";

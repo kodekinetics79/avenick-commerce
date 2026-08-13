@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth-instance";
-import { secureCreateOrder, finalizeInternalOrderPayment, db } from "@avenick/database";
+import {
+  assertGenericCheckoutHasNoPurchaseOrder,
+  secureCreateOrder,
+  finalizeInternalOrderPayment,
+  db,
+} from "@avenick/database";
 import { checkRateLimit, RATE_LIMITS } from "@avenick/auth";
 import { log } from "@avenick/observability";
 import { z } from "zod";
@@ -122,6 +127,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Approved POs carry immutable governed lines and can only be converted by
+    // the purchase-order transition endpoint. Never attach one to a free-form
+    // generic cart checkout.
+    assertGenericCheckoutHasNoPurchaseOrder(parsed.data.purchaseOrderId);
+
     const paymentMethod = parsed.data.paymentMethod;
     if (paymentMethod === "MOCK" && !pilotMockPaymentsEnabled()) {
       return NextResponse.json(
@@ -148,7 +158,6 @@ export async function POST(req: NextRequest) {
       shippingAddress: parsed.data.shippingAddress,
       paymentMethod: paymentMethod as PaymentMethod,
       notes: parsed.data.notes,
-      purchaseOrderId: parsed.data.purchaseOrderId,
       couponCode: parsed.data.couponCode,
       idempotencyKey,
     });

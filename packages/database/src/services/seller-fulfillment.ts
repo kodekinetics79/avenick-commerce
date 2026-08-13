@@ -1,5 +1,6 @@
 import { AuditAction, Prisma, type OrderStatus } from "@prisma/client";
 import { db } from "../index";
+import { inventoryStockIdentityWhere } from "./checkout-invariants";
 
 const SELLER_FULFILLMENT: OrderStatus[] = [
   "CONFIRMED",
@@ -61,7 +62,7 @@ export async function advanceSellerOrderItems(input: {
       if (rank(item.status) < rank("SHIPPED") && targetRank >= rank("SHIPPED")) {
         let remaining = item.quantity;
         const rows = await tx.inventoryStock.findMany({
-          where: { productId: item.productId, ...(item.variantId ? { variantId: item.variantId } : {}) },
+          where: inventoryStockIdentityWhere(item.productId, item.variantId),
           orderBy: { updatedAt: "asc" },
         });
         for (const stock of rows) {
