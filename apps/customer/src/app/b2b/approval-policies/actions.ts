@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@avenick/database";
 import { getB2BContext, type B2BActionState } from "@/lib/b2b";
+import { companyCurrencyForCountry } from "@/lib/company-currency";
 
 const APPROVER_ROLES = ["COMPANY_ADMIN", "COMPANY_APPROVER"] as const;
 
@@ -22,6 +23,7 @@ export async function createPolicy(_prev: B2BActionState, formData: FormData): P
       companyId: ctx.companyId,
       name,
       thresholdAmount: threshold,
+      currency: companyCurrencyForCountry(ctx.company.country),
       approverRole: APPROVER_ROLES.includes(approverRole) ? approverRole : "COMPANY_APPROVER",
     },
   });
@@ -36,5 +38,4 @@ export async function togglePolicy(id: string, isActive: boolean) {
   if (!p || p.companyId !== ctx.companyId) return;
   await db.approvalPolicy.update({ where: { id }, data: { isActive } });
   revalidatePath("/b2b/approval-policies");
-  
 }
