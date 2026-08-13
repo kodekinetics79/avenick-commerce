@@ -1,8 +1,7 @@
 import { requireSellerSession } from "@/lib/auth";
 import { db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
-import { LifeBuoy, Clock, CheckCircle, AlertCircle, Plus } from "lucide-react";
-import Link from "next/link";
+import { LifeBuoy, Clock, CheckCircle, AlertCircle, CircleOff } from "lucide-react";
 
 export const metadata = { title: "Support Tickets" };
 
@@ -37,12 +36,9 @@ export default async function TicketsPage() {
               <p className="text-sm text-muted-foreground">Manage your support requests and get help</p>
             </div>
           </div>
-          <button
-            type="button"
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="h-4 w-4" /> New Ticket
-          </button>
+          <span className="flex items-center gap-2 rounded-xl border border-border bg-muted px-4 py-2 text-sm font-semibold text-muted-foreground">
+            <CircleOff className="h-4 w-4" /> Ticket creation unavailable
+          </span>
         </div>
 
         {/* Stats */}
@@ -71,7 +67,7 @@ export default async function TicketsPage() {
             <div className="px-5 py-16 text-center">
               <LifeBuoy className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
               <p className="font-semibold text-muted-foreground">No support tickets yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Create a ticket if you need help with your account or orders.</p>
+              <p className="text-sm text-muted-foreground mt-1">Ticket creation is disabled until submissions are persisted and auditable.</p>
             </div>
           ) : (
             <div className="divide-y divide-border">
