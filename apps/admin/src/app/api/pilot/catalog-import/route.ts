@@ -10,7 +10,8 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_BYTES = 8 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 8 * 1024 * 1024;
+const MAX_DECOMPRESSED_BYTES = 32 * 1024 * 1024;
 
 function canApplyPilotImport() {
   if (process.env.PILOT_CATALOG_IMPORT !== "1") return false;
@@ -20,7 +21,12 @@ function canApplyPilotImport() {
 
 function decodeCatalog(bytes: Uint8Array, contentType: string) {
   const isGzip = contentType.includes("gzip") || (bytes[0] === 0x1f && bytes[1] === 0x8b);
-  const raw = isGzip ? gunzipSync(bytes) : Buffer.from(bytes);
+  const raw = isGzip
+    ? gunzipSync(bytes, { maxOutputLength: MAX_DECOMPRESSED_BYTES })
+    : Buffer.from(bytes);
+  if (raw.byteLength > MAX_DECOMPRESSED_BYTES) {
+    throw new Error("Catalog expands beyond the 32 MB decompressed limit");
+  }
   return JSON.parse(raw.toString("utf8")) as PilotCatalogFile;
 }
 
@@ -33,13 +39,13 @@ export async function POST(request: NextRequest) {
   }
 
   const contentLength = Number(request.headers.get("content-length") ?? 0);
-  if (contentLength > MAX_BYTES) {
+  if (contentLength > MAX_UPLOAD_BYTES) {
     return NextResponse.json({ success: false, error: "Catalog upload exceeds the 8 MB pilot-import limit" }, { status: 413 });
   }
 
   try {
     const arrayBuffer = await request.arrayBuffer();
-    if (arrayBuffer.byteLength === 0 || arrayBuffer.byteLength > MAX_BYTES) {
+    if (arrayBuffer.byteLength === 0 || arrayBuffer.byteLength > MAX_UPLOAD_BYTES) {
       return NextResponse.json({ success: false, error: "Catalog file is empty or too large" }, { status: 400 });
     }
     const file = decodeCatalog(new Uint8Array(arrayBuffer), request.headers.get("content-type") ?? "");
@@ -87,6 +93,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, applied: true, data: result });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Catalog import failed";
-    return NextResponse.json({ success: false, error: message }, { status: 400 });
+    const tooLarge = /output length|decompressed limit|buffer/i.test(message);
+    return NextResponse.json({ success: false, error: tooLarge ? "Catalog expands beyond the allowed decompressed size" : message }, { status: tooLarge ? 413 : 400 });
   }
 }
