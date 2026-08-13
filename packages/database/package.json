@@ -16,6 +16,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:prod": "bash scripts/migrate-deploy.sh",
     "db:seed": "tsx prisma/seed.ts",
+    "db:import-pilot": "tsx prisma/import-pilot-catalog.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
     "test": "vitest run"
