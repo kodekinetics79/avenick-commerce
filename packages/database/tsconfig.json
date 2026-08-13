@@ -2,7 +2,7 @@
   "extends": "@avenick/config/typescript",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": ".",
     "composite": true
   },
   "include": ["src/**/*", "prisma/**/*"]
