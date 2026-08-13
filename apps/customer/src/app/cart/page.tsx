@@ -8,19 +8,18 @@ import { formatCurrency } from "@avenick/utils";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
 import { MainLayout } from "@/components/layout/main-layout";
-import { VAT_RATES } from "@avenick/utils";
+import { summarizeCartCommercial } from "@/lib/cart-commercial";
 
 export default function CartPage() {
-  const { items, updateQty, removeItem, total } = useCartStore();
+  const { items, updateQty, removeItem } = useCartStore();
   const { toggle } = useWishlist();
-  const subtotal = total();
-  const vatRate = VAT_RATES["AE"] ?? 5;
-  const vatAmount = subtotal * vatRate / 100;
-  const shipping = subtotal >= 200 ? 0 : 20;
-  const orderTotal = subtotal + vatAmount + shipping;
+  const summary = summarizeCartCommercial(items);
+  const subtotal = summary.valid ? summary.subtotal : 0;
+  const shipping = summary.valid && subtotal >= 200 ? 0 : 20;
+  const orderTotal = summary.valid ? summary.total + shipping : 0;
 
   function saveForLater(item: typeof items[0]) {
-    toggle({ id: item.productId, slug: item.productId, variantId: item.variantId, nameEn: item.nameEn, nameAr: item.nameAr, imageUrl: item.imageUrl, price: item.unitPrice, vatRate: item.vatRate, currency: item.currency, sku: item.sku, sellerId: item.sellerId, inStock: true });
+    toggle({ id: item.productId, slug: item.productId, variantId: item.variantId, nameEn: item.nameEn, nameAr: item.nameAr, imageUrl: item.imageUrl, price: item.unitPrice, quantity: item.qty, vatRate: item.vatRate, currency: item.currency, sku: item.sku, sellerId: item.sellerId, inStock: true });
     removeItem(item.id);
   }
 
@@ -57,11 +56,11 @@ export default function CartPage() {
             {/* Items list */}
             <div className="lg:col-span-2 space-y-3">
               {/* Free shipping progress */}
-              {subtotal < 200 && (
+              {summary.valid && subtotal < 200 && (
                 <div className="bg-white rounded-2xl border border-border p-4">
                   <div className="flex items-center gap-2 text-sm mb-2">
                     <Truck className="h-4 w-4 text-primary" />
-                    <span>Add <strong>{formatCurrency(200 - subtotal, "AED")}</strong> more for free shipping</span>
+                    <span>Add <strong>{formatCurrency(200 - subtotal, summary.valid ? summary.currency as never : "AED")}</strong> more for free shipping</span>
                   </div>
                   <div className="flex gap-0.5 h-2">
                     {Array.from({ length: 10 }).map((_, i) => (
@@ -93,9 +92,9 @@ export default function CartPage() {
                         <p className="text-xs text-muted-foreground">{item.nameAr}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">SKU: {item.sku}</p>
                       </div>
-                      <span className="font-bold text-primary shrink-0">{formatCurrency(item.unitPrice * item.qty, "AED")}</span>
+                      <span className="font-bold text-primary shrink-0">{formatCurrency(item.unitPrice * item.qty, item.currency as never)}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">{formatCurrency(item.unitPrice, "AED")} each</p>
+                    <p className="text-xs text-muted-foreground mt-1">{formatCurrency(item.unitPrice, item.currency as never)} each · VAT {item.vatRate ?? "missing"}%</p>
 
                     <div className="flex items-center justify-between mt-3">
                       <div className="flex items-center border border-border rounded-lg overflow-hidden">
@@ -125,21 +124,21 @@ export default function CartPage() {
                 <div className="space-y-2.5 text-sm mb-4">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Subtotal ({items.length} items)</span>
-                    <span>{formatCurrency(subtotal, "AED")}</span>
+                    <span>{summary.valid ? formatCurrency(subtotal, summary.currency as never) : "—"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">VAT ({vatRate}%)</span>
-                    <span>{formatCurrency(vatAmount, "AED")}</span>
+                    <span className="text-muted-foreground">VAT</span>
+                    <span>{summary.valid ? formatCurrency(summary.vatAmount, summary.currency as never) : "—"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Shipping</span>
                     {shipping === 0
                       ? <span className="text-primary font-medium">Free</span>
-                      : <span>{formatCurrency(shipping, "AED")}</span>}
+                      : <span>{summary.valid ? formatCurrency(shipping, summary.currency as never) : "—"}</span>}
                   </div>
                   <div className="border-t border-border pt-2.5 flex justify-between font-bold text-base">
                     <span>Total</span>
-                    <span className="text-primary">{formatCurrency(orderTotal, "AED")}</span>
+                    <span className="text-primary">{summary.valid ? formatCurrency(orderTotal, summary.currency as never) : "—"}</span>
                   </div>
                 </div>
 
@@ -147,9 +146,10 @@ export default function CartPage() {
                   Eligible coupon codes are validated and priced by the server during checkout.
                 </p>
 
-                <Button asChild variant="primary" size="lg" className="w-full mb-3">
+                {!summary.valid && <p className="mb-3 text-xs text-destructive">Cart currency or VAT facts are inconsistent. Remove affected items before checkout.</p>}
+                {summary.valid ? <Button asChild variant="primary" size="lg" className="w-full mb-3">
                   <Link href="/checkout">Proceed to Checkout <ArrowRight className="ms-2 h-4 w-4" /></Link>
-                </Button>
+                </Button> : <Button variant="primary" size="lg" className="w-full mb-3" disabled>Checkout unavailable</Button>}
                 <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                   <ShieldCheck className="h-3.5 w-3.5 text-primary" />
                   <span>Secure checkout · SSL encrypted</span>

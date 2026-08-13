@@ -3,9 +3,10 @@
 import { useRef, useState } from "react";
 import { CreditCard, Building2, Smartphone, CheckCircle, TicketPercent } from "lucide-react";
 import { Button, Input } from "@avenick/ui";
-import { formatCurrency, VAT_RATES } from "@avenick/utils";
+import { formatCurrency } from "@avenick/utils";
 import { useCartStore } from "@/stores/cart";
 import { MainLayout } from "@/components/layout/main-layout";
+import { summarizeCartCommercial } from "@/lib/cart-commercial";
 
 type Step = "address" | "payment" | "review" | "success";
 type OrderSummary = { total?: number; discountAmount?: number; vatAmount?: number };
@@ -21,7 +22,7 @@ const PAYMENT_METHODS = [
 ];
 
 export default function CheckoutPage() {
-  const { items, total, clearCart } = useCartStore();
+  const { items, clearCart } = useCartStore();
   const [step, setStep] = useState<Step>("address");
   const [paymentMethod, setPaymentMethod] = useState(PILOT_MODE ? "MOCK" : "BANK_TRANSFER");
   const [couponCode, setCouponCode] = useState("");
@@ -31,14 +32,12 @@ export default function CheckoutPage() {
   const [address, setAddress] = useState({ label: "Home", line1: "", city: "Dubai", country: "AE" });
   const idempotencyKeyRef = useRef<string | null>(null);
 
-  const subtotal = total();
-  const fallbackVatRate = VAT_RATES[address.country] ?? 5;
-  const currencies = [...new Set(items.map((item) => item.currency))];
-  const checkoutCurrency = currencies[0] ?? "AED";
-  const mixedCurrencies = currencies.length > 1;
-  const vatAmount = items.reduce((sum, item) =>
-    sum + item.unitPrice * item.qty * ((item.vatRate ?? fallbackVatRate) / 100), 0);
-  const orderTotal = subtotal + vatAmount;
+  const summary = summarizeCartCommercial(items);
+  const checkoutCurrency = summary.valid ? summary.currency : "AED";
+  const mixedCurrencies = !summary.valid;
+  const subtotal = summary.valid ? summary.subtotal : 0;
+  const vatAmount = summary.valid ? summary.vatAmount : 0;
+  const orderTotal = summary.valid ? summary.total : 0;
 
   async function placeOrder() {
     setLoading(true);
@@ -189,7 +188,7 @@ export default function CheckoutPage() {
                 <div className="space-y-2 mb-4">
                   {items.map((item) => (
                     <div key={item.id} className="flex justify-between text-sm py-2 border-b border-border last:border-0">
-                      <div><p className="font-medium">{item.nameAr}</p><p className="text-xs text-muted-foreground">x{item.qty} @ {formatCurrency(item.unitPrice, item.currency as never)} · VAT {item.vatRate ?? fallbackVatRate}%</p></div>
+                      <div><p className="font-medium">{item.nameAr}</p><p className="text-xs text-muted-foreground">x{item.qty} @ {formatCurrency(item.unitPrice, item.currency as never)} · VAT {item.vatRate ?? "missing"}%</p></div>
                       <span className="font-semibold">{formatCurrency(item.unitPrice * item.qty, item.currency as never)}</span>
                     </div>
                   ))}

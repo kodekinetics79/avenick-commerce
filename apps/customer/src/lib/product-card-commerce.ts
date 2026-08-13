@@ -4,3 +4,14 @@ export type ProductCardPurchaseAction = "ADD_TO_CART" | "SELECT_VARIANT";
 export function productCardPurchaseAction(hasVariants: boolean): ProductCardPurchaseAction {
   return hasVariants ? "SELECT_VARIANT" : "ADD_TO_CART";
 }
+
+export function productCardPricePresentation(price: number | undefined, hasVariants: boolean) {
+  if (price == null) return "SEE_OPTIONS" as const;
+  return hasVariants ? "FROM" as const : "EXACT" as const;
+}
+
+export function productCardReviewState(rating: number | undefined, reviewCount: number) {
+  return rating != null && Number.isFinite(rating) && reviewCount > 0
+    ? { kind: "RATED" as const, rating, reviewCount }
+    : { kind: "UNRATED" as const };
+}

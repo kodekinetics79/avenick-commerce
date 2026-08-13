@@ -102,7 +102,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
   const wishlisted = has(productId, selection?.variantId);
   const reviews = (p.reviews as Review[]) ?? [];
   const reviewCount = reviews.length;
-  const avgRating = reviewCount > 0 ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviewCount) * 10) / 10 : 4.6;
+  const avgRating = reviewCount > 0 ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviewCount) * 10) / 10 : null;
 
   const TABS: { id: Tab; label: string }[] = [
     { id: "description", label: "Description" },
@@ -164,7 +164,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                     <h1 className="text-2xl font-bold leading-tight">{String(p.nameEn)}</h1>
                     {!!p.nameAr && <p className="text-base text-muted-foreground mt-0.5" dir="rtl">{String(p.nameAr)}</p>}
                   </div>
-                  <button type="button" disabled={!selection} aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"} onClick={() => selection && toggle(toStorefrontWishlistItem(p, params.slug, selection, images[0]?.url))}
+                  <button type="button" disabled={!selection} aria-label={wishlisted ? "Remove from wishlist" : "Add to wishlist"} onClick={() => selection && toggle(toStorefrontWishlistItem(p, params.slug, selection, qty, images[0]?.url))}
                     className={`p-2 rounded-xl border transition-all shrink-0 ${wishlisted ? "bg-destructive/10 border-destructive/20 text-destructive" : "border-border text-muted-foreground hover:border-destructive/20 hover:text-destructive"}`}>
                     <Heart className={`h-5 w-5 ${wishlisted ? "fill-current" : ""}`} />
                   </button>
@@ -173,10 +173,12 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                 {/* Rating row */}
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1">
-                    {[1,2,3,4,5].map((s) => (
-                      <Star key={s} className={`h-4 w-4 ${s <= Math.round(avgRating) ? "text-amber-400 fill-current" : "text-gray-200 fill-current"}`} />
-                    ))}
-                    <span className="text-sm font-semibold ms-1">{avgRating}</span>
+                    {avgRating == null ? <span className="text-sm text-muted-foreground">No reviews yet</span> : <>
+                      {[1,2,3,4,5].map((s) => (
+                        <Star key={s} className={`h-4 w-4 ${s <= Math.round(avgRating) ? "text-amber-400 fill-current" : "text-gray-200 fill-current"}`} />
+                      ))}
+                      <span className="text-sm font-semibold ms-1">{avgRating}</span>
+                    </>}
                   </div>
                   <button type="button" onClick={() => scrollToSection("reviews")} className="text-sm text-primary hover:underline">
                     {reviewCount} reviews
@@ -332,7 +334,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
               <div id="reviews" className="py-8 scroll-mt-28">
                 <h3 className="text-base font-bold mb-4 text-foreground">Reviews ({reviewCount})</h3>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-4 pb-4 border-b border-border">
+                  {avgRating != null && <div className="flex items-center gap-4 pb-4 border-b border-border">
                     <div className="text-center">
                       <p className="text-4xl font-bold text-primary">{avgRating}</p>
                       <div className="flex justify-center mt-1">
@@ -340,7 +342,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">{reviewCount} review{reviewCount !== 1 ? "s" : ""}</p>
                     </div>
-                  </div>
+                  </div>}
                   {reviewCount === 0 ? (
                     <p className="text-sm text-muted-foreground py-6 text-center">No reviews yet — be the first to review this product.</p>
                   ) : reviews.map((r) => {

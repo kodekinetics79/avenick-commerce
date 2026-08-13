@@ -79,7 +79,6 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
         {sortedProducts.map((p) => {
-          const b2cPrice = p.prices?.find((pr: { type: string; price: number }) => pr.type === "B2C") ?? p.prices?.[0];
           const stock = p.inventory?.[0];
           return (
             <ProductCard
@@ -89,7 +88,10 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
               nameEn={p.nameEn}
               nameAr={p.nameAr}
               imageUrl={p.images?.[0]?.url}
-              price={b2cPrice ? Number(b2cPrice.price) : 0}
+              price={p.cardPrice?.amount}
+              currency={p.cardPrice?.currency}
+              vatRate={p.cardPrice?.vatRate}
+              priceIsFrom={p.cardPrice?.isFrom === true}
               sku={p.sku}
               sellerId={p.sellerId}
               sellerName={p.seller?.businessNameEn}

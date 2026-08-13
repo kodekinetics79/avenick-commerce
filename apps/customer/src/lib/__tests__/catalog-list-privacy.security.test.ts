@@ -13,7 +13,7 @@ describe("public catalog list privacy DTO", () => {
         { type: "B2B", currency: "AED", minQty: 10, maxQty: null, price: 7, vatRate: 5 },
       ],
       inventory: [{ qty: 50, reservedQty: 49 }],
-      variants: [{ id: "variant" }],
+      variants: [{ id: "variant", prices: [] }],
       category: { nameEn: "Category", nameAr: "Category", slug: "category" }, brand: null,
       seller: { businessNameEn: "Seller", businessNameAr: null, tier: "VERIFIED", rating: 5 },
       listingHealth: 12, issues: [{ message: "Missing confidential document" }], createdAt: new Date(),

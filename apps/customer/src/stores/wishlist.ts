@@ -11,6 +11,7 @@ export interface WishlistItem {
   nameAr: string;
   imageUrl?: string;
   price: number;
+  quantity?: number;
   vatRate?: number;
   currency: string;
   sku: string;
@@ -37,7 +38,7 @@ export function toWishlistCartLine(item: WishlistItem) {
     nameAr: item.nameAr,
     imageUrl: item.imageUrl,
     sku: item.sku,
-    qty: 1,
+    qty: item.quantity ?? 1,
     unitPrice: item.price,
     vatRate: item.vatRate,
     sellerId: item.sellerId,

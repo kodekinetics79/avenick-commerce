@@ -98,6 +98,7 @@ export function toStorefrontWishlistItem(
   product: StorefrontProduct,
   slug: string,
   selection: NonNullable<ReturnType<typeof resolveStorefrontSelection>>,
+  quantity: number,
   imageUrl?: string,
 ) {
   return {
@@ -108,6 +109,7 @@ export function toStorefrontWishlistItem(
     nameAr: selection.nameAr,
     imageUrl,
     price: selection.unitPrice,
+    quantity,
     vatRate: selection.vatRate,
     currency: selection.currency,
     sku: selection.sku,

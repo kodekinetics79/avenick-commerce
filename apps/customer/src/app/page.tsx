@@ -57,7 +57,6 @@ export default async function HomePage() {
   const products = await getFeaturedProducts();
 
   const mapped = products.map((p) => {
-    const price = p.prices?.find((pr: { type: string; price: number }) => pr.type === "B2C") ?? p.prices?.[0];
     const stock = p.inventory?.[0];
     const available = stock?.inStock ? 1 : 0;
     return {
@@ -66,7 +65,10 @@ export default async function HomePage() {
       nameEn: p.nameEn,
       nameAr: p.nameAr,
       imageUrl: p.images?.[0]?.url,
-      price: price ? Number(price.price) : 0,
+      price: p.cardPrice?.amount,
+      currency: p.cardPrice?.currency,
+      vatRate: p.cardPrice?.vatRate,
+      priceIsFrom: p.cardPrice?.isFrom === true,
       sku: p.sku,
       sellerId: p.sellerId,
       sellerName: p.seller?.businessNameEn,
