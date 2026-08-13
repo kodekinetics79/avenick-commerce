@@ -42,6 +42,7 @@ describe("split-runtime session verification", () => {
   });
 
   it("forwards only the matching portal cookie to the configured backend", async () => {
+    delete process.env.NEXTAUTH_URL;
     process.env.NEXT_PUBLIC_BACKEND_URL = "https://backend.example.test/";
     const fetcher = vi.fn(async () =>
       new Response(
