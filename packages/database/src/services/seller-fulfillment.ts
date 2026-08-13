@@ -107,7 +107,11 @@ export async function advanceSellerOrderItems(input: {
 
     let updatedOrder = order;
     if (aggregateStatus !== order.status) {
-      updatedOrder = await tx.order.update({ where: { id: order.id }, data: { status: aggregateStatus } });
+      updatedOrder = await tx.order.update({
+        where: { id: order.id },
+        data: { status: aggregateStatus },
+        include: { items: true },
+      });
       await tx.orderStatusHistory.create({
         data: {
           orderId: order.id,
