@@ -8,13 +8,16 @@ on:
       - .github/workflows/diagnose-typecheck.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   diagnose:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: pilot-overhaul/2026-08-12
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -24,14 +27,17 @@ jobs:
       - name: Capture typecheck output
         shell: bash
         run: |
+          mkdir -p docs/qa
           set +e
-          pnpm typecheck > typecheck.log 2>&1
+          pnpm typecheck > docs/qa/typecheck-diagnostic.txt 2>&1
           code=$?
-          echo "TYPECHECK_EXIT_CODE=$code" >> typecheck.log
+          echo "TYPECHECK_EXIT_CODE=$code" >> docs/qa/typecheck-diagnostic.txt
           exit 0
-      - uses: actions/upload-artifact@v4
-        with:
-          name: typecheck-diagnostics
-          path: typecheck.log
-          if-no-files-found: error
-          retention-days: 1
+      - name: Commit diagnostic transcript
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/qa/typecheck-diagnostic.txt
+          git commit -m "chore(ci): capture typecheck diagnostics"
+          git push origin HEAD:pilot-overhaul/2026-08-12
