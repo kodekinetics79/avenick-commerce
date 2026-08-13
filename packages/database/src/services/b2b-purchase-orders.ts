@@ -8,7 +8,7 @@ import {
   canonicalOrderRequest,
   commercialSnapshotFingerprint,
 } from "./commerce-governance";
-import { assertMinimumOrderQuantity } from "./checkout-invariants";
+import { assertMinimumOrderQuantity, assertRequiredVariantSelection } from "./checkout-invariants";
 
 export interface PurchaseOrderLineInput {
   productId: string;
@@ -80,6 +80,7 @@ async function pricePOLines(
     if (product.seller.status !== "ACTIVE" || product.seller.deletedAt) {
       throw new Error(`Seller for "${product.nameEn}" is unavailable`);
     }
+    assertRequiredVariantSelection(product.nameEn, product.variants, input.variantId);
     const variant = input.variantId
       ? product.variants.find((row) => row.id === input.variantId)
       : undefined;

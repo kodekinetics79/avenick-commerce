@@ -35,6 +35,45 @@ afterEach(async () => {
 });
 
 run("variant and refund commercial truth", () => {
+  it("rejects an omitted active variant before persisting a governed PO or audit", async () => {
+    const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+    const [requester, owner] = await Promise.all([
+      db.user.create({ data: { email: `variant-required-buyer-${stamp}@example.test`, firstName: "Variant", lastName: "Required", role: "COMPANY_BUYER", status: "ACTIVE" } }),
+      db.user.create({ data: { email: `variant-required-owner-${stamp}@example.test`, firstName: "Variant", lastName: "Owner", role: "SELLER_OWNER", status: "ACTIVE" } }),
+    ]);
+    cleanupUsers.push(requester.id, owner.id);
+    const seller = await db.sellerProfile.create({ data: {
+      userId: owner.id, businessNameEn: `Variant required ${stamp}`, crNumber: `VR-${stamp}`,
+      type: "DISTRIBUTOR", country: "AE", city: "Dubai", status: "ACTIVE",
+    } });
+    const company = await db.company.create({ data: {
+      nameEn: `Variant required company ${stamp}`, industry: "OTHER", size: "SMALL", country: "AE", city: "Dubai", status: "ACTIVE",
+      members: { create: { userId: requester.id, role: "COMPANY_BUYER", isActive: true } },
+    } });
+    cleanupCompanies.push(company.id);
+    const category = await db.category.create({ data: { nameEn: stamp, nameAr: stamp, slug: `commercial-truth-required-${stamp}` } });
+    const product = await db.product.create({ data: {
+      sellerId: seller.id, categoryId: category.id, sku: `REQUIRED-${stamp}`, slug: `variant-required-${stamp}`,
+      nameEn: "Variant selection required", nameAr: "Variant selection required", status: "ACTIVE", isB2BEnabled: true,
+      prices: { create: { type: "B2B", currency: "AED", price: 75, vatRate: 5 } },
+      variants: { create: { sku: `REQUIRED-VARIANT-${stamp}`, nameEn: "Required active variant", attributes: {}, isActive: true } },
+    } });
+    const [poCountBefore, auditCountBefore] = await Promise.all([
+      db.purchaseOrder.count({ where: { requesterId: requester.id } }),
+      db.auditLog.count({ where: { actorId: requester.id, entityType: "PurchaseOrder" } }),
+    ]);
+
+    await expect(createGovernedPurchaseOrder({
+      companyId: company.id,
+      requesterId: requester.id,
+      currency: "AED",
+      items: [{ productId: product.id, quantity: 1 }],
+    })).rejects.toThrow(/select a product variant/i);
+
+    await expect(db.purchaseOrder.count({ where: { requesterId: requester.id } })).resolves.toBe(poCountBefore);
+    await expect(db.auditLog.count({ where: { actorId: requester.id, entityType: "PurchaseOrder" } })).resolves.toBe(auditCountBefore);
+  });
+
   it("keeps locked approved variant terms when catalog pricing changes after the PO placement claim", async () => {
     const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
     const [requester, owner] = await Promise.all([
