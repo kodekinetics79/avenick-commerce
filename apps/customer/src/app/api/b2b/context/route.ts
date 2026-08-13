@@ -1,16 +1,8 @@
 import { NextResponse } from "next/server";
 import { getServerB2BContext, B2B_APPROVER_ROLES } from "@/lib/b2b-server";
+import { companyCurrencyForCountry } from "@/lib/company-currency";
 
 export const dynamic = "force-dynamic";
-
-const COMPANY_CURRENCY: Record<string, string> = {
-  AE: "AED",
-  SA: "SAR",
-  QA: "QAR",
-  KW: "KWD",
-  OM: "OMR",
-  BH: "BHD",
-};
 
 export async function GET() {
   const ctx = await getServerB2BContext();
@@ -24,7 +16,7 @@ export async function GET() {
       companyId: ctx.companyId,
       companyName: ctx.company.nameEn,
       country: ctx.company.country,
-      currency: COMPANY_CURRENCY[ctx.company.country] ?? "USD",
+      currency: companyCurrencyForCountry(ctx.company.country),
       memberRole: ctx.member.role,
       spendLimit: ctx.member.spendLimit == null ? null : Number(ctx.member.spendLimit),
       isApprover: B2B_APPROVER_ROLES.includes(ctx.member.role),
