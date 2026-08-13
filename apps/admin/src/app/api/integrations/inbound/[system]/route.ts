@@ -90,7 +90,10 @@ export async function POST(request: NextRequest, context: { params: { system: st
 
   const result = await recordIntegrationInbound({
     tenantKey: connection.tenantKey,
-    source: connection.system,
+    // Inbox idempotency is per governed connection. A tenant may legitimately
+    // run multiple connections for one ERP system, whose provider event-id
+    // sequences are not globally unique.
+    source: `${connection.system}:${parsed.data.connectionId}`,
     externalEventId: parsed.data.eventId,
     eventType: parsed.data.eventType,
     payload: { ...parsed.data.data, system: connection.system },

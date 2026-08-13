@@ -91,7 +91,7 @@ run("signed ERP ingress lifecycle", () => {
     await expect(replay.json()).resolves.toMatchObject({ received: true, replay: true });
     expect(await db.integrationInbox.count({ where: { tenantKey: marker } })).toBe(1);
 
-    const [lease] = await claimIntegrationInbox({ workerId: `${marker}-worker`, source: "ERP", limit: 1 });
+    const [lease] = await claimIntegrationInbox({ workerId: `${marker}-worker`, source: `ERP:${connectionId}`, limit: 1 });
     const processed = await processIntegrationInboxMessage(
       lease!,
       DEPLOYED_INTEGRATION_INBOX_HANDLERS["*:ORDER_STATUS_CHANGED"]!,
@@ -100,5 +100,64 @@ run("signed ERP ingress lifecycle", () => {
     await expect(db.orderIntegrationState.findUniqueOrThrow({
       where: { tenantKey_orderId_system: { tenantKey: marker, orderId, system: "ERP" } },
     })).resolves.toMatchObject({ state: "ACCEPTED", externalOrderId: "ERP-DELAYED-100", correlationId: "corr-delayed" });
+  });
+
+  it("keeps the same provider event id distinct across governed connections", async () => {
+    const order = await db.order.create({ data: {
+      orderNumber: `${marker}-second`, userId: actorId, type: "B2B", currency: "AED",
+      subtotal: 200, vatAmount: 10, total: 210, shippingAddress: { city: "Dubai" },
+    } });
+    const connection = await db.integrationConnection.create({ data: {
+      tenantKey: marker, system: "ERP", connectionKey: `${marker}-second`, name: `${marker}-second`, status: "ACTIVE",
+    } });
+    const outbox = await db.integrationOutbox.create({ data: {
+      tenantKey: marker, connectionId: connection.id, aggregateType: "ORDER", aggregateId: order.id,
+      eventType: "ORDER_SUBMIT_REQUESTED", destination: "ERP", payload: { orderId: order.id },
+      idempotencyKey: `${marker}:second:submit`, status: "PROCESSED", processedAt: new Date(),
+    } });
+    await db.orderIntegrationState.create({ data: {
+      tenantKey: marker, orderId: order.id, system: "ERP", state: "PENDING_VALIDATION",
+    } });
+
+    try {
+      const sharedEventId = `${marker}-same-provider-sequence`;
+      const firstBody = JSON.stringify({
+        eventId: sharedEventId, eventType: "ORDER_STATUS_CHANGED", connectionId,
+        data: { orderId, status: "ACCEPTED", externalOrderId: "ERP-FIRST" },
+      });
+      const secondBody = JSON.stringify({
+        eventId: sharedEventId, eventType: "ORDER_STATUS_CHANGED", connectionId: connection.id,
+        data: { orderId: order.id, status: "REJECTED", reason: "SECOND_CONNECTION_REJECTED" },
+      });
+      const [first, second] = await Promise.all([
+        POST(request(firstBody), { params: { system: "ERP" } }),
+        POST(request(secondBody), { params: { system: "ERP" } }),
+      ]);
+      expect([first.status, second.status]).toEqual([202, 202]);
+      const rows = await db.integrationInbox.findMany({ where: { tenantKey: marker, externalEventId: sharedEventId } });
+      expect(rows).toHaveLength(2);
+      expect(new Set(rows.map((row) => row.source))).toEqual(new Set([`ERP:${connectionId}`, `ERP:${connection.id}`]));
+
+      const [[firstLease], [secondLease]] = await Promise.all([
+        claimIntegrationInbox({ workerId: `${marker}-first-connection`, source: `ERP:${connectionId}`, limit: 1 }),
+        claimIntegrationInbox({ workerId: `${marker}-second-connection`, source: `ERP:${connection.id}`, limit: 1 }),
+      ]);
+      const results = await Promise.all([firstLease!, secondLease!].map((lease) => processIntegrationInboxMessage(
+        lease, DEPLOYED_INTEGRATION_INBOX_HANDLERS["*:ORDER_STATUS_CHANGED"]!,
+      )));
+      expect(results.map((result) => result.status)).toEqual(["PROCESSED", "PROCESSED"]);
+      await expect(db.orderIntegrationState.findUniqueOrThrow({
+        where: { tenantKey_orderId_system: { tenantKey: marker, orderId, system: "ERP" } },
+      })).resolves.toMatchObject({ state: "ACCEPTED", externalOrderId: "ERP-FIRST" });
+      await expect(db.orderIntegrationState.findUniqueOrThrow({
+        where: { tenantKey_orderId_system: { tenantKey: marker, orderId: order.id, system: "ERP" } },
+      })).resolves.toMatchObject({ state: "REJECTED", rejectionReason: "SECOND_CONNECTION_REJECTED" });
+    } finally {
+      await db.integrationInbox.deleteMany({ where: { tenantKey: marker, source: `ERP:${connection.id}` } });
+      await db.orderIntegrationState.deleteMany({ where: { tenantKey: marker, orderId: order.id } });
+      await db.integrationOutbox.deleteMany({ where: { id: outbox.id } });
+      await db.integrationConnection.deleteMany({ where: { id: connection.id } });
+      await db.order.deleteMany({ where: { id: order.id } });
+    }
   });
 });
