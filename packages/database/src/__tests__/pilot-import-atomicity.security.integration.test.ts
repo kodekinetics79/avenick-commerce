@@ -56,4 +56,60 @@ describe("pilot import seller isolation and atomicity", () => {
     expect(await db.product.findUnique({ where: { sku: firstSku } })).toBeNull();
     expect(await db.product.findUnique({ where: { sku: secondSku } })).toBeNull();
   });
+
+  it("preserves live reservations and rejects source stock below the reserved floor", async () => {
+    const sku = `RESERVED-STOCK-${stamp}`;
+    await applyPilotCatalog({
+      version: 1,
+      records: [row(sku, { stockAvailable: 10, safetyStock: 2 })],
+    } as PilotCatalogFile);
+    const product = await db.product.findUniqueOrThrow({ where: { sku }, include: { inventory: true } });
+    cleanup.products.push(product.id);
+    const stock = product.inventory[0]!;
+    await db.inventoryStock.update({ where: { id: stock.id }, data: { reservedQty: 4 } });
+
+    await expect(applyPilotCatalog({
+      version: 1,
+      records: [row(sku, { stockAvailable: 3, safetyStock: 5 })],
+    } as PilotCatalogFile)).rejects.toThrow(/below reserved quantity/);
+    await expect(db.inventoryStock.findUniqueOrThrow({ where: { id: stock.id } }))
+      .resolves.toMatchObject({ qty: 10, reservedQty: 4, reorderPoint: 2 });
+
+    await applyPilotCatalog({
+      version: 1,
+      records: [row(sku, { stockAvailable: 8, safetyStock: 3 })],
+    } as PilotCatalogFile);
+    await expect(db.inventoryStock.findUniqueOrThrow({ where: { id: stock.id } }))
+      .resolves.toMatchObject({ qty: 8, reservedQty: 4, reorderPoint: 3 });
+  });
+
+  it("fails closed instead of choosing between conflicting stock identities", async () => {
+    const sku = `CONFLICT-STOCK-${stamp}`;
+    await applyPilotCatalog({
+      version: 1,
+      records: [row(sku, { stockAvailable: 10 })],
+    } as PilotCatalogFile);
+    const product = await db.product.findUniqueOrThrow({
+      where: { sku },
+      include: { inventory: true },
+    });
+    cleanup.products.push(product.id);
+    const original = product.inventory[0]!;
+    const duplicate = await db.inventoryStock.create({ data: {
+      productId: product.id,
+      locationId: original.locationId,
+      qty: 20,
+      reservedQty: 0,
+    } });
+
+    await expect(applyPilotCatalog({
+      version: 1,
+      records: [row(sku, { stockAvailable: 30 })],
+    } as PilotCatalogFile)).rejects.toThrow(/identity is ambiguous/);
+    const unchanged = await db.inventoryStock.findMany({
+      where: { id: { in: [original.id, duplicate.id] } },
+      orderBy: { qty: "asc" },
+    });
+    expect(unchanged.map((stock) => stock.qty)).toEqual([10, 20]);
+  });
 });

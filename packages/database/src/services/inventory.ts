@@ -1,4 +1,5 @@
 import { AuditAction, db } from "../index";
+import { lockInventoryStockRows } from "./checkout-invariants";
 
 export async function getSellerInventory(sellerId: string, params: { page?: number; limit?: number; lowStock?: boolean }) {
   const { page = 1, limit = 50, lowStock } = params;
@@ -39,30 +40,40 @@ export async function adjustInventory(
   notes?: string
 ) {
   if (!actorId) throw new Error("Inventory adjustment actor is required");
-  const stock = await db.inventoryStock.findUnique({
-    where: { id: stockId },
-    include: { product: { select: { sellerId: true } } },
-  });
-  if (!stock) throw new Error("Stock record not found");
+  if (!Number.isInteger(qty) || qty < 0) throw new Error("Inventory quantity must be a non-negative whole number");
 
-  const newQty = type === "OUT" ? stock.qty - qty : type === "IN" ? stock.qty + qty : qty;
-  if (newQty < 0) throw new Error("Insufficient stock");
+  return db.$transaction(async (tx) => {
+    await lockInventoryStockRows(tx, [stockId]);
+    const stock = await tx.inventoryStock.findUnique({
+      where: { id: stockId },
+      include: {
+        product: { select: { sellerId: true } },
+        variant: { select: { product: { select: { sellerId: true } } } },
+      },
+    });
+    if (!stock) throw new Error("Stock record not found");
 
-  await db.$transaction([
-    db.inventoryStock.update({ where: { id: stockId }, data: { qty: newQty } }),
-    db.inventoryMovement.create({ data: { stockId, type, qty, reference, notes, createdBy: actorId } }),
-    db.auditLog.create({
+    const newQty = type === "OUT" ? stock.qty - qty : type === "IN" ? stock.qty + qty : qty;
+    if (newQty < stock.reservedQty) {
+      throw new Error("Inventory quantity cannot be below reserved quantity");
+    }
+    const changed = await tx.inventoryStock.updateMany({
+      where: { id: stock.id, qty: stock.qty, reservedQty: stock.reservedQty },
+      data: { qty: newQty },
+    });
+    if (changed.count !== 1) throw new Error("Inventory changed concurrently; reload and retry");
+    await tx.inventoryMovement.create({ data: { stockId, type, qty, reference, notes, createdBy: actorId } });
+    await tx.auditLog.create({
       data: {
         actorId,
-        sellerId: stock.product?.sellerId,
+        sellerId: stock.product?.sellerId ?? stock.variant?.product.sellerId,
         entityType: "InventoryStock",
         entityId: stockId,
         action: AuditAction.UPDATE,
         before: { qty: stock.qty },
         after: { qty: newQty, movementType: type, quantity: qty, reference },
       },
-    }),
-  ]);
-
-  return newQty;
+    });
+    return newQty;
+  });
 }

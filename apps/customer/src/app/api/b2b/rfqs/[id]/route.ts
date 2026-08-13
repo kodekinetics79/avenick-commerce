@@ -5,7 +5,10 @@ import { getServerB2BContext } from "@/lib/b2b-server";
 
 export const dynamic = "force-dynamic";
 
-const DecisionSchema = z.object({ decision: z.enum(["ACCEPTED", "REJECTED"]) });
+const DecisionSchema = z.object({
+  decision: z.enum(["ACCEPTED", "REJECTED"]),
+  expectedQuoteVersion: z.number().int().nonnegative(),
+});
 
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   const ctx = await getServerB2BContext();
@@ -39,6 +42,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       buyerId: ctx.userId,
       companyId: ctx.companyId,
       decision: parsed.data.decision,
+      expectedQuoteVersion: parsed.data.expectedQuoteVersion,
     });
     return NextResponse.json({ success: true, data: rfq });
   } catch {

@@ -85,7 +85,11 @@ export async function decideRFQ(opts: {
   buyerId: string;
   companyId?: string;
   decision: "ACCEPTED" | "REJECTED";
+  expectedQuoteVersion: number;
 }) {
+  if (!Number.isInteger(opts.expectedQuoteVersion) || opts.expectedQuoteVersion < 0) {
+    throw new Error("Expected quote version is required");
+  }
   return db.$transaction(async (tx) => {
     await tx.$executeRaw(
       Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`rfq-claim:${opts.rfqId}`}))`,
@@ -103,9 +107,12 @@ export async function decideRFQ(opts: {
     if (!["QUOTED", "NEGOTIATING"].includes(rfq.status)) {
       throw new Error("Only quoted RFQs can be accepted or rejected");
     }
+    if (rfq.quoteVersion !== opts.expectedQuoteVersion) {
+      throw new Error("Quote changed since it was viewed; review the latest quote before deciding");
+    }
 
     const decided = await tx.rFQRequest.updateMany({
-      where: { id: rfq.id, status: rfq.status, quoteVersion: rfq.quoteVersion },
+      where: { id: rfq.id, status: rfq.status, quoteVersion: opts.expectedQuoteVersion },
       data: { status: opts.decision },
     });
     if (decided.count !== 1) throw new Error("RFQ changed concurrently; reload and retry");

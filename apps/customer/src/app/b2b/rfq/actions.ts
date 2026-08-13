@@ -50,12 +50,12 @@ export async function submitRFQ(_prev: B2BActionState, formData: FormData): Prom
   redirect(`/b2b/rfq/${rfq.id}`);
 }
 
-export async function acceptRFQQuote(id: string) {
+export async function acceptRFQQuote(id: string, expectedQuoteVersion: number) {
   try {
     await fetchB2BJson(`/api/b2b/rfqs/${id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ decision: "ACCEPTED" }),
+      body: JSON.stringify({ decision: "ACCEPTED", expectedQuoteVersion }),
     });
   } catch {
     return;
@@ -64,12 +64,12 @@ export async function acceptRFQQuote(id: string) {
   revalidatePath("/b2b/quotes");
 }
 
-export async function rejectRFQQuote(id: string) {
+export async function rejectRFQQuote(id: string, expectedQuoteVersion: number) {
   try {
     await fetchB2BJson(`/api/b2b/rfqs/${id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ decision: "REJECTED" }),
+      body: JSON.stringify({ decision: "REJECTED", expectedQuoteVersion }),
     });
   } catch {
     return;

@@ -12,6 +12,7 @@ import {
   type Prisma,
 } from "@prisma/client";
 import { db } from "../client";
+import { lockInventoryStockRows } from "./checkout-invariants";
 
 export type PilotAssetSet = { images?: string[]; documents?: string[] };
 
@@ -372,16 +373,39 @@ async function upsertProduct(client: CatalogClient, row: PilotCatalogRecord, sel
     });
   }
 
-  await client.inventoryStock.deleteMany({ where: { productId: product.id, locationId } });
-  if (row.stockAvailable != null && Number.isFinite(Number(row.stockAvailable))) {
-    await client.inventoryStock.create({
-      data: {
-        productId: product.id,
-        locationId,
-        qty: nonNegativeInt(row.stockAvailable),
-        reservedQty: 0,
-        reorderPoint: nonNegativeInt(row.safetyStock),
+  const initialStock = await client.inventoryStock.findMany({
+    where: { productId: product.id, locationId },
+    select: { id: true },
+  });
+  await lockInventoryStockRows(client, initialStock.map((stock) => stock.id));
+  const currentStock = await client.inventoryStock.findMany({
+    where: { productId: product.id, locationId },
+    orderBy: { id: "asc" },
+  });
+  if (currentStock.length > 1 || currentStock.some((stock) => stock.variantId != null)) {
+    throw new Error(`Catalog stock identity is ambiguous for SKU ${row.sku}`);
+  }
+  const existingStock = currentStock[0];
+  const hasSourceStock = row.stockAvailable != null && Number.isFinite(Number(row.stockAvailable));
+  const sourceQty = hasSourceStock ? nonNegativeInt(row.stockAvailable) : null;
+  if (existingStock?.reservedQty && (sourceQty == null || sourceQty < existingStock.reservedQty)) {
+    throw new Error(`Catalog stock for SKU ${row.sku} cannot be below reserved quantity`);
+  }
+  if (existingStock && sourceQty != null) {
+    const changed = await client.inventoryStock.updateMany({
+      where: {
+        id: existingStock.id,
+        qty: existingStock.qty,
+        reservedQty: existingStock.reservedQty,
       },
+      data: { qty: sourceQty, reorderPoint: nonNegativeInt(row.safetyStock) },
+    });
+    if (changed.count !== 1) throw new Error(`Catalog stock changed concurrently for SKU ${row.sku}`);
+  } else if (existingStock) {
+    await client.inventoryStock.delete({ where: { id: existingStock.id } });
+  } else if (sourceQty != null) {
+    await client.inventoryStock.create({
+      data: { productId: product.id, locationId, qty: sourceQty, reservedQty: 0, reorderPoint: nonNegativeInt(row.safetyStock) },
     });
   }
 
