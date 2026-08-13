@@ -11,8 +11,8 @@ const PaymentMethodSchema = z.enum(["MADA", "APPLE_PAY", "CREDIT_CARD", "BANK_TR
 const CountrySchema = z.enum(["AE", "SA", "QA", "KW", "OM", "BH"]);
 
 const CreateOrderSchema = z.object({
-  // The client supplies identity + quantity only. Seller ownership and pricing
-  // are resolved from the authoritative catalog on the server.
+  // The client supplies identity + quantity only. Seller ownership, prices,
+  // discounts and VAT are resolved from authoritative server-side rules.
   items: z.array(z.object({
     productId: z.string().min(1).max(128),
     variantId: z.string().min(1).max(128).optional(),
@@ -28,12 +28,11 @@ const CreateOrderSchema = z.object({
   currency: CurrencySchema.default("AED"),
   type: z.enum(["B2C", "B2B"]).default("B2C"),
   purchaseOrderId: z.string().min(1).max(128).optional(),
+  couponCode: z.string().trim().min(3).max(40).regex(/^[A-Za-z0-9_-]+$/).optional(),
   notes: z.string().trim().max(2000).optional(),
 });
 
 function pilotMockPaymentsEnabled(): boolean {
-  // Explicit double opt-in. NODE_ENV alone is not enough because hosted pilot
-  // deployments normally run with NODE_ENV=production.
   return process.env.PILOT_MODE === "true" && process.env.ALLOW_MOCK_PAYMENTS === "true";
 }
 
@@ -59,9 +58,7 @@ export async function POST(req: NextRequest) {
         where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } },
         select: { id: true, orderNumber: true },
       });
-      if (existing) {
-        return NextResponse.json({ success: true, data: existing, idempotent: true });
-      }
+      if (existing) return NextResponse.json({ success: true, data: existing, idempotent: true });
     }
 
     const body = await req.json();
@@ -100,6 +97,7 @@ export async function POST(req: NextRequest) {
       paymentMethod: paymentMethod as PaymentMethod,
       notes: parsed.data.notes,
       purchaseOrderId: parsed.data.purchaseOrderId,
+      couponCode: parsed.data.couponCode,
       idempotencyKey,
     });
 
@@ -124,8 +122,6 @@ export async function POST(req: NextRequest) {
         await accrueCommissions(tx, order.id);
       });
     } else if (paymentMethod === "BANK_TRANSFER") {
-      // Bank transfer is a legitimate deferred-payment path. Nothing is marked
-      // paid until a governed finance workflow confirms receipt.
       await db.payment.create({
         data: {
           orderId: order.id,
@@ -140,7 +136,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, data: { id: order.id, orderNumber: order.orderNumber } });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to create order";
-    const isBusinessError = /price|stock|unavailable|at least one item|account|company|purchase order|B2B|B2C|permitted/i.test(message);
+    const isBusinessError = /price|stock|unavailable|at least one item|account|company|purchase order|B2B|B2C|permitted|coupon|promotion|quantity/i.test(message);
     if (!isBusinessError) log.error("orders.create failed", e, { path: "/api/orders" });
     return NextResponse.json({ success: false, error: message }, { status: isBusinessError ? 409 : 500 });
   }
