@@ -110,7 +110,7 @@ const RETURN_TRANSITIONS: Record<ReturnStatus, ReturnStatus[]> = {
 
 /**
  * Advance a return/dispute with an audit entry. Moving to REFUNDED also
- * creates a pending Refund on the order for the agreed amount.
+ * records a completed Refund and atomically reverses unsettled settlement value.
  */
 export async function setReturnStatus(opts: {
   returnId: string;
@@ -136,7 +136,9 @@ export async function setReturnStatus(opts: {
         refundAmount: true,
         order: {
           select: {
-            items: { select: { sellerId: true, total: true } },
+            total: true,
+            currency: true,
+            items: { select: { sellerId: true, total: true, vatAmount: true } },
           },
         },
       },
@@ -186,14 +188,53 @@ export async function setReturnStatus(opts: {
       },
     });
     if (opts.status === "REFUNDED") {
+      const completedAt = new Date();
       await tx.refund.create({
         data: {
           orderId: target.orderId,
           amount: refundAmount,
           reason: opts.resolution ?? `Seller return ${target.id} refunded`,
-          status: "PENDING",
+          status: "COMPLETED",
+          processedAt: completedAt,
         },
       });
+      const commissions = await tx.commission.findMany({
+        where: { orderId: target.orderId, sellerId: target.sellerId }, select: { amount: true, rate: true },
+      });
+      const positiveCommission = commissions.reduce((sum, row) => sum + Math.max(0, Number(row.amount)), 0);
+      const reversedCommission = commissions.reduce((sum, row) => sum + Math.max(0, -Number(row.amount)), 0);
+      const reversal = Number(Math.min(
+        Math.max(0, positiveCommission - reversedCommission),
+        positiveCommission * (refundAmount / sellerMaximum),
+      ).toFixed(2));
+      if (reversal > 0) await tx.commission.create({ data: {
+        orderId: target.orderId,
+        sellerId: target.sellerId,
+        amount: -reversal,
+        rate: commissions.find((row) => Number(row.amount) > 0)?.rate ?? 0,
+        currency: target.order.currency,
+      } });
+
+      const payoutItems = await tx.sellerPayoutItem.findMany({
+        where: {
+          orderId: target.orderId,
+          payout: { sellerId: target.sellerId, status: { in: ["PENDING", "PROCESSING"] } },
+        },
+        include: { payout: { select: { id: true } } },
+      });
+      for (const item of payoutItems) {
+        const grossReduction = Math.min(refundAmount, Number(item.amount));
+        const commissionReduction = Math.min(reversal, Number(item.commission));
+        const payoutReduction = Number(Math.max(0, grossReduction - commissionReduction).toFixed(2));
+        await tx.sellerPayoutItem.update({ where: { id: item.id }, data: {
+          amount: Number((Number(item.amount) - grossReduction).toFixed(2)),
+          commission: Number((Number(item.commission) - commissionReduction).toFixed(2)),
+          net: Number(Math.max(0, Number(item.net) - payoutReduction).toFixed(2)),
+        } });
+        await tx.sellerPayout.update({ where: { id: item.payout.id }, data: {
+          amount: { decrement: payoutReduction },
+        } });
+      }
     }
     return ret;
   });

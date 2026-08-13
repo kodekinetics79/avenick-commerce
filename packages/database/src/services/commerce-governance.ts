@@ -1,4 +1,5 @@
 import type { Currency, UserRole } from "@prisma/client";
+import { createHash } from "node:crypto";
 
 type CanonicalOrderInput = {
   items: Array<{ productId: string; variantId?: string; quantity: number }>;
@@ -29,7 +30,7 @@ export function canonicalOrderRequest(input: CanonicalOrderInput): string {
       quantity: (current?.quantity ?? 0) + item.quantity,
     });
   }
-  return JSON.stringify(stable({
+  const canonical = JSON.stringify(stable({
     type: input.type,
     currency: input.currency,
     paymentMethod: input.paymentMethod,
@@ -38,6 +39,7 @@ export function canonicalOrderRequest(input: CanonicalOrderInput): string {
     couponCode: input.couponCode?.trim().toUpperCase() || null,
     notes: input.notes?.trim() || null,
   }));
+  return createHash("sha256").update(canonical, "utf8").digest("hex");
 }
 
 export function assertMatchingIdempotencyFingerprint(stored: string | null | undefined, requested: string): void {

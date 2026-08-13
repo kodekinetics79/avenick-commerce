@@ -33,7 +33,11 @@ function selectPrice(
     .sort((a, b) => b.minQty - a.minQty)[0] ?? null;
 }
 
-async function pricePOLines(currency: Currency, requested: PurchaseOrderLineInput[]) {
+async function pricePOLines(
+  currency: Currency,
+  requested: PurchaseOrderLineInput[],
+  client: Pick<Prisma.TransactionClient, "product"> = db,
+) {
   if (requested.length === 0) throw new Error("Purchase order must contain at least one product line");
 
   const normalized = new Map<string, PurchaseOrderLineInput>();
@@ -49,7 +53,7 @@ async function pricePOLines(currency: Currency, requested: PurchaseOrderLineInpu
   }
 
   const inputs = [...normalized.values()];
-  const products = await db.product.findMany({
+  const products = await client.product.findMany({
     where: { id: { in: [...new Set(inputs.map((item) => item.productId))] }, deletedAt: null },
     include: {
       prices: true,
@@ -400,82 +404,75 @@ export async function placeGovernedPurchaseOrder(input: {
   companyId: string;
   actorId: string;
 }) {
-  const po = await db.purchaseOrder.findFirst({
-    where: { id: input.purchaseOrderId, companyId: input.companyId },
-    include: { items: true, company: true },
-  });
-  if (!po) throw new Error("Purchase order not found");
-  if (po.status === "ORDERED") {
-    const existing = await db.order.findFirst({ where: { purchaseOrderId: po.id }, orderBy: { createdAt: "asc" } });
-    if (existing) {
-      await finalizeInternalOrderPayment({ orderId: existing.id, method: "BANK_TRANSFER", actorId: input.actorId });
-      return existing;
+  const claim = await db.$transaction(async (tx) => {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`purchase-order:${input.purchaseOrderId}`}))`);
+    const po = await tx.purchaseOrder.findFirst({
+      where: { id: input.purchaseOrderId, companyId: input.companyId },
+      include: { items: true, company: true },
+    });
+    if (!po) throw new Error("Purchase order not found");
+    const existing = await tx.order.findFirst({ where: { purchaseOrderId: po.id }, orderBy: { createdAt: "asc" } });
+    if (existing) return { kind: "existing" as const, order: existing };
+    if (po.status !== "APPROVED" && po.status !== "ORDERED") {
+      throw new Error("Only an approved purchase order can be placed");
     }
-    throw new Error("Purchase order is marked ordered but has no linked order");
-  }
-  if (po.status !== "APPROVED") throw new Error("Only an approved purchase order can be placed");
-  if (po.items.length === 0) {
-    throw new Error("Legacy header-only purchase orders cannot be placed; recreate the PO with product lines");
-  }
+    if (po.items.length === 0) {
+      throw new Error("Legacy header-only purchase orders cannot be placed; recreate the PO with product lines");
+    }
 
-  // Re-read current B2B tiers before any stock reservation. If the approved
-  // commercial snapshot changed, the PO returns to approval instead of silently
-  // committing a different price.
-  const current = await pricePOLines(
-    po.currency,
-    po.items.map((line) => ({ productId: line.productId, variantId: line.variantId ?? undefined, quantity: line.quantity })),
-  );
-  const currentByKey = new Map(current.lines.map((line) => [`${line.productId}::${line.variantId ?? ""}`, line]));
-  const changed = po.items.find((approved) => {
-    const now = currentByKey.get(`${approved.productId}::${approved.variantId ?? ""}`);
-    return !now ||
-      now.priceSourceId !== approved.priceSourceId ||
-      Math.abs(now.unitPrice - Number(approved.unitPrice)) > 0.0001 ||
-      Math.abs(now.vatRate - Number(approved.vatRate)) > 0.0001;
-  });
-  const currentPolicy = await db.approvalPolicy.findFirst({
-    where: { companyId: po.companyId, isActive: true, currency: po.currency, thresholdAmount: { lte: current.gross } },
-    orderBy: { thresholdAmount: "desc" },
-  });
-  const requesterMembership = await db.companyMember.findUnique({
-    where: { userId: po.requesterId },
-    select: { companyId: true, isActive: true, spendLimit: true },
-  });
-  const requesterSpendLimit = requesterMembership?.isActive && requesterMembership.companyId === po.companyId
-    ? requesterMembership.spendLimit == null ? null : Number(requesterMembership.spendLimit)
-    : null;
-  const currentEvidence = approvalEvidence(po.currency, current.gross, current.lines, currentPolicy, requesterSpendLimit);
-  const evidenceChanged = changed ||
-    po.approvedCommercialFingerprint !== currentEvidence.commercialFingerprint ||
-    !approvalSnapshotsMatch(po.approvalSnapshot, currentEvidence.snapshot);
-  if (evidenceChanged) {
-    const detail = changed ? `Commercial terms changed for ${changed.sku}` : "Approval policy or approved total changed";
-    await db.$transaction(async (tx) => {
-      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${po.companyId}`}))`);
-      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`purchase-order:${po.id}`}))`);
-      const invalidated = await tx.purchaseOrder.updateMany({
-        where: { id: po.id, status: "APPROVED", approvalVersion: po.approvalVersion },
-        data: {
-          status: "PENDING_APPROVAL",
-          approverId: null,
-          approvedAt: null,
-          approvalSnapshot: Prisma.DbNull,
-          approvedCommercialFingerprint: null,
-          rejectionReason: `${detail}; reapproval required before placement`,
-          approvalVersion: { increment: 1 },
-        },
-      });
-      if (invalidated.count === 1) await tx.auditLog.create({ data: {
-        actorId: input.actorId,
-        entityType: "PurchaseOrder",
-        entityId: po.id,
-        action: AuditAction.STATUS_CHANGE,
-        before: { status: "APPROVED", total: Number(po.total), approvalVersion: po.approvalVersion },
+    const current = await pricePOLines(
+      po.currency,
+      po.items.map((line) => ({ productId: line.productId, variantId: line.variantId ?? undefined, quantity: line.quantity })),
+      tx,
+    );
+    const currentByKey = new Map(current.lines.map((line) => [`${line.productId}::${line.variantId ?? ""}`, line]));
+    const changed = po.items.find((approved) => {
+      const now = currentByKey.get(`${approved.productId}::${approved.variantId ?? ""}`);
+      return !now || now.priceSourceId !== approved.priceSourceId ||
+        Math.abs(now.unitPrice - Number(approved.unitPrice)) > 0.0001 ||
+        Math.abs(now.vatRate - Number(approved.vatRate)) > 0.0001;
+    });
+    const currentPolicy = await tx.approvalPolicy.findFirst({
+      where: { companyId: po.companyId, isActive: true, currency: po.currency, thresholdAmount: { lte: current.gross } },
+      orderBy: { thresholdAmount: "desc" },
+    });
+    const membership = await tx.companyMember.findUnique({
+      where: { userId: po.requesterId }, select: { companyId: true, isActive: true, spendLimit: true },
+    });
+    const spendLimit = membership?.isActive && membership.companyId === po.companyId
+      ? membership.spendLimit == null ? null : Number(membership.spendLimit) : null;
+    const evidence = approvalEvidence(po.currency, current.gross, current.lines, currentPolicy, spendLimit);
+    const evidenceChanged = Boolean(changed) || po.approvedCommercialFingerprint !== evidence.commercialFingerprint ||
+      !approvalSnapshotsMatch(po.approvalSnapshot, evidence.snapshot);
+    if (evidenceChanged) {
+      const detail = changed ? `Commercial terms changed for ${changed.sku}` : "Approval policy or approved total changed";
+      await tx.purchaseOrder.update({ where: { id: po.id }, data: {
+        status: "PENDING_APPROVAL", approverId: null, approvedAt: null,
+        approvalSnapshot: Prisma.DbNull, approvedCommercialFingerprint: null,
+        rejectionReason: `${detail}; reapproval required before placement`, approvalVersion: { increment: 1 },
+      } });
+      await tx.auditLog.create({ data: {
+        actorId: input.actorId, entityType: "PurchaseOrder", entityId: po.id, action: AuditAction.STATUS_CHANGE,
+        before: { status: po.status, total: Number(po.total), approvalVersion: po.approvalVersion },
         after: { status: "PENDING_APPROVAL", reason: "APPROVAL_EVIDENCE_CHANGED", detail, currentTotal: current.gross },
       } });
-    });
-    throw new Error(`${detail}; the purchase order has been returned for approval`);
+      return { kind: "invalidated" as const, detail };
+    }
+    if (po.status === "APPROVED") {
+      await tx.purchaseOrder.update({ where: { id: po.id }, data: { status: "ORDERED" } });
+    }
+    return { kind: "claimed" as const, po, newlyClaimed: po.status === "APPROVED" };
+  });
+
+  if (claim.kind === "existing") {
+    await finalizeInternalOrderPayment({ orderId: claim.order.id, method: "BANK_TRANSFER", actorId: input.actorId });
+    return claim.order;
   }
+  if (claim.kind === "invalidated") {
+    throw new Error(`${claim.detail}; the purchase order has been returned for approval`);
+  }
+  const { po } = claim;
 
   const orderRequest = {
     userId: po.requesterId,
@@ -497,18 +494,50 @@ export async function placeGovernedPurchaseOrder(input: {
     purchaseOrderId: po.id,
     idempotencyKey: `po:${po.id}`,
   };
-  const order = await secureCreateOrder({
-    ...orderRequest,
-    requestFingerprint: canonicalOrderRequest(orderRequest),
-  });
+  let order;
+  try {
+    order = await secureCreateOrder({ ...orderRequest, requestFingerprint: canonicalOrderRequest(orderRequest) });
+  } catch (error) {
+    if (claim.newlyClaimed) await db.$transaction(async (tx) => {
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${po.companyId}`}))`);
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`purchase-order:${po.id}`}))`);
+      const linked = await tx.order.count({ where: { purchaseOrderId: po.id } });
+      if (!linked) {
+        let stillApproved = false;
+        try {
+          const fresh = await pricePOLines(po.currency, po.items.map((line) => ({
+            productId: line.productId, variantId: line.variantId ?? undefined, quantity: line.quantity,
+          })), tx);
+          const policy = await governingPolicy(tx, po.companyId, po.currency, fresh.gross);
+          const membership = await tx.companyMember.findUnique({
+            where: { userId: po.requesterId }, select: { companyId: true, isActive: true, spendLimit: true },
+          });
+          const spendLimit = membership?.isActive && membership.companyId === po.companyId
+            ? membership.spendLimit == null ? null : Number(membership.spendLimit) : null;
+          const evidence = approvalEvidence(po.currency, fresh.gross, fresh.lines, policy, spendLimit);
+          stillApproved = po.approvedCommercialFingerprint === evidence.commercialFingerprint &&
+            approvalSnapshotsMatch(po.approvalSnapshot, evidence.snapshot);
+        } catch {
+          // Missing/disabled commercial facts are approval invalidation, not a
+          // reason to leave an unrecoverable ORDERED claim behind.
+        }
+        await tx.purchaseOrder.updateMany({ where: { id: po.id, status: "ORDERED" }, data: stillApproved
+          ? { status: "APPROVED" }
+          : {
+              status: "PENDING_APPROVAL", approverId: null, approvedAt: null,
+              approvalSnapshot: Prisma.DbNull, approvedCommercialFingerprint: null,
+              rejectionReason: "Approval evidence changed during failed placement; reapproval required",
+              approvalVersion: { increment: 1 },
+            },
+        });
+      }
+    });
+    throw error;
+  }
 
   await finalizeInternalOrderPayment({ orderId: order.id, method: "BANK_TRANSFER", actorId: input.actorId });
 
-  const transitioned = await db.purchaseOrder.updateMany({
-    where: { id: po.id, status: "APPROVED" },
-    data: { status: "ORDERED" },
-  });
-  if (transitioned.count === 1) {
+  if (claim.newlyClaimed) {
     await db.auditLog.create({
       data: {
         actorId: input.actorId,

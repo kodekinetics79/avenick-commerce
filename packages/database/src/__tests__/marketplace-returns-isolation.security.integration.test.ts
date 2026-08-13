@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
 import { setReturnStatus } from "../services/workflow";
+import { getFinanceOverview } from "../services/finance";
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const ids = { users: [] as string[], sellers: [] as string[], products: [] as string[], returns: [] as string[] };
@@ -9,6 +10,7 @@ let categoryId = "";
 let actorId = "";
 let sellerOneId = "";
 let sellerTwoId = "";
+let payoutId = "";
 
 beforeAll(async () => {
   const buyer = await db.user.create({ data: { email: `returns-buyer-${stamp}@example.test`, firstName: "Return", lastName: "Buyer", role: "CONSUMER", status: "ACTIVE" } });
@@ -35,6 +37,7 @@ beforeAll(async () => {
       userId: buyer.id,
       type: "B2C",
       status: "DELIVERED",
+      paymentStatus: "PAID",
       currency: "AED",
       subtotal: 300,
       vatAmount: 15,
@@ -47,6 +50,13 @@ beforeAll(async () => {
     },
   });
   orderId = order.id;
+  await db.commission.create({ data: { sellerId: sellerOne.id, orderId, amount: 5, rate: 5, currency: "AED" } });
+  const payout = await db.sellerPayout.create({ data: {
+    sellerId: sellerOne.id, amount: 100, currency: "AED", status: "PENDING",
+    periodFrom: new Date("2026-01-01"), periodTo: new Date("2026-01-31"),
+    items: { create: { orderId, amount: 105, commission: 5, net: 100 } },
+  } });
+  payoutId = payout.id;
 
   const returns = await Promise.all([
     db.returnRequest.create({ data: { returnNumber: `RET-A-${stamp}`, orderId, sellerId: sellerOne.id, reason: "test", status: "RECEIVED" } }),
@@ -57,6 +67,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await db.auditLog.deleteMany({ where: { entityType: "ReturnRequest", entityId: { in: ids.returns } } });
+  if (payoutId) await db.sellerPayout.deleteMany({ where: { id: payoutId } });
+  if (orderId) await db.commission.deleteMany({ where: { orderId } });
   if (orderId) await db.order.deleteMany({ where: { id: orderId } });
   await db.product.deleteMany({ where: { id: { in: ids.products } } });
   if (categoryId) await db.category.deleteMany({ where: { id: categoryId } });
@@ -66,10 +78,22 @@ afterAll(async () => {
 
 describe("marketplace return isolation", () => {
   it("caps a return to the target seller's own lines", async () => {
+    const before = await getFinanceOverview();
     const result = await setReturnStatus({ returnId: ids.returns[0]!, status: "REFUNDED", actorId });
     expect(Number(result.refundAmount)).toBe(105);
     const refund = await db.refund.findFirst({ where: { orderId, reason: { contains: ids.returns[0]! } } });
     expect(Number(refund?.amount)).toBe(105);
+    expect(refund?.status).toBe("COMPLETED");
+    const commissions = await db.commission.aggregate({ where: { orderId, sellerId: sellerOneId }, _sum: { amount: true } });
+    expect(Number(commissions._sum.amount)).toBe(0);
+    const payout = await db.sellerPayout.findUniqueOrThrow({ where: { id: payoutId }, include: { items: true } });
+    expect(Number(payout.amount)).toBe(0);
+    expect(Number(payout.items[0]!.net)).toBe(0);
+    const after = await getFinanceOverview();
+    expect(after.gmvMonth).toBeCloseTo(before.gmvMonth - 105, 2);
+    expect(after.vatCollectedYear).toBeCloseTo(before.vatCollectedYear - 5, 2);
+    expect(after.commissionMonth).toBeCloseTo(before.commissionMonth - 5, 2);
+    expect(after.pendingPayoutAmount).toBeCloseTo(before.pendingPayoutAmount - 100, 2);
     expect(sellerOneId).not.toBe(sellerTwoId);
   });
 

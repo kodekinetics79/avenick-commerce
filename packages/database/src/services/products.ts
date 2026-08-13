@@ -71,8 +71,12 @@ export async function listProducts(params: ProductListParams) {
   return data;
 }
 
-export async function getProductBySlug(slug: string) {
-  return db.product.findUnique({
+export async function getProductBySlug(
+  slug: string,
+  channel: "B2C" | "B2B" = "B2C",
+  currency?: Currency,
+) {
+  const product = await db.product.findUnique({
     where: { slug, deletedAt: null },
     include: {
       images: { orderBy: { sortOrder: "asc" } },
@@ -90,6 +94,20 @@ export async function getProductBySlug(slug: string) {
       },
     },
   });
+  if (!product) return null;
+  const { inventory, variants, prices, ...safe } = product;
+  return {
+    ...safe,
+    prices: prices.filter((price) => price.type === channel && (!currency || price.currency === currency)),
+    inventory: inventory.map((stock) => ({
+      variantId: stock.variantId,
+      available: Math.max(0, stock.qty - stock.reservedQty),
+    })),
+    variants: variants.map((variant) => ({
+      ...variant,
+      prices: variant.prices.filter((price) => price.type === channel && (!currency || price.currency === currency)),
+    })),
+  };
 }
 
 export async function getSellerDashboard(sellerId: string) {

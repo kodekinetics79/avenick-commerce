@@ -19,7 +19,8 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
       }
     }
 
-    const product = await getProductBySlug(params.slug);
+    const channel = wantsB2B ? "B2B" : "B2C";
+    const product = await getProductBySlug(params.slug, channel, currencyParam);
     if (!product || product.status !== "ACTIVE") {
       return NextResponse.json({ success: false, error: "Product not found" }, { status: 404 });
     }
@@ -30,18 +31,8 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
       return NextResponse.json({ success: false, error: "Product not available for public ordering" }, { status: 404 });
     }
 
-    const channel = wantsB2B ? "B2B" : "B2C";
-    const data = {
-      ...product,
-      prices: product.prices.filter((price) =>
-        price.isActive &&
-        price.type === channel &&
-        (!currencyParam || price.currency === currencyParam),
-      ),
-    };
-
     return NextResponse.json(
-      { success: true, data },
+      { success: true, data: product },
       {
         headers: {
           "Cache-Control": wantsB2B
