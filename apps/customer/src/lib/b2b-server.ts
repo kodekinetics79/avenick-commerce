@@ -12,7 +12,9 @@ export async function getServerB2BContext() {
     where: { userId },
     include: { company: true },
   });
-  if (!member) return null;
+  if (!member || !member.isActive || member.company.deletedAt || member.company.status !== "ACTIVE") {
+    return null;
+  }
 
   return { userId, member, company: member.company, companyId: member.companyId };
 }
