@@ -5,7 +5,7 @@ import {
   type RFQStatus,
   type ReturnStatus,
 } from "../index";
-import { lockUserCommerceRows } from "./checkout-invariants";
+import { lockSellerCommercialRows, lockUserCommerceRows } from "./checkout-invariants";
 
 // ─── RFQs (admin oversight) ───────────────────────────────────────────────────
 
@@ -151,15 +151,18 @@ export async function setReturnStatus(opts: {
       },
     });
     if (!target) throw new Error("Return request not found");
+    await lockSellerCommercialRows(tx, [target.sellerId]);
     const actor = await tx.user.findUnique({
       where: { id: opts.actorId },
-      include: { sellerMemberships: true, sellerProfile: { select: { id: true, status: true, deletedAt: true } } },
+      include: { sellerMemberships: { include: { seller: { select: { status: true, deletedAt: true } } } }, sellerProfile: { select: { id: true, status: true, deletedAt: true } } },
     });
     const platformAdmin = actor && ["ADMIN", "SUPER_ADMIN"].includes(actor.role);
     const membership = actor?.sellerMemberships[0];
     const sellerId = actor?.sellerProfile?.id ?? membership?.sellerId;
     const activeSellerActor = actor && ["SELLER_OWNER", "SELLER_STAFF"].includes(actor.role)
-      && sellerId === target.sellerId && (actor.role === "SELLER_OWNER" || (membership?.isActive && membership.permissions.includes("returns.manage")));
+      && sellerId === target.sellerId && (actor.role === "SELLER_OWNER"
+        ? actor.sellerProfile?.status === "ACTIVE" && !actor.sellerProfile.deletedAt
+        : membership?.isActive && membership.seller.status === "ACTIVE" && !membership.seller.deletedAt && membership.permissions.includes("returns.manage"));
     if (!actor || actor.status !== "ACTIVE" || actor.deletedAt || (!platformAdmin && !activeSellerActor)) {
       throw new Error("Current return-management authority is required");
     }

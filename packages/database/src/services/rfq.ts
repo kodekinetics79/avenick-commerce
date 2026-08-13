@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { db, AuditAction, type Currency } from "../index";
+import { requireCurrentSellerActor } from "./checkout-invariants";
 
 function generateRfqNumber(): string {
   const year = new Date().getFullYear();
@@ -164,11 +165,14 @@ export interface SubmitQuoteInput {
   actorId: string;
   items: Array<{ itemId: string; unitQuoted: number }>;
   notes?: string;
+  afterActorLock?: () => Promise<void>;
 }
 
 /** Seller submits unit prices for an open RFQ; totals are computed server-side. */
 export async function submitQuote(input: SubmitQuoteInput) {
   return db.$transaction(async (tx) => {
+    await requireCurrentSellerActor(tx, input.actorId, input.sellerId, "quotes.submit");
+    await input.afterActorLock?.();
     // Only one seller can claim an unassigned RFQ. The lock also serializes a
     // seller's own re-quotes so item prices, aggregate total and audit agree.
     await tx.$executeRaw(

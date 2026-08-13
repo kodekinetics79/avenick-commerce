@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AuditAction, db, lockInventoryStockRows, lockProductCommercialRows } from "@avenick/database";
+import { AuditAction, db, lockInventoryStockRows, lockProductCommercialRows, requireCurrentSellerActor } from "@avenick/database";
 import { requireSellerPermission, requireSellerSession } from "@/lib/auth";
 import { assertProductImportPermissions } from "@/lib/product-import-policy";
 
@@ -18,6 +18,7 @@ export async function bulkUpdateProductStatus(productIds: string[], status: Bulk
   if (productIds.length === 0) return { count: 0 };
 
   const res = await db.$transaction(async (tx) => {
+    await requireCurrentSellerActor(tx, userId, seller.id, "catalog.manage");
     const targets = await tx.product.findMany({
       where: { id: { in: productIds }, sellerId: seller.id, deletedAt: null },
       select: { id: true, status: true },
@@ -106,6 +107,9 @@ export async function importProductsCsv(rows: ImportRow[]): Promise<ImportResult
 
     try {
       await db.$transaction(async (tx) => {
+        const permission = Object.keys(data).length > 0 ? "catalog.manage"
+          : row.price?.trim() ? "pricing.manage" : "inventory.manage";
+        await requireCurrentSellerActor(tx, userId, seller.id, permission);
         await lockProductCommercialRows(tx, [product.id]);
         const currentProduct = await tx.product.findFirstOrThrow({
           where: { id: product.id, sellerId: seller.id, deletedAt: null },

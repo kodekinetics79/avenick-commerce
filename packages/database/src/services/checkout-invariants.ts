@@ -45,6 +45,33 @@ export async function requireCurrentAdminActor(
   return actor;
 }
 
+/** Resolve current seller organization and capability after locking the actor. */
+export async function requireCurrentSellerActor(
+  tx: Pick<Prisma.TransactionClient, "$executeRaw" | "user">,
+  actorId: string,
+  sellerId: string,
+  permission: string,
+) {
+  await lockUserCommerceRows(tx, [actorId]);
+  await lockSellerCommercialRows(tx, [sellerId]);
+  const actor = await tx.user.findUnique({
+    where: { id: actorId },
+    include: {
+      sellerProfile: { select: { id: true, status: true, deletedAt: true } },
+      sellerMemberships: { include: { seller: { select: { status: true, deletedAt: true } } } },
+    },
+  });
+  if (!actor || actor.status !== "ACTIVE" || actor.deletedAt) throw new Error("Current seller authority is required");
+  if (actor.role === "SELLER_OWNER" && actor.sellerProfile?.id === sellerId
+    && actor.sellerProfile.status === "ACTIVE" && !actor.sellerProfile.deletedAt) return actor;
+  const membership = actor.sellerMemberships.find((row) => row.sellerId === sellerId);
+  if (actor.role !== "SELLER_STAFF" || !membership?.isActive || membership.seller.status !== "ACTIVE"
+    || membership.seller.deletedAt || (!membership.permissions.includes("*") && !membership.permissions.includes(permission))) {
+    throw new Error(`Current seller permission required: ${permission}`);
+  }
+  return actor;
+}
+
 /**
  * Product publication, channel, variant, MOQ, and price writers share this
  * transaction-scoped lock with checkout. Sorting prevents multi-product carts

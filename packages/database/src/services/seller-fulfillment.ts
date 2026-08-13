@@ -1,6 +1,6 @@
 import { AuditAction, Prisma, type OrderStatus } from "@prisma/client";
 import { db } from "../index";
-import { inventoryStockIdentityWhere } from "./checkout-invariants";
+import { inventoryStockIdentityWhere, requireCurrentSellerActor } from "./checkout-invariants";
 
 const SELLER_FULFILLMENT: OrderStatus[] = [
   "CONFIRMED",
@@ -26,10 +26,13 @@ export async function advanceSellerOrderItems(input: {
   status: Extract<OrderStatus, "CONFIRMED" | "PROCESSING" | "SHIPPED" | "OUT_FOR_DELIVERY" | "DELIVERED">;
   actorId: string;
   message?: string;
+  afterActorLock?: () => Promise<void>;
 }) {
   if (!SELLER_FULFILLMENT.includes(input.status)) throw new Error("Unsupported seller fulfillment status");
 
   return db.$transaction(async (tx) => {
+    await requireCurrentSellerActor(tx, input.actorId, input.sellerId, "orders.fulfill");
+    await input.afterActorLock?.();
     await tx.$executeRaw(
       Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`seller-fulfillment:${input.orderId}`}))`,
     );

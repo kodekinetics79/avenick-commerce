@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireSellerPermission } from "@/lib/auth";
-import { AuditAction, db, Prisma } from "@avenick/database";
+import { AuditAction, db, Prisma, requireCurrentSellerActor } from "@avenick/database";
 
 const NEXT: Record<string, string> = {
   PENDING: "PICKED_UP",
@@ -14,6 +14,7 @@ const NEXT: Record<string, string> = {
 export async function advanceShipment(id: string) {
   const { seller, userId } = await requireSellerPermission("shipments.manage");
   await db.$transaction(async (tx) => {
+    await requireCurrentSellerActor(tx, userId, seller.id, "shipments.manage");
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`shipment-transition:${id}`}))`);
     const sh = await tx.shipment.findFirst({ where: { id, sellerId: seller.id } });
     if (!sh) return;

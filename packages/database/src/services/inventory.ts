@@ -1,5 +1,5 @@
 import { AuditAction, db } from "../index";
-import { lockInventoryStockRows } from "./checkout-invariants";
+import { lockInventoryStockRows, requireCurrentSellerActor } from "./checkout-invariants";
 
 export async function getSellerInventory(sellerId: string, params: { page?: number; limit?: number; lowStock?: boolean }) {
   const { page = 1, limit = 50, lowStock } = params;
@@ -43,7 +43,6 @@ export async function adjustInventory(
   if (!Number.isInteger(qty) || qty < 0) throw new Error("Inventory quantity must be a non-negative whole number");
 
   return db.$transaction(async (tx) => {
-    await lockInventoryStockRows(tx, [stockId]);
     const stock = await tx.inventoryStock.findUnique({
       where: { id: stockId },
       include: {
@@ -52,6 +51,10 @@ export async function adjustInventory(
       },
     });
     if (!stock) throw new Error("Stock record not found");
+    const sellerId = stock.product?.sellerId ?? stock.variant?.product.sellerId;
+    if (!sellerId) throw new Error("Stock seller identity is missing");
+    await requireCurrentSellerActor(tx, actorId, sellerId, "inventory.manage");
+    await lockInventoryStockRows(tx, [stockId]);
 
     const newQty = type === "OUT" ? stock.qty - qty : type === "IN" ? stock.qty + qty : qty;
     if (newQty < stock.reservedQty) {
@@ -66,7 +69,7 @@ export async function adjustInventory(
     await tx.auditLog.create({
       data: {
         actorId,
-        sellerId: stock.product?.sellerId ?? stock.variant?.product.sellerId,
+        sellerId,
         entityType: "InventoryStock",
         entityId: stockId,
         action: AuditAction.UPDATE,
