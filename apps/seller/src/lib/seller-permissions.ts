@@ -9,3 +9,11 @@ export function sellerHasPermission(context: SellerPermissionContext, permission
   const permissions = context.membership?.permissions ?? [];
   return permissions.includes("*") || permissions.includes(permission);
 }
+
+export function sellerHasAnyPermission(context: SellerPermissionContext, permissions: readonly string[]) {
+  return permissions.some((permission) => sellerHasPermission(context, permission));
+}
+
+export function sellerNavigationAllows(granted: readonly string[], required: readonly string[]) {
+  return granted.includes("*") || required.some((permission) => granted.includes(permission));
+}

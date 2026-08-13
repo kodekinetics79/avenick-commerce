@@ -1,4 +1,4 @@
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerAnyPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { db } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
@@ -19,7 +19,7 @@ const STATUS: Record<string, { label: string; cls: string; icon: typeof Clock }>
 const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 export default async function SellerReturnsPage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerAnyPermission(["returns.view", "returns.manage"]);
 
   const returns = await db.returnRequest.findMany({
     where: { sellerId: seller.id },
@@ -38,7 +38,7 @@ export default async function SellerReturnsPage() {
   ];
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Returns</h1>

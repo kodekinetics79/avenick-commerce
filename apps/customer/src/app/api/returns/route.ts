@@ -1,14 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth-instance";
-import { db, Prisma } from "@avenick/database";
+import { createCustomerReturnRequests, db } from "@avenick/database";
 import { log } from "@avenick/observability";
-
-function returnNumber() {
-  const y = new Date().getFullYear();
-  const t = Date.now().toString(36).slice(-5).toUpperCase();
-  const r = Math.floor(1000 + Math.random() * 9000);
-  return `RET-${y}-${t}${r}`;
-}
 
 export async function GET() {
   try {
@@ -25,7 +18,7 @@ export async function GET() {
         orderBy: { createdAt: "desc" },
         take: 20,
         include: {
-          items: { select: { nameEn: true, quantity: true, sellerId: true } },
+          items: { select: { id: true, nameEn: true, quantity: true, sellerId: true, total: true } },
           returnRequests: { where: { status: { not: "REJECTED" } }, select: { sellerId: true } },
         },
       }),
@@ -60,55 +53,19 @@ export async function POST(req: NextRequest) {
     const orderId = String(body.orderId ?? "").trim();
     const reason = String(body.reason ?? "").trim();
     const notes = String(body.notes ?? "").trim();
+    const selections = Array.isArray(body.items)
+      ? body.items.map((item: unknown) => {
+          const value = item as { orderItemId?: unknown; quantity?: unknown };
+          return { orderItemId: String(value.orderItemId ?? ""), quantity: Number(value.quantity) };
+        })
+      : [];
 
     if (!orderId) return NextResponse.json({ success: false, error: "Order is required." }, { status: 400 });
     if (reason.length < 3) return NextResponse.json({ success: false, error: "Add a reason." }, { status: 400 });
+    if (selections.length === 0) return NextResponse.json({ success: false, error: "Select at least one item." }, { status: 400 });
 
     const finalReason = notes ? `${reason} — ${notes}` : reason;
-    const returnRequests = await db.$transaction(async (tx) => {
-      await tx.$executeRaw(
-        Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`buyer-return:${orderId}`}))`,
-      );
-      const order = await tx.order.findFirst({
-        where: { id: orderId, userId },
-        include: {
-          items: { select: { sellerId: true } },
-          returnRequests: { where: { status: { not: "REJECTED" } }, select: { sellerId: true } },
-        },
-      });
-      if (!order) throw new Error("RETURN_ORDER_NOT_FOUND");
-      if (order.status !== "DELIVERED") throw new Error("RETURN_ORDER_NOT_DELIVERED");
-
-      const existing = new Set(order.returnRequests.map((request) => request.sellerId));
-      const sellerIds = [...new Set(order.items.map((item) => item.sellerId))]
-        .filter((sellerId) => !existing.has(sellerId));
-      if (sellerIds.length === 0) throw new Error("RETURN_ALREADY_OPEN");
-
-      const created = [];
-      for (const sellerId of sellerIds) {
-        const request = await tx.returnRequest.create({
-          data: {
-            returnNumber: returnNumber(),
-            orderId: order.id,
-            sellerId,
-            reason: finalReason,
-            status: "REQUESTED",
-          },
-        });
-        await tx.auditLog.create({
-          data: {
-            actorId: userId,
-            sellerId,
-            entityType: "ReturnRequest",
-            entityId: request.id,
-            action: "CREATE",
-            after: { orderId: order.id, status: request.status, source: "CUSTOMER_REQUEST" },
-          },
-        });
-        created.push(request);
-      }
-      return created;
-    });
+    const returnRequests = await createCustomerReturnRequests({ userId, orderId, reason: finalReason, selections });
 
     return NextResponse.json({
       success: true,
@@ -124,7 +81,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Only delivered orders can be returned." }, { status: 400 });
     }
     if (code === "RETURN_ALREADY_OPEN") {
-      return NextResponse.json({ success: false, error: "A return request is already open for every seller in this order." }, { status: 409 });
+      return NextResponse.json({ success: false, error: "A return request is already open for one of the selected seller lines." }, { status: 409 });
+    }
+    if (["RETURN_ITEMS_REQUIRED", "RETURN_ITEMS_DUPLICATE", "RETURN_ITEM_NOT_FOUND", "RETURN_QUANTITY_INVALID", "RETURN_QUANTITY_EXCEEDS_PURCHASED"].includes(code)) {
+      return NextResponse.json({ success: false, error: "Select valid purchased items and quantities." }, { status: 400 });
     }
     log.error("returns request failed", error, { path: "/api/returns" });
     return NextResponse.json({ success: false, error: "Failed to submit return request" }, { status: 500 });

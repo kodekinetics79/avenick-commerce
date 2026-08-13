@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { gunzipSync } from "node:zlib";
-import { auth } from "@/lib/auth-instance";
+import { getCurrentAdmin } from "@/lib/auth";
 import {
   applyPilotCatalog,
   validatePilotCatalog,
@@ -31,10 +31,8 @@ function decodeCatalog(bytes: Uint8Array, contentType: string) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  const sessionUser = session?.user as { id?: string; role?: string } | undefined;
-  const role = sessionUser?.role;
-  if (!sessionUser?.id || (role !== "ADMIN" && role !== "SUPER_ADMIN")) {
+  const admin = await getCurrentAdmin();
+  if (!admin) {
     return NextResponse.json({ success: false, error: "Administrator authentication required" }, { status: 401 });
   }
 
@@ -86,7 +84,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await applyPilotCatalog(file, {
-      actorId: sessionUser.id,
+      actorId: admin.userId,
       assetBaseUrl: process.env.PILOT_ASSET_BASE_URL?.trim() || undefined,
       testPassword: process.env.PILOT_TEST_PASSWORD?.trim() || undefined,
     });

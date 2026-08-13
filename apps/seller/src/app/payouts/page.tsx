@@ -1,4 +1,4 @@
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerPermission } from "@/lib/auth";
 import { db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { formatCurrency } from "@avenick/utils";
@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { DollarSign } from "lucide-react";
 
 export default async function PayoutsPage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerPermission("finance.view");
 
   const payouts = await db.sellerPayout.findMany({
     where: { sellerId: seller.id },
@@ -18,7 +18,7 @@ export default async function PayoutsPage() {
   const totalPaid = payouts.filter((p) => p.status === "PAID").reduce((sum, p) => sum + Number(p.amount), 0);
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-4">
         <h1 className="text-2xl font-bold">Payouts — المدفوعات</h1>
 

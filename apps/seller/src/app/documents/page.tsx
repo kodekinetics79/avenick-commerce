@@ -1,4 +1,4 @@
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerAnyPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { db } from "@avenick/database";
 import { AlertTriangle, Upload, CheckCircle, Clock, XCircle, FileText, Calendar, RefreshCw, Eye } from "lucide-react";
@@ -25,7 +25,7 @@ function isExpired(d: Date): boolean {
 const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 export default async function DocumentsPage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerAnyPermission(["documents.view", "documents.manage"]);
   const raw = await db.sellerDocument.findMany({ where: { sellerId: seller.id }, orderBy: { uploadedAt: "desc" } });
   const documents = raw.map((d) => ({
     id: d.id,
@@ -40,7 +40,7 @@ export default async function DocumentsPage() {
   const validDocs = documents.filter((d) => d.status === "APPROVED" && (!d.expiryDate || (!isExpired(d.expiryDate) && !isExpiringSoon(d.expiryDate))));
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

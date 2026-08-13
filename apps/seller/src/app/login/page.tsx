@@ -23,7 +23,7 @@ export default function SellerLoginPage() {
         setError("Invalid email or password.");
         setLoading(false);
       } else {
-        window.location.assign("/dashboard");
+        window.location.assign("/");
       }
     } catch {
       setError("Something went wrong. Please try again.");

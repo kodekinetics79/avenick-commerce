@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOrdersForSeller } from "@avenick/database";
+import { getSellerOrderProjections } from "@avenick/database";
 import type { OrderStatus } from "@avenick/database";
 import { getServerSellerContext, sellerHasPermission } from "@/lib/seller-server";
 
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
     const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
     const limit = Number.isInteger(rawLimit) ? Math.max(1, Math.min(100, rawLimit)) : 20;
 
-    const result = await getOrdersForSeller(context.sellerId, { page, limit, ...(status ? { status } : {}) });
+    const result = await getSellerOrderProjections(context.sellerId, { page, limit, ...(status ? { status } : {}) });
     return NextResponse.json({ success: true, ...result });
   } catch {
     return NextResponse.json({ success: false, error: "Failed to load seller orders" }, { status: 500 });

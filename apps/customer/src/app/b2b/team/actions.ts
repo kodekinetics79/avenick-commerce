@@ -31,8 +31,17 @@ export async function inviteMember(_prev: B2BActionState, formData: FormData): P
       const user = await tx.user.create({
         data: { email, firstName: firstName || name, lastName: rest.join(" ") || "—", role, status: "PENDING" },
       });
-      await tx.companyMember.create({
+      const membership = await tx.companyMember.create({
         data: { userId: user.id, companyId: ctx.companyId, role, department, spendLimit },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorId: ctx.userId,
+          entityType: "CompanyMember",
+          entityId: membership.id,
+          action: "CREATE",
+          after: { companyId: ctx.companyId, userId: user.id, role, department, spendLimit },
+        },
       });
     });
   } catch {
@@ -67,9 +76,23 @@ export async function updateMember(memberId: string, formData: FormData) {
   const spendRaw = String(formData.get("spendLimit") ?? "").trim();
   const spendLimit = spendRaw ? Number(spendRaw) : null;
 
-  await db.companyMember.update({
-    where: { id: memberId },
-    data: { role: ROLES.includes(role) ? role : target.role, spendLimit },
+  const nextRole = ROLES.includes(role) ? role : target.role;
+  await db.$transaction(async (tx) => {
+    await tx.companyMember.update({
+      where: { id: memberId },
+      data: { role: nextRole, spendLimit },
+    });
+    await tx.user.update({ where: { id: target.userId }, data: { role: nextRole } });
+    await tx.auditLog.create({
+      data: {
+        actorId: ctx.userId,
+        entityType: "CompanyMember",
+        entityId: memberId,
+        action: "UPDATE",
+        before: { companyId: ctx.companyId, role: target.role, spendLimit: target.spendLimit },
+        after: { companyId: ctx.companyId, role: nextRole, spendLimit },
+      },
+    });
   });
   revalidatePath("/b2b/team");
   
@@ -83,7 +106,19 @@ export async function setMemberActive(memberId: string, isActive: boolean) {
   if (!target || target.companyId !== ctx.companyId) return;
   if (target.userId === ctx.userId) return;
 
-  await db.companyMember.update({ where: { id: memberId }, data: { isActive } });
+  await db.$transaction(async (tx) => {
+    await tx.companyMember.update({ where: { id: memberId }, data: { isActive } });
+    await tx.auditLog.create({
+      data: {
+        actorId: ctx.userId,
+        entityType: "CompanyMember",
+        entityId: memberId,
+        action: "UPDATE",
+        before: { companyId: ctx.companyId, isActive: target.isActive },
+        after: { companyId: ctx.companyId, isActive },
+      },
+    });
+  });
   revalidatePath("/b2b/team");
   
 }

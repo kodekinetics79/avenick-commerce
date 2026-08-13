@@ -61,3 +61,13 @@ export async function requireSellerPermission(permission: string) {
   }
   return context;
 }
+
+/** Require at least one explicit capability. Useful for read pages shared by viewers and managers. */
+export async function requireSellerAnyPermission(required: readonly string[]) {
+  const context = await requireSellerSession();
+  const permissions = context.membership.permissions ?? [];
+  if (!permissions.includes("*") && !required.some((permission) => permissions.includes(permission))) {
+    throw new Error(`Seller permission required: ${required.join(" or ")}`);
+  }
+  return context;
+}

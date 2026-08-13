@@ -11,6 +11,7 @@ const CreateReturnSchema = z.object({
   orderId: z.string().min(1),
   reason: z.string().trim().min(3).max(200),
   notes: z.string().trim().max(1000).optional(),
+  items: z.array(z.object({ orderItemId: z.string().min(1), quantity: z.number().int().positive() })).min(1),
 });
 
 export async function createReturnRequest(
@@ -21,10 +22,15 @@ export async function createReturnRequest(
     const store = await cookies();
     const cookieHeader = cookieHeaderFromStore(store);
 
+    const selectedIds = formData.getAll("orderItemId").map(String);
     const parsed = CreateReturnSchema.safeParse({
       orderId: formData.get("orderId"),
       reason: formData.get("reason"),
       notes: formData.get("notes") || undefined,
+      items: selectedIds.map((orderItemId) => ({
+        orderItemId,
+        quantity: Number(formData.get(`quantity:${orderItemId}`)),
+      })),
     });
     if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid request" };
 

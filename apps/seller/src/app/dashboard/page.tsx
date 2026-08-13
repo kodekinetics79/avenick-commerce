@@ -5,12 +5,14 @@ import { fetchSellerBackend } from "@/lib/backend";
 import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
 import Link from "next/link";
+import { requireSellerPermission } from "@/lib/auth";
 import {
   ShoppingCart, DollarSign, Package, AlertTriangle, FileCheck, MessageSquare,
   TrendingUp, Activity, Zap, Clock, CheckCircle, XCircle, Star
 } from "lucide-react";
 
 export default async function DashboardPage() {
+  const { membership } = await requireSellerPermission("dashboard.view");
   type DashboardData = {
     seller: SellerProfile;
     dashboard: {
@@ -59,7 +61,7 @@ export default async function DashboardPage() {
   const healthColor = health >= 80 ? "bg-green-500" : health >= 60 ? "bg-yellow-500" : "bg-red-500";
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={dash.issueCount} unreadMessages={dash.unreadMessages}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={dash.issueCount} unreadMessages={dash.unreadMessages} permissions={membership.permissions}>
       <div className="space-y-6">
         <OnboardingChecklist seller={seller} />
         {/* Header */}

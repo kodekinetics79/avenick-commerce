@@ -1,4 +1,4 @@
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerPermission } from "@/lib/auth";
 import { db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { format } from "date-fns";
@@ -16,7 +16,7 @@ const RFQ_STATUS: Record<string, { label: string; color: string }> = {
 };
 
 export default async function MessagesPage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerPermission("rfqs.view");
 
   const threads = await db.messageThread.findMany({
     where: { sellerId: seller.id },
@@ -50,7 +50,7 @@ export default async function MessagesPage() {
   const pendingRfqs = rfqInbox.filter((r) => r.status === "PENDING");
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} unreadMessages={unreadCount}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} unreadMessages={unreadCount} permissions={membership.permissions}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between">

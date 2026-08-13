@@ -22,11 +22,14 @@ interface OrderOption {
   currency: string;
   createdAt: string;
   summary: string;
+  items: Array<{ id: string; nameEn: string; quantity: number; total: number }>;
 }
 
 export function ReturnForm({ orders }: { orders: OrderOption[] }) {
   const [state, setState] = useState<ReturnActionState>({});
   const [pending, setPending] = useState(false);
+  const [orderId, setOrderId] = useState("");
+  const selectedOrder = orders.find((order) => order.id === orderId);
 
   async function handle(formData: FormData) {
     setPending(true);
@@ -54,6 +57,8 @@ export function ReturnForm({ orders }: { orders: OrderOption[] }) {
           id="return-order"
           name="orderId"
           required
+          value={orderId}
+          onChange={(event) => setOrderId(event.target.value)}
           className="w-full h-10 px-3 text-sm border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary"
         >
           <option value="">Select a delivered order…</option>
@@ -64,6 +69,27 @@ export function ReturnForm({ orders }: { orders: OrderOption[] }) {
           ))}
         </select>
       </div>
+
+      {selectedOrder && (
+        <fieldset className="space-y-2">
+          <legend className="block text-sm font-medium mb-1">Items and quantities</legend>
+          {selectedOrder.items.map((item) => (
+            <label key={item.id} className="grid grid-cols-[auto_1fr_5rem] items-center gap-3 rounded-xl border border-border p-3">
+              <input type="checkbox" name="orderItemId" value={item.id} />
+              <span className="text-sm">{item.nameEn}</span>
+              <input
+                type="number"
+                name={`quantity:${item.id}`}
+                min={1}
+                max={item.quantity}
+                defaultValue={1}
+                className="h-9 rounded-lg border border-border px-2 text-sm"
+                aria-label={`Return quantity for ${item.nameEn}`}
+              />
+            </label>
+          ))}
+        </fieldset>
+      )}
 
       <div>
         <label htmlFor="return-reason" className="block text-sm font-medium mb-1">Reason</label>

@@ -1,4 +1,4 @@
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerAnyPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { CheckCircle, Circle, Clock, Upload, User, Package, ShieldCheck, Star } from "lucide-react";
 
@@ -50,13 +50,13 @@ const REQUIRED_DOCS = [
 ];
 
 export default async function OnboardingPage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerAnyPermission(["documents.view", "documents.manage"]);
 
   const completedSteps = STEPS.filter((s) => s.status === "COMPLETE").length;
   const progress = Math.round((completedSteps / STEPS.length) * 100);
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="max-w-2xl space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Onboarding</h1>

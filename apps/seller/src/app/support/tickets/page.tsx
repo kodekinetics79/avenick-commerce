@@ -1,4 +1,4 @@
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerPermission } from "@/lib/auth";
 import { db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { LifeBuoy, Clock, CheckCircle, AlertCircle, CircleOff } from "lucide-react";
@@ -13,7 +13,7 @@ const STATUS_CONFIG: Record<string, { icon: typeof Clock; color: string; bg: str
 };
 
 export default async function TicketsPage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerPermission("support.view");
 
   const tickets = await db.supportTicket.findMany({
     where: { userId: seller.userId },
@@ -24,7 +24,7 @@ export default async function TicketsPage() {
   const openCount = tickets.filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS").length;
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">

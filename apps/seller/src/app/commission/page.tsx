@@ -1,4 +1,4 @@
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { db } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
@@ -14,7 +14,7 @@ const RATE_TIERS = [
 ];
 
 export default async function CommissionPage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerPermission("finance.view");
   const defaultRate = Number(seller.commissionRate);
 
   const commissions = await db.commission.findMany({
@@ -53,7 +53,7 @@ export default async function CommissionPage() {
   ];
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Commission</h1>

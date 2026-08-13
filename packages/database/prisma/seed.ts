@@ -209,6 +209,59 @@ async function main() {
   });
   console.log(`✅ Seller: ${sellerUser.email}`);
 
+  // ── MARKETPLACE CERTIFICATION IDENTITIES ─────────────────────────────────
+  // Stable local accounts used by browser/manual certification. Seller A is
+  // the primary seeded seller above; its staff roles intentionally cannot see
+  // finance, documents, RFQs, returns, settings, or other capability domains.
+  const fulfillmentStaff = await prisma.user.upsert({
+    where: { email: "seller-a-fulfillment@avenick.test" },
+    update: { role: UserRole.SELLER_STAFF, status: UserStatus.ACTIVE, deletedAt: null },
+    create: {
+      email: "seller-a-fulfillment@avenick.test", passwordHash: await HASH("Password123!"),
+      firstName: "Seller A", lastName: "Fulfillment", role: UserRole.SELLER_STAFF,
+      status: UserStatus.ACTIVE, language: Language.EN,
+    },
+  });
+  const catalogStaff = await prisma.user.upsert({
+    where: { email: "seller-a-catalog@avenick.test" },
+    update: { role: UserRole.SELLER_STAFF, status: UserStatus.ACTIVE, deletedAt: null },
+    create: {
+      email: "seller-a-catalog@avenick.test", passwordHash: await HASH("Password123!"),
+      firstName: "Seller A", lastName: "Catalog", role: UserRole.SELLER_STAFF,
+      status: UserStatus.ACTIVE, language: Language.EN,
+    },
+  });
+  await prisma.sellerMembership.upsert({
+    where: { userId: fulfillmentStaff.id },
+    update: { sellerId: seller.id, title: "Fulfillment specialist", permissions: ["orders.view", "orders.fulfill"], isActive: true },
+    create: { userId: fulfillmentStaff.id, sellerId: seller.id, title: "Fulfillment specialist", permissions: ["orders.view", "orders.fulfill"], isActive: true },
+  });
+  await prisma.sellerMembership.upsert({
+    where: { userId: catalogStaff.id },
+    update: { sellerId: seller.id, title: "Catalog specialist", permissions: ["catalog.view", "catalog.manage"], isActive: true },
+    create: { userId: catalogStaff.id, sellerId: seller.id, title: "Catalog specialist", permissions: ["catalog.view", "catalog.manage"], isActive: true },
+  });
+
+  const sellerBUser = await prisma.user.upsert({
+    where: { email: "seller-b-owner@avenick.test" },
+    update: { role: UserRole.SELLER_OWNER, status: UserStatus.ACTIVE, deletedAt: null },
+    create: {
+      email: "seller-b-owner@avenick.test", passwordHash: await HASH("Password123!"),
+      firstName: "Seller B", lastName: "Owner", role: UserRole.SELLER_OWNER,
+      status: UserStatus.ACTIVE, language: Language.EN,
+    },
+  });
+  const sellerB = await prisma.sellerProfile.upsert({
+    where: { userId: sellerBUser.id },
+    update: { status: SellerStatus.ACTIVE, deletedAt: null },
+    create: {
+      userId: sellerBUser.id, businessNameEn: "Emirates Marketplace Tools LLC",
+      crNumber: "AE-CERT-SELLER-B", type: SellerType.DISTRIBUTOR, country: Country.AE,
+      city: "Abu Dhabi", tier: SellerTier.VERIFIED, status: SellerStatus.ACTIVE,
+      commissionRate: 5,
+    },
+  });
+
   // ── B2C BUYER ──────────────────────────────────────────────────────────────
   const buyerUser = await prisma.user.upsert({
     where: { email: "buyer@avenick.test" },
@@ -777,6 +830,18 @@ async function main() {
   }
   console.log(`✅ Products seeded (${createdProducts.length})`);
 
+  const sellerBProduct = await prisma.product.upsert({
+    where: { sku: "CERT-SELLER-B-TOOL" },
+    update: { sellerId: sellerB.id, status: ProductStatus.ACTIVE },
+    create: {
+      sellerId: sellerB.id, categoryId: buildCat.id, sku: "CERT-SELLER-B-TOOL",
+      slug: "cert-seller-b-tool", nameEn: "Seller B Certification Tool",
+      nameAr: "أداة اعتماد البائع ب", status: ProductStatus.ACTIVE,
+      isB2CEnabled: true, isB2BEnabled: true, origin: Country.AE, moq: 1,
+      prices: { create: { type: PricingType.B2C, currency: Currency.AED, minQty: 1, price: 200, vatRate: 5 } },
+    },
+  });
+
   // ── PRODUCT REVIEWS ─────────────────────────────────────────────────────────
   const REVIEW_SEED = [
     { rating: 5, title: "Exactly as described", body: "Great quality and fast delivery. Will order again for our next site.", verified: true },
@@ -1024,6 +1089,21 @@ async function main() {
       },
     });
   }
+  if (p1) {
+    await prisma.order.create({
+      data: {
+        orderNumber: "AVN-CERT-MULTI-SELLER", userId: buyerUser.id, type: OrderType.B2C,
+        status: OrderStatus.DELIVERED, fulfillment: FulfillmentType.SELLER_FULFILLED,
+        currency: Currency.AED, subtotal: 300, vatAmount: 15, total: 315,
+        paymentMethod: PaymentMethod.CREDIT_CARD, paymentStatus: PaymentStatus.PAID,
+        shippingAddress: { label: "Certification", line1: "Pilot Lane", city: "Dubai", country: "AE" },
+        items: { create: [
+          { productId: p1.id, sellerId: seller.id, sku: p1.sku, nameEn: p1.nameEn, nameAr: p1.nameAr, quantity: 2, unitPrice: 50, vatRate: 5, vatAmount: 5, total: 105 },
+          { productId: sellerBProduct.id, sellerId: sellerB.id, sku: sellerBProduct.sku, nameEn: sellerBProduct.nameEn, nameAr: sellerBProduct.nameAr, quantity: 1, unitPrice: 200, vatRate: 5, vatAmount: 10, total: 210 },
+        ] },
+      },
+    });
+  }
   console.log("✅ Orders seeded");
 
   // ── RFQs ────────────────────────────────────────────────────────────────────
@@ -1180,6 +1260,9 @@ async function main() {
   console.log("─────────────────────────────────────────────────────");
   console.log("  admin@avenick.test          / Password123!");
   console.log("  seller@avenick.test         / Password123!");
+  console.log("  seller-a-fulfillment@avenick.test / Password123!");
+  console.log("  seller-a-catalog@avenick.test     / Password123!");
+  console.log("  seller-b-owner@avenick.test       / Password123!");
   console.log("  buyer@avenick.test          / Password123!");
   console.log("  company@avenick.test        / Password123!");
   console.log("  pending-seller@avenick.test / Password123!");

@@ -151,12 +151,16 @@ export async function setReturnStatus(opts: {
     const sellerMaximum = target.order.items
       .filter((item) => item.sellerId === target.sellerId)
       .reduce((sum, item) => sum + Number(item.total), 0);
-    const refundAmount = opts.refundAmount ?? (target.refundAmount ? Number(target.refundAmount) : sellerMaximum);
+    // Customer-created returns persist the exact selected line/quantity value in
+    // refundAmount. Legacy/admin-created returns without a preset retain the
+    // seller-line ceiling.
+    const authorizedMaximum = target.refundAmount ? Number(target.refundAmount) : sellerMaximum;
+    const refundAmount = opts.refundAmount ?? authorizedMaximum;
     if (opts.status === "REFUNDED" && (!Number.isFinite(refundAmount) || refundAmount <= 0)) {
       throw new Error("A positive refund amount is required to refund a return");
     }
-    if (opts.status === "REFUNDED" && refundAmount > sellerMaximum) {
-      throw new Error("Refund amount cannot exceed this seller's order lines");
+    if (opts.status === "REFUNDED" && refundAmount > authorizedMaximum) {
+      throw new Error("Refund amount cannot exceed the selected return quantity");
     }
 
     const ret = await tx.returnRequest.update({

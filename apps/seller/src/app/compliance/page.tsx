@@ -1,4 +1,4 @@
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerAnyPermission } from "@/lib/auth";
 import { db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { format, isAfter, addDays } from "date-fns";
@@ -21,7 +21,7 @@ function DocStatus({ status }: { status: string }) {
 }
 
 export default async function CompliancePage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerAnyPermission(["documents.view", "documents.manage"]);
 
   const docs = await db.sellerDocument.findMany({
     where: { sellerId: seller.id },
@@ -32,7 +32,7 @@ export default async function CompliancePage() {
   const expired = docs.filter((d) => d.expiryDate && !isAfter(d.expiryDate, new Date()));
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={expired.length + expiringSoon.length}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={expired.length + expiringSoon.length} permissions={membership.permissions}>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Compliance — الامتثال</h1>

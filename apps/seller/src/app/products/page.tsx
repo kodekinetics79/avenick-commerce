@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerAnyPermission } from "@/lib/auth";
 import { db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { Plus } from "lucide-react";
@@ -7,7 +7,7 @@ import { AiAssist } from "@/components/ai-assist";
 import { ProductsTable, type ProductRow } from "@/components/products-table";
 
 export default async function ProductsPage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerAnyPermission(["catalog.view", "catalog.manage"]);
 
   const products = await db.product.findMany({
     where: { sellerId: seller.id, deletedAt: null },
@@ -40,7 +40,7 @@ export default async function ProductsPage() {
   });
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={products.flatMap((p) => p.issues).length}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={products.flatMap((p) => p.issues).length} permissions={membership.permissions}>
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-bold tracking-tight">Products <span className="text-muted-foreground font-medium">({products.length})</span></h1>
