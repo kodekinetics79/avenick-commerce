@@ -1,24 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth-instance";
-import { db, getOrdersForSeller, updateOrderStatus } from "@avenick/database";
+import { getOrdersForSeller } from "@avenick/database";
 import type { OrderStatus } from "@avenick/database";
+import { getServerSellerContext } from "@/lib/seller-server";
+
+const ORDER_STATUSES = new Set<OrderStatus>([
+  "PENDING_PAYMENT",
+  "PAYMENT_CONFIRMED",
+  "CONFIRMED",
+  "PROCESSING",
+  "SHIPPED",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+  "CANCELLED",
+  "REFUNDED",
+  "RETURNED",
+]);
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    const seller = await db.sellerProfile.findUnique({ where: { userId: session.user.id as string } });
-    if (!seller) return NextResponse.json({ success: false, error: "Not a seller" }, { status: 403 });
+    const context = await getServerSellerContext();
+    if (!context) return NextResponse.json({ success: false, error: "Seller account required" }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
-    const statusParam = searchParams.get("status") as OrderStatus | null;
-    const result = await getOrdersForSeller(seller.id, {
-      page: parseInt(searchParams.get("page") ?? "1"),
-      limit: parseInt(searchParams.get("limit") ?? "20"),
-      ...(statusParam !== null ? { status: statusParam } : {}),
-    });
+    const rawStatus = searchParams.get("status")?.trim();
+    const status = rawStatus && ORDER_STATUSES.has(rawStatus as OrderStatus) ? rawStatus as OrderStatus : undefined;
+    if (rawStatus && !status) {
+      return NextResponse.json({ success: false, error: "Invalid order status filter" }, { status: 400 });
+    }
+
+    const rawPage = Number(searchParams.get("page") ?? 1);
+    const rawLimit = Number(searchParams.get("limit") ?? 20);
+    const page = Number.isInteger(rawPage) && rawPage > 0 ? rawPage : 1;
+    const limit = Number.isInteger(rawLimit) ? Math.max(1, Math.min(100, rawLimit)) : 20;
+
+    const result = await getOrdersForSeller(context.sellerId, { page, limit, ...(status ? { status } : {}) });
     return NextResponse.json({ success: true, ...result });
   } catch {
-    return NextResponse.json({ success: false, error: "Failed" }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Failed to load seller orders" }, { status: 500 });
   }
 }
