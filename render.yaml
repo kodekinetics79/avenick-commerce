@@ -168,13 +168,10 @@ services:
         sync: false
       - key: INTEGRATION_ERP_CREDENTIAL_REF
         value: "env:INTEGRATION_ERP_TOKEN"
-      # Provider webhook secrets are deployment-owned fixed names. Configure the
-      # matching ERP to sign `<timestamp>.<raw body>` with HMAC-SHA256 hex.
-      - key: INTEGRATION_D365_WEBHOOK_SECRET
-        sync: false
-      - key: INTEGRATION_SAP_WEBHOOK_SECRET
-        sync: false
-      - key: INTEGRATION_ERP_WEBHOOK_SECRET
+      # Deployment-owned JSON array of per-connection signing identities:
+      # [{"keyId":"...","system":"ERP","connectionId":"...","secret":"32+ chars"}]
+      # Providers sign `<key-id>.<timestamp>.<raw body>` with HMAC-SHA256 hex.
+      - key: INTEGRATION_WEBHOOK_SIGNING_KEYRING
         sync: false
       - key: OTEL_EXPORTER_OTLP_ENDPOINT
         sync: false
