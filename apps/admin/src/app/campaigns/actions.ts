@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdminSession } from "@/lib/auth";
-import { AuditAction, db, type Currency } from "@avenick/database";
+import { AuditAction, db, type Currency, type Prisma } from "@avenick/database";
 
 const PROMOTION_TYPES = new Set(["PERCENTAGE", "FIXED_AMOUNT"]);
 const PROMOTION_STATUSES = new Set(["DRAFT", "ACTIVE", "PAUSED", "ENDED"]);
@@ -28,6 +28,10 @@ const optionalDate = (form: FormData, key: string) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) throw new Error(`${key} is not a valid date`);
   return date;
+};
+const jsonObject = (value: Prisma.JsonValue | null): Prisma.InputJsonObject => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return value as Prisma.InputJsonObject;
 };
 
 export async function createPromotion(formData: FormData) {
@@ -123,26 +127,51 @@ export async function createCoupon(formData: FormData) {
   const promotion = await db.commercePromotion.findUnique({ where: { id: promotionId } });
   if (!promotion) throw new Error("Promotion not found");
 
-  const coupon = await db.promotionCoupon.create({
-    data: {
-      promotionId,
-      code,
-      status: "ACTIVE",
-      usageLimit: optionalInt(formData, "usageLimit"),
-      perCustomerLimit: optionalInt(formData, "perCustomerLimit"),
-      startsAt: optionalDate(formData, "startsAt"),
-      endsAt: optionalDate(formData, "endsAt"),
-    },
+  const startsAt = optionalDate(formData, "startsAt");
+  const endsAt = optionalDate(formData, "endsAt");
+  if (startsAt && endsAt && endsAt <= startsAt) throw new Error("Coupon end must be after start");
+  const eligibility: Prisma.InputJsonObject = {
+    ...jsonObject(promotion.eligibility),
+    requiresCoupon: true,
+  };
+
+  const coupon = await db.$transaction(async (tx) => {
+    // Once a coupon exists against a promotion, that promotion becomes coupon-
+    // gated. Otherwise checkout could apply the same rule automatically and then
+    // apply it again when the buyer supplies the code.
+    await tx.commercePromotion.update({
+      where: { id: promotionId },
+      data: { eligibility },
+    });
+    const created = await tx.promotionCoupon.create({
+      data: {
+        promotionId,
+        code,
+        status: "ACTIVE",
+        usageLimit: optionalInt(formData, "usageLimit"),
+        perCustomerLimit: optionalInt(formData, "perCustomerLimit"),
+        startsAt,
+        endsAt,
+      },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorId: userId,
+        entityType: "PromotionCoupon",
+        entityId: created.id,
+        action: AuditAction.CREATE,
+        after: {
+          code: created.code,
+          promotionId: created.promotionId,
+          status: created.status,
+          promotionMode: "COUPON_ONLY",
+        },
+      },
+    });
+    return created;
   });
-  await db.auditLog.create({
-    data: {
-      actorId: userId,
-      entityType: "PromotionCoupon",
-      entityId: coupon.id,
-      action: AuditAction.CREATE,
-      after: { code: coupon.code, promotionId: coupon.promotionId, status: coupon.status },
-    },
-  });
+
+  if (!coupon) throw new Error("Coupon creation failed");
   revalidatePath("/campaigns");
 }
 
@@ -156,6 +185,10 @@ export async function createReferralProgram(formData: FormData) {
   if (!CURRENCIES.has(currency)) throw new Error("Unsupported currency");
   if (referrerRewardValue == null || refereeRewardValue == null) throw new Error("Referral rewards are required");
 
+  const startsAt = optionalDate(formData, "startsAt");
+  const endsAt = optionalDate(formData, "endsAt");
+  if (startsAt && endsAt && endsAt <= startsAt) throw new Error("Referral program end must be after start");
+
   const program = await db.referralProgram.create({
     data: {
       tenantKey: "default",
@@ -167,8 +200,8 @@ export async function createReferralProgram(formData: FormData) {
       refereeRewardValue,
       currency: currency as Currency,
       maxUsesPerCode: optionalInt(formData, "maxUsesPerCode"),
-      startsAt: optionalDate(formData, "startsAt"),
-      endsAt: optionalDate(formData, "endsAt"),
+      startsAt,
+      endsAt,
       eligibility: { createdById: userId },
     },
   });
