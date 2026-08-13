@@ -139,7 +139,10 @@ export async function getSellerDashboard(sellerId: string) {
       where: { items: { some: { sellerId } } },
       take: 10,
       orderBy: { createdAt: "desc" },
-      select: { id: true, orderNumber: true, status: true, total: true, currency: true, createdAt: true, type: true },
+      select: {
+        id: true, orderNumber: true, status: true, currency: true, createdAt: true, type: true,
+        items: { where: { sellerId }, select: { total: true } },
+      },
     }),
     db.message.count({ where: { thread: { sellerId }, isRead: false, senderType: "BUYER" } }),
     db.rFQRequest.count({ where: { sellerId, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } }),
@@ -159,7 +162,10 @@ export async function getSellerDashboard(sellerId: string) {
     pendingPayoutAmount: pendingPayout._sum.amount ?? 0,
     activeListings,
     monthRevenue: monthRevenue._sum.total ?? 0,
-    recentOrders,
+    recentOrders: recentOrders.map(({ items, ...order }) => ({
+      ...order,
+      total: items.reduce((sum, item) => sum + Number(item.total), 0),
+    })),
     unreadMessages,
     rfqCount,
   };

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, listProducts } from "@avenick/database";
 import type { Currency, ProductStatus } from "@avenick/database";
 import { getServerB2BContext } from "@/lib/b2b-server";
+import { toCatalogListDto } from "@/lib/catalog-list-dto";
 
 const CURRENCIES = new Set<Currency>(["AED", "SAR", "QAR", "KWD", "OMR", "BHD", "USD"]);
 
@@ -47,12 +48,7 @@ export async function GET(req: NextRequest) {
     });
 
     const channel = wantsB2B ? "B2B" : "B2C";
-    const products = result.products.map((product) => ({
-      ...product,
-      prices: product.prices.filter((price) =>
-        price.type === channel && (!currencyParam || price.currency === currencyParam),
-      ),
-    }));
+    const products = result.products.map((product) => toCatalogListDto(product, channel, currencyParam));
 
     return NextResponse.json(
       { success: true, ...result, products },

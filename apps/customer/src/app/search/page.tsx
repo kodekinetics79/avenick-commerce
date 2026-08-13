@@ -112,7 +112,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
                     sku={p.sku}
                     sellerId={p.sellerId}
                     sellerName={p.seller?.businessNameEn}
-                    inStock={stock ? stock.qty - stock.reservedQty > 0 : false}
+                    inStock={stock?.inStock === true}
                     moq={p.moq}
                   />
                 );

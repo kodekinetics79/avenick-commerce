@@ -93,7 +93,7 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
               sku={p.sku}
               sellerId={p.sellerId}
               sellerName={p.seller?.businessNameEn}
-              inStock={stock ? stock.qty - stock.reservedQty > 0 : false}
+              inStock={stock?.inStock === true}
               moq={p.moq}
             />
           );

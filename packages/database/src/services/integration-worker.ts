@@ -1,6 +1,7 @@
 import { Prisma, type IntegrationInbox, type IntegrationOutbox } from "@prisma/client";
 import { DeterministicCertificationErpAdapter, HttpErpAdapter, type ErpAdapter, type ErpSubmitOrder } from "./erp-adapter";
 import { db } from "../index";
+import { governedIntegrationPolicy } from "./integration-policy";
 import {
   claimIntegrationOutbox,
   claimIntegrationInbox,
@@ -256,10 +257,14 @@ export async function resolveAdapterForMessage(message: IntegrationOutbox): Prom
   if (connection.system === "CERTIFICATION_ERP" && process.env.ERP_CERTIFICATION_MODE === "true") {
     return new DeterministicCertificationErpAdapter("ACCEPT");
   }
-  if (!connection.credentialsRef.startsWith("env:")) throw new Error("ERP_DISCONNECTED_PILOT: unsupported credential reference");
-  const token = process.env[connection.credentialsRef.slice(4)];
+  const policy = governedIntegrationPolicy({
+    system: connection.system,
+    baseUrl: connection.baseUrl,
+    credentialsRef: connection.credentialsRef,
+  });
+  const token = process.env[policy.credentialEnvironmentKey];
   if (!token) throw new Error("ERP_DISCONNECTED_PILOT: ERP credential is not present at runtime");
-  return new HttpErpAdapter(connection.system, connection.baseUrl, token);
+  return new HttpErpAdapter(connection.system, policy.baseUrl, token);
 }
 
 export async function recordWorkerHeartbeat(workerId: string, event?: "CLAIM" | "SUCCESS" | "FAILURE", error?: unknown) {

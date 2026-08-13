@@ -36,6 +36,27 @@ services:
         sync: false
       - key: INTEGRATION_WORKER_ID
         value: "render-primary"
+      # Each ERP adapter is pinned to an operator-owned origin and a dedicated
+      # token variable. Admin configuration cannot select arbitrary hosts or
+      # dereference unrelated runtime secrets.
+      - key: INTEGRATION_D365_BASE_URL
+        sync: false
+      - key: INTEGRATION_D365_CREDENTIAL_REF
+        value: "env:INTEGRATION_D365_TOKEN"
+      - key: INTEGRATION_D365_TOKEN
+        sync: false
+      - key: INTEGRATION_SAP_BASE_URL
+        sync: false
+      - key: INTEGRATION_SAP_CREDENTIAL_REF
+        value: "env:INTEGRATION_SAP_TOKEN"
+      - key: INTEGRATION_SAP_TOKEN
+        sync: false
+      - key: INTEGRATION_ERP_BASE_URL
+        sync: false
+      - key: INTEGRATION_ERP_CREDENTIAL_REF
+        value: "env:INTEGRATION_ERP_TOKEN"
+      - key: INTEGRATION_ERP_TOKEN
+        sync: false
 
   - type: web
     name: avenick-customer
@@ -135,6 +156,18 @@ services:
         value: "avenick-admin"
       - key: LOG_LEVEL
         value: "info"
+      - key: INTEGRATION_D365_BASE_URL
+        sync: false
+      - key: INTEGRATION_D365_CREDENTIAL_REF
+        value: "env:INTEGRATION_D365_TOKEN"
+      - key: INTEGRATION_SAP_BASE_URL
+        sync: false
+      - key: INTEGRATION_SAP_CREDENTIAL_REF
+        value: "env:INTEGRATION_SAP_TOKEN"
+      - key: INTEGRATION_ERP_BASE_URL
+        sync: false
+      - key: INTEGRATION_ERP_CREDENTIAL_REF
+        value: "env:INTEGRATION_ERP_TOKEN"
       - key: OTEL_EXPORTER_OTLP_ENDPOINT
         sync: false
       - key: OTEL_EXPORTER_OTLP_HEADERS

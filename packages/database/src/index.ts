@@ -16,6 +16,7 @@ export * from "./services/promotions";
 // use the explicit @avenick/database/pilot-catalog subpath instead.
 export * from "./services/integrations";
 export * from "./services/integration-worker";
+export * from "./services/integration-policy";
 export * from "./services/erp-adapter";
 export * from "./services/inventory";
 export * from "./services/admin";

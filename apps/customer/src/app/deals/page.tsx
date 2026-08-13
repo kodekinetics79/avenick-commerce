@@ -33,7 +33,7 @@ export default async function DealsPage() {
       const discount = dealDiscount(p.sku);
       const price = Math.round(base * (1 - discount / 100) * 100) / 100;
       const stock = p.inventory?.[0];
-      const available = stock ? stock.qty - stock.reservedQty : 0;
+      const available = stock?.inStock ? 1 : 0;
       return {
         id: p.id,
         slug: p.slug,

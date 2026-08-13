@@ -59,7 +59,7 @@ export default async function HomePage() {
   const mapped = products.map((p) => {
     const price = p.prices?.find((pr: { type: string; price: number }) => pr.type === "B2C") ?? p.prices?.[0];
     const stock = p.inventory?.[0];
-    const available = stock ? stock.qty - stock.reservedQty : 0;
+    const available = stock?.inStock ? 1 : 0;
     return {
       id: p.id,
       slug: p.slug,
