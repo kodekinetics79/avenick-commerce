@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AuditAction, db, lockInventoryStockRows, Prisma } from "@avenick/database";
+import { AuditAction, db, lockInventoryStockRows, lockProductCommercialRows } from "@avenick/database";
 import { requireSellerPermission, requireSellerSession } from "@/lib/auth";
 import { assertProductImportPermissions } from "@/lib/product-import-policy";
 
@@ -22,11 +22,16 @@ export async function bulkUpdateProductStatus(productIds: string[], status: Bulk
       where: { id: { in: productIds }, sellerId: seller.id, deletedAt: null },
       select: { id: true, status: true },
     });
+    await lockProductCommercialRows(tx, targets.map((target) => target.id));
+    const currentTargets = await tx.product.findMany({
+      where: { id: { in: targets.map((target) => target.id) }, sellerId: seller.id, deletedAt: null },
+      select: { id: true, status: true },
+    });
     const updated = await tx.product.updateMany({
-      where: { id: { in: targets.map((target) => target.id) } },
+      where: { id: { in: currentTargets.map((target) => target.id) } },
       data: { status, ...(status === "ACTIVE" ? { publishedAt: new Date() } : {}) },
     });
-    for (const target of targets) {
+    for (const target of currentTargets) {
       await tx.auditLog.create({
         data: {
           actorId: userId,
@@ -101,9 +106,7 @@ export async function importProductsCsv(rows: ImportRow[]): Promise<ImportResult
 
     try {
       await db.$transaction(async (tx) => {
-        await tx.$executeRaw(
-          Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`seller-product-import:${product.id}`}))`,
-        );
+        await lockProductCommercialRows(tx, [product.id]);
         const currentProduct = await tx.product.findFirstOrThrow({
           where: { id: product.id, sellerId: seller.id, deletedAt: null },
           include: { prices: { where: { isActive: true } }, inventory: true },

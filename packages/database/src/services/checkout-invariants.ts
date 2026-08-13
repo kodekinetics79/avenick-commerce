@@ -1,6 +1,23 @@
 import { Prisma } from "@prisma/client";
 
 type InventoryLockClient = Pick<Prisma.TransactionClient, "$executeRaw">;
+type CommercialLockClient = Pick<Prisma.TransactionClient, "$executeRaw">;
+
+/**
+ * Product publication, channel, variant, MOQ, and price writers share this
+ * transaction-scoped lock with checkout. Sorting prevents multi-product carts
+ * and bulk seller mutations from acquiring the same locks in opposite orders.
+ */
+export async function lockProductCommercialRows(
+  tx: CommercialLockClient,
+  productIds: string[],
+): Promise<void> {
+  for (const productId of [...new Set(productIds)].sort()) {
+    await tx.$executeRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`product-commercial:${productId}`}))`,
+    );
+  }
+}
 
 /**
  * All stock writers lock the same physical rows in deterministic order. The

@@ -5,6 +5,7 @@ import {
   assertMinimumOrderQuantity,
   inventoryStockIdentityWhere,
   lockInventoryStockRows,
+  lockProductCommercialRows,
   resolveConfiguredVatRate,
 } from "./checkout-invariants";
 import { assertMatchingIdempotencyFingerprint } from "./commerce-governance";
@@ -129,116 +130,11 @@ export async function createOrder(input: CreateOrderInput) {
 
   const defaultVat = vatRateForCurrency(input.currency);
   const productIds = [...new Set(input.items.map((i) => i.productId))];
-
-  // Single authoritative read of catalog + pricing + stock. ProductPrice is the
-  // local commercial source until an ERP adapter returns a stronger price truth.
-  const products = await db.product.findMany({
-    where: { id: { in: productIds }, deletedAt: null },
-    include: {
-      prices: true,
-      inventory: true,
-      variants: { include: { prices: true } },
-    },
-  });
-  const productMap = new Map(products.map((p) => [p.id, p]));
   const governedByIdentity = new Map(input.governedCommercial?.lines.map((line) => [
     identityKey(line), line,
   ]) ?? []);
   if (input.governedCommercial && governedByIdentity.size !== input.items.length) {
     throw new Error("Governed purchase-order lines do not match the checkout request");
-  }
-
-  const pricedLines = input.items.map((item, index) => {
-    const product = productMap.get(item.productId);
-    if (!product) throw new Error(`Product ${item.productId} is unavailable`);
-    assertMinimumOrderQuantity(product.nameEn, item.quantity, product.moq);
-    const variant = item.variantId
-      ? product.variants.find((candidate) => candidate.id === item.variantId)
-      : undefined;
-    const governed = governedByIdentity.get(identityKey(item));
-    if (input.governedCommercial && (!governed || governed.quantity !== item.quantity)) {
-      throw new Error("Governed purchase-order lines do not match the checkout request");
-    }
-    const variantTier = !governed && variant
-      ? resolveUnitPrice(variant.prices, input.type, input.currency, item.quantity)
-      : null;
-    const tier = governed ? null : variantTier ?? resolveUnitPrice(product.prices, input.type, input.currency, item.quantity);
-    if (!governed && !tier) throw new Error(`No active ${input.type} price for "${product.nameEn}" in ${input.currency}`);
-
-    const unitPrice = governed?.unitPrice ?? Number(tier!.price);
-    return {
-      key: `line-${index}`,
-      productId: item.productId,
-      variantId: item.variantId,
-      sellerId: item.sellerId,
-      categoryId: product.categoryId,
-      brandId: product.brandId,
-      sku: governed?.sku ?? variant?.sku ?? product.sku,
-      nameEn: governed?.nameEn ?? variant?.nameEn ?? product.nameEn,
-      nameAr: variant?.nameAr ?? product.nameAr,
-      quantity: item.quantity,
-      unitPrice,
-      lineSubtotal: money(unitPrice * item.quantity),
-      vatRate: governed?.vatRate ?? resolveConfiguredVatRate(tier!.vatRate, defaultVat),
-      sourcePriceId: governed ? governed.sourcePriceId ?? undefined : tier!.id,
-      priceScope: governed ? "GOVERNED_PO" : variantTier ? "VARIANT" : "PRODUCT",
-    };
-  });
-
-  const promotion = input.governedCommercial ? {
-    discountAmount: 0,
-    lineDiscounts: {} as Record<string, number>,
-    applied: [],
-    explanation: [{ step: "GOVERNED_PO", purchaseOrderId: input.purchaseOrderId }],
-  } : await evaluateCommercePromotions({
-    tenantKey: "default",
-    userId: input.userId,
-    companyId: input.companyId,
-    currency: input.currency,
-    country: input.shippingAddress["country"],
-    couponCode: input.couponCode,
-    lines: pricedLines.map((line) => ({
-      key: line.key,
-      productId: line.productId,
-      categoryId: line.categoryId,
-      brandId: line.brandId,
-      sellerId: line.sellerId,
-      quantity: line.quantity,
-      baseUnitPrice: line.unitPrice,
-    })),
-  });
-
-  let subtotal = 0;
-  let vatTotal = 0;
-  const itemData = pricedLines.map((line) => {
-    const lineDiscount = Math.min(promotion.lineDiscounts[line.key] ?? 0, line.lineSubtotal);
-    const discountedSubtotal = money(line.lineSubtotal - lineDiscount);
-    const vatAmount = money(discountedSubtotal * (line.vatRate / 100));
-    subtotal += line.lineSubtotal;
-    vatTotal += vatAmount;
-    return {
-      productId: line.productId,
-      variantId: line.variantId,
-      sellerId: line.sellerId,
-      sku: line.sku,
-      nameEn: line.nameEn,
-      nameAr: line.nameAr,
-      quantity: line.quantity,
-      // Snapshot the pre-promotion commercial price; Order.discountAmount and
-      // OrderLinePriceTrace preserve the governed adjustment separately.
-      unitPrice: line.unitPrice,
-      vatRate: line.vatRate,
-      vatAmount,
-      total: money(discountedSubtotal + vatAmount),
-    };
-  });
-
-  subtotal = money(subtotal);
-  const discountAmount = money(promotion.discountAmount);
-  const vatAmount = money(vatTotal);
-  const total = money(subtotal - discountAmount + vatAmount);
-  if (input.governedCommercial && Math.round(total * 100) !== Math.round(input.governedCommercial.total * 100)) {
-    throw new Error("Governed purchase-order total does not match the approved commercial snapshot");
   }
 
   // If a live ERP connector exists, order creation records an explicit pending
@@ -254,6 +150,119 @@ export async function createOrder(input: CreateOrderInput) {
   return write(
     () =>
       db.$transaction(async (tx) => {
+        await lockProductCommercialRows(tx, productIds);
+        const products = await tx.product.findMany({
+          where: { id: { in: productIds }, deletedAt: null },
+          include: {
+            seller: { select: { status: true, deletedAt: true } },
+            prices: true,
+            variants: { include: { prices: true } },
+          },
+        });
+        const productMap = new Map(products.map((product) => [product.id, product]));
+        const pricedLines = input.items.map((item, index) => {
+          const product = productMap.get(item.productId);
+          if (!product || product.status !== "ACTIVE") throw new Error(`Product ${item.productId} is unavailable`);
+          if (product.seller.status !== "ACTIVE" || product.seller.deletedAt) {
+            throw new Error(`Seller for "${product.nameEn}" is unavailable`);
+          }
+          if (input.type === "B2B" && !product.isB2BEnabled) {
+            throw new Error(`"${product.nameEn}" is not available for B2B ordering`);
+          }
+          if (input.type === "B2C" && !product.isB2CEnabled) {
+            throw new Error(`"${product.nameEn}" is not available for B2C ordering`);
+          }
+          assertMinimumOrderQuantity(product.nameEn, item.quantity, product.moq);
+          const activeVariants = product.variants.filter((candidate) => candidate.isActive);
+          if (!item.variantId && activeVariants.length > 0) {
+            throw new Error(`Select a product variant for "${product.nameEn}"`);
+          }
+          const variant = item.variantId
+            ? activeVariants.find((candidate) => candidate.id === item.variantId)
+            : undefined;
+          if (item.variantId && !variant) throw new Error(`Selected variant is unavailable for "${product.nameEn}"`);
+          const governed = governedByIdentity.get(identityKey(item));
+          if (input.governedCommercial && (!governed || governed.quantity !== item.quantity)) {
+            throw new Error("Governed purchase-order lines do not match the checkout request");
+          }
+          const variantTier = !governed && variant
+            ? resolveUnitPrice(variant.prices, input.type, input.currency, item.quantity)
+            : null;
+          const tier = governed ? null : variantTier ?? resolveUnitPrice(product.prices, input.type, input.currency, item.quantity);
+          if (!governed && !tier) throw new Error(`No active ${input.type} price for "${product.nameEn}" in ${input.currency}`);
+          const unitPrice = governed?.unitPrice ?? Number(tier!.price);
+          return {
+            key: `line-${index}`,
+            productId: item.productId,
+            variantId: item.variantId,
+            sellerId: item.sellerId,
+            categoryId: product.categoryId,
+            brandId: product.brandId,
+            sku: governed?.sku ?? variant?.sku ?? product.sku,
+            nameEn: governed?.nameEn ?? variant?.nameEn ?? product.nameEn,
+            nameAr: variant?.nameAr ?? product.nameAr,
+            quantity: item.quantity,
+            unitPrice,
+            lineSubtotal: money(unitPrice * item.quantity),
+            vatRate: governed?.vatRate ?? resolveConfiguredVatRate(tier!.vatRate, defaultVat),
+            sourcePriceId: governed ? governed.sourcePriceId ?? undefined : tier!.id,
+            priceScope: governed ? "GOVERNED_PO" : variantTier ? "VARIANT" : "PRODUCT",
+          };
+        });
+
+        const promotion = input.governedCommercial ? {
+          discountAmount: 0,
+          lineDiscounts: {} as Record<string, number>,
+          applied: [],
+          explanation: [{ step: "GOVERNED_PO", purchaseOrderId: input.purchaseOrderId }],
+        } : await evaluateCommercePromotions({
+          tenantKey: "default",
+          userId: input.userId,
+          companyId: input.companyId,
+          currency: input.currency,
+          country: input.shippingAddress["country"],
+          couponCode: input.couponCode,
+          lines: pricedLines.map((line) => ({
+            key: line.key,
+            productId: line.productId,
+            categoryId: line.categoryId,
+            brandId: line.brandId,
+            sellerId: line.sellerId,
+            quantity: line.quantity,
+            baseUnitPrice: line.unitPrice,
+          })),
+        });
+
+        let subtotal = 0;
+        let vatTotal = 0;
+        const itemData = pricedLines.map((line) => {
+          const lineDiscount = Math.min(promotion.lineDiscounts[line.key] ?? 0, line.lineSubtotal);
+          const discountedSubtotal = money(line.lineSubtotal - lineDiscount);
+          const vatAmount = money(discountedSubtotal * (line.vatRate / 100));
+          subtotal += line.lineSubtotal;
+          vatTotal += vatAmount;
+          return {
+            productId: line.productId,
+            variantId: line.variantId,
+            sellerId: line.sellerId,
+            sku: line.sku,
+            nameEn: line.nameEn,
+            nameAr: line.nameAr,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            vatRate: line.vatRate,
+            vatAmount,
+            total: money(discountedSubtotal + vatAmount),
+          };
+        });
+        subtotal = money(subtotal);
+        const discountAmount = money(promotion.discountAmount);
+        const vatAmount = money(vatTotal);
+        const total = money(subtotal - discountAmount + vatAmount);
+        if (input.governedCommercial && Math.round(total * 100) !== Math.round(input.governedCommercial.total * 100)) {
+          throw new Error("Governed purchase-order total does not match the approved commercial snapshot");
+        }
+
         const initialStockRows = await Promise.all(input.items.map((item) => tx.inventoryStock.findMany({
           where: inventoryStockIdentityWhere(item.productId, item.variantId),
           select: { id: true },
