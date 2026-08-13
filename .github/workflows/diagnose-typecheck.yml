@@ -18,10 +18,14 @@ jobs:
         with:
           ref: pilot-overhaul/2026-08-12
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Activate repository pnpm version
+        run: |
+          corepack enable
+          corepack prepare pnpm@9.15.4 --activate
+          pnpm --version
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @avenick/database db:generate
       - name: Capture typecheck output
