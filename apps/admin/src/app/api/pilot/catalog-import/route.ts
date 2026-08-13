@@ -5,7 +5,7 @@ import {
   applyPilotCatalog,
   validatePilotCatalog,
   type PilotCatalogFile,
-} from "@avenick/database";
+} from "@avenick/database/pilot-catalog";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
