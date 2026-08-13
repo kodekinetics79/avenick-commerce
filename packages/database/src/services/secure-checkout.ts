@@ -24,6 +24,7 @@ export interface SecureCheckoutInput {
   paymentMethod?: PaymentMethod;
   notes?: string;
   purchaseOrderId?: string;
+  couponCode?: string;
   idempotencyKey?: string;
 }
 
@@ -36,11 +37,9 @@ export interface SecureCheckoutInput {
  *  - variants must belong to the requested product and be active;
  *  - sellers must still be active;
  *  - B2B company identity is derived from the authenticated user's membership;
- *  - a B2B PO, when supplied, must belong to that same company and be approved.
- *
- * createOrder() remains the atomic pricing + stock reservation primitive. This
- * function is the governed trust boundary that prepares only authoritative data
- * for it.
+ *  - a B2B PO, when supplied, must belong to that same company and be approved;
+ *  - duplicate cart lines are normalized before stock/pricing evaluation;
+ *  - coupon text may be supplied, but every discount amount is server-derived.
  */
 export async function secureCreateOrder(input: SecureCheckoutInput) {
   if (input.items.length === 0) throw new Error("Order must contain at least one item");
@@ -99,8 +98,9 @@ export async function secureCreateOrder(input: SecureCheckoutInput) {
     },
   });
   const productMap = new Map(products.map((p) => [p.id, p]));
+  const trustedByLine = new Map<string, { productId: string; variantId?: string; quantity: number; sellerId: string }>();
 
-  const trustedItems = input.items.map((item) => {
+  for (const item of input.items) {
     const product = productMap.get(item.productId);
     if (!product || product.status !== "ACTIVE") {
       throw new Error(`Product ${item.productId} is unavailable`);
@@ -122,25 +122,29 @@ export async function secureCreateOrder(input: SecureCheckoutInput) {
       }
     }
 
-    return {
+    const key = `${item.productId}::${item.variantId ?? ""}`;
+    const existing = trustedByLine.get(key);
+    const quantity = (existing?.quantity ?? 0) + item.quantity;
+    if (quantity > 100000) throw new Error(`Requested quantity for "${product.nameEn}" exceeds checkout limit`);
+    trustedByLine.set(key, {
       productId: item.productId,
       variantId: item.variantId,
-      quantity: item.quantity,
-      // Authoritative seller ownership. Never trust sellerId from a cart/client.
+      quantity,
       sellerId: product.sellerId,
-    };
-  });
+    });
+  }
 
   return createOrder({
     userId: input.userId,
     companyId,
     type: input.type,
     currency: input.currency,
-    items: trustedItems,
+    items: [...trustedByLine.values()],
     shippingAddress: input.shippingAddress,
     paymentMethod: input.paymentMethod,
     notes: input.notes,
     purchaseOrderId: input.purchaseOrderId,
+    couponCode: input.couponCode?.trim() || undefined,
     idempotencyKey: input.idempotencyKey,
   });
 }
