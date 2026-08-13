@@ -1,4 +1,5 @@
 import type { Session } from "next-auth";
+import { getToken } from "next-auth/jwt";
 import { UserRole } from "@avenick/database";
 
 export type PortalType = "customer" | "seller" | "admin";
@@ -60,6 +61,40 @@ export async function resolveRemotePortalSession(
   fetchImpl: typeof fetch = fetch,
 ): Promise<Session | null> {
   if (!cookieHeader || !hasPortalSessionCookie(portal, cookieHeader)) return null;
+
+  const secret = process.env.AUTH_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim();
+  if (secret) {
+    try {
+      const token = await getToken({
+        req: { headers: { cookie: cookieHeader } },
+        secret,
+        cookieName: SESSION_COOKIE_NAMES[portal],
+        secureCookie: false,
+      });
+      if (
+        token &&
+        typeof token.sub === "string" &&
+        typeof token.email === "string" &&
+        typeof token.exp === "number" &&
+        token.exp * 1_000 > Date.now() &&
+        Object.values(UserRole).includes(token["role"] as UserRole)
+      ) {
+        return {
+          user: {
+            id: token.sub,
+            email: token.email,
+            name: typeof token.name === "string" ? token.name : null,
+            image: typeof token.picture === "string" ? token.picture : null,
+            role: token["role"] as UserRole,
+            language: typeof token["language"] === "string" ? token["language"] : "en",
+          } as Session["user"],
+          expires: new Date(token.exp * 1_000).toISOString(),
+        };
+      }
+    } catch {
+      // Continue to the deployment-owned verification endpoint.
+    }
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5_000);

@@ -1,13 +1,46 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { UserRole } from "@avenick/database";
+import { encode } from "next-auth/jwt";
 import { resolveRemotePortalSession } from "../remote-session";
 
 afterEach(() => {
   delete process.env.NEXT_PUBLIC_BACKEND_URL;
   delete process.env.NEXTAUTH_URL;
+  delete process.env.AUTH_SECRET;
+  delete process.env.NEXTAUTH_SECRET;
 });
 
 describe("split-runtime session verification", () => {
+  it("decodes the signed portal cookie locally when Auth.js request context is unavailable", async () => {
+    process.env.AUTH_SECRET = "test-secret-that-is-long-enough-for-authjs";
+    const cookieName = "avenick.seller.session-token";
+    const signed = await encode({
+      secret: process.env.AUTH_SECRET,
+      salt: cookieName,
+      token: {
+        sub: "seller-user",
+        email: "seller@example.test",
+        role: UserRole.SELLER_OWNER,
+        language: "en",
+      },
+      maxAge: 60,
+    });
+    const fetcher = vi.fn();
+
+    const session = await resolveRemotePortalSession(
+      "seller",
+      `${cookieName}=${signed}`,
+      fetcher as typeof fetch,
+    );
+
+    expect(session?.user).toMatchObject({
+      id: "seller-user",
+      email: "seller@example.test",
+      role: UserRole.SELLER_OWNER,
+    });
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it("forwards only the matching portal cookie to the configured backend", async () => {
     process.env.NEXT_PUBLIC_BACKEND_URL = "https://backend.example.test/";
     const fetcher = vi.fn(async () =>
