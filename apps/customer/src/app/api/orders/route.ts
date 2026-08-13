@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth-instance";
 import {
   assertGenericCheckoutHasNoPurchaseOrder,
-  assertMatchingIdempotencyFingerprint,
-  canonicalOrderRequest,
   secureCreateOrder,
   finalizeInternalOrderPayment,
   db,
 } from "@avenick/database";
+import {
+  assertMatchingIdempotencyFingerprint,
+  canonicalOrderRequest,
+} from "@avenick/database/commerce-governance";
 import { checkRateLimit, RATE_LIMITS } from "@avenick/auth";
 import { log } from "@avenick/observability";
 import { z } from "zod";

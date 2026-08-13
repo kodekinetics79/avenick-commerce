@@ -4,6 +4,7 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
+    "./commerce-governance": "./src/services/commerce-governance.ts",
     "./pilot-catalog": "./src/services/pilot-catalog.ts"
   },
   "prisma": {
@@ -26,6 +27,7 @@
   },
   "dependencies": {
     "@avenick/observability": "workspace:*",
+    "@noble/hashes": "1.7.1",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3"
   },
