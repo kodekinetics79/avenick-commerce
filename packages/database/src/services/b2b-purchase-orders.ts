@@ -1,4 +1,4 @@
-import type { Currency, Prisma } from "@prisma/client";
+import { AuditAction, type Currency, type Prisma } from "@prisma/client";
 import { db } from "../index";
 import { secureCreateOrder } from "./secure-checkout";
 
@@ -163,7 +163,7 @@ export async function createGovernedPurchaseOrder(input: {
         actorId: input.requesterId,
         entityType: "PurchaseOrder",
         entityId: purchaseOrder.id,
-        action: "CREATE",
+        action: AuditAction.CREATE,
         after: {
           poNumber: purchaseOrder.poNumber,
           status: purchaseOrder.status,
@@ -236,7 +236,7 @@ export async function placeGovernedPurchaseOrder(input: {
           actorId: input.actorId,
           entityType: "PurchaseOrder",
           entityId: po.id,
-          action: "STATUS_CHANGE",
+          action: AuditAction.STATUS_CHANGE,
           before: { status: "APPROVED", total: Number(po.total) },
           after: { status: "PENDING_APPROVAL", reason: "PRICE_CHANGED", sku: changed.sku, currentTotal: current.gross },
         },
@@ -288,7 +288,7 @@ export async function placeGovernedPurchaseOrder(input: {
         actorId: input.actorId,
         entityType: "PurchaseOrder",
         entityId: po.id,
-        action: "STATUS_CHANGE",
+        action: AuditAction.STATUS_CHANGE,
         before: { status: "APPROVED" },
         after: {
           status: "ORDERED",

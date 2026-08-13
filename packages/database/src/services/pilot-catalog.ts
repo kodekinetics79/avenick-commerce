@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { createHash } from "node:crypto";
 import {
+  AuditAction,
   ProductIssueType,
   ProductStatus,
   SellerStatus,
@@ -216,7 +217,10 @@ async function ensureBrand(name?: string | null) {
 }
 
 function commercialPayload(row: PilotCatalogRecord): Prisma.InputJsonValue {
-  return {
+  // Prisma distinguishes database-null sentinels from JSON null at the type
+  // level. Round-tripping through JSON produces a plain, serializable JSON value
+  // while preserving explicit nulls inside the source-evidence object.
+  const payload = {
     filterElements: clean(row.filterElements) ?? null,
     maxVolumeLeadTime: clean(row.maxVolumeLeadTime) ?? null,
     dimensionsCm: row.dimensionsCm ?? null,
@@ -227,6 +231,7 @@ function commercialPayload(row: PilotCatalogRecord): Prisma.InputJsonValue {
     assetKey: row.assetKey ?? null,
     assets: row.assets ?? null,
   };
+  return JSON.parse(JSON.stringify(payload)) as Prisma.InputJsonValue;
 }
 
 async function upsertProduct(row: PilotCatalogRecord, sellerId: string, locationId: string, assetBaseUrl?: string) {
@@ -436,7 +441,7 @@ export async function applyPilotCatalog(file: PilotCatalogFile, options: {
         actorId: options.actorId,
         entityType: "PilotCatalogImport",
         entityId: createHash("sha256").update(JSON.stringify(result)).digest("hex").slice(0, 24),
-        action: "CREATE",
+        action: AuditAction.CREATE,
         after: result,
       },
     });
