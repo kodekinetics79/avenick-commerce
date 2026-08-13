@@ -5,6 +5,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
+    "./remote-session": "./src/remote-session.ts",
     "./middleware": "./src/middleware.ts",
     "./guards": "./src/guards.ts",
     "./api": "./src/api.ts"
