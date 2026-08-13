@@ -19,25 +19,30 @@ export type CatalogListSource = {
 /** Explicit storefront projection: no operational inventory, issues, health, or internal timestamps. */
 export function toCatalogListDto(source: CatalogListSource, channel: "B2C" | "B2B", currency?: string) {
   const applicableAtMoq = (price: CatalogPrice) => price.type === channel
-    && (!currency || price.currency === currency)
     && price.minQty <= source.moq
     && (price.maxQty == null || source.moq <= price.maxQty);
-  const basePrices = source.prices.filter(applicableAtMoq);
-  const availableVariantIds = new Set(source.inventory
-    .filter((stock) => stock.variantId != null && stock.qty - stock.reservedQty > 0)
-    .map((stock) => stock.variantId));
+  const allBasePrices = source.prices.filter(applicableAtMoq);
+  const allVariantPrices = source.variants.flatMap((variant) => variant.prices.filter(applicableAtMoq));
+  const availableCurrencies = [...new Set([...allBasePrices, ...allVariantPrices].map((price) => price.currency))].sort();
+  const cardCurrency = currency ?? (availableCurrencies.includes("AED") ? "AED" : availableCurrencies[0]);
+  const basePrices = allBasePrices.filter((price) => price.currency === cardCurrency);
+  const availableByIdentity = new Map<string | null, number>();
+  for (const stock of source.inventory) {
+    availableByIdentity.set(stock.variantId, (availableByIdentity.get(stock.variantId) ?? 0) + stock.qty - stock.reservedQty);
+  }
+  const availableVariantIds = new Set(source.variants
+    .filter((variant) => (availableByIdentity.get(variant.id) ?? 0) >= source.moq)
+    .map((variant) => variant.id));
   const variantPrices = source.variants
     .filter((variant) => availableVariantIds.has(variant.id))
     .flatMap((variant) => {
-      const own = variant.prices.filter(applicableAtMoq);
+      const own = variant.prices.filter((price) => applicableAtMoq(price) && price.currency === cardCurrency);
       return own.length > 0 ? own : basePrices;
     });
   const hasVariants = source.variants.length > 0;
-  const baseInStock = source.inventory.some((stock) => stock.variantId == null && stock.qty - stock.reservedQty > 0);
+  const baseInStock = (availableByIdentity.get(null) ?? 0) >= source.moq;
   const cardCandidates = hasVariants ? variantPrices : baseInStock ? basePrices : [];
-  const cardCurrency = currency ?? cardCandidates[0]?.currency;
   const cardPrice = cardCandidates
-    .filter((price) => price.currency === cardCurrency)
     .map((price) => ({ amount: Number(price.price), currency: price.currency, vatRate: Number(price.vatRate) }))
     .filter((price) => Number.isFinite(price.amount) && Number.isFinite(price.vatRate))
     .sort((a, b) => a.amount - b.amount)[0] ?? null;

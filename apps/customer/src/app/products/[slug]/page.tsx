@@ -16,7 +16,7 @@ type Review = { id: string; rating: number; title?: string | null; body?: string
 
 type Tab = "description" | "specs" | "reviews" | "shipping";
 
-export default function ProductPage({ params }: { params: { slug: string } }) {
+export default function ProductPage({ params, searchParams }: { params: { slug: string }; searchParams: { currency?: string } }) {
   const [product, setProduct] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [qty, setQty] = useState(1);
@@ -55,7 +55,8 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
   }, []);
 
   useEffect(() => {
-    fetch(`/api/products/${params.slug}`)
+    const currency = searchParams.currency?.toUpperCase();
+    fetch(`/api/products/${params.slug}${currency ? `?currency=${encodeURIComponent(currency)}` : ""}`)
       .then((r) => r.json())
       .then((data) => {
         setProduct(data.data);
@@ -67,7 +68,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
         }
       })
       .catch(() => setLoading(false));
-  }, [params.slug]);
+  }, [params.slug, searchParams.currency]);
 
   if (loading) return (
     <MainLayout>
@@ -91,7 +92,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
   const p = product as Record<string, unknown> & StorefrontProduct;
   const images = (p.images as { url: string }[]) ?? [];
   const variants = p.variants ?? [];
-  const selection = resolveStorefrontSelection(p, selectedVariantId, qty);
+  const selection = resolveStorefrontSelection(p, selectedVariantId, qty, searchParams.currency?.toUpperCase() ?? "AED");
   const seller = p.seller as Record<string, unknown>;
   const inStock = selection?.inStock === true;
   const displayPrice = selection?.unitPrice ?? 0;

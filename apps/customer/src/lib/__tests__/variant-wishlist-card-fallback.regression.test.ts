@@ -4,14 +4,15 @@ import {
   toStorefrontWishlistItem,
   type StorefrontProduct,
 } from "../catalog-commercial";
-import { productCardPricePresentation, productCardPurchaseAction, productCardReviewState } from "../product-card-commerce";
+import { productCardPricePresentation, productCardPurchaseAction, productCardReviewState, storefrontProductHref } from "../product-card-commerce";
 import { toWishlistCartLine, wishlistItemKey } from "../../stores/wishlist";
-import { clampCartQuantity } from "../../stores/cart";
+import { cartQuantityChangeHref, replaceCartCommercialSelection } from "../../stores/cart";
 import { summarizeCartCommercial } from "../cart-commercial";
 import { toCatalogListDto } from "../catalog-list-dto";
 
 const fallbackProduct: StorefrontProduct = {
   id: "base-priced-product",
+  slug: "boot",
   sellerId: "seller",
   sku: "BASE",
   nameEn: "Boot",
@@ -97,16 +98,24 @@ describe("variant wishlist, list card, and base-price fallback", () => {
     product.variants[0]!.prices = [
       { type: "B2C", currency: "SAR", minQty: 10, maxQty: null, price: 70, vatRate: 0 },
     ];
-    const selection = resolveStorefrontSelection(product, "blue-42", 10, "SAR")!;
-    const wishlist = toStorefrontWishlistItem(product, "boot", selection, 10);
+    product.moq = 10;
+    const selection = resolveStorefrontSelection(product, "blue-42", 20, "SAR")!;
+    const wishlist = toStorefrontWishlistItem(product, "boot", selection, 20);
     const cartLine = toWishlistCartLine(wishlist);
-    expect(cartLine).toMatchObject({ qty: 10, unitPrice: 70, currency: "SAR", vatRate: 0 });
+    expect(cartLine).toMatchObject({ qty: 20, moq: 10, unitPrice: 70, currency: "SAR", vatRate: 0 });
     expect(summarizeCartCommercial([cartLine])).toEqual({
-      valid: true, currency: "SAR", subtotal: 700, vatAmount: 0, total: 700,
+      valid: true, currency: "SAR", subtotal: 1400, vatAmount: 0, total: 1400,
     });
     expect({ currency: cartLine.currency, items: [{ productId: cartLine.productId, variantId: cartLine.variantId, quantity: cartLine.qty }] })
-      .toEqual({ currency: "SAR", items: [{ productId: "base-priced-product", variantId: "blue-42", quantity: 10 }] });
-    expect(clampCartQuantity(1, cartLine.moq)).toBe(10);
+      .toEqual({ currency: "SAR", items: [{ productId: "base-priced-product", variantId: "blue-42", quantity: 20 }] });
+    expect(cartLine).toMatchObject({ slug: "boot", moq: 10 });
+    expect(cartQuantityChangeHref(cartLine)).toBe("/products/boot");
+  });
+
+  it("replaces a 10-unit commercial snapshot after product re-selection at a 20-unit tier", () => {
+    const prior = { id: "p-v", productId: "p", slug: "p", variantId: "v", nameEn: "P", nameAr: "P", sku: "V", qty: 10, moq: 10, unitPrice: 100, vatRate: 5, sellerId: "s", currency: "AED" };
+    const selected = { productId: "p", slug: "p", variantId: "v", nameEn: "P", nameAr: "P", sku: "V", qty: 20, moq: 10, unitPrice: 80, vatRate: 0, sellerId: "s", currency: "AED" };
+    expect(replaceCartCommercialSelection(prior, selected)).toMatchObject({ id: "p-v", qty: 20, unitPrice: 80, vatRate: 0 });
   });
 
   it("uses the minimum purchasable variant price, excluding unavailable variants", () => {
@@ -153,5 +162,23 @@ describe("variant wishlist, list card, and base-price fallback", () => {
   it("requires navigation to variant selection instead of ambiguous quick-add", () => {
     expect(productCardPurchaseAction(true)).toBe("SELECT_VARIANT");
     expect(productCardPurchaseAction(false)).toBe("ADD_TO_CART");
+  });
+
+  it("keeps advertised currency reachable and resolves own-tier then base fallback deterministically", () => {
+    const dto = toCatalogListDto({
+      id: "p", sellerId: "s", sku: "P", slug: "multi", nameEn: "P", nameAr: "P",
+      descriptionEn: null, descriptionAr: null, origin: null, tags: [], moq: 10,
+      isB2CEnabled: true, isB2BEnabled: false, images: [],
+      prices: [{ type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 100, vatRate: 5 }],
+      inventory: [{ variantId: "sar-own", qty: 10, reservedQty: 0 }, { variantId: "base-fallback", qty: 10, reservedQty: 0 }],
+      variants: [
+        { id: "sar-own", prices: [{ type: "B2C", currency: "SAR", minQty: 1, maxQty: null, price: 20, vatRate: 15 }] },
+        { id: "base-fallback", prices: [] },
+      ],
+      category: { nameEn: "C", nameAr: "C", slug: "c" }, brand: null,
+      seller: { businessNameEn: "S", businessNameAr: null, tier: "VERIFIED", rating: 0 },
+    }, "B2C");
+    expect(dto.cardPrice).toEqual({ amount: 100, currency: "AED", vatRate: 5, isFrom: true });
+    expect(storefrontProductHref(dto.slug, dto.cardPrice.currency)).toBe("/products/multi?currency=AED");
   });
 });

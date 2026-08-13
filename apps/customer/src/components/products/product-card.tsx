@@ -9,7 +9,7 @@ import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { productCardPricePresentation, productCardPurchaseAction, productCardReviewState } from "@/lib/product-card-commerce";
+import { productCardPricePresentation, productCardPurchaseAction, productCardReviewState, storefrontProductHref } from "@/lib/product-card-commerce";
 
 interface ProductCardProps {
   id: string;
@@ -58,25 +58,26 @@ export function ProductCard({
     : null;
   const review = productCardReviewState(rating, reviewCount);
   const pricePresentation = productCardPricePresentation(price, hasVariants);
+  const productHref = storefrontProductHref(slug, currency);
 
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault();
     if (productCardPurchaseAction(hasVariants) === "SELECT_VARIANT") {
-      router.push(`/products/${slug}`);
+      router.push(productHref);
       return;
     }
     if (price == null || !currency || vatRate == null) return;
-    addItem({ productId: id, nameEn, nameAr, imageUrl, sku, qty: moq, moq, unitPrice: price, vatRate, sellerId, currency });
+    addItem({ productId: id, slug, nameEn, nameAr, imageUrl, sku, qty: moq, moq, unitPrice: price, vatRate, sellerId, currency });
   }
 
   function handleWishlist(e: React.MouseEvent) {
     e.preventDefault();
     if (hasVariants) {
-      router.push(`/products/${slug}`);
+      router.push(productHref);
       return;
     }
     if (price == null || !currency || vatRate == null) return;
-    toggle({ id, slug, nameEn, nameAr, imageUrl, price, quantity: moq, vatRate, currency, sku, sellerId, sellerName, inStock });
+    toggle({ id, slug, nameEn, nameAr, imageUrl, price, quantity: moq, moq, vatRate, currency, sku, sellerId, sellerName, inStock });
   }
 
   const badgeClass =
@@ -87,7 +88,7 @@ export function ProductCard({
 
   return (
     <Link
-      href={`/products/${slug}`}
+      href={productHref}
       className="group relative block rounded-2xl border border-border bg-card overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-elevated"
     >
       {/* Image */}

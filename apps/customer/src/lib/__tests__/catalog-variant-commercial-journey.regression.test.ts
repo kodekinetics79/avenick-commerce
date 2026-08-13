@@ -3,6 +3,7 @@ import { resolveStorefrontSelection, toStorefrontCartLine, type StorefrontProduc
 
 const product: StorefrontProduct = {
   id: "product",
+  slug: "variant-product",
   sellerId: "seller",
   sku: "BASE",
   nameEn: "Variant-only product",

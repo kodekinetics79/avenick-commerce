@@ -15,3 +15,7 @@ export function productCardReviewState(rating: number | undefined, reviewCount: 
     ? { kind: "RATED" as const, rating, reviewCount }
     : { kind: "UNRATED" as const };
 }
+
+export function storefrontProductHref(slug: string, currency?: string) {
+  return currency ? `/products/${slug}?currency=${encodeURIComponent(currency)}` : `/products/${slug}`;
+}

@@ -12,6 +12,7 @@ export interface WishlistItem {
   imageUrl?: string;
   price: number;
   quantity?: number;
+  moq?: number;
   vatRate?: number;
   currency: string;
   sku: string;
@@ -33,13 +34,14 @@ export const wishlistItemKey = (id: string, variantId?: string) => `${id}-${vari
 export function toWishlistCartLine(item: WishlistItem) {
   return {
     productId: item.id,
+    slug: item.slug,
     variantId: item.variantId,
     nameEn: item.nameEn,
     nameAr: item.nameAr,
     imageUrl: item.imageUrl,
     sku: item.sku,
     qty: item.quantity ?? 1,
-    moq: item.quantity ?? 1,
+    moq: item.moq ?? 1,
     unitPrice: item.price,
     vatRate: item.vatRate,
     sellerId: item.sellerId,

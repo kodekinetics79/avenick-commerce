@@ -34,4 +34,19 @@ describe("public catalog detail privacy DTO", () => {
       "price-id", "variant-price-id", "private-user", "productId", "available",
     ]) expect(serialized).not.toContain(privateValue);
   });
+
+  it("requires aggregate stock to meet MOQ for base and variant availability", () => {
+    const source = {
+      id: "p", sellerId: "s", sku: "P", slug: "p", nameEn: "P", nameAr: "P",
+      descriptionEn: null, descriptionAr: null, isB2CEnabled: true, isB2BEnabled: false,
+      origin: null, weight: null, moq: 10, images: [], prices: [], seller: {
+        businessNameEn: "S", businessNameAr: null, tier: "VERIFIED", rating: 0,
+        reviewCount: 0, city: "Dubai", country: "AE",
+      }, reviews: [], variants: [{ id: "v", sku: "V", nameEn: "V", nameAr: null, attributes: {}, isActive: true, prices: [] }],
+      inventory: [{ variantId: null, available: 9 }, { variantId: "v", available: 5 }, { variantId: "v", available: 5 }],
+    };
+    const dto = toCatalogDetailDto(source);
+    expect(dto.inventory).toEqual([{ inStock: false }]);
+    expect(dto.variants[0]?.inStock).toBe(true);
+  });
 });

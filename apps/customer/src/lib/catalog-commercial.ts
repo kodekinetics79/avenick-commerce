@@ -19,6 +19,7 @@ export type StorefrontVariant = {
 
 export type StorefrontProduct = {
   id: string;
+  slug: string;
   sellerId: string;
   sku: string;
   nameEn: string;
@@ -82,6 +83,7 @@ export function toStorefrontCartLine(
 ) {
   return {
     productId: product.id,
+    slug: product.slug,
     variantId: selection.variantId,
     nameEn: selection.nameEn,
     nameAr: selection.nameAr,
@@ -112,6 +114,7 @@ export function toStorefrontWishlistItem(
     imageUrl,
     price: selection.unitPrice,
     quantity,
+    moq: product.moq ?? 1,
     vatRate: selection.vatRate,
     currency: selection.currency,
     sku: selection.sku,

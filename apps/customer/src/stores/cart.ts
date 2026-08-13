@@ -6,6 +6,7 @@ import { persist } from "zustand/middleware";
 export interface CartItem {
   id: string;
   productId: string;
+  slug?: string;
   variantId?: string;
   nameEn: string;
   nameAr: string;
@@ -23,14 +24,17 @@ interface CartStore {
   items: CartItem[];
   currency: string;
   addItem: (item: Omit<CartItem, "id"> & { id?: string }) => void;
-  updateQty: (id: string, qty: number) => void;
   removeItem: (id: string) => void;
   clearCart: () => void;
   total: () => number;
   itemCount: () => number;
 }
 
-export const clampCartQuantity = (quantity: number, moq?: number) => Math.max(moq ?? 1, quantity);
+export const cartQuantityChangeHref = (item: Pick<CartItem, "slug">) => item.slug ? `/products/${item.slug}` : "/products";
+export const replaceCartCommercialSelection = (existing: CartItem, selected: Omit<CartItem, "id"> & { id?: string }): CartItem => ({
+  ...selected,
+  id: existing.id,
+});
 
 export const useCartStore = create<CartStore>()(
   persist(
@@ -43,15 +47,10 @@ export const useCartStore = create<CartStore>()(
         set((state) => {
           const existing = state.items.find((i) => `${i.productId}-${i.variantId ?? ""}` === key);
           if (existing) {
-            return { items: state.items.map((i) => `${i.productId}-${i.variantId ?? ""}` === key ? { ...i, qty: i.qty + item.qty } : i) };
+            return { items: state.items.map((i) => `${i.productId}-${i.variantId ?? ""}` === key ? replaceCartCommercialSelection(i, item) : i) };
           }
           return { items: [...state.items, { ...item, id: item.id ?? key }] };
         });
-      },
-
-      updateQty: (id, qty) => {
-        if (qty <= 0) { get().removeItem(id); return; }
-        set((state) => ({ items: state.items.map((i) => i.id === id ? { ...i, qty: clampCartQuantity(qty, i.moq) } : i) }));
       },
 
       removeItem: (id) => set((state) => ({ items: state.items.filter((i) => i.id !== id) })),

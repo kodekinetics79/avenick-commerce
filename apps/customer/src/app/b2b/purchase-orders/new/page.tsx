@@ -34,7 +34,7 @@ type CreatedPO = {
 };
 
 export default function NewPurchaseOrderPage() {
-  const { items, updateQty, removeItem, clearCart } = useCartStore();
+  const { items, removeItem, clearCart } = useCartStore();
   const [context, setContext] = useState<CompanyContext | null>(null);
   const [contextError, setContextError] = useState("");
   const [requiredDate, setRequiredDate] = useState("");
@@ -143,7 +143,8 @@ export default function NewPurchaseOrderPage() {
                       <p className="mt-1 text-xs text-muted-foreground">Displayed cart price: {formatCartCurrency(item.unitPrice, item.currency)}</p>
                     </div>
                     <div className="text-right">
-                      <input aria-label={`Quantity for ${item.sku}`} type="number" min={1} max={100000} value={item.qty} onChange={(event) => updateQty(item.id, Math.max(1, Number(event.target.value) || 1))} className="h-9 w-24 rounded-lg border border-input bg-background px-2 text-right text-sm" />
+                      <span className="text-sm font-medium">Qty {item.qty}</span>
+                      <a href={item.slug ? `/products/${item.slug}` : "/products"} className="text-xs text-primary hover:underline">Change selection</a>
                       <button type="button" onClick={() => removeItem(item.id)} className="mt-2 block ml-auto text-xs text-muted-foreground hover:text-danger">Remove</button>
                     </div>
                   </div>

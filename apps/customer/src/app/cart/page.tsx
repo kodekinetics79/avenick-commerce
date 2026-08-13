@@ -2,23 +2,24 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { Trash2, Minus, Plus, ShoppingBag, ArrowRight, ShieldCheck, Heart } from "lucide-react";
+import { Trash2, ShoppingBag, ArrowRight, ShieldCheck, Heart } from "lucide-react";
 import { Button } from "@avenick/ui";
 import { formatCurrency } from "@avenick/utils";
-import { useCartStore } from "@/stores/cart";
+import { cartQuantityChangeHref, useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
 import { MainLayout } from "@/components/layout/main-layout";
 import { summarizeCartCommercial } from "@/lib/cart-commercial";
 
 export default function CartPage() {
-  const { items, updateQty, removeItem } = useCartStore();
+  const { items, removeItem } = useCartStore();
   const { toggle } = useWishlist();
   const summary = summarizeCartCommercial(items);
   const subtotal = summary.valid ? summary.subtotal : 0;
   const orderTotal = summary.valid ? summary.total : 0;
 
   function saveForLater(item: typeof items[0]) {
-    toggle({ id: item.productId, slug: item.productId, variantId: item.variantId, nameEn: item.nameEn, nameAr: item.nameAr, imageUrl: item.imageUrl, price: item.unitPrice, quantity: item.qty, vatRate: item.vatRate, currency: item.currency, sku: item.sku, sellerId: item.sellerId, inStock: true });
+    if (!item.slug) return;
+    toggle({ id: item.productId, slug: item.slug, variantId: item.variantId, nameEn: item.nameEn, nameAr: item.nameAr, imageUrl: item.imageUrl, price: item.unitPrice, quantity: item.qty, moq: item.moq, vatRate: item.vatRate, currency: item.currency, sku: item.sku, sellerId: item.sellerId, inStock: true });
     removeItem(item.id);
   }
 
@@ -56,7 +57,7 @@ export default function CartPage() {
             <div className="lg:col-span-2 space-y-3">
               {items.map((item) => (
                 <div key={item.id} className="flex gap-4 bg-white rounded-2xl border border-border p-4 hover:shadow-sm transition-shadow">
-                  <Link href={`/products/${item.productId}`} className="w-20 h-20 shrink-0 bg-secondary rounded-xl overflow-hidden relative border border-border">
+                  <Link href={cartQuantityChangeHref(item)} className="w-20 h-20 shrink-0 bg-secondary rounded-xl overflow-hidden relative border border-border">
                     {item.imageUrl ? (
                       <Image src={item.imageUrl} alt={item.nameEn} fill className="object-cover" sizes="80px" />
                     ) : (
@@ -75,11 +76,7 @@ export default function CartPage() {
                     <p className="text-xs text-muted-foreground mt-1">{formatCurrency(item.unitPrice, item.currency as never)} each · VAT {item.vatRate ?? "missing"}%</p>
 
                     <div className="flex items-center justify-between mt-3">
-                      <div className="flex items-center border border-border rounded-lg overflow-hidden">
-                        <button type="button" aria-label="Decrease quantity" onClick={() => updateQty(item.id, item.qty - 1)} className="p-1.5 hover:bg-secondary transition-colors"><Minus className="h-3.5 w-3.5" /></button>
-                        <span className="px-3 text-sm font-semibold min-w-[2rem] text-center">{item.qty}</span>
-                        <button type="button" aria-label="Increase quantity" onClick={() => updateQty(item.id, item.qty + 1)} className="p-1.5 hover:bg-secondary transition-colors"><Plus className="h-3.5 w-3.5" /></button>
-                      </div>
+                      <div className="flex items-center gap-2 text-sm"><span className="font-semibold">Qty {item.qty}</span><Link href={cartQuantityChangeHref(item)} className="text-xs text-primary hover:underline">Change quantity</Link></div>
                       <div className="flex items-center gap-1">
                         <button type="button" onClick={() => saveForLater(item)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1 rounded-lg hover:bg-primary/10">
                           <Heart className="h-3.5 w-3.5" /> Save
