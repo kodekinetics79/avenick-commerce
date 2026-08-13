@@ -49,42 +49,37 @@ export async function createPromotion(formData: FormData) {
   const endsAt = optionalDate(formData, "endsAt");
   if (startsAt && endsAt && endsAt <= startsAt) throw new Error("Promotion end must be after start");
 
-  const promotion = await db.commercePromotion.create({
-    data: {
-      tenantKey: "default",
-      name,
-      description: text(formData, "description") || null,
-      type,
-      status: "DRAFT",
-      scope: "PLATFORM",
-      currency: currency as Currency,
-      value,
-      minOrderAmount: optionalNumber(formData, "minOrderAmount"),
-      maxDiscountAmount: optionalNumber(formData, "maxDiscountAmount"),
-      usageLimit: optionalInt(formData, "usageLimit"),
-      perCustomerLimit: optionalInt(formData, "perCustomerLimit"),
-      stackable: formData.get("stackable") === "on",
-      priority: optionalInt(formData, "priority") ?? 100,
-      startsAt,
-      endsAt,
-      createdById: userId,
-    },
-  });
-
-  await db.auditLog.create({
-    data: {
-      actorId: userId,
-      entityType: "CommercePromotion",
-      entityId: promotion.id,
-      action: AuditAction.CREATE,
-      after: {
-        name: promotion.name,
-        type: promotion.type,
-        currency: promotion.currency,
-        value: Number(promotion.value),
-        status: promotion.status,
+  await db.$transaction(async (tx) => {
+    const promotion = await tx.commercePromotion.create({
+      data: {
+        tenantKey: "default",
+        name,
+        description: text(formData, "description") || null,
+        type,
+        status: "DRAFT",
+        scope: "PLATFORM",
+        currency: currency as Currency,
+        value,
+        minOrderAmount: optionalNumber(formData, "minOrderAmount"),
+        maxDiscountAmount: optionalNumber(formData, "maxDiscountAmount"),
+        usageLimit: optionalInt(formData, "usageLimit"),
+        perCustomerLimit: optionalInt(formData, "perCustomerLimit"),
+        stackable: formData.get("stackable") === "on",
+        priority: optionalInt(formData, "priority") ?? 100,
+        startsAt,
+        endsAt,
+        createdById: userId,
       },
-    },
+    });
+    await tx.auditLog.create({
+      data: {
+        actorId: userId,
+        entityType: "CommercePromotion",
+        entityId: promotion.id,
+        action: AuditAction.CREATE,
+        after: { name: promotion.name, type: promotion.type, currency: promotion.currency, value: Number(promotion.value), status: promotion.status },
+      },
+    });
   });
   revalidatePath("/campaigns");
 }
@@ -189,30 +184,26 @@ export async function createReferralProgram(formData: FormData) {
   const endsAt = optionalDate(formData, "endsAt");
   if (startsAt && endsAt && endsAt <= startsAt) throw new Error("Referral program end must be after start");
 
-  const program = await db.referralProgram.create({
-    data: {
-      tenantKey: "default",
-      name,
-      status: "DRAFT",
-      referrerRewardType: "FIXED_AMOUNT",
-      referrerRewardValue,
-      refereeRewardType: "FIXED_AMOUNT",
-      refereeRewardValue,
-      currency: currency as Currency,
-      maxUsesPerCode: optionalInt(formData, "maxUsesPerCode"),
-      startsAt,
-      endsAt,
-      eligibility: { createdById: userId },
-    },
-  });
-  await db.auditLog.create({
-    data: {
-      actorId: userId,
-      entityType: "ReferralProgram",
-      entityId: program.id,
-      action: AuditAction.CREATE,
-      after: { name: program.name, status: program.status, currency: program.currency },
-    },
+  await db.$transaction(async (tx) => {
+    const program = await tx.referralProgram.create({
+      data: {
+        tenantKey: "default",
+        name,
+        status: "DRAFT",
+        referrerRewardType: "FIXED_AMOUNT",
+        referrerRewardValue,
+        refereeRewardType: "FIXED_AMOUNT",
+        refereeRewardValue,
+        currency: currency as Currency,
+        maxUsesPerCode: optionalInt(formData, "maxUsesPerCode"),
+        startsAt,
+        endsAt,
+        eligibility: { createdById: userId },
+      },
+    });
+    await tx.auditLog.create({
+      data: { actorId: userId, entityType: "ReferralProgram", entityId: program.id, action: AuditAction.CREATE, after: { name: program.name, status: program.status, currency: program.currency } },
+    });
   });
   revalidatePath("/campaigns");
 }

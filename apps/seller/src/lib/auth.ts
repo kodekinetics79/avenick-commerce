@@ -1,17 +1,22 @@
 import { auth } from "@/lib/auth-instance";
 import { redirect } from "next/navigation";
 import { db } from "@avenick/database";
+import { sellerUserCanAccess } from "./seller-access";
 
 export async function requireSellerSession() {
   const session = await auth();
   if (!session?.user) redirect("/login");
 
-  const user = session.user as { id: string; role: string };
-  if (!["SELLER_OWNER", "SELLER_STAFF"].includes(user.role)) redirect("/login");
+  const sessionUser = session.user as { id: string; role: string };
+  const user = await db.user.findUnique({
+    where: { id: sessionUser.id },
+    select: { id: true, role: true, status: true, deletedAt: true },
+  });
+  if (!user || !["SELLER_OWNER", "SELLER_STAFF"].includes(user.role)) redirect("/login");
 
   if (user.role === "SELLER_OWNER") {
     const seller = await db.sellerProfile.findUnique({ where: { userId: user.id } });
-    if (!seller || seller.deletedAt || seller.status !== "ACTIVE") redirect("/login");
+    if (!sellerUserCanAccess(user) || !seller || seller.deletedAt || seller.status !== "ACTIVE") redirect("/login");
 
     return {
       session,
@@ -34,7 +39,7 @@ export async function requireSellerSession() {
     where: { userId: user.id },
     include: { seller: true },
   });
-  if (!membership?.isActive || membership.seller.deletedAt || membership.seller.status !== "ACTIVE") {
+  if (!sellerUserCanAccess(user, membership) || !membership || membership.seller.deletedAt || membership.seller.status !== "ACTIVE") {
     redirect("/login");
   }
 

@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
 
       const created = [];
       for (const sellerId of sellerIds) {
-        created.push(await tx.returnRequest.create({
+        const request = await tx.returnRequest.create({
           data: {
             returnNumber: returnNumber(),
             orderId: order.id,
@@ -94,7 +94,18 @@ export async function POST(req: NextRequest) {
             reason: finalReason,
             status: "REQUESTED",
           },
-        }));
+        });
+        await tx.auditLog.create({
+          data: {
+            actorId: userId,
+            sellerId,
+            entityType: "ReturnRequest",
+            entityId: request.id,
+            action: "CREATE",
+            after: { orderId: order.id, status: request.status, source: "CUSTOMER_REQUEST" },
+          },
+        });
+        created.push(request);
       }
       return created;
     });

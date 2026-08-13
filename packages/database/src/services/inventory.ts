@@ -1,4 +1,4 @@
-import { db } from "../index";
+import { AuditAction, db } from "../index";
 
 export async function getSellerInventory(sellerId: string, params: { page?: number; limit?: number; lowStock?: boolean }) {
   const { page = 1, limit = 50, lowStock } = params;
@@ -34,11 +34,15 @@ export async function adjustInventory(
   stockId: string,
   qty: number,
   type: "IN" | "OUT" | "ADJUSTMENT",
+  actorId: string,
   reference?: string,
-  notes?: string,
-  actorId?: string
+  notes?: string
 ) {
-  const stock = await db.inventoryStock.findUnique({ where: { id: stockId } });
+  if (!actorId) throw new Error("Inventory adjustment actor is required");
+  const stock = await db.inventoryStock.findUnique({
+    where: { id: stockId },
+    include: { product: { select: { sellerId: true } } },
+  });
   if (!stock) throw new Error("Stock record not found");
 
   const newQty = type === "OUT" ? stock.qty - qty : type === "IN" ? stock.qty + qty : qty;
@@ -47,6 +51,17 @@ export async function adjustInventory(
   await db.$transaction([
     db.inventoryStock.update({ where: { id: stockId }, data: { qty: newQty } }),
     db.inventoryMovement.create({ data: { stockId, type, qty, reference, notes, createdBy: actorId } }),
+    db.auditLog.create({
+      data: {
+        actorId,
+        sellerId: stock.product?.sellerId,
+        entityType: "InventoryStock",
+        entityId: stockId,
+        action: AuditAction.UPDATE,
+        before: { qty: stock.qty },
+        after: { qty: newQty, movementType: type, quantity: qty, reference },
+      },
+    }),
   ]);
 
   return newQty;

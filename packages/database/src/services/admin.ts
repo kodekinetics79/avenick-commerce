@@ -233,47 +233,61 @@ export async function getAdminDashboard() {
 }
 
 export async function approveSeller(sellerId: string, actorId: string) {
+  const current = await db.sellerProfile.findUnique({ where: { id: sellerId }, select: { status: true } });
+  if (!current) throw new Error("Seller not found");
   const [seller] = await db.$transaction([
     db.sellerProfile.update({ where: { id: sellerId }, data: { status: "ACTIVE" } }),
-    db.auditLog.create({ data: { actorId, entityType: "SellerProfile", entityId: sellerId, action: AuditAction.APPROVE, after: { status: "ACTIVE" } } }),
+    db.auditLog.create({ data: { actorId, sellerId, entityType: "SellerProfile", entityId: sellerId, action: AuditAction.APPROVE, before: { status: current.status }, after: { status: "ACTIVE" } } }),
   ]);
   return seller;
 }
 
 export async function rejectSeller(sellerId: string, actorId: string, reason: string) {
+  const current = await db.sellerProfile.findUnique({ where: { id: sellerId }, select: { status: true } });
+  if (!current) throw new Error("Seller not found");
   const [seller] = await db.$transaction([
     db.sellerProfile.update({ where: { id: sellerId }, data: { status: "REJECTED" as SellerStatus } }),
-    db.auditLog.create({ data: { actorId, entityType: "SellerProfile", entityId: sellerId, action: AuditAction.REJECT, after: { status: "REJECTED", reason } } }),
+    db.auditLog.create({ data: { actorId, sellerId, entityType: "SellerProfile", entityId: sellerId, action: AuditAction.REJECT, before: { status: current.status }, after: { status: "REJECTED", reason } } }),
   ]);
   return seller;
 }
 
 export async function reviewDocument(docId: string, status: DocumentStatus, actorId: string, reason?: string) {
-  return db.sellerDocument.update({
-    where: { id: docId },
-    data: { status, reviewedAt: new Date(), reviewedBy: actorId, rejectionReason: reason },
-  });
+  const current = await db.sellerDocument.findUnique({ where: { id: docId } });
+  if (!current) throw new Error("Seller document not found");
+  const [document] = await db.$transaction([
+    db.sellerDocument.update({ where: { id: docId }, data: { status, reviewedAt: new Date(), reviewedBy: actorId, rejectionReason: reason } }),
+    db.auditLog.create({ data: { actorId, sellerId: current.sellerId, entityType: "SellerDocument", entityId: docId, action: AuditAction.STATUS_CHANGE, before: { status: current.status }, after: { status, reason } } }),
+  ]);
+  return document;
 }
 
 export async function reviewProductCompliance(docId: string, status: DocumentStatus, actorId: string, reason?: string) {
-  return db.productComplianceDocument.update({
-    where: { id: docId },
-    data: { status, reviewedAt: new Date(), rejectionReason: reason },
-  });
+  const current = await db.productComplianceDocument.findUnique({ where: { id: docId }, include: { product: { select: { sellerId: true } } } });
+  if (!current) throw new Error("Product compliance document not found");
+  const [document] = await db.$transaction([
+    db.productComplianceDocument.update({ where: { id: docId }, data: { status, reviewedAt: new Date(), rejectionReason: reason } }),
+    db.auditLog.create({ data: { actorId, sellerId: current.product.sellerId, entityType: "ProductComplianceDocument", entityId: docId, action: AuditAction.STATUS_CHANGE, before: { status: current.status }, after: { status, reason } } }),
+  ]);
+  return document;
 }
 
 export async function approveProduct(productId: string, actorId: string) {
+  const current = await db.product.findUnique({ where: { id: productId }, select: { status: true, sellerId: true } });
+  if (!current) throw new Error("Product not found");
   const [product] = await db.$transaction([
     db.product.update({ where: { id: productId }, data: { status: "ACTIVE" as ProductStatus, publishedAt: new Date() } }),
-    db.auditLog.create({ data: { actorId, entityType: "Product", entityId: productId, action: AuditAction.APPROVE } }),
+    db.auditLog.create({ data: { actorId, sellerId: current.sellerId, entityType: "Product", entityId: productId, action: AuditAction.APPROVE, before: { status: current.status }, after: { status: "ACTIVE" } } }),
   ]);
   return product;
 }
 
 export async function rejectProduct(productId: string, actorId: string, reason: string) {
+  const current = await db.product.findUnique({ where: { id: productId }, select: { status: true, sellerId: true } });
+  if (!current) throw new Error("Product not found");
   const [product] = await db.$transaction([
     db.product.update({ where: { id: productId }, data: { status: "REJECTED" as ProductStatus } }),
-    db.auditLog.create({ data: { actorId, entityType: "Product", entityId: productId, action: AuditAction.REJECT, after: { reason } } }),
+    db.auditLog.create({ data: { actorId, sellerId: current.sellerId, entityType: "Product", entityId: productId, action: AuditAction.REJECT, before: { status: current.status }, after: { status: "REJECTED", reason } } }),
     db.productIssue.create({ data: { productId, issueType: "REJECTED_BY_ADMIN", severity: "ERROR", message: reason } }),
   ]);
   return product;

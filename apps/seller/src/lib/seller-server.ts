@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth-instance";
 import { db } from "@avenick/database";
+import { sellerUserCanAccess } from "./seller-access";
 export { sellerHasPermission } from "./seller-permissions";
 
 const SELLER_ROLES = new Set(["SELLER_OWNER", "SELLER_STAFF"]);
@@ -14,12 +15,17 @@ const SELLER_ROLES = new Set(["SELLER_OWNER", "SELLER_STAFF"]);
  */
 export async function getServerSellerContext() {
   const session = await auth();
-  const user = session?.user as { id: string; role: string } | undefined;
-  if (!user?.id || !SELLER_ROLES.has(user.role)) return null;
+  const sessionUser = session?.user as { id: string; role: string } | undefined;
+  if (!sessionUser?.id) return null;
+  const user = await db.user.findUnique({
+    where: { id: sessionUser.id },
+    select: { id: true, role: true, status: true, deletedAt: true },
+  });
+  if (!user || !SELLER_ROLES.has(user.role)) return null;
 
   if (user.role === "SELLER_OWNER") {
     const seller = await db.sellerProfile.findUnique({ where: { userId: user.id } });
-    if (!seller || seller.status !== "ACTIVE" || seller.deletedAt) return null;
+    if (!sellerUserCanAccess(user) || !seller || seller.status !== "ACTIVE" || seller.deletedAt) return null;
     return {
       session,
       user,
@@ -40,7 +46,7 @@ export async function getServerSellerContext() {
     where: { userId: user.id },
     include: { seller: true },
   });
-  if (!membership?.isActive || membership.seller.status !== "ACTIVE" || membership.seller.deletedAt) {
+  if (!sellerUserCanAccess(user, membership) || !membership || membership.seller.status !== "ACTIVE" || membership.seller.deletedAt) {
     return null;
   }
 

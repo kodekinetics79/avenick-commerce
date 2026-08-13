@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db } from "@avenick/database";
+import { AuditAction, db } from "@avenick/database";
 import { requireSellerPermission } from "@/lib/auth";
 
 const STATUSES = ["DRAFT", "ACTIVE", "SUPPRESSED", "INACTIVE"] as const;
@@ -12,13 +12,33 @@ type BulkStatus = (typeof STATUSES)[number];
  * belong to the calling seller — ids for other sellers are silently ignored.
  */
 export async function bulkUpdateProductStatus(productIds: string[], status: BulkStatus): Promise<{ count: number }> {
-  const { seller } = await requireSellerPermission("catalog.manage");
+  const { seller, userId } = await requireSellerPermission("catalog.manage");
   if (!STATUSES.includes(status)) throw new Error("Invalid status");
   if (productIds.length === 0) return { count: 0 };
 
-  const res = await db.product.updateMany({
-    where: { id: { in: productIds }, sellerId: seller.id, deletedAt: null },
-    data: { status, ...(status === "ACTIVE" ? { publishedAt: new Date() } : {}) },
+  const res = await db.$transaction(async (tx) => {
+    const targets = await tx.product.findMany({
+      where: { id: { in: productIds }, sellerId: seller.id, deletedAt: null },
+      select: { id: true, status: true },
+    });
+    const updated = await tx.product.updateMany({
+      where: { id: { in: targets.map((target) => target.id) } },
+      data: { status, ...(status === "ACTIVE" ? { publishedAt: new Date() } : {}) },
+    });
+    for (const target of targets) {
+      await tx.auditLog.create({
+        data: {
+          actorId: userId,
+          sellerId: seller.id,
+          entityType: "Product",
+          entityId: target.id,
+          action: AuditAction.STATUS_CHANGE,
+          before: { status: target.status },
+          after: { status, source: "SELLER_BULK_ACTION" },
+        },
+      });
+    }
+    return updated;
   });
 
   revalidatePath("/products");
@@ -47,7 +67,7 @@ export type ImportResult = {
  * catalog authoritative and avoids accidental duplicates.
  */
 export async function importProductsCsv(rows: ImportRow[]): Promise<ImportResult> {
-  const { seller } = await requireSellerPermission("catalog.manage");
+  const { seller, userId } = await requireSellerPermission("catalog.manage");
   const result: ImportResult = { updated: 0, skipped: 0, errors: [] };
 
   // Limit to a sane batch to keep the request bounded.
@@ -101,6 +121,28 @@ export async function importProductsCsv(rows: ImportRow[]): Promise<ImportResult
           }
           // No inventory row yet → skip (location unknown); name/status/price still applied.
         }
+        await tx.auditLog.create({
+          data: {
+            actorId: userId,
+            sellerId: seller.id,
+            entityType: "Product",
+            entityId: product.id,
+            action: AuditAction.UPDATE,
+            before: {
+              nameEn: product.nameEn,
+              nameAr: product.nameAr,
+              status: product.status,
+              price: product.prices[0] ? Number(product.prices[0].price) : null,
+              stock: product.inventory[0]?.qty ?? null,
+            },
+            after: {
+              source: "SELLER_CSV_IMPORT",
+              fields: Object.keys(data),
+              ...(row.price?.trim() ? { price: Number.isFinite(priceNum) && priceNum >= 0 ? priceNum : "IGNORED_INVALID" } : {}),
+              ...(row.stock?.trim() ? { stock: Number.isInteger(stockNum) && stockNum >= 0 ? stockNum : "IGNORED_INVALID" } : {}),
+            },
+          },
+        });
       });
       result.updated++;
     } catch (e) {
