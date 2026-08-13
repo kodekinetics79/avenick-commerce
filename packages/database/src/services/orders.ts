@@ -111,14 +111,24 @@ export async function createOrder(input: CreateOrderInput) {
   // local commercial source until an ERP adapter returns a stronger price truth.
   const products = await db.product.findMany({
     where: { id: { in: productIds }, deletedAt: null },
-    include: { prices: true, inventory: true },
+    include: {
+      prices: true,
+      inventory: true,
+      variants: { include: { prices: true } },
+    },
   });
   const productMap = new Map(products.map((p) => [p.id, p]));
 
   const pricedLines = input.items.map((item, index) => {
     const product = productMap.get(item.productId);
     if (!product) throw new Error(`Product ${item.productId} is unavailable`);
-    const tier = resolveUnitPrice(product.prices, input.type, input.currency, item.quantity);
+    const variant = item.variantId
+      ? product.variants.find((candidate) => candidate.id === item.variantId)
+      : undefined;
+    const variantTier = variant
+      ? resolveUnitPrice(variant.prices, input.type, input.currency, item.quantity)
+      : null;
+    const tier = variantTier ?? resolveUnitPrice(product.prices, input.type, input.currency, item.quantity);
     if (!tier) throw new Error(`No active ${input.type} price for "${product.nameEn}" in ${input.currency}`);
 
     const unitPrice = Number(tier.price);
@@ -129,14 +139,15 @@ export async function createOrder(input: CreateOrderInput) {
       sellerId: item.sellerId,
       categoryId: product.categoryId,
       brandId: product.brandId,
-      sku: product.sku,
-      nameEn: product.nameEn,
-      nameAr: product.nameAr,
+      sku: variant?.sku ?? product.sku,
+      nameEn: variant?.nameEn ?? product.nameEn,
+      nameAr: variant?.nameAr ?? product.nameAr,
       quantity: item.quantity,
       unitPrice,
       lineSubtotal: money(unitPrice * item.quantity),
       vatRate: resolveConfiguredVatRate(tier.vatRate, defaultVat),
       sourcePriceId: tier.id,
+      priceScope: variantTier ? "VARIANT" : "PRODUCT",
     };
   });
 
@@ -338,12 +349,14 @@ export async function createOrder(input: CreateOrderInput) {
               contractPrice: line.unitPrice,
               promotionDiscount: lineDiscount,
               finalUnitPrice,
-              sourceSystem: "AVENICK",
-              explanation: {
+                sourceSystem: "AVENICK",
+                explanation: {
                 baseUnitPrice: line.unitPrice,
                 lineSubtotal: line.lineSubtotal,
                 discount: lineDiscount,
-                finalUnitPrice,
+                  finalUnitPrice,
+                  priceScope: line.priceScope,
+                  variantId: line.variantId ?? null,
                 applied: promotion.applied,
               },
             },

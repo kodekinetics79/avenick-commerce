@@ -993,6 +993,7 @@ model OrderItem {
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
+  returnItems ReturnRequestItem[]
 
   @@index([orderId])
   @@index([productId])
@@ -1035,7 +1036,10 @@ model Payment {
 model Refund {
   id          String       @id @default(cuid())
   orderId     String
+  returnRequestId String?  @unique
   amount      Decimal      @db.Decimal(12, 2)
+  netAmount   Decimal      @default(0) @db.Decimal(12, 2)
+  vatAmount   Decimal      @default(0) @db.Decimal(12, 2)
   reason      String?
   status      RefundStatus @default(PENDING)
   processedAt DateTime?
@@ -1043,6 +1047,7 @@ model Refund {
   createdAt   DateTime     @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  returnRequest ReturnRequest? @relation(fields: [returnRequestId], references: [id], onDelete: SetNull)
   adjustments SellerFinancialAdjustment[]
 
   @@index([orderId])
@@ -1347,10 +1352,31 @@ model ReturnRequest {
 
   order  Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
   seller SellerProfile @relation(fields: [sellerId], references: [id])
+  items  ReturnRequestItem[]
+  refund Refund?
 
   @@index([orderId])
   @@index([sellerId])
   @@index([status])
+}
+
+/// Immutable commercial and tax allocation for each customer-selected returned
+/// order line. This is the source of truth for partial refund ledger reversals.
+model ReturnRequestItem {
+  id              String  @id @default(cuid())
+  returnRequestId String
+  orderItemId     String
+  quantity        Int
+  netAmount       Decimal @db.Decimal(12, 2)
+  vatAmount       Decimal @db.Decimal(12, 2)
+  grossAmount     Decimal @db.Decimal(12, 2)
+  createdAt       DateTime @default(now())
+
+  returnRequest ReturnRequest @relation(fields: [returnRequestId], references: [id], onDelete: Cascade)
+  orderItem     OrderItem     @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@unique([returnRequestId, orderItemId])
+  @@index([orderItemId])
 }
 
 // ─── NOTIFICATIONS & AUDIT ────────────────────────────────────────────────────

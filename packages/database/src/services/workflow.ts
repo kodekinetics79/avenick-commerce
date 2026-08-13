@@ -136,6 +136,9 @@ export async function setReturnStatus(opts: {
         orderId: true,
         sellerId: true,
         refundAmount: true,
+        items: {
+          select: { orderItemId: true, quantity: true, netAmount: true, vatAmount: true, grossAmount: true },
+        },
         order: {
           select: {
             total: true,
@@ -167,6 +170,13 @@ export async function setReturnStatus(opts: {
     }
     if (opts.status === "REFUNDED" && refundAmount > authorizedMaximum) {
       throw new Error("Refund amount cannot exceed the selected return quantity");
+    }
+    if (
+      opts.status === "REFUNDED" &&
+      target.items.length > 0 &&
+      Math.round(refundAmount * 100) !== Math.round(authorizedMaximum * 100)
+    ) {
+      throw new Error("An itemized return must refund the exact selected line quantities");
     }
 
     const ret = await tx.returnRequest.update({
@@ -202,10 +212,27 @@ export async function setReturnStatus(opts: {
         Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`seller-finance:${target.sellerId}`}))`,
       );
       const completedAt = new Date();
+      const exactNet = target.items.reduce((sum, item) => sum + Number(item.netAmount), 0);
+      const exactVat = target.items.reduce((sum, item) => sum + Number(item.vatAmount), 0);
+      const sellerVat = target.order.items
+        .filter((item) => item.sellerId === target.sellerId)
+        .reduce((sum, item) => sum + Number(item.vatAmount), 0);
+      const sellerNet = target.order.items
+        .filter((item) => item.sellerId === target.sellerId)
+        .reduce((sum, item) => sum + Number(item.total) - Number(item.vatAmount), 0);
+      const refundVatAmount = Number((target.items.length > 0
+        ? exactVat
+        : sellerMaximum > 0 ? sellerVat * refundAmount / sellerMaximum : 0).toFixed(2));
+      const refundNetAmount = Number((target.items.length > 0
+        ? exactNet
+        : refundAmount - refundVatAmount).toFixed(2));
       const refund = await tx.refund.create({
         data: {
           orderId: target.orderId,
+          returnRequestId: target.id,
           amount: refundAmount,
+          netAmount: refundNetAmount,
+          vatAmount: refundVatAmount,
           reason: opts.resolution ?? `Seller return ${target.id} refunded`,
           status: "COMPLETED",
           processedAt: completedAt,
@@ -217,9 +244,12 @@ export async function setReturnStatus(opts: {
       });
       const positiveCommission = commissions.reduce((sum, row) => sum + Math.max(0, Number(row.amount)), 0);
       const reversedCommission = commissions.reduce((sum, row) => sum + Math.max(0, -Number(row.amount)), 0);
+      const commercialRatio = target.items.length > 0
+        ? (sellerNet > 0 ? refundNetAmount / sellerNet : 0)
+        : (sellerMaximum > 0 ? refundAmount / sellerMaximum : 0);
       const reversal = Number(Math.min(
         Math.max(0, positiveCommission - reversedCommission),
-        positiveCommission * (refundAmount / sellerMaximum),
+        positiveCommission * commercialRatio,
       ).toFixed(2));
       if (reversal > 0) await tx.commission.create({ data: {
         orderId: target.orderId,

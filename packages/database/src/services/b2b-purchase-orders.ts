@@ -58,7 +58,12 @@ async function pricePOLines(
     include: {
       prices: true,
       seller: { select: { id: true, status: true, deletedAt: true } },
-      variants: { select: { id: true, isActive: true } },
+      variants: {
+        select: {
+          id: true, isActive: true, sku: true, nameEn: true,
+          prices: true,
+        },
+      },
     },
   });
   const productMap = new Map(products.map((product) => [product.id, product]));
@@ -73,12 +78,17 @@ async function pricePOLines(
     if (product.seller.status !== "ACTIVE" || product.seller.deletedAt) {
       throw new Error(`Seller for "${product.nameEn}" is unavailable`);
     }
+    const variant = input.variantId
+      ? product.variants.find((row) => row.id === input.variantId)
+      : undefined;
     if (input.variantId) {
-      const variant = product.variants.find((row) => row.id === input.variantId);
       if (!variant?.isActive) throw new Error(`Selected variant is unavailable for "${product.nameEn}"`);
     }
 
-    const price = selectPrice(product.prices, currency, input.quantity);
+    // A selected variant's commercial truth overrides the base SKU. Base prices
+    // remain a deliberate fallback for variants without their own price tier.
+    const variantPrice = variant ? selectPrice(variant.prices, currency, input.quantity) : null;
+    const price = variantPrice ?? selectPrice(product.prices, currency, input.quantity);
     if (!price) throw new Error(`No active B2B ${currency} price for "${product.nameEn}"`);
     const unitPrice = Number(price.price);
     const lineSubtotal = money(unitPrice * input.quantity);
@@ -91,8 +101,8 @@ async function pricePOLines(
       productId: product.id,
       variantId: input.variantId,
       sellerId: product.sellerId,
-      sku: product.sku,
-      nameEn: product.nameEn,
+      sku: variant?.sku ?? product.sku,
+      nameEn: variant?.nameEn ?? product.nameEn,
       quantity: input.quantity,
       unitPrice,
       vatRate,
@@ -103,6 +113,8 @@ async function pricePOLines(
         channel: "B2B",
         currency,
         priceId: price.id,
+        scope: variantPrice ? "VARIANT" : "PRODUCT",
+        variantId: input.variantId ?? null,
         minQty: price.minQty,
         maxQty: price.maxQty,
       },

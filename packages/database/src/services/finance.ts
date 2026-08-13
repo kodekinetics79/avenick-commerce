@@ -37,12 +37,18 @@ export async function getFinanceOverview() {
     db.refund.aggregate({ where: { status: { in: ["PENDING", "APPROVED", "PROCESSING"] } }, _sum: { amount: true }, _count: { _all: true } }),
     db.order.aggregate({ where: { paymentStatus: "PAID", createdAt: { gte: yearStart } }, _sum: { vatAmount: true } }),
     db.commission.aggregate({ where: { settledAt: null }, _sum: { amount: true }, _count: { _all: true } }),
-    db.refund.aggregate({ where: { status: "COMPLETED", order: { createdAt: { gte: monthStart } } }, _sum: { amount: true } }),
-    db.refund.aggregate({ where: { status: "COMPLETED", order: { createdAt: { gte: yearStart } } }, _sum: { amount: true } }),
+    db.refund.aggregate({ where: {
+      status: "COMPLETED",
+      OR: [{ processedAt: { gte: monthStart } }, { processedAt: null, createdAt: { gte: monthStart } }],
+    }, _sum: { amount: true } }),
+    db.refund.aggregate({ where: {
+      status: "COMPLETED",
+      OR: [{ processedAt: { gte: yearStart } }, { processedAt: null, createdAt: { gte: yearStart } }],
+    }, _sum: { amount: true } }),
     db.$queryRaw<Array<{ vat: Prisma.Decimal }>>`
-      SELECT COALESCE(SUM(CASE WHEN o.total > 0 THEN r.amount * o."vatAmount" / o.total ELSE 0 END), 0) AS vat
-      FROM "Refund" r JOIN "Order" o ON o.id = r."orderId"
-      WHERE r.status = 'COMPLETED' AND o."createdAt" >= ${yearStart}`,
+      SELECT COALESCE(SUM(r."vatAmount"), 0) AS vat
+      FROM "Refund" r
+      WHERE r.status = 'COMPLETED' AND COALESCE(r."processedAt", r."createdAt") >= ${yearStart}`,
     db.sellerFinancialAdjustment.aggregate({
       where: { status: "OPEN" }, _sum: { amount: true }, _count: { _all: true },
     }),
@@ -50,15 +56,24 @@ export async function getFinanceOverview() {
 
   // Monthly GMV/commission series for the current year (for charts).
   const monthly = await db.$queryRaw<Array<{ month: Date; gmv: Prisma.Decimal; vat: Prisma.Decimal }>>`
-    WITH refunded AS (
-      SELECT "orderId", SUM(amount) AS amount FROM "Refund" WHERE status = 'COMPLETED' GROUP BY "orderId"
+    WITH sales AS (
+      SELECT date_trunc('month', o."createdAt") AS month,
+             SUM(o.total) AS gmv, SUM(o."vatAmount") AS vat
+      FROM "Order" o
+      WHERE o."paymentStatus" = 'PAID' AND o."createdAt" >= ${yearStart}
+      GROUP BY 1
+    ), refunded AS (
+      SELECT date_trunc('month', COALESCE(r."processedAt", r."createdAt")) AS month,
+             SUM(r.amount) AS gmv, SUM(r."vatAmount") AS vat
+      FROM "Refund" r
+      WHERE r.status = 'COMPLETED' AND COALESCE(r."processedAt", r."createdAt") >= ${yearStart}
+      GROUP BY 1
     )
-    SELECT date_trunc('month', o."createdAt") AS month,
-           COALESCE(SUM(o.total - LEAST(o.total, COALESCE(r.amount, 0))), 0) AS gmv,
-           COALESCE(SUM(o."vatAmount" * (1 - LEAST(o.total, COALESCE(r.amount, 0)) / NULLIF(o.total, 0))), 0) AS vat
-    FROM "Order" o LEFT JOIN refunded r ON r."orderId" = o.id
-    WHERE o."paymentStatus" = 'PAID' AND o."createdAt" >= ${yearStart}
-    GROUP BY 1 ORDER BY 1`;
+    SELECT COALESCE(s.month, r.month) AS month,
+           COALESCE(s.gmv, 0) - COALESCE(r.gmv, 0) AS gmv,
+           COALESCE(s.vat, 0) - COALESCE(r.vat, 0) AS vat
+    FROM sales s FULL OUTER JOIN refunded r ON r.month = s.month
+    ORDER BY 1`;
 
   const sellerReceivableAmount = Math.abs(Number(openSellerReceivables._sum.amount ?? 0));
   return {
@@ -263,26 +278,41 @@ export async function getVatSummary() {
 
   const [byCurrency, monthly, invoiceCount] = await Promise.all([
     db.$queryRaw<Array<{ currency: string; vat: Prisma.Decimal; gross: Prisma.Decimal; orders: bigint }>>`
-      WITH refunded AS (
-        SELECT "orderId", SUM(amount) AS amount FROM "Refund" WHERE status = 'COMPLETED' GROUP BY "orderId"
+      WITH sales AS (
+        SELECT o.currency, SUM(o."vatAmount") AS vat, SUM(o.total) AS gross, COUNT(*) AS orders
+        FROM "Order" o
+        WHERE o."paymentStatus" = 'PAID' AND o."createdAt" >= ${yearStart}
+        GROUP BY o.currency
+      ), refunded AS (
+        SELECT o.currency, SUM(r."vatAmount") AS vat, SUM(r.amount) AS gross
+        FROM "Refund" r JOIN "Order" o ON o.id = r."orderId"
+        WHERE r.status = 'COMPLETED' AND COALESCE(r."processedAt", r."createdAt") >= ${yearStart}
+        GROUP BY o.currency
       )
-      SELECT o.currency,
-             COALESCE(SUM(o."vatAmount" * (1 - LEAST(o.total, COALESCE(r.amount, 0)) / NULLIF(o.total, 0))), 0) AS vat,
-             COALESCE(SUM(o.total - LEAST(o.total, COALESCE(r.amount, 0))), 0) AS gross,
-             COUNT(*) AS orders
-      FROM "Order" o LEFT JOIN refunded r ON r."orderId" = o.id
-      WHERE o."paymentStatus" = 'PAID' AND o."createdAt" >= ${yearStart}
-      GROUP BY o.currency`,
+      SELECT COALESCE(s.currency, r.currency)::text AS currency,
+             COALESCE(s.vat, 0) - COALESCE(r.vat, 0) AS vat,
+             COALESCE(s.gross, 0) - COALESCE(r.gross, 0) AS gross,
+             COALESCE(s.orders, 0) AS orders
+      FROM sales s FULL OUTER JOIN refunded r ON r.currency = s.currency`,
     db.$queryRaw<Array<{ month: Date; vat: Prisma.Decimal; orders: bigint }>>`
-      WITH refunded AS (
-        SELECT "orderId", SUM(amount) AS amount FROM "Refund" WHERE status = 'COMPLETED' GROUP BY "orderId"
+      WITH sales AS (
+        SELECT date_trunc('month', o."createdAt") AS month,
+               SUM(o."vatAmount") AS vat, COUNT(*) AS orders
+        FROM "Order" o
+        WHERE o."paymentStatus" = 'PAID' AND o."createdAt" >= ${yearStart}
+        GROUP BY 1
+      ), refunded AS (
+        SELECT date_trunc('month', COALESCE(r."processedAt", r."createdAt")) AS month,
+               SUM(r."vatAmount") AS vat
+        FROM "Refund" r
+        WHERE r.status = 'COMPLETED' AND COALESCE(r."processedAt", r."createdAt") >= ${yearStart}
+        GROUP BY 1
       )
-      SELECT date_trunc('month', o."createdAt") AS month,
-             COALESCE(SUM(o."vatAmount" * (1 - LEAST(o.total, COALESCE(r.amount, 0)) / NULLIF(o.total, 0))), 0) AS vat,
-             COUNT(*) AS orders
-      FROM "Order" o LEFT JOIN refunded r ON r."orderId" = o.id
-      WHERE o."paymentStatus" = 'PAID' AND o."createdAt" >= ${yearStart}
-      GROUP BY 1 ORDER BY 1`,
+      SELECT COALESCE(s.month, r.month) AS month,
+             COALESCE(s.vat, 0) - COALESCE(r.vat, 0) AS vat,
+             COALESCE(s.orders, 0) AS orders
+      FROM sales s FULL OUTER JOIN refunded r ON r.month = s.month
+      ORDER BY 1`,
     db.taxInvoice.count(),
   ]);
 
