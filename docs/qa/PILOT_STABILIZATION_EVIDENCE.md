@@ -2,19 +2,16 @@
 
 ## Decision
 
-**CODE MERGE READY, pending final exact-evidence-SHA CI/deployment/Chrome confirmation. Pilot
-activation remains externally blocked.**
+**CODE MERGE NO-GO. Pilot activation remains externally blocked.**
 
-The final code candidate certified before the release-evidence commit is
-`b7f8bb52e6ef8f10b64235f07edc629478438f72`. It includes the deployed-Chrome findings that removed
+The final code candidate immediately before this release-evidence update is
+`353c2cf6cf43654f8dd6c53e7285f3102c7d319c`. It includes the deployed-Chrome findings that removed
 unsupported free-shipping, escrow, fixed marketplace-scale, multi-quote, credit, and integrated-3PL
-claims from live storefront surfaces and made credential sign-in use same-origin CSRF/callback
-requests instead of the production `NEXTAUTH_URL` on preview hosts. Both have regressions. The
-earlier evidence head,
-`83fa941ad5617b59f1e6ae2a4ffe840b6477bd93`, passed GitHub CI and reached READY on all three
-Vercel projects. This document correction necessarily creates one final evidence-only SHA; its CI,
-deployment IDs, and deployed smoke result are recorded on PR #4 after the checks finish. No source,
-schema, migration, or runtime configuration changes are permitted in that final evidence commit.
+claims from live storefront surfaces. It also keeps each Vercel portal's authenticated API and
+server rendering in one trust boundary and explicitly validates portal JWTs where Auth.js request
+context is unavailable. The source changes are internally green, but the deployed pilot database
+is behind the certified 19-migration schema and required hosted personas are absent. Consequently
+the mandatory deployed Chrome matrix is not complete and PR #4 must remain draft/unmerged.
 
 ## Exact-candidate repository gates
 
@@ -23,8 +20,8 @@ Run on 2026-08-13 against a newly created local PostgreSQL database:
 - Prisma migration deployment: PASS (19/19 migrations)
 - TypeScript: PASS (database, customer, seller, admin; 4/4)
 - Lint: PASS (customer, seller, admin; 3/3)
-- Full test matrix: PASS (228/228)
-  - database 134, auth 40, customer 23, seller 23, admin 4, observability 4
+- Full test matrix: PASS (235/235)
+  - database 134, auth 47, customer 23, seller 23, admin 4, observability 4
 - Production builds: PASS (customer, seller, admin; 3/3)
 - Independent hostile board: ACCEPT (commerce/finance, marketplace/security, integration/SRE)
 
@@ -56,8 +53,8 @@ handling) appeared during tests; no test failed.
   VAT/MOQ facts, and remove fabricated discounts, ratings, availability, and shipping promises.
 - Storefront and support copy no longer advertises unsupported free delivery, escrow, marketplace
   scale, integrated logistics, guaranteed quote volume, or unimplemented credit applications.
-- Customer, seller, and admin credential clients keep auth requests and cookies on the current
-  portal deployment even when the split backend advertises a production callback URL.
+- Customer, seller, and admin credential clients keep auth requests, cookies, server rendering, and
+  authenticated APIs in the same portal runtime.
 
 ## Local Chrome evidence
 
@@ -92,25 +89,29 @@ non-sellable. The source maps media metadata for 153 rows, but no protected obje
 credentials were authorized; no media URL is certified and no confidential source data was
 committed.
 
-## Hosted exact-head evidence
+## Hosted deployment evidence
 
-At evidence head `83fa941ad5617b59f1e6ae2a4ffe840b6477bd93`:
+At code SHA `353c2cf6cf43654f8dd6c53e7285f3102c7d319c`:
 
-- GitHub CI run `31728462538`: PASS.
-- Customer Vercel deployment `dpl_H4KWBY4nxgyL6hYE5o9TC89VZTxW`: READY; authenticated health
-  response PASS.
-- Seller Vercel deployment `dpl_43f7ekiv2aMTnsYb8BUh6ecBiD9g`: READY; authenticated health
-  response PASS.
-- Admin Vercel deployment `dpl_Hhe6FeGmJd93DJhVNd9Ag7GZMz8m`: READY; authenticated health
-  response PASS.
+- Customer Vercel deployment `dpl_6ryNuABGuaNPzh2NDSzRz1kB1xbN`: READY.
+- Seller Vercel deployment `dpl_4J4MJD5X2XijiQLadLnq3codgWTB`: READY.
+- Admin Vercel deployment `dpl_4wScNp9VBhpXaFdX3H3BHEZm6oSm`: READY.
+- Seller-owner Chrome: PASS for login, dashboard, products, inventory, orders, shipments, and
+  returns. Database-backed values rendered from the hosted environment.
+- Customer credential callback/session: PASS. Protected order page: FAIL because the hosted
+  database lacks `Order.idempotencyKey` (Prisma P2022), proving the 19-migration schema has not been
+  deployed to that database.
+- Seller fulfillment-staff credential callback: FAIL (no session issued).
+- Admin credential callback: FAIL (no session issued).
+- B2B, seller-staff denial, multi-seller, and admin browser journeys: NOT CERTIFIED because their
+  required hosted personas/schema are unavailable.
 
-Preview protection is an access control, not a product defect. Deployed Chrome certification must
-use an authorized Vercel session or expiring share access and is recorded separately on the PR. A
-READY status or health response alone is not represented as a completed browser journey.
+Preview protection was bypassed only with expiring authorized Vercel share URLs. READY status and
+health checks are not represented as completed browser journeys.
 
 ## External capability classification
 
-### Closed for code merge
+### Internally closed
 
 - Internal P0: 0. Internal P1: 0. Independent commerce/finance, marketplace/security, and
   integration/SRE boards accepted the final code candidate.
@@ -145,8 +146,9 @@ READY status or health response alone is not represented as a completed browser 
 
 ## Merge rule
 
-Mark PR #4 ready and merge without bypassing repository governance when the final evidence-only SHA
-has green CI, all three exact-SHA Vercel deployments are READY, deployed core Chrome journeys pass,
-and GitHub-required checks/reviews are satisfied. Live ERP, online-payment, messaging, observability,
-and protected-media credentials are tracked as post-merge pilot-activation gates when their code
-paths remain explicitly disabled/fail-closed.
+Keep PR #4 draft and unmerged until the hosted database is migrated to all 19 migrations, the
+certification admin/company/seller-owner/seller-staff/Seller-B personas are provisioned without a
+destructive global reseed, and the required deployed Chrome journeys pass on one exact SHA. Then
+mark ready and merge without bypassing repository governance only after required checks/reviews are
+satisfied. Live ERP, online-payment, messaging, observability, and protected-media credentials
+remain separate pilot-activation gates when their code paths are disabled/fail-closed.
