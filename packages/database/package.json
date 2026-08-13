@@ -19,6 +19,7 @@
     "db:import-pilot": "tsx prisma/import-pilot-catalog.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
