@@ -1,7 +1,13 @@
-import { AuditAction, type Currency, type Prisma } from "@prisma/client";
+import { AuditAction, Prisma, type Currency, type UserRole } from "@prisma/client";
 import { db } from "../index";
 import { secureCreateOrder } from "./secure-checkout";
 import { finalizeInternalOrderPayment } from "./payments";
+import {
+  approvalSnapshotsMatch,
+  buildApprovalDecisionSnapshot,
+  canonicalOrderRequest,
+  commercialSnapshotFingerprint,
+} from "./commerce-governance";
 
 export interface PurchaseOrderLineInput {
   productId: string;
@@ -102,6 +108,119 @@ async function pricePOLines(currency: Currency, requested: PurchaseOrderLineInpu
   return { lines, net: money(net), vat: money(vat), gross: money(net + vat) };
 }
 
+type PolicyClient = Pick<Prisma.TransactionClient, "approvalPolicy">;
+
+async function governingPolicy(client: PolicyClient, companyId: string, currency: Currency, total: number) {
+  return client.approvalPolicy.findFirst({
+    where: { companyId, isActive: true, currency, thresholdAmount: { lte: total } },
+    orderBy: { thresholdAmount: "desc" },
+  });
+}
+
+function approvalEvidence(
+  currency: Currency,
+  total: number,
+  lines: Array<{ productId: string; variantId?: string | null; quantity: number; unitPrice: Prisma.Decimal | number; vatRate: Prisma.Decimal | number; priceSourceId?: string | null }>,
+  policy: Awaited<ReturnType<typeof governingPolicy>>,
+  requesterSpendLimit?: number | null,
+) {
+  const commercialFingerprint = commercialSnapshotFingerprint(currency, total, lines.map((line) => ({
+    ...line,
+    unitPrice: Number(line.unitPrice),
+    vatRate: Number(line.vatRate),
+  })));
+  const snapshot = buildApprovalDecisionSnapshot({
+    commercialFingerprint,
+    requesterSpendLimit,
+    policy: policy ? {
+      ...policy,
+      thresholdAmount: Number(policy.thresholdAmount),
+    } : null,
+  });
+  return { commercialFingerprint, snapshot };
+}
+
+async function invalidateApprovedPOs(
+  tx: Prisma.TransactionClient,
+  input: { companyId: string; currency: Currency; actorId: string; reason: string },
+) {
+  const approved = await tx.purchaseOrder.findMany({
+    where: { companyId: input.companyId, currency: input.currency, status: "APPROVED" },
+    select: { id: true, approvalVersion: true },
+  });
+  if (!approved.length) return;
+  await tx.purchaseOrder.updateMany({
+    where: { id: { in: approved.map((po) => po.id) }, status: "APPROVED" },
+    data: {
+      status: "PENDING_APPROVAL",
+      approverId: null,
+      approvedAt: null,
+      approvalSnapshot: Prisma.DbNull,
+      approvedCommercialFingerprint: null,
+      rejectionReason: input.reason,
+      approvalVersion: { increment: 1 },
+    },
+  });
+  await tx.auditLog.createMany({
+    data: approved.map((po) => ({
+      actorId: input.actorId,
+      entityType: "PurchaseOrder",
+      entityId: po.id,
+      action: AuditAction.STATUS_CHANGE,
+      before: { status: "APPROVED", approvalVersion: po.approvalVersion },
+      after: { status: "PENDING_APPROVAL", reason: "POLICY_CHANGED", detail: input.reason },
+    })),
+  });
+}
+
+export async function createGovernedApprovalPolicy(input: {
+  companyId: string;
+  actorId: string;
+  name: string;
+  thresholdAmount: number;
+  currency: Currency;
+  approverRole: UserRole;
+}) {
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
+    const policy = await tx.approvalPolicy.create({ data: {
+      companyId: input.companyId,
+      name: input.name,
+      thresholdAmount: input.thresholdAmount,
+      currency: input.currency,
+      approverRole: input.approverRole,
+    } });
+    await invalidateApprovedPOs(tx, {
+      companyId: input.companyId,
+      currency: input.currency,
+      actorId: input.actorId,
+      reason: `Approval policy ${policy.name} was created; reapproval required`,
+    });
+    return policy;
+  });
+}
+
+export async function setGovernedApprovalPolicyActive(input: {
+  policyId: string;
+  companyId: string;
+  actorId: string;
+  isActive: boolean;
+}) {
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
+    const policy = await tx.approvalPolicy.findFirst({ where: { id: input.policyId, companyId: input.companyId } });
+    if (!policy) throw new Error("Approval policy not found");
+    const updated = await tx.approvalPolicy.update({ where: { id: policy.id }, data: { isActive: input.isActive } });
+    await invalidateApprovedPOs(tx, {
+      companyId: input.companyId,
+      currency: policy.currency,
+      actorId: input.actorId,
+      reason: `Approval policy ${policy.name} changed; reapproval required`,
+    });
+    return updated;
+  });
+}
+
 export async function createGovernedPurchaseOrder(input: {
   companyId: string;
   requesterId: string;
@@ -117,31 +236,35 @@ export async function createGovernedPurchaseOrder(input: {
   }
 
   const priced = await pricePOLines(input.currency, input.items);
-  // Highest applicable threshold wins. Ascending + first-match previously let a
-  // high-value PO fall into the weakest approval tier (e.g. 100k matching 1k).
-  const policies = await db.approvalPolicy.findMany({
-    where: { companyId: input.companyId, isActive: true, currency: input.currency },
-    orderBy: { thresholdAmount: "desc" },
-  });
-  const matchingPolicy = policies.find((policy) => priced.gross >= Number(policy.thresholdAmount));
   const overRequesterLimit = input.requesterSpendLimit != null && priced.gross > input.requesterSpendLimit;
-  const needsApproval = Boolean(matchingPolicy || overRequesterLimit);
 
   const stamp = Date.now().toString(36).toUpperCase().slice(-6);
   const random = Math.floor(100 + Math.random() * 900);
   const poNumber = `PO-${new Date().getFullYear()}-${stamp}${random}`;
 
   return db.$transaction(async (tx) => {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
+    // Resolve again under the company policy lock so creation cannot race a
+    // policy mutation and accidentally auto-approve under stale rules.
+    const lockedPolicy = await governingPolicy(tx, input.companyId, input.currency, priced.gross);
+    const lockedNeedsApproval = Boolean(lockedPolicy || overRequesterLimit);
+    const evidence = approvalEvidence(input.currency, priced.gross, priced.lines, lockedPolicy, input.requesterSpendLimit);
     const purchaseOrder = await tx.purchaseOrder.create({
       data: {
         poNumber,
         companyId: input.companyId,
         requesterId: input.requesterId,
-        status: needsApproval ? "PENDING_APPROVAL" : "APPROVED",
+        status: lockedNeedsApproval ? "PENDING_APPROVAL" : "APPROVED",
         currency: input.currency,
         total: priced.gross,
         requiredDate: input.requiredDate,
         notes: input.notes,
+        ...(!lockedNeedsApproval ? {
+          approvalSnapshot: evidence.snapshot,
+          approvedCommercialFingerprint: evidence.commercialFingerprint,
+          approvalVersion: 1,
+          approvedAt: new Date(),
+        } : {}),
         items: {
           create: priced.lines.map((line) => ({
             productId: line.productId,
@@ -173,8 +296,8 @@ export async function createGovernedPurchaseOrder(input: {
           currency: purchaseOrder.currency,
           total: Number(purchaseOrder.total),
           lineCount: purchaseOrder.items.length,
-          approvalReason: matchingPolicy
-            ? `Policy ${matchingPolicy.name} threshold ${matchingPolicy.thresholdAmount} ${matchingPolicy.currency}`
+          approvalReason: lockedPolicy
+            ? `Policy ${lockedPolicy.name} threshold ${lockedPolicy.thresholdAmount} ${lockedPolicy.currency}`
             : overRequesterLimit
               ? `Requester spend limit ${input.requesterSpendLimit}`
               : "AUTO_APPROVED",
@@ -182,6 +305,89 @@ export async function createGovernedPurchaseOrder(input: {
       },
     });
     return purchaseOrder;
+  });
+}
+
+/**
+ * Single-winner PO status transition. The advisory lock and conditional update
+ * ensure concurrent approve/reject requests cannot both commit evidence.
+ */
+export async function transitionGovernedPurchaseOrder(input: {
+  purchaseOrderId: string;
+  companyId: string;
+  actorId: string;
+  actorRole: UserRole;
+  action: "approve" | "reject" | "cancel";
+}) {
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`purchase-order:${input.purchaseOrderId}`}))`);
+    const po = await tx.purchaseOrder.findFirst({
+      where: { id: input.purchaseOrderId, companyId: input.companyId },
+      include: { items: true },
+    });
+    if (!po) throw new Error("Purchase order not found");
+
+    const allowed = input.action === "cancel"
+      ? ["DRAFT", "PENDING_APPROVAL", "APPROVED"]
+      : ["PENDING_APPROVAL"];
+    if (!allowed.includes(po.status)) throw new Error("Transition is not allowed");
+
+    const policy = await governingPolicy(tx, po.companyId, po.currency, Number(po.total));
+    const requesterMembership = await tx.companyMember.findUnique({
+      where: { userId: po.requesterId },
+      select: { companyId: true, isActive: true, spendLimit: true },
+    });
+    const requesterSpendLimit = requesterMembership?.isActive && requesterMembership.companyId === po.companyId
+      ? requesterMembership.spendLimit == null ? null : Number(requesterMembership.spendLimit)
+      : null;
+    if (["approve", "reject"].includes(input.action)) {
+      const permitted = input.actorRole === "COMPANY_ADMIN" || (!policy
+        ? input.actorRole === "COMPANY_APPROVER"
+        : input.actorRole === policy.approverRole);
+      if (!permitted) throw new Error(policy ? `Approval requires ${policy.approverRole}` : "Approver role required");
+    }
+
+    const status = input.action === "approve" ? "APPROVED" : input.action === "reject" ? "REJECTED" : "CANCELLED";
+    const evidence = approvalEvidence(po.currency, Number(po.total), po.items, policy, requesterSpendLimit);
+    const claimed = await tx.purchaseOrder.updateMany({
+      where: { id: po.id, status: po.status },
+      data: {
+        status,
+        ...(input.action === "approve" ? {
+          approverId: input.actorId,
+          rejectionReason: null,
+          approvalSnapshot: evidence.snapshot,
+          approvedCommercialFingerprint: evidence.commercialFingerprint,
+          approvedAt: new Date(),
+          approvalVersion: { increment: 1 },
+        } : {
+          ...(input.action === "reject" ? { rejectionReason: "Rejected by approver" } : {}),
+          approvalSnapshot: Prisma.DbNull,
+          approvedCommercialFingerprint: null,
+          approvedAt: null,
+          approvalVersion: { increment: 1 },
+        }),
+      },
+    });
+    if (claimed.count !== 1) throw new Error("Purchase order changed concurrently; reload and retry");
+
+    const updated = await tx.purchaseOrder.findUniqueOrThrow({ where: { id: po.id } });
+    await tx.auditLog.create({ data: {
+      actorId: input.actorId,
+      entityType: "PurchaseOrder",
+      entityId: po.id,
+      action: AuditAction.STATUS_CHANGE,
+      before: { status: po.status, approvalVersion: po.approvalVersion },
+      after: {
+        status,
+        approvalVersion: updated.approvalVersion,
+        lineCount: po.items.length,
+        approverId: input.action === "approve" ? input.actorId : undefined,
+        approvalSnapshot: input.action === "approve" ? evidence.snapshot : undefined,
+      },
+    } });
+    return updated;
   });
 }
 
@@ -227,33 +433,53 @@ export async function placeGovernedPurchaseOrder(input: {
       Math.abs(now.unitPrice - Number(approved.unitPrice)) > 0.0001 ||
       Math.abs(now.vatRate - Number(approved.vatRate)) > 0.0001;
   });
-  if (changed) {
-    await db.$transaction([
-      db.purchaseOrder.update({
-        where: { id: po.id },
+  const currentPolicy = await db.approvalPolicy.findFirst({
+    where: { companyId: po.companyId, isActive: true, currency: po.currency, thresholdAmount: { lte: current.gross } },
+    orderBy: { thresholdAmount: "desc" },
+  });
+  const requesterMembership = await db.companyMember.findUnique({
+    where: { userId: po.requesterId },
+    select: { companyId: true, isActive: true, spendLimit: true },
+  });
+  const requesterSpendLimit = requesterMembership?.isActive && requesterMembership.companyId === po.companyId
+    ? requesterMembership.spendLimit == null ? null : Number(requesterMembership.spendLimit)
+    : null;
+  const currentEvidence = approvalEvidence(po.currency, current.gross, current.lines, currentPolicy, requesterSpendLimit);
+  const evidenceChanged = changed ||
+    po.approvedCommercialFingerprint !== currentEvidence.commercialFingerprint ||
+    !approvalSnapshotsMatch(po.approvalSnapshot, currentEvidence.snapshot);
+  if (evidenceChanged) {
+    const detail = changed ? `Commercial terms changed for ${changed.sku}` : "Approval policy or approved total changed";
+    await db.$transaction(async (tx) => {
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${po.companyId}`}))`);
+      await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`purchase-order:${po.id}`}))`);
+      const invalidated = await tx.purchaseOrder.updateMany({
+        where: { id: po.id, status: "APPROVED", approvalVersion: po.approvalVersion },
         data: {
           status: "PENDING_APPROVAL",
           approverId: null,
-          rejectionReason: `Commercial terms changed for ${changed.sku}; reapproval required before placement`,
+          approvedAt: null,
+          approvalSnapshot: Prisma.DbNull,
+          approvedCommercialFingerprint: null,
+          rejectionReason: `${detail}; reapproval required before placement`,
+          approvalVersion: { increment: 1 },
         },
-      }),
-      db.auditLog.create({
-        data: {
-          actorId: input.actorId,
-          entityType: "PurchaseOrder",
-          entityId: po.id,
-          action: AuditAction.STATUS_CHANGE,
-          before: { status: "APPROVED", total: Number(po.total) },
-          after: { status: "PENDING_APPROVAL", reason: "PRICE_CHANGED", sku: changed.sku, currentTotal: current.gross },
-        },
-      }),
-    ]);
-    throw new Error(`Price changed for ${changed.sku}; the purchase order has been returned for approval`);
+      });
+      if (invalidated.count === 1) await tx.auditLog.create({ data: {
+        actorId: input.actorId,
+        entityType: "PurchaseOrder",
+        entityId: po.id,
+        action: AuditAction.STATUS_CHANGE,
+        before: { status: "APPROVED", total: Number(po.total), approvalVersion: po.approvalVersion },
+        after: { status: "PENDING_APPROVAL", reason: "APPROVAL_EVIDENCE_CHANGED", detail, currentTotal: current.gross },
+      } });
+    });
+    throw new Error(`${detail}; the purchase order has been returned for approval`);
   }
 
-  const order = await secureCreateOrder({
+  const orderRequest = {
     userId: po.requesterId,
-    type: "B2B",
+    type: "B2B" as const,
     currency: po.currency,
     items: po.items.map((line) => ({
       productId: line.productId,
@@ -266,10 +492,14 @@ export async function placeGovernedPurchaseOrder(input: {
       city: po.company.city,
       country: po.company.country,
     },
-    paymentMethod: "BANK_TRANSFER",
+    paymentMethod: "BANK_TRANSFER" as const,
     notes: po.notes ?? undefined,
     purchaseOrderId: po.id,
     idempotencyKey: `po:${po.id}`,
+  };
+  const order = await secureCreateOrder({
+    ...orderRequest,
+    requestFingerprint: canonicalOrderRequest(orderRequest),
   });
 
   await finalizeInternalOrderPayment({ orderId: order.id, method: "BANK_TRANSFER", actorId: input.actorId });

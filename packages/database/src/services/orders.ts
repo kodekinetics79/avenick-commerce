@@ -2,6 +2,7 @@ import { db } from "../index";
 import { write } from "../resilient-ops";
 import { enforcePromotionRedemptionCapacity, evaluateCommercePromotions } from "./promotions";
 import { inventoryStockIdentityWhere, resolveConfiguredVatRate } from "./checkout-invariants";
+import { assertMatchingIdempotencyFingerprint } from "./commerce-governance";
 import type { Prisma, OrderStatus, Currency, PaymentMethod } from "@prisma/client";
 
 // Prisma interactive-transaction client — the subset of the client available
@@ -75,6 +76,8 @@ export interface CreateOrderInput {
   couponCode?: string;
   /** Client-supplied key: safe retries return the original order. */
   idempotencyKey?: string;
+  /** Canonical server-derived representation bound to idempotencyKey. */
+  requestFingerprint?: string;
 }
 
 // VAT rate by jurisdiction (KSA 15%, rest of GCC 5%).
@@ -277,6 +280,7 @@ export async function createOrder(input: CreateOrderInput) {
             shippingAddress: input.shippingAddress,
             notes: input.notes,
             idempotencyKey: input.idempotencyKey,
+            requestFingerprint: input.requestFingerprint,
             items: { create: itemData },
             statusHistory: {
               create: {
@@ -410,7 +414,11 @@ export async function createOrder(input: CreateOrderInput) {
             where: { userId_idempotencyKey: { userId: input.userId, idempotencyKey: input.idempotencyKey } },
             include: { items: true, statusHistory: true },
           });
-          if (existing) return existing;
+          if (existing) {
+            if (!input.requestFingerprint) throw new Error("An idempotency request fingerprint is required");
+            assertMatchingIdempotencyFingerprint(existing.requestFingerprint, input.requestFingerprint);
+            return existing;
+          }
         }
         throw e;
       }),
@@ -431,7 +439,8 @@ const RELEASE_STATUSES: OrderStatus[] = ["CANCELLED", "REFUNDED", "RETURNED"];
 /**
  * Transition an order's status and settle its inventory side-effects atomically.
  */
-export async function updateOrderStatus(orderId: string, status: OrderStatus, actorId?: string, message?: string) {
+export async function updateOrderStatus(orderId: string, status: OrderStatus, actorId: string, message?: string) {
+  if (!actorId) throw new Error("Order transition actor is required");
   return db.$transaction(async (tx) => {
     const current = await tx.order.findUnique({
       where: { id: orderId },
@@ -481,6 +490,16 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus, ac
     if (wasConsumed || wasReserved) {
       await tx.orderItem.updateMany({ where: { orderId }, data: { status } });
     }
+    await tx.auditLog.create({
+      data: {
+        actorId,
+        entityType: "Order",
+        entityId: orderId,
+        action: "STATUS_CHANGE",
+        before: { status: current.status },
+        after: { status, message },
+      },
+    });
     return order;
   });
 }

@@ -27,6 +27,7 @@ export interface SecureCheckoutInput {
   purchaseOrderId?: string;
   couponCode?: string;
   idempotencyKey?: string;
+  requestFingerprint?: string;
 }
 
 /**
@@ -148,5 +149,6 @@ export async function secureCreateOrder(input: SecureCheckoutInput) {
     purchaseOrderId: input.purchaseOrderId,
     couponCode: input.couponCode?.trim() || undefined,
     idempotencyKey: input.idempotencyKey,
+    requestFingerprint: input.requestFingerprint,
   });
 }

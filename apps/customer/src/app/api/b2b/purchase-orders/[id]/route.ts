@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db, placeGovernedPurchaseOrder } from "@avenick/database";
+import { db, placeGovernedPurchaseOrder, transitionGovernedPurchaseOrder } from "@avenick/database";
 import { z } from "zod";
 import { getServerB2BContext, B2B_APPROVER_ROLES } from "@/lib/b2b-server";
 
@@ -110,33 +110,17 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     }
   }
 
-  const status = {
-    approve: "APPROVED",
-    reject: "REJECTED",
-    cancel: "CANCELLED",
-  }[action] as "APPROVED" | "REJECTED" | "CANCELLED";
-
-  const updated = await db.$transaction(async (tx) => {
-    const result = await tx.purchaseOrder.update({
-      where: { id: po.id },
-      data: {
-        status,
-        ...(action === "approve" ? { approverId: ctx.userId, rejectionReason: null } : {}),
-        ...(action === "reject" ? { rejectionReason: "Rejected by approver" } : {}),
-      },
+  try {
+    const updated = await transitionGovernedPurchaseOrder({
+      purchaseOrderId: po.id,
+      companyId: ctx.companyId,
+      actorId: ctx.userId,
+      actorRole: ctx.member.role,
+      action,
     });
-    await tx.auditLog.create({
-      data: {
-        actorId: ctx.userId,
-        entityType: "PurchaseOrder",
-        entityId: po.id,
-        action: "STATUS_CHANGE",
-        before: { status: po.status },
-        after: { status, lineCount: po.items.length, approverId: action === "approve" ? ctx.userId : undefined },
-      },
-    });
-    return result;
-  });
-
-  return NextResponse.json({ success: true, data: updated });
+    return NextResponse.json({ success: true, data: updated });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to transition purchase order";
+    return NextResponse.json({ success: false, error: message }, { status: 409 });
+  }
 }

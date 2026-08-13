@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth-instance";
 import {
   assertGenericCheckoutHasNoPurchaseOrder,
+  assertMatchingIdempotencyFingerprint,
+  canonicalOrderRequest,
   secureCreateOrder,
   finalizeInternalOrderPayment,
   db,
@@ -99,25 +101,6 @@ export async function POST(req: NextRequest) {
     if (idempotencyKey && idempotencyKey.length > 128) {
       return NextResponse.json({ success: false, error: "Idempotency-Key is too long" }, { status: 400 });
     }
-    if (idempotencyKey) {
-      const existing = await db.order.findUnique({
-        where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } },
-        select: {
-          id: true,
-          orderNumber: true,
-          total: true,
-          discountAmount: true,
-          vatAmount: true,
-          currency: true,
-          paymentMethod: true,
-        },
-      });
-      if (existing) {
-        await repairInternalPaymentIfNeeded(existing, session.user.id);
-        return NextResponse.json({ success: true, data: orderResponse(existing), idempotent: true });
-      }
-    }
-
     const body = await req.json();
     const parsed = CreateOrderSchema.safeParse(body);
     if (!parsed.success) {
@@ -131,6 +114,28 @@ export async function POST(req: NextRequest) {
     // the purchase-order transition endpoint. Never attach one to a free-form
     // generic cart checkout.
     assertGenericCheckoutHasNoPurchaseOrder(parsed.data.purchaseOrderId);
+    const requestFingerprint = canonicalOrderRequest(parsed.data);
+
+    if (idempotencyKey) {
+      const existing = await db.order.findUnique({
+        where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } },
+        select: {
+          id: true,
+          orderNumber: true,
+          total: true,
+          discountAmount: true,
+          vatAmount: true,
+          currency: true,
+          paymentMethod: true,
+          requestFingerprint: true,
+        },
+      });
+      if (existing) {
+        assertMatchingIdempotencyFingerprint(existing.requestFingerprint, requestFingerprint);
+        await repairInternalPaymentIfNeeded(existing, session.user.id);
+        return NextResponse.json({ success: true, data: orderResponse(existing), idempotent: true });
+      }
+    }
 
     const paymentMethod = parsed.data.paymentMethod;
     if (paymentMethod === "MOCK" && !pilotMockPaymentsEnabled()) {
@@ -160,6 +165,7 @@ export async function POST(req: NextRequest) {
       notes: parsed.data.notes,
       couponCode: parsed.data.couponCode,
       idempotencyKey,
+      requestFingerprint,
     });
 
     if (paymentMethod === "MOCK") {
@@ -180,7 +186,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, data: orderResponse(order) });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to create order";
-    const isBusinessError = /price|stock|unavailable|at least one item|account|company|purchase order|B2B|B2C|permitted|coupon|promotion|quantity|payment/i.test(message);
+    const isBusinessError = /price|stock|unavailable|at least one item|account|company|purchase order|B2B|B2C|permitted|coupon|promotion|quantity|payment|idempotency/i.test(message);
     if (!isBusinessError) log.error("orders.create failed", e, { path: "/api/orders" });
     return NextResponse.json({ success: false, error: message }, { status: isBusinessError ? 409 : 500 });
   }

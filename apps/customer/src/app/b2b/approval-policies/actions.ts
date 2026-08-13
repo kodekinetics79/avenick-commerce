@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db } from "@avenick/database";
+import { createGovernedApprovalPolicy, db, setGovernedApprovalPolicyActive } from "@avenick/database";
 import { getB2BContext, type B2BActionState } from "@/lib/b2b";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
 
@@ -18,14 +18,13 @@ export async function createPolicy(_prev: B2BActionState, formData: FormData): P
   if (!name) return { error: "Give the policy a name." };
   if (!threshold || Number.isNaN(threshold) || threshold <= 0) return { error: "Enter a positive threshold amount." };
 
-  await db.approvalPolicy.create({
-    data: {
-      companyId: ctx.companyId,
-      name,
-      thresholdAmount: threshold,
-      currency: companyCurrencyForCountry(ctx.company.country),
-      approverRole: APPROVER_ROLES.includes(approverRole) ? approverRole : "COMPANY_APPROVER",
-    },
+  await createGovernedApprovalPolicy({
+    companyId: ctx.companyId,
+    actorId: ctx.userId,
+    name,
+    thresholdAmount: threshold,
+    currency: companyCurrencyForCountry(ctx.company.country),
+    approverRole: APPROVER_ROLES.includes(approverRole) ? approverRole : "COMPANY_APPROVER",
   });
   revalidatePath("/b2b/approval-policies");
   return { ok: true, message: `Policy “${name}” added.` };
@@ -36,6 +35,11 @@ export async function togglePolicy(id: string, isActive: boolean) {
   if (!ctx || ctx.member.role !== "COMPANY_ADMIN") return;
   const p = await db.approvalPolicy.findUnique({ where: { id } });
   if (!p || p.companyId !== ctx.companyId) return;
-  await db.approvalPolicy.update({ where: { id }, data: { isActive } });
+  await setGovernedApprovalPolicyActive({
+    policyId: id,
+    companyId: ctx.companyId,
+    actorId: ctx.userId,
+    isActive,
+  });
   revalidatePath("/b2b/approval-policies");
 }
