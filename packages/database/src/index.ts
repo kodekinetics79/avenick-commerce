@@ -25,6 +25,7 @@ export * from "./services/products";
 export * from "./services/orders";
 export * from "./services/secure-checkout";
 export * from "./services/payments";
+export * from "./services/seller-fulfillment";
 export * from "./services/b2b-purchase-orders";
 export * from "./services/promotions";
 // Node-only pilot catalog ingestion is intentionally NOT re-exported here.
