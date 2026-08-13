@@ -136,7 +136,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
 
                       {/* Items preview */}
                       <div className="flex items-center gap-2">
-                          {order.items.map((item: OrderListItem, i: number) => (
+                          {order.items.map((item, i: number) => (
                             <div key={i} className="flex items-center gap-1.5">
                             {i > 0 && <span className="text-muted-foreground text-xs">·</span>}
                             <p className="text-sm text-muted-foreground line-clamp-1">
