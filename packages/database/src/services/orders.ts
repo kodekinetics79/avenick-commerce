@@ -6,6 +6,7 @@ import {
   inventoryStockIdentityWhere,
   lockInventoryStockRows,
   lockProductCommercialRows,
+  lockSellerCommercialRows,
   resolveConfiguredVatRate,
 } from "./checkout-invariants";
 import { assertMatchingIdempotencyFingerprint } from "./commerce-governance";
@@ -151,6 +152,11 @@ export async function createOrder(input: CreateOrderInput) {
     () =>
       db.$transaction(async (tx) => {
         await lockProductCommercialRows(tx, productIds);
+        const sellerIds = (await tx.product.findMany({
+          where: { id: { in: productIds } },
+          select: { sellerId: true },
+        })).map(({ sellerId }) => sellerId);
+        await lockSellerCommercialRows(tx, sellerIds);
         const products = await tx.product.findMany({
           where: { id: { in: productIds }, deletedAt: null },
           include: {

@@ -19,6 +19,18 @@ export async function lockProductCommercialRows(
   }
 }
 
+/** Seller activation/deletion decisions participate in the same checkout fence. */
+export async function lockSellerCommercialRows(
+  tx: CommercialLockClient,
+  sellerIds: string[],
+): Promise<void> {
+  for (const sellerId of [...new Set(sellerIds)].sort()) {
+    await tx.$executeRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`seller-commercial:${sellerId}`}))`,
+    );
+  }
+}
+
 /**
  * All stock writers lock the same physical rows in deterministic order. The
  * identity includes product/variant/location through the immutable stock id.

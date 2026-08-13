@@ -12,7 +12,7 @@ import {
   type Prisma,
 } from "@prisma/client";
 import { db } from "../client";
-import { lockInventoryStockRows } from "./checkout-invariants";
+import { lockInventoryStockRows, lockProductCommercialRows, lockSellerCommercialRows } from "./checkout-invariants";
 
 export type PilotAssetSet = { images?: string[]; documents?: string[] };
 
@@ -162,6 +162,11 @@ async function ensureSeller(client: CatalogClient, sellerKey: string, testPasswo
       language: "EN",
     },
   });
+  const currentSeller = await client.sellerProfile.findUnique({
+    where: { userId: user.id },
+    select: { id: true },
+  });
+  if (currentSeller) await lockSellerCommercialRows(client, [currentSeller.id]);
   const seller = await client.sellerProfile.upsert({
     where: { userId: user.id },
     update: { businessNameEn: config.name, status: SellerStatus.ACTIVE, tier: SellerTier.VERIFIED },
@@ -238,6 +243,9 @@ function commercialPayload(row: PilotCatalogRecord): Prisma.InputJsonValue {
 }
 
 async function upsertProduct(client: CatalogClient, row: PilotCatalogRecord, sellerId: string, locationId: string, assetBaseUrl?: string) {
+  const currentProduct = await client.product.findUnique({ where: { sku: row.sku }, select: { id: true } });
+  if (currentProduct) await lockProductCommercialRows(client, [currentProduct.id]);
+  await lockSellerCommercialRows(client, [sellerId]);
   const category = await ensureCategory(client, row.family, row.subcategory);
   const brand = await ensureBrand(client, row.brand ?? row.manufacturer ?? row.sourceSheet);
   const verifiedPrice = Number(row.unitPriceSAR) > 0 ? Number(row.unitPriceSAR) : null;

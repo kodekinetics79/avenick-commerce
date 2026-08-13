@@ -9,6 +9,7 @@ import {
   type UserStatus,
   type CompanyStatus,
 } from "../index";
+import { lockProductCommercialRows, lockSellerCommercialRows } from "./checkout-invariants";
 
 // ─── PLATFORM USERS ───────────────────────────────────────────────────────────
 
@@ -233,23 +234,25 @@ export async function getAdminDashboard() {
 }
 
 export async function approveSeller(sellerId: string, actorId: string) {
-  const current = await db.sellerProfile.findUnique({ where: { id: sellerId }, select: { status: true } });
-  if (!current) throw new Error("Seller not found");
-  const [seller] = await db.$transaction([
-    db.sellerProfile.update({ where: { id: sellerId }, data: { status: "ACTIVE" } }),
-    db.auditLog.create({ data: { actorId, sellerId, entityType: "SellerProfile", entityId: sellerId, action: AuditAction.APPROVE, before: { status: current.status }, after: { status: "ACTIVE" } } }),
-  ]);
-  return seller;
+  return db.$transaction(async (tx) => {
+    await lockSellerCommercialRows(tx, [sellerId]);
+    const current = await tx.sellerProfile.findUnique({ where: { id: sellerId }, select: { status: true } });
+    if (!current) throw new Error("Seller not found");
+    const seller = await tx.sellerProfile.update({ where: { id: sellerId }, data: { status: "ACTIVE" } });
+    await tx.auditLog.create({ data: { actorId, sellerId, entityType: "SellerProfile", entityId: sellerId, action: AuditAction.APPROVE, before: { status: current.status }, after: { status: "ACTIVE" } } });
+    return seller;
+  });
 }
 
 export async function rejectSeller(sellerId: string, actorId: string, reason: string) {
-  const current = await db.sellerProfile.findUnique({ where: { id: sellerId }, select: { status: true } });
-  if (!current) throw new Error("Seller not found");
-  const [seller] = await db.$transaction([
-    db.sellerProfile.update({ where: { id: sellerId }, data: { status: "REJECTED" as SellerStatus } }),
-    db.auditLog.create({ data: { actorId, sellerId, entityType: "SellerProfile", entityId: sellerId, action: AuditAction.REJECT, before: { status: current.status }, after: { status: "REJECTED", reason } } }),
-  ]);
-  return seller;
+  return db.$transaction(async (tx) => {
+    await lockSellerCommercialRows(tx, [sellerId]);
+    const current = await tx.sellerProfile.findUnique({ where: { id: sellerId }, select: { status: true } });
+    if (!current) throw new Error("Seller not found");
+    const seller = await tx.sellerProfile.update({ where: { id: sellerId }, data: { status: "REJECTED" as SellerStatus } });
+    await tx.auditLog.create({ data: { actorId, sellerId, entityType: "SellerProfile", entityId: sellerId, action: AuditAction.REJECT, before: { status: current.status }, after: { status: "REJECTED", reason } } });
+    return seller;
+  });
 }
 
 export async function reviewDocument(docId: string, status: DocumentStatus, actorId: string, reason?: string) {
@@ -273,22 +276,24 @@ export async function reviewProductCompliance(docId: string, status: DocumentSta
 }
 
 export async function approveProduct(productId: string, actorId: string) {
-  const current = await db.product.findUnique({ where: { id: productId }, select: { status: true, sellerId: true } });
-  if (!current) throw new Error("Product not found");
-  const [product] = await db.$transaction([
-    db.product.update({ where: { id: productId }, data: { status: "ACTIVE" as ProductStatus, publishedAt: new Date() } }),
-    db.auditLog.create({ data: { actorId, sellerId: current.sellerId, entityType: "Product", entityId: productId, action: AuditAction.APPROVE, before: { status: current.status }, after: { status: "ACTIVE" } } }),
-  ]);
-  return product;
+  return db.$transaction(async (tx) => {
+    await lockProductCommercialRows(tx, [productId]);
+    const current = await tx.product.findUnique({ where: { id: productId }, select: { status: true, sellerId: true } });
+    if (!current) throw new Error("Product not found");
+    const product = await tx.product.update({ where: { id: productId }, data: { status: "ACTIVE" as ProductStatus, publishedAt: new Date() } });
+    await tx.auditLog.create({ data: { actorId, sellerId: current.sellerId, entityType: "Product", entityId: productId, action: AuditAction.APPROVE, before: { status: current.status }, after: { status: "ACTIVE" } } });
+    return product;
+  });
 }
 
 export async function rejectProduct(productId: string, actorId: string, reason: string) {
-  const current = await db.product.findUnique({ where: { id: productId }, select: { status: true, sellerId: true } });
-  if (!current) throw new Error("Product not found");
-  const [product] = await db.$transaction([
-    db.product.update({ where: { id: productId }, data: { status: "REJECTED" as ProductStatus } }),
-    db.auditLog.create({ data: { actorId, sellerId: current.sellerId, entityType: "Product", entityId: productId, action: AuditAction.REJECT, before: { status: current.status }, after: { status: "REJECTED", reason } } }),
-    db.productIssue.create({ data: { productId, issueType: "REJECTED_BY_ADMIN", severity: "ERROR", message: reason } }),
-  ]);
-  return product;
+  return db.$transaction(async (tx) => {
+    await lockProductCommercialRows(tx, [productId]);
+    const current = await tx.product.findUnique({ where: { id: productId }, select: { status: true, sellerId: true } });
+    if (!current) throw new Error("Product not found");
+    const product = await tx.product.update({ where: { id: productId }, data: { status: "REJECTED" as ProductStatus } });
+    await tx.auditLog.create({ data: { actorId, sellerId: current.sellerId, entityType: "Product", entityId: productId, action: AuditAction.REJECT, before: { status: current.status }, after: { status: "REJECTED", reason } } });
+    await tx.productIssue.create({ data: { productId, issueType: "REJECTED_BY_ADMIN", severity: "ERROR", message: reason } });
+    return product;
+  });
 }
