@@ -1,19 +1,17 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CreditCard, Building2, Smartphone, CheckCircle } from "lucide-react";
+import { CreditCard, Building2, Smartphone, CheckCircle, TicketPercent } from "lucide-react";
 import { Button, Input } from "@avenick/ui";
 import { formatCurrency, VAT_RATES } from "@avenick/utils";
 import { useCartStore } from "@/stores/cart";
 import { MainLayout } from "@/components/layout/main-layout";
 
 type Step = "address" | "payment" | "review" | "success";
+type OrderSummary = { total?: number; discountAmount?: number; vatAmount?: number };
 
 const PILOT_MODE = process.env.NEXT_PUBLIC_PILOT_MODE === "true";
 
-// Only payment paths that the backend can truthfully process are enabled.
-// Online card/mada/Apple Pay stay disabled until a real payment-initiation flow
-// is wired and certified; a webhook consumer alone is not a payment integration.
 const PAYMENT_METHODS = [
   { id: "MOCK", label: "Test payment (pilot)", labelAr: "دفع تجريبي (تجريبي)", icon: CheckCircle, desc: "Pilot simulation — no card is charged", enabled: PILOT_MODE },
   { id: "BANK_TRANSFER", label: "Bank Transfer", labelAr: "تحويل بنكي", icon: Building2, desc: "Creates an unpaid order for finance confirmation", enabled: true },
@@ -26,8 +24,10 @@ export default function CheckoutPage() {
   const { items, total, clearCart } = useCartStore();
   const [step, setStep] = useState<Step>("address");
   const [paymentMethod, setPaymentMethod] = useState(PILOT_MODE ? "MOCK" : "BANK_TRANSFER");
+  const [couponCode, setCouponCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
+  const [finalSummary, setFinalSummary] = useState<OrderSummary>({});
   const [address, setAddress] = useState({ label: "Home", line1: "", city: "Dubai", country: "AE" });
   const idempotencyKeyRef = useRef<string | null>(null);
 
@@ -57,11 +57,17 @@ export default function CheckoutPage() {
           paymentMethod,
           currency: "AED",
           type: "B2C",
+          couponCode: couponCode.trim() || undefined,
         }),
       });
       const data = await res.json();
       if (data.success) {
         setOrderNumber(data.data.orderNumber);
+        setFinalSummary({
+          total: data.data.total == null ? undefined : Number(data.data.total),
+          discountAmount: data.data.discountAmount == null ? undefined : Number(data.data.discountAmount),
+          vatAmount: data.data.vatAmount == null ? undefined : Number(data.data.vatAmount),
+        });
         clearCart();
         setStep("success");
       } else {
@@ -92,6 +98,15 @@ export default function CheckoutPage() {
           <h1 className="text-2xl font-bold mb-2">Order Submitted</h1>
           <p className="text-muted-foreground mb-2">تم إرسال الطلب بنجاح</p>
           <p className="text-lg font-semibold text-primary mb-2">Order #{orderNumber}</p>
+          {finalSummary.total != null && (
+            <div className="mx-auto mb-5 max-w-sm rounded-xl bg-muted p-3 text-sm text-left">
+              {finalSummary.discountAmount != null && finalSummary.discountAmount > 0 && (
+                <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(finalSummary.discountAmount, "AED")}</span></div>
+              )}
+              {finalSummary.vatAmount != null && <div className="flex justify-between"><span>VAT</span><span>{formatCurrency(finalSummary.vatAmount, "AED")}</span></div>}
+              <div className="flex justify-between font-semibold mt-1"><span>Final total</span><span>{formatCurrency(finalSummary.total, "AED")}</span></div>
+            </div>
+          )}
           <p className="text-sm text-muted-foreground mb-6">
             {paymentMethod === "BANK_TRANSFER"
               ? "Payment is pending finance confirmation. The order is not marked paid until funds are verified."
@@ -152,35 +167,14 @@ export default function CheckoutPage() {
                 )}
                 <div className="space-y-2">
                   {PAYMENT_METHODS.map((pm) => (
-                    <button
-                      key={pm.id}
-                      onClick={() => pm.enabled && setPaymentMethod(pm.id)}
-                      disabled={!pm.enabled}
-                      className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-start ${
-                        paymentMethod === pm.id
-                          ? "border-primary/100 bg-primary/10"
-                          : pm.enabled
-                            ? "border-border hover:border-primary/40"
-                            : "border-border opacity-55 cursor-not-allowed"
-                      }`}
-                    >
+                    <button key={pm.id} onClick={() => pm.enabled && setPaymentMethod(pm.id)} disabled={!pm.enabled} className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-all text-start ${paymentMethod === pm.id ? "border-primary/100 bg-primary/10" : pm.enabled ? "border-border hover:border-primary/40" : "border-border opacity-55 cursor-not-allowed"}`}>
                       <pm.icon className={`h-5 w-5 shrink-0 ${paymentMethod === pm.id ? "text-primary/100" : "text-muted-foreground"}`} />
-                      <div className="flex-1">
-                        <p className="font-medium text-sm">{pm.label} — {pm.labelAr}</p>
-                        <p className="text-xs text-muted-foreground">{pm.desc}</p>
-                      </div>
-                      {!pm.enabled && (
-                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                          Not enabled
-                        </span>
-                      )}
+                      <div className="flex-1"><p className="font-medium text-sm">{pm.label} — {pm.labelAr}</p><p className="text-xs text-muted-foreground">{pm.desc}</p></div>
+                      {!pm.enabled && <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Not enabled</span>}
                     </button>
                   ))}
                 </div>
-                <div className="flex gap-3 mt-4">
-                  <Button variant="outline" onClick={() => setStep("address")}>Back</Button>
-                  <Button className="flex-1" onClick={() => setStep("review")}>Review Order</Button>
-                </div>
+                <div className="flex gap-3 mt-4"><Button variant="outline" onClick={() => setStep("address")}>Back</Button><Button className="flex-1" onClick={() => setStep("review")}>Review Order</Button></div>
               </div>
             )}
 
@@ -190,24 +184,25 @@ export default function CheckoutPage() {
                 <div className="space-y-2 mb-4">
                   {items.map((item) => (
                     <div key={item.id} className="flex justify-between text-sm py-2 border-b border-border last:border-0">
-                      <div>
-                        <p className="font-medium">{item.nameAr}</p>
-                        <p className="text-xs text-muted-foreground">x{item.qty} @ {formatCurrency(item.unitPrice, "AED")}</p>
-                      </div>
+                      <div><p className="font-medium">{item.nameAr}</p><p className="text-xs text-muted-foreground">x{item.qty} @ {formatCurrency(item.unitPrice, "AED")}</p></div>
                       <span className="font-semibold">{formatCurrency(item.unitPrice * item.qty, "AED")}</span>
                     </div>
                   ))}
                 </div>
+
+                <div className="rounded-xl border p-3 mb-4">
+                  <label className="flex items-center gap-2 text-sm font-medium mb-2"><TicketPercent className="h-4 w-4" /> Coupon / event code</label>
+                  <Input value={couponCode} onChange={(event) => setCouponCode(event.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ""))} maxLength={40} placeholder="Optional code" />
+                  <p className="text-[11px] text-muted-foreground mt-2">The code is validated against current eligibility, usage limits and stacking rules when you submit. The browser does not calculate or authorize the discount.</p>
+                </div>
+
                 <div className="bg-muted rounded-xl p-3 text-sm space-y-1 mb-4">
                   <div className="flex justify-between"><span className="text-muted-foreground">Displayed subtotal</span><span>{formatCurrency(subtotal, "AED")}</span></div>
                   <div className="flex justify-between"><span className="text-muted-foreground">Estimated VAT ({vatRate}%)</span><span>{formatCurrency(vatAmount, "AED")}</span></div>
-                  <div className="flex justify-between font-bold"><span>Estimated total</span><span className="text-primary">{formatCurrency(orderTotal, "AED")}</span></div>
-                  <p className="pt-1 text-[11px] text-muted-foreground">Final price, availability and tax are validated again by the server when the order is submitted.</p>
+                  <div className="flex justify-between font-bold"><span>Pre-validation estimate</span><span className="text-primary">{formatCurrency(orderTotal, "AED")}</span></div>
+                  <p className="pt-1 text-[11px] text-muted-foreground">Final price, discounts, availability and tax are revalidated by the server. An eligible coupon may reduce this total.</p>
                 </div>
-                <div className="flex gap-3">
-                  <Button variant="outline" onClick={() => setStep("payment")}>Back</Button>
-                  <Button className="flex-1" loading={loading} onClick={placeOrder}>Submit Order</Button>
-                </div>
+                <div className="flex gap-3"><Button variant="outline" onClick={() => setStep("payment")}>Back</Button><Button className="flex-1" loading={loading} onClick={placeOrder}>Submit Order</Button></div>
               </div>
             )}
           </div>
@@ -218,7 +213,8 @@ export default function CheckoutPage() {
               <div className="flex justify-between"><span className="text-muted-foreground">Displayed subtotal</span><span>{formatCurrency(subtotal, "AED")}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Estimated VAT {vatRate}%</span><span>{formatCurrency(vatAmount, "AED")}</span></div>
               <hr />
-              <div className="flex justify-between font-bold"><span>Estimated total</span><span className="text-primary">{formatCurrency(orderTotal, "AED")}</span></div>
+              <div className="flex justify-between font-bold"><span>Estimate</span><span className="text-primary">{formatCurrency(orderTotal, "AED")}</span></div>
+              {couponCode && <p className="pt-2 text-[11px] text-muted-foreground">Code <span className="font-mono">{couponCode}</span> will be validated on submit.</p>}
             </div>
           </div>
         </div>
