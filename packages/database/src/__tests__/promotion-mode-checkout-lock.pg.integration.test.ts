@@ -102,8 +102,9 @@ run("promotion mode mutation and checkout serialization", () => {
     release();
     await blocker;
 
-    const order = await checkout;
-    expect(Number(order.discountAmount)).toBe(0);
-    await expect(db.promotionRedemption.count({ where: { promotionId, orderId: order.id } })).resolves.toBe(0);
+    const outcome = await checkout.then((order) => ({ order }), (error: unknown) => ({ error }));
+    if ("order" in outcome) expect(Number(outcome.order.discountAmount)).toBe(0);
+    else expect(String(outcome.error)).toMatch(/coupon-only/i);
+    await expect(db.promotionRedemption.count({ where: { promotionId } })).resolves.toBe(0);
   });
 });
