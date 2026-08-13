@@ -11,12 +11,13 @@ const companies: string[] = [];
 
 async function fixture(label: string, b2b: boolean) {
   const stamp = `${label}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-  const [buyer, owner, admin] = await Promise.all([
+  const [buyer, owner, admin, platformAdmin] = await Promise.all([
     db.user.create({ data: { email: `${stamp}-buyer@test.invalid`, firstName: "IAM", lastName: "Buyer", role: b2b ? "COMPANY_BUYER" : "CONSUMER", status: "ACTIVE" } }),
     db.user.create({ data: { email: `${stamp}-owner@test.invalid`, firstName: "IAM", lastName: "Owner", role: "SELLER_OWNER", status: "ACTIVE" } }),
     db.user.create({ data: { email: `${stamp}-admin@test.invalid`, firstName: "IAM", lastName: "Admin", role: b2b ? "COMPANY_ADMIN" : "SUPER_ADMIN", status: "ACTIVE" } }),
+    db.user.create({ data: { email: `${stamp}-platform@test.invalid`, firstName: "IAM", lastName: "Platform", role: "SUPER_ADMIN", status: "ACTIVE" } }),
   ]);
-  users.push(buyer.id, owner.id, admin.id);
+  users.push(buyer.id, owner.id, admin.id, platformAdmin.id);
   const seller = await db.sellerProfile.create({ data: {
     userId: owner.id, businessNameEn: stamp, crNumber: `IAM-${stamp}`, type: "DISTRIBUTOR",
     country: "AE", city: "Dubai", status: "ACTIVE",
@@ -38,7 +39,7 @@ async function fixture(label: string, b2b: boolean) {
     member = await db.companyMember.create({ data: { companyId: company.id, userId: buyer.id, role: "COMPANY_BUYER", isActive: true } });
     await db.companyMember.create({ data: { companyId: company.id, userId: admin.id, role: "COMPANY_ADMIN", isActive: true } });
   }
-  return { buyer, admin, product, stock, company, member };
+  return { buyer, admin, platformAdmin, product, stock, company, member };
 }
 
 async function waitForUserFence(userId: string) {
@@ -76,7 +77,7 @@ run("IAM revocation and order serialization", () => {
   it("rejects B2B checkout and PO creation after company suspension wins", async () => {
     const f = await fixture("company-first", true);
     const po = await createGovernedPurchaseOrder({ companyId: f.company!.id, requesterId: f.buyer.id, currency: "AED", items: [{ productId: f.product.id, quantity: 1 }] });
-    await setCompanyStatus({ companyId: f.company!.id, status: "SUSPENDED", actorId: f.admin.id });
+    await setCompanyStatus({ companyId: f.company!.id, status: "SUSPENDED", actorId: f.platformAdmin.id });
     await expect(placeGovernedPurchaseOrder({ purchaseOrderId: po.id, companyId: f.company!.id, actorId: f.buyer.id })).rejects.toThrow(/active current company membership|approved purchase order/i);
     await expect(createGovernedPurchaseOrder({ companyId: f.company!.id, requesterId: f.buyer.id, currency: "AED", items: [{ productId: f.product.id, quantity: 1 }] })).rejects.toThrow(/active current company membership/i);
   });
@@ -92,7 +93,7 @@ run("IAM revocation and order serialization", () => {
       afterGovernanceLocks: async () => { locked(); await held; },
     });
     await lockSignal;
-    const suspension = setCompanyStatus({ companyId: f.company!.id, status: "SUSPENDED", actorId: f.admin.id });
+    const suspension = setCompanyStatus({ companyId: f.company!.id, status: "SUSPENDED", actorId: f.platformAdmin.id });
     release();
     const [po] = await Promise.all([creation, suspension]);
     await expect(db.purchaseOrder.findUniqueOrThrow({ where: { id: po.id } })).resolves.toMatchObject({ status: "PENDING_APPROVAL" });
@@ -101,7 +102,7 @@ run("IAM revocation and order serialization", () => {
   it("revoked company admin cannot mutate members, cancel, or place", async () => {
     const f = await fixture("actor-revoked", true);
     const po = await createGovernedPurchaseOrder({ companyId: f.company!.id, requesterId: f.buyer.id, currency: "AED", items: [{ productId: f.product.id, quantity: 1 }] });
-    await setUserStatus({ userId: f.admin.id, status: "SUSPENDED", actorId: f.buyer.id, actorRole: "SUPER_ADMIN" });
+    await setUserStatus({ userId: f.admin.id, status: "SUSPENDED", actorId: f.platformAdmin.id, actorRole: "SUPER_ADMIN" });
     await expect(updateGovernedCompanyMember({ memberId: f.member!.id, companyId: f.company!.id, actorId: f.admin.id, role: "COMPANY_BUYER", spendLimit: 50 })).rejects.toThrow(/active current company membership/i);
     await expect(transitionGovernedPurchaseOrder({ purchaseOrderId: po.id, companyId: f.company!.id, actorId: f.admin.id, action: "cancel" })).rejects.toThrow(/active current company membership/i);
     await expect(placeGovernedPurchaseOrder({ purchaseOrderId: po.id, companyId: f.company!.id, actorId: f.admin.id })).rejects.toThrow(/active current company membership/i);
@@ -118,7 +119,7 @@ run("IAM revocation and order serialization", () => {
       afterGovernanceLock: async () => { locked(); await held; },
     });
     await lockSignal;
-    const suspension = setUserStatus({ userId: f.admin.id, status: "SUSPENDED", actorId: f.buyer.id, actorRole: "SUPER_ADMIN" });
+    const suspension = setUserStatus({ userId: f.admin.id, status: "SUSPENDED", actorId: f.platformAdmin.id, actorRole: "SUPER_ADMIN" });
     release();
     await expect(mutation).resolves.toMatchObject({ member: { spendLimit: expect.anything() } });
     await expect(suspension).resolves.toMatchObject({ status: "SUSPENDED" });
@@ -153,7 +154,7 @@ run("IAM revocation and order serialization", () => {
 
   it("rejects B2C checkout after suspension wins", async () => {
     const f = await fixture("suspend-first", false);
-    await setUserStatus({ userId: f.buyer.id, status: "SUSPENDED", actorId: f.admin.id, actorRole: "SUPER_ADMIN" });
+    await setUserStatus({ userId: f.buyer.id, status: "SUSPENDED", actorId: f.platformAdmin.id, actorRole: "SUPER_ADMIN" });
     await expect(secureCreateOrder({ userId: f.buyer.id, type: "B2C", currency: "AED", items: [{ productId: f.product.id, quantity: 1 }], shippingAddress: { line1: "Test", city: "Dubai", country: "AE" } })).rejects.toThrow(/not active/i);
   });
 
@@ -167,7 +168,7 @@ run("IAM revocation and order serialization", () => {
     await lockedSignal;
     const checkout = secureCreateOrder({ userId: f.buyer.id, type: "B2C", currency: "AED", items: [{ productId: f.product.id, quantity: 1 }], shippingAddress: { line1: "Test", city: "Dubai", country: "AE" } });
     await waitForUserFence(f.buyer.id);
-    const suspension = setUserStatus({ userId: f.buyer.id, status: "SUSPENDED", actorId: f.admin.id, actorRole: "SUPER_ADMIN" });
+    const suspension = setUserStatus({ userId: f.buyer.id, status: "SUSPENDED", actorId: f.platformAdmin.id, actorRole: "SUPER_ADMIN" });
     release();
     await blocker;
     await expect(checkout).resolves.toMatchObject({ userId: f.buyer.id });

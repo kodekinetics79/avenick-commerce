@@ -12,7 +12,7 @@ import {
   type Prisma,
 } from "@prisma/client";
 import { db } from "../client";
-import { lockInventoryStockRows, lockPilotSellerKeys, lockProductCommercialRows, lockSellerCommercialRows } from "./checkout-invariants";
+import { lockInventoryStockRows, lockPilotSellerKeys, lockProductCommercialRows, lockSellerCommercialRows, requireCurrentAdminActor } from "./checkout-invariants";
 
 export type PilotAssetSet = { images?: string[]; documents?: string[] };
 
@@ -436,6 +436,7 @@ export async function applyPilotCatalog(file: PilotCatalogFile, options: {
   // One transaction makes the import all-or-nothing, including its audit row.
   // A generous explicit timeout is required for the bounded 20k-row pilot file.
   return db.$transaction(async (tx) => {
+    if (options.actorId) await requireCurrentAdminActor(tx, options.actorId);
     const sellerKeys = [...new Set(file.records.map((row) => row.sellerKey))].sort();
     await lockPilotSellerKeys(tx, sellerKeys);
 
@@ -502,17 +503,7 @@ export async function applyPilotCatalog(file: PilotCatalogFile, options: {
       source: file.generatedFrom ?? "client-supplied pilot catalog",
     };
     if (options.actorId) {
-      const actor = await tx.user.findUnique({
-        where: { id: options.actorId },
-        select: { id: true, role: true, status: true },
-      });
-      if (
-        !actor ||
-        actor.status !== UserStatus.ACTIVE ||
-        (actor.role !== UserRole.ADMIN && actor.role !== UserRole.SUPER_ADMIN)
-      ) {
-        throw new Error("Pilot catalog import actor must be an active administrator");
-      }
+      const actor = await tx.user.findUniqueOrThrow({ where: { id: options.actorId }, select: { role: true } });
       await tx.auditLog.create({
         data: {
           actorId: options.actorId,

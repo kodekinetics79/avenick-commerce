@@ -9,7 +9,7 @@ import {
   type UserStatus,
   type CompanyStatus,
 } from "../index";
-import { lockCompanyApprovalRows, lockProductCommercialRows, lockSellerCommercialRows, lockUserCommerceRows } from "./checkout-invariants";
+import { lockCompanyApprovalRows, lockProductCommercialRows, lockSellerCommercialRows, requireCurrentAdminActor } from "./checkout-invariants";
 
 // ─── PLATFORM USERS ───────────────────────────────────────────────────────────
 
@@ -81,19 +81,14 @@ export async function setUserStatus(opts: {
     select: { id: true, status: true, role: true, companyMember: { select: { companyId: true } } },
   });
   if (!target) throw new Error("User not found");
-  if (target.role === "SUPER_ADMIN" && opts.actorRole !== "SUPER_ADMIN") {
-    throw new Error("Only a super admin can modify a super admin account");
-  }
-  if (opts.userId === opts.actorId) {
-    throw new Error("You cannot change the status of your own account");
-  }
-
   return db.$transaction(async (tx) => {
     await lockCompanyApprovalRows(tx, target.companyMember ? [target.companyMember.companyId] : []);
-    await lockUserCommerceRows(tx, [opts.userId]);
+    const actor = await requireCurrentAdminActor(tx, opts.actorId, undefined, [opts.userId]);
     await opts.afterGovernanceLocks?.();
-    const current = await tx.user.findUnique({ where: { id: opts.userId }, select: { status: true } });
+    const current = await tx.user.findUnique({ where: { id: opts.userId }, select: { status: true, role: true } });
     if (!current) throw new Error("User not found");
+    if (current.role === "SUPER_ADMIN" && actor.role !== "SUPER_ADMIN") throw new Error("Only a super admin can modify a super admin account");
+    if (opts.userId === opts.actorId) throw new Error("You cannot change the status of your own account");
     const affected = target.companyMember && current.status !== opts.status
       ? await tx.purchaseOrder.findMany({
           where: {
@@ -192,6 +187,7 @@ export async function setCompanyStatus(opts: {
 }) {
   return db.$transaction(async (tx) => {
     await lockCompanyApprovalRows(tx, [opts.companyId]);
+    await requireCurrentAdminActor(tx, opts.actorId);
     await opts.afterCompanyLock?.();
     const target = await tx.company.findUnique({
       where: { id: opts.companyId }, select: { id: true, status: true },
@@ -291,6 +287,7 @@ export async function getAdminDashboard() {
 
 export async function approveSeller(sellerId: string, actorId: string) {
   return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, actorId);
     await lockSellerCommercialRows(tx, [sellerId]);
     const current = await tx.sellerProfile.findUnique({ where: { id: sellerId }, select: { status: true } });
     if (!current) throw new Error("Seller not found");
@@ -302,6 +299,7 @@ export async function approveSeller(sellerId: string, actorId: string) {
 
 export async function rejectSeller(sellerId: string, actorId: string, reason: string) {
   return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, actorId);
     await lockSellerCommercialRows(tx, [sellerId]);
     const current = await tx.sellerProfile.findUnique({ where: { id: sellerId }, select: { status: true } });
     if (!current) throw new Error("Seller not found");
@@ -312,27 +310,30 @@ export async function rejectSeller(sellerId: string, actorId: string, reason: st
 }
 
 export async function reviewDocument(docId: string, status: DocumentStatus, actorId: string, reason?: string) {
-  const current = await db.sellerDocument.findUnique({ where: { id: docId } });
-  if (!current) throw new Error("Seller document not found");
-  const [document] = await db.$transaction([
-    db.sellerDocument.update({ where: { id: docId }, data: { status, reviewedAt: new Date(), reviewedBy: actorId, rejectionReason: reason } }),
-    db.auditLog.create({ data: { actorId, sellerId: current.sellerId, entityType: "SellerDocument", entityId: docId, action: AuditAction.STATUS_CHANGE, before: { status: current.status }, after: { status, reason } } }),
-  ]);
-  return document;
+  return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, actorId);
+    const current = await tx.sellerDocument.findUnique({ where: { id: docId } });
+    if (!current) throw new Error("Seller document not found");
+    const document = await tx.sellerDocument.update({ where: { id: docId }, data: { status, reviewedAt: new Date(), reviewedBy: actorId, rejectionReason: reason } });
+    await tx.auditLog.create({ data: { actorId, sellerId: current.sellerId, entityType: "SellerDocument", entityId: docId, action: AuditAction.STATUS_CHANGE, before: { status: current.status }, after: { status, reason } } });
+    return document;
+  });
 }
 
 export async function reviewProductCompliance(docId: string, status: DocumentStatus, actorId: string, reason?: string) {
-  const current = await db.productComplianceDocument.findUnique({ where: { id: docId }, include: { product: { select: { sellerId: true } } } });
-  if (!current) throw new Error("Product compliance document not found");
-  const [document] = await db.$transaction([
-    db.productComplianceDocument.update({ where: { id: docId }, data: { status, reviewedAt: new Date(), rejectionReason: reason } }),
-    db.auditLog.create({ data: { actorId, sellerId: current.product.sellerId, entityType: "ProductComplianceDocument", entityId: docId, action: AuditAction.STATUS_CHANGE, before: { status: current.status }, after: { status, reason } } }),
-  ]);
-  return document;
+  return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, actorId);
+    const current = await tx.productComplianceDocument.findUnique({ where: { id: docId }, include: { product: { select: { sellerId: true } } } });
+    if (!current) throw new Error("Product compliance document not found");
+    const document = await tx.productComplianceDocument.update({ where: { id: docId }, data: { status, reviewedAt: new Date(), rejectionReason: reason } });
+    await tx.auditLog.create({ data: { actorId, sellerId: current.product.sellerId, entityType: "ProductComplianceDocument", entityId: docId, action: AuditAction.STATUS_CHANGE, before: { status: current.status }, after: { status, reason } } });
+    return document;
+  });
 }
 
 export async function approveProduct(productId: string, actorId: string) {
   return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, actorId);
     await lockProductCommercialRows(tx, [productId]);
     const current = await tx.product.findUnique({ where: { id: productId }, select: { status: true, sellerId: true } });
     if (!current) throw new Error("Product not found");
@@ -344,6 +345,7 @@ export async function approveProduct(productId: string, actorId: string) {
 
 export async function rejectProduct(productId: string, actorId: string, reason: string) {
   return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, actorId);
     await lockProductCommercialRows(tx, [productId]);
     const current = await tx.product.findUnique({ where: { id: productId }, select: { status: true, sellerId: true } });
     if (!current) throw new Error("Product not found");

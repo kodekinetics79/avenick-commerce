@@ -5,6 +5,7 @@ import {
   type RFQStatus,
   type ReturnStatus,
 } from "../index";
+import { lockUserCommerceRows } from "./checkout-invariants";
 
 // ─── RFQs (admin oversight) ───────────────────────────────────────────────────
 
@@ -122,6 +123,7 @@ export async function setReturnStatus(opts: {
   refundReference?: string;
 }) {
   return db.$transaction(async (tx) => {
+    await lockUserCommerceRows(tx, [opts.actorId]);
     // Serialize transitions for this return. Without this lock, two REFUNDED
     // requests can both observe RECEIVED and create two financial records.
     await tx.$executeRaw(
@@ -149,6 +151,18 @@ export async function setReturnStatus(opts: {
       },
     });
     if (!target) throw new Error("Return request not found");
+    const actor = await tx.user.findUnique({
+      where: { id: opts.actorId },
+      include: { sellerMemberships: true, sellerProfile: { select: { id: true, status: true, deletedAt: true } } },
+    });
+    const platformAdmin = actor && ["ADMIN", "SUPER_ADMIN"].includes(actor.role);
+    const membership = actor?.sellerMemberships[0];
+    const sellerId = actor?.sellerProfile?.id ?? membership?.sellerId;
+    const activeSellerActor = actor && ["SELLER_OWNER", "SELLER_STAFF"].includes(actor.role)
+      && sellerId === target.sellerId && (actor.role === "SELLER_OWNER" || (membership?.isActive && membership.permissions.includes("returns.manage")));
+    if (!actor || actor.status !== "ACTIVE" || actor.deletedAt || (!platformAdmin && !activeSellerActor)) {
+      throw new Error("Current return-management authority is required");
+    }
     if (!RETURN_TRANSITIONS[target.status].includes(opts.status)) {
       throw new Error(`Cannot move a ${target.status.toLowerCase()} return to ${opts.status.toLowerCase()}`);
     }

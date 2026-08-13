@@ -5,6 +5,7 @@ import {
   type PaymentStatus,
   type PayoutStatus,
 } from "../index";
+import { requireCurrentAdminActor } from "./checkout-invariants";
 
 // ─── OVERVIEW ─────────────────────────────────────────────────────────────────
 
@@ -211,6 +212,7 @@ export async function setPayoutStatus(opts: {
     PAID: [],
   };
   return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, opts.actorId);
     const target = await tx.sellerPayout.findUnique({
       where: { id: opts.payoutId }, select: { id: true, status: true, sellerId: true },
     });

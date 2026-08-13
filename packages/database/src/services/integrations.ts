@@ -1,5 +1,6 @@
 import { Prisma, type IntegrationInbox, type IntegrationOutbox } from "@prisma/client";
 import { db } from "../index";
+import { requireCurrentAdminActor } from "./checkout-invariants";
 
 const DEFAULT_LEASE_MS = 5 * 60 * 1000;
 const DEFAULT_MAX_ATTEMPTS = 8;
@@ -222,6 +223,7 @@ export async function failIntegrationOutbox(
 export async function redriveIntegrationOutbox(id: string, actorId: string) {
   if (!actorId) throw new Error("Manual redrive actor is required");
   return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, actorId);
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`integration-redrive:${id}`}))`);
     const row = await tx.integrationOutbox.findUnique({ where: { id } });
     if (!row) throw new Error("Integration outbox message not found");
@@ -385,6 +387,7 @@ export async function markIntegrationInboxFailed(lease: IntegrationInboxLease, e
 export async function redriveIntegrationInbox(id: string, actorId: string) {
   if (!actorId) throw new Error("Manual redrive actor is required");
   return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, actorId);
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`integration-inbox-redrive:${id}`}))`);
     const row = await tx.integrationInbox.findUnique({ where: { id } });
     if (!row) throw new Error("Integration inbox message not found");

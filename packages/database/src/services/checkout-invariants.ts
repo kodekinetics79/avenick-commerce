@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type UserRole } from "@prisma/client";
 
 type InventoryLockClient = Pick<Prisma.TransactionClient, "$executeRaw">;
 type CommercialLockClient = Pick<Prisma.TransactionClient, "$executeRaw">;
@@ -25,6 +25,24 @@ export async function lockUserCommerceRows(
       Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`user-commerce:${userId}`}))`,
     );
   }
+}
+
+/** Lock and resolve current platform-admin authority inside the mutation transaction. */
+export async function requireCurrentAdminActor(
+  tx: Pick<Prisma.TransactionClient, "$executeRaw" | "user">,
+  actorId: string,
+  requiredRole?: Extract<UserRole, "ADMIN" | "SUPER_ADMIN">,
+  additionalUserIds: string[] = [],
+) {
+  await lockUserCommerceRows(tx, [actorId, ...additionalUserIds]);
+  const actor = await tx.user.findUnique({
+    where: { id: actorId }, select: { id: true, role: true, status: true, deletedAt: true },
+  });
+  if (!actor || actor.status !== "ACTIVE" || actor.deletedAt || !["ADMIN", "SUPER_ADMIN"].includes(actor.role)
+    || (requiredRole && actor.role !== requiredRole)) {
+    throw new Error(requiredRole === "SUPER_ADMIN" ? "Current super admin authority is required" : "Current admin authority is required");
+  }
+  return actor;
 }
 
 /**

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAdminSession } from "@/lib/auth";
-import { AuditAction, db, lockPromotionCommercialRows, type Currency, type Prisma } from "@avenick/database";
+import { AuditAction, db, lockPromotionCommercialRows, requireCurrentAdminActor, type Currency, type Prisma } from "@avenick/database";
 
 const PROMOTION_TYPES = new Set(["PERCENTAGE", "FIXED_AMOUNT"]);
 const PROMOTION_STATUSES = new Set(["DRAFT", "ACTIVE", "PAUSED", "ENDED"]);
@@ -50,6 +50,7 @@ export async function createPromotion(formData: FormData) {
   if (startsAt && endsAt && endsAt <= startsAt) throw new Error("Promotion end must be after start");
 
   await db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, userId);
     const promotion = await tx.commercePromotion.create({
       data: {
         tenantKey: "default",
@@ -89,6 +90,7 @@ export async function setPromotionStatus(id: string, status: string) {
   const next = status.toUpperCase();
   if (!PROMOTION_STATUSES.has(next)) throw new Error("Unsupported promotion status");
   await db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, userId);
     await lockPromotionCommercialRows(tx, [id]);
     const current = await tx.commercePromotion.findUnique({ where: { id } });
     if (!current || current.status === next) return;
@@ -123,6 +125,7 @@ export async function createCoupon(formData: FormData) {
   const endsAt = optionalDate(formData, "endsAt");
   if (startsAt && endsAt && endsAt <= startsAt) throw new Error("Coupon end must be after start");
   const coupon = await db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, userId);
     await lockPromotionCommercialRows(tx, [promotionId]);
     const promotion = await tx.commercePromotion.findUnique({ where: { id: promotionId } });
     if (!promotion) throw new Error("Promotion not found");
@@ -184,6 +187,7 @@ export async function createReferralProgram(formData: FormData) {
   if (startsAt && endsAt && endsAt <= startsAt) throw new Error("Referral program end must be after start");
 
   await db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, userId);
     const program = await tx.referralProgram.create({
       data: {
         tenantKey: "default",

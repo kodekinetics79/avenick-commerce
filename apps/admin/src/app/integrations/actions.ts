@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AuditAction, db, governedIntegrationPolicy, redriveIntegrationInbox, redriveIntegrationOutbox } from "@avenick/database";
+import { AuditAction, db, governedIntegrationPolicy, redriveIntegrationInbox, redriveIntegrationOutbox, requireCurrentAdminActor } from "@avenick/database";
 import { requireAdminSession } from "@/lib/auth";
 
 const SYSTEMS = new Set(["D365", "SAP", "ERP", "WMS", "PIM"]);
@@ -25,7 +25,9 @@ export async function createIntegrationConnection(formData: FormData) {
     : null;
   const baseUrl = configured?.baseUrl ?? null;
   const credentialsRef = configured?.credentialsRef ?? null;
-  const connection = await db.integrationConnection.upsert({
+  await db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, userId);
+    const connection = await tx.integrationConnection.upsert({
     where: {
       tenantKey_system_connectionKey: {
         tenantKey: "default",
@@ -50,9 +52,8 @@ export async function createIntegrationConnection(formData: FormData) {
       credentialsRef,
       status: "DISABLED",
     },
-  });
-
-  await db.auditLog.create({
+    });
+    await tx.auditLog.create({
     data: {
       actorId: userId,
       entityType: "IntegrationConnection",
@@ -67,6 +68,7 @@ export async function createIntegrationConnection(formData: FormData) {
         status: "DISABLED",
       },
     },
+    });
   });
   revalidatePath("/integrations");
 }
@@ -75,25 +77,24 @@ export async function setIntegrationConnectionStatus(id: string, status: string)
   const { userId } = await requireAdminSession();
   const next = status.toUpperCase();
   if (!STATUSES.has(next)) throw new Error("Unsupported connection status");
-  const connection = await db.integrationConnection.findUnique({ where: { id } });
-  if (!connection) throw new Error("Integration connection not found");
-
-  if (next === "ACTIVE") {
-    if (!connection.baseUrl) throw new Error("A base URL is required before activation");
-    if (!connection.credentialsRef) throw new Error("A secret-manager credential reference is required before activation");
-    governedIntegrationPolicy({ system: connection.system, baseUrl: connection.baseUrl, credentialsRef: connection.credentialsRef });
-  }
-
-  await db.$transaction([
-    db.integrationConnection.update({
+  await db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, userId);
+    const connection = await tx.integrationConnection.findUnique({ where: { id } });
+    if (!connection) throw new Error("Integration connection not found");
+    if (next === "ACTIVE") {
+      if (!connection.baseUrl) throw new Error("A base URL is required before activation");
+      if (!connection.credentialsRef) throw new Error("A secret-manager credential reference is required before activation");
+      governedIntegrationPolicy({ system: connection.system, baseUrl: connection.baseUrl, credentialsRef: connection.credentialsRef });
+    }
+    await tx.integrationConnection.update({
       where: { id },
       data: {
         status: next,
         // Activation means administratively enabled, NOT connectivity verified.
         ...(next === "DISABLED" ? { lastError: null } : {}),
       },
-    }),
-    db.auditLog.create({
+    });
+    await tx.auditLog.create({
       data: {
         actorId: userId,
         entityType: "IntegrationConnection",
@@ -102,8 +103,8 @@ export async function setIntegrationConnectionStatus(id: string, status: string)
         before: { status: connection.status },
         after: { status: next },
       },
-    }),
-  ]);
+    });
+  });
   revalidatePath("/integrations");
 }
 
