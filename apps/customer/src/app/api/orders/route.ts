@@ -4,11 +4,23 @@ import { secureCreateOrder, accrueCommissions, db } from "@avenick/database";
 import { checkRateLimit, RATE_LIMITS } from "@avenick/auth";
 import { log } from "@avenick/observability";
 import { z } from "zod";
-import type { PaymentMethod, Currency } from "@avenick/database";
+import type { PaymentMethod, Currency, OrderStatus } from "@avenick/database";
 
 const CurrencySchema = z.enum(["AED", "SAR", "QAR", "KWD", "OMR", "BHD", "USD"]);
 const PaymentMethodSchema = z.enum(["MADA", "APPLE_PAY", "CREDIT_CARD", "BANK_TRANSFER", "STC_PAY", "MOCK"]);
 const CountrySchema = z.enum(["AE", "SA", "QA", "KW", "OM", "BH"]);
+const OrderStatusSchema = z.enum([
+  "PENDING_PAYMENT",
+  "PAYMENT_CONFIRMED",
+  "CONFIRMED",
+  "PROCESSING",
+  "SHIPPED",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+  "CANCELLED",
+  "REFUNDED",
+  "RETURNED",
+]);
 
 const CreateOrderSchema = z.object({
   // The client supplies identity + quantity only. Seller ownership, prices,
@@ -36,6 +48,24 @@ function pilotMockPaymentsEnabled(): boolean {
   return process.env.PILOT_MODE === "true" && process.env.ALLOW_MOCK_PAYMENTS === "true";
 }
 
+function orderResponse(order: {
+  id: string;
+  orderNumber: string;
+  total: { toString(): string } | number;
+  discountAmount: { toString(): string } | number;
+  vatAmount: { toString(): string } | number;
+  currency: Currency;
+}) {
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    total: Number(order.total),
+    discountAmount: Number(order.discountAmount),
+    vatAmount: Number(order.vatAmount),
+    currency: order.currency,
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
@@ -56,9 +86,9 @@ export async function POST(req: NextRequest) {
     if (idempotencyKey) {
       const existing = await db.order.findUnique({
         where: { userId_idempotencyKey: { userId: session.user.id, idempotencyKey } },
-        select: { id: true, orderNumber: true },
+        select: { id: true, orderNumber: true, total: true, discountAmount: true, vatAmount: true, currency: true },
       });
-      if (existing) return NextResponse.json({ success: true, data: existing, idempotent: true });
+      if (existing) return NextResponse.json({ success: true, data: orderResponse(existing), idempotent: true });
     }
 
     const body = await req.json();
@@ -133,7 +163,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ success: true, data: { id: order.id, orderNumber: order.orderNumber } });
+    return NextResponse.json({ success: true, data: orderResponse(order) });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to create order";
     const isBusinessError = /price|stock|unavailable|at least one item|account|company|purchase order|B2B|B2C|permitted|coupon|promotion|quantity/i.test(message);
@@ -146,12 +176,18 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
-    const status = req.nextUrl.searchParams.get("status")?.trim() || undefined;
+
+    const rawStatus = req.nextUrl.searchParams.get("status")?.trim();
+    const parsedStatus = rawStatus ? OrderStatusSchema.safeParse(rawStatus) : null;
+    if (parsedStatus && !parsedStatus.success) {
+      return NextResponse.json({ success: false, error: "Invalid order status filter" }, { status: 400 });
+    }
+    const status = parsedStatus?.success ? parsedStatus.data as OrderStatus : undefined;
 
     const orders = await db.order.findMany({
       where: {
         userId: session.user.id,
-        ...(status ? { status: status as never } : {}),
+        ...(status ? { status } : {}),
       },
       orderBy: { createdAt: "desc" },
       include: { items: true, statusHistory: { orderBy: { createdAt: "desc" }, take: 1 } },
