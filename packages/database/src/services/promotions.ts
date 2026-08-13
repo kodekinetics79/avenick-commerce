@@ -9,6 +9,8 @@ export type PromotionEligibility = {
   companyIds?: string[];
   countries?: string[];
   minQuantity?: number;
+  /** Coupon-backed rules must never be applied as automatic promotions. */
+  requiresCoupon?: boolean;
 };
 
 export type PromotionLine = {
@@ -167,6 +169,10 @@ export async function evaluateCommercePromotions(input: {
   }>;
 
   for (const promotion of promotions) {
+    const eligibility = asEligibility(promotion.eligibility);
+    // A rule becomes coupon-only as soon as a coupon is issued against it. This
+    // prevents the same rule from applying once automatically and again by code.
+    if (eligibility.requiresCoupon) continue;
     if (promotion.scope === "SELLER" && promotion.sellerId && !input.lines.some((line) => line.sellerId === promotion.sellerId)) continue;
     if (promotion.scope === "COMPANY" && promotion.companyId !== input.companyId) continue;
     const usage = promotion.usageLimit
@@ -181,8 +187,6 @@ export async function evaluateCommercePromotions(input: {
     if (calculated.discount > 0) eligibleAutomatic.push({ promotion, ...calculated });
   }
 
-  // Non-stackable automatic promotions compete on best customer value. Stackable
-  // promotions may join the winner in priority order, but never discount below 0.
   const nonStackable = eligibleAutomatic.filter((candidate) => !candidate.promotion.stackable);
   const bestNonStackable = nonStackable.sort((a, b) => b.discount - a.discount || a.promotion.priority - b.promotion.priority)[0];
   const selectedAutomatic = [
@@ -232,9 +236,6 @@ export async function evaluateCommercePromotions(input: {
     const calculated = calculatePromotionDiscount(couponPromotion, input.lines, input.companyId, input.country);
     if (calculated.discount <= 0) throw new Error("Coupon is not eligible for this order");
 
-    // If the coupon's promotion is non-stackable, compare it with all already
-    // selected non-stackable benefit and keep the better one. Stackable automatic
-    // discounts remain only when the coupon itself allows stacking.
     if (!couponPromotion.stackable) {
       const currentTotal = Object.values(lineDiscounts).reduce((a, b) => a + b, 0);
       if (calculated.discount > currentTotal) {
