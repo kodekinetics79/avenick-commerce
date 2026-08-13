@@ -26,8 +26,9 @@ function decodeCatalog(bytes: Uint8Array, contentType: string) {
 
 export async function POST(request: NextRequest) {
   const session = await auth();
-  const role = session?.user?.role;
-  if (!session?.user?.id || (role !== "ADMIN" && role !== "SUPER_ADMIN")) {
+  const sessionUser = session?.user as { id?: string; role?: string } | undefined;
+  const role = sessionUser?.role;
+  if (!sessionUser?.id || (role !== "ADMIN" && role !== "SUPER_ADMIN")) {
     return NextResponse.json({ success: false, error: "Administrator authentication required" }, { status: 401 });
   }
 
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await applyPilotCatalog(file, {
-      actorId: session.user.id,
+      actorId: sessionUser.id,
       assetBaseUrl: process.env.PILOT_ASSET_BASE_URL?.trim() || undefined,
       testPassword: process.env.PILOT_TEST_PASSWORD?.trim() || undefined,
     });
