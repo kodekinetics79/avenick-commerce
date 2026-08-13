@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
-import { Trash2, Minus, Plus, ShoppingBag, ArrowRight, Tag, Truck, ShieldCheck, Heart } from "lucide-react";
+import { Trash2, Minus, Plus, ShoppingBag, ArrowRight, Truck, ShieldCheck, Heart } from "lucide-react";
 import { Button } from "@avenick/ui";
 import { formatCurrency } from "@avenick/utils";
 import { useCartStore } from "@/stores/cart";
@@ -14,25 +13,11 @@ import { VAT_RATES } from "@avenick/utils";
 export default function CartPage() {
   const { items, updateQty, removeItem, total } = useCartStore();
   const { toggle } = useWishlist();
-  const [promoCode, setPromoCode] = useState("");
-  const [promoApplied, setPromoApplied] = useState(false);
-  const [promoError, setPromoError] = useState("");
-
   const subtotal = total();
   const vatRate = VAT_RATES["AE"] ?? 5;
   const vatAmount = subtotal * vatRate / 100;
-  const discount = promoApplied ? subtotal * 0.1 : 0;
   const shipping = subtotal >= 200 ? 0 : 20;
-  const orderTotal = subtotal - discount + vatAmount + shipping;
-
-  function applyPromo() {
-    if (promoCode.trim().toUpperCase() === "AVENICK10") {
-      setPromoApplied(true);
-      setPromoError("");
-    } else {
-      setPromoError("Invalid promo code");
-    }
-  }
+  const orderTotal = subtotal + vatAmount + shipping;
 
   function saveForLater(item: typeof items[0]) {
     toggle({ id: item.productId, slug: item.productId, nameEn: item.nameEn, nameAr: item.nameAr, imageUrl: item.imageUrl, price: item.unitPrice, currency: item.currency, sku: item.sku, sellerId: item.sellerId, inStock: true });
@@ -142,12 +127,6 @@ export default function CartPage() {
                     <span className="text-muted-foreground">Subtotal ({items.length} items)</span>
                     <span>{formatCurrency(subtotal, "AED")}</span>
                   </div>
-                  {promoApplied && (
-                    <div className="flex justify-between text-primary">
-                      <span>Promo (AVENICK10)</span>
-                      <span>-{formatCurrency(discount, "AED")}</span>
-                    </div>
-                  )}
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">VAT ({vatRate}%)</span>
                     <span>{formatCurrency(vatAmount, "AED")}</span>
@@ -164,31 +143,9 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                {/* Promo code */}
-                {!promoApplied ? (
-                  <div className="mb-4">
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={promoCode}
-                        onChange={(e) => { setPromoCode(e.target.value); setPromoError(""); }}
-                        placeholder="Promo code"
-                        className="flex-1 h-9 px-3 text-sm border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                      />
-                      <button type="button" onClick={applyPromo} className="px-3 h-9 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1">
-                        <Tag className="h-3.5 w-3.5" /> Apply
-                      </button>
-                    </div>
-                    {promoError && <p className="text-xs text-destructive mt-1">{promoError}</p>}
-                    <p className="text-xs text-muted-foreground mt-1">Try: AVENICK10</p>
-                  </div>
-                ) : (
-                  <div className="mb-4 flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-lg px-3 py-2 text-sm text-primary">
-                    <Tag className="h-3.5 w-3.5" />
-                    <span className="font-medium">10% discount applied!</span>
-                    <button type="button" onClick={() => { setPromoApplied(false); setPromoCode(""); }} className="ms-auto text-xs underline">Remove</button>
-                  </div>
-                )}
+                <p className="mb-4 text-xs text-muted-foreground">
+                  Eligible coupon codes are validated and priced by the server during checkout.
+                </p>
 
                 <Button asChild variant="primary" size="lg" className="w-full mb-3">
                   <Link href="/checkout">Proceed to Checkout <ArrowRight className="ms-2 h-4 w-4" /></Link>
