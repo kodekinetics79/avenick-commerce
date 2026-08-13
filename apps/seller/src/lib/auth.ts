@@ -15,6 +15,8 @@ export async function requireSellerSession() {
 
     return {
       session,
+      userId: user.id,
+      userRole: user.role,
       seller,
       membership: {
         userId: user.id,
@@ -26,9 +28,8 @@ export async function requireSellerSession() {
     };
   }
 
-  // SELLER_STAFF must belong to a real seller organization. The previous
-  // implementation looked up SellerProfile.userId, which can only ever resolve
-  // the unique owner and therefore made the staff role non-functional.
+  // SELLER_STAFF must belong to a real seller organization. SellerProfile.userId
+  // belongs only to the unique owner, so staff resolution is membership-based.
   const membership = await db.sellerMembership.findUnique({
     where: { userId: user.id },
     include: { seller: true },
@@ -37,5 +38,21 @@ export async function requireSellerSession() {
     redirect("/login");
   }
 
-  return { session, seller: membership.seller, membership };
+  return {
+    session,
+    userId: user.id,
+    userRole: user.role,
+    seller: membership.seller,
+    membership,
+  };
+}
+
+/** Require an explicit seller capability for staff; owners always have `*`. */
+export async function requireSellerPermission(permission: string) {
+  const context = await requireSellerSession();
+  const permissions = context.membership.permissions ?? [];
+  if (!permissions.includes("*") && !permissions.includes(permission)) {
+    throw new Error(`Seller permission required: ${permission}`);
+  }
+  return context;
 }
