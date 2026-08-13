@@ -73,13 +73,18 @@ export type ImportResult = {
  * are reported back rather than silently creating products — keeps the seller's
  * catalog authoritative and avoids accidental duplicates.
  */
-export async function importProductsCsv(rows: ImportRow[]): Promise<ImportResult> {
+export async function importProductsCsv(rows: ImportRow[], options: {
+  /** Deterministic seams for PostgreSQL capability-revocation regressions. */
+  afterSessionCheck?: () => Promise<void>;
+  afterActorLock?: () => Promise<void>;
+} = {}): Promise<ImportResult> {
   const { seller, userId, membership } = await requireSellerSession();
   const result: ImportResult = { updated: 0, skipped: 0, errors: [] };
 
   // Limit to a sane batch to keep the request bounded.
   const batch = rows.slice(0, 1000);
   assertProductImportPermissions(membership.permissions ?? [], batch);
+  await options.afterSessionCheck?.();
 
   for (const row of batch) {
     const sku = (row.sku ?? "").trim();
@@ -107,9 +112,11 @@ export async function importProductsCsv(rows: ImportRow[]): Promise<ImportResult
 
     try {
       await db.$transaction(async (tx) => {
-        const permission = Object.keys(data).length > 0 ? "catalog.manage"
-          : row.price?.trim() ? "pricing.manage" : "inventory.manage";
-        await requireCurrentSellerActor(tx, userId, seller.id, permission);
+        const required = ["catalog.manage"];
+        if (row.price?.trim()) required.push("pricing.manage");
+        if (row.stock?.trim()) required.push("inventory.manage");
+        await requireCurrentSellerActor(tx, userId, seller.id, required);
+        await options.afterActorLock?.();
         await lockProductCommercialRows(tx, [product.id]);
         const currentProduct = await tx.product.findFirstOrThrow({
           where: { id: product.id, sellerId: seller.id, deletedAt: null },

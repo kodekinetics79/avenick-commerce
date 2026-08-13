@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { db, Prisma, secureCreateOrder } from "@avenick/database";
+import { db, lockUserCommerceRows, Prisma, secureCreateOrder } from "@avenick/database";
 
 const { authMock } = vi.hoisted(() => ({ authMock: vi.fn() }));
 vi.mock("@/lib/auth-instance", () => ({ auth: authMock }));
@@ -101,6 +101,13 @@ afterAll(async () => {
 });
 
 describe.skipIf(!process.env.DATABASE_URL)("seeded-role marketplace API journey", () => {
+  async function setCatalogPermissions(permissions: string[]) {
+    return db.$transaction(async (tx) => {
+      await lockUserCommerceRows(tx, [catalogStaffId]);
+      return tx.sellerMembership.update({ where: { userId: catalogStaffId }, data: { permissions } });
+    });
+  }
+
   async function runCsvCheckoutStockRace(first: "csv" | "checkout") {
     const price = await db.productPrice.create({ data: {
       productId: productAId,
@@ -199,6 +206,56 @@ describe.skipIf(!process.env.DATABASE_URL)("seeded-role marketplace API journey"
     expect(result.errors[0]).toMatch(/below reserved quantity/);
     expect(await db.inventoryStock.findUnique({ where: { id: stockId } }))
       .toMatchObject({ qty: 10, reservedQty: 4 });
+  });
+
+  it("rejects a mixed CSV row when capability revocation wins after the session check", async () => {
+    const price = await db.productPrice.create({ data: { productId: productAId, type: "B2C", currency: "AED", price: 100 } });
+    await setCatalogPermissions(["catalog.view", "catalog.manage", "pricing.manage", "inventory.manage"]);
+    sessionFor(catalogStaffId);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let checked!: () => void;
+    const signal = new Promise<void>((resolve) => { checked = resolve; });
+    const importing = importProductsCsv(
+      [{ sku: productASku, nameEn: "Must not commit", price: "77", stock: "9" }],
+      { afterSessionCheck: async () => { checked(); await held; } },
+    );
+    await signal;
+    await setCatalogPermissions(["catalog.view", "catalog.manage"]);
+    release();
+    const result = await importing;
+    expect(result).toMatchObject({ updated: 0, skipped: 1 });
+    expect(result.errors[0]).toMatch(/pricing\.manage and inventory\.manage/);
+    await expect(db.product.findUniqueOrThrow({ where: { id: productAId } })).resolves.toMatchObject({ nameEn: "Seller A line" });
+    await expect(db.productPrice.findUniqueOrThrow({ where: { id: price.id } })).resolves.toMatchObject({ price: expect.anything() });
+    expect(Number((await db.productPrice.findUniqueOrThrow({ where: { id: price.id } })).price)).toBe(100);
+    await expect(db.inventoryStock.findUniqueOrThrow({ where: { id: stockId } })).resolves.toMatchObject({ qty: 10 });
+    await db.productPrice.delete({ where: { id: price.id } });
+  });
+
+  it("lets a mixed CSV row commit before later capability revocation", async () => {
+    const price = await db.productPrice.create({ data: { productId: productAId, type: "B2C", currency: "AED", price: 100 } });
+    await setCatalogPermissions(["catalog.view", "catalog.manage", "pricing.manage", "inventory.manage"]);
+    sessionFor(catalogStaffId);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let locked!: () => void;
+    const signal = new Promise<void>((resolve) => { locked = resolve; });
+    const importing = importProductsCsv(
+      [{ sku: productASku, nameEn: "Committed before revoke", price: "77", stock: "9" }],
+      { afterActorLock: async () => { locked(); await held; } },
+    );
+    await signal;
+    const revoke = setCatalogPermissions(["catalog.view", "catalog.manage"]);
+    release();
+    const [result] = await Promise.all([importing, revoke]);
+    expect(result).toMatchObject({ updated: 1, skipped: 0 });
+    await expect(db.product.findUniqueOrThrow({ where: { id: productAId } })).resolves.toMatchObject({ nameEn: "Committed before revoke" });
+    expect(Number((await db.productPrice.findUniqueOrThrow({ where: { id: price.id } })).price)).toBe(77);
+    await expect(db.inventoryStock.findUniqueOrThrow({ where: { id: stockId } })).resolves.toMatchObject({ qty: 9 });
+    await db.product.update({ where: { id: productAId }, data: { nameEn: "Seller A line" } });
+    await db.inventoryStock.update({ where: { id: stockId }, data: { qty: 10 } });
+    await db.productPrice.delete({ where: { id: price.id } });
   });
 
   it("serializes CSV first against checkout without violating reserved stock", async () => {

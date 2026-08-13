@@ -15,6 +15,40 @@ export async function lockCompanyApprovalRows(
   }
 }
 
+/** Tenant registry changes serialize with route resolution and activation. */
+export async function lockIntegrationRegistry(
+  tx: CommercialLockClient,
+  tenantKey = "default",
+): Promise<void> {
+  await tx.$executeRaw(
+    Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`integration-registry:${tenantKey}`}))`,
+  );
+}
+
+/** Company route changes serialize with order commit. */
+export async function lockCompanyIntegrationRoutes(
+  tx: CommercialLockClient,
+  companyIds: string[],
+): Promise<void> {
+  for (const companyId of [...new Set(companyIds)].sort()) {
+    await tx.$executeRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`integration-route:${companyId}`}))`,
+    );
+  }
+}
+
+/** Connection activation and route consumers use the same deterministic fence. */
+export async function lockIntegrationConnections(
+  tx: CommercialLockClient,
+  connectionIds: string[],
+): Promise<void> {
+  for (const connectionId of [...new Set(connectionIds)].sort()) {
+    await tx.$executeRaw(
+      Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`integration-connection:${connectionId}`}))`,
+    );
+  }
+}
+
 /** User activation/deletion decisions share this fence with order commit. */
 export async function lockUserCommerceRows(
   tx: CommercialLockClient,
@@ -50,7 +84,7 @@ export async function requireCurrentSellerActor(
   tx: Pick<Prisma.TransactionClient, "$executeRaw" | "user">,
   actorId: string,
   sellerId: string,
-  permission: string,
+  required: string | readonly string[],
 ) {
   await lockUserCommerceRows(tx, [actorId]);
   await lockSellerCommercialRows(tx, [sellerId]);
@@ -65,9 +99,12 @@ export async function requireCurrentSellerActor(
   if (actor.role === "SELLER_OWNER" && actor.sellerProfile?.id === sellerId
     && actor.sellerProfile.status === "ACTIVE" && !actor.sellerProfile.deletedAt) return actor;
   const membership = actor.sellerMemberships.find((row) => row.sellerId === sellerId);
+  const permissions = typeof required === "string" ? [required] : [...new Set(required)];
+  const hasRequired = membership?.permissions.includes("*")
+    || permissions.every((permission) => membership?.permissions.includes(permission));
   if (actor.role !== "SELLER_STAFF" || !membership?.isActive || membership.seller.status !== "ACTIVE"
-    || membership.seller.deletedAt || (!membership.permissions.includes("*") && !membership.permissions.includes(permission))) {
-    throw new Error(`Current seller permission required: ${permission}`);
+    || membership.seller.deletedAt || !hasRequired) {
+    throw new Error(`Current seller permission required: ${permissions.join(" and ")}`);
   }
   return actor;
 }
