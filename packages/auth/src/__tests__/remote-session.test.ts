@@ -4,6 +4,7 @@ import { resolveRemotePortalSession } from "../remote-session";
 
 afterEach(() => {
   delete process.env.NEXT_PUBLIC_BACKEND_URL;
+  delete process.env.NEXTAUTH_URL;
 });
 
 describe("split-runtime session verification", () => {
@@ -62,5 +63,30 @@ describe("split-runtime session verification", () => {
         failed as typeof fetch,
       ),
     ).toBeNull();
+  });
+
+  it("uses the deployment-owned auth origin instead of a request-controlled host", async () => {
+    process.env.NEXTAUTH_URL = "https://auth-safe.example.test/";
+    process.env.NEXT_PUBLIC_BACKEND_URL = "https://legacy-backend.example.test";
+    const fetcher = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          user: { id: "u2", email: "admin@example.test", role: UserRole.ADMIN },
+          expires: new Date(Date.now() + 60_000).toISOString(),
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await resolveRemotePortalSession(
+      "admin",
+      "avenick.admin.session-token=signed-token",
+      fetcher as typeof fetch,
+    );
+
+    expect(fetcher).toHaveBeenCalledWith(
+      "https://auth-safe.example.test/api/auth/session",
+      expect.any(Object),
+    );
   });
 });

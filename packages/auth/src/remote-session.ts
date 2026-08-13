@@ -42,6 +42,8 @@ function isSession(value: unknown): value is Session {
 }
 
 function backendOrigin(portal: PortalType) {
+  const authOrigin = process.env.NEXTAUTH_URL?.trim();
+  if (authOrigin) return authOrigin.replace(/\/$/, "");
   const configured = process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
   return (configured || DEFAULT_BACKEND_ORIGINS[portal]).replace(/\/$/, "");
 }
