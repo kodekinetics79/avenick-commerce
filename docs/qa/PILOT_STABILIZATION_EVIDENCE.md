@@ -2,12 +2,15 @@
 
 ## Decision
 
-**EXTERNAL-BLOCKED — internal P0/P1 closure is complete; keep PR #4 draft until hosted gates pass.**
+**CODE MERGE READY, pending final exact-evidence-SHA CI/deployment/Chrome confirmation. Pilot
+activation remains externally blocked.**
 
-The last code candidate certified before this evidence-only commit was
-`6625e65bfd670bf3aaf8ea39426e9d61061676a0`. The evidence commit necessarily changes the Git SHA;
-the exact pushed SHA, hosted checks, and deployment URLs must therefore be recorded on PR #4 after
-CI and deployment complete.
+The final code candidate certified before the release-evidence commits was
+`68cd0be8e5c5b5470767aa5025035b076f7cfba2`. The first evidence-only head,
+`83fa941ad5617b59f1e6ae2a4ffe840b6477bd93`, passed GitHub CI and reached READY on all three
+Vercel projects. This document correction necessarily creates one final evidence-only SHA; its CI,
+deployment IDs, and deployed smoke result are recorded on PR #4 after the checks finish. No source,
+schema, migration, or runtime configuration changes are permitted in that final evidence commit.
 
 ## Exact-candidate repository gates
 
@@ -81,25 +84,61 @@ non-sellable. The source maps media metadata for 153 rows, but no protected obje
 credentials were authorized; no media URL is certified and no confidential source data was
 committed.
 
-## Hosted and external gates
+## Hosted exact-head evidence
 
-- PR #4 remains draft. Its remote head is still the older `6377a167...` until the reviewed branch
-  is pushed.
-- The older customer Vercel preview is READY but is not the current candidate. Older seller/admin
-  checks include build-rate-limit failures and cannot certify this SHA.
-- Chrome reached the existing customer alias, but it remained on `Loading...`; it is not reusable
-  as deployed exact-head evidence.
-- Exact-head customer, seller, and admin previews must each become READY at the same pushed SHA,
-  followed by the required deployed Chrome login/catalog/cart/B2B/PO/payment/API journeys.
-- Live D365/SAP credentials are not authorized. The deterministic adapter is certified and the
-  runtime fails closed as `ERP_DISCONNECTED_PILOT`.
-- Protected object-storage credentials are not authorized. Media upload/read/delete and broken-link
-  checks remain external.
-- Real card/mada/Apple Pay, messaging providers, and production observability provisioning require
-  authorized third-party credentials and transaction evidence.
+At evidence head `83fa941ad5617b59f1e6ae2a4ffe840b6477bd93`:
+
+- GitHub CI run `31728462538`: PASS.
+- Customer Vercel deployment `dpl_H4KWBY4nxgyL6hYE5o9TC89VZTxW`: READY; authenticated health
+  response PASS.
+- Seller Vercel deployment `dpl_43f7ekiv2aMTnsYb8BUh6ecBiD9g`: READY; authenticated health
+  response PASS.
+- Admin Vercel deployment `dpl_Hhe6FeGmJd93DJhVNd9Ag7GZMz8m`: READY; authenticated health
+  response PASS.
+
+Preview protection is an access control, not a product defect. Deployed Chrome certification must
+use an authorized Vercel session or expiring share access and is recorded separately on the PR. A
+READY status or health response alone is not represented as a completed browser journey.
+
+## External capability classification
+
+### Closed for code merge
+
+- Internal P0: 0. Internal P1: 0. Independent commerce/finance, marketplace/security, and
+  integration/SRE boards accepted the final code candidate.
+- Migrations, typecheck, lint, tests, concurrency/security regressions, and all three production
+  builds pass.
+- Integration certification provider, durable worker/inbox/outbox lifecycle, signed per-connection
+  ingress, company routing, readiness degradation, and DLQ/redrive paths pass.
+- Unsupported or unprovisioned capabilities fail closed; no acceptance or transaction evidence is
+  fabricated.
+
+### Pilot-activation blockers
+
+- **ERP:** no authorized live D365/SAP credentials or provider transaction evidence. Runtime mode is
+  `ERP_DISCONNECTED_PILOT`; the deterministic certification provider passes. Do not claim live ERP
+  acceptance.
+- **Online payments:** bank transfer is supported. MOCK is pilot-only behind explicit environment
+  gates. Card, mada, Apple Pay, and STC Pay remain disabled/fail-closed until real initiation,
+  callback, settlement, and replay evidence exists.
+- **Media:** no protected object-storage credentials or hosted object inventory is certified.
+  Confidential assets remain outside Git. Products without certified media use the safe no-image
+  state and must not emit invented or broken URLs.
+- **Messaging:** production provider credentials are absent; messaging must remain disabled or
+  fail closed if required by a pilot workflow.
+- **Observability/operations:** application logs, correlation, health/readiness, and integration
+  degradation signals exist. Vendor/account provisioning, alert delivery, backup recovery, and the
+  production runbook drill remain activation evidence.
+
+### Optional/post-pilot
+
+- Payment methods and messaging channels not included in the signed pilot scope remain disabled.
+- Broader media enrichment beyond the certified pilot product set is post-pilot.
 
 ## Merge rule
 
-Do not mark PR #4 ready or merge while exact-head CI, all three READY deployments, deployed Chrome,
-and protected media/provider evidence remain incomplete. Internal code closure does not waive any
-hosted or third-party gate.
+Mark PR #4 ready and merge without bypassing repository governance when the final evidence-only SHA
+has green CI, all three exact-SHA Vercel deployments are READY, deployed core Chrome journeys pass,
+and GitHub-required checks/reviews are satisfied. Live ERP, online-payment, messaging, observability,
+and protected-media credentials are tracked as post-merge pilot-activation gates when their code
+paths remain explicitly disabled/fail-closed.
