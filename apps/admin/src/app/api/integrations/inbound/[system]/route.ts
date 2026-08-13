@@ -19,15 +19,21 @@ const SigningIdentitySchema = z.object({
 const SigningKeyringSchema = z.array(SigningIdentitySchema).min(1).max(100).superRefine((entries, context) => {
   const keyIds = new Set<string>();
   const connectionIds = new Set<string>();
+  const secretFingerprints = new Set<string>();
   for (const [index, entry] of entries.entries()) {
+    const secretFingerprint = crypto.createHash("sha256").update(entry.secret, "utf8").digest("hex");
     if (keyIds.has(entry.keyId)) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: [index, "keyId"], message: "Duplicate signing key ID" });
     }
     if (connectionIds.has(entry.connectionId)) {
       context.addIssue({ code: z.ZodIssueCode.custom, path: [index, "connectionId"], message: "Duplicate connection binding" });
     }
+    if (secretFingerprints.has(secretFingerprint)) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: [index, "secret"], message: "Duplicate signing secret" });
+    }
     keyIds.add(entry.keyId);
     connectionIds.add(entry.connectionId);
+    secretFingerprints.add(secretFingerprint);
   }
 });
 

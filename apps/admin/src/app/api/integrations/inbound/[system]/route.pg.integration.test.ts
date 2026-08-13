@@ -143,6 +143,23 @@ run("signed ERP ingress lifecycle", () => {
         eventId: sharedEventId, eventType: "ORDER_STATUS_CHANGED", connectionId: connection.id,
         data: { orderId: order.id, status: "REJECTED", reason: "SECOND_CONNECTION_REJECTED" },
       });
+      configureKeyring([
+        { keyId, system: "ERP", connectionId, secret },
+        { keyId: secondKeyId, system: "ERP", connectionId: connection.id, secret },
+      ]);
+      const reusedCredential = await POST(
+        request(secondBody, { keyId: secondKeyId, secret }),
+        { params: { system: "ERP" } },
+      );
+      expect(reusedCredential.status).toBe(503);
+      expect(await db.integrationInbox.count({
+        where: { tenantKey: marker, source: `ERP:${connection.id}`, externalEventId: sharedEventId },
+      })).toBe(0);
+
+      configureKeyring([
+        { keyId, system: "ERP", connectionId, secret },
+        { keyId: secondKeyId, system: "ERP", connectionId: connection.id, secret: secondSecret },
+      ]);
       const crossConnection = await POST(request(secondBody), { params: { system: "ERP" } });
       expect(crossConnection.status).toBe(403);
       expect(await db.integrationInbox.count({
