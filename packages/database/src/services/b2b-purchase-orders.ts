@@ -517,6 +517,20 @@ export async function placeGovernedPurchaseOrder(input: {
     notes: po.notes ?? undefined,
     purchaseOrderId: po.id,
     idempotencyKey: `po:${po.id}`,
+    governedCommercial: {
+      total: Number(po.total),
+      lines: po.items.map((line) => ({
+        productId: line.productId,
+        variantId: line.variantId,
+        sellerId: line.sellerId,
+        quantity: line.quantity,
+        unitPrice: Number(line.unitPrice),
+        vatRate: Number(line.vatRate),
+        sourcePriceId: line.priceSourceId,
+        sku: line.sku,
+        nameEn: line.nameEn,
+      })),
+    },
   };
   let order;
   try {

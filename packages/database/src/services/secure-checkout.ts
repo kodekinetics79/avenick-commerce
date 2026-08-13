@@ -28,6 +28,21 @@ export interface SecureCheckoutInput {
   couponCode?: string;
   idempotencyKey?: string;
   requestFingerprint?: string;
+  /** Internal-only immutable terms carried from the locked governed PO claim. */
+  governedCommercial?: {
+    total: number;
+    lines: Array<{
+      productId: string;
+      variantId?: string | null;
+      sellerId: string;
+      quantity: number;
+      unitPrice: number;
+      vatRate: number;
+      sourcePriceId?: string | null;
+      sku: string;
+      nameEn: string;
+    }>;
+  };
 }
 
 /**
@@ -45,6 +60,9 @@ export interface SecureCheckoutInput {
  */
 export async function secureCreateOrder(input: SecureCheckoutInput) {
   if (input.items.length === 0) throw new Error("Order must contain at least one item");
+  if (input.governedCommercial && (input.type !== "B2B" || !input.purchaseOrderId || input.couponCode)) {
+    throw new Error("Governed commercial terms require a B2B purchase-order placement without promotions");
+  }
 
   const user = await db.user.findUnique({
     where: { id: input.userId },
@@ -150,5 +168,6 @@ export async function secureCreateOrder(input: SecureCheckoutInput) {
     couponCode: input.couponCode?.trim() || undefined,
     idempotencyKey: input.idempotencyKey,
     requestFingerprint: input.requestFingerprint,
+    governedCommercial: input.governedCommercial,
   });
 }

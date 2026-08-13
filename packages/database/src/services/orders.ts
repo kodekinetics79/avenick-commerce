@@ -78,6 +78,21 @@ export interface CreateOrderInput {
   idempotencyKey?: string;
   /** Canonical server-derived representation bound to idempotencyKey. */
   requestFingerprint?: string;
+  /** Internal PO-only terms proven under the governed placement lock. */
+  governedCommercial?: {
+    total: number;
+    lines: Array<{
+      productId: string;
+      variantId?: string | null;
+      sellerId: string;
+      quantity: number;
+      unitPrice: number;
+      vatRate: number;
+      sourcePriceId?: string | null;
+      sku: string;
+      nameEn: string;
+    }>;
+  };
 }
 
 // VAT rate by jurisdiction (KSA 15%, rest of GCC 5%).
@@ -103,6 +118,9 @@ const identityKey = (value: { productId: string; variantId?: string | null; sell
 
 export async function createOrder(input: CreateOrderInput) {
   if (input.items.length === 0) throw new Error("Order must contain at least one item");
+  if (input.governedCommercial && (input.type !== "B2B" || !input.purchaseOrderId || input.couponCode)) {
+    throw new Error("Governed commercial terms require a B2B purchase-order placement without promotions");
+  }
 
   const defaultVat = vatRateForCurrency(input.currency);
   const productIds = [...new Set(input.items.map((i) => i.productId))];
@@ -118,6 +136,12 @@ export async function createOrder(input: CreateOrderInput) {
     },
   });
   const productMap = new Map(products.map((p) => [p.id, p]));
+  const governedByIdentity = new Map(input.governedCommercial?.lines.map((line) => [
+    identityKey(line), line,
+  ]) ?? []);
+  if (input.governedCommercial && governedByIdentity.size !== input.items.length) {
+    throw new Error("Governed purchase-order lines do not match the checkout request");
+  }
 
   const pricedLines = input.items.map((item, index) => {
     const product = productMap.get(item.productId);
@@ -125,13 +149,17 @@ export async function createOrder(input: CreateOrderInput) {
     const variant = item.variantId
       ? product.variants.find((candidate) => candidate.id === item.variantId)
       : undefined;
-    const variantTier = variant
+    const governed = governedByIdentity.get(identityKey(item));
+    if (input.governedCommercial && (!governed || governed.quantity !== item.quantity)) {
+      throw new Error("Governed purchase-order lines do not match the checkout request");
+    }
+    const variantTier = !governed && variant
       ? resolveUnitPrice(variant.prices, input.type, input.currency, item.quantity)
       : null;
-    const tier = variantTier ?? resolveUnitPrice(product.prices, input.type, input.currency, item.quantity);
-    if (!tier) throw new Error(`No active ${input.type} price for "${product.nameEn}" in ${input.currency}`);
+    const tier = governed ? null : variantTier ?? resolveUnitPrice(product.prices, input.type, input.currency, item.quantity);
+    if (!governed && !tier) throw new Error(`No active ${input.type} price for "${product.nameEn}" in ${input.currency}`);
 
-    const unitPrice = Number(tier.price);
+    const unitPrice = governed?.unitPrice ?? Number(tier!.price);
     return {
       key: `line-${index}`,
       productId: item.productId,
@@ -139,19 +167,24 @@ export async function createOrder(input: CreateOrderInput) {
       sellerId: item.sellerId,
       categoryId: product.categoryId,
       brandId: product.brandId,
-      sku: variant?.sku ?? product.sku,
-      nameEn: variant?.nameEn ?? product.nameEn,
+      sku: governed?.sku ?? variant?.sku ?? product.sku,
+      nameEn: governed?.nameEn ?? variant?.nameEn ?? product.nameEn,
       nameAr: variant?.nameAr ?? product.nameAr,
       quantity: item.quantity,
       unitPrice,
       lineSubtotal: money(unitPrice * item.quantity),
-      vatRate: resolveConfiguredVatRate(tier.vatRate, defaultVat),
-      sourcePriceId: tier.id,
-      priceScope: variantTier ? "VARIANT" : "PRODUCT",
+      vatRate: governed?.vatRate ?? resolveConfiguredVatRate(tier!.vatRate, defaultVat),
+      sourcePriceId: governed ? governed.sourcePriceId ?? undefined : tier!.id,
+      priceScope: governed ? "GOVERNED_PO" : variantTier ? "VARIANT" : "PRODUCT",
     };
   });
 
-  const promotion = await evaluateCommercePromotions({
+  const promotion = input.governedCommercial ? {
+    discountAmount: 0,
+    lineDiscounts: {} as Record<string, number>,
+    applied: [],
+    explanation: [{ step: "GOVERNED_PO", purchaseOrderId: input.purchaseOrderId }],
+  } : await evaluateCommercePromotions({
     tenantKey: "default",
     userId: input.userId,
     companyId: input.companyId,
@@ -198,6 +231,9 @@ export async function createOrder(input: CreateOrderInput) {
   const discountAmount = money(promotion.discountAmount);
   const vatAmount = money(vatTotal);
   const total = money(subtotal - discountAmount + vatAmount);
+  if (input.governedCommercial && Math.round(total * 100) !== Math.round(input.governedCommercial.total * 100)) {
+    throw new Error("Governed purchase-order total does not match the approved commercial snapshot");
+  }
 
   // If a live ERP connector exists, order creation records an explicit pending
   // integration state and durable outbox request. Local creation is never

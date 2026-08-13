@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { db } from "../index";
 import { createGovernedPurchaseOrder, placeGovernedPurchaseOrder } from "../services/b2b-purchase-orders";
 import { createCustomerReturnRequests } from "../services/customer-returns";
@@ -35,7 +35,7 @@ afterEach(async () => {
 });
 
 run("variant and refund commercial truth", () => {
-  it("uses a selected variant's price and VAT in B2C checkout and governed PO placement, including variant-only B2B pricing", async () => {
+  it("keeps locked approved variant terms when catalog pricing changes after the PO placement claim", async () => {
     const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
     const [requester, owner] = await Promise.all([
       db.user.create({ data: { email: `variant-buyer-${stamp}@example.test`, firstName: "Variant", lastName: "Buyer", role: "COMPANY_BUYER", status: "ACTIVE" } }),
@@ -87,7 +87,31 @@ run("variant and refund commercial truth", () => {
     expect(Number(po.items[0]!.unitPrice)).toBe(80);
     expect(Number(po.items[0]!.vatRate)).toBe(15);
     expect(po.items[0]!.priceExplanation).toMatchObject({ scope: "VARIANT", variantId: variant.id });
-    const placed = await placeGovernedPurchaseOrder({ purchaseOrderId: po.id, companyId: company.id, actorId: requester.id });
+    // `pricePOLines` revalidates through the transaction client. The next direct
+    // product read is secure checkout after those placement locks are released.
+    // Mutate at that exact boundary to deterministically reproduce the former
+    // catalog-price TOCTOU rather than relying on scheduler timing.
+    const originalFindMany = db.product.findMany.bind(db.product);
+    let mutatedAfterClaim = false;
+    const productRead = vi.spyOn(db.product, "findMany").mockImplementation((async (...args: unknown[]) => {
+      if (!mutatedAfterClaim) {
+        mutatedAfterClaim = true;
+        await db.productPrice.updateMany({
+          where: { variantId: variant.id, type: "B2B", currency: "AED" },
+          data: { price: 999, vatRate: 0 },
+        });
+      }
+      return originalFindMany(args[0] as never);
+    }) as never);
+    let placed;
+    try {
+      placed = await placeGovernedPurchaseOrder({ purchaseOrderId: po.id, companyId: company.id, actorId: requester.id });
+    } finally {
+      productRead.mockRestore();
+    }
+    expect(mutatedAfterClaim).toBe(true);
+    const changedPrice = await db.productPrice.findFirstOrThrow({ where: { variantId: variant.id, type: "B2B" } });
+    expect(Number(changedPrice.price)).toBe(999);
     expect(Number(placed.total)).toBe(92);
     const placedItem = await db.orderItem.findFirstOrThrow({ where: { orderId: placed.id } });
     expect(Number(placedItem.unitPrice)).toBe(80);
