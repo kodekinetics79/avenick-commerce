@@ -240,7 +240,7 @@ describe("secureCreateOrder", () => {
     ).rejects.toThrow(/variant is unavailable/i);
   });
 
-  it("refuses B2B checkout when the authenticated buyer has no active company membership", async () => {
+  it("refuses direct B2B checkout before company-priced ordering can bypass governance", async () => {
     await expect(
       secureCreateOrder({
         userId: buyerId,
@@ -249,6 +249,6 @@ describe("secureCreateOrder", () => {
         items: [{ productId, quantity: 1 }],
         shippingAddress: { label: "Office", line1: "1 Test Street", city: "Dubai", country: "AE" },
       }),
-    ).rejects.toThrow(/company membership/i);
+    ).rejects.toThrow(/governed purchase-order/i);
   });
 });
