@@ -294,17 +294,30 @@ export async function recordIntegrationInbound(input: {
   }
 }
 
-export async function claimIntegrationInbox(workerId: string, limit = 20, leaseMs = DEFAULT_LEASE_MS) {
-  const leaseUntil = new Date(Date.now() + Math.max(30_000, leaseMs));
-  return db.$queryRaw<IntegrationInbox[]>(Prisma.sql`
+export async function claimIntegrationInbox(input: {
+  workerId: string;
+  source?: string;
+  limit?: number;
+  leaseMs?: number;
+} | string, legacyLimit = 20, legacyLeaseMs = DEFAULT_LEASE_MS) {
+  const options = typeof input === "string"
+    ? { workerId: input, limit: legacyLimit, leaseMs: legacyLeaseMs }
+    : input;
+  const workerId = options.workerId.trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9_.:-]{1,127}$/.test(workerId)) throw new Error("A stable integration worker id is required");
+  const leaseUntil = new Date(Date.now() + Math.max(30_000, Math.min(30 * 60 * 1000, options.leaseMs ?? DEFAULT_LEASE_MS)));
+  const source = "source" in options && options.source ? Prisma.sql`AND "source" = ${options.source}` : Prisma.empty;
+  return db.$transaction((tx) => tx.$queryRaw<IntegrationInbox[]>(Prisma.sql`
     WITH candidates AS (
       SELECT "id" FROM "IntegrationInbox"
       WHERE (("status" IN ('RECEIVED','RETRY') AND ("nextAttemptAt" IS NULL OR "nextAttemptAt" <= NOW()))
         OR ("status" = 'PROCESSING' AND "leaseExpiresAt" <= NOW()))
-      ORDER BY "receivedAt" FOR UPDATE SKIP LOCKED LIMIT ${boundedLimit(limit)}
+      ${source}
+      ORDER BY "receivedAt" FOR UPDATE SKIP LOCKED LIMIT ${boundedLimit(options.limit ?? 20)}
     ) UPDATE "IntegrationInbox" AS inbox SET "status"='PROCESSING', "attempts"=inbox."attempts"+1,
-      "leaseOwner"=${workerId}, "leaseExpiresAt"=${leaseUntil}, "fencingToken"=inbox."fencingToken"+1, "lastError"=NULL
-    FROM candidates WHERE inbox."id"=candidates."id" RETURNING inbox.*`);
+      "nextAttemptAt"=NULL, "leaseOwner"=${workerId}, "leaseExpiresAt"=${leaseUntil},
+      "fencingToken"=inbox."fencingToken"+1, "lastError"=NULL
+    FROM candidates WHERE inbox."id"=candidates."id" RETURNING inbox.*`));
 }
 
 function activeInboxLeaseWhere(lease: IntegrationInboxLease) {
@@ -320,6 +333,44 @@ export async function markIntegrationInboxProcessed(lease: IntegrationInboxLease
   if (result.count !== 1) throw new StaleIntegrationLeaseError(lease.id);
 }
 
+export async function heartbeatIntegrationInbox(lease: IntegrationInboxLease, leaseMs = DEFAULT_LEASE_MS) {
+  const leaseExpiresAt = new Date(Date.now() + Math.max(30_000, Math.min(30 * 60 * 1000, leaseMs)));
+  const result = await db.integrationInbox.updateMany({
+    where: activeInboxLeaseWhere(lease),
+    data: { leaseExpiresAt },
+  });
+  if (result.count !== 1) throw new StaleIntegrationLeaseError(lease.id);
+  return { ...lease, leaseExpiresAt };
+}
+
+/**
+ * Runs a database-backed inbound handler and its fenced acknowledgement in one
+ * transaction. If the lease expires or ownership changes, both the handler's
+ * writes and the acknowledgement roll back together.
+ */
+export async function finalizeIntegrationInboxWithHandler(
+  lease: IntegrationInboxLease,
+  handler: (tx: Prisma.TransactionClient) => Promise<void>,
+) {
+  return db.$transaction(async (tx) => {
+    const owned = await tx.integrationInbox.findFirst({ where: activeInboxLeaseWhere(lease), select: { id: true } });
+    if (!owned) throw new StaleIntegrationLeaseError(lease.id);
+    await handler(tx);
+    const result = await tx.integrationInbox.updateMany({
+      where: activeInboxLeaseWhere(lease),
+      data: {
+        status: "PROCESSED",
+        processedAt: new Date(),
+        nextAttemptAt: null,
+        leaseOwner: null,
+        leaseExpiresAt: null,
+        lastError: null,
+      },
+    });
+    if (result.count !== 1) throw new StaleIntegrationLeaseError(lease.id);
+  });
+}
+
 export async function markIntegrationInboxFailed(lease: IntegrationInboxLease, error: unknown, maxAttempts = DEFAULT_MAX_ATTEMPTS) {
   const message = error instanceof Error ? error.message : String(error || "Unknown integration processing failure");
   const dead = lease.attempts >= maxAttempts;
@@ -329,6 +380,29 @@ export async function markIntegrationInboxFailed(lease: IntegrationInboxLease, e
   });
   if (result.count !== 1) throw new StaleIntegrationLeaseError(lease.id);
   return { dead };
+}
+
+export async function redriveIntegrationInbox(id: string, actorId: string) {
+  if (!actorId) throw new Error("Manual redrive actor is required");
+  return db.$transaction(async (tx) => {
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`integration-inbox-redrive:${id}`}))`);
+    const row = await tx.integrationInbox.findUnique({ where: { id } });
+    if (!row) throw new Error("Integration inbox message not found");
+    if (!['DEAD', 'RETRY'].includes(row.status)) throw new Error("Only failed or dead-letter inbound messages can be redriven");
+    const updated = await tx.integrationInbox.update({
+      where: { id },
+      data: { status: "RECEIVED", nextAttemptAt: new Date(), leaseOwner: null, leaseExpiresAt: null, lastError: null, processedAt: null },
+    });
+    await tx.auditLog.create({ data: {
+      actorId,
+      entityType: "IntegrationInbox",
+      entityId: id,
+      action: "STATUS_CHANGE",
+      before: { status: row.status, attempts: row.attempts, lastError: row.lastError },
+      after: { status: updated.status, action: "MANUAL_REDRIVE", source: updated.source },
+    } });
+    return updated;
+  });
 }
 
 export async function markOrderIntegrationAccepted(input: {
