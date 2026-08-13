@@ -97,7 +97,7 @@ export default async function SellerReturnsPage() {
                               </>
                             )}
                             {(r.status === "APPROVED" || r.status === "RECEIVED") && (
-                              <form action={setReturnStatus.bind(null, r.id, "REFUNDED")}><button type="submit" className="text-xs font-semibold text-primary hover:underline">Mark refunded</button></form>
+                              <span className="text-xs text-muted-foreground">Awaiting platform refund execution</span>
                             )}
                           </div>
                         </td>

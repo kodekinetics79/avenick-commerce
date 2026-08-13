@@ -75,7 +75,7 @@ export async function secureCreateOrder(input: SecureCheckoutInput) {
         where: {
           id: input.purchaseOrderId,
           companyId,
-          status: { in: ["APPROVED", "ORDERED"] },
+          status: { in: ["APPROVED", "PLACING", "ORDERED"] },
         },
         select: { id: true },
       });

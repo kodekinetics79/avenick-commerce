@@ -69,7 +69,7 @@ describe("marketplace release isolation closure", () => {
     expect(Number(requests[0]?.refundAmount)).toBe(52.5);
     expect(await db.returnRequest.count({ where: { orderId, sellerId: sellerBId } })).toBe(0);
     await setReturnStatus({ returnId: requests[0]!.id, status: "APPROVED", actorId: ownerAId });
-    await expect(setReturnStatus({ returnId: requests[0]!.id, status: "REFUNDED", actorId: ownerAId, refundAmount: 53 }))
+    await expect(setReturnStatus({ returnId: requests[0]!.id, status: "REFUNDED", actorId: ownerAId, refundAmount: 53, refundReference: `REF-${stamp}` }))
       .rejects.toThrow("selected return quantity");
     expect(itemBId).toBeTruthy();
   });

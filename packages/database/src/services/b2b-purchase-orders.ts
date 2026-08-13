@@ -413,8 +413,17 @@ export async function placeGovernedPurchaseOrder(input: {
     });
     if (!po) throw new Error("Purchase order not found");
     const existing = await tx.order.findFirst({ where: { purchaseOrderId: po.id }, orderBy: { createdAt: "asc" } });
-    if (existing) return { kind: "existing" as const, order: existing };
-    if (po.status !== "APPROVED" && po.status !== "ORDERED") {
+    if (existing) {
+      if (po.status === "PLACING") {
+        await tx.purchaseOrder.update({ where: { id: po.id }, data: { status: "ORDERED" } });
+        await tx.auditLog.create({ data: {
+          actorId: input.actorId, entityType: "PurchaseOrder", entityId: po.id, action: AuditAction.STATUS_CHANGE,
+          before: { status: "PLACING" }, after: { status: "ORDERED", orderId: existing.id, recovered: true },
+        } });
+      }
+      return { kind: "existing" as const, order: existing };
+    }
+    if (po.status !== "APPROVED" && po.status !== "PLACING" && po.status !== "ORDERED") {
       throw new Error("Only an approved purchase order can be placed");
     }
     if (po.items.length === 0) {
@@ -460,7 +469,10 @@ export async function placeGovernedPurchaseOrder(input: {
       return { kind: "invalidated" as const, detail };
     }
     if (po.status === "APPROVED") {
-      await tx.purchaseOrder.update({ where: { id: po.id }, data: { status: "ORDERED" } });
+      // PLACING is a durable, retryable claim. A process death here no longer
+      // lies that the PO was ordered; the next request safely resumes through
+      // the deterministic po:<id> checkout key.
+      await tx.purchaseOrder.update({ where: { id: po.id }, data: { status: "PLACING" } });
     }
     return { kind: "claimed" as const, po, newlyClaimed: po.status === "APPROVED" };
   });
@@ -521,7 +533,7 @@ export async function placeGovernedPurchaseOrder(input: {
           // Missing/disabled commercial facts are approval invalidation, not a
           // reason to leave an unrecoverable ORDERED claim behind.
         }
-        await tx.purchaseOrder.updateMany({ where: { id: po.id, status: "ORDERED" }, data: stillApproved
+        await tx.purchaseOrder.updateMany({ where: { id: po.id, status: "PLACING" }, data: stillApproved
           ? { status: "APPROVED" }
           : {
               status: "PENDING_APPROVAL", approverId: null, approvedAt: null,
@@ -537,14 +549,18 @@ export async function placeGovernedPurchaseOrder(input: {
 
   await finalizeInternalOrderPayment({ orderId: order.id, method: "BANK_TRANSFER", actorId: input.actorId });
 
-  if (claim.newlyClaimed) {
+  const ordered = await db.purchaseOrder.updateMany({
+    where: { id: po.id, status: "PLACING" }, data: { status: "ORDERED" },
+  });
+
+  if (ordered.count === 1) {
     await db.auditLog.create({
       data: {
         actorId: input.actorId,
         entityType: "PurchaseOrder",
         entityId: po.id,
         action: AuditAction.STATUS_CHANGE,
-        before: { status: "APPROVED" },
+        before: { status: "PLACING" },
         after: {
           status: "ORDERED",
           orderId: order.id,

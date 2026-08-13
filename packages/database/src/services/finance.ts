@@ -26,6 +26,7 @@ export async function getFinanceOverview() {
     refundsCompletedMonth,
     refundsCompletedYear,
     [refundVatYear],
+    openSellerReceivables,
   ] = await Promise.all([
     db.order.aggregate({ where: { paymentStatus: "PAID", createdAt: { gte: monthStart } }, _sum: { total: true } }),
     db.order.aggregate({ where: { paymentStatus: "PAID", createdAt: { gte: yearStart } }, _sum: { total: true } }),
@@ -42,6 +43,9 @@ export async function getFinanceOverview() {
       SELECT COALESCE(SUM(CASE WHEN o.total > 0 THEN r.amount * o."vatAmount" / o.total ELSE 0 END), 0) AS vat
       FROM "Refund" r JOIN "Order" o ON o.id = r."orderId"
       WHERE r.status = 'COMPLETED' AND o."createdAt" >= ${yearStart}`,
+    db.sellerFinancialAdjustment.aggregate({
+      where: { status: "OPEN" }, _sum: { amount: true }, _count: { _all: true },
+    }),
   ]);
 
   // Monthly GMV/commission series for the current year (for charts).
@@ -56,6 +60,7 @@ export async function getFinanceOverview() {
     WHERE o."paymentStatus" = 'PAID' AND o."createdAt" >= ${yearStart}
     GROUP BY 1 ORDER BY 1`;
 
+  const sellerReceivableAmount = Math.abs(Number(openSellerReceivables._sum.amount ?? 0));
   return {
     gmvMonth: Number(gmvMonth._sum.total ?? 0) - Number(refundsCompletedMonth._sum.amount ?? 0),
     gmvYear: Number(gmvYear._sum.total ?? 0) - Number(refundsCompletedYear._sum.amount ?? 0),
@@ -70,6 +75,9 @@ export async function getFinanceOverview() {
     vatCollectedYear: Number(vatYear._sum.vatAmount ?? 0) - Number(refundVatYear?.vat ?? 0),
     unsettledCommissionAmount: Number(unsettledCommissions._sum.amount ?? 0),
     unsettledCommissionCount: unsettledCommissions._count._all,
+    sellerReceivableAmount,
+    sellerReceivableCount: openSellerReceivables._count._all,
+    netSellerSettlementPosition: Number(pendingPayouts._sum.amount ?? 0) - sellerReceivableAmount,
     monthly: monthly.map((m) => ({ month: m.month, gmv: Number(m.gmv), vat: Number(m.vat) })),
   };
 }
@@ -128,6 +136,26 @@ export interface PayoutFilters {
   status?: PayoutStatus;
 }
 
+export async function getSellerFinancialPosition(sellerId: string) {
+  const [payable, receivable] = await Promise.all([
+    db.sellerPayout.aggregate({
+      where: { sellerId, status: { in: ["PENDING", "PROCESSING"] } }, _sum: { amount: true }, _count: { _all: true },
+    }),
+    db.sellerFinancialAdjustment.aggregate({
+      where: { sellerId, status: "OPEN" }, _sum: { amount: true }, _count: { _all: true },
+    }),
+  ]);
+  const payableAmount = Number(payable._sum.amount ?? 0);
+  const receivableAmount = Math.abs(Number(receivable._sum.amount ?? 0));
+  return {
+    payableAmount,
+    payableCount: payable._count._all,
+    receivableAmount,
+    receivableCount: receivable._count._all,
+    netSettlementPosition: payableAmount - receivableAmount,
+  };
+}
+
 export async function getPayouts(filters: PayoutFilters) {
   const where: Prisma.SellerPayoutWhereInput = {
     ...(filters.status ? { status: filters.status } : {}),
@@ -168,14 +196,21 @@ export async function setPayoutStatus(opts: {
     PAID: [],
   };
   return db.$transaction(async (tx) => {
-    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`seller-payout:${opts.payoutId}`}))`);
     const target = await tx.sellerPayout.findUnique({
       where: { id: opts.payoutId }, select: { id: true, status: true, sellerId: true },
     });
     if (!target) throw new Error("Payout not found");
-    if (target.status === opts.status) return tx.sellerPayout.findUniqueOrThrow({ where: { id: target.id } });
-    if (!allowed[target.status].includes(opts.status)) {
-      throw new Error(`Cannot move a ${target.status.toLowerCase()} payout to ${opts.status.toLowerCase()}`);
+    // Refund completion takes this same seller-wide lock. Whichever operation
+    // wins decides whether value is removed from an unpaid payout or becomes a
+    // durable post-settlement receivable.
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`seller-finance:${target.sellerId}`}))`);
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`seller-payout:${opts.payoutId}`}))`);
+    const current = await tx.sellerPayout.findUniqueOrThrow({
+      where: { id: target.id }, select: { id: true, status: true, sellerId: true },
+    });
+    if (current.status === opts.status) return tx.sellerPayout.findUniqueOrThrow({ where: { id: current.id } });
+    if (!allowed[current.status].includes(opts.status)) {
+      throw new Error(`Cannot move a ${current.status.toLowerCase()} payout to ${opts.status.toLowerCase()}`);
     }
     const processedAt = opts.status === "PAID" ? new Date() : undefined;
     const payout = await tx.sellerPayout.update({
@@ -184,7 +219,7 @@ export async function setPayoutStatus(opts: {
     });
     await tx.auditLog.create({ data: {
       actorId: opts.actorId, sellerId: target.sellerId, entityType: "SellerPayout", entityId: target.id,
-      action: AuditAction.STATUS_CHANGE, before: { status: target.status },
+      action: AuditAction.STATUS_CHANGE, before: { status: current.status },
       after: { status: opts.status, ...(reference ? { reference } : {}), ...(processedAt ? { processedAt } : {}) },
     } });
     if (opts.status === "PAID") await tx.commission.updateMany({

@@ -118,6 +118,8 @@ export async function setReturnStatus(opts: {
   actorId: string;
   resolution?: string;
   refundAmount?: number;
+  /** Immutable provider/bank evidence that buyer funds actually moved. */
+  refundReference?: string;
 }) {
   return db.$transaction(async (tx) => {
     // Serialize transitions for this return. Without this lock, two REFUNDED
@@ -146,6 +148,10 @@ export async function setReturnStatus(opts: {
     if (!target) throw new Error("Return request not found");
     if (!RETURN_TRANSITIONS[target.status].includes(opts.status)) {
       throw new Error(`Cannot move a ${target.status.toLowerCase()} return to ${opts.status.toLowerCase()}`);
+    }
+    const refundReference = opts.refundReference?.trim();
+    if (opts.status === "REFUNDED" && !refundReference) {
+      throw new Error("Completed refunds require a gateway or bank refund reference");
     }
 
     const sellerMaximum = target.order.items
@@ -192,14 +198,18 @@ export async function setReturnStatus(opts: {
       },
     });
     if (opts.status === "REFUNDED") {
+      await tx.$executeRaw(
+        Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`seller-finance:${target.sellerId}`}))`,
+      );
       const completedAt = new Date();
-      await tx.refund.create({
+      const refund = await tx.refund.create({
         data: {
           orderId: target.orderId,
           amount: refundAmount,
           reason: opts.resolution ?? `Seller return ${target.id} refunded`,
           status: "COMPLETED",
           processedAt: completedAt,
+          gatewayRef: refundReference,
         },
       });
       const commissions = await tx.commission.findMany({
@@ -225,10 +235,15 @@ export async function setReturnStatus(opts: {
           payout: { sellerId: target.sellerId, status: { in: ["PENDING", "PROCESSING"] } },
         },
         include: { payout: { select: { id: true } } },
+        orderBy: { id: "asc" },
       });
+      let remainingGross = refundAmount;
+      let remainingCommission = reversal;
+      let nettedFromUnpaidPayouts = 0;
       for (const item of payoutItems) {
-        const grossReduction = Math.min(refundAmount, Number(item.amount));
-        const commissionReduction = Math.min(reversal, Number(item.commission));
+        if (remainingGross <= 0) break;
+        const grossReduction = Math.min(remainingGross, Number(item.amount));
+        const commissionReduction = Math.min(remainingCommission, Number(item.commission));
         const payoutReduction = Number(Math.max(0, grossReduction - commissionReduction).toFixed(2));
         await tx.sellerPayoutItem.update({ where: { id: item.id }, data: {
           amount: Number((Number(item.amount) - grossReduction).toFixed(2)),
@@ -237,6 +252,21 @@ export async function setReturnStatus(opts: {
         } });
         await tx.sellerPayout.update({ where: { id: item.payout.id }, data: {
           amount: { decrement: payoutReduction },
+        } });
+        remainingGross = Number((remainingGross - grossReduction).toFixed(2));
+        remainingCommission = Number((remainingCommission - commissionReduction).toFixed(2));
+        nettedFromUnpaidPayouts = Number((nettedFromUnpaidPayouts + payoutReduction).toFixed(2));
+      }
+      const sellerClawback = Number(Math.max(0, refundAmount - reversal - nettedFromUnpaidPayouts).toFixed(2));
+      if (sellerClawback > 0) {
+        await tx.sellerFinancialAdjustment.create({ data: {
+          sellerId: target.sellerId,
+          orderId: target.orderId,
+          refundId: refund.id,
+          amount: -sellerClawback,
+          currency: target.order.currency,
+          status: "OPEN",
+          reason: `Completed refund ${refundReference} was not recoverable from an unpaid payout`,
         } });
       }
     }

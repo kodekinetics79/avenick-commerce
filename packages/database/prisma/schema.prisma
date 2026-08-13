@@ -189,6 +189,7 @@ enum POStatus {
   DRAFT
   PENDING_APPROVAL
   APPROVED
+  PLACING
   REJECTED
   CANCELLED
   ORDERED
@@ -281,6 +282,11 @@ enum RefundStatus {
   PROCESSING
   COMPLETED
   REJECTED
+}
+
+enum SellerFinancialAdjustmentStatus {
+  OPEN
+  APPLIED
 }
 
 enum SupportStatus {
@@ -510,6 +516,7 @@ model SellerProfile {
   returnRequests  ReturnRequest[]
   savedViews      SavedView[]
   sellerMemberships SellerMembership[]
+  financialAdjustments SellerFinancialAdjustment[]
 
   @@index([status])
   @@index([country])
@@ -952,6 +959,7 @@ model Order {
   commissions    Commission[]
   payoutItems    SellerPayoutItem[]
   refunds        Refund[]
+  financialAdjustments SellerFinancialAdjustment[]
   taxInvoice     TaxInvoice?
   shipments      Shipment[]
   returnRequests ReturnRequest[]
@@ -1031,10 +1039,35 @@ model Refund {
   reason      String?
   status      RefundStatus @default(PENDING)
   processedAt DateTime?
+  gatewayRef   String?      @unique
   createdAt   DateTime     @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  adjustments SellerFinancialAdjustment[]
 
+  @@index([orderId])
+}
+
+/// Negative seller receivable created when a completed buyer refund cannot be
+/// netted from an unpaid payout (for example, the original payout is PAID).
+model SellerFinancialAdjustment {
+  id        String                          @id @default(cuid())
+  sellerId  String
+  orderId   String
+  refundId  String
+  amount    Decimal                         @db.Decimal(12, 2)
+  currency  Currency
+  status    SellerFinancialAdjustmentStatus @default(OPEN)
+  reason    String
+  createdAt DateTime                        @default(now())
+  appliedAt DateTime?
+
+  seller SellerProfile @relation(fields: [sellerId], references: [id])
+  order  Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  refund Refund        @relation(fields: [refundId], references: [id], onDelete: Cascade)
+
+  @@unique([refundId, sellerId])
+  @@index([sellerId, status])
   @@index([orderId])
 }
 

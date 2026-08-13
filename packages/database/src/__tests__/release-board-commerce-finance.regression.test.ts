@@ -140,8 +140,18 @@ describe.skipIf(!process.env["DATABASE_URL"])("release-board commerce/finance Po
     const po = await createGovernedPurchaseOrder({
       companyId: company.id, requesterId: requester.id, currency: "AED", items: [{ productId: product.id, quantity: 1 }],
     });
+    const crashPo = await createGovernedPurchaseOrder({
+      companyId: company.id, requesterId: requester.id, currency: "AED", items: [{ productId: product.id, quantity: 1 }],
+    });
     try {
       expect(po.status).toBe("APPROVED");
+      // Simulate process death immediately after the durable placement claim.
+      await db.purchaseOrder.update({ where: { id: crashPo.id }, data: { status: "PLACING" } });
+      const recovered = await placeGovernedPurchaseOrder({
+        purchaseOrderId: crashPo.id, companyId: company.id, actorId: requester.id,
+      });
+      expect(recovered.purchaseOrderId).toBe(crashPo.id);
+      await expect(db.purchaseOrder.findUnique({ where: { id: crashPo.id } })).resolves.toMatchObject({ status: "ORDERED" });
       await Promise.allSettled([
         placeGovernedPurchaseOrder({ purchaseOrderId: po.id, companyId: company.id, actorId: requester.id }),
         createGovernedApprovalPolicy({
@@ -156,9 +166,9 @@ describe.skipIf(!process.env["DATABASE_URL"])("release-board commerce/finance Po
       expect(linkedOrder ? finalPO.status === "ORDERED" : finalPO.status === "PENDING_APPROVAL").toBe(true);
       expect(finalPO.status === "PENDING_APPROVAL" && linkedOrder !== null).toBe(false);
     } finally {
-      await db.auditLog.deleteMany({ where: { OR: [{ entityId: po.id }, { actorId: requester.id }] } });
-      await db.order.deleteMany({ where: { purchaseOrderId: po.id } });
-      await db.purchaseOrder.delete({ where: { id: po.id } });
+      await db.auditLog.deleteMany({ where: { OR: [{ entityId: { in: [po.id, crashPo.id] } }, { actorId: requester.id }] } });
+      await db.order.deleteMany({ where: { purchaseOrderId: { in: [po.id, crashPo.id] } } });
+      await db.purchaseOrder.deleteMany({ where: { id: { in: [po.id, crashPo.id] } } });
       await db.approvalPolicy.deleteMany({ where: { companyId: company.id } });
       await db.companyMember.deleteMany({ where: { companyId: company.id } });
       await db.inventoryStock.deleteMany({ where: { productId: product.id } });

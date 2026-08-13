@@ -8,21 +8,27 @@ import { DollarSign } from "lucide-react";
 export default async function PayoutsPage() {
   const { seller, membership } = await requireSellerPermission("finance.view");
 
-  const payouts = await db.sellerPayout.findMany({
-    where: { sellerId: seller.id },
-    orderBy: { createdAt: "desc" },
-    include: { items: { select: { amount: true, commission: true, net: true } } },
-  });
+  const [payouts, receivables] = await Promise.all([
+    db.sellerPayout.findMany({
+      where: { sellerId: seller.id },
+      orderBy: { createdAt: "desc" },
+      include: { items: { select: { amount: true, commission: true, net: true } } },
+    }),
+    db.sellerFinancialAdjustment.aggregate({
+      where: { sellerId: seller.id, status: "OPEN" }, _sum: { amount: true }, _count: { _all: true },
+    }),
+  ]);
 
-  const pendingAmount = payouts.filter((p) => p.status === "PENDING").reduce((sum, p) => sum + Number(p.amount), 0);
+  const pendingAmount = payouts.filter((p) => ["PENDING", "PROCESSING"].includes(p.status)).reduce((sum, p) => sum + Number(p.amount), 0);
   const totalPaid = payouts.filter((p) => p.status === "PAID").reduce((sum, p) => sum + Number(p.amount), 0);
+  const receivableAmount = Math.abs(Number(receivables._sum.amount ?? 0));
 
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-4">
         <h1 className="text-2xl font-bold">Payouts — المدفوعات</h1>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-4">
             <p className="text-sm text-orange-600 dark:text-orange-400 font-medium">Pending Payout</p>
             <p className="text-2xl font-bold text-orange-600 dark:text-orange-400 mt-1">{formatCurrency(pendingAmount, "AED")}</p>
@@ -34,6 +40,11 @@ export default async function PayoutsPage() {
           <div className="bg-card border border-border rounded-2xl p-4">
             <p className="text-sm text-muted-foreground">Commission Rate</p>
             <p className="text-2xl font-bold mt-1">{Number(seller.commissionRate)}%</p>
+          </div>
+          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4">
+            <p className="text-sm text-red-600 dark:text-red-400 font-medium">Refund receivable</p>
+            <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">{formatCurrency(receivableAmount, "AED")}</p>
+            <p className="text-xs text-muted-foreground mt-1">{receivables._count._all} open adjustment{receivables._count._all === 1 ? "" : "s"}; net position {formatCurrency(pendingAmount - receivableAmount, "AED")}</p>
           </div>
         </div>
 

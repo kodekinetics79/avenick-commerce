@@ -76,7 +76,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const allowed: Record<typeof action, string[]> = {
     approve: ["PENDING_APPROVAL"],
     reject: ["PENDING_APPROVAL"],
-    order: ["APPROVED", "ORDERED"],
+    order: ["APPROVED", "PLACING", "ORDERED"],
     cancel: ["DRAFT", "PENDING_APPROVAL", "APPROVED"],
   };
   if (!allowed[action].includes(po.status)) {
