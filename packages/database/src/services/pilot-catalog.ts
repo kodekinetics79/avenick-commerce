@@ -11,7 +11,7 @@ import {
   UserStatus,
   type Prisma,
 } from "@prisma/client";
-import { db } from "../index";
+import { db } from "../client";
 
 export type PilotAssetSet = { images?: string[]; documents?: string[] };
 
@@ -461,13 +461,24 @@ export async function applyPilotCatalog(file: PilotCatalogFile, options: {
       source: file.generatedFrom ?? "client-supplied pilot catalog",
     };
     if (options.actorId) {
+      const actor = await tx.user.findUnique({
+        where: { id: options.actorId },
+        select: { id: true, role: true, status: true },
+      });
+      if (
+        !actor ||
+        actor.status !== UserStatus.ACTIVE ||
+        (actor.role !== UserRole.ADMIN && actor.role !== UserRole.SUPER_ADMIN)
+      ) {
+        throw new Error("Pilot catalog import actor must be an active administrator");
+      }
       await tx.auditLog.create({
         data: {
           actorId: options.actorId,
           entityType: "PilotCatalogImport",
           entityId: createHash("sha256").update(JSON.stringify(result)).digest("hex").slice(0, 24),
           action: AuditAction.CREATE,
-          after: result,
+          after: { ...result, actorRole: actor.role, tenantScope: "pilot-catalog" },
         },
       });
     }

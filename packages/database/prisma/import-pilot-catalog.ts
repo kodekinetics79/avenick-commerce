@@ -57,8 +57,13 @@ async function main() {
   if (process.env.NODE_ENV === "production" && process.env.ALLOW_PILOT_CATALOG_IMPORT !== "1") {
     throw new Error("Refusing production import: ALLOW_PILOT_CATALOG_IMPORT=1 is required for the designated pilot database");
   }
+  const actorId = process.env.PILOT_IMPORT_ACTOR_ID?.trim();
+  if (!actorId) {
+    throw new Error("Refusing write: PILOT_IMPORT_ACTOR_ID must identify the authenticated administrator or import service");
+  }
 
   const result = await applyPilotCatalog(file, {
+    actorId,
     assetBaseUrl: process.env.PILOT_ASSET_BASE_URL?.trim() || undefined,
     testPassword: process.env.PILOT_TEST_PASSWORD?.trim() || undefined,
   });
