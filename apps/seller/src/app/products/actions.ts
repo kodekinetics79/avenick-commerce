@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@avenick/database";
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerPermission } from "@/lib/auth";
 
 const STATUSES = ["DRAFT", "ACTIVE", "SUPPRESSED", "INACTIVE"] as const;
 type BulkStatus = (typeof STATUSES)[number];
@@ -12,7 +12,7 @@ type BulkStatus = (typeof STATUSES)[number];
  * belong to the calling seller — ids for other sellers are silently ignored.
  */
 export async function bulkUpdateProductStatus(productIds: string[], status: BulkStatus): Promise<{ count: number }> {
-  const { seller } = await requireSellerSession();
+  const { seller } = await requireSellerPermission("catalog.manage");
   if (!STATUSES.includes(status)) throw new Error("Invalid status");
   if (productIds.length === 0) return { count: 0 };
 
@@ -47,7 +47,7 @@ export type ImportResult = {
  * catalog authoritative and avoids accidental duplicates.
  */
 export async function importProductsCsv(rows: ImportRow[]): Promise<ImportResult> {
-  const { seller } = await requireSellerSession();
+  const { seller } = await requireSellerPermission("catalog.manage");
   const result: ImportResult = { updated: 0, skipped: 0, errors: [] };
 
   // Limit to a sane batch to keep the request bounded.
