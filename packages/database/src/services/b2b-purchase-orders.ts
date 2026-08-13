@@ -315,9 +315,15 @@ export async function createGovernedApprovalPolicy(input: {
   thresholdAmount: number;
   currency: Currency;
   approverRole: UserRole;
+  /** Deterministic seam after company and actor commerce locks are held. */
+  afterGovernanceLocks?: () => Promise<void>;
 }) {
   return db.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
+    await lockUserCommerceRows(tx, [input.actorId]);
+    await input.afterGovernanceLocks?.();
+    const actor = await currentCompanyActor(tx, input);
+    if (actor.role !== "COMPANY_ADMIN") throw new Error("Current company admin authority is required");
     const policy = await tx.approvalPolicy.create({ data: {
       companyId: input.companyId,
       name: input.name,
@@ -340,9 +346,15 @@ export async function setGovernedApprovalPolicyActive(input: {
   companyId: string;
   actorId: string;
   isActive: boolean;
+  /** Deterministic seam after company and actor commerce locks are held. */
+  afterGovernanceLocks?: () => Promise<void>;
 }) {
   return db.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
+    await lockUserCommerceRows(tx, [input.actorId]);
+    await input.afterGovernanceLocks?.();
+    const actor = await currentCompanyActor(tx, input);
+    if (actor.role !== "COMPANY_ADMIN") throw new Error("Current company admin authority is required");
     const policy = await tx.approvalPolicy.findFirst({ where: { id: input.policyId, companyId: input.companyId } });
     if (!policy) throw new Error("Approval policy not found");
     const updated = await tx.approvalPolicy.update({ where: { id: policy.id }, data: { isActive: input.isActive } });

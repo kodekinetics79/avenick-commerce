@@ -35,7 +35,7 @@ async function fixture(label: string, requiresApproval = false) {
   }, include: { members: true } });
   companies.push(company.id);
   if (requiresApproval) await createGovernedApprovalPolicy({
-    companyId: company.id, actorId: approver.id, name: `Approval ${stamp}`,
+    companyId: company.id, actorId: admin.id, name: `Approval ${stamp}`,
     thresholdAmount: 1, currency: "AED", approverRole: "COMPANY_APPROVER",
   });
   const category = await db.category.create({ data: { nameEn: stamp, nameAr: stamp, slug: `member-governance-${stamp}` } });
