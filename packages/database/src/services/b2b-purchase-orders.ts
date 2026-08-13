@@ -8,7 +8,7 @@ import {
   canonicalOrderRequest,
   commercialSnapshotFingerprint,
 } from "./commerce-governance";
-import { assertMinimumOrderQuantity, assertRequiredVariantSelection } from "./checkout-invariants";
+import { assertMinimumOrderQuantity, assertRequiredVariantSelection, lockUserCommerceRows } from "./checkout-invariants";
 
 export interface PurchaseOrderLineInput {
   productId: string;
@@ -203,6 +203,7 @@ export async function updateGovernedCompanyMember(input: {
   actorId: string;
   role: Extract<UserRole, "COMPANY_ADMIN" | "COMPANY_BUYER" | "COMPANY_APPROVER">;
   spendLimit: number | null;
+  isActive?: boolean;
   /** Deterministic seam for PostgreSQL concurrency regressions. */
   afterGovernanceLock?: () => Promise<void>;
 }) {
@@ -216,32 +217,35 @@ export async function updateGovernedCompanyMember(input: {
       where: { id: input.memberId, companyId: input.companyId },
     });
     if (!current) throw new Error("Company member not found");
+    await lockUserCommerceRows(tx, [current.userId]);
 
     const roleChanged = current.role !== input.role;
     const spendChanged = current.spendLimit == null
       ? input.spendLimit != null
       : input.spendLimit == null || Number(current.spendLimit) !== input.spendLimit;
-    const affected = roleChanged || spendChanged
+    const activeChanged = input.isActive != null && current.isActive !== input.isActive;
+    const governanceChanged = roleChanged || spendChanged || activeChanged;
+    const affected = governanceChanged
       ? await tx.purchaseOrder.findMany({
           where: {
             companyId: input.companyId,
             status: "APPROVED",
             OR: [
               { requesterId: current.userId },
-              ...(roleChanged ? [{ approverId: current.userId }] : []),
+              ...(roleChanged || activeChanged ? [{ approverId: current.userId }] : []),
             ],
           },
           select: { id: true, approvalVersion: true },
         })
       : [];
-    const inFlight = roleChanged || spendChanged
+    const inFlight = governanceChanged
       ? await tx.purchaseOrder.findMany({
           where: {
             companyId: input.companyId,
             status: { in: ["PLACING", "ORDERED"] },
             OR: [
               { requesterId: current.userId },
-              ...(roleChanged ? [{ approverId: current.userId }] : []),
+              ...(roleChanged || activeChanged ? [{ approverId: current.userId }] : []),
             ],
           },
           select: { id: true, status: true },
@@ -249,7 +253,10 @@ export async function updateGovernedCompanyMember(input: {
       : [];
 
     const member = await tx.companyMember.update({
-      where: { id: current.id }, data: { role: input.role, spendLimit: input.spendLimit },
+      where: { id: current.id }, data: {
+        role: input.role, spendLimit: input.spendLimit,
+        ...(input.isActive == null ? {} : { isActive: input.isActive }),
+      },
     });
     await tx.user.update({ where: { id: current.userId }, data: { role: input.role } });
     const reason = "Company member approval authority or spend limit changed; reapproval required";
@@ -271,9 +278,9 @@ export async function updateGovernedCompanyMember(input: {
     }
     await tx.auditLog.create({ data: {
       actorId: input.actorId, entityType: "CompanyMember", entityId: current.id, action: AuditAction.UPDATE,
-      before: { companyId: input.companyId, role: current.role, spendLimit: current.spendLimit },
+      before: { companyId: input.companyId, role: current.role, spendLimit: current.spendLimit, isActive: current.isActive },
       after: {
-        companyId: input.companyId, role: input.role, spendLimit: input.spendLimit,
+        companyId: input.companyId, role: input.role, spendLimit: input.spendLimit, isActive: member.isActive,
         invalidatedPurchaseOrderIds: affected.map((po) => po.id),
         preservedPlacementClaims: inFlight,
       },
@@ -425,12 +432,14 @@ export async function transitionGovernedPurchaseOrder(input: {
   purchaseOrderId: string;
   companyId: string;
   actorId: string;
-  actorRole: UserRole;
   action: "approve" | "reject" | "cancel";
+  /** Deterministic seam after approval locks are held. */
+  afterApprovalLocks?: () => Promise<void>;
 }) {
   return db.$transaction(async (tx) => {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`purchase-order:${input.purchaseOrderId}`}))`);
+    await input.afterApprovalLocks?.();
     const po = await tx.purchaseOrder.findFirst({
       where: { id: input.purchaseOrderId, companyId: input.companyId },
       include: { items: true },
@@ -451,10 +460,33 @@ export async function transitionGovernedPurchaseOrder(input: {
       ? requesterMembership.spendLimit == null ? null : Number(requesterMembership.spendLimit)
       : null;
     if (["approve", "reject"].includes(input.action)) {
-      const permitted = input.actorRole === "COMPANY_ADMIN" || (!policy
-        ? input.actorRole === "COMPANY_APPROVER"
-        : input.actorRole === policy.approverRole);
+      const actorMembership = await tx.companyMember.findFirst({
+        where: { userId: input.actorId, companyId: input.companyId },
+        include: { user: { select: { role: true, status: true, deletedAt: true } } },
+      });
+      if (!actorMembership?.isActive || actorMembership.user.status !== "ACTIVE" || actorMembership.user.deletedAt
+        || actorMembership.role !== actorMembership.user.role) {
+        throw new Error("An active current company approver membership is required");
+      }
+      const actorRole = actorMembership.role;
+      const permitted = actorRole === "COMPANY_ADMIN" || (!policy
+        ? actorRole === "COMPANY_APPROVER"
+        : actorRole === policy.approverRole);
       if (!permitted) throw new Error(policy ? `Approval requires ${policy.approverRole}` : "Approver role required");
+      if (input.action === "approve" && po.requesterId === input.actorId) {
+        const alternativeApprovers = await tx.companyMember.count({
+          where: {
+            companyId: input.companyId, isActive: true, userId: { not: input.actorId },
+            user: { status: "ACTIVE", deletedAt: null },
+            role: policy
+              ? { in: ["COMPANY_ADMIN", policy.approverRole] }
+              : { in: ["COMPANY_ADMIN", "COMPANY_APPROVER"] },
+          },
+        });
+        if (alternativeApprovers > 0 || actorRole !== "COMPANY_ADMIN") {
+          throw new Error("Maker/checker control: you cannot approve your own purchase order");
+        }
+      }
     }
 
     const status = input.action === "approve" ? "APPROVED" : input.action === "reject" ? "REJECTED" : "CANCELLED";

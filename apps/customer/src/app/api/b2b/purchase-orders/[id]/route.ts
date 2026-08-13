@@ -115,7 +115,6 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       purchaseOrderId: po.id,
       companyId: ctx.companyId,
       actorId: ctx.userId,
-      actorRole: ctx.member.role,
       action,
     });
     return NextResponse.json({ success: true, data: updated });

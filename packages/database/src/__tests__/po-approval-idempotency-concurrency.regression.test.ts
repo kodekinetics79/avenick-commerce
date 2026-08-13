@@ -81,6 +81,7 @@ describe.skipIf(!process.env["DATABASE_URL"])("database concurrency fencing", ()
       country: "AE",
       city: "Dubai",
       status: "ACTIVE",
+      members: { create: { userId: actor.id, role: "COMPANY_APPROVER", isActive: true } },
     } });
     const po = await db.purchaseOrder.create({ data: {
       poNumber: `PO-CONCURRENT-${stamp}`,
@@ -95,11 +96,11 @@ describe.skipIf(!process.env["DATABASE_URL"])("database concurrency fencing", ()
       const results = await Promise.allSettled([
         transitionGovernedPurchaseOrder({
           purchaseOrderId: po.id, companyId: company.id, actorId: actor.id,
-          actorRole: "COMPANY_APPROVER", action: "approve",
+          action: "approve",
         }),
         transitionGovernedPurchaseOrder({
           purchaseOrderId: po.id, companyId: company.id, actorId: actor.id,
-          actorRole: "COMPANY_APPROVER", action: "reject",
+          action: "reject",
         }),
       ]);
       expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
@@ -108,6 +109,7 @@ describe.skipIf(!process.env["DATABASE_URL"])("database concurrency fencing", ()
     } finally {
       await db.auditLog.deleteMany({ where: { entityType: "PurchaseOrder", entityId: po.id } });
       await db.purchaseOrder.delete({ where: { id: po.id } });
+      await db.companyMember.deleteMany({ where: { companyId: company.id } });
       await db.company.delete({ where: { id: company.id } });
       await db.user.delete({ where: { id: actor.id } });
     }
