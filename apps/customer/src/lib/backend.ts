@@ -7,18 +7,62 @@ type BackendJson<T> = {
 };
 
 export function getBackendBaseUrl() {
-  return (
+  const configured = (
     process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
     process.env.RENDER_EXTERNAL_URL?.trim() ||
     ""
-  ).replace(/\/$/, "");
+  );
+  if (!configured) return "";
+  return trustedConfiguredOrigin(configured);
+}
+
+function parseHttpOrigin(value: string, allowHostOnly = false) {
+  const candidate = allowHostOnly && !value.includes("://") ? `https://${value}` : value;
+  if (!URL.canParse(candidate)) return "";
+  const parsed = new URL(candidate);
+  if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password) return "";
+  if (parsed.pathname !== "/" || parsed.search || parsed.hash) return "";
+  return parsed.origin;
+}
+
+function trustedConfiguredOrigin(value: string) {
+  const origin = parseHttpOrigin(value.replace(/\/$/, ""));
+  if (!origin) throw new Error("Configured backend origin is invalid");
+  return origin;
+}
+
+function trustedPortalOrigins() {
+  const origins = new Set<string>();
+  for (const value of [
+    process.env.NEXT_PUBLIC_BACKEND_URL,
+    process.env.RENDER_EXTERNAL_URL,
+    process.env.NEXTAUTH_URL,
+    process.env.CUSTOMER_URL,
+  ]) {
+    if (!value?.trim()) continue;
+    const origin = parseHttpOrigin(value.trim().replace(/\/$/, ""));
+    if (origin) origins.add(origin);
+  }
+  for (const value of [process.env.VERCEL_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL]) {
+    if (!value?.trim()) continue;
+    const origin = parseHttpOrigin(value.trim(), true);
+    if (origin) origins.add(origin);
+  }
+  return origins;
 }
 
 export function requestBaseUrl(input: { host?: string | null; forwardedHost?: string | null; forwardedProto?: string | null }) {
   const host = input.forwardedHost?.split(",")[0]?.trim() || input.host?.trim();
   if (!host) return "";
   const proto = input.forwardedProto?.split(",")[0]?.trim() || (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
+  const origin = parseHttpOrigin(`${proto}://${host}`);
+  if (!origin) throw new Error("Incoming application origin is malformed");
+
+  const isLocalDevelopment = process.env.NODE_ENV !== "production" && ["localhost", "127.0.0.1"].includes(new URL(origin).hostname);
+  if (!isLocalDevelopment && !trustedPortalOrigins().has(origin)) {
+    throw new Error("Incoming application origin is not trusted");
+  }
+  return origin;
 }
 
 function incomingBaseUrl() {

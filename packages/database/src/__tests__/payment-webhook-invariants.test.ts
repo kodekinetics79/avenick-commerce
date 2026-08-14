@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Prisma } from "@prisma/client";
 import {
   checkoutPaymentTransition,
+  assertInternalPaymentMethodMatches,
   expectedCheckoutMinorAmount,
   validateCheckoutEventAgainstAttempt,
   type CheckoutPaymentEvent,
@@ -41,6 +42,14 @@ describe("Checkout payment webhook invariants", () => {
       event,
       payment: { ...payment, method: "BANK_TRANSFER" },
     })).toThrow(/non-Checkout/);
+  });
+
+  it("requires the internal finalizer rail to match the stored order method", () => {
+    expect(() => assertInternalPaymentMethodMatches("BANK_TRANSFER", "MOCK")).toThrow(/does not match/);
+    expect(() => assertInternalPaymentMethodMatches("MOCK", "BANK_TRANSFER")).toThrow(/does not match/);
+    expect(() => assertInternalPaymentMethodMatches(null, "MOCK")).toThrow(/NONE/);
+    expect(() => assertInternalPaymentMethodMatches("BANK_TRANSFER", "BANK_TRANSFER")).not.toThrow();
+    expect(() => assertInternalPaymentMethodMatches("MOCK", "MOCK")).not.toThrow();
   });
 
   it("requires exact minor-unit amounts", () => {

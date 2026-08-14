@@ -5,6 +5,15 @@ import { accrueCommissions } from "./orders";
 const CLOSED_ORDER_STATUSES = new Set(["CANCELLED", "REFUNDED", "RETURNED"]);
 const CHECKOUT_METHODS = new Set<PaymentMethod>(["MADA", "APPLE_PAY", "CREDIT_CARD", "STC_PAY"]);
 
+export function assertInternalPaymentMethodMatches(
+  stored: PaymentMethod | null,
+  requested: Extract<PaymentMethod, "BANK_TRANSFER" | "MOCK">,
+) {
+  if (stored !== requested) {
+    throw new Error(`Internal payment finalizer ${requested} does not match stored order payment method ${stored ?? "NONE"}`);
+  }
+}
+
 export type CheckoutPaymentEvent = {
   eventId: string;
   type: "payment_approved" | "payment_declined";
@@ -194,6 +203,7 @@ export async function finalizeInternalOrderPayment(input: {
 
     const order = await tx.order.findUnique({ where: { id: input.orderId } });
     if (!order) throw new Error("Order not found while finalizing payment");
+    assertInternalPaymentMethodMatches(order.paymentMethod, input.method);
 
     if (input.method === "BANK_TRANSFER") {
       const existing = await tx.payment.findFirst({

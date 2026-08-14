@@ -1,8 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { backendUrl, requestBaseUrl } from "../backend";
 
 describe("server backend origin", () => {
-  it("uses the incoming forwarded Vercel origin instead of a retired fixed backend", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("accepts the exact authoritative Vercel deployment origin", () => {
+    vi.stubEnv("VERCEL_URL", "avenick-candidate.vercel.app");
     const origin = requestBaseUrl({
       host: "internal.invalid",
       forwardedHost: "avenick-candidate.vercel.app",
@@ -14,21 +17,30 @@ describe("server backend origin", () => {
     );
   });
 
+  it("rejects an attacker-controlled forwarded host", () => {
+    vi.stubEnv("VERCEL_URL", "avenick-candidate.vercel.app");
+    expect(() => requestBaseUrl({
+      host: "avenick-candidate.vercel.app",
+      forwardedHost: "attacker.example",
+      forwardedProto: "https",
+    })).toThrow(/not trusted/);
+  });
+
+  it("rejects malformed host and protocol input", () => {
+    vi.stubEnv("VERCEL_URL", "avenick-candidate.vercel.app");
+    expect(() => requestBaseUrl({ forwardedHost: "https://attacker.example/path", forwardedProto: "https" })).toThrow(/malformed/);
+    expect(() => requestBaseUrl({ forwardedHost: "avenick-candidate.vercel.app", forwardedProto: "javascript" })).toThrow(/malformed/);
+  });
+
   it("fails closed when no request or configured origin exists", () => {
     expect(requestBaseUrl({})).toBe("");
     expect(backendUrl("/api/products", "")).toBe("/api/products");
   });
 
   it("keeps an explicitly configured backend authoritative", () => {
-    const previous = process.env.NEXT_PUBLIC_BACKEND_URL;
-    process.env.NEXT_PUBLIC_BACKEND_URL = "https://configured.example/";
-    try {
-      expect(backendUrl("/api/products", "https://incoming.example")).toBe(
-        "https://configured.example/api/products",
-      );
-    } finally {
-      if (previous === undefined) delete process.env.NEXT_PUBLIC_BACKEND_URL;
-      else process.env.NEXT_PUBLIC_BACKEND_URL = previous;
-    }
+    vi.stubEnv("NEXT_PUBLIC_BACKEND_URL", "https://configured.example/");
+    expect(backendUrl("/api/products", "https://attacker.example")).toBe(
+      "https://configured.example/api/products",
+    );
   });
 });
