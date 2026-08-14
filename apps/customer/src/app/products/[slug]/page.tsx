@@ -97,6 +97,7 @@ export default function ProductPage({ params, searchParams }: { params: { slug: 
   const variants = p.variants ?? [];
   const selection = resolveStorefrontSelection(p, selectedVariantId, qty, searchParams.currency?.toUpperCase() ?? "AED");
   const seller = p.seller as Record<string, unknown>;
+  const brand = p.brand as { nameEn?: string; nameAr?: string | null } | null | undefined;
   const inStock = selection?.inStock === true;
   const selectedVariant = variants.find((variant) => variant.id === selectedVariantId);
   const availabilityStatus = selectedVariant?.availabilityStatus
@@ -171,6 +172,7 @@ export default function ProductPage({ params, searchParams }: { params: { slug: 
               <div>
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div>
+                    {!!brand?.nameEn && <p className="mb-1 text-sm font-semibold text-primary">{brand.nameEn}</p>}
                     <h1 className="text-2xl font-bold leading-tight">{String(p.nameEn)}</h1>
                     {!!p.nameAr && <p className="text-base text-muted-foreground mt-0.5" dir="rtl">{String(p.nameAr)}</p>}
                   </div>

@@ -10,6 +10,7 @@ describe("public catalog detail privacy DTO", () => {
       images: [{ id: "image-id", productId: "product", url: "https://images.test/item.png", altEn: null, altAr: null, isPrimary: true, sortOrder: 0 }],
       prices: [{ id: "price-id", productId: "product", type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 10, vatRate: 5, createdAt: new Date() }],
       inventory: [{ variantId: null, available: 0 }, { variantId: "variant-selector", available: 4 }],
+      brand: { id: "private-brand-id", nameEn: "Mennekes", nameAr: "مينيكيس", createdAt: new Date() },
       seller: { id: "seller", businessNameEn: "Seller", businessNameAr: null, tier: "VERIFIED", rating: 5, reviewCount: 1, city: "Dubai", country: "AE" },
       reviews: [{ id: "review", productId: "product", userId: "private-user", rating: 5, title: null, body: "Good", isVerified: true, createdAt: new Date(), user: { firstName: "A", lastName: "B" } }],
       listingHealth: 12, createdAt: new Date(), updatedAt: new Date(),
@@ -30,10 +31,11 @@ describe("public catalog detail privacy DTO", () => {
       prices: [{ type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 12, vatRate: 0 }],
     }]);
     expect(dto.images).toEqual([{ url: "https://images.test/item.png", altEn: null, altAr: null, isPrimary: true, sortOrder: 0 }]);
+    expect(dto.brand).toEqual({ nameEn: "Mennekes", nameAr: "مينيكيس" });
     const serialized = JSON.stringify(dto);
     for (const privateValue of [
       "listingHealth", "updatedAt", "compliance", "fileUrl", "secret-certificate.pdf", "CERT-PRIVATE",
-      "price-id", "variant-price-id", "private-user", "productId", "purchasePrice", "landedCost", "vendorCode", "sourceFingerprint", "PRIVATE",
+      "price-id", "variant-price-id", "private-brand-id", "private-user", "productId", "purchasePrice", "landedCost", "vendorCode", "sourceFingerprint", "PRIVATE",
     ]) expect(serialized).not.toContain(privateValue);
   });
 

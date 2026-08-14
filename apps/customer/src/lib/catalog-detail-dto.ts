@@ -36,6 +36,7 @@ export type CatalogDetailSource = {
   prices: DetailPrice[];
   inventory: Array<{ variantId: string | null; available: number }>;
   variants: DetailVariant[];
+  brand?: { nameEn: string; nameAr: string | null } | null;
   seller: {
     businessNameEn: string;
     businessNameAr: string | null;
@@ -105,6 +106,7 @@ export function toCatalogDetailDto(source: CatalogDetailSource, channel: "B2C" |
           ? availableFor(variant.id) >= source.moq ? "IN_STOCK" as const : "OUT_OF_STOCK" as const
           : "UNCONFIRMED" as const,
       })),
+    brand: source.brand ? { nameEn: source.brand.nameEn, nameAr: source.brand.nameAr } : null,
     seller: source.seller,
     reviews: source.reviews.map(({ id, rating, title, body, isVerified, createdAt, user }) => ({
       id, rating, title, body, isVerified, createdAt, user,

@@ -61,7 +61,7 @@ describe("public catalog API discovery boundary", () => {
   });
 
   it("serves public detail for discovery while filtering private channel data", async () => {
-    mocks.getProductBySlug.mockResolvedValue(pilotProduct);
+    mocks.getProductBySlug.mockResolvedValue({ ...pilotProduct, brand: { id: "private-brand-id", nameEn: "Mennekes", nameAr: null } });
     const response = await productDetailRoute(
       new NextRequest("https://customer.test/api/products/pilot-mennekes"),
       { params: { slug: "pilot-mennekes" } },
@@ -69,7 +69,8 @@ describe("public catalog API discovery boundary", () => {
     expect(response.status).toBe(200);
     const body = await response.json();
     expect(mocks.getProductBySlug).toHaveBeenCalledWith("pilot-mennekes", "B2C", undefined);
-    expect(body.data).toMatchObject({ isPubliclyDiscoverable: true, isB2CEnabled: false, prices: [] });
+    expect(body.data).toMatchObject({ isPubliclyDiscoverable: true, isB2CEnabled: false, prices: [], brand: { nameEn: "Mennekes", nameAr: null } });
+    expect(JSON.stringify(body.data)).not.toContain("private-brand-id");
     expect(body.data.inventory).toEqual([{ inStock: false, availableQty: 0, status: "UNCONFIRMED" }]);
     expectPublicSafe(body);
   });
