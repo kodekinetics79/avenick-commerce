@@ -40,8 +40,8 @@ export async function GET(req: NextRequest) {
       categoryId,
       categorySlug: categoryId ? undefined : categorySlug,
       status: "ACTIVE" as ProductStatus,
-      // Public browse defaults to B2C. B2B is an explicit authenticated mode.
-      b2c: wantsB2B ? undefined : true,
+      // Discovery is intentionally independent from B2C checkout eligibility.
+      publiclyDiscoverable: wantsB2B ? undefined : true,
       b2b: wantsB2B ? true : undefined,
       inStock: searchParams.get("inStock") === "true",
       sort: searchParams.get("sort") === "name_asc" ? "name_asc" : "newest",

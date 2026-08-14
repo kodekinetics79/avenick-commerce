@@ -115,6 +115,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
                     sellerId={p.sellerId}
                     sellerName={p.seller?.businessNameEn}
                     inStock={stock?.inStock === true}
+                    availabilityStatus={stock?.status}
                     hasVariants={p.hasVariants === true}
                     moq={p.moq}
                   />

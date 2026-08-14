@@ -28,12 +28,12 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
     if (wantsB2B && !product.isB2BEnabled) {
       return NextResponse.json({ success: false, error: "Product not available for B2B ordering" }, { status: 404 });
     }
-    if (!wantsB2B && !product.isB2CEnabled) {
-      return NextResponse.json({ success: false, error: "Product not available for public ordering" }, { status: 404 });
+    if (!wantsB2B && !product.isPubliclyDiscoverable) {
+      return NextResponse.json({ success: false, error: "Product not available for public discovery" }, { status: 404 });
     }
 
     return NextResponse.json(
-      { success: true, data: toCatalogDetailDto(product) },
+      { success: true, data: toCatalogDetailDto(product, channel) },
       {
         headers: {
           "Cache-Control": wantsB2B

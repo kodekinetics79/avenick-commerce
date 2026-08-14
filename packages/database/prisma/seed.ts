@@ -798,6 +798,7 @@ async function main() {
         brandId: p.brandId,
         sellerId: seller.id,
         status: p.status,
+        isPubliclyDiscoverable: p.isB2C,
         isB2CEnabled: p.isB2C,
         isB2BEnabled: p.isB2B,
         origin: p.origin,
@@ -837,7 +838,7 @@ async function main() {
       sellerId: sellerB.id, categoryId: buildCat.id, sku: "CERT-SELLER-B-TOOL",
       slug: "cert-seller-b-tool", nameEn: "Seller B Certification Tool",
       nameAr: "أداة اعتماد البائع ب", status: ProductStatus.ACTIVE,
-      isB2CEnabled: true, isB2BEnabled: true, origin: Country.AE, moq: 1,
+      isPubliclyDiscoverable: false, isB2CEnabled: true, isB2BEnabled: true, origin: Country.AE, moq: 1,
       prices: { create: { type: PricingType.B2C, currency: Currency.AED, minQty: 1, price: 200, vatRate: 5 } },
     },
   });
