@@ -12,14 +12,38 @@ export interface ProductListParams {
   status?: ProductStatus;
   b2c?: boolean;
   b2b?: boolean;
+  publiclyDiscoverable?: boolean;
   inStock?: boolean;
   sort?: "newest" | "name_asc";
   currency?: Currency;
 }
 
+export function normalizeCatalogSearch(value?: string) {
+  const normalized = value?.trim().replace(/\s+/g, " ");
+  return normalized || undefined;
+}
+
 export async function listProducts(params: ProductListParams) {
-  const { page = 1, limit = 20, search, categoryId, categorySlug, sellerId, status, b2c, b2b, inStock, sort } = params;
+  const { page = 1, limit = 20, search, categoryId, categorySlug, sellerId, status, b2c, b2b, publiclyDiscoverable, inStock, sort } = params;
   const skip = (page - 1) * limit;
+  const normalizedSearch = normalizeCatalogSearch(search);
+  const and: Prisma.ProductWhereInput[] = [];
+  if (publiclyDiscoverable !== undefined) and.push({ isPubliclyDiscoverable: publiclyDiscoverable });
+  if (normalizedSearch) {
+    and.push({
+      OR: [
+        { nameEn: { contains: normalizedSearch, mode: "insensitive" } },
+        { nameAr: { contains: normalizedSearch, mode: "insensitive" } },
+        { sku: { contains: normalizedSearch, mode: "insensitive" } },
+        { commercialMetadata: { is: { OR: [
+          { manufacturerPartNumber: { contains: normalizedSearch, mode: "insensitive" } },
+          { supplierPartNumber: { contains: normalizedSearch, mode: "insensitive" } },
+          { externalItemNumber: { contains: normalizedSearch, mode: "insensitive" } },
+          { erpCode: { contains: normalizedSearch, mode: "insensitive" } },
+        ] } } },
+      ],
+    });
+  }
 
   const where: Prisma.ProductWhereInput = {
     deletedAt: null,
@@ -30,13 +54,7 @@ export async function listProducts(params: ProductListParams) {
     ...(b2c !== undefined && { isB2CEnabled: b2c }),
     ...(b2b !== undefined && { isB2BEnabled: b2b }),
     ...(inStock && { inventory: { some: { qty: { gt: 0 } } } }),
-    ...(search && {
-      OR: [
-        { nameEn: { contains: search, mode: "insensitive" } },
-        { nameAr: { contains: search, mode: "insensitive" } },
-        { sku: { contains: search, mode: "insensitive" } },
-      ],
-    }),
+    ...(and.length > 0 && { AND: and }),
   };
 
   // Catalog listing is a "must stay up" read: run it through the resilience
@@ -62,7 +80,6 @@ export async function listProducts(params: ProductListParams) {
             category: { select: { nameEn: true, nameAr: true, slug: true } },
             brand: { select: { nameEn: true, nameAr: true } },
             seller: { select: { businessNameEn: true, businessNameAr: true, tier: true, rating: true } },
-            issues: { where: { resolvedAt: null } },
           },
         }),
         db.product.count({ where }),

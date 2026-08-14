@@ -104,6 +104,7 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
               sellerId={p.sellerId}
               sellerName={p.seller?.businessNameEn}
               inStock={stock?.inStock === true}
+              availabilityStatus={stock?.status}
               hasVariants={p.hasVariants === true}
               isB2B={wantsB2B}
               moq={p.moq}

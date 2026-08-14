@@ -120,11 +120,11 @@ describe("variant wishlist, list card, and base-price fallback", () => {
     expect(replaceCartCommercialSelection(prior, selected)).toMatchObject({ id: "p-v", qty: 20, unitPrice: 80, vatRate: 0 });
   });
 
-  it("uses the minimum purchasable variant price, excluding unavailable variants", () => {
+  it("keeps channel price visibility independent from authoritative availability", () => {
     const dto = toCatalogListDto({
       id: "p", sellerId: "s", sku: "P", slug: "p", nameEn: "P", nameAr: "P",
       descriptionEn: null, descriptionAr: null, origin: null, tags: [], moq: 1,
-      isB2CEnabled: true, isB2BEnabled: false, images: [], prices: [], inventory: [
+      isPubliclyDiscoverable: true, isB2CEnabled: true, isB2BEnabled: false, images: [], prices: [], inventory: [
         { variantId: "cheap", qty: 0, reservedQty: 0 }, { variantId: "available", qty: 2, reservedQty: 0 },
       ],
       variants: [
@@ -134,14 +134,14 @@ describe("variant wishlist, list card, and base-price fallback", () => {
       category: { nameEn: "C", nameAr: "C", slug: "c" }, brand: null,
       seller: { businessNameEn: "S", businessNameAr: null, tier: "VERIFIED", rating: 0 },
     }, "B2C");
-    expect(dto.cardPrice).toEqual({ amount: 90, currency: "SAR", vatRate: 15, isFrom: true });
+    expect(dto.cardPrice).toEqual({ amount: 20, currency: "SAR", vatRate: 0, isFrom: true });
   });
 
   it("publishes a truthful SAR variant-only card price without exposing variant topology", () => {
     const dto = toCatalogListDto({
       id: "p", sellerId: "s", sku: "P", slug: "p", nameEn: "P", nameAr: "P",
       descriptionEn: null, descriptionAr: null, origin: null, tags: [], moq: 1,
-      isB2CEnabled: true, isB2BEnabled: false, images: [], prices: [], inventory: [{ variantId: "private-topology-id", qty: 2, reservedQty: 0 }],
+      isPubliclyDiscoverable: true, isB2CEnabled: true, isB2BEnabled: false, images: [], prices: [], inventory: [{ variantId: "private-topology-id", qty: 2, reservedQty: 0 }],
       variants: [{ id: "private-topology-id", prices: [
         { type: "B2C", currency: "SAR", minQty: 1, maxQty: null, price: 125, vatRate: 15 },
       ] }],
@@ -164,6 +164,7 @@ describe("variant wishlist, list card, and base-price fallback", () => {
   it("requires navigation to variant selection instead of ambiguous quick-add", () => {
     expect(productCardPurchaseAction(true)).toBe("SELECT_VARIANT");
     expect(productCardPurchaseAction(false)).toBe("ADD_TO_CART");
+    expect(productCardPurchaseAction(false, false)).toBe("REQUEST_AVAILABILITY");
   });
 
   it("accepts only a complete canonical requisition basket before cart mutation", () => {
@@ -208,7 +209,7 @@ describe("variant wishlist, list card, and base-price fallback", () => {
     const dto = toCatalogListDto({
       id: "p", sellerId: "s", sku: "P", slug: "multi", nameEn: "P", nameAr: "P",
       descriptionEn: null, descriptionAr: null, origin: null, tags: [], moq: 10,
-      isB2CEnabled: true, isB2BEnabled: false, images: [],
+      isPubliclyDiscoverable: true, isB2CEnabled: true, isB2BEnabled: false, images: [],
       prices: [{ type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 100, vatRate: 5 }],
       inventory: [{ variantId: "sar-own", qty: 10, reservedQty: 0 }, { variantId: "base-fallback", qty: 10, reservedQty: 0 }],
       variants: [

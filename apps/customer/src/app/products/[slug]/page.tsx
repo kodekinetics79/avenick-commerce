@@ -97,7 +97,12 @@ export default function ProductPage({ params, searchParams }: { params: { slug: 
   const variants = p.variants ?? [];
   const selection = resolveStorefrontSelection(p, selectedVariantId, qty, searchParams.currency?.toUpperCase() ?? "AED");
   const seller = p.seller as Record<string, unknown>;
+  const brand = p.brand as { nameEn?: string; nameAr?: string | null } | null | undefined;
   const inStock = selection?.inStock === true;
+  const selectedVariant = variants.find((variant) => variant.id === selectedVariantId);
+  const availabilityStatus = selectedVariant?.availabilityStatus
+    ?? p.inventory[0]?.status
+    ?? (inStock ? "IN_STOCK" : "OUT_OF_STOCK");
   const displayPrice = selection?.unitPrice ?? 0;
   const displayCurrency = selection?.currency ?? "AED";
   const vatRate = selection?.vatRate ?? 0;
@@ -143,7 +148,9 @@ export default function ProductPage({ params, searchParams }: { params: { slug: 
                 )}
                 {!inStock && (
                   <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <span className="bg-card font-semibold px-4 py-2 rounded-full">Out of Stock</span>
+                    <span className="bg-card font-semibold px-4 py-2 rounded-full">
+                      {availabilityStatus === "UNCONFIRMED" ? "Availability unconfirmed" : "Out of Stock"}
+                    </span>
                   </div>
                 )}
               </div>
@@ -165,6 +172,7 @@ export default function ProductPage({ params, searchParams }: { params: { slug: 
               <div>
                 <div className="flex items-start justify-between gap-3 mb-2">
                   <div>
+                    {!!brand?.nameEn && <p className="mb-1 text-sm font-semibold text-primary">{brand.nameEn}</p>}
                     <h1 className="text-2xl font-bold leading-tight">{String(p.nameEn)}</h1>
                     {!!p.nameAr && <p className="text-base text-muted-foreground mt-0.5" dir="rtl">{String(p.nameAr)}</p>}
                   </div>
@@ -193,9 +201,11 @@ export default function ProductPage({ params, searchParams }: { params: { slug: 
 
                 <div className="flex flex-wrap gap-2 mt-3">
                   {!!p.origin && <Badge variant="secondary">{String(p.origin)}</Badge>}
-                  {inStock
+                  {availabilityStatus === "IN_STOCK"
                     ? <Badge variant="success">In Stock</Badge>
-                    : <Badge variant="error">Out of Stock</Badge>}
+                    : availabilityStatus === "UNCONFIRMED"
+                      ? <Badge variant="info">Availability unconfirmed</Badge>
+                      : <Badge variant="error">Out of Stock</Badge>}
                   {!!p.isB2BEnabled && <Badge variant="info">B2B Available</Badge>}
                 </div>
               </div>
@@ -238,16 +248,24 @@ export default function ProductPage({ params, searchParams }: { params: { slug: 
               {/* Qty + CTA */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center border border-border rounded-xl overflow-hidden">
-                  <button type="button" onClick={() => setQty((q) => Math.max(Number(p.moq) || 1, q - 1))} className="p-2.5 hover:bg-muted transition-colors"><Minus className="h-4 w-4" /></button>
+                  <button type="button" disabled={!selection} onClick={() => setQty((q) => Math.max(Number(p.moq) || 1, q - 1))} className="p-2.5 hover:bg-muted transition-colors disabled:opacity-40"><Minus className="h-4 w-4" /></button>
                   <span className="px-4 text-sm font-semibold min-w-[2.5rem] text-center">{qty}</span>
-                  <button type="button" disabled={selection != null && qty >= selection.availableQty} onClick={() => setQty((q) => q + 1)} className="p-2.5 hover:bg-muted transition-colors disabled:opacity-40"><Plus className="h-4 w-4" /></button>
+                  <button type="button" disabled={!selection || qty >= selection.availableQty} onClick={() => setQty((q) => q + 1)} className="p-2.5 hover:bg-muted transition-colors disabled:opacity-40"><Plus className="h-4 w-4" /></button>
                 </div>
                 <Button size="lg" variant="primary" className="flex-1" disabled={!inStock || !selection}
                   onClick={() => selection && addItem(toStorefrontCartLine(p, selection, qty, searchParams.b2b === "true" ? "B2B" : "B2C", images[0]?.url))}>
                   <ShoppingCart className="h-4 w-4 me-2" />
-                  {inStock ? "Add to Cart" : "Out of Stock"}
+                  Add to Cart
                 </Button>
               </div>
+              {!inStock && seller && (
+                <Link
+                  href={`/b2b/rfq/new?supplier=${encodeURIComponent(String(seller.id ?? ""))}&product=${encodeURIComponent(productId)}`}
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/5 text-sm font-semibold text-primary hover:bg-primary/10"
+                >
+                  <MessageSquare className="h-4 w-4" /> Request Availability
+                </Link>
+              )}
               {Number(p.moq) > 1 && <p className="text-xs text-muted-foreground -mt-3">Minimum order: {Number(p.moq)} units</p>}              {/* Trust badges */}
               <div className="grid grid-cols-3 gap-2">
                 {[

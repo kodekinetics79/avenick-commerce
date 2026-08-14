@@ -150,11 +150,11 @@ async function main() {
     const ensureProduct = async (input: { sku: string; slug: string; sellerId: string; name: string; price: number; locationId: string }) => {
       const product = await tx.product.upsert({
         where: { sku: input.sku },
-        update: { sellerId: input.sellerId, categoryId: category.id, status: ProductStatus.ACTIVE, isB2CEnabled: true, isB2BEnabled: true, deletedAt: null, moq: 1, tags: ["certification"] },
+        update: { sellerId: input.sellerId, categoryId: category.id, status: ProductStatus.ACTIVE, isPubliclyDiscoverable: false, isB2CEnabled: true, isB2BEnabled: true, deletedAt: null, moq: 1, tags: ["certification"] },
         create: {
           sellerId: input.sellerId, categoryId: category.id, sku: input.sku, slug: input.slug,
           nameEn: input.name, nameAr: input.name, descriptionEn: `${CERT_TAG} deterministic test product`,
-          status: ProductStatus.ACTIVE, isB2CEnabled: true, isB2BEnabled: true,
+          status: ProductStatus.ACTIVE, isPubliclyDiscoverable: false, isB2CEnabled: true, isB2BEnabled: true,
           origin: Country.AE, moq: 1, listingHealth: 100, tags: ["certification"], publishedAt: new Date(),
         },
       });

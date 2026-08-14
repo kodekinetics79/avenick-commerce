@@ -7,6 +7,7 @@ export type CatalogListSource = {
   id: string; sellerId: string; sku: string; slug: string; nameEn: string; nameAr: string;
   descriptionEn: string | null; descriptionAr: string | null; origin: string | null;
   tags: string[]; moq: number; isB2CEnabled: boolean; isB2BEnabled: boolean;
+  isPubliclyDiscoverable: boolean;
   images: Array<{ url: string; altText?: string | null }>;
   prices: CatalogPrice[];
   inventory: Array<{ variantId: string | null; qty: number; reservedQty: number }>;
@@ -34,14 +35,14 @@ export function toCatalogListDto(source: CatalogListSource, channel: "B2C" | "B2
     .filter((variant) => (availableByIdentity.get(variant.id) ?? 0) >= source.moq)
     .map((variant) => variant.id));
   const variantPrices = source.variants
-    .filter((variant) => availableVariantIds.has(variant.id))
     .flatMap((variant) => {
       const own = variant.prices.filter((price) => applicableAtMoq(price) && price.currency === cardCurrency);
       return own.length > 0 ? own : basePrices;
     });
   const hasVariants = source.variants.length > 0;
+  const hasInventoryEvidence = source.inventory.length > 0;
   const baseInStock = (availableByIdentity.get(null) ?? 0) >= source.moq;
-  const cardCandidates = hasVariants ? variantPrices : baseInStock ? basePrices : [];
+  const cardCandidates = hasVariants ? variantPrices : basePrices;
   const cardPrice = cardCandidates
     .map((price) => ({ amount: Number(price.price), currency: price.currency, vatRate: Number(price.vatRate) }))
     .filter((price) => Number.isFinite(price.amount) && Number.isFinite(price.vatRate))
@@ -60,13 +61,19 @@ export function toCatalogListDto(source: CatalogListSource, channel: "B2C" | "B2
     moq: source.moq,
     isB2CEnabled: source.isB2CEnabled,
     isB2BEnabled: source.isB2BEnabled,
+    isPubliclyDiscoverable: source.isPubliclyDiscoverable,
     images: source.images.map(({ url, altText }) => ({ url, altText: altText ?? null })),
     prices: source.prices
       .filter((price) => price.type === channel && (!currency || price.currency === currency))
       .map(({ type, currency: priceCurrency, minQty, maxQty, price, vatRate }) => ({
         type, currency: priceCurrency, minQty, maxQty, price, vatRate,
       })),
-    inventory: [{ inStock: hasVariants ? availableVariantIds.size > 0 : baseInStock }],
+    inventory: [{
+      inStock: hasVariants ? availableVariantIds.size > 0 : baseInStock,
+      status: !hasInventoryEvidence ? "UNCONFIRMED" as const
+        : (hasVariants ? availableVariantIds.size > 0 : baseInStock) ? "IN_STOCK" as const
+        : "OUT_OF_STOCK" as const,
+    }],
     hasVariants,
     cardPrice: cardPrice && { ...cardPrice, isFrom: hasVariants },
     category: source.category,

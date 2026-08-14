@@ -30,7 +30,7 @@ export default async function CategoryPage({ params }: Props) {
           {products.map((p) => {
             const stock = p.inventory?.[0];
             return (
-              <ProductCard key={p.id} id={p.id} slug={p.slug} nameEn={p.nameEn} nameAr={p.nameAr} imageUrl={p.images?.[0]?.url} price={p.cardPrice?.amount} currency={p.cardPrice?.currency} vatRate={p.cardPrice?.vatRate} priceIsFrom={p.cardPrice?.isFrom === true} sku={p.sku} sellerId={p.sellerId} sellerName={p.seller?.businessNameEn} inStock={stock?.inStock === true} hasVariants={p.hasVariants === true} moq={p.moq} />
+              <ProductCard key={p.id} id={p.id} slug={p.slug} nameEn={p.nameEn} nameAr={p.nameAr} imageUrl={p.images?.[0]?.url} price={p.cardPrice?.amount} currency={p.cardPrice?.currency} vatRate={p.cardPrice?.vatRate} priceIsFrom={p.cardPrice?.isFrom === true} sku={p.sku} sellerId={p.sellerId} sellerName={p.seller?.businessNameEn} inStock={stock?.inStock === true} availabilityStatus={stock?.status} hasVariants={p.hasVariants === true} moq={p.moq} />
             );
           })}
         </div>

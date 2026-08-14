@@ -38,6 +38,7 @@ export default async function DealsPage() {
         sellerId: p.sellerId,
         sellerName: p.seller?.businessNameEn,
         inStock: available > 0,
+        availabilityStatus: stock?.status,
         hasVariants: p.hasVariants === true,
         moq: p.moq,
         category: p.category?.nameEn ?? "Industrial",

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingCart, Star, Heart, Package } from "lucide-react";
+import { ShoppingCart, Star, Heart, MessageSquare, Package } from "lucide-react";
 import { formatCurrency } from "@avenick/utils";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
@@ -26,6 +26,7 @@ interface ProductCardProps {
   sellerId: string;
   sellerName?: string;
   inStock?: boolean;
+  availabilityStatus?: "IN_STOCK" | "OUT_OF_STOCK" | "UNCONFIRMED";
   hasVariants?: boolean;
   moq?: number;
   rating?: number;
@@ -38,7 +39,7 @@ interface ProductCardProps {
 
 export function ProductCard({
   id, slug, nameEn, nameAr, imageUrl, price, originalPrice, currency, vatRate, priceIsFrom = false,
-  sku, sellerId, sellerName, inStock = true, moq = 1, hasVariants = false,
+  sku, sellerId, sellerName, inStock = true, availabilityStatus, moq = 1, hasVariants = false,
   rating, reviewCount = 0, locale, isB2B = false,
   badge = null, category,
 }: ProductCardProps) {
@@ -59,10 +60,16 @@ export function ProductCard({
   const review = productCardReviewState(rating, reviewCount);
   const pricePresentation = productCardPricePresentation(price, hasVariants);
   const productHref = storefrontProductHref(slug, { currency, b2b: isB2B });
+  const availability = availabilityStatus ?? (inStock ? "IN_STOCK" : "OUT_OF_STOCK");
 
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault();
-    if (productCardPurchaseAction(hasVariants) === "SELECT_VARIANT") {
+    const action = productCardPurchaseAction(hasVariants, inStock);
+    if (action === "REQUEST_AVAILABILITY") {
+      router.push(`/b2b/rfq/new?supplier=${encodeURIComponent(sellerId)}&product=${encodeURIComponent(id)}`);
+      return;
+    }
+    if (action === "SELECT_VARIANT") {
       router.push(productHref);
       return;
     }
@@ -125,7 +132,9 @@ export function ProductCard({
 
         {!inStock && (
           <div className="absolute inset-0 grid place-items-center bg-background/60 backdrop-blur-[1px]">
-            <span className="rounded-full bg-foreground text-background text-xs font-semibold px-3 py-1">{tp("outOfStock")}</span>
+            <span className="rounded-full bg-foreground text-background text-xs font-semibold px-3 py-1">
+              {availability === "UNCONFIRMED" ? "Availability unconfirmed" : tp("outOfStock")}
+            </span>
           </div>
         )}
 
@@ -133,10 +142,11 @@ export function ProductCard({
         <button
           type="button"
           onClick={handleAddToCart}
-          disabled={!inStock || (!hasVariants && price == null)}
+          disabled={inStock && !hasVariants && price == null}
           className="absolute inset-x-2.5 bottom-2.5 translate-y-3 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 h-9 rounded-xl bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-1.5 shadow-glow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <ShoppingCart className="h-3.5 w-3.5" /> {hasVariants ? "Select options" : tp("addToCart")}
+          {inStock ? <ShoppingCart className="h-3.5 w-3.5" /> : <MessageSquare className="h-3.5 w-3.5" />}
+          {inStock ? (hasVariants ? "Select options" : tp("addToCart")) : "Request availability"}
         </button>
       </div>
 

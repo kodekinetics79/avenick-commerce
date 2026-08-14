@@ -16,6 +16,7 @@ export type StorefrontVariant = {
   prices: StorefrontPrice[];
   inStock: boolean;
   availableQty: number;
+  availabilityStatus?: "IN_STOCK" | "OUT_OF_STOCK" | "UNCONFIRMED";
 };
 
 export type StorefrontProduct = {
@@ -26,7 +27,7 @@ export type StorefrontProduct = {
   nameEn: string;
   nameAr: string;
   prices: StorefrontPrice[];
-  inventory: Array<{ inStock: boolean; availableQty: number }>;
+  inventory: Array<{ inStock: boolean; availableQty: number; status?: "IN_STOCK" | "OUT_OF_STOCK" | "UNCONFIRMED" }>;
   variants: StorefrontVariant[];
   moq?: number;
 };
