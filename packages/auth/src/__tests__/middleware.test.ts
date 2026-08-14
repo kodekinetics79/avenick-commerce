@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { NextRequest } from "next/server";
 import type { Session } from "next-auth";
 import { createMiddleware } from "../middleware";
@@ -15,6 +15,10 @@ const anon = async () => null;
 const as = (role: UserRole) => async () => makeSession(role);
 
 const req = (path: string) => new NextRequest(`http://localhost${path}`);
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("portal middleware — anonymous access", () => {
   it("redirects anonymous page requests to /login", async () => {
@@ -47,6 +51,13 @@ describe("portal middleware — anonymous access", () => {
       const res = await mw(req(path));
       expect(res!.status, path).toBe(200);
     }
+  });
+
+  it("lets only the signed ERP ingress prefix reach admin route authentication", async () => {
+    const mw = createMiddleware("admin", anon);
+    expect((await mw(req("/api/integrations/inbound/ERP")))!.status).toBe(200);
+    expect((await mw(req("/api/integrations")))!.status).toBe(401);
+    expect((await mw(req("/api/integrations/inboundness")))!.status).toBe(401);
   });
 
   it("does not leak the customer /products public rule into the seller portal", async () => {
@@ -88,6 +99,29 @@ describe("portal middleware — cross-portal role isolation", () => {
   it("admits company roles to the customer portal", async () => {
     const mw = createMiddleware("customer", as(UserRole.COMPANY_BUYER));
     const res = await mw(req("/b2b"));
+    expect(res!.status).toBe(200);
+  });
+
+  it("verifies a backend-issued cookie when local JWT decoding is unavailable", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            user: { id: "u1", email: "buyer@example.test", role: UserRole.COMPANY_BUYER },
+            expires: new Date(Date.now() + 60_000).toISOString(),
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      ),
+    );
+    const request = new NextRequest("http://localhost/b2b", {
+      headers: { cookie: "avenick.customer.session-token=render-signed-token" },
+    });
+    const mw = createMiddleware("customer", anon);
+
+    const res = await mw(request);
+
     expect(res!.status).toBe(200);
   });
 });

@@ -1,4 +1,4 @@
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { db } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
@@ -9,7 +9,7 @@ export const metadata = { title: "Invoices" };
 const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 export default async function InvoicesPage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerPermission("finance.view");
 
   const invoices = await db.taxInvoice.findMany({
     where: { order: { items: { some: { sellerId: seller.id } } } },
@@ -19,6 +19,7 @@ export default async function InvoicesPage() {
           orderNumber: true, paymentStatus: true,
           user: { select: { firstName: true, lastName: true } },
           company: { select: { nameEn: true } },
+          items: { where: { sellerId: seller.id }, select: { total: true, vatAmount: true } },
         },
       },
     },
@@ -36,8 +37,8 @@ export default async function InvoicesPage() {
       invoiceNo: inv.invoiceNo,
       orderNumber: inv.order.orderNumber,
       buyer: inv.order.company?.nameEn ?? `${inv.order.user.firstName} ${inv.order.user.lastName}`.trim(),
-      total: Number(inv.totalAmount),
-      vat: Number(inv.vatAmount),
+      total: inv.order.items.reduce((sum, item) => sum + Number(item.total), 0),
+      vat: inv.order.items.reduce((sum, item) => sum + Number(item.vatAmount), 0),
       issuedAt: inv.issuedAt,
       due,
       status: paid ? "PAID" : overdue ? "OVERDUE" : "PENDING",
@@ -55,7 +56,7 @@ export default async function InvoicesPage() {
   };
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Invoices</h1>

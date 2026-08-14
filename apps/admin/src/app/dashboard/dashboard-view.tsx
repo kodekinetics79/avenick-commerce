@@ -127,11 +127,11 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
         <div className="relative px-6 py-7 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
           <div>
             <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" /> Live · Modern Trade OS
+              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" /> Database-backed marketplace overview
             </span>
             <h1 className="mt-2 text-3xl font-extrabold tracking-tight">Executive Command Center</h1>
             <p className="mt-1.5 text-sm text-muted-foreground max-w-xl">
-              Real-time marketplace performance across B2B and B2C — revenue, suppliers, fulfillment, and AI-driven actions.
+              Database-backed marketplace performance across B2B and B2C — revenue, suppliers, fulfillment, and rule-based actions.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -204,15 +204,15 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
           </div>
         )}
 
-        {/* AI recommendations + operational health */}
+        {/* Rule-based recommendations + operational health */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <section className="lg:col-span-2">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
-                <h2 className="text-base font-semibold">AI recommendations</h2>
+                <h2 className="text-base font-semibold">Operational recommendations</h2>
               </div>
-              <Link href="/ai-insights" className="text-sm text-primary hover:underline font-medium flex items-center gap-1">View all <ArrowRight className="h-3 w-3" /></Link>
+              <Link href="/ai-insights" className="text-sm text-primary hover:underline font-medium flex items-center gap-1">AI status <ArrowRight className="h-3 w-3" /></Link>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {exec.aiRecommendations.map((rec) => (

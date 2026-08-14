@@ -1,4 +1,4 @@
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { db } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
@@ -9,7 +9,7 @@ export const metadata = { title: "Analytics" };
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default async function AnalyticsPage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerPermission("analytics.view");
 
   const items = await db.orderItem.findMany({
     where: { sellerId: seller.id, order: { status: { notIn: ["CANCELLED", "PENDING_PAYMENT"] } } },
@@ -66,7 +66,7 @@ export default async function AnalyticsPage() {
   const empty = items.length === 0;
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Analytics</h1>

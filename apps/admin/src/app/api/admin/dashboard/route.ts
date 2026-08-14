@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth-instance";
+import { getCurrentAdmin } from "@/lib/auth";
 import { db, getExecutiveDashboardData } from "@avenick/database";
 
 export async function GET() {
   try {
-    const session = await auth();
-    const user = session?.user as { role: string } | undefined;
-    if (!user || !["ADMIN", "SUPER_ADMIN"].includes(user.role)) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    if (!await getCurrentAdmin()) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
     const [{ exec, topCustomers }, pendingCount] = await Promise.all([
       getExecutiveDashboardData(),
       db.sellerProfile.count({ where: { status: "PENDING_REVIEW" } }),

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signInWithCredentials } from "@avenick/auth/client";
 import { useSearchParams } from "next/navigation";
 import { Input, Button } from "@avenick/ui";
 
@@ -18,12 +18,12 @@ export default function SellerLoginPage() {
     setLoading(true);
     setError("");
     try {
-      const res = await signIn("credentials", { email, password, redirect: false });
-      if (res?.error) {
+      const res = await signInWithCredentials(email, password, "/");
+      if (!res.ok) {
         setError("Invalid email or password.");
         setLoading(false);
       } else {
-        window.location.assign("/dashboard");
+        window.location.assign("/");
       }
     } catch {
       setError("Something went wrong. Please try again.");

@@ -1,8 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { type Session } from "next-auth";
 import { UserRole } from "@avenick/database";
-
-type PortalType = "customer" | "seller" | "admin";
+import { resolveRemotePortalSession, type PortalType } from "./remote-session";
 
 const PORTAL_ROLE_MAP: Record<PortalType, UserRole[]> = {
   customer: [
@@ -27,7 +26,7 @@ const PUBLIC_PATHS: Record<PortalType, string[]> = {
 const PUBLIC_API_PATHS: Record<PortalType, string[]> = {
   customer: ["/api/products", "/api/categories", "/api/payments/webhook"],
   seller: [],
-  admin: [],
+  admin: ["/api/integrations/inbound"],
 };
 
 function isPublicApiPath(pathname: string, portal: PortalType): boolean {
@@ -64,7 +63,13 @@ export function createMiddleware(portal: PortalType, authFn: () => Promise<Sessi
     }
 
     const isApi = pathname.startsWith("/api/");
-    const session = await authFn();
+    let session: Session | null = null;
+    try {
+      session = await authFn();
+    } catch {
+      // A split runtime may not possess the backend JWT signing secret.
+    }
+    session ??= await resolveRemotePortalSession(portal, request.headers.get("cookie"));
 
     if (!session?.user) {
       // API clients get a JSON 401 instead of an HTML redirect.

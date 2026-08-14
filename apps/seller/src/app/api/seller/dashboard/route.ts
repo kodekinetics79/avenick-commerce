@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server";
 import { db, getSellerDashboard } from "@avenick/database";
-import { getServerSellerContext } from "@/lib/seller-server";
+import { getServerSellerContext, sellerHasPermission } from "@/lib/seller-server";
 
 export async function GET() {
   try {
     const ctx = await getServerSellerContext();
     if (!ctx) return NextResponse.json({ success: false, error: "Seller account required" }, { status: 401 });
+    if (!sellerHasPermission(ctx, "dashboard.view")) {
+      return NextResponse.json({ success: false, error: "Dashboard permission required" }, { status: 403 });
+    }
 
     const [dashboard, expiringDocs, pendingRfqCount] = await Promise.all([
       getSellerDashboard(ctx.seller.id),

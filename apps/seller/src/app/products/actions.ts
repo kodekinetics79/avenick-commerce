@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db } from "@avenick/database";
-import { requireSellerSession } from "@/lib/auth";
+import { AuditAction, db, lockInventoryStockRows, lockProductCommercialRows, requireCurrentSellerActor } from "@avenick/database";
+import { requireSellerPermission, requireSellerSession } from "@/lib/auth";
+import { assertProductImportPermissions } from "@/lib/product-import-policy";
 
 const STATUSES = ["DRAFT", "ACTIVE", "SUPPRESSED", "INACTIVE"] as const;
 type BulkStatus = (typeof STATUSES)[number];
@@ -12,13 +13,39 @@ type BulkStatus = (typeof STATUSES)[number];
  * belong to the calling seller — ids for other sellers are silently ignored.
  */
 export async function bulkUpdateProductStatus(productIds: string[], status: BulkStatus): Promise<{ count: number }> {
-  const { seller } = await requireSellerSession();
+  const { seller, userId } = await requireSellerPermission("catalog.manage");
   if (!STATUSES.includes(status)) throw new Error("Invalid status");
   if (productIds.length === 0) return { count: 0 };
 
-  const res = await db.product.updateMany({
-    where: { id: { in: productIds }, sellerId: seller.id, deletedAt: null },
-    data: { status, ...(status === "ACTIVE" ? { publishedAt: new Date() } : {}) },
+  const res = await db.$transaction(async (tx) => {
+    await requireCurrentSellerActor(tx, userId, seller.id, "catalog.manage");
+    const targets = await tx.product.findMany({
+      where: { id: { in: productIds }, sellerId: seller.id, deletedAt: null },
+      select: { id: true, status: true },
+    });
+    await lockProductCommercialRows(tx, targets.map((target) => target.id));
+    const currentTargets = await tx.product.findMany({
+      where: { id: { in: targets.map((target) => target.id) }, sellerId: seller.id, deletedAt: null },
+      select: { id: true, status: true },
+    });
+    const updated = await tx.product.updateMany({
+      where: { id: { in: currentTargets.map((target) => target.id) } },
+      data: { status, ...(status === "ACTIVE" ? { publishedAt: new Date() } : {}) },
+    });
+    for (const target of currentTargets) {
+      await tx.auditLog.create({
+        data: {
+          actorId: userId,
+          sellerId: seller.id,
+          entityType: "Product",
+          entityId: target.id,
+          action: AuditAction.STATUS_CHANGE,
+          before: { status: target.status },
+          after: { status, source: "SELLER_BULK_ACTION" },
+        },
+      });
+    }
+    return updated;
   });
 
   revalidatePath("/products");
@@ -46,12 +73,18 @@ export type ImportResult = {
  * are reported back rather than silently creating products — keeps the seller's
  * catalog authoritative and avoids accidental duplicates.
  */
-export async function importProductsCsv(rows: ImportRow[]): Promise<ImportResult> {
-  const { seller } = await requireSellerSession();
+export async function importProductsCsv(rows: ImportRow[], options: {
+  /** Deterministic seams for PostgreSQL capability-revocation regressions. */
+  afterSessionCheck?: () => Promise<void>;
+  afterActorLock?: () => Promise<void>;
+} = {}): Promise<ImportResult> {
+  const { seller, userId, membership } = await requireSellerSession();
   const result: ImportResult = { updated: 0, skipped: 0, errors: [] };
 
   // Limit to a sane batch to keep the request bounded.
   const batch = rows.slice(0, 1000);
+  assertProductImportPermissions(membership.permissions ?? [], batch);
+  await options.afterSessionCheck?.();
 
   for (const row of batch) {
     const sku = (row.sku ?? "").trim();
@@ -62,7 +95,7 @@ export async function importProductsCsv(rows: ImportRow[]): Promise<ImportResult
 
     const product = await db.product.findFirst({
       where: { sku, sellerId: seller.id, deletedAt: null },
-      include: { prices: { where: { isActive: true }, take: 1 }, inventory: { take: 1 } },
+      select: { id: true },
     });
 
     if (!product) {
@@ -79,28 +112,81 @@ export async function importProductsCsv(rows: ImportRow[]): Promise<ImportResult
 
     try {
       await db.$transaction(async (tx) => {
+        const required = ["catalog.manage"];
+        if (row.price?.trim()) required.push("pricing.manage");
+        if (row.stock?.trim()) required.push("inventory.manage");
+        await requireCurrentSellerActor(tx, userId, seller.id, required);
+        await options.afterActorLock?.();
+        await lockProductCommercialRows(tx, [product.id]);
+        const currentProduct = await tx.product.findFirstOrThrow({
+          where: { id: product.id, sellerId: seller.id, deletedAt: null },
+          include: { prices: { where: { isActive: true } }, inventory: true },
+        });
         if (Object.keys(data).length > 0) {
-          await tx.product.update({ where: { id: product.id }, data });
+          await tx.product.update({ where: { id: currentProduct.id }, data });
         }
 
         const priceNum = Number(row.price);
         if (row.price?.trim() && Number.isFinite(priceNum) && priceNum >= 0) {
-          const existing = product.prices[0];
+          if (currentProduct.prices.length > 1) {
+            throw new Error("Price import is ambiguous across multiple active price identities");
+          }
+          const existing = currentProduct.prices[0];
           if (existing) {
             await tx.productPrice.update({ where: { id: existing.id }, data: { price: priceNum } });
           } else {
-            await tx.productPrice.create({ data: { productId: product.id, type: "B2C", price: priceNum } });
+            await tx.productPrice.create({
+              data: { productId: currentProduct.id, type: "B2C", currency: "AED", price: priceNum },
+            });
           }
         }
 
         const stockNum = Number(row.stock);
         if (row.stock?.trim() && Number.isInteger(stockNum) && stockNum >= 0) {
-          const inv = product.inventory[0];
-          if (inv) {
-            await tx.inventoryStock.update({ where: { id: inv.id }, data: { qty: stockNum } });
+          if (currentProduct.inventory.length !== 1) {
+            throw new Error(
+              currentProduct.inventory.length === 0
+                ? "Stock import requires an existing inventory identity"
+                : "Stock import is ambiguous across multiple location or variant identities",
+            );
           }
-          // No inventory row yet → skip (location unknown); name/status/price still applied.
+          const inv = currentProduct.inventory[0];
+          await lockInventoryStockRows(tx, [inv.id]);
+          const currentStock = await tx.inventoryStock.findUniqueOrThrow({ where: { id: inv.id } });
+          // The conditional write closes the race with checkout reservations:
+          // a CSV can never lower on-hand stock below the current reservation.
+          const changed = await tx.inventoryStock.updateMany({
+            where: {
+              id: currentStock.id,
+              qty: currentStock.qty,
+              reservedQty: { lte: stockNum },
+            },
+            data: { qty: stockNum },
+          });
+          if (changed.count !== 1) throw new Error("Stock quantity cannot be below reserved quantity");
         }
+        await tx.auditLog.create({
+          data: {
+            actorId: userId,
+            sellerId: seller.id,
+            entityType: "Product",
+            entityId: currentProduct.id,
+            action: AuditAction.UPDATE,
+            before: {
+              nameEn: currentProduct.nameEn,
+              nameAr: currentProduct.nameAr,
+              status: currentProduct.status,
+              price: currentProduct.prices.length === 1 ? Number(currentProduct.prices[0]!.price) : null,
+              stock: currentProduct.inventory.length === 1 ? currentProduct.inventory[0]!.qty : null,
+            },
+            after: {
+              source: "SELLER_CSV_IMPORT",
+              fields: Object.keys(data),
+              ...(row.price?.trim() ? { price: Number.isFinite(priceNum) && priceNum >= 0 ? priceNum : "IGNORED_INVALID" } : {}),
+              ...(row.stock?.trim() ? { stock: Number.isInteger(stockNum) && stockNum >= 0 ? stockNum : "IGNORED_INVALID" } : {}),
+            },
+          },
+        });
       });
       result.updated++;
     } catch (e) {

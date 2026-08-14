@@ -98,13 +98,13 @@ const SECTIONS: LegalSection[] = [
     icon: ShieldAlert,
     contentEn: (
       <>
-        <p>Avenick operates escrow protection. Payments are released to suppliers only after delivery is successfully verified or within the inspection window (typically 3 business days from receipt).</p>
+        <p>Avenick does not currently provide an escrow service. Bank-transfer orders remain unpaid until finance reconciliation; online card payment methods remain unavailable until outbound payment initiation and settlement controls are certified.</p>
         <p>In case of defective, incorrect, or missing items, buyers must raise a formal dispute or request return within the inspection window. Support tickets will be mediated by the Avenick customer care team.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>تدير أفينيك نظام حماية الضمان (Escrow). ولا يتم تحرير المدفوعات للموردين إلا بعد التحقق من نجاح التسليم أو خلال فترة الفحص (عادة ٣ أيام عمل من الاستلام).</p>
+        <p>لا توفر أفينيك حالياً خدمة ضمان مالي (Escrow). وتظل طلبات التحويل البنكي غير مدفوعة حتى تسوية فريق المالية، كما تبقى طرق الدفع الإلكتروني بالبطاقات غير متاحة إلى أن يتم اعتماد بدء الدفع والتسوية.</p>
         <p>في حالة وجود سلع معيبة أو غير صحيحة أو مفقودة، يجب على المشتري رفع نزاع رسمي أو طلب إرجاع خلال فترة الفحص. وسيتم التوسط في تذاكر الدعم بواسطة فريق خدمة عملاء أفينيك.</p>
       </>
     ),

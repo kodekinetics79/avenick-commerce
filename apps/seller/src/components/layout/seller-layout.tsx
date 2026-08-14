@@ -19,60 +19,61 @@ import { ThemeToggle } from "@avenick/ui";
 import { CommandPalette } from "@/components/command-palette";
 import { NotificationBell } from "@/components/notification-bell";
 import { ToastProvider } from "@/components/toast";
+import { sellerNavigationAllows } from "@/lib/seller-permissions";
 
-const NAV_GROUPS = [
+export const NAV_GROUPS = [
   {
     label: "Overview",
     items: [
-      { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-      { href: "/analytics", icon: BarChart3, label: "Analytics" },
-      { href: "/performance", icon: TrendingUp, label: "Performance" },
+      { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", permissions: ["dashboard.view"] },
+      { href: "/analytics", icon: BarChart3, label: "Analytics", permissions: ["analytics.view"] },
+      { href: "/performance", icon: TrendingUp, label: "Performance", permissions: ["analytics.view"] },
     ],
   },
   {
     label: "Catalog",
     items: [
-      { href: "/products", icon: Package, label: "Products" },
-      { href: "/inventory", icon: Boxes, label: "Inventory" },
-      { href: "/issues", icon: UploadCloud, label: "Bulk Upload", badge: "issues" },
+      { href: "/products", icon: Package, label: "Products", permissions: ["catalog.view", "catalog.manage"] },
+      { href: "/inventory", icon: Boxes, label: "Inventory", permissions: ["inventory.view", "inventory.manage"] },
+      { href: "/issues", icon: UploadCloud, label: "Bulk Upload", badge: "issues", permissions: ["catalog.view", "catalog.manage"] },
     ],
   },
   {
     label: "Orders",
     items: [
-      { href: "/orders", icon: ShoppingCart, label: "Orders" },
-      { href: "/shipments", icon: Truck, label: "Shipments" },
-      { href: "/returns", icon: RotateCcw, label: "Returns" },
+      { href: "/orders", icon: ShoppingCart, label: "Orders", permissions: ["orders.view", "orders.fulfill"] },
+      { href: "/shipments", icon: Truck, label: "Shipments", permissions: ["shipments.view", "shipments.manage"] },
+      { href: "/returns", icon: RotateCcw, label: "Returns", permissions: ["returns.view", "returns.manage"] },
     ],
   },
   {
     label: "RFQ / Quotes",
     items: [
-      { href: "/messages", icon: FileQuestion, label: "RFQ Inbox", badge: "messages" },
-      { href: "/quotes/submit", icon: Send, label: "Submit Quote" },
-      { href: "/quotes", icon: Clock, label: "Quote History" },
+      { href: "/messages", icon: FileQuestion, label: "RFQ Inbox", badge: "messages", permissions: ["rfqs.view"] },
+      { href: "/quotes/submit", icon: Send, label: "Submit Quote", permissions: ["quotes.submit"] },
+      { href: "/quotes", icon: Clock, label: "Quote History", permissions: ["rfqs.view"] },
     ],
   },
   {
     label: "Finance",
     items: [
-      { href: "/payouts", icon: DollarSign, label: "Payouts" },
-      { href: "/invoices", icon: FileText, label: "Invoices" },
-      { href: "/commission", icon: CreditCard, label: "Commission" },
+      { href: "/payouts", icon: DollarSign, label: "Payouts", permissions: ["finance.view"] },
+      { href: "/invoices", icon: FileText, label: "Invoices", permissions: ["finance.view"] },
+      { href: "/commission", icon: CreditCard, label: "Commission", permissions: ["finance.view"] },
     ],
   },
   {
     label: "Documents",
     items: [
-      { href: "/documents", icon: FolderOpen, label: "Document Center" },
-      { href: "/compliance", icon: CheckSquare, label: "Onboarding" },
+      { href: "/documents", icon: FolderOpen, label: "Document Center", permissions: ["documents.view", "documents.manage"] },
+      { href: "/compliance", icon: CheckSquare, label: "Onboarding", permissions: ["documents.view", "documents.manage"] },
     ],
   },
   {
     label: "Support",
     items: [
-      { href: "/support/tickets", icon: LifeBuoy, label: "Tickets" },
-      { href: "/support/contact", icon: MessageSquare, label: "Contact Admin" },
+      { href: "/support/tickets", icon: LifeBuoy, label: "Tickets", permissions: ["support.view"] },
+      { href: "/support/contact", icon: MessageSquare, label: "Contact Admin", permissions: ["support.view"] },
     ],
   },
 ];
@@ -84,6 +85,7 @@ interface SellerLayoutProps {
   issueCount?: number;
   unreadMessages?: number;
   performanceScore?: number;
+  permissions?: readonly string[];
 }
 
 export function SellerLayout({
@@ -93,6 +95,7 @@ export function SellerLayout({
   issueCount = 0,
   unreadMessages = 0,
   performanceScore = 87,
+  permissions = [],
 }: SellerLayoutProps) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
@@ -116,6 +119,7 @@ export function SellerLayout({
   const scoreColor = performanceScore >= 80 ? "text-success" : performanceScore >= 60 ? "text-warning" : "text-danger";
   const scoreBg = performanceScore >= 80 ? "bg-success/10 border-success/30" : performanceScore >= 60 ? "bg-warning/10 border-warning/30" : "bg-danger/10 border-danger/30";
   const scoreFill = performanceScore >= 80 ? "bg-success" : performanceScore >= 60 ? "bg-warning" : "bg-danger";
+  const can = (required: readonly string[]) => sellerNavigationAllows(permissions, required);
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-card border-e border-border">
@@ -158,7 +162,7 @@ export function SellerLayout({
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-3 scrollbar-hide">
-        {NAV_GROUPS.map((group) => (
+        {NAV_GROUPS.map((group) => ({ ...group, items: group.items.filter((item) => can(item.permissions)) })).filter((group) => group.items.length > 0).map((group) => (
           <div key={group.label}>
             {!collapsed && (
               <p className="px-2 mb-1 text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-widest">{group.label}</p>
@@ -204,10 +208,10 @@ export function SellerLayout({
 
       {/* Footer */}
       <div className="border-t border-border p-3 space-y-0.5">
-        <Link href="/settings" className={cn("flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors", collapsed && "justify-center")}>
+        {can(["settings.manage"]) && <Link href="/settings" className={cn("flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors", collapsed && "justify-center")}>
           <Settings className="h-4 w-4 shrink-0" />
           {!collapsed && <span>Settings</span>}
-        </Link>
+        </Link>}
         <button
           type="button"
           onClick={() => signOut({ callbackUrl: "/login" })}

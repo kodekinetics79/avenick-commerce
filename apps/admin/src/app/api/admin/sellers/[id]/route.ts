@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth-instance";
+import { getCurrentAdmin } from "@/lib/auth";
 import { db } from "@avenick/database";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const session = await auth();
-    const user = session?.user as { role: string } | undefined;
-    if (!user || !["ADMIN", "SUPER_ADMIN"].includes(user.role)) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    if (!await getCurrentAdmin()) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
 
     const seller = await db.sellerProfile.findUnique({
       where: { id: params.id },

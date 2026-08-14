@@ -29,8 +29,6 @@ const CATEGORIES = [
   { slug: "building-materials", nameEn: "Building", icon: Building2 },
 ];
 
-const PARTNERS = ["SKF", "EATON", "NSK", "TIMKEN", "ABB", "BOSCH", "SIEMENS", "GATES"];
-
 const CATEGORY_TRANSLATIONS: Record<string, string> = {
   "industrial-supplies": "catIndustrial",
   "electronics": "catElectronics",
@@ -57,20 +55,23 @@ export default async function HomePage() {
   const products = await getFeaturedProducts();
 
   const mapped = products.map((p) => {
-    const price = p.prices?.find((pr: { type: string; price: number }) => pr.type === "B2C") ?? p.prices?.[0];
     const stock = p.inventory?.[0];
-    const available = stock ? stock.qty - stock.reservedQty : 0;
+    const available = stock?.inStock ? 1 : 0;
     return {
       id: p.id,
       slug: p.slug,
       nameEn: p.nameEn,
       nameAr: p.nameAr,
       imageUrl: p.images?.[0]?.url,
-      price: price ? Number(price.price) : 0,
+      price: p.cardPrice?.amount,
+      currency: p.cardPrice?.currency,
+      vatRate: p.cardPrice?.vatRate,
+      priceIsFrom: p.cardPrice?.isFrom === true,
       sku: p.sku,
       sellerId: p.sellerId,
       sellerName: p.seller?.businessNameEn,
       inStock: available > 0,
+      hasVariants: p.hasVariants === true,
       moq: p.moq,
       category: p.category?.nameEn ?? "Industrial",
     };
@@ -113,29 +114,6 @@ export default async function HomePage() {
               </Link>
             </div>
 
-            {/* trust stats */}
-            <div className="mt-12 grid grid-cols-3 gap-6 max-w-lg border-t border-border pt-6">
-              {[
-                { v: "2,400+", l: t("statSuppliers") },
-                { v: "48,000+", l: t("statProducts") },
-                { v: "287", l: t("statCompanies") },
-              ].map((s) => (
-                <div key={s.l}>
-                  <p className="text-2xl font-bold font-mono tracking-tight">{s.v}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{s.l}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* partner marquee */}
-        <div className="relative border-t border-border bg-background/40 backdrop-blur">
-          <div className="max-w-7xl mx-auto px-4 py-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
-            <span className="text-[11px] uppercase tracking-widest text-muted-foreground">{t("trustedBrands")}</span>
-            {PARTNERS.map((b) => (
-              <span key={b} className="text-sm font-bold tracking-wide text-muted-foreground/70 hover:text-foreground transition-colors">{b}</span>
-            ))}
           </div>
         </div>
       </section>

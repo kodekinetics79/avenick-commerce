@@ -31,6 +31,7 @@ export default async function RFQDetailPage({ params }: { params: { id: string }
     currency: string;
     notes: string | null;
     totalQuoted: string | number | null;
+    quoteVersion: number;
     createdAt: string;
     requiredBy: string | null;
     seller: { businessNameEn: string; tier: string } | null;
@@ -138,12 +139,12 @@ export default async function RFQDetailPage({ params }: { params: { id: string }
 
             {quoted && (
               <div className="flex items-center gap-2 pt-2 border-t border-border">
-                <form action={acceptRFQQuote.bind(null, rfq.id)}>
+                <form action={acceptRFQQuote.bind(null, rfq.id, rfq.quoteVersion)}>
                   <button type="submit" className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
                     <CheckCircle className="h-4 w-4" /> Accept quote
                   </button>
                 </form>
-                <form action={rejectRFQQuote.bind(null, rfq.id)}>
+                <form action={rejectRFQQuote.bind(null, rfq.id, rfq.quoteVersion)}>
                   <button type="submit" className="inline-flex items-center gap-1.5 border border-red-200 text-red-600 hover:bg-red-50 text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
                     <XCircle className="h-4 w-4" /> Decline
                   </button>

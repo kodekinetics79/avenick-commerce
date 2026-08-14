@@ -98,7 +98,6 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
           {query && products.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {products.map((p) => {
-                const price = p.prices?.[0];
                 const stock = p.inventory?.[0];
                 return (
                   <ProductCard
@@ -108,11 +107,15 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
                     nameEn={p.nameEn}
                     nameAr={p.nameAr}
                     imageUrl={p.images?.[0]?.url}
-                    price={price ? Number(price.price) : 0}
+                    price={p.cardPrice?.amount}
+                    currency={p.cardPrice?.currency}
+                    vatRate={p.cardPrice?.vatRate}
+                    priceIsFrom={p.cardPrice?.isFrom === true}
                     sku={p.sku}
                     sellerId={p.sellerId}
                     sellerName={p.seller?.businessNameEn}
-                    inStock={stock ? stock.qty - stock.reservedQty > 0 : false}
+                    inStock={stock?.inStock === true}
+                    hasVariants={p.hasVariants === true}
                     moq={p.moq}
                   />
                 );

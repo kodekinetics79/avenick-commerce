@@ -3,11 +3,13 @@
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ShoppingCart, Star, Heart, Truck, Package } from "lucide-react";
+import { ShoppingCart, Star, Heart, Package } from "lucide-react";
 import { formatCurrency } from "@avenick/utils";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
 import { useLocale, useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
+import { productCardPricePresentation, productCardPurchaseAction, productCardReviewState, storefrontProductHref } from "@/lib/product-card-commerce";
 
 interface ProductCardProps {
   id: string;
@@ -15,13 +17,16 @@ interface ProductCardProps {
   nameEn: string;
   nameAr: string;
   imageUrl?: string;
-  price: number;
+  price?: number;
   originalPrice?: number;
   currency?: string;
+  vatRate?: number;
+  priceIsFrom?: boolean;
   sku: string;
   sellerId: string;
   sellerName?: string;
   inStock?: boolean;
+  hasVariants?: boolean;
   moq?: number;
   rating?: number;
   reviewCount?: number;
@@ -32,12 +37,13 @@ interface ProductCardProps {
 }
 
 export function ProductCard({
-  id, slug, nameEn, nameAr, imageUrl, price, originalPrice, currency = "AED",
-  sku, sellerId, sellerName, inStock = true, moq = 1,
-  rating = 4.2, reviewCount, locale, isB2B = false,
+  id, slug, nameEn, nameAr, imageUrl, price, originalPrice, currency, vatRate, priceIsFrom = false,
+  sku, sellerId, sellerName, inStock = true, moq = 1, hasVariants = false,
+  rating, reviewCount = 0, locale, isB2B = false,
   badge = null, category,
 }: ProductCardProps) {
   const tp = useTranslations("products");
+  const router = useRouter();
   const nextLocale = useLocale();
   const activeLocale = locale || (nextLocale as "en" | "ar");
   const addItem = useCartStore((s) => s.addItem);
@@ -47,18 +53,31 @@ export function ProductCard({
   React.useEffect(() => setMounted(true), []);
   const wishlisted = mounted && has(id);
   const name = activeLocale === "ar" ? nameAr : nameEn;
-  const discount = originalPrice && originalPrice > price
+  const discount = price != null && originalPrice && originalPrice > price
     ? Math.round((1 - price / originalPrice) * 100)
     : null;
+  const review = productCardReviewState(rating, reviewCount);
+  const pricePresentation = productCardPricePresentation(price, hasVariants);
+  const productHref = storefrontProductHref(slug, { currency, b2b: isB2B });
 
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault();
-    addItem({ productId: id, nameEn, nameAr, imageUrl, sku, qty: moq, unitPrice: price, sellerId, currency });
+    if (productCardPurchaseAction(hasVariants) === "SELECT_VARIANT") {
+      router.push(productHref);
+      return;
+    }
+    if (price == null || !currency || vatRate == null) return;
+    addItem({ productId: id, slug, channel: isB2B ? "B2B" : "B2C", nameEn, nameAr, imageUrl, sku, qty: moq, moq, unitPrice: price, vatRate, sellerId, currency });
   }
 
   function handleWishlist(e: React.MouseEvent) {
     e.preventDefault();
-    toggle({ id, slug, nameEn, nameAr, imageUrl, price, currency, sku, sellerId, sellerName, inStock });
+    if (hasVariants) {
+      router.push(productHref);
+      return;
+    }
+    if (price == null || !currency || vatRate == null) return;
+    toggle({ id, slug, channel: isB2B ? "B2B" : "B2C", nameEn, nameAr, imageUrl, price, quantity: moq, moq, vatRate, currency, sku, sellerId, sellerName, inStock });
   }
 
   const badgeClass =
@@ -69,7 +88,7 @@ export function ProductCard({
 
   return (
     <Link
-      href={`/products/${slug}`}
+      href={productHref}
       className="group relative block rounded-2xl border border-border bg-card overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-primary/40 hover:shadow-elevated"
     >
       {/* Image */}
@@ -114,10 +133,10 @@ export function ProductCard({
         <button
           type="button"
           onClick={handleAddToCart}
-          disabled={!inStock}
+          disabled={!inStock || (!hasVariants && price == null)}
           className="absolute inset-x-2.5 bottom-2.5 translate-y-3 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 h-9 rounded-xl bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-1.5 shadow-glow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <ShoppingCart className="h-3.5 w-3.5" /> {tp("addToCart")}
+          <ShoppingCart className="h-3.5 w-3.5" /> {hasVariants ? "Select options" : tp("addToCart")}
         </button>
       </div>
 
@@ -126,23 +145,22 @@ export function ProductCard({
         <p className="text-[11px] font-medium text-primary mb-1 truncate">{category ?? sellerName ?? "Avenick"}</p>
         <h3 className="text-sm font-semibold leading-snug line-clamp-2 min-h-[2.5rem] text-foreground">{name}</h3>
 
-        <div className="flex items-center gap-1.5 mt-1.5 text-muted-foreground">
-          <Star className="h-3.5 w-3.5 text-amber-400 fill-current" />
-          <span className="text-xs font-medium text-foreground">{rating.toFixed(1)}</span>
-          {reviewCount ? <span className="text-xs">({reviewCount})</span> : null}
-        </div>
+        {review.kind === "RATED" ? (
+          <div className="flex items-center gap-1.5 mt-1.5 text-muted-foreground">
+            <Star className="h-3.5 w-3.5 text-amber-400 fill-current" />
+            <span className="text-xs font-medium text-foreground">{review.rating.toFixed(1)}</span>
+            <span className="text-xs">({review.reviewCount})</span>
+          </div>
+        ) : <p className="mt-1.5 text-xs text-muted-foreground">No reviews yet</p>}
 
         <div className="mt-2.5 flex items-end justify-between">
           <div>
-            {originalPrice && originalPrice > price && (
+            {price != null && originalPrice && originalPrice > price && currency && (
               <span className="block text-xs text-muted-foreground line-through font-mono">{formatCurrency(originalPrice, currency as "AED", activeLocale)}</span>
             )}
-            <span className="text-lg font-bold font-mono tracking-tight text-foreground">{formatCurrency(price, currency as "AED", activeLocale)}</span>
+            <span className="text-lg font-bold font-mono tracking-tight text-foreground">{price != null && currency ? `${pricePresentation === "FROM" || priceIsFrom ? "From " : ""}${formatCurrency(price, currency as "AED", activeLocale)}` : "See options"}</span>
             {moq > 1 && <span className="block text-[11px] text-muted-foreground">{tp("minOrder")}: {moq} {tp("units")}</span>}
           </div>
-          <span className="inline-flex items-center gap-1 text-[11px] text-success">
-            <Truck className="h-3.5 w-3.5" /> Fast
-          </span>
         </div>
       </div>
     </Link>

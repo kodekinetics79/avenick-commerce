@@ -1,4 +1,4 @@
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { db } from "@avenick/database";
 import { TrendingUp, RotateCcw, MessageSquare, Star, Award, Target, Truck } from "lucide-react";
@@ -11,7 +11,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const BENCHMARK = { onTimeDelivery: 91, returnRate: 2.8, responseHours: 3.5 };
 
 export default async function PerformancePage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerPermission("analytics.view");
 
   const [sellerOrders, deliveredShipments, returnsCount, threads] = await Promise.all([
     db.order.findMany({ where: { items: { some: { sellerId: seller.id } } }, select: { createdAt: true } }),
@@ -55,7 +55,7 @@ export default async function PerformancePage() {
   ];
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Performance</h1>

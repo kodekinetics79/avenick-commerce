@@ -21,9 +21,13 @@ export function PayoutActions({ payoutId, status }: Props) {
     };
     let reference: string | undefined;
     if (nextStatus === "PAID") {
-      const input = window.prompt(`${prompts[nextStatus]}\n\nBank/transfer reference (optional):`);
+      const input = window.prompt(`${prompts[nextStatus]}\n\nBank/transfer reference (required):`);
       if (input === null) return;
       reference = input.trim() || undefined;
+      if (!reference) {
+        setError("A bank or transfer reference is required to mark a payout paid.");
+        return;
+      }
     } else if (!window.confirm(prompts[nextStatus])) {
       return;
     }

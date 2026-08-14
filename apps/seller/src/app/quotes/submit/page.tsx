@@ -4,6 +4,7 @@ import { SellerLayout } from "@/components/layout/seller-layout";
 import { fetchSellerBackend } from "@/lib/backend";
 import { QuoteForm } from "./quote-form";
 import { format } from "date-fns";
+import { requireSellerPermission } from "@/lib/auth";
 
 export const metadata = { title: "Submit Quote" };
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ interface PageProps {
 }
 
 export default async function SubmitQuotePage({ searchParams }: PageProps) {
+  const { membership } = await requireSellerPermission("quotes.submit");
   type RFQRow = {
     id: string;
     rfqNumber: string;
@@ -35,7 +37,7 @@ export default async function SubmitQuotePage({ searchParams }: PageProps) {
   const openInbox = inbox.filter((r) => ["SUBMITTED", "UNDER_REVIEW"].includes(r.status));
 
   return (
-    <SellerLayout>
+    <SellerLayout permissions={membership.permissions}>
       <div className="space-y-5 max-w-3xl">
         <Link href="/quotes" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" /> Quote history

@@ -30,20 +30,20 @@ const FAQS = [
   {
     qEn: "How do I request a bulk quote (RFQ)?",
     qAr: "كيف يمكنني طلب عرض سعر للكميات الكبيرة (RFQ)؟",
-    aEn: "To request a bulk quote, log in to your account and click 'Get a Quote' or navigate to the RFQ portal. Fill out the item details, quantity, and delivery requirements. Multiple verified suppliers will submit competitive quotes for your review.",
-    aAr: "لطلب عرض سعر للكميات، قم بتسجيل الدخول إلى حسابك وانقر على 'طلب عرض سعر' أو انتقل إلى منصة طلبات عروض الأسعار (RFQ). قم بتعبئة تفاصيل المنتجات والكمية ومتطلبات التسليم لتتلقى عروض أسعار تنافسية من موردين معتمدين."
+    aEn: "To request a bulk quote, log in and open the RFQ portal. Enter the item, quantity, and delivery requirements. The portal will show the quotes actually submitted for your request.",
+    aAr: "لطلب عرض سعر للكميات، سجل الدخول وافتح بوابة طلبات عروض الأسعار. أدخل المنتج والكمية ومتطلبات التسليم، وستعرض البوابة العروض المقدمة فعلياً لطلبك."
   },
   {
     qEn: "What are the shipping times and coverage areas?",
     qAr: "ما هي أوقات الشحن ومناطق التغطية؟",
-    aEn: "We deliver GCC-wide (UAE, Saudi Arabia, Qatar, Oman, Bahrain, Kuwait) using integrated 3PL logistics. Local delivery within major cities usually takes 1-3 business days, while cross-border GCC shipping takes 3-7 business days.",
-    aAr: "نقوم بالتوصيل إلى جميع أنحاء دول مجلس التعاون الخليجي (الإمارات، السعودية، قطر، عمان، البحرين، الكويت) باستخدام خدمات لوجستية متكاملة. يستغرق التوصيل المحلي داخل المدن الكبرى عادةً من يوم إلى 3 أيام عمل، بينما يستغرق الشحن عبر الحدود من 3 إلى 7 أيام عمل."
+    aEn: "Coverage, delivery timing, charges, and tracking availability are confirmed for each order during processing. The storefront does not promise a carrier or delivery window before confirmation.",
+    aAr: "يتم تأكيد نطاق التوصيل والمدة والرسوم وإمكانية التتبع لكل طلب أثناء المعالجة. ولا يعد المتجر بناقل أو مدة توصيل قبل التأكيد."
   },
   {
     qEn: "Can my company pay using credit or net terms?",
     qAr: "هل يمكن لشركتي الدفع باستخدام الائتمان أو شروط الدفع الآجل؟",
-    aEn: "Yes! Registered B2B companies can apply for trade credit (e.g. Net 30, Net 45 terms) by submitting their Commercial Registration (CR), VAT Certificate, and financial references through the B2B Company portal.",
-    aAr: "نعم! يمكن للشركات المسجلة التقدم بطلب للحصول على تسهيلات ائتمانية تجارية (مثل شروط دفع بعد 30 أو 45 يوماً) من خلال تقديم السجل التجاري، شهادة ضريبة القيمة المضافة، والمراجع المالية عبر بوابة الشركات."
+    aEn: "Only payment terms already approved and displayed on the active company account may be used. New credit terms are unavailable until a reviewed approval workflow is enabled.",
+    aAr: "لا يمكن استخدام سوى شروط الدفع المعتمدة والظاهرة في حساب الشركة النشط. ولا تتاح شروط ائتمانية جديدة حتى يتم تفعيل مسار موافقة خاضع للمراجعة."
   }
 ];
 

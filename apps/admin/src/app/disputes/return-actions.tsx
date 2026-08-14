@@ -15,7 +15,7 @@ export function ReturnActions({ returnId, status, orderTotal }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function transition(nextStatus: string, opts?: { resolution?: string; refundAmount?: number }) {
+  async function transition(nextStatus: string, opts?: { resolution?: string; refundAmount?: number; refundReference?: string }) {
     setPending(true);
     setError(null);
     try {
@@ -55,7 +55,7 @@ export function ReturnActions({ returnId, status, orderTotal }: Props) {
 
   function refund() {
     const input = window.prompt(
-      `Refund this return? A pending refund will be created on the order.\n\nRefund amount (max ${orderTotal.toFixed(2)}):`,
+      `Record a refund only after the gateway/bank refund succeeds.\n\nRefund amount (max ${orderTotal.toFixed(2)}):`,
       orderTotal.toFixed(2),
     );
     if (input === null) return;
@@ -64,7 +64,13 @@ export function ReturnActions({ returnId, status, orderTotal }: Props) {
       setError("Enter a valid refund amount");
       return;
     }
-    void transition("REFUNDED", { refundAmount: amount });
+    const reference = window.prompt("Gateway/bank refund reference (required):");
+    if (reference === null) return;
+    if (reference.trim().length < 3) {
+      setError("Enter the gateway or bank refund reference after the refund succeeds");
+      return;
+    }
+    void transition("REFUNDED", { refundAmount: amount, refundReference: reference.trim() });
   }
 
   const btn = "inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-50";

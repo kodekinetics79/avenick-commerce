@@ -6,9 +6,8 @@ import {
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { auth } from "@/lib/auth-instance";
+import { db } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
-import { cookies } from "next/headers";
-import { cookieHeaderFromStore, fetchBackendJsonWithCookies } from "@/lib/backend";
 
 const MACRO_STEPS = [
   { key: "CONFIRMED", label: "Order confirmed", icon: CheckCircle, rank: 1, desc: "Payment received and order confirmed." },
@@ -62,14 +61,15 @@ export default async function OrderDetailPage({ params }: { params: { id: string
   const userId = session?.user?.id as string | undefined;
   if (!userId) notFound();
 
-  const cookieStore = await cookies();
-  const cookieHeader = cookieHeaderFromStore(cookieStore);
-  let order: OrderDetail;
-  try {
-    order = await fetchBackendJsonWithCookies<OrderDetail>(`/api/orders/${params.id}`, undefined, cookieHeader);
-  } catch {
-    notFound();
-  }
+  const order = await db.order.findFirst({
+    where: { id: params.id, userId },
+    include: {
+      items: true,
+      statusHistory: { orderBy: { createdAt: "asc" } },
+      taxInvoice: { select: { invoiceNo: true } },
+    },
+  });
+  if (!order) notFound();
 
   const currentRank = RANK[order.status] ?? 0;
   const addr = (order.shippingAddress as { line1?: string; city?: string; country?: string } | null) ?? {};

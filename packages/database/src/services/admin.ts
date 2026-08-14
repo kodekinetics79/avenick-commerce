@@ -9,6 +9,7 @@ import {
   type UserStatus,
   type CompanyStatus,
 } from "../index";
+import { lockCompanyApprovalRows, lockProductCommercialRows, lockSellerCommercialRows, requireCurrentAdminActor } from "./checkout-invariants";
 
 // ─── PLATFORM USERS ───────────────────────────────────────────────────────────
 
@@ -72,22 +73,50 @@ export async function setUserStatus(opts: {
   actorId: string;
   actorRole: UserRole;
   reason?: string;
+  /** Deterministic seam after company and user commerce locks are held. */
+  afterGovernanceLocks?: () => Promise<void>;
 }) {
   const target = await db.user.findUnique({
     where: { id: opts.userId },
-    select: { id: true, status: true, role: true },
+    select: { id: true, status: true, role: true, companyMember: { select: { companyId: true } } },
   });
   if (!target) throw new Error("User not found");
-  if (target.role === "SUPER_ADMIN" && opts.actorRole !== "SUPER_ADMIN") {
-    throw new Error("Only a super admin can modify a super admin account");
-  }
-  if (opts.userId === opts.actorId) {
-    throw new Error("You cannot change the status of your own account");
-  }
-
-  const [user] = await db.$transaction([
-    db.user.update({ where: { id: opts.userId }, data: { status: opts.status } }),
-    db.auditLog.create({
+  return db.$transaction(async (tx) => {
+    await lockCompanyApprovalRows(tx, target.companyMember ? [target.companyMember.companyId] : []);
+    const actor = await requireCurrentAdminActor(tx, opts.actorId, undefined, [opts.userId]);
+    await opts.afterGovernanceLocks?.();
+    const current = await tx.user.findUnique({ where: { id: opts.userId }, select: { status: true, role: true } });
+    if (!current) throw new Error("User not found");
+    if (current.role === "SUPER_ADMIN" && actor.role !== "SUPER_ADMIN") throw new Error("Only a super admin can modify a super admin account");
+    if (opts.userId === opts.actorId) throw new Error("You cannot change the status of your own account");
+    const affected = target.companyMember && current.status !== opts.status
+      ? await tx.purchaseOrder.findMany({
+          where: {
+            companyId: target.companyMember.companyId,
+            status: "APPROVED",
+            OR: [{ requesterId: opts.userId }, { approverId: opts.userId }],
+          },
+          select: { id: true, approvalVersion: true },
+        })
+      : [];
+    const user = await tx.user.update({ where: { id: opts.userId }, data: { status: opts.status } });
+    if (affected.length) {
+      await tx.purchaseOrder.updateMany({
+        where: { id: { in: affected.map(({ id }) => id) }, status: "APPROVED" },
+        data: {
+          status: "PENDING_APPROVAL", approverId: null, approvedAt: null,
+          approvalSnapshot: Prisma.DbNull, approvedCommercialFingerprint: null,
+          rejectionReason: "User account status changed; reapproval required", approvalVersion: { increment: 1 },
+        },
+      });
+      await tx.auditLog.createMany({ data: affected.map((po) => ({
+        actorId: opts.actorId, entityType: "PurchaseOrder", entityId: po.id,
+        action: AuditAction.STATUS_CHANGE,
+        before: { status: "APPROVED", approvalVersion: po.approvalVersion },
+        after: { status: "PENDING_APPROVAL", reason: "USER_STATUS_CHANGED" },
+      })) });
+    }
+    await tx.auditLog.create({
       data: {
         actorId: opts.actorId,
         entityType: "User",
@@ -98,12 +127,12 @@ export async function setUserStatus(opts: {
             : opts.status === "ACTIVE"
               ? AuditAction.ACTIVATE
               : AuditAction.STATUS_CHANGE,
-        before: { status: target.status },
-        after: { status: opts.status, ...(opts.reason ? { reason: opts.reason } : {}) },
+        before: { status: current.status },
+        after: { status: opts.status, invalidatedPurchaseOrderIds: affected.map(({ id }) => id), ...(opts.reason ? { reason: opts.reason } : {}) },
       },
-    }),
-  ]);
-  return user;
+    });
+    return user;
+  });
 }
 
 // ─── PLATFORM COMPANIES ───────────────────────────────────────────────────────
@@ -153,17 +182,41 @@ export async function setCompanyStatus(opts: {
   status: CompanyStatus;
   actorId: string;
   reason?: string;
+  /** Deterministic seam for PostgreSQL concurrency regressions. */
+  afterCompanyLock?: () => Promise<void>;
 }) {
-  const target = await db.company.findUnique({
-    where: { id: opts.companyId },
-    select: { id: true, status: true },
-  });
-  if (!target) throw new Error("Company not found");
-
-  const [company] = await db.$transaction([
-    db.company.update({ where: { id: opts.companyId }, data: { status: opts.status } }),
-    db.auditLog.create({
-      data: {
+  return db.$transaction(async (tx) => {
+    await lockCompanyApprovalRows(tx, [opts.companyId]);
+    await requireCurrentAdminActor(tx, opts.actorId);
+    await opts.afterCompanyLock?.();
+    const target = await tx.company.findUnique({
+      where: { id: opts.companyId }, select: { id: true, status: true },
+    });
+    if (!target) throw new Error("Company not found");
+    const affected = opts.status !== "ACTIVE" && target.status !== opts.status
+      ? await tx.purchaseOrder.findMany({
+          where: { companyId: opts.companyId, status: "APPROVED" },
+          select: { id: true, approvalVersion: true },
+        })
+      : [];
+    const company = await tx.company.update({ where: { id: opts.companyId }, data: { status: opts.status } });
+    if (affected.length) {
+      await tx.purchaseOrder.updateMany({
+        where: { id: { in: affected.map(({ id }) => id) }, status: "APPROVED" },
+        data: {
+          status: "PENDING_APPROVAL", approverId: null, approvedAt: null,
+          approvalSnapshot: Prisma.DbNull, approvedCommercialFingerprint: null,
+          rejectionReason: "Company status changed; reapproval required", approvalVersion: { increment: 1 },
+        },
+      });
+      await tx.auditLog.createMany({ data: affected.map((po) => ({
+        actorId: opts.actorId, entityType: "PurchaseOrder", entityId: po.id,
+        action: AuditAction.STATUS_CHANGE,
+        before: { status: "APPROVED", approvalVersion: po.approvalVersion },
+        after: { status: "PENDING_APPROVAL", reason: "COMPANY_STATUS_CHANGED" },
+      })) });
+    }
+    await tx.auditLog.create({ data: {
         actorId: opts.actorId,
         entityType: "Company",
         entityId: opts.companyId,
@@ -174,11 +227,11 @@ export async function setCompanyStatus(opts: {
               ? AuditAction.ACTIVATE
               : AuditAction.STATUS_CHANGE,
         before: { status: target.status },
-        after: { status: opts.status, ...(opts.reason ? { reason: opts.reason } : {}) },
+        after: { status: opts.status, invalidatedPurchaseOrderIds: affected.map(({ id }) => id), ...(opts.reason ? { reason: opts.reason } : {}) },
       },
-    }),
-  ]);
-  return company;
+    });
+    return company;
+  });
 }
 
 export async function getAdminDashboard() {
@@ -233,48 +286,72 @@ export async function getAdminDashboard() {
 }
 
 export async function approveSeller(sellerId: string, actorId: string) {
-  const [seller] = await db.$transaction([
-    db.sellerProfile.update({ where: { id: sellerId }, data: { status: "ACTIVE" } }),
-    db.auditLog.create({ data: { actorId, entityType: "SellerProfile", entityId: sellerId, action: AuditAction.APPROVE, after: { status: "ACTIVE" } } }),
-  ]);
-  return seller;
+  return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, actorId);
+    await lockSellerCommercialRows(tx, [sellerId]);
+    const current = await tx.sellerProfile.findUnique({ where: { id: sellerId }, select: { status: true } });
+    if (!current) throw new Error("Seller not found");
+    const seller = await tx.sellerProfile.update({ where: { id: sellerId }, data: { status: "ACTIVE" } });
+    await tx.auditLog.create({ data: { actorId, sellerId, entityType: "SellerProfile", entityId: sellerId, action: AuditAction.APPROVE, before: { status: current.status }, after: { status: "ACTIVE" } } });
+    return seller;
+  });
 }
 
 export async function rejectSeller(sellerId: string, actorId: string, reason: string) {
-  const [seller] = await db.$transaction([
-    db.sellerProfile.update({ where: { id: sellerId }, data: { status: "REJECTED" as SellerStatus } }),
-    db.auditLog.create({ data: { actorId, entityType: "SellerProfile", entityId: sellerId, action: AuditAction.REJECT, after: { status: "REJECTED", reason } } }),
-  ]);
-  return seller;
+  return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, actorId);
+    await lockSellerCommercialRows(tx, [sellerId]);
+    const current = await tx.sellerProfile.findUnique({ where: { id: sellerId }, select: { status: true } });
+    if (!current) throw new Error("Seller not found");
+    const seller = await tx.sellerProfile.update({ where: { id: sellerId }, data: { status: "REJECTED" as SellerStatus } });
+    await tx.auditLog.create({ data: { actorId, sellerId, entityType: "SellerProfile", entityId: sellerId, action: AuditAction.REJECT, before: { status: current.status }, after: { status: "REJECTED", reason } } });
+    return seller;
+  });
 }
 
 export async function reviewDocument(docId: string, status: DocumentStatus, actorId: string, reason?: string) {
-  return db.sellerDocument.update({
-    where: { id: docId },
-    data: { status, reviewedAt: new Date(), reviewedBy: actorId, rejectionReason: reason },
+  return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, actorId);
+    const current = await tx.sellerDocument.findUnique({ where: { id: docId } });
+    if (!current) throw new Error("Seller document not found");
+    const document = await tx.sellerDocument.update({ where: { id: docId }, data: { status, reviewedAt: new Date(), reviewedBy: actorId, rejectionReason: reason } });
+    await tx.auditLog.create({ data: { actorId, sellerId: current.sellerId, entityType: "SellerDocument", entityId: docId, action: AuditAction.STATUS_CHANGE, before: { status: current.status }, after: { status, reason } } });
+    return document;
   });
 }
 
 export async function reviewProductCompliance(docId: string, status: DocumentStatus, actorId: string, reason?: string) {
-  return db.productComplianceDocument.update({
-    where: { id: docId },
-    data: { status, reviewedAt: new Date(), rejectionReason: reason },
+  return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, actorId);
+    const current = await tx.productComplianceDocument.findUnique({ where: { id: docId }, include: { product: { select: { sellerId: true } } } });
+    if (!current) throw new Error("Product compliance document not found");
+    const document = await tx.productComplianceDocument.update({ where: { id: docId }, data: { status, reviewedAt: new Date(), rejectionReason: reason } });
+    await tx.auditLog.create({ data: { actorId, sellerId: current.product.sellerId, entityType: "ProductComplianceDocument", entityId: docId, action: AuditAction.STATUS_CHANGE, before: { status: current.status }, after: { status, reason } } });
+    return document;
   });
 }
 
 export async function approveProduct(productId: string, actorId: string) {
-  const [product] = await db.$transaction([
-    db.product.update({ where: { id: productId }, data: { status: "ACTIVE" as ProductStatus, publishedAt: new Date() } }),
-    db.auditLog.create({ data: { actorId, entityType: "Product", entityId: productId, action: AuditAction.APPROVE } }),
-  ]);
-  return product;
+  return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, actorId);
+    await lockProductCommercialRows(tx, [productId]);
+    const current = await tx.product.findUnique({ where: { id: productId }, select: { status: true, sellerId: true } });
+    if (!current) throw new Error("Product not found");
+    const product = await tx.product.update({ where: { id: productId }, data: { status: "ACTIVE" as ProductStatus, publishedAt: new Date() } });
+    await tx.auditLog.create({ data: { actorId, sellerId: current.sellerId, entityType: "Product", entityId: productId, action: AuditAction.APPROVE, before: { status: current.status }, after: { status: "ACTIVE" } } });
+    return product;
+  });
 }
 
 export async function rejectProduct(productId: string, actorId: string, reason: string) {
-  const [product] = await db.$transaction([
-    db.product.update({ where: { id: productId }, data: { status: "REJECTED" as ProductStatus } }),
-    db.auditLog.create({ data: { actorId, entityType: "Product", entityId: productId, action: AuditAction.REJECT, after: { reason } } }),
-    db.productIssue.create({ data: { productId, issueType: "REJECTED_BY_ADMIN", severity: "ERROR", message: reason } }),
-  ]);
-  return product;
+  return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, actorId);
+    await lockProductCommercialRows(tx, [productId]);
+    const current = await tx.product.findUnique({ where: { id: productId }, select: { status: true, sellerId: true } });
+    if (!current) throw new Error("Product not found");
+    const product = await tx.product.update({ where: { id: productId }, data: { status: "REJECTED" as ProductStatus } });
+    await tx.auditLog.create({ data: { actorId, sellerId: current.sellerId, entityType: "Product", entityId: productId, action: AuditAction.REJECT, before: { status: current.status }, after: { status: "REJECTED", reason } } });
+    await tx.productIssue.create({ data: { productId, issueType: "REJECTED_BY_ADMIN", severity: "ERROR", message: reason } });
+    return product;
+  });
 }

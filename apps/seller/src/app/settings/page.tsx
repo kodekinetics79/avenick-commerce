@@ -1,11 +1,11 @@
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { Settings, User, Building2, CreditCard, Bell, Globe, Shield } from "lucide-react";
 
 export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerPermission("settings.manage");
 
   const sections = [
     {
@@ -62,7 +62,7 @@ export default async function SettingsPage() {
   ];
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-6 max-w-3xl">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">

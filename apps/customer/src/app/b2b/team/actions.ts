@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db } from "@avenick/database";
+import { db, updateGovernedCompanyMember } from "@avenick/database";
 import { getB2BContext, type B2BActionState } from "@/lib/b2b";
 import { sendInviteEmail } from "@/lib/email";
 
@@ -31,8 +31,17 @@ export async function inviteMember(_prev: B2BActionState, formData: FormData): P
       const user = await tx.user.create({
         data: { email, firstName: firstName || name, lastName: rest.join(" ") || "—", role, status: "PENDING" },
       });
-      await tx.companyMember.create({
+      const membership = await tx.companyMember.create({
         data: { userId: user.id, companyId: ctx.companyId, role, department, spendLimit },
+      });
+      await tx.auditLog.create({
+        data: {
+          actorId: ctx.userId,
+          entityType: "CompanyMember",
+          entityId: membership.id,
+          action: "CREATE",
+          after: { companyId: ctx.companyId, userId: user.id, role, department, spendLimit },
+        },
       });
     });
   } catch {
@@ -67,9 +76,15 @@ export async function updateMember(memberId: string, formData: FormData) {
   const spendRaw = String(formData.get("spendLimit") ?? "").trim();
   const spendLimit = spendRaw ? Number(spendRaw) : null;
 
-  await db.companyMember.update({
-    where: { id: memberId },
-    data: { role: ROLES.includes(role) ? role : target.role, spendLimit },
+  if (!ROLES.includes(role)) return;
+  const nextRole = role;
+  if (spendRaw && (!Number.isFinite(spendLimit) || (spendLimit ?? 0) < 0)) return;
+  await updateGovernedCompanyMember({
+    memberId,
+    companyId: ctx.companyId,
+    actorId: ctx.userId,
+    role: nextRole,
+    spendLimit,
   });
   revalidatePath("/b2b/team");
   
@@ -83,7 +98,14 @@ export async function setMemberActive(memberId: string, isActive: boolean) {
   if (!target || target.companyId !== ctx.companyId) return;
   if (target.userId === ctx.userId) return;
 
-  await db.companyMember.update({ where: { id: memberId }, data: { isActive } });
+  await updateGovernedCompanyMember({
+    memberId,
+    companyId: ctx.companyId,
+    actorId: ctx.userId,
+    role: target.role as Role,
+    spendLimit: target.spendLimit == null ? null : Number(target.spendLimit),
+    isActive,
+  });
   revalidatePath("/b2b/team");
   
 }

@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { type Session } from "next-auth";
-import { UserRole } from "@avenick/database";
+import { db, UserRole } from "@avenick/database";
 import { ZodError } from "zod";
 import { instrumentRequest, type Logger } from "@avenick/observability";
 
@@ -126,8 +126,12 @@ export function guarded(options: GuardOptions, handler: RouteHandler) {
         status = 401;
         return jsonErr("Authentication required", 401, requestId);
       }
-      const role = (session.user as { role?: UserRole }).role;
-      if (!role || (options.roles && !options.roles.includes(role))) {
+      const currentUser = await db.user.findUnique({
+        where: { id: session.user.id },
+        select: { role: true, status: true, deletedAt: true },
+      });
+      const role = currentUser?.role;
+      if (!currentUser || currentUser.status !== "ACTIVE" || currentUser.deletedAt || !role || (options.roles && !options.roles.includes(role))) {
         status = 403;
         return jsonErr("Insufficient permissions", 403, requestId);
       }

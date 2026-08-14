@@ -1,15 +1,17 @@
 import { DashboardView } from "./dashboard-view";
-import { fetchAdminBackend } from "@/lib/backend";
+import { db, getExecutiveDashboardData } from "@avenick/database";
+import { getCurrentAdmin } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
 export const metadata = { title: "Executive Command Center" };
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const { exec, topCustomers, pendingCount } = await fetchAdminBackend<{
-    exec: Parameters<typeof DashboardView>[0]["exec"];
-    topCustomers: Parameters<typeof DashboardView>[0]["topCustomers"];
-    pendingCount: number;
-  }>("/api/admin/dashboard");
+  if (!await getCurrentAdmin()) redirect("/login");
+  const [{ exec, topCustomers }, pendingCount] = await Promise.all([
+    getExecutiveDashboardData(),
+    db.sellerProfile.count({ where: { status: "PENDING_REVIEW" } }),
+  ]);
 
   // Pass only plain, serializable data across the server → client boundary.
   return (

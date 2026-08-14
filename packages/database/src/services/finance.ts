@@ -5,6 +5,7 @@ import {
   type PaymentStatus,
   type PayoutStatus,
 } from "../index";
+import { requireCurrentAdminActor } from "./checkout-invariants";
 
 // ─── OVERVIEW ─────────────────────────────────────────────────────────────────
 
@@ -23,6 +24,10 @@ export async function getFinanceOverview() {
     refundsPending,
     vatYear,
     unsettledCommissions,
+    refundsCompletedMonth,
+    refundsCompletedYear,
+    [refundVatYear],
+    openSellerReceivables,
   ] = await Promise.all([
     db.order.aggregate({ where: { paymentStatus: "PAID", createdAt: { gte: monthStart } }, _sum: { total: true } }),
     db.order.aggregate({ where: { paymentStatus: "PAID", createdAt: { gte: yearStart } }, _sum: { total: true } }),
@@ -33,20 +38,48 @@ export async function getFinanceOverview() {
     db.refund.aggregate({ where: { status: { in: ["PENDING", "APPROVED", "PROCESSING"] } }, _sum: { amount: true }, _count: { _all: true } }),
     db.order.aggregate({ where: { paymentStatus: "PAID", createdAt: { gte: yearStart } }, _sum: { vatAmount: true } }),
     db.commission.aggregate({ where: { settledAt: null }, _sum: { amount: true }, _count: { _all: true } }),
+    db.refund.aggregate({ where: {
+      status: "COMPLETED",
+      OR: [{ processedAt: { gte: monthStart } }, { processedAt: null, createdAt: { gte: monthStart } }],
+    }, _sum: { amount: true } }),
+    db.refund.aggregate({ where: {
+      status: "COMPLETED",
+      OR: [{ processedAt: { gte: yearStart } }, { processedAt: null, createdAt: { gte: yearStart } }],
+    }, _sum: { amount: true } }),
+    db.$queryRaw<Array<{ vat: Prisma.Decimal }>>`
+      SELECT COALESCE(SUM(r."vatAmount"), 0) AS vat
+      FROM "Refund" r
+      WHERE r.status = 'COMPLETED' AND COALESCE(r."processedAt", r."createdAt") >= ${yearStart}`,
+    db.sellerFinancialAdjustment.aggregate({
+      where: { status: "OPEN" }, _sum: { amount: true }, _count: { _all: true },
+    }),
   ]);
 
   // Monthly GMV/commission series for the current year (for charts).
   const monthly = await db.$queryRaw<Array<{ month: Date; gmv: Prisma.Decimal; vat: Prisma.Decimal }>>`
-    SELECT date_trunc('month', "createdAt") AS month,
-           COALESCE(SUM(total), 0)          AS gmv,
-           COALESCE(SUM("vatAmount"), 0)    AS vat
-    FROM "Order"
-    WHERE "paymentStatus" = 'PAID' AND "createdAt" >= ${yearStart}
-    GROUP BY 1 ORDER BY 1`;
+    WITH sales AS (
+      SELECT date_trunc('month', o."createdAt") AS month,
+             SUM(o.total) AS gmv, SUM(o."vatAmount") AS vat
+      FROM "Order" o
+      WHERE o."paymentStatus" = 'PAID' AND o."createdAt" >= ${yearStart}
+      GROUP BY 1
+    ), refunded AS (
+      SELECT date_trunc('month', COALESCE(r."processedAt", r."createdAt")) AS month,
+             SUM(r.amount) AS gmv, SUM(r."vatAmount") AS vat
+      FROM "Refund" r
+      WHERE r.status = 'COMPLETED' AND COALESCE(r."processedAt", r."createdAt") >= ${yearStart}
+      GROUP BY 1
+    )
+    SELECT COALESCE(s.month, r.month) AS month,
+           COALESCE(s.gmv, 0) - COALESCE(r.gmv, 0) AS gmv,
+           COALESCE(s.vat, 0) - COALESCE(r.vat, 0) AS vat
+    FROM sales s FULL OUTER JOIN refunded r ON r.month = s.month
+    ORDER BY 1`;
 
+  const sellerReceivableAmount = Math.abs(Number(openSellerReceivables._sum.amount ?? 0));
   return {
-    gmvMonth: Number(gmvMonth._sum.total ?? 0),
-    gmvYear: Number(gmvYear._sum.total ?? 0),
+    gmvMonth: Number(gmvMonth._sum.total ?? 0) - Number(refundsCompletedMonth._sum.amount ?? 0),
+    gmvYear: Number(gmvYear._sum.total ?? 0) - Number(refundsCompletedYear._sum.amount ?? 0),
     commissionMonth: Number(commissionMonth._sum.amount ?? 0),
     commissionYear: Number(commissionYear._sum.amount ?? 0),
     pendingPayoutAmount: Number(pendingPayouts._sum.amount ?? 0),
@@ -55,9 +88,12 @@ export async function getFinanceOverview() {
     paidPayoutCount: paidPayouts._count._all,
     refundsPendingAmount: Number(refundsPending._sum.amount ?? 0),
     refundsPendingCount: refundsPending._count._all,
-    vatCollectedYear: Number(vatYear._sum.vatAmount ?? 0),
+    vatCollectedYear: Number(vatYear._sum.vatAmount ?? 0) - Number(refundVatYear?.vat ?? 0),
     unsettledCommissionAmount: Number(unsettledCommissions._sum.amount ?? 0),
     unsettledCommissionCount: unsettledCommissions._count._all,
+    sellerReceivableAmount,
+    sellerReceivableCount: openSellerReceivables._count._all,
+    netSellerSettlementPosition: Number(pendingPayouts._sum.amount ?? 0) - sellerReceivableAmount,
     monthly: monthly.map((m) => ({ month: m.month, gmv: Number(m.gmv), vat: Number(m.vat) })),
   };
 }
@@ -116,6 +152,26 @@ export interface PayoutFilters {
   status?: PayoutStatus;
 }
 
+export async function getSellerFinancialPosition(sellerId: string) {
+  const [payable, receivable] = await Promise.all([
+    db.sellerPayout.aggregate({
+      where: { sellerId, status: { in: ["PENDING", "PROCESSING"] } }, _sum: { amount: true }, _count: { _all: true },
+    }),
+    db.sellerFinancialAdjustment.aggregate({
+      where: { sellerId, status: "OPEN" }, _sum: { amount: true }, _count: { _all: true },
+    }),
+  ]);
+  const payableAmount = Number(payable._sum.amount ?? 0);
+  const receivableAmount = Math.abs(Number(receivable._sum.amount ?? 0));
+  return {
+    payableAmount,
+    payableCount: payable._count._all,
+    receivableAmount,
+    receivableCount: receivable._count._all,
+    netSettlementPosition: payableAmount - receivableAmount,
+  };
+}
+
 export async function getPayouts(filters: PayoutFilters) {
   const where: Prisma.SellerPayoutWhereInput = {
     ...(filters.status ? { status: filters.status } : {}),
@@ -146,48 +202,49 @@ export async function setPayoutStatus(opts: {
   actorId: string;
   reference?: string;
 }) {
-  const target = await db.sellerPayout.findUnique({
-    where: { id: opts.payoutId },
-    select: { id: true, status: true, sellerId: true },
+  if (!opts.actorId.trim()) throw new Error("Payout transition requires an actor");
+  const reference = opts.reference?.trim();
+  if (opts.status === "PAID" && !reference) throw new Error("Paid payouts require a settlement reference");
+  const allowed: Record<PayoutStatus, PayoutStatus[]> = {
+    PENDING: ["PROCESSING", "PAID", "FAILED"],
+    PROCESSING: ["PAID", "FAILED"],
+    FAILED: ["PROCESSING"],
+    PAID: [],
+  };
+  return db.$transaction(async (tx) => {
+    await requireCurrentAdminActor(tx, opts.actorId);
+    const target = await tx.sellerPayout.findUnique({
+      where: { id: opts.payoutId }, select: { id: true, status: true, sellerId: true },
+    });
+    if (!target) throw new Error("Payout not found");
+    // Refund completion takes this same seller-wide lock. Whichever operation
+    // wins decides whether value is removed from an unpaid payout or becomes a
+    // durable post-settlement receivable.
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`seller-finance:${target.sellerId}`}))`);
+    await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`seller-payout:${opts.payoutId}`}))`);
+    const current = await tx.sellerPayout.findUniqueOrThrow({
+      where: { id: target.id }, select: { id: true, status: true, sellerId: true },
+    });
+    if (current.status === opts.status) return tx.sellerPayout.findUniqueOrThrow({ where: { id: current.id } });
+    if (!allowed[current.status].includes(opts.status)) {
+      throw new Error(`Cannot move a ${current.status.toLowerCase()} payout to ${opts.status.toLowerCase()}`);
+    }
+    const processedAt = opts.status === "PAID" ? new Date() : undefined;
+    const payout = await tx.sellerPayout.update({
+      where: { id: target.id },
+      data: { status: opts.status, ...(reference ? { reference } : {}), ...(processedAt ? { processedAt } : {}) },
+    });
+    await tx.auditLog.create({ data: {
+      actorId: opts.actorId, sellerId: target.sellerId, entityType: "SellerPayout", entityId: target.id,
+      action: AuditAction.STATUS_CHANGE, before: { status: current.status },
+      after: { status: opts.status, ...(reference ? { reference } : {}), ...(processedAt ? { processedAt } : {}) },
+    } });
+    if (opts.status === "PAID") await tx.commission.updateMany({
+      where: { sellerId: target.sellerId, settledAt: null, order: { payoutItems: { some: { payoutId: target.id } } } },
+      data: { settledAt: processedAt },
+    });
+    return payout;
   });
-  if (!target) throw new Error("Payout not found");
-  if (target.status === "PAID") throw new Error("Payout is already settled");
-
-  const [payout] = await db.$transaction([
-    db.sellerPayout.update({
-      where: { id: opts.payoutId },
-      data: {
-        status: opts.status,
-        ...(opts.reference ? { reference: opts.reference } : {}),
-        ...(opts.status === "PAID" ? { processedAt: new Date() } : {}),
-      },
-    }),
-    db.auditLog.create({
-      data: {
-        actorId: opts.actorId,
-        sellerId: target.sellerId,
-        entityType: "SellerPayout",
-        entityId: opts.payoutId,
-        action: AuditAction.STATUS_CHANGE,
-        before: { status: target.status },
-        after: { status: opts.status, ...(opts.reference ? { reference: opts.reference } : {}) },
-      },
-    }),
-    // Settling a payout settles the commissions on its orders.
-    ...(opts.status === "PAID"
-      ? [
-          db.commission.updateMany({
-            where: {
-              sellerId: target.sellerId,
-              settledAt: null,
-              order: { payoutItems: { some: { payoutId: opts.payoutId } } },
-            },
-            data: { settledAt: new Date() },
-          }),
-        ]
-      : []),
-  ]);
-  return payout;
 }
 
 // ─── COMMISSIONS ──────────────────────────────────────────────────────────────
@@ -222,28 +279,51 @@ export async function getVatSummary() {
   const yearStart = new Date(now.getFullYear(), 0, 1);
 
   const [byCurrency, monthly, invoiceCount] = await Promise.all([
-    db.order.groupBy({
-      by: ["currency"],
-      where: { paymentStatus: "PAID", createdAt: { gte: yearStart } },
-      _sum: { vatAmount: true, total: true },
-      _count: { _all: true },
-    }),
+    db.$queryRaw<Array<{ currency: string; vat: Prisma.Decimal; gross: Prisma.Decimal; orders: bigint }>>`
+      WITH sales AS (
+        SELECT o.currency, SUM(o."vatAmount") AS vat, SUM(o.total) AS gross, COUNT(*) AS orders
+        FROM "Order" o
+        WHERE o."paymentStatus" = 'PAID' AND o."createdAt" >= ${yearStart}
+        GROUP BY o.currency
+      ), refunded AS (
+        SELECT o.currency, SUM(r."vatAmount") AS vat, SUM(r.amount) AS gross
+        FROM "Refund" r JOIN "Order" o ON o.id = r."orderId"
+        WHERE r.status = 'COMPLETED' AND COALESCE(r."processedAt", r."createdAt") >= ${yearStart}
+        GROUP BY o.currency
+      )
+      SELECT COALESCE(s.currency, r.currency)::text AS currency,
+             COALESCE(s.vat, 0) - COALESCE(r.vat, 0) AS vat,
+             COALESCE(s.gross, 0) - COALESCE(r.gross, 0) AS gross,
+             COALESCE(s.orders, 0) AS orders
+      FROM sales s FULL OUTER JOIN refunded r ON r.currency = s.currency`,
     db.$queryRaw<Array<{ month: Date; vat: Prisma.Decimal; orders: bigint }>>`
-      SELECT date_trunc('month', "createdAt") AS month,
-             COALESCE(SUM("vatAmount"), 0)    AS vat,
-             COUNT(*)                         AS orders
-      FROM "Order"
-      WHERE "paymentStatus" = 'PAID' AND "createdAt" >= ${yearStart}
-      GROUP BY 1 ORDER BY 1`,
+      WITH sales AS (
+        SELECT date_trunc('month', o."createdAt") AS month,
+               SUM(o."vatAmount") AS vat, COUNT(*) AS orders
+        FROM "Order" o
+        WHERE o."paymentStatus" = 'PAID' AND o."createdAt" >= ${yearStart}
+        GROUP BY 1
+      ), refunded AS (
+        SELECT date_trunc('month', COALESCE(r."processedAt", r."createdAt")) AS month,
+               SUM(r."vatAmount") AS vat
+        FROM "Refund" r
+        WHERE r.status = 'COMPLETED' AND COALESCE(r."processedAt", r."createdAt") >= ${yearStart}
+        GROUP BY 1
+      )
+      SELECT COALESCE(s.month, r.month) AS month,
+             COALESCE(s.vat, 0) - COALESCE(r.vat, 0) AS vat,
+             COALESCE(s.orders, 0) AS orders
+      FROM sales s FULL OUTER JOIN refunded r ON r.month = s.month
+      ORDER BY 1`,
     db.taxInvoice.count(),
   ]);
 
   return {
     byCurrency: byCurrency.map((c) => ({
       currency: c.currency,
-      vat: Number(c._sum.vatAmount ?? 0),
-      gross: Number(c._sum.total ?? 0),
-      orders: c._count._all,
+      vat: Number(c.vat),
+      gross: Number(c.gross),
+      orders: Number(c.orders),
     })),
     monthly: monthly.map((m) => ({ month: m.month, vat: Number(m.vat), orders: Number(m.orders) })),
     invoiceCount,

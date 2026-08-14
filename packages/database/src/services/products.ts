@@ -54,7 +54,11 @@ export async function listProducts(params: ProductListParams) {
           include: {
             images: { where: { isPrimary: true }, take: 1 },
             prices: { where: { isActive: true } },
-            inventory: { select: { qty: true, reservedQty: true } },
+            inventory: { select: { variantId: true, qty: true, reservedQty: true } },
+            variants: {
+              where: { isActive: true },
+              select: { id: true, prices: { where: { isActive: true } } },
+            },
             category: { select: { nameEn: true, nameAr: true, slug: true } },
             brand: { select: { nameEn: true, nameAr: true } },
             seller: { select: { businessNameEn: true, businessNameAr: true, tier: true, rating: true } },
@@ -71,8 +75,12 @@ export async function listProducts(params: ProductListParams) {
   return data;
 }
 
-export async function getProductBySlug(slug: string) {
-  return db.product.findUnique({
+export async function getProductBySlug(
+  slug: string,
+  channel: "B2C" | "B2B" = "B2C",
+  currency?: Currency,
+) {
+  const product = await db.product.findUnique({
     where: { slug, deletedAt: null },
     include: {
       images: { orderBy: { sortOrder: "asc" } },
@@ -90,6 +98,20 @@ export async function getProductBySlug(slug: string) {
       },
     },
   });
+  if (!product) return null;
+  const { inventory, variants, prices, ...safe } = product;
+  return {
+    ...safe,
+    prices: prices.filter((price) => price.type === channel && (!currency || price.currency === currency)),
+    inventory: inventory.map((stock) => ({
+      variantId: stock.variantId,
+      available: Math.max(0, stock.qty - stock.reservedQty),
+    })),
+    variants: variants.map((variant) => ({
+      ...variant,
+      prices: variant.prices.filter((price) => price.type === channel && (!currency || price.currency === currency)),
+    })),
+  };
 }
 
 export async function getSellerDashboard(sellerId: string) {
@@ -121,7 +143,10 @@ export async function getSellerDashboard(sellerId: string) {
       where: { items: { some: { sellerId } } },
       take: 10,
       orderBy: { createdAt: "desc" },
-      select: { id: true, orderNumber: true, status: true, total: true, currency: true, createdAt: true, type: true },
+      select: {
+        id: true, orderNumber: true, status: true, currency: true, createdAt: true, type: true,
+        items: { where: { sellerId }, select: { total: true } },
+      },
     }),
     db.message.count({ where: { thread: { sellerId }, isRead: false, senderType: "BUYER" } }),
     db.rFQRequest.count({ where: { sellerId, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } }),
@@ -141,7 +166,10 @@ export async function getSellerDashboard(sellerId: string) {
     pendingPayoutAmount: pendingPayout._sum.amount ?? 0,
     activeListings,
     monthRevenue: monthRevenue._sum.total ?? 0,
-    recentOrders,
+    recentOrders: recentOrders.map(({ items, ...order }) => ({
+      ...order,
+      total: items.reduce((sum, item) => sum + Number(item.total), 0),
+    })),
     unreadMessages,
     rfqCount,
   };

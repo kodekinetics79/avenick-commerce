@@ -3,9 +3,10 @@
 #
 # Notes
 # - Neon is the single PostgreSQL system of record.
-# - Vercel hosts each frontend and proxies /api/* to its matching service.
-# - Each Vercel/Render portal pair must use the same AUTH_SECRET and
-#   NEXTAUTH_SECRET values so Render can validate forwarded sessions.
+# - Vercel hosts each portal as a complete Next.js application, including its
+#   API routes. It does not proxy authenticated sessions across runtimes.
+# - Render hosts the integration worker and can host independent portal
+#   runtimes when an operator deliberately selects that topology.
 # - Optional integrations (Checkout.com, Anthropic, Resend, Twilio, S3) are
 #   added later as env vars in the dashboard; the apps degrade gracefully
 #   without them. See DEPLOYMENT.md.
@@ -18,6 +19,46 @@ previews:
   generation: off
 
 services:
+  - type: worker
+    name: avenick-integration-worker
+    runtime: node
+    region: frankfurt
+    plan: starter
+    buildCommand: npm install -g pnpm@11.4.0 && pnpm install --frozen-lockfile && pnpm --filter @avenick/database db:generate
+    preDeployCommand: bash -lc 'export DIRECT_URL="${DIRECT_URL:-$DATABASE_URL}" && pnpm --filter @avenick/database db:deploy'
+    startCommand: pnpm --filter @avenick/database integration:worker
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: INTEGRATION_WORKER_ID
+        value: "render-primary"
+      # Each ERP adapter is pinned to an operator-owned origin and a dedicated
+      # token variable. Admin configuration cannot select arbitrary hosts or
+      # dereference unrelated runtime secrets.
+      - key: INTEGRATION_D365_BASE_URL
+        sync: false
+      - key: INTEGRATION_D365_CREDENTIAL_REF
+        value: "env:INTEGRATION_D365_TOKEN"
+      - key: INTEGRATION_D365_TOKEN
+        sync: false
+      - key: INTEGRATION_SAP_BASE_URL
+        sync: false
+      - key: INTEGRATION_SAP_CREDENTIAL_REF
+        value: "env:INTEGRATION_SAP_TOKEN"
+      - key: INTEGRATION_SAP_TOKEN
+        sync: false
+      - key: INTEGRATION_ERP_BASE_URL
+        sync: false
+      - key: INTEGRATION_ERP_CREDENTIAL_REF
+        value: "env:INTEGRATION_ERP_TOKEN"
+      - key: INTEGRATION_ERP_TOKEN
+        sync: false
+
   - type: web
     name: avenick-customer
     runtime: node
@@ -27,7 +68,7 @@ services:
     # Migrations run pre-deploy (inside the private network; builds can't reach the DB).
     preDeployCommand: bash -lc 'export DIRECT_URL="${DIRECT_URL:-$DATABASE_URL}" && pnpm --filter @avenick/database db:deploy'
     startCommand: pnpm --filter @avenick/customer exec next start -p $PORT
-    healthCheckPath: /api/health
+    healthCheckPath: /api/ready
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
@@ -61,7 +102,7 @@ services:
     buildCommand: npm install -g pnpm@11.4.0 && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@avenick/seller
     preDeployCommand: bash -lc 'export DIRECT_URL="${DIRECT_URL:-$DATABASE_URL}" && pnpm --filter @avenick/database db:deploy'
     startCommand: pnpm --filter @avenick/seller exec next start -p $PORT
-    healthCheckPath: /api/health
+    healthCheckPath: /api/ready
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
@@ -95,7 +136,7 @@ services:
     buildCommand: npm install -g pnpm@11.4.0 && pnpm install --frozen-lockfile && pnpm turbo run build --filter=@avenick/admin
     preDeployCommand: bash -lc 'export DIRECT_URL="${DIRECT_URL:-$DATABASE_URL}" && pnpm --filter @avenick/database db:deploy'
     startCommand: pnpm --filter @avenick/admin exec next start -p $PORT
-    healthCheckPath: /api/health
+    healthCheckPath: /api/ready
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
@@ -116,6 +157,23 @@ services:
         value: "avenick-admin"
       - key: LOG_LEVEL
         value: "info"
+      - key: INTEGRATION_D365_BASE_URL
+        sync: false
+      - key: INTEGRATION_D365_CREDENTIAL_REF
+        value: "env:INTEGRATION_D365_TOKEN"
+      - key: INTEGRATION_SAP_BASE_URL
+        sync: false
+      - key: INTEGRATION_SAP_CREDENTIAL_REF
+        value: "env:INTEGRATION_SAP_TOKEN"
+      - key: INTEGRATION_ERP_BASE_URL
+        sync: false
+      - key: INTEGRATION_ERP_CREDENTIAL_REF
+        value: "env:INTEGRATION_ERP_TOKEN"
+      # Deployment-owned JSON array of per-connection signing identities:
+      # [{"keyId":"...","system":"ERP","connectionId":"...","secret":"32+ chars"}]
+      # Providers sign `<key-id>.<timestamp>.<raw body>` with HMAC-SHA256 hex.
+      - key: INTEGRATION_WEBHOOK_SIGNING_KEYRING
+        sync: false
       - key: OTEL_EXPORTER_OTLP_ENDPOINT
         sync: false
       - key: OTEL_EXPORTER_OTLP_HEADERS

@@ -3,6 +3,7 @@ import { fetchSellerBackend } from "@/lib/backend";
 import { formatCurrency } from "@avenick/utils";
 import Link from "next/link";
 import { FileText, CheckCircle, Clock, XCircle, TrendingUp } from "lucide-react";
+import { requireSellerPermission } from "@/lib/auth";
 
 export const metadata = { title: "Quote History" };
 
@@ -21,6 +22,7 @@ const STATUS: Record<string, { label: string; cls: string; icon: typeof CheckCir
 const fmt = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
 
 export default async function QuoteHistoryPage() {
+  const { membership } = await requireSellerPermission("rfqs.view");
   type RFQRow = {
     id: string;
     rfqNumber: string;
@@ -50,7 +52,7 @@ export default async function QuoteHistoryPage() {
   ];
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-6">
         <div className="flex items-start justify-between">
           <div>

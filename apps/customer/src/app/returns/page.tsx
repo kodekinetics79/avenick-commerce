@@ -120,6 +120,12 @@ export default async function ReturnsPage() {
                   currency: o.currency,
                   createdAt: o.createdAt.toISOString(),
                   summary: o.items.map((i: { quantity: number; nameEn: string }) => `${i.quantity}× ${i.nameEn}`).join(", "),
+                  items: o.items.map((i: { id: string; quantity: number; nameEn: string; total: unknown }) => ({
+                    id: i.id,
+                    quantity: i.quantity,
+                    nameEn: i.nameEn,
+                    total: Number(i.total),
+                  })),
                 }))}
               />
             ) : (
