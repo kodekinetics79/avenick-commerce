@@ -6,6 +6,7 @@ import { db } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
 import { getB2BContext } from "@/lib/b2b";
 import { format } from "date-fns";
+import { companyCurrencyForCountry } from "@/lib/company-currency";
 
 export const metadata = { title: "Company Profile" };
 export const dynamic = "force-dynamic";
@@ -36,7 +37,7 @@ export default async function CompanyPage() {
       },
     }),
     db.order.aggregate({
-      where: { companyId: ctx.companyId, paymentStatus: "PAID" },
+      where: { companyId: ctx.companyId, paymentStatus: "PAID", currency: companyCurrencyForCountry(ctx.company.country) },
       _sum: { total: true },
     }),
   ]);
@@ -49,11 +50,12 @@ export default async function CompanyPage() {
   const userOf = (id: string) => memberUsers.find((u) => u.id === id);
 
   const statusCfg = STATUS_CONFIG[company.status] ?? STATUS_CONFIG["PENDING_VERIFICATION"]!;
+  const currency = companyCurrencyForCountry(company.country);
 
   return (
     <B2BShell title="Company Profile" description="Your organization's registration, credit, and team.">
       <div className="space-y-5">
-        <div className="bg-white rounded-2xl border border-border p-6">
+        <div className="bg-card rounded-2xl border border-border p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="h-14 w-14 rounded-2xl bg-indigo-50 flex items-center justify-center">
@@ -89,14 +91,14 @@ export default async function CompanyPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Credit limit", value: company.creditLimit ? formatCurrency(Number(company.creditLimit), "AED") : "Not set", icon: CreditCard },
+            { label: "Credit limit", value: company.creditLimit ? formatCurrency(Number(company.creditLimit), currency) : "Not set", icon: CreditCard },
             { label: "Payment terms", value: company.paymentTerms > 0 ? `Net ${company.paymentTerms} days` : "Prepaid", icon: FileText },
-            { label: "Lifetime spend", value: formatCurrency(Number(orderAgg._sum.total ?? 0), "AED"), icon: CreditCard },
+            { label: "Lifetime spend", value: formatCurrency(Number(orderAgg._sum.total ?? 0), currency), icon: CreditCard },
             { label: "Orders / POs / RFQs", value: `${company._count.orders} / ${company._count.purchaseOrders} / ${company._count.rfqRequests}`, icon: FileText },
           ].map((s) => {
             const Icon = s.icon;
             return (
-              <div key={s.label} className="bg-white rounded-2xl border border-border p-4">
+              <div key={s.label} className="bg-card rounded-2xl border border-border p-4">
                 <Icon className="h-4 w-4 text-muted-foreground mb-2" />
                 <p className="text-base font-bold">{s.value}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
@@ -105,7 +107,7 @@ export default async function CompanyPage() {
           })}
         </div>
 
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
+        <div className="bg-card rounded-2xl border border-border overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold inline-flex items-center gap-2">
               <Users className="h-4 w-4 text-muted-foreground" /> Team ({company.members.length})
@@ -134,7 +136,7 @@ export default async function CompanyPage() {
         </div>
 
         {company.addresses.length > 0 && (
-          <div className="bg-white rounded-2xl border border-border overflow-hidden">
+          <div className="bg-card rounded-2xl border border-border overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <h2 className="font-semibold inline-flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-muted-foreground" /> Addresses ({company.addresses.length})

@@ -85,7 +85,7 @@ export default function NewRFQPage() {
         nameEn: i.description.trim(),
         quantity: Number(i.quantity),
         notes:
-          [i.specs.trim(), i.targetPrice.trim() && `Target: ${i.targetPrice} AED/${i.unit}`]
+          [i.specs.trim(), i.targetPrice.trim() && `Target: ${i.targetPrice}/${i.unit} (company currency)`]
             .filter(Boolean)
             .join(" · ") || undefined,
       })),
@@ -120,7 +120,7 @@ export default function NewRFQPage() {
             </div>
             <h1 className="text-2xl font-bold mb-2">RFQ Submitted!</h1>
             <p className="text-muted-foreground mb-1">Your Request for Quotation has been sent to verified suppliers.</p>
-            <p className="text-sm text-muted-foreground mb-6">Expected response time: <strong>24–48 hours</strong>. You&apos;ll be notified when quotes arrive.</p>
+            <p className="text-sm text-muted-foreground mb-6">You&apos;ll be notified when a supplier submits a quote.</p>
             <div className="bg-white border border-border rounded-2xl p-4 mb-6 text-sm text-start">
               <p className="font-semibold mb-2">What happens next?</p>
               <ol className="space-y-1.5 text-muted-foreground">
@@ -238,7 +238,7 @@ export default function NewRFQPage() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium mb-1">Target Unit Price (AED)</label>
+                        <label className="block text-xs font-medium mb-1">Target Unit Price (company currency)</label>
                         <Input type="number" value={item.targetPrice} onChange={(e) => updateItem(item.id, "targetPrice", e.target.value)} placeholder="0.00" min={0} step="0.01" />
                       </div>
                       <div>
@@ -265,7 +265,7 @@ export default function NewRFQPage() {
             {/* Info callout */}
             <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-primary">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-              <p>Your RFQ will be reviewed within <strong>2 business hours</strong> and distributed to matching verified suppliers. You&apos;ll receive an email notification when quotes arrive.</p>
+              <p>Your RFQ will be available to eligible suppliers. You&apos;ll receive an email notification when quotes arrive.</p>
             </div>
 
             {error && (
