@@ -39,7 +39,9 @@
         "/dashboard": { "availability": "operational", "evidence": "Seller-scoped operational dashboard." },
         "/analytics": { "availability": "read_only", "limitation": "Seller-scoped database reporting; no export scheduling." },
         "/performance": { "availability": "read_only", "limitation": "Seller-scoped performance reporting only." },
-        "/products": { "availability": "limited", "limitation": "Catalog register and updates work; product creation is unavailable." },
+        "/products": { "availability": "limited", "limitation": "Seller creation and edits enter admin review; self-activation and tiered-price editing are unavailable." },
+        "/products/new": { "availability": "limited", "limitation": "Creates a review-pending listing; seller self-activation and inventory creation are unavailable." },
+        "/products/[id]/edit": { "availability": "limited", "limitation": "Edits reset the listing to review pending; tiered-price editing is unavailable." },
         "/inventory": { "availability": "operational", "evidence": "Permission-gated seller inventory management." },
         "/issues": { "availability": "limited", "limitation": "Existing-SKU CSV updates only; bulk product creation is unavailable." },
         "/orders": { "availability": "operational", "evidence": "Seller-scoped order register and fulfilment transitions." },
@@ -53,6 +55,7 @@
         "/commission": { "availability": "read_only", "limitation": "Commission ledger and status display only." },
         "/documents": { "availability": "unavailable", "limitation": "Document register is visible; upload, view, and renewal actions are not connected." },
         "/compliance": { "availability": "read_only", "limitation": "Compliance status view only; onboarding document delivery is unavailable." },
+        "/onboarding": { "availability": "read_only", "limitation": "Database-derived onboarding progress only; document upload and review submission are unavailable." },
         "/support/tickets": { "availability": "read_only", "limitation": "Existing seller tickets are visible; new-ticket submission is unavailable." },
         "/support/contact": { "availability": "unavailable", "limitation": "Screen explicitly reports that seller-to-admin messaging is not connected." },
         "/settings": { "availability": "read_only", "limitation": "Seller profile and security state are visible; self-service changes and two-factor enrollment are unavailable." }
