@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SlidersHorizontal, PackageSearch } from "lucide-react";
@@ -9,6 +10,7 @@ import { PageLoader } from "@avenick/ui";
 import { fetchBackendJson } from "@/lib/backend";
 import { getServerB2BContext } from "@/lib/b2b-server";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
+import { emptyCategoryRecoveryHref } from "@/lib/catalog-navigation";
 
 export const metadata: Metadata = { title: "Products — Avenick Commerce" };
 
@@ -54,6 +56,9 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
       : products;
 
   if (sortedProducts.length === 0) {
+    if (searchParams.category && !searchParams.search && searchParams.inStock !== "1") {
+      redirect(emptyCategoryRecoveryHref(searchParams));
+    }
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mb-4">
