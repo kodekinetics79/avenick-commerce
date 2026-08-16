@@ -6,6 +6,12 @@ export const DEMO_MENNEKES_PART_NUMBERS = [
   "13625", "13627", "13629", "13202",
 ] as const;
 
+export const INDUSTRIAL_DEMO_MENNEKES_PART_NUMBERS = [
+  ...DEMO_MENNEKES_PART_NUMBERS,
+  "14626", "14261P", "14260P", "14248",
+  "1457", "1491", "1458", "1128A", "32", "10118",
+] as const;
+
 const SOURCE_ORIGIN = "https://www.mennekes.org";
 
 function text(value: string) {
@@ -71,7 +77,7 @@ export function parseMennekesProductPage(html: string, expectedPartNumber: strin
 }
 
 export async function fetchMennekesProduct(partNumber: string): Promise<ManufacturerEnrichment> {
-  if (!(DEMO_MENNEKES_PART_NUMBERS as readonly string[]).includes(partNumber)) {
+  if (!(INDUSTRIAL_DEMO_MENNEKES_PART_NUMBERS as readonly string[]).includes(partNumber)) {
     throw new Error(`Part number ${partNumber} is outside the reviewed demo set`);
   }
   const sourceUrl = `${SOURCE_ORIGIN}/industry/product-details/${encodeURIComponent(partNumber)}/`;
