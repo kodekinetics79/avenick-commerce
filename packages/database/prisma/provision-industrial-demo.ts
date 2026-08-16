@@ -21,6 +21,7 @@ import {
   INDUSTRIAL_DEMO_MENNEKES_PART_NUMBERS,
   fetchMennekesProduct,
   manufacturerDescription,
+  reviewedEatonProducts,
 } from "../src/services/demo-product-enrichment";
 import {
   INDUSTRIAL_DEMO_CATEGORIES,
@@ -56,7 +57,10 @@ async function main() {
   const { password, host, runId } = configuration();
   const catalog = validateIndustrialDemoCatalog();
   const passwordHash = await bcrypt.hash(password, 12);
-  const sources = await Promise.all(INDUSTRIAL_DEMO_MENNEKES_PART_NUMBERS.map(fetchMennekesProduct));
+  const sources = [
+    ...(await Promise.all(INDUSTRIAL_DEMO_MENNEKES_PART_NUMBERS.map(fetchMennekesProduct))),
+    ...reviewedEatonProducts(),
+  ];
 
   const result = await prisma.$transaction(async (tx) => {
     const upsertUser = (email: string, firstName: string, lastName: string, role: UserRole) => tx.user.upsert({
@@ -163,25 +167,32 @@ async function main() {
       });
       categories.set(category.slug, stored.id);
     }
-    const brand = await tx.brand.upsert({
+    const mennekesBrand = await tx.brand.upsert({
       where: { slug: "mennekes" },
       update: { nameEn: "MENNEKES", isActive: true },
       create: { slug: "mennekes", nameEn: "MENNEKES", nameAr: "MENNEKES", isActive: true },
+    });
+    const eatonBrand = await tx.brand.upsert({
+      where: { slug: "eaton" },
+      update: { nameEn: "Eaton", isActive: true },
+      create: { slug: "eaton", nameEn: "Eaton", nameAr: "Eaton", isActive: true },
     });
 
     for (const source of sources) {
       const sellerIndex = industrialDemoSellerIndex(source.partNumber);
       const facts = industrialDemoCommercialFacts(source.partNumber);
+      const skuPrefix = source.manufacturer === "MENNEKES" ? "MNK" : "ETN";
+      const brand = source.manufacturer === "MENNEKES" ? mennekesBrand : eatonBrand;
       const categoryId = categories.get(industrialDemoCategorySlug(source.partNumber));
       if (!categoryId) throw new Error(`Category missing for ${source.partNumber}`);
       const product = await tx.product.upsert({
-        where: { sku: `DEMO-MNK-${source.partNumber}` },
+        where: { sku: `DEMO-${skuPrefix}-${source.partNumber}` },
         update: {
           sellerId: sellers[sellerIndex]!.id,
           categoryId,
           brandId: brand.id,
           nameEn: source.name,
-          nameAr: `منتج صناعي MENNEKES ${source.partNumber}`,
+          nameAr: `منتج صناعي ${source.manufacturer} ${source.partNumber}`,
           descriptionEn: `${manufacturerDescription(source)}. Certification price and stock are simulated by Avenick and are not manufacturer claims.`,
           isPubliclyDiscoverable: true,
           isB2CEnabled: true,
@@ -194,10 +205,10 @@ async function main() {
           sellerId: sellers[sellerIndex]!.id,
           categoryId,
           brandId: brand.id,
-          sku: `DEMO-MNK-${source.partNumber}`,
-          slug: `demo-mennekes-${source.partNumber.toLowerCase()}`,
+          sku: `DEMO-${skuPrefix}-${source.partNumber}`,
+          slug: `demo-${source.manufacturer.toLowerCase()}-${source.partNumber.toLowerCase()}`,
           nameEn: source.name,
-          nameAr: `منتج صناعي MENNEKES ${source.partNumber}`,
+          nameAr: `منتج صناعي ${source.manufacturer} ${source.partNumber}`,
           descriptionEn: `${manufacturerDescription(source)}. Certification price and stock are simulated by Avenick and are not manufacturer claims.`,
           status: ProductStatus.PENDING_REVIEW,
           isPubliclyDiscoverable: true,
@@ -209,8 +220,8 @@ async function main() {
         },
       });
       const primary = await tx.productImage.findFirst({ where: { productId: product.id, isPrimary: true } });
-      if (!primary) {
-        await tx.productImage.create({ data: { productId: product.id, url: source.imageUrl, altEn: `${source.name}, MENNEKES part ${source.partNumber}`, isPrimary: true } });
+      if (!primary && source.imageUrl) {
+        await tx.productImage.create({ data: { productId: product.id, url: source.imageUrl, altEn: `${source.name}, ${source.manufacturer} part ${source.partNumber}`, isPrimary: true } });
       }
       for (const type of [PricingType.B2C, PricingType.B2B]) {
         const price = await tx.productPrice.findFirst({ where: { productId: product.id, variantId: null, type, currency: INDUSTRIAL_DEMO_CURRENCY, minQty: 1, maxQty: null } });
@@ -224,7 +235,7 @@ async function main() {
       await tx.productCommercialMetadata.upsert({
         where: { productId: product.id },
         update: {
-          sourceSystem: "MENNEKES_OFFICIAL_PRODUCT_PAGE",
+          sourceSystem: source.sourceSystem,
           manufacturerPartNumber: source.partNumber,
           supplierPartNumber: source.partNumber,
           uom: "EA",
@@ -247,7 +258,7 @@ async function main() {
         },
         create: {
           productId: product.id,
-          sourceSystem: "MENNEKES_OFFICIAL_PRODUCT_PAGE",
+          sourceSystem: source.sourceSystem,
           manufacturerPartNumber: source.partNumber,
           supplierPartNumber: source.partNumber,
           uom: "EA",

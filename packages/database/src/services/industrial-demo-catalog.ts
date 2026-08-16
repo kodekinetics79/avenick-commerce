@@ -1,5 +1,5 @@
 import type { Currency } from "@prisma/client";
-import { INDUSTRIAL_DEMO_MENNEKES_PART_NUMBERS } from "./demo-product-enrichment";
+import { INDUSTRIAL_DEMO_PART_NUMBERS } from "./demo-product-enrichment";
 
 export const INDUSTRIAL_DEMO_CURRENCY: Currency = "SAR";
 export const INDUSTRIAL_DEMO_TAG = "AVENICK_INDUSTRIAL_DEMO_V1";
@@ -35,6 +35,12 @@ export const INDUSTRIAL_DEMO_CATEGORIES = [
     nameAr: "مآخذ مثبتة على الجدران",
     parts: ["32", "10118"],
   },
+  {
+    slug: "pilot-circuit-breaker",
+    nameEn: "Circuit Breakers",
+    nameAr: "قواطع دوائر",
+    parts: ["167133", "190638", "278766"],
+  },
 ] as const;
 
 const categoryByPart = new Map<string, string>(
@@ -48,13 +54,13 @@ export function industrialDemoCategorySlug(partNumber: string) {
 }
 
 export function industrialDemoSellerIndex(partNumber: string) {
-  const index = (INDUSTRIAL_DEMO_MENNEKES_PART_NUMBERS as readonly string[]).indexOf(partNumber);
+  const index = (INDUSTRIAL_DEMO_PART_NUMBERS as readonly string[]).indexOf(partNumber);
   if (index < 0) throw new Error(`Industrial demo part ${partNumber} is outside the reviewed set`);
   return index % 3;
 }
 
 export function industrialDemoCommercialFacts(partNumber: string) {
-  const index = (INDUSTRIAL_DEMO_MENNEKES_PART_NUMBERS as readonly string[]).indexOf(partNumber);
+  const index = (INDUSTRIAL_DEMO_PART_NUMBERS as readonly string[]).indexOf(partNumber);
   if (index < 0) throw new Error(`Industrial demo part ${partNumber} is outside the reviewed set`);
   return {
     price: 85 + index * 7,
@@ -65,7 +71,7 @@ export function industrialDemoCommercialFacts(partNumber: string) {
 }
 
 export function validateIndustrialDemoCatalog() {
-  const reviewed = new Set<string>(INDUSTRIAL_DEMO_MENNEKES_PART_NUMBERS);
+  const reviewed = new Set<string>(INDUSTRIAL_DEMO_PART_NUMBERS);
   const assigned = INDUSTRIAL_DEMO_CATEGORIES.flatMap((category) => category.parts);
   if (assigned.length !== reviewed.size || new Set(assigned).size !== assigned.length) {
     throw new Error("Every reviewed industrial demo part must have exactly one category");
