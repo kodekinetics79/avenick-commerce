@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Phone, Mail, MapPin, Facebook, Twitter, Instagram, Linkedin, ArrowRight } from "lucide-react";
+import { Mail, Facebook, Twitter, Instagram, Linkedin, ArrowRight } from "lucide-react";
 
 const COLUMNS: { title: string; links: [string, string][] }[] = [
   {
@@ -69,13 +69,10 @@ export function Footer() {
             <span className="text-lg font-extrabold tracking-tight">avenick</span>
           </Link>
           <p className="text-muted-foreground text-sm mt-4 leading-relaxed max-w-xs">
-            B2B-first. B2C-ready. Built for modern trade — the GCC&apos;s marketplace
-            for industrial supply and procurement.
+            B2B-first. B2C-ready. Built for modern industrial supply and procurement.
           </p>
           <div className="space-y-2 text-sm mt-5">
-            <p className="flex items-center gap-2 text-muted-foreground"><Phone className="h-3.5 w-3.5 text-primary shrink-0" /> +971 4 234 5678</p>
             <p className="flex items-center gap-2 text-muted-foreground"><Mail className="h-3.5 w-3.5 text-primary shrink-0" /> info@avenick.com</p>
-            <p className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-3.5 w-3.5 text-primary shrink-0" /> Dubai, United Arab Emirates</p>
           </div>
         </div>
 

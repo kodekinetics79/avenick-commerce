@@ -93,26 +93,26 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "gcc-compliance",
-    titleEn: "4. GCC Privacy Laws & Compliance",
-    titleAr: "٤. قوانين الخصوصية في الخليج والامتثال لها",
+    titleEn: "4. Privacy Laws & Compliance",
+    titleAr: "٤. قوانين الخصوصية والامتثال لها",
     icon: ShieldAlert,
     contentEn: (
       <>
-        <p>We adhere to strict data security standards in compliance with local regulations across the Gulf Cooperation Council (GCC):</p>
+        <p>We apply data-security controls and assess legal obligations according to the customer, processing, and hosting jurisdictions that actually apply:</p>
         <ul className="list-disc ps-5 space-y-2 mt-2">
-          <li><strong>United Arab Emirates:</strong> Compliant with the UAE Federal Decree-Law No. 45 of 2021 on Personal Data Protection (PDPL).</li>
-          <li><strong>Saudi Arabia:</strong> Compliant with the Saudi Personal Data Protection Law (PDPL) promulgated by Royal Decree No. M/147.</li>
-          <li><strong>Data Localization:</strong> All core company financial documents and identity details are hosted securely using local regional cloud infrastructure where legally required.</li>
+          <li><strong>Jurisdiction:</strong> Applicable privacy requirements are confirmed during customer onboarding and contracting.</li>
+          <li><strong>Data location:</strong> Hosting and transfer details are documented for the deployed customer environment.</li>
+          <li><strong>No implied certification:</strong> Availability of the demo does not itself represent legal or regulatory certification in any country.</li>
         </ul>
       </>
     ),
     contentAr: (
       <>
-        <p>نلتزم بمعايير أمن بيانات صارمة وفقاً للأنظمة المحلية السارية في دول مجلس التعاون الخليجي:</p>
+        <p>نطبق ضوابط أمن البيانات ونحدد الالتزامات القانونية وفقاً لبلد العميل ومكان المعالجة والاستضافة الفعلي:</p>
         <ul className="list-disc ps-5 space-y-2 mt-2">
-          <li><strong>دولة الإمارات العربية المتحدة:</strong> متوافق مع المرسوم بقانون اتحادي رقم ٤٥ لسنة ٢٠٢١ بشأن حماية البيانات الشخصية.</li>
-          <li><strong>المملكة العربية السعودية:</strong> متوافق مع نظام حماية البيانات الشخصية الصادر بالمرسوم الملكي رقم م/١٤٧.</li>
-          <li><strong>توطين البيانات:</strong> يتم استضافة جميع المستندات المالية والبيانات الهوية للشركة بشكل آمن في البنية التحتية السحابية الإقليمية المحلية بموجب القوانين ذات الصلة.</li>
+          <li><strong>الاختصاص القانوني:</strong> يتم تأكيد متطلبات الخصوصية أثناء إعداد حساب العميل والتعاقد.</li>
+          <li><strong>موقع البيانات:</strong> يتم توثيق تفاصيل الاستضافة والنقل لبيئة العميل المنشورة.</li>
+          <li><strong>لا اعتماد ضمني:</strong> إتاحة البيئة التجريبية لا تعني اعتماداً قانونياً أو تنظيمياً في أي دولة.</li>
         </ul>
       </>
     ),
@@ -143,13 +143,11 @@ const SECTIONS: LegalSection[] = [
     contentEn: (
       <>
         <p>If you have any questions about this Privacy Policy or how your data is treated, please reach out to our privacy officer at <a href="mailto:privacy@avenick.com" className="text-primary hover:underline font-semibold">privacy@avenick.com</a> or open a ticket in our support portal.</p>
-        <p>Avenick Commerce HQ: Al Quoz Industrial Area, Dubai, UAE.</p>
       </>
     ),
     contentAr: (
       <>
         <p>إذا كانت لديكم أي استفسارات حول سياسة الخصوصية هذه أو كيفية التعامل مع بياناتكم، يرجى التواصل مع مسؤول الخصوصية لدينا عبر البريد الإلكتروني <a href="mailto:privacy@avenick.com" className="text-primary hover:underline font-semibold">privacy@avenick.com</a> أو فتح تذكرة دعم فني.</p>
-        <p>المقر الرئيسي لأفينيك كومرس: منطقة القوز الصناعية، دبي، الإمارات العربية المتحدة.</p>
       </>
     ),
   },

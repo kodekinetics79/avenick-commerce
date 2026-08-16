@@ -20,6 +20,9 @@ const nextConfig = {
       { protocol: "https", hostname: "*.avenick.com", pathname: "/**" },
       { protocol: "http", hostname: "localhost", pathname: "/**" },
       { protocol: "https", hostname: "placehold.co", pathname: "/**" },
+      // Official manufacturer media used by the isolated, source-attributed
+      // demo enrichment. Commercial price/stock never comes from this host.
+      { protocol: "https", hostname: "www.mennekes.org", pathname: "/fileadmin/products_media/**" },
     ],
   },
   // Copies the Prisma query engine into the serverless bundle (pnpm monorepo).

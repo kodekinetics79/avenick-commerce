@@ -178,7 +178,7 @@ export default function NewRFQPage() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Delivery City</label>
-                  <Input name="city" placeholder="e.g. Dubai, UAE" />
+                  <Input name="city" placeholder="City, country" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Preferred Supplier (optional)</label>

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { User, Building2 } from "lucide-react";
 import { Input, Button, Textarea } from "@avenick/ui";
 import { MainLayout } from "@/components/layout/main-layout";
+import { SUPPORTED_COUNTRIES } from "@/lib/market-context";
 
 type Mode = "select" | "consumer" | "business";
 
@@ -14,7 +15,7 @@ export default function RegisterPage() {
   const [mode, setMode] = useState<Mode>("select");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", password: "", companyNameEn: "", companyNameAr: "", crNumber: "", vatNumber: "", industry: "INDUSTRIAL_SUPPLIES", country: "AE", city: "" });
+  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", password: "", companyNameEn: "", companyNameAr: "", crNumber: "", vatNumber: "", industry: "INDUSTRIAL_SUPPLIES", country: "", city: "" });
 
   function set(key: string, val: string) { setForm((f) => ({ ...f, [key]: val })); }
 
@@ -68,7 +69,7 @@ export default function RegisterPage() {
                 </div>
                 <Input type="email" placeholder="Email address" value={form.email} onChange={(e) => set("email", e.target.value)} required />
                 <Input type="password" placeholder="Password (min 8 chars, uppercase + number)" value={form.password} onChange={(e) => set("password", e.target.value)} required />
-                <Input type="tel" placeholder="Phone (+971...)" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
+                <Input type="tel" placeholder="Phone in international format" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
 
                 {mode === "business" && (
                   <>
@@ -79,9 +80,9 @@ export default function RegisterPage() {
                     <Input placeholder="Commercial Registration Number" value={form.crNumber} onChange={(e) => set("crNumber", e.target.value)} required />
                     <Input placeholder="VAT Number (optional)" value={form.vatNumber} onChange={(e) => set("vatNumber", e.target.value)} />
                     <div className="grid grid-cols-2 gap-3">
-                      <select value={form.country} onChange={(e) => set("country", e.target.value)} className="h-10 rounded-xl border border-input bg-card text-foreground px-3 text-sm">
-                        <option value="AE">UAE</option><option value="SA">Saudi Arabia</option><option value="QA">Qatar</option>
-                        <option value="KW">Kuwait</option><option value="BH">Bahrain</option><option value="OM">Oman</option>
+                      <select required value={form.country} onChange={(e) => set("country", e.target.value)} className="h-10 rounded-xl border border-input bg-card text-foreground px-3 text-sm">
+                        <option value="" disabled>Select country</option>
+                        {SUPPORTED_COUNTRIES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
                       </select>
                       <Input placeholder="City" value={form.city} onChange={(e) => set("city", e.target.value)} required />
                     </div>

@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { MessageSquare, Plus, Clock, CheckCircle2, Activity, Lock, Phone, Mail, MapPin, HelpCircle, Shield } from "lucide-react";
+import { MessageSquare, Plus, Clock, CheckCircle2, Activity, Lock, Mail, HelpCircle, Shield } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { auth } from "@/lib/auth-instance";
 import { ValidatedForm } from "@/components/b2b/validated-form";
@@ -24,8 +24,8 @@ const FAQS = [
   {
     qEn: "What is Avenick Commerce?",
     qAr: "ما هي منصة أفينيك كومرس؟",
-    aEn: "Avenick Commerce is the GCC's premier B2B and B2C procurement platform, connecting verified suppliers with buyers across the Gulf region for industrial supply, tools, and office procurement.",
-    aAr: "أفينيك كومرس هي منصة المشتريات الرائدة في دول مجلس التعاون الخليجي للشركات والأفراد، حيث تربط الموردين المعتمدين بالمشترين عبر منطقة الخليج لتوريد المنتجات الصناعية والأدوات والمستلزمات المكتبية."
+    aEn: "Avenick Commerce is a B2B and B2C procurement platform connecting approved suppliers with buyers for industrial supply, tools, and office procurement.",
+    aAr: "أفينيك كومرس هي منصة مشتريات للشركات والأفراد تربط الموردين المعتمدين بالمشترين لتوريد المنتجات الصناعية والأدوات والمستلزمات المكتبية."
   },
   {
     qEn: "How do I request a bulk quote (RFQ)?",
@@ -97,23 +97,12 @@ export default async function SupportPage() {
                   <Mail className="h-5 w-5 text-primary" />
                   {isAr ? "قنوات الاتصال المباشر" : "Direct Contact Channels"}
                 </h2>
-                <div className="grid sm:grid-cols-3 gap-4">
-                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/40 hover:border-primary/20 transition-all">
-                    <Phone className="h-5 w-5 text-primary mb-2" />
-                    <p className="text-xs text-muted-foreground mb-1">{isAr ? "اتصل بنا" : "Call us"}</p>
-                    <p className="font-semibold text-sm font-mono">+971 4 234 5678</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">{isAr ? "الاثنين - الجمعة، ٩ - ٦" : "Mon - Fri, 9 AM - 6 PM"}</p>
-                  </div>
+                <div className="grid gap-4">
                   <div className="bg-secondary/30 rounded-xl p-4 border border-border/40 hover:border-primary/20 transition-all">
                     <Mail className="h-5 w-5 text-primary mb-2" />
                     <p className="text-xs text-muted-foreground mb-1">{isAr ? "البريد الإلكتروني" : "Email us"}</p>
                     <a href="mailto:support@avenick.com" className="font-semibold text-sm text-primary hover:underline break-all">support@avenick.com</a>
                     <p className="text-[10px] text-muted-foreground mt-1">{isAr ? "الرد خلال ٢٤ ساعة" : "Response in 24 hours"}</p>
-                  </div>
-                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/40 hover:border-primary/20 transition-all">
-                    <MapPin className="h-5 w-5 text-primary mb-2" />
-                    <p className="text-xs text-muted-foreground mb-1">{isAr ? "الموقع الرئيسي" : "Headquarters"}</p>
-                    <p className="font-semibold text-xs leading-normal">Al Quoz Industrial, Dubai, UAE</p>
                   </div>
                 </div>
               </div>
