@@ -27,6 +27,19 @@ export async function listProducts(params: ProductListParams) {
   const { page = 1, limit = 20, search, categoryId, categorySlug, sellerId, status, b2c, b2b, publiclyDiscoverable, inStock, sort } = params;
   const skip = (page - 1) * limit;
   const normalizedSearch = normalizeCatalogSearch(search);
+  const categoryIds = categorySlug
+    ? await db.$queryRaw<Array<{ id: string }>>`
+        WITH RECURSIVE category_tree AS (
+          SELECT id FROM "Category" WHERE slug = ${categorySlug} AND "isActive" = true
+          UNION ALL
+          SELECT child.id
+          FROM "Category" child
+          INNER JOIN category_tree parent ON child."parentId" = parent.id
+          WHERE child."isActive" = true
+        )
+        SELECT id FROM category_tree
+      `.then((rows) => rows.map(({ id }) => id))
+    : undefined;
   const and: Prisma.ProductWhereInput[] = [];
   if (publiclyDiscoverable !== undefined) and.push({ isPubliclyDiscoverable: publiclyDiscoverable });
   if (normalizedSearch) {
@@ -49,7 +62,10 @@ export async function listProducts(params: ProductListParams) {
     deletedAt: null,
     ...(status && { status }),
     ...(categoryId && { categoryId }),
-    ...(categorySlug && { category: { slug: categorySlug } }),
+    // Pilot imports attach products to leaf categories at varying depths.
+    // Resolve the full active subtree so every advertised parent category is
+    // a truthful browse path, not an exact-slug dead end.
+    ...(categoryIds && { categoryId: { in: categoryIds } }),
     ...(sellerId && { sellerId }),
     ...(b2c !== undefined && { isB2CEnabled: b2c }),
     ...(b2b !== undefined && { isB2BEnabled: b2b }),

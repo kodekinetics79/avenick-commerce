@@ -7,6 +7,7 @@ import { formatCurrency } from "@avenick/utils";
 import { useCartStore } from "@/stores/cart";
 import { MainLayout } from "@/components/layout/main-layout";
 import { summarizeCartCommercial } from "@/lib/cart-commercial";
+import { emptyMarketAddress, SUPPORTED_COUNTRIES } from "@/lib/market-context";
 
 type Step = "address" | "payment" | "review" | "success";
 type OrderSummary = { total?: number; discountAmount?: number; vatAmount?: number };
@@ -29,7 +30,7 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
   const [finalSummary, setFinalSummary] = useState<OrderSummary>({});
-  const [address, setAddress] = useState({ label: "Home", line1: "", city: "Dubai", country: "AE" });
+  const [address, setAddress] = useState(() => emptyMarketAddress("Home"));
   const idempotencyKeyRef = useRef<string | null>(null);
 
   const summary = summarizeCartCommercial(items);
@@ -159,17 +160,13 @@ export default function CheckoutPage() {
                   <Input placeholder="Street address" value={address.line1} onChange={(e) => setAddress({ ...address, line1: e.target.value })} />
                   <div className="grid grid-cols-2 gap-3">
                     <Input placeholder="City" value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} />
-                    <select value={address.country} onChange={(e) => setAddress({ ...address, country: e.target.value })} className="h-10 rounded-xl border border-input bg-background px-3 text-sm focus:ring-2 focus:ring-ring">
-                      <option value="AE">UAE 🇦🇪</option>
-                      <option value="SA">Saudi Arabia 🇸🇦</option>
-                      <option value="QA">Qatar 🇶🇦</option>
-                      <option value="KW">Kuwait 🇰🇼</option>
-                      <option value="BH">Bahrain 🇧🇭</option>
-                      <option value="OM">Oman 🇴🇲</option>
+                    <select required value={address.country} onChange={(e) => setAddress({ ...address, country: e.target.value })} className="h-10 rounded-xl border border-input bg-background px-3 text-sm focus:ring-2 focus:ring-ring">
+                      <option value="" disabled>Select country</option>
+                      {SUPPORTED_COUNTRIES.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
                     </select>
                   </div>
                 </div>
-                <Button className="mt-4 w-full" onClick={() => setStep("payment")} disabled={!address.line1}>Continue to Payment</Button>
+                <Button className="mt-4 w-full" onClick={() => setStep("payment")} disabled={!address.line1.trim() || !address.city.trim() || !address.country}>Continue to Payment</Button>
               </div>
             )}
 

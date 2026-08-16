@@ -116,12 +116,12 @@ const SECTIONS: LegalSection[] = [
     icon: Award,
     contentEn: (
       <>
-        <p>These Terms of Service are governed by and construed in accordance with the laws of the United Arab Emirates. Any dispute arising out of or in connection with these terms shall be subject to the exclusive jurisdiction of the courts of Dubai, UAE.</p>
+        <p>The governing law and dispute forum must be stated in the executed customer agreement for the deployed tenant. This demo does not assign a jurisdiction by default. Contact the legal desk before relying on these terms for a live transaction.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>تخضع شروط الخدمة هذه وتفسر وفقاً للقوانين المعمول بها في دولة الإمارات العربية المتحدة. وتخضع أي نزاعات تنشأ عنها أو تتعلق بها للاختصاص القضائي الحصري لمحاكم دبي، الإمارات العربية المتحدة.</p>
+        <p>يجب تحديد القانون الحاكم وجهة الفصل في النزاعات ضمن اتفاقية العميل الموقعة للبيئة المنشورة. لا تحدد هذه البيئة التجريبية اختصاصاً قضائياً افتراضياً. يرجى التواصل مع القسم القانوني قبل الاعتماد على هذه الشروط في معاملة فعلية.</p>
       </>
     ),
   },

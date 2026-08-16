@@ -26,13 +26,6 @@ interface SearchParams {
   currency?: string;
 }
 
-const PRICE_RANGES = [
-  { label: "Under AED 50", min: 0, max: 50 },
-  { label: "AED 50 – 200", min: 50, max: 200 },
-  { label: "AED 200 – 500", min: 200, max: 500 },
-  { label: "AED 500+", min: 500, max: 999999 },
-];
-
 async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
   const wantsB2B = searchParams.b2b === "true";
   const context = wantsB2B ? await getServerB2BContext() : null;
@@ -142,9 +135,6 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
     return `/products?${params.toString()}`;
   };
 
-  const currentMin = searchParams.minPrice ? parseInt(searchParams.minPrice) : undefined;
-  const currentMax = searchParams.maxPrice ? parseInt(searchParams.maxPrice) : undefined;
-
   return (
     <aside className="w-full lg:w-60 shrink-0 space-y-4">
       {/* Categories */}
@@ -169,26 +159,6 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
               </a>
             </li>
           ))}
-        </ul>
-      </div>
-
-      {/* Price range */}
-      <div className="bg-card rounded-2xl border border-border p-4">
-        <h3 className="font-semibold text-sm mb-3">Price Range</h3>
-        <ul className="space-y-0.5">
-          {PRICE_RANGES.map((r) => {
-            const active = currentMin === r.min && currentMax === r.max;
-            return (
-              <li key={r.label}>
-                <a
-                  href={active ? buildUrl({ minPrice: undefined, maxPrice: undefined }) : buildUrl({ minPrice: String(r.min), maxPrice: String(r.max) })}
-                  className={`block px-3 py-2 rounded-lg text-sm transition-colors ${active ? "bg-primary/10 text-primary font-medium" : "hover:bg-secondary text-muted-foreground"}`}
-                >
-                  {r.label}
-                </a>
-              </li>
-            );
-          })}
         </ul>
       </div>
 

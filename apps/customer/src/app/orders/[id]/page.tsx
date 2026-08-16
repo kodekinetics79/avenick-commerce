@@ -77,6 +77,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
   const vat = Number(order.vatAmount);
   const badge = STATUS_BADGE[order.status] ?? STATUS_BADGE.CONFIRMED;
   const isDelivered = order.status === "DELIVERED";
+  const currency = order.currency as never;
 
   return (
     <MainLayout>
@@ -98,7 +99,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                 <p className="text-sm text-muted-foreground">Placed on {order.createdAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
               </div>
               <div className="text-end">
-                <p className="text-2xl font-bold font-mono text-foreground">{formatCurrency(Number(order.total), "AED")}</p>
+                <p className="text-2xl font-bold font-mono text-foreground">{formatCurrency(Number(order.total), currency)}</p>
                 <p className="text-xs text-muted-foreground">incl. VAT</p>
               </div>
             </div>
@@ -178,10 +179,10 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                     <div className="h-10 w-10 rounded-lg bg-secondary grid place-items-center shrink-0"><Package className="h-4 w-4 text-muted-foreground" /></div>
                     <div>
                       <p className="text-sm font-medium">{item.nameEn}</p>
-                      <p className="text-xs text-muted-foreground">Qty {item.quantity} × {formatCurrency(Number(item.unitPrice), "AED")}</p>
+                      <p className="text-xs text-muted-foreground">Qty {item.quantity} × {formatCurrency(Number(item.unitPrice), currency)}</p>
                     </div>
                   </div>
-                  <p className="font-bold font-mono text-sm">{formatCurrency(Number(item.total), "AED")}</p>
+                  <p className="font-bold font-mono text-sm">{formatCurrency(Number(item.total), currency)}</p>
                 </div>
               ))}
             </div>
@@ -197,10 +198,9 @@ export default async function OrderDetailPage({ params }: { params: { id: string
             <div className="rounded-2xl border border-border bg-card p-5">
               <h2 className="font-semibold text-sm mb-3">Summary</h2>
               <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-mono">{formatCurrency(subtotal, "AED")}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">VAT</span><span className="font-mono">{formatCurrency(vat, "AED")}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span className="text-success font-medium">Free</span></div>
-                <div className="flex justify-between font-bold text-base pt-2 border-t border-border"><span>Total</span><span className="font-mono">{formatCurrency(Number(order.total), "AED")}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-mono">{formatCurrency(subtotal, currency)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">VAT</span><span className="font-mono">{formatCurrency(vat, currency)}</span></div>
+                <div className="flex justify-between font-bold text-base pt-2 border-t border-border"><span>Total</span><span className="font-mono">{formatCurrency(Number(order.total), currency)}</span></div>
               </div>
             </div>
           </div>

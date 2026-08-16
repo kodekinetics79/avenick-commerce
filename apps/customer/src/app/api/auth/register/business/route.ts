@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
           industry: industry as Industry,
           size: (companySize ?? "SMALL") as CompanySize,
           country: country as Country,
-          city: city ?? "Dubai",
+          city,
           status: "PENDING_VERIFICATION",
           members: { create: { userId: user.id, role: "COMPANY_ADMIN" } },
         },

@@ -7,9 +7,28 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const categories = await db.category.findMany({
-      where: { isActive: true, parentId: null },
+      where: {
+        isActive: true,
+        parentId: null,
+        // Customer navigation must not advertise empty or draft-only
+        // categories. Imported products live on the leaf category.
+        OR: [
+          { products: { some: { status: "ACTIVE", deletedAt: null, isPubliclyDiscoverable: true } } },
+          { children: { some: {
+            isActive: true,
+            products: { some: { status: "ACTIVE", deletedAt: null, isPubliclyDiscoverable: true } },
+          } } },
+        ],
+      },
       orderBy: { sortOrder: "asc" },
-      include: { children: { where: { isActive: true } } },
+      include: {
+        children: {
+          where: {
+            isActive: true,
+            products: { some: { status: "ACTIVE", deletedAt: null, isPubliclyDiscoverable: true } },
+          },
+        },
+      },
     });
     return NextResponse.json(
       { success: true, data: categories },

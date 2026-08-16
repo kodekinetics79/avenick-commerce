@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, listProducts } from "@avenick/database";
+import { listProducts } from "@avenick/database";
 import type { Currency, ProductStatus } from "@avenick/database";
 import { getServerB2BContext } from "@/lib/b2b-server";
 import { toCatalogListDto } from "@/lib/catalog-list-dto";
@@ -30,15 +30,13 @@ export async function GET(req: NextRequest) {
     }
 
     const categorySlug = searchParams.get("categorySlug") ?? undefined;
-    const categoryId = searchParams.get("categoryId") ?? (categorySlug
-      ? (await db.category.findUnique({ where: { slug: categorySlug }, select: { id: true } }))?.id
-      : undefined);
+    const categoryId = searchParams.get("categoryId") ?? undefined;
     const result = await listProducts({
       page: boundedInt(searchParams.get("page"), 1, 100000),
       limit: boundedInt(searchParams.get("limit"), 24, 100),
       search: searchParams.get("search")?.slice(0, 160) || undefined,
       categoryId,
-      categorySlug: categoryId ? undefined : categorySlug,
+      categorySlug,
       status: "ACTIVE" as ProductStatus,
       // Discovery is intentionally independent from B2C checkout eligibility.
       publiclyDiscoverable: wantsB2B ? undefined : true,
