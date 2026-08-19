@@ -37,7 +37,7 @@ export default function CartPage() {
             <p className="text-sm text-muted-foreground mb-8">Add items from the marketplace to get started.</p>
             <div className="flex gap-3 justify-center">
               <Button asChild variant="primary" size="lg"><Link href="/products">Browse Products</Link></Button>
-              <Button asChild variant="ghost" size="lg"><Link href="/deals">View Deals</Link></Button>
+              <Button asChild variant="ghost" size="lg"><Link href="/products">Browse Products</Link></Button>
             </div>
           </div>
         </div>

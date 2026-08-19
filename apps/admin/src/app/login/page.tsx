@@ -44,13 +44,16 @@ export default function AdminLoginPage() {
           <p className="text-sm text-muted-foreground mt-1">Avenick Commerce — Platform Operations</p>
         </div>
         <div className="glass-strong rounded-2xl p-6 shadow-elevated">
-          <form onSubmit={handleLogin} className="space-y-3.5">
-            <Input type="email" placeholder="Admin email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            {error && <p className="text-danger text-sm">{error}</p>}
+          <form onSubmit={handleLogin} className="space-y-3.5" aria-label="Sign in">
+            {/* Placeholders are not accessible names: they vanish on input and
+                are not exposed as labels by every assistive technology. */}
+            <label htmlFor="login-email" className="sr-only">Admin email</label>
+            <Input id="login-email" name="email" type="email" autoComplete="username" placeholder="Admin email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <label htmlFor="login-password" className="sr-only">Password</label>
+            <Input id="login-password" name="password" type="password" autoComplete="current-password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            {error && <p className="text-danger text-sm" role="alert">{error}</p>}
             <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
           </form>
-          <p className="text-center text-xs text-muted-foreground mt-4">admin@avenick.test · Password123!</p>
         </div>
         <p className="text-center text-[11px] text-muted-foreground/70 mt-6">B2B-first. B2C-ready. Built for modern trade.</p>
       </div>

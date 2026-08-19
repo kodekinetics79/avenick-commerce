@@ -5,6 +5,7 @@
   "exports": {
     "./typescript": "./tsconfig.base.json",
     "./eslint/next": "./eslint-next.js",
-    "./tailwind": "./tailwind.config.base.js"
+    "./tailwind": "./tailwind.config.base.js",
+    "./security-headers": "./security-headers.mjs"
   }
 }

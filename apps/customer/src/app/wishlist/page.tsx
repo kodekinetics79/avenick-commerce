@@ -56,7 +56,7 @@ export default function WishlistPage() {
               </p>
               <div className="flex gap-3">
                 <Button asChild variant="primary"><Link href="/products">Browse Products</Link></Button>
-                <Button asChild variant="ghost"><Link href="/deals">View Deals</Link></Button>
+                <Button asChild variant="ghost"><Link href="/products">Browse Products</Link></Button>
               </div>
             </div>
           ) : (

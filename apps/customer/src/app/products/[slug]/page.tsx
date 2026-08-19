@@ -269,9 +269,14 @@ export default function ProductPage({ params, searchParams }: { params: { slug: 
               {Number(p.moq) > 1 && <p className="text-xs text-muted-foreground -mt-3">Minimum order: {Number(p.moq)} units</p>}              {/* Trust badges */}
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { icon: ShieldCheck, label: "Verified Supplier", color: "text-primary" },
+                  // Every claim here must be backed by an implemented rule.
+                  // "Verified Supplier" was asserted for every seller regardless
+                  // of tier — the real tier is rendered from seller.tier below.
+                  // "14-day returns" named a window that exists nowhere in the
+                  // schema or services.
+                  { icon: ShieldCheck, label: "Price checked at order", color: "text-primary" },
                   { icon: Truck, label: "Delivery at checkout", color: "text-primary" },
-                  { icon: RotateCcw, label: "14-day returns", color: "text-purple-600" },
+                  { icon: RotateCcw, label: "See returns policy", color: "text-purple-600" },
                 ].map(({ icon: Icon, label, color }) => (
                   <div key={label} className="flex flex-col items-center gap-1 bg-card rounded-xl border border-border p-2.5 text-center">
                     <Icon className={`h-4 w-4 ${color}`} />
@@ -399,7 +404,7 @@ export default function ProductPage({ params, searchParams }: { params: { slug: 
                   {[
                     { icon: Truck, title: "Delivery", desc: "Available delivery terms are confirmed during order processing." },
                     { icon: ShieldCheck, title: "Order protection", desc: "Price, tax and availability are revalidated when the order is submitted." },
-                    { icon: RotateCcw, title: "Returns Policy", desc: "14-day returns for B2C orders. Items must be unused and in original packaging." },
+                    { icon: RotateCcw, title: "Returns Policy", desc: "Return eligibility and any applicable window are confirmed against the published returns policy when a return is requested." },
                     { icon: Award, title: "B2B Orders", desc: "Bulk orders may include special delivery terms. Contact your account manager." },
                   ].map(({ icon: Icon, title, desc }) => (
                     <div key={title} className="flex gap-3">

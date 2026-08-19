@@ -125,3 +125,58 @@ describe("portal middleware — cross-portal role isolation", () => {
     expect(res!.status).toBe(200);
   });
 });
+
+describe("public catalog API contract", () => {
+  it("serves /api/brands to anonymous visitors", async () => {
+    // /brands is a public page that renders from this endpoint. If the API is
+    // not public, an anonymous visitor gets a 401 behind a public route.
+    const mw = createMiddleware("customer", anon);
+    const res = await mw(req("/api/brands"));
+
+    expect(res!.status).toBe(200);
+    expect(res!.headers.get("location")).toBeNull();
+  });
+
+  it("keeps the other public catalog endpoints anonymous", async () => {
+    const mw = createMiddleware("customer", anon);
+    for (const path of ["/api/products", "/api/categories"]) {
+      const res = await mw(req(path));
+      expect(res!.status, `${path} should be public`).toBe(200);
+    }
+  });
+
+  it("does not make the whole customer API public", async () => {
+    const mw = createMiddleware("customer", anon);
+    const res = await mw(req("/api/orders"));
+
+    expect(res!.status).toBe(401);
+  });
+
+  it("does not expose brands on the seller or admin portals", async () => {
+    for (const portal of ["seller", "admin"] as const) {
+      const mw = createMiddleware(portal, anon);
+      const res = await mw(req("/api/brands"));
+      expect(res!.status, `${portal} must not treat /api/brands as public`).toBe(401);
+    }
+  });
+});
+
+describe("return path preservation through login", () => {
+  it("preserves the query string in callbackUrl", async () => {
+    // A bare pathname drops filters, variant selection and RFQ context, so the
+    // visitor returns to a different page than the one they were sent from.
+    const mw = createMiddleware("customer", anon);
+    const res = await mw(req("/b2b/rfq/new?productId=p-1&supplier=s-9"));
+
+    const location = new URL(res!.headers.get("location")!);
+    expect(location.searchParams.get("callbackUrl")).toBe("/b2b/rfq/new?productId=p-1&supplier=s-9");
+  });
+
+  it("still sets a callbackUrl when there is no query string", async () => {
+    const mw = createMiddleware("customer", anon);
+    const res = await mw(req("/account/orders"));
+
+    const location = new URL(res!.headers.get("location")!);
+    expect(location.searchParams.get("callbackUrl")).toBe("/account/orders");
+  });
+});

@@ -28,10 +28,24 @@ import {
   AuditAction,
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 
 const prisma = new PrismaClient();
 
 const HASH = (pw: string) => bcrypt.hash(pw, 12);
+
+/**
+ * Seed account password.
+ *
+ * Never hardcoded: a committed credential ends up in the repository, in build
+ * output, in documentation and — as this project found at Gate 1 — rendered on
+ * public login pages. Supply SEED_PASSWORD for a reproducible local login;
+ * otherwise a fresh random password is generated per run and printed once when
+ * the seed finishes.
+ */
+const SEED_PASSWORD_WAS_GENERATED = !process.env.SEED_PASSWORD?.trim();
+const SEED_PASSWORD =
+  process.env.SEED_PASSWORD?.trim() || randomBytes(18).toString("base64url");
 
 /**
  * The seed performs an unconditional cascade of deleteMany() across ~40 tables.
@@ -127,7 +141,7 @@ async function main() {
     update: {},
     create: {
       email: "admin@avenick.test",
-      passwordHash: await HASH("Password123!"),
+      passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Platform",
       lastName: "Admin",
       role: UserRole.SUPER_ADMIN,
@@ -144,7 +158,7 @@ async function main() {
     update: {},
     create: {
       email: "seller@avenick.test",
-      passwordHash: await HASH("Password123!"),
+      passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Mohammed",
       lastName: "Al-Rashidi",
       firstNameAr: "محمد",
@@ -217,7 +231,7 @@ async function main() {
     where: { email: "seller-a-fulfillment@avenick.test" },
     update: { role: UserRole.SELLER_STAFF, status: UserStatus.ACTIVE, deletedAt: null },
     create: {
-      email: "seller-a-fulfillment@avenick.test", passwordHash: await HASH("Password123!"),
+      email: "seller-a-fulfillment@avenick.test", passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Seller A", lastName: "Fulfillment", role: UserRole.SELLER_STAFF,
       status: UserStatus.ACTIVE, language: Language.EN,
     },
@@ -226,7 +240,7 @@ async function main() {
     where: { email: "seller-a-catalog@avenick.test" },
     update: { role: UserRole.SELLER_STAFF, status: UserStatus.ACTIVE, deletedAt: null },
     create: {
-      email: "seller-a-catalog@avenick.test", passwordHash: await HASH("Password123!"),
+      email: "seller-a-catalog@avenick.test", passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Seller A", lastName: "Catalog", role: UserRole.SELLER_STAFF,
       status: UserStatus.ACTIVE, language: Language.EN,
     },
@@ -246,7 +260,7 @@ async function main() {
     where: { email: "seller-b-owner@avenick.test" },
     update: { role: UserRole.SELLER_OWNER, status: UserStatus.ACTIVE, deletedAt: null },
     create: {
-      email: "seller-b-owner@avenick.test", passwordHash: await HASH("Password123!"),
+      email: "seller-b-owner@avenick.test", passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Seller B", lastName: "Owner", role: UserRole.SELLER_OWNER,
       status: UserStatus.ACTIVE, language: Language.EN,
     },
@@ -268,7 +282,7 @@ async function main() {
     update: {},
     create: {
       email: "buyer@avenick.test",
-      passwordHash: await HASH("Password123!"),
+      passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Sara",
       lastName: "Al-Mansouri",
       firstNameAr: "سارة",
@@ -285,7 +299,7 @@ async function main() {
     update: {},
     create: {
       email: "company@avenick.test",
-      passwordHash: await HASH("Password123!"),
+      passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Omar",
       lastName: "Al-Suwaidi",
       firstNameAr: "عمر",
@@ -1223,7 +1237,7 @@ async function main() {
     update: {},
     create: {
       email: "pending-seller@avenick.test",
-      passwordHash: await HASH("Password123!"),
+      passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Khalid",
       lastName: "Al-Otaibi",
       firstNameAr: "خالد",
@@ -1259,15 +1273,25 @@ async function main() {
 
   console.log("\n🎉 Seed complete!");
   console.log("─────────────────────────────────────────────────────");
-  console.log("  admin@avenick.test          / Password123!");
-  console.log("  seller@avenick.test         / Password123!");
-  console.log("  seller-a-fulfillment@avenick.test / Password123!");
-  console.log("  seller-a-catalog@avenick.test     / Password123!");
-  console.log("  seller-b-owner@avenick.test       / Password123!");
-  console.log("  buyer@avenick.test          / Password123!");
-  console.log("  company@avenick.test        / Password123!");
-  console.log("  pending-seller@avenick.test / Password123!");
+  console.log("  admin@avenick.test");
+  console.log("  seller@avenick.test");
+  console.log("  seller-a-fulfillment@avenick.test");
+  console.log("  seller-a-catalog@avenick.test");
+  console.log("  seller-b-owner@avenick.test");
+  console.log("  buyer@avenick.test");
+  console.log("  company@avenick.test");
+  console.log("  pending-seller@avenick.test");
   console.log("─────────────────────────────────────────────────────");
+
+  // Echo the generated password once, to this terminal only. If the operator
+  // supplied SEED_PASSWORD themselves, it is never echoed back.
+  if (SEED_PASSWORD_WAS_GENERATED) {
+    console.log(`\n  Generated seed password: ${SEED_PASSWORD}`);
+    console.log("  Shown once. Set SEED_PASSWORD to choose your own.");
+    console.log("  Do not commit it, paste it into docs, or capture it in screenshots.\n");
+  } else {
+    console.log("\n  Seed password taken from SEED_PASSWORD.\n");
+  }
 }
 
 main()

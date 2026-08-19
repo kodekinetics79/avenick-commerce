@@ -139,7 +139,8 @@ export default async function HomePage() {
 
       {/* ─── Best sellers ─────────────────────────────────── */}
       <Section title={t("bestSellers")} subtitle={t("bestSellersSub")} href="/products">
-        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} locale={locale} badge="HOT" />)}</Grid>
+        {/* No badge: "HOT" asserts demand ranking the catalog does not compute. */}
+        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>
       </Section>
 
       {/* ─── Value props ──────────────────────────────────── */}

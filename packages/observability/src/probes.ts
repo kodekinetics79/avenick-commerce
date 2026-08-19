@@ -119,18 +119,38 @@ export async function readiness(
 
 // ─── Public status aggregator ──────────────────────────────────────────────────
 
-export type ComponentStatus = "operational" | "degraded" | "down";
+/**
+ * `unverified` and `not_configured` exist so the page can distinguish "we
+ * checked and it is fine" from "nothing has checked this" and "there is nothing
+ * here to check". Collapsing either into `operational` is how a status page ends
+ * up claiming health it never measured.
+ */
+export type ComponentStatus =
+  | "operational"
+  | "degraded"
+  | "down"
+  | "unverified"
+  | "not_configured";
+
+/** Groups a component so the page can scope its headline claim. */
+export type ComponentKind = "process" | "journey" | "integration";
 
 export interface StatusComponent {
   name: string;
   status: ComponentStatus;
+  /** Defaults to "process" when omitted. */
+  kind?: ComponentKind;
   /** Optional short, non-sensitive detail (e.g. "circuit: OPEN"). */
   detail?: string;
 }
 
 export interface StatusSummary {
-  /** Worst-of the components. */
+  /** Worst-of the components that were actually measured. */
   status: ComponentStatus;
+  /** Worst-of the process components only — never journeys or integrations. */
+  processStatus: ComponentStatus;
+  /** `operational` only when a journey synthetic has actually passed. */
+  journeyStatus: ComponentStatus;
   app: string;
   components: StatusComponent[];
   uptimeSeconds: number;
@@ -145,13 +165,39 @@ export interface StatusSummary {
  * internals or PII here — it is public.
  */
 export function statusSummary(app: string, components: StatusComponent[]): StatusSummary {
-  const rank: Record<ComponentStatus, number> = { operational: 0, degraded: 1, down: 2 };
-  const overall = components.reduce<ComponentStatus>(
-    (worst, c) => (rank[c.status] > rank[worst] ? c.status : worst),
-    "operational",
-  );
+  // `unverified` outranks `degraded`: not knowing is worse than a known,
+  // measured partial failure, because it cannot be reasoned about. Only `down`
+  // is worse. `not_configured` is not a fault and never worsens a roll-up.
+  const rank: Record<ComponentStatus, number> = {
+    not_configured: -1,
+    operational: 0,
+    degraded: 1,
+    unverified: 2,
+    down: 3,
+  };
+
+  const worstOf = (subset: StatusComponent[], fallback: ComponentStatus): ComponentStatus => {
+    const measured = subset.filter((c) => c.status !== "not_configured");
+    if (measured.length === 0) return fallback;
+    return measured.reduce<ComponentStatus>(
+      (worst, c) => (rank[c.status] > rank[worst] ? c.status : worst),
+      "operational",
+    );
+  };
+
+  const kindOf = (c: StatusComponent): ComponentKind => c.kind ?? "process";
+  const process = components.filter((c) => kindOf(c) === "process");
+  const journeys = components.filter((c) => kindOf(c) === "journey");
+
+  // With no journey component declared at all, journey health is unknown —
+  // never "operational".
+  const processStatus = worstOf(process, "unverified");
+  const journeyStatus = worstOf(journeys, "unverified");
+
   return {
-    status: overall,
+    status: worstOf(components, "unverified"),
+    processStatus,
+    journeyStatus,
     app,
     components,
     uptimeSeconds: uptimeSeconds(),
