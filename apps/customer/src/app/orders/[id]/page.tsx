@@ -223,7 +223,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
           </div>
 
           <div className="mt-5 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-            <ShieldCheck className="h-4 w-4 text-primary" /> Protected by Avenick Commerce Buyer Protection
+            <ShieldCheck className="h-4 w-4 text-primary" /> Price, tax and availability are revalidated when an order is submitted
           </div>
         </div>
       </div>

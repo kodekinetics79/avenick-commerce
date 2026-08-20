@@ -1,4 +1,4 @@
-import NextAuth, { type NextAuthConfig } from "next-auth";
+import NextAuth, { CredentialsSignin, type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { db, UserRole, UserStatus } from "@avenick/database";
@@ -6,6 +6,21 @@ import { LoginSchema } from "@avenick/types";
 import { checkRateLimit, clientIpFrom, RATE_LIMITS } from "./rate-limit";
 
 type AppName = "customer" | "seller" | "admin";
+
+/**
+ * Distinguishes throttling from a wrong password.
+ *
+ * Returning null for both told a rate-limited user their credentials were
+ * invalid. They then retry — spending more of the very budget that is
+ * exhausted — and may reset a password that was never wrong. It also hid the
+ * control from anyone diagnosing a login problem.
+ *
+ * Surfacing "too many attempts" leaks nothing about whether an account exists,
+ * because the limit is keyed on the client IP as well as the identifier.
+ */
+export class RateLimitedSignin extends CredentialsSignin {
+  override code = "rate_limited";
+}
 
 function buildAuthConfig(app: AppName): NextAuthConfig {
   const p = `avenick.${app}`;
@@ -29,7 +44,7 @@ function buildAuthConfig(app: AppName): NextAuthConfig {
             checkRateLimit(RATE_LIMITS.login, email.toLowerCase()),
             checkRateLimit(RATE_LIMITS.loginIp, ip),
           ]);
-          if (!byEmail.ok || !byIp.ok) return null;
+          if (!byEmail.ok || !byIp.ok) throw new RateLimitedSignin();
 
           const user = await db.user.findUnique({
             where: { email: email.toLowerCase() },

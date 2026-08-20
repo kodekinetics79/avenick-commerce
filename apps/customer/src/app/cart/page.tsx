@@ -74,7 +74,7 @@ export default function CartPage() {
                       </div>
                       <span className="font-bold text-primary shrink-0">{formatCurrency(item.unitPrice * item.qty, item.currency as never)}</span>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">{formatCurrency(item.unitPrice, item.currency as never)} each · VAT {item.vatRate ?? "missing"}%</p>
+                    <p className="text-xs text-muted-foreground mt-1">{formatCurrency(item.unitPrice, item.currency as never)} each · VAT {item.vatRate ?? "—"}%</p>
 
                     <div className="flex items-center justify-between mt-3">
                       <div className="flex items-center gap-2 text-sm"><span className="font-semibold">Qty {item.qty}</span><Link href={cartQuantityChangeHref(item)} className="text-xs text-primary hover:underline">Change quantity</Link></div>

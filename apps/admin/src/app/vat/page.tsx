@@ -149,7 +149,7 @@ export default async function VATPage({ searchParams }: PageProps) {
                     <td colSpan={7} className="px-4 py-12 text-center">
                       <Receipt className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
                       <p className="text-sm text-muted-foreground">
-                        No tax invoices issued yet. Invoices are generated when B2B orders are confirmed.
+                        No tax invoices issued yet. Automatic tax-invoice generation is not implemented — no invoice is created by the platform today.
                       </p>
                     </td>
                   </tr>

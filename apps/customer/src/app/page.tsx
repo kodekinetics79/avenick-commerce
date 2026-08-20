@@ -165,7 +165,9 @@ export default async function HomePage() {
 
       {/* ─── Featured ─────────────────────────────────────── */}
       <Section title={t("featuredProducts")} subtitle={t("featuredProductsSub")} href="/products">
-        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} locale={locale} badge="NEW" />)}</Grid>
+        {/* No badge: "NEW" was stamped on every product regardless of age, and on
+            the same five products already shown above under Best sellers. */}
+        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>
       </Section>
 
       {/* ─── B2B CTA band ─────────────────────────────────── */}

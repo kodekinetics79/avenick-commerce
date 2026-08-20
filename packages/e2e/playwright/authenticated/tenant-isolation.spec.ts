@@ -83,25 +83,42 @@ test.describe("seller-to-seller isolation", () => {
     }
   });
 
-  test("Seller B cannot fetch a Seller A order by direct ID", async ({ browser }) => {
+  test("Seller B cannot fetch a Seller A record by direct ID", async ({ browser }) => {
+    // This test is written to be NON-VACUOUS. An earlier version targeted
+    // /api/seller/orders/:id, which does not exist — so it returned 404 to
+    // everyone and passed while asserting nothing. It would have passed
+    // identically if isolation were completely broken.
+    //
+    // The guard: first prove the endpoint is real by fetching as its OWNER and
+    // requiring 200. Only then does a non-200 for the other seller mean
+    // anything. If the route ever disappears, this fails loudly instead of
+    // going quietly green.
     const sellerA = await browser.newContext({ storageState: storageStatePath("sellerOwner") });
     const sellerB = await browser.newContext({ storageState: storageStatePath("sellerBOwner") });
 
     try {
-      const aResponse = await sellerA.request.get(url("seller", "/api/seller/orders"));
-      const aBody = await aResponse.json();
-      const aOrders = aBody.data ?? aBody.orders ?? aBody;
-      const target = (Array.isArray(aOrders) ? aOrders : [])[0];
+      const listResponse = await sellerA.request.get(url("seller", "/api/seller/rfqs"));
+      expect(listResponse.status(), "Seller A could not list its own RFQs").toBe(200);
 
-      test.skip(!target?.id, "No Seller A order available to attempt");
+      const listBody = await listResponse.json();
+      const rfqs = listBody.data ?? listBody.rfqs ?? listBody;
+      const target = (Array.isArray(rfqs) ? rfqs : [])[0];
 
-      // Guessing an ID is the realistic attack: the attacker is authenticated
-      // and simply asks for someone else's record.
-      const bResponse = await sellerB.request.get(url("seller", `/api/seller/orders/${target.id}`));
+      test.skip(!target?.id, "No RFQ available to attempt — isolation not exercised");
 
+      // Step 1 — prove the endpoint exists and serves its owner.
+      const ownerResponse = await sellerA.request.get(url("seller", `/api/seller/rfqs/${target.id}`));
       expect(
-        bResponse.status(),
-        `Seller B received HTTP ${bResponse.status()} for Seller A's order ${target.id}`,
+        ownerResponse.status(),
+        `Owner could not read its own record, so a denial for the other seller would prove nothing. ` +
+          `Got HTTP ${ownerResponse.status()} — has the route moved?`,
+      ).toBe(200);
+
+      // Step 2 — only now is a denial meaningful.
+      const intruderResponse = await sellerB.request.get(url("seller", `/api/seller/rfqs/${target.id}`));
+      expect(
+        intruderResponse.status(),
+        `Seller B received HTTP ${intruderResponse.status()} for Seller A's RFQ ${target.id}`,
       ).not.toBe(200);
     } finally {
       await sellerA.close();

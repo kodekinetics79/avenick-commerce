@@ -2,16 +2,17 @@
 
 import { useState } from "react";
 import { signInWithCredentials } from "@avenick/auth/client";
+import { messageForSignInError as messageForError } from "@avenick/auth/sign-in-messages";
 import { useSearchParams } from "next/navigation";
 import { Input, Button } from "@avenick/ui";
 
 export default function AdminLoginPage() {
   const searchParams = useSearchParams();
-  const urlError = searchParams.get("error");
+  const urlError = searchParams.get("code") ?? searchParams.get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(urlError ? "Invalid email or password." : "");
+  const [error, setError] = useState(messageForError(urlError));
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -20,7 +21,7 @@ export default function AdminLoginPage() {
     try {
       const res = await signInWithCredentials(email, password, "/dashboard");
       if (!res.ok) {
-        setError("Invalid email or password.");
+        setError(messageForError(res.code ?? res.error));
         setLoading(false);
       } else {
         window.location.assign("/dashboard");

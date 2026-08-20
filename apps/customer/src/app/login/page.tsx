@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signInWithCredentials } from "@avenick/auth/client";
+import { messageForSignInErrorBilingual as messageForError } from "@avenick/auth/sign-in-messages";
 import { safeReturnTo } from "@avenick/auth/safe-redirect";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -10,14 +11,14 @@ import { MainLayout } from "@/components/layout/main-layout";
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
-  const urlError = searchParams.get("error");
+  const urlError = searchParams.get("code") ?? searchParams.get("error");
   // Validated before use: an unchecked callbackUrl is an open redirect, since a
   // successful login would navigate the visitor to an attacker-chosen origin.
   const callbackUrl = safeReturnTo(searchParams.get("callbackUrl"), "/account/orders");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(urlError ? "Invalid email or password. / بيانات الدخول غير صحيحة." : "");
+  const [error, setError] = useState(messageForError(urlError));
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -26,7 +27,7 @@ export default function LoginPage() {
     try {
       const res = await signInWithCredentials(email, password, callbackUrl);
       if (!res.ok) {
-        setError("Invalid email or password. / بيانات الدخول غير صحيحة.");
+        setError(messageForError(res.code ?? res.error));
         setLoading(false);
       } else {
         window.location.assign(callbackUrl);

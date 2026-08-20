@@ -9,7 +9,8 @@
     "./remote-session": "./src/remote-session.ts",
     "./middleware": "./src/middleware.ts",
     "./guards": "./src/guards.ts",
-    "./api": "./src/api.ts"
+    "./api": "./src/api.ts",
+    "./sign-in-messages": "./src/sign-in-messages.ts"
   },
   "dependencies": {
     "@avenick/database": "workspace:*",

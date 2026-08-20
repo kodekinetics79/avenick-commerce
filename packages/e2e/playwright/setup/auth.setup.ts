@@ -22,15 +22,45 @@ for (const [name, persona] of Object.entries(PERSONAS)) {
   setup(`authenticate: ${persona.label}`, async ({ page }) => {
     assertPasswordConfigured();
 
-    await page.goto(url(persona.portal, "/login"), { waitUntil: "domcontentloaded" });
+    // Sign-in is rate limited per identifier AND per client IP. Repeated suite
+    // runs legitimately exhaust the IP budget, which previously surfaced as a
+    // confusing "still on /login" failure. Back off and retry instead of
+    // treating a working security control as a broken test.
+    const MAX_ATTEMPTS = 4;
+    let lastReason = "";
 
-    await page.locator("#login-email, input[type=email]").first().fill(persona.email);
-    await page.locator("#login-password, input[type=password]").first().fill(SEED_PASSWORD);
-    await page.getByRole("button", { name: /sign in/i }).click();
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      await page.goto(url(persona.portal, "/login"), { waitUntil: "domcontentloaded" });
 
-    // Landing anywhere other than /login means credentials were accepted.
-    await expect(page).not.toHaveURL(/\/login/, { timeout: 20_000 });
+      await page.locator("#login-email, input[type=email]").first().fill(persona.email);
+      await page.locator("#login-password, input[type=password]").first().fill(SEED_PASSWORD);
+      await page.getByRole("button", { name: /sign in/i }).click();
 
-    await page.context().storageState({ path: storageStatePath(name) });
+      // Give the navigation a chance before inspecting the outcome.
+      await page.waitForTimeout(1_500);
+
+      if (!/\/login/.test(page.url())) {
+        await page.context().storageState({ path: storageStatePath(name) });
+        return;
+      }
+
+      lastReason = (await page.locator("body").innerText().catch(() => "")).slice(0, 300);
+
+      const throttled = /too many/i.test(lastReason);
+      if (!throttled) break; // A real credential rejection: fail fast, do not retry.
+
+      if (attempt < MAX_ATTEMPTS) {
+        // The window is 15 minutes; a short wait clears bursts, not the whole
+        // budget, so this is bounded and honest rather than a spin.
+        await page.waitForTimeout(attempt * 20_000);
+      }
+    }
+
+    throw new Error(
+      `Could not authenticate ${persona.label} (${persona.email}) at ${url(persona.portal, "/login")}.\n` +
+        `Page said: ${lastReason || "(no message)"}\n` +
+        `If this mentions rate limiting, the per-IP sign-in budget is exhausted — wait for the ` +
+        `15-minute window to roll over. Otherwise check E2E_SEED_PASSWORD matches the seed's SEED_PASSWORD.`,
+    );
   });
 }

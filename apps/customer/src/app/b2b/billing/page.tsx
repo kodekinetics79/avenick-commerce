@@ -98,7 +98,7 @@ export default async function BillingPage() {
           <div className="p-10 text-center">
             <FileText className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
             <p className="font-semibold">No invoices yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Placing an approved purchase order generates a tax invoice here.</p>
+            <p className="text-sm text-muted-foreground mt-1">Tax invoices are not generated automatically yet. Request one from your account contact.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

@@ -7,7 +7,10 @@ import { fetchBackendJson } from "@/lib/backend";
 
 export const metadata: Metadata = { title: "Search — Avenick Commerce" };
 
-const POPULAR_SEARCHES = [
+// Suggested starting points, not a popularity ranking. The catalog computes no
+// demand or search-frequency data, so presenting these as "popular" asserted
+// something untrue. Renamed rather than removed: the shortcuts are still useful.
+const SUGGESTED_SEARCHES = [
   "Safety helmets", "Office chairs", "Industrial gloves", "Fire extinguisher",
   "CCTV cameras", "Steel pipes", "Laptop bags", "First aid kit",
 ];
@@ -48,10 +51,10 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <TrendingUp className="h-4 w-4 text-primary/100" />
-                  <h2 className="font-semibold">Popular Searches</h2>
+                  <h2 className="font-semibold">Suggested Searches</h2>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {POPULAR_SEARCHES.map((s) => (
+                  {SUGGESTED_SEARCHES.map((s) => (
                     <Link key={s} href={`/search?q=${encodeURIComponent(s)}`}
                       className="px-3 py-1.5 bg-white border border-border rounded-full text-sm hover:border-primary hover:text-primary transition-colors">
                       {s}
@@ -83,7 +86,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
               <p className="text-sm text-muted-foreground mb-1">لم يتم العثور على منتجات</p>
               <p className="text-sm text-muted-foreground mb-6">Try a different keyword or browse by category.</p>
               <div className="flex flex-wrap justify-center gap-2 mb-6">
-                {POPULAR_SEARCHES.slice(0, 4).map((s) => (
+                {SUGGESTED_SEARCHES.slice(0, 4).map((s) => (
                   <Link key={s} href={`/search?q=${encodeURIComponent(s)}`}
                     className="px-3 py-1.5 bg-primary/10 text-primary border border-primary/30 rounded-full text-sm hover:bg-primary/20 transition-colors">
                     {s}
