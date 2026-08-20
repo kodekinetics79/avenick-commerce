@@ -1,4 +1,5 @@
 export { handlers, auth, signIn, signOut, createAuth } from "./config";
+export * from "./safe-redirect";
 export * from "./guards";
 export * from "./middleware";
 export * from "./api";

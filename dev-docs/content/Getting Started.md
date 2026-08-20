@@ -129,11 +129,14 @@ Port configuration:
 - Additional services: MinIO Console (9001), Elasticsearch (9200), PostgreSQL (5432), Redis (6379)
 
 Test accounts (after seeding):
-- Super Admin: admin@avenick.test / Password123!
-- Seller Owner: seller@avenick.test / Password123!
-- B2C Buyer: buyer@avenick.test / Password123!
-- B2B Company Admin: company@avenick.test / Password123!
-- Pending Seller: pending-seller@avenick.test / Password123!
+- Super Admin: admin@avenick.test
+- Seller Owner: seller@avenick.test
+- B2C Buyer: buyer@avenick.test
+- B2B Company Admin: company@avenick.test
+- Pending Seller: pending-seller@avenick.test
+
+Passwords are never published here. `pnpm db:seed` uses `SEED_PASSWORD` when set,
+otherwise it generates one per run and prints it once to the seeding terminal.
 
 **Section sources**
 - [README.md:11-89](file://README.md#L11-L89)
@@ -401,11 +404,14 @@ You now have the essentials to set up Avenick Commerce locally: install prerequi
 - [README.md:66-76](file://README.md#L66-L76)
 
 ### Test Accounts
-- Super Admin: admin@avenick.test / Password123!
-- Seller Owner: seller@avenick.test / Password123!
-- B2C Buyer: buyer@avenick.test / Password123!
-- B2B Company Admin: company@avenick.test / Password123!
-- Pending Seller: pending-seller@avenick.test / Password123!
+- Super Admin: admin@avenick.test
+- Seller Owner: seller@avenick.test
+- B2C Buyer: buyer@avenick.test
+- B2B Company Admin: company@avenick.test
+- Pending Seller: pending-seller@avenick.test
+
+Passwords are never published here. `pnpm db:seed` uses `SEED_PASSWORD` when set,
+otherwise it generates one per run and prints it once to the seeding terminal.
 
 **Section sources**
 - [README.md:80-89](file://README.md#L80-L89)

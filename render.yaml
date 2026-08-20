@@ -116,7 +116,7 @@ services:
       - key: NEXTAUTH_SECRET
         sync: false
       - key: NEXTAUTH_URL
-        value: "https://avenick-seller.vercel.app"
+        value: "https://avenick-commerce-seller.vercel.app"
       - key: AUTH_TRUST_HOST
         value: "true"
       - key: OTEL_SERVICE_NAME
@@ -150,7 +150,7 @@ services:
       - key: NEXTAUTH_SECRET
         sync: false
       - key: NEXTAUTH_URL
-        value: "https://avenick-admin.vercel.app"
+        value: "https://avenick-commerce-admin.vercel.app"
       - key: AUTH_TRUST_HOST
         value: "true"
       - key: OTEL_SERVICE_NAME

@@ -5,15 +5,18 @@
 | Role | Frontend | Backend |
 | --- | --- | --- |
 | Customer and company buyer | `https://avenick.vercel.app` | `https://avenick-commerce.onrender.com` |
-| Seller | `https://avenick-seller.vercel.app` | `https://avenick-seller.onrender.com` |
-| Platform admin | `https://avenick-admin.vercel.app` | `https://avenick-admin.onrender.com` |
+| Seller | `https://avenick-commerce-seller.vercel.app` | `https://avenick-seller.onrender.com` |
+| Platform admin | `https://avenick-commerce-admin.vercel.app` | `https://avenick-admin.onrender.com` |
 
 If the seller or admin Vercel project uses a different production domain, update
 its `NEXTAUTH_URL` on Render and the corresponding URL in this document.
 
 ## Demo Accounts
 
-All seeded accounts use `Password123!`.
+Seed accounts have no published password. The seed sets every account to the
+value of `SEED_PASSWORD`, or generates a random one per run and prints it once
+to the terminal running `pnpm db:seed`. Never record that value here, in any
+runbook, in chat, or in a screenshot.
 
 | Role | Email |
 | --- | --- |
@@ -46,7 +49,7 @@ Seller Vercel:
 ```env
 AUTH_SECRET=<seller-shared-secret>
 NEXTAUTH_SECRET=<seller-shared-secret>
-NEXTAUTH_URL=https://avenick-seller.vercel.app
+NEXTAUTH_URL=https://avenick-commerce-seller.vercel.app
 NEXT_PUBLIC_SELLER_BACKEND_URL=https://avenick-seller.onrender.com
 AUTH_TRUST_HOST=true
 ```
@@ -56,7 +59,7 @@ Admin Vercel:
 ```env
 AUTH_SECRET=<admin-shared-secret>
 NEXTAUTH_SECRET=<admin-shared-secret>
-NEXTAUTH_URL=https://avenick-admin.vercel.app
+NEXTAUTH_URL=https://avenick-commerce-admin.vercel.app
 NEXT_PUBLIC_ADMIN_BACKEND_URL=https://avenick-admin.onrender.com
 AUTH_TRUST_HOST=true
 ```

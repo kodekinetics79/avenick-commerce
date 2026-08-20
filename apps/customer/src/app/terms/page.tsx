@@ -62,14 +62,14 @@ const SECTIONS: LegalSection[] = [
     icon: CreditCard,
     contentEn: (
       <>
-        <p>Qualified B2B buyers may apply for credit lines and Net payment terms (e.g. Net 30, Net 60). Credit limits are reviewed periodically based on purchase history and creditworthiness checks.</p>
-        <p>All tax invoices issued under Net terms must be paid in full by their respective due dates. Overdue invoices will result in immediate suspension of credit line facilities and temporary B2B account lockouts.</p>
+        <p>A company account may carry a credit limit and payment terms recorded by Avenick. Only terms already approved and shown on the active company account apply. There is currently no self-service application for credit lines or Net terms, and no automated periodic review of credit limits.</p>
+        <p>Tax invoices issued under recorded payment terms must be paid in full by their due dates. Avenick does not currently operate automated credit suspension or account lockout on overdue invoices; any such action is taken manually under the executed customer agreement.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>يمكن للمشترين المؤهلين تقديم طلب للحصول على خط ائتمان تجاري وشروط دفع صافية (مثل صافي ٣٠ يوماً، صافي ٦٠ يوماً). ويتم مراجعة الحدود الائتمانية بشكل دوري بناءً على تاريخ الشراء والتحقق من الجدارة الائتمانية.</p>
-        <p>يجب سداد جميع الفواتير الضريبية الصادرة بموجب شروط الدفع المحددة بالكامل في تواريخ استحقاقها. وسيترتب على الفواتير المتأخرة تعليق فوري للتسهيلات الائتمانية وإغلاق مؤقت لحساب الشركة.</p>
+        <p>قد يحمل حساب الشركة حداً ائتمانياً وشروط دفع مسجلة لدى أفينيك. ولا تسري إلا الشروط المعتمدة مسبقاً والظاهرة على حساب الشركة النشط. ولا يتوفر حالياً طلب ذاتي للحصول على خطوط ائتمان أو شروط دفع صافية، ولا توجد مراجعة دورية آلية للحدود الائتمانية.</p>
+        <p>يجب سداد الفواتير الضريبية الصادرة بموجب شروط الدفع المسجلة بالكامل في تواريخ استحقاقها. ولا تُشغّل أفينيك حالياً تعليقاً ائتمانياً آلياً أو إغلاقاً للحساب عند تأخر الفواتير؛ وأي إجراء من هذا القبيل يُتخذ يدوياً بموجب اتفاقية العميل المبرمة.</p>
       </>
     ),
   },
@@ -80,13 +80,13 @@ const SECTIONS: LegalSection[] = [
     icon: ShoppingBag,
     contentEn: (
       <>
-        <p>When you submit a Request for Quotation (RFQ), it is distributed to matching verified suppliers. Quotations received from suppliers are binding offers valid until the expiration date specified on the quote.</p>
+        <p>When you submit a Request for Quotation (RFQ), it is recorded and may be assigned to a supplier. Avenick does not guarantee that an RFQ is distributed to multiple suppliers or that a quote will be returned. Quotations received from suppliers are binding offers valid until the expiration date specified on the quote.</p>
         <p>Upon accepting a quotation, the platform automatically drafts a Purchase Order (PO). If approval policies are configured, the PO will wait for approval from your designated Company Approver before converting to a formal order.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>عند إرسال طلب عرض أسعار (RFQ)، يتم توزيعه على الموردين المعتمدين والمطابقين. وتعتبر عروض الأسعار الواردة من الموردين عروضاً ملزمة وسارية المفعول حتى تاريخ انتهاء الصلاحية المحدد في العرض.</p>
+        <p>عند إرسال طلب عرض أسعار (RFQ)، يتم تسجيله وقد يُسنَد إلى مورد. ولا تضمن أفينيك توزيع الطلب على عدة موردين أو ورود عرض أسعار. وتعتبر عروض الأسعار الواردة من الموردين عروضاً ملزمة وسارية المفعول حتى تاريخ انتهاء الصلاحية المحدد في العرض.</p>
         <p>عند قبول عرض الأسعار، تقوم المنصة تلقائياً بصياغة أمر الشراء (PO). وفي حالة تهيئة سياسات الموافقة، سينتظر أمر الشراء موافقة المفوّض المعيّن قبل تحويله إلى طلب رسمي.</p>
       </>
     ),

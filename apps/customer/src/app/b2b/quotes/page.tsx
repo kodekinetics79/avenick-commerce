@@ -74,7 +74,7 @@ export default async function QuotesPage() {
           {rfqs.length === 0 ? (
             <div className="px-4 py-16 text-center">
               <FileText className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-              <p className="text-sm text-muted-foreground mb-4">No RFQs yet — request quotes from verified suppliers for bulk purchases.</p>
+              <p className="text-sm text-muted-foreground mb-4">No RFQs yet — request quotes from suppliers for bulk purchases.</p>
               <Link href="/b2b/rfq/new" className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
                 <Plus className="h-4 w-4" /> Create your first RFQ
               </Link>

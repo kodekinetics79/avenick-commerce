@@ -25,7 +25,9 @@ function setLocaleCookie(locale: string) {
 const NAV = [
   { href: "/", labelKey: "home" },
   { href: "/products", labelKey: "shop" },
-  { href: "/deals", labelKey: "deals" },
+  // Deals stays out of primary navigation until governed active promotions
+  // exist. The page currently lists ordinary catalog products, so presenting it
+  // as "Deals" claims a discount the commercial model does not back.
   { href: "/brands", labelKey: "brands" },
   { href: "/b2b", labelKey: "forBusiness" },
   { href: "/support", labelKey: "support" },

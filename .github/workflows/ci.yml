@@ -65,3 +65,133 @@ jobs:
 
       - name: Build all apps
         run: pnpm build
+
+  e2e:
+    name: Browser journey evidence
+    runs-on: ubuntu-latest
+    needs: verify
+    timeout-minutes: 40
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: avenick
+          POSTGRES_PASSWORD: avenick
+          POSTGRES_DB: avenick
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U avenick"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Pin every portal at its local instance. Without these, apps/*/src/lib/backend.ts
+      # falls back to https://avenick-*.onrender.com in production mode and CI would
+      # drive tests against the live deployed services (defect D-09).
+      NEXT_PUBLIC_BACKEND_URL: http://localhost:13100
+      NEXT_PUBLIC_SELLER_BACKEND_URL: http://localhost:13101
+      NEXT_PUBLIC_ADMIN_BACKEND_URL: http://localhost:13102
+      E2E_CUSTOMER_URL: http://localhost:13100
+      E2E_SELLER_URL: http://localhost:13101
+      E2E_ADMIN_URL: http://localhost:13102
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Browser binaries are large and version-stable; key on the lockfile.
+      - name: Cache browser binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/Cypress
+            ~/.cache/puppeteer
+          key: browsers-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: browsers-${{ runner.os }}-
+
+      - name: Install browsers
+        run: pnpm --filter @avenick/e2e e2e:install:ci
+
+      - name: Apply database migrations
+        run: pnpm --filter @avenick/database db:deploy
+
+      - name: Seed catalog
+        run: pnpm db:seed
+
+      - name: Build all apps
+        run: pnpm build
+
+      - name: Start portals
+        run: |
+          NEXTAUTH_URL=http://localhost:13100 \
+            pnpm --filter @avenick/customer exec next start -p 13100 > /tmp/customer.log 2>&1 &
+          NEXTAUTH_URL=http://localhost:13101 \
+            pnpm --filter @avenick/seller exec next start -p 13101 > /tmp/seller.log 2>&1 &
+          NEXTAUTH_URL=http://localhost:13102 \
+            pnpm --filter @avenick/admin exec next start -p 13102 > /tmp/admin.log 2>&1 &
+
+      - name: Wait for portals
+        run: |
+          for port in 13100 13101 13102; do
+            ready=""
+            for _ in $(seq 1 60); do
+              if curl -fsS "http://localhost:$port/api/health" > /dev/null 2>&1; then
+                echo "portal on :$port is ready"
+                ready=1
+                break
+              fi
+              sleep 2
+            done
+            if [ -z "$ready" ]; then
+              echo "::error::portal on :$port never became ready"
+              tail -n 100 /tmp/customer.log /tmp/seller.log /tmp/admin.log || true
+              exit 1
+            fi
+          done
+
+      - name: Playwright — storefront journeys
+        run: pnpm --filter @avenick/e2e exec playwright test playwright/storefront.spec.ts
+
+      # Encodes defect D-01 (public credential pairs on all three login pages).
+      # This step is EXPECTED TO FAIL until those credentials are removed. Fix the
+      # pages to turn it green — never weaken the assertion or skip the step.
+      - name: Playwright — security guardrails (D-01)
+        run: pnpm --filter @avenick/e2e exec playwright test playwright/security-guardrails.spec.ts
+
+      - name: Puppeteer — storefront journeys
+        run: pnpm --filter @avenick/e2e run e2e:puppeteer
+
+      - name: Cypress — storefront journeys
+        run: pnpm --filter @avenick/e2e run e2e:cypress
+
+      - name: Upload journey evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-journey-evidence
+          path: |
+            packages/e2e/artifacts/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload portal logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-logs
+          path: /tmp/*.log
+          retention-days: 7
+          if-no-files-found: ignore

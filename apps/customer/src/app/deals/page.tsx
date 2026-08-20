@@ -58,7 +58,7 @@ export default async function DealsPage() {
               <Tag className="h-3.5 w-3.5" /> Featured catalog — منتجات مختارة
             </div>
             <h1 className="text-4xl lg:text-5xl font-extrabold mb-2 tracking-tighter">Featured products</h1>
-            <p className="text-white/80 text-lg">Browse current catalog pricing from verified GCC suppliers.</p>
+            <p className="text-white/80 text-lg">Browse current catalog pricing from GCC suppliers.</p>
           </div>
         </div>
       </section>

@@ -119,15 +119,18 @@ export default function NewRFQPage() {
               <CheckCircle className="h-10 w-10 text-primary" />
             </div>
             <h1 className="text-2xl font-bold mb-2">RFQ Submitted!</h1>
-            <p className="text-muted-foreground mb-1">Your Request for Quotation has been sent to verified suppliers.</p>
-            <p className="text-sm text-muted-foreground mb-6">Expected response time: <strong>24–48 hours</strong>. You&apos;ll be notified when quotes arrive.</p>
+            <p className="text-muted-foreground mb-1">Your Request for Quotation has been recorded.</p>
+            <p className="text-sm text-muted-foreground mb-6">Response times are not guaranteed. Track this RFQ from your quotes list.</p>
             <div className="bg-white border border-border rounded-2xl p-4 mb-6 text-sm text-start">
+              {/* Steps describe the implemented single-supplier RFQ flow. Automatic
+                  distribution to matching suppliers and side-by-side comparison are
+                  not implemented — an RFQ carries at most one supplier. */}
               <p className="font-semibold mb-2">What happens next?</p>
               <ol className="space-y-1.5 text-muted-foreground">
-                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</span> RFQ reviewed by Avenick Commerce team</li>
-                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</span> Assigned to matching verified suppliers</li>
-                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span> You receive and compare quotes</li>
-                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">4</span> Accept best quote → convert to order</li>
+                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</span> RFQ recorded against your company</li>
+                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</span> A supplier is assigned to the request</li>
+                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span> You review the quote when it is submitted</li>
+                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">4</span> Accept the quote → convert to order</li>
               </ol>
             </div>
             <div className="flex gap-3 justify-center">
@@ -150,7 +153,7 @@ export default function NewRFQPage() {
 
           <div className="mb-6">
             <h1 className="text-2xl font-bold">Create Request for Quotation</h1>
-            <p className="text-muted-foreground text-sm mt-1">Submit an RFQ to receive competitive quotes from verified suppliers.</p>
+            <p className="text-muted-foreground text-sm mt-1">Submit an RFQ to request a supplier quote.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -265,7 +268,7 @@ export default function NewRFQPage() {
             {/* Info callout */}
             <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-primary">
               <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-              <p>Your RFQ will be reviewed within <strong>2 business hours</strong> and distributed to matching verified suppliers. You&apos;ll receive an email notification when quotes arrive.</p>
+              <p>Your RFQ is recorded against your company and tracked in your quotes list. No review or response time is guaranteed.</p>
             </div>
 
             {error && (

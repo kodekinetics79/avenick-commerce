@@ -17,7 +17,7 @@ export default async function BrandsPage() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight mb-2">Shop by brand</h1>
-          <p className="text-muted-foreground">Browse products from verified GCC suppliers and global brands.</p>
+          <p className="text-muted-foreground">Browse products from GCC suppliers and global brands.</p>
         </div>
 
         {brands.length === 0 ? (
@@ -56,7 +56,7 @@ export default async function BrandsPage() {
             <Building2 className="h-8 w-8 text-primary shrink-0" />
             <div>
               <p className="font-semibold">Are you a brand or distributor?</p>
-              <p className="text-sm text-muted-foreground">Join Avenick Commerce as a verified seller and reach thousands of B2B buyers.</p>
+              <p className="text-sm text-muted-foreground">Join Avenick Commerce as an approved seller and reach thousands of B2B buyers.</p>
             </div>
           </div>
           <Link href="/register" className="inline-flex items-center gap-1.5 h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98] shrink-0 whitespace-nowrap">

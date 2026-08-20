@@ -25,7 +25,7 @@ export default function B2BRegisterPage() {
             <span className="block text-2xl font-normal text-muted-foreground mt-2">طوّر أعمالك مع Avenick Commerce</span>
           </h1>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Join thousands of businesses sourcing industrial supplies, safety equipment, and more from verified GCC suppliers — with B2B pricing, purchase orders, and approval workflows built in.
+            Join thousands of businesses sourcing industrial supplies, safety equipment, and more from GCC suppliers — with B2B pricing, purchase orders, and approval workflows built in.
           </p>
         </div>
 

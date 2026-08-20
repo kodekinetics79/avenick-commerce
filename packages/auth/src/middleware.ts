@@ -23,8 +23,12 @@ const PUBLIC_PATHS: Record<PortalType, string[]> = {
 
 // API paths that must stay public: catalog browsing and externally-signed
 // webhooks (which authenticate via their own signature, not a session).
+//
+// `/api/brands` belongs here because `/brands` is a public page that renders
+// from it. Without this entry an anonymous visitor loads a public route whose
+// own data call is rejected with a 401, and the page fails.
 const PUBLIC_API_PATHS: Record<PortalType, string[]> = {
-  customer: ["/api/products", "/api/categories", "/api/payments/webhook"],
+  customer: ["/api/products", "/api/categories", "/api/brands", "/api/payments/webhook"],
   seller: [],
   admin: ["/api/integrations/inbound"],
 };
@@ -80,7 +84,10 @@ export function createMiddleware(portal: PortalType, authFn: () => Promise<Sessi
         );
       }
       const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
+      // Carry the query string too. A bare pathname drops the filters, variant
+      // selection and RFQ context the visitor had, so they return to a
+      // different page than the one they were sent away from.
+      loginUrl.searchParams.set("callbackUrl", `${pathname}${request.nextUrl.search}`);
       return NextResponse.redirect(loginUrl);
     }
 
