@@ -65,6 +65,63 @@ E2E_ADMIN_URL=https://avenick-admin.vercel.app \
 pnpm e2e:playwright
 ```
 
+## Authenticated certification (Gate 1 / PROMPT 02)
+
+The `authenticated` project signs six personas in through the real login form
+and certifies both what they can reach and what they must not.
+
+```bash
+# 1. database up, migrated, seeded with a password you choose
+docker compose up -d postgres
+pnpm --filter @avenick/database db:deploy
+SEED_PASSWORD='<choose-one>' pnpm db:seed
+
+# 2. build and start all three portals
+pnpm build
+# customer :13100, seller :13101, admin :13102
+
+# 3. certify — same password you seeded with
+E2E_SEED_PASSWORD='<the-same-one>' pnpm e2e:playwright
+```
+
+`E2E_SEED_PASSWORD` is never stored in the repository. Without it the setup
+project fails immediately with an explicit message rather than producing a
+confusing cascade of assertion failures.
+
+Sign-in runs **serially** on purpose: the login route is rate limited, and
+parallel logins fail in a way that looks like bad credentials but is throttling.
+
+### What the authenticated suite asserts
+
+| Area | Assertion |
+|---|---|
+| Cross-portal denial | A buyer/seller session cannot reach a portal it does not own |
+| API/UI parity | The API refuses in the same direction as the UI — a portal that redirects the browser but still serves the JSON is not protected |
+| Seller isolation | Every line item returned to a seller belongs to that seller |
+| Direct-ID access | One seller cannot fetch another seller's order by guessing its ID |
+| Buyer isolation | A buyer's order list contains only their own orders |
+
+**On shared orders:** a marketplace order can legitimately contain items from
+several sellers, so two sellers seeing the same order *header* is correct and is
+not a leak. The isolation guarantee is asserted at line-item level, which is
+where it actually lives. An earlier draft asserted that order IDs must not
+intersect, failed against a genuine multi-seller order, and was wrong.
+
+## Local setup gotchas
+
+Worth knowing, because each of these presents as "authentication is broken":
+
+- **Several env files, and the most specific wins.** `apps/*/.env.local`
+  overrides the repo-root `.env` for `next start`, and `packages/database/.env`
+  is what Prisma CLI reads. A stale password in any one of them fails in a way
+  that looks like rejected credentials.
+- **`docker-compose.yml` creates `avenick_db`**, while the env files point at
+  `avenick`. Create it, or point them at the same name.
+- **`pkill -f "next start"` does not always match a running portal.** Kill by
+  port instead — `lsof -tiTCP:13100 -sTCP:LISTEN` — or a days-old process keeps
+  serving with its original environment while every "restart" silently fails to
+  bind.
+
 ## Evidence artifacts
 
 Playwright writes to `artifacts/`, which is git-ignored and regenerated per run:
