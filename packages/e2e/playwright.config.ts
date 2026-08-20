@@ -42,19 +42,38 @@ export default defineConfig({
   },
 
   projects: [
+    // ── Public, unauthenticated ────────────────────────────────────────────
     {
       name: "chromium",
+      testIgnore: /authenticated\//,
       use: { ...devices["Desktop Chrome"] },
     },
     {
       // The storefront ships an Arabic RTL surface; layout regressions there are
       // invisible to an LTR-only run.
       name: "chromium-rtl",
+      testIgnore: /authenticated\//,
       use: {
         ...devices["Desktop Chrome"],
         locale: "ar-AE",
         timezoneId: "Asia/Dubai",
       },
+    },
+
+    // ── Authenticated certification ────────────────────────────────────────
+    // Signs every persona in once, then the authenticated suite reuses that
+    // state. Split out so a credential problem fails loudly in setup rather
+    // than as a confusing cascade of assertion failures.
+    {
+      name: "auth-setup",
+      testMatch: /setup\/auth\.setup\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "authenticated",
+      testMatch: /authenticated\/.*\.spec\.ts/,
+      dependencies: ["auth-setup"],
+      use: { ...devices["Desktop Chrome"] },
     },
   ],
 });
