@@ -1,0 +1,35 @@
+{
+  "cookies": [
+    {
+      "name": "avenick.seller.csrf-token",
+      "value": "5a6f16d89d02999ee971126634cb19d103db915c5ad350a7834e34682f6367fb%7Cf6169dd805c5ff1a55c91355dc30bd7b0b82c1b8b916218e2e6beab1379f27e3",
+      "domain": "localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "avenick.seller.callback-url",
+      "value": "http%3A%2F%2Flocalhost%3A13101%2F",
+      "domain": "localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "avenick.seller.session-token",
+      "value": "eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwia2lkIjoiUFdwNGpSZTRaUXpTQ1hQWUdCdTJHTTJ3bXl4emh2MDV6cW1pZEVoUWRIOHJ4STVKRHdIdjAtNFpxWTFhNEtQWHpVbkJYdl9ud0lueHhkenNHenlBSkEifQ..paF7W6OQTPV7tv7GfB85iA.EgJ5rs6Mrjwihis_tx4ow_LlWgcISu7MUySXPWWYl0mPMTo7M8frlGCRWwmS21XNXvHTrKpWnrywMvtfhvvEvuu62IKhEQsEMciaiIN_H59pOt-SwVJHWDFLjN0Ygjdnlh56Lddxn4dw3EBJomtMM5eCTr-XgXMkvVfEbt4qSC9Zuog5q9xN8B5eck8oMsKreZVAaCV0Akw-Vfihyi5TQeuAx_fthxax07qLYejQmoUaUptvlaV2qm0ZvGIA2q8YWR1dQmiGNDpd3Jut92j6khYoFHb2rGVBUg5Q8QBjZn85rXPTSW5zckM-88427ldB.doXhAgFX7MXX1IsokwcEAGPFvv1ftxGAet6AJkzG33Y",
+      "domain": "localhost",
+      "path": "/",
+      "expires": 1789791219.065996,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}
