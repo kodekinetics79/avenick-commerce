@@ -7,7 +7,7 @@ import {
 
 describe("seller product import field authorization", () => {
   it("keeps catalog-only imports inside the catalog capability", () => {
-    expect(requiredProductImportPermissions([{ nameEn: "Updated", status: "ACTIVE" }]))
+    expect(requiredProductImportPermissions([{ nameEn: "Updated", status: "PENDING_REVIEW" }]))
       .toEqual(["catalog.manage"]);
     expect(() => assertProductImportPermissions(["catalog.manage"], [{ nameEn: "Updated" }]))
       .not.toThrow();

@@ -7,32 +7,33 @@ import {
   FileQuestion, DollarSign, FileText, CreditCard, FolderOpen, CheckSquare,
   MessageSquare, Settings, Search, CornerDownLeft, BarChart3, Plus, Sparkles,
 } from "lucide-react";
+import { sellerNavigationAllows } from "@/lib/seller-permissions";
 
-type Item = { label: string; href: string; icon: React.ElementType; keywords?: string; group: string };
+type Item = { label: string; href: string; icon: React.ElementType; keywords?: string; group: string; permissions?: string[]; allPermissions?: string[] };
 
 const ITEMS: Item[] = [
-  { group: "Go to", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, keywords: "home overview" },
-  { group: "Go to", label: "Analytics", href: "/analytics", icon: BarChart3, keywords: "sales charts insights" },
-  { group: "Go to", label: "Performance", href: "/performance", icon: TrendingUp, keywords: "score rating health" },
-  { group: "Go to", label: "Products", href: "/products", icon: Package, keywords: "catalog listings" },
-  { group: "Go to", label: "Inventory", href: "/inventory", icon: Boxes, keywords: "stock" },
-  { group: "Go to", label: "Orders", href: "/orders", icon: ShoppingCart },
-  { group: "Go to", label: "Shipments", href: "/shipments", icon: Truck, keywords: "fulfilment tracking" },
-  { group: "Go to", label: "Returns", href: "/returns", icon: RotateCcw },
-  { group: "Go to", label: "Quotes", href: "/quotes", icon: FileQuestion, keywords: "rfq" },
-  { group: "Go to", label: "Messages & RFQ inbox", href: "/messages", icon: MessageSquare, keywords: "rfq chat" },
-  { group: "Go to", label: "Payouts", href: "/payouts", icon: DollarSign },
-  { group: "Go to", label: "Invoices", href: "/invoices", icon: FileText },
-  { group: "Go to", label: "Commission", href: "/commission", icon: CreditCard },
-  { group: "Go to", label: "Documents", href: "/documents", icon: FolderOpen },
-  { group: "Go to", label: "Compliance", href: "/compliance", icon: CheckSquare, keywords: "onboarding" },
-  { group: "Go to", label: "Settings", href: "/settings", icon: Settings },
-  { group: "Actions", label: "Add a product", href: "/products?new=1", icon: Plus },
-  { group: "Actions", label: "View RFQ inbox", href: "/messages", icon: FileQuestion },
-  { group: "Actions", label: "AI assist", href: "/messages?ai=1", icon: Sparkles, keywords: "draft generate" },
+  { group: "Go to", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, keywords: "home overview", permissions: ["dashboard.view"] },
+  { group: "Go to", label: "Analytics", href: "/analytics", icon: BarChart3, keywords: "sales charts insights", permissions: ["analytics.view"] },
+  { group: "Go to", label: "Performance", href: "/performance", icon: TrendingUp, keywords: "score rating health", permissions: ["analytics.view"] },
+  { group: "Go to", label: "Products", href: "/products", icon: Package, keywords: "catalog listings", permissions: ["catalog.view", "catalog.manage"] },
+  { group: "Go to", label: "Inventory", href: "/inventory", icon: Boxes, keywords: "stock", permissions: ["inventory.view", "inventory.manage"] },
+  { group: "Go to", label: "Orders", href: "/orders", icon: ShoppingCart, permissions: ["orders.view", "orders.fulfill"] },
+  { group: "Go to", label: "Shipments", href: "/shipments", icon: Truck, keywords: "fulfilment tracking", permissions: ["shipments.view", "shipments.manage"] },
+  { group: "Go to", label: "Returns", href: "/returns", icon: RotateCcw, permissions: ["returns.view", "returns.manage"] },
+  { group: "Go to", label: "Quotes", href: "/quotes", icon: FileQuestion, keywords: "rfq", permissions: ["rfqs.view"] },
+  { group: "Go to", label: "Messages & RFQ inbox", href: "/messages", icon: MessageSquare, keywords: "rfq chat", permissions: ["rfqs.view"] },
+  { group: "Go to", label: "Payouts", href: "/payouts", icon: DollarSign, permissions: ["finance.view"] },
+  { group: "Go to", label: "Invoices", href: "/invoices", icon: FileText, permissions: ["finance.view"] },
+  { group: "Go to", label: "Commission", href: "/commission", icon: CreditCard, permissions: ["finance.view"] },
+  { group: "Go to", label: "Documents", href: "/documents", icon: FolderOpen, permissions: ["documents.view", "documents.manage"] },
+  { group: "Go to", label: "Compliance", href: "/compliance", icon: CheckSquare, keywords: "onboarding", permissions: ["documents.view", "documents.manage"] },
+  { group: "Go to", label: "Settings", href: "/settings", icon: Settings, permissions: ["settings.manage"] },
+  { group: "Actions", label: "Add a product", href: "/products/new", icon: Plus, allPermissions: ["catalog.manage", "pricing.manage"] },
+  { group: "Actions", label: "View RFQ inbox", href: "/messages", icon: FileQuestion, permissions: ["rfqs.view"] },
+  { group: "Actions", label: "AI assist", href: "/messages?ai=1", icon: Sparkles, keywords: "draft generate", permissions: ["rfqs.view"] },
 ];
 
-export function CommandPalette() {
+export function CommandPalette({ permissions = [] }: { permissions?: readonly string[] }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState("");
@@ -67,9 +68,13 @@ export function CommandPalette() {
 
   const filtered = React.useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return ITEMS;
-    return ITEMS.filter((i) => i.label.toLowerCase().includes(s) || i.keywords?.includes(s) || i.group.toLowerCase().includes(s));
-  }, [q]);
+    const allowed = ITEMS.filter((item) =>
+      (!item.permissions || sellerNavigationAllows(permissions, item.permissions))
+      && (!item.allPermissions || item.allPermissions.every((permission) => sellerNavigationAllows(permissions, [permission]))),
+    );
+    if (!s) return allowed;
+    return allowed.filter((i) => i.label.toLowerCase().includes(s) || i.keywords?.includes(s) || i.group.toLowerCase().includes(s));
+  }, [q, permissions]);
 
   function go(item: Item) {
     setOpen(false);

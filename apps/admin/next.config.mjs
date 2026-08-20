@@ -20,6 +20,7 @@ const nextConfig = {
       { protocol: "https", hostname: "*.avenick.com" },
       { protocol: "http", hostname: "localhost" },
       { protocol: "https", hostname: "placehold.co" },
+      { protocol: "https", hostname: "www.mennekes.org", pathname: "/fileadmin/products_media/**" },
     ],
   },
   // Copies the Prisma query engine into the serverless bundle (pnpm monorepo).

@@ -2,57 +2,54 @@ import Link from "next/link";
 import {
   ArrowRight,
   Factory,
-  Briefcase,
-  Cpu,
-  ShieldAlert,
-  UtensilsCrossed,
-  Building2,
   ShieldCheck,
   Truck,
   BadgeCheck,
   Sparkles,
+  Boxes,
+  Cable,
+  PackageSearch,
+  PlugZap,
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
 import { fetchBackendJson } from "@/lib/backend";
+import {
+  homeCategoryLinks,
+  partitionHomeProducts,
+  type StorefrontCategory,
+} from "@/lib/home-catalog";
 
 export const dynamic = "force-dynamic";
 
-const CATEGORIES = [
-  { slug: "industrial-supplies", nameEn: "Industrial", icon: Factory },
-  { slug: "electronics", nameEn: "Electronics", icon: Cpu },
-  { slug: "office-supplies", nameEn: "Office", icon: Briefcase },
-  { slug: "safety-ppe", nameEn: "Safety & PPE", icon: ShieldAlert },
-  { slug: "food-hospitality", nameEn: "Hospitality", icon: UtensilsCrossed },
-  { slug: "building-materials", nameEn: "Building", icon: Building2 },
-];
+const CATEGORY_ICONS = [Factory, PlugZap, Cable, Boxes, PackageSearch] as const;
 
-const CATEGORY_TRANSLATIONS: Record<string, string> = {
-  "industrial-supplies": "catIndustrial",
-  "electronics": "catElectronics",
-  "office-supplies": "catOffice",
-  "safety-ppe": "catSafety",
-  "food-hospitality": "catHospitality",
-  "building-materials": "catBuilding",
-};
-
-async function getFeaturedProducts() {
-  try {
-    const result = await fetchBackendJson<{ products?: any[] }>("/api/products?limit=10&b2c=true");
-    return Array.isArray(result.products) ? result.products : [];
-  } catch (error) {
-    console.error("Unable to load featured products", error);
-    return [];
-  }
+async function getHomeCatalog() {
+  const [productResult, categoryResult] = await Promise.all([
+    fetchBackendJson<{ products?: any[] }>("/api/products?limit=10&b2c=true&sort=newest")
+      .catch((error) => {
+        console.error("Unable to load homepage products", error);
+        return { products: [] };
+      }),
+    fetchBackendJson<StorefrontCategory[]>("/api/categories")
+      .catch((error) => {
+        console.error("Unable to load homepage categories", error);
+        return [];
+      }),
+  ]);
+  return {
+    products: Array.isArray(productResult.products) ? productResult.products : [],
+    categories: Array.isArray(categoryResult) ? categoryResult : [],
+  };
 }
 
 export default async function HomePage() {
   const cookieStore = await cookies();
   const locale = (cookieStore.get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
   const t = await getTranslations("home");
-  const products = await getFeaturedProducts();
+  const { products, categories } = await getHomeCatalog();
 
   const mapped = products.map((p) => {
     const stock = p.inventory?.[0];
@@ -74,9 +71,11 @@ export default async function HomePage() {
       availabilityStatus: stock?.status,
       hasVariants: p.hasVariants === true,
       moq: p.moq,
-      category: p.category?.nameEn ?? "Industrial",
+      category: locale === "ar" ? p.category?.nameAr || p.category?.nameEn : p.category?.nameEn,
     };
   });
+  const categoryLinks = homeCategoryLinks(categories, locale);
+  const productSections = partitionHomeProducts(mapped);
 
   return (
     <MainLayout>
@@ -122,24 +121,32 @@ export default async function HomePage() {
       {/* ─── Category strip ───────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 py-10">
         <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
-          {CATEGORIES.map(({ slug, icon: Icon }) => (
-            <Link
-              key={slug}
-              href={`/products?category=${slug}`}
-              className="group shrink-0 flex items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-3 hover:border-primary/40 hover:shadow-card transition-all"
-            >
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                <Icon className="h-4 w-4" />
-              </span>
-              <span className="text-sm font-semibold whitespace-nowrap">{t(CATEGORY_TRANSLATIONS[slug] || "catIndustrial")}</span>
+          {categoryLinks.map(({ id, href, label }, index) => {
+            const Icon = CATEGORY_ICONS[index % CATEGORY_ICONS.length] ?? PackageSearch;
+            return (
+              <Link
+                key={id}
+                href={href}
+                className="group shrink-0 flex items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-3 hover:border-primary/40 hover:shadow-card transition-all"
+              >
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  <Icon className="h-4 w-4" />
+                </span>
+                <span className="text-sm font-semibold whitespace-nowrap">{label}</span>
+              </Link>
+            );
+          })}
+          {categoryLinks.length === 0 && (
+            <Link href="/products" className="inline-flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-semibold">
+              <PackageSearch className="h-4 w-4 text-primary" /> Browse all products
             </Link>
-          ))}
+          )}
         </div>
       </section>
 
-      {/* ─── Best sellers ─────────────────────────────────── */}
+      {/* ─── Current catalog ──────────────────────────────── */}
       <Section title={t("bestSellers")} subtitle={t("bestSellersSub")} href="/products">
-        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} locale={locale} badge="HOT" />)}</Grid>
+        <Grid>{productSections.catalog.map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>
       </Section>
 
       {/* ─── Value props ──────────────────────────────────── */}
@@ -163,9 +170,11 @@ export default async function HomePage() {
       </section>
 
       {/* ─── Featured ─────────────────────────────────────── */}
-      <Section title={t("featuredProducts")} subtitle={t("featuredProductsSub")} href="/products">
-        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} locale={locale} badge="NEW" />)}</Grid>
-      </Section>
+      {productSections.more.length > 0 && (
+        <Section title={t("featuredProducts")} subtitle={t("featuredProductsSub")} href="/products">
+          <Grid>{productSections.more.map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>
+        </Section>
+      )}
 
       {/* ─── B2B CTA band ─────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 pb-16 pt-6">

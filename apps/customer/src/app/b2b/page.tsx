@@ -25,6 +25,7 @@ type DashboardData = {
     creditLimit: string | number | null;
     _count: { members: number; orders: number; purchaseOrders: number };
   };
+  companyCurrency: string;
   lifetimeSpend: number;
   pendingApprovals: number;
   openRFQs: number;
@@ -53,7 +54,7 @@ export default async function B2BDashboardPage() {
     redirect("/b2b/register");
   }
 
-  const { company, lifetimeSpend, pendingApprovals, openRFQs, recentOrders, reorderItems } = data;
+  const { company, companyCurrency, lifetimeSpend, pendingApprovals, openRFQs, recentOrders, reorderItems } = data;
   const creditLimit = company.creditLimit ? Number(company.creditLimit) : null;
 
   return (
@@ -89,8 +90,8 @@ export default async function B2BDashboardPage() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: "Lifetime spend", value: formatCurrency(lifetimeSpend, "AED"), icon: CreditCard, href: "/b2b/analytics" },
-            { label: "Credit limit", value: creditLimit ? formatCurrency(creditLimit, "AED") : "Not set", icon: Building2, href: "/b2b/billing" },
+            { label: "Lifetime spend", value: formatCurrency(lifetimeSpend, companyCurrency as never), icon: CreditCard, href: "/b2b/analytics" },
+            { label: "Credit limit", value: creditLimit ? formatCurrency(creditLimit, companyCurrency as never) : "Not set", icon: Building2, href: "/b2b/billing" },
             { label: "Open RFQs", value: openRFQs, icon: FileText, href: "/b2b/quotes" },
             { label: "Pending approvals", value: pendingApprovals, icon: CheckSquare, href: "/b2b/approvals" },
           ].map((k) => {

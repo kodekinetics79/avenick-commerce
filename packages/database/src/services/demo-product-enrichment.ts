@@ -6,6 +6,19 @@ export const DEMO_MENNEKES_PART_NUMBERS = [
   "13625", "13627", "13629", "13202",
 ] as const;
 
+export const INDUSTRIAL_DEMO_MENNEKES_PART_NUMBERS = [
+  ...DEMO_MENNEKES_PART_NUMBERS,
+  "14626", "14261P", "14260P", "14248",
+  "1457", "1491", "1458", "1128A", "32", "10118",
+] as const;
+
+export const INDUSTRIAL_DEMO_EATON_PART_NUMBERS = ["167133", "190638", "278766"] as const;
+
+export const INDUSTRIAL_DEMO_PART_NUMBERS = [
+  ...INDUSTRIAL_DEMO_MENNEKES_PART_NUMBERS,
+  ...INDUSTRIAL_DEMO_EATON_PART_NUMBERS,
+] as const;
+
 const SOURCE_ORIGIN = "https://www.mennekes.org";
 
 function text(value: string) {
@@ -21,10 +34,12 @@ function text(value: string) {
 }
 
 export type ManufacturerEnrichment = {
+  manufacturer: "MENNEKES" | "EATON";
+  sourceSystem: "MENNEKES_OFFICIAL_PRODUCT_PAGE" | "EATON_OFFICIAL_PRODUCT_PAGE";
   partNumber: string;
   name: string;
   gtin13: string | null;
-  imageUrl: string;
+  imageUrl: string | null;
   sourceUrl: string;
   specifications: Record<string, string>;
   fingerprint: string;
@@ -57,6 +72,8 @@ export function parseMennekesProductPage(html: string, expectedPartNumber: strin
     throw new Error(`Official image identity does not match ${expectedPartNumber}`);
   }
   const canonical = JSON.stringify({
+    manufacturer: "MENNEKES",
+    sourceSystem: "MENNEKES_OFFICIAL_PRODUCT_PAGE",
     partNumber: expectedPartNumber,
     name: product.name,
     gtin13: product.gtin13 ?? null,
@@ -71,7 +88,7 @@ export function parseMennekesProductPage(html: string, expectedPartNumber: strin
 }
 
 export async function fetchMennekesProduct(partNumber: string): Promise<ManufacturerEnrichment> {
-  if (!(DEMO_MENNEKES_PART_NUMBERS as readonly string[]).includes(partNumber)) {
+  if (!(INDUSTRIAL_DEMO_MENNEKES_PART_NUMBERS as readonly string[]).includes(partNumber)) {
     throw new Error(`Part number ${partNumber} is outside the reviewed demo set`);
   }
   const sourceUrl = `${SOURCE_ORIGIN}/industry/product-details/${encodeURIComponent(partNumber)}/`;
@@ -80,7 +97,77 @@ export async function fetchMennekesProduct(partNumber: string): Promise<Manufact
   return parseMennekesProductPage(await response.text(), partNumber);
 }
 
+const EATON_PRODUCTS: Record<(typeof INDUSTRIAL_DEMO_EATON_PART_NUMBERS)[number], Omit<ManufacturerEnrichment, "fingerprint">> = {
+  "167133": {
+    manufacturer: "EATON",
+    sourceSystem: "EATON_OFFICIAL_PRODUCT_PAGE",
+    partNumber: "167133",
+    name: "Eaton xEffect FAZ-NA miniature circuit breaker FAZ-C10/1-NA-SP",
+    gtin13: null,
+    imageUrl: null,
+    sourceUrl: "https://www.eaton.com/us/en-us/skuPage.167133.html",
+    specifications: {
+      "Catalog number": "167133",
+      "Model code": "FAZ-C10/1-NA-SP",
+      "Product type": "Miniature circuit breaker",
+      "Amperage rating": "10 A",
+      "Number of poles": "1",
+      "Tripping characteristic": "C",
+      Frequency: "50-60 Hz",
+      Family: "xEffect FAZ-NA",
+    },
+  },
+  "190638": {
+    manufacturer: "EATON",
+    sourceSystem: "EATON_OFFICIAL_PRODUCT_PAGE",
+    partNumber: "190638",
+    name: "Eaton xEffect FAZ-NA miniature circuit breaker FAZ-C16/2-NA-L",
+    gtin13: "4015081930463",
+    imageUrl: null,
+    sourceUrl: "https://www.eaton.com/us/en-us/skuPage.190638.html",
+    specifications: {
+      "Catalog number": "190638",
+      "Model code": "FAZ-C16/2-NA-L",
+      "Product type": "Miniature circuit breaker",
+      "Amperage rating": "16 A",
+      "Number of poles": "2",
+      "Tripping characteristic": "C",
+      "Rated operational voltage": "240 V AC",
+      "Rated switching capacity": "15 kA",
+      Certifications: "UL 489, CSA C22.2 No. 5, IEC/EN 60947-2",
+    },
+  },
+  "278766": {
+    manufacturer: "EATON",
+    sourceSystem: "EATON_OFFICIAL_PRODUCT_PAGE",
+    partNumber: "278766",
+    name: "Eaton xEffect FAZ miniature circuit breaker FAZ-C63/2",
+    gtin13: "4015082787660",
+    imageUrl: null,
+    sourceUrl: "https://www.eaton.com/us/en-us/skuPage.278766.html",
+    specifications: {
+      "Catalog number": "278766",
+      "Model code": "FAZ-C63/2",
+      "Product type": "Miniature circuit breaker",
+      "Amperage rating": "63 A",
+      "Number of poles": "2",
+      "Tripping characteristic": "C",
+      "Rated operational voltage": "400 V AC",
+      "Rated switching capacity": "15 kA",
+      Certifications: "IEC/EN 60947-2, IEC/EN 60898",
+    },
+  },
+};
+
+export function reviewedEatonProducts(): ManufacturerEnrichment[] {
+  return INDUSTRIAL_DEMO_EATON_PART_NUMBERS.map((partNumber) => {
+    const product = EATON_PRODUCTS[partNumber];
+    const canonical = JSON.stringify(product);
+    return { ...product, fingerprint: createHash("sha256").update(canonical).digest("hex") };
+  });
+}
+
 export function manufacturerDescription(source: ManufacturerEnrichment) {
   const facts = Object.entries(source.specifications).map(([key, value]) => `${key}: ${value}`).join(". ");
-  return `${source.name} (MENNEKES part ${source.partNumber}). ${facts}. Source: ${source.sourceUrl}`;
+  return `${source.name} (${source.manufacturer} part ${source.partNumber}). ${facts}. Source: ${source.sourceUrl}`;
 }

@@ -3,6 +3,7 @@ import { formatCurrency } from "@avenick/utils";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
 import { TrendingUp, Wallet, Clock, Building2, BarChart3 } from "lucide-react";
+import { companyCurrencyForCountry } from "@/lib/company-currency";
 
 export const metadata = { title: "Spend Analytics — Avenick for Business" };
 
@@ -23,14 +24,16 @@ export default async function SpendAnalyticsPage() {
   }
 
   const [pos, members] = await Promise.all([
-    db.purchaseOrder.findMany({ where: { companyId: ctx.companyId }, select: { total: true, status: true, requesterId: true, createdAt: true } }),
+    db.purchaseOrder.findMany({ where: { companyId: ctx.companyId }, select: { total: true, currency: true, status: true, requesterId: true, createdAt: true } }),
     db.companyMember.findMany({ where: { companyId: ctx.companyId }, select: { userId: true, department: true } }),
   ]);
   const deptOf = new Map(members.map((m) => [m.userId, m.department ?? "Unassigned"]));
+  const currency = companyCurrencyForCountry(ctx.company.country);
+  const scoped = pos.filter((p) => p.currency === currency);
 
-  const committed = pos.filter((p) => p.status === "ORDERED" || p.status === "APPROVED");
+  const committed = scoped.filter((p) => p.status === "ORDERED" || p.status === "APPROVED");
   const totalSpend = committed.reduce((s, p) => s + Number(p.total), 0);
-  const pendingValue = pos.filter((p) => p.status === "PENDING_APPROVAL").reduce((s, p) => s + Number(p.total), 0);
+  const pendingValue = scoped.filter((p) => p.status === "PENDING_APPROVAL").reduce((s, p) => s + Number(p.total), 0);
 
   const now = new Date();
   const monthSpend = committed.filter((p) => p.createdAt.getMonth() === now.getMonth() && p.createdAt.getFullYear() === now.getFullYear()).reduce((s, p) => s + Number(p.total), 0);
@@ -54,9 +57,9 @@ export default async function SpendAnalyticsPage() {
   const trendMax = Math.max(1, ...trend.map((t) => t.value));
 
   const kpis = [
-    { label: "Committed spend", value: formatCurrency(totalSpend, "AED"), icon: Wallet },
-    { label: "This month", value: formatCurrency(monthSpend, "AED"), icon: TrendingUp },
-    { label: "Awaiting approval", value: formatCurrency(pendingValue, "AED"), icon: Clock },
+    { label: "Committed spend", value: formatCurrency(totalSpend, currency), icon: Wallet },
+    { label: "This month", value: formatCurrency(monthSpend, currency), icon: TrendingUp },
+    { label: "Awaiting approval", value: formatCurrency(pendingValue, currency), icon: Clock },
   ];
 
   const empty = committed.length === 0;
@@ -89,7 +92,7 @@ export default async function SpendAnalyticsPage() {
                 <div key={d.name}>
                   <div className="flex items-center justify-between text-xs mb-1.5">
                     <span className="font-medium">{d.name}</span>
-                    <span className="font-mono text-muted-foreground">{formatCurrency(d.spend, "AED")}</span>
+                    <span className="font-mono text-muted-foreground">{formatCurrency(d.spend, currency)}</span>
                   </div>
                   <div className="h-2 rounded-full bg-secondary overflow-hidden">
                     <div className="h-full rounded-full bg-gradient-to-r from-primary-500 to-accent-500" style={{ width: `${(d.spend / deptMax) * 100}%` }} />
@@ -106,7 +109,7 @@ export default async function SpendAnalyticsPage() {
               {trend.map((m, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-2">
                   <div className="w-full flex items-end justify-center" style={{ height: "100%" }}>
-                    <div className="w-full max-w-[44px] rounded-t-lg bg-gradient-to-t from-primary-600 to-accent-500" style={{ height: `${Math.max(4, (m.value / trendMax) * 100)}%` }} title={formatCurrency(m.value, "AED")} />
+                    <div className="w-full max-w-[44px] rounded-t-lg bg-gradient-to-t from-primary-600 to-accent-500" style={{ height: `${Math.max(4, (m.value / trendMax) * 100)}%` }} title={formatCurrency(m.value, currency)} />
                   </div>
                   <span className="text-xs text-muted-foreground">{m.label}</span>
                 </div>

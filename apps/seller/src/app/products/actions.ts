@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AuditAction, db, lockInventoryStockRows, lockProductCommercialRows, requireCurrentSellerActor } from "@avenick/database";
-import { requireSellerPermission, requireSellerSession } from "@/lib/auth";
+import { AuditAction, createSellerCatalogListing, db, lockInventoryStockRows, lockProductCommercialRows, requireCurrentSellerActor, updateSellerCatalogListing } from "@avenick/database";
+import { requireSellerPermissions, requireSellerSession } from "@/lib/auth";
 import { assertProductImportPermissions } from "@/lib/product-import-policy";
+import { parseSellerProductForm, PRODUCT_CURRENCIES, SELLER_MUTABLE_PRODUCT_STATUSES } from "@/lib/product-form";
 
-const STATUSES = ["DRAFT", "ACTIVE", "SUPPRESSED", "INACTIVE"] as const;
+const STATUSES = SELLER_MUTABLE_PRODUCT_STATUSES;
 type BulkStatus = (typeof STATUSES)[number];
 
 /**
@@ -13,12 +14,12 @@ type BulkStatus = (typeof STATUSES)[number];
  * belong to the calling seller — ids for other sellers are silently ignored.
  */
 export async function bulkUpdateProductStatus(productIds: string[], status: BulkStatus): Promise<{ count: number }> {
-  const { seller, userId } = await requireSellerPermission("catalog.manage");
+  const { seller, userId } = await requireSellerPermissions(["catalog.manage", "pricing.manage"]);
   if (!STATUSES.includes(status)) throw new Error("Invalid status");
   if (productIds.length === 0) return { count: 0 };
 
   const res = await db.$transaction(async (tx) => {
-    await requireCurrentSellerActor(tx, userId, seller.id, "catalog.manage");
+    await requireCurrentSellerActor(tx, userId, seller.id, ["catalog.manage", "pricing.manage"]);
     const targets = await tx.product.findMany({
       where: { id: { in: productIds }, sellerId: seller.id, deletedAt: null },
       select: { id: true, status: true },
@@ -30,7 +31,7 @@ export async function bulkUpdateProductStatus(productIds: string[], status: Bulk
     });
     const updated = await tx.product.updateMany({
       where: { id: { in: currentTargets.map((target) => target.id) } },
-      data: { status, ...(status === "ACTIVE" ? { publishedAt: new Date() } : {}) },
+      data: { status, ...(status === "PENDING_REVIEW" ? { publishedAt: null, isPubliclyDiscoverable: true } : {}) },
     });
     for (const target of currentTargets) {
       await tx.auditLog.create({
@@ -52,12 +53,61 @@ export async function bulkUpdateProductStatus(productIds: string[], status: Bulk
   return { count: res.count };
 }
 
+export type ProductActionState = { error?: string; productId?: string };
+
+function productMutationInput(parsed: ReturnType<typeof parseSellerProductForm> & { success: true }) {
+  const value = parsed.data;
+  return {
+    categoryId: value.categoryId,
+    sku: value.sku,
+    nameEn: value.nameEn,
+    nameAr: value.nameAr,
+    descriptionEn: value.descriptionEn,
+    descriptionAr: value.descriptionAr,
+    imageUrl: value.imageUrl,
+    origin: value.origin,
+    moq: value.moq,
+    currency: value.currency,
+    vatRate: value.vatRate,
+    b2bPrice: value.b2bEnabled ? value.b2bPrice : null,
+    b2cPrice: value.b2cEnabled ? value.b2cPrice : null,
+  };
+}
+
+export async function createProductAction(_state: ProductActionState, formData: FormData): Promise<ProductActionState> {
+  const parsed = parseSellerProductForm(formData);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the listing details." };
+  try {
+    const { seller, userId } = await requireSellerPermissions(["catalog.manage", "pricing.manage"]);
+    const product = await createSellerCatalogListing({ actorId: userId, sellerId: seller.id, ...productMutationInput(parsed) });
+    revalidatePath("/products");
+    return { productId: product.id };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Unable to submit this listing." };
+  }
+}
+
+export async function updateProductAction(productId: string, _state: ProductActionState, formData: FormData): Promise<ProductActionState> {
+  const parsed = parseSellerProductForm(formData);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Check the listing details." };
+  try {
+    const { seller, userId } = await requireSellerPermissions(["catalog.manage", "pricing.manage"]);
+    const product = await updateSellerCatalogListing({ productId, actorId: userId, sellerId: seller.id, ...productMutationInput(parsed) });
+    revalidatePath("/products");
+    revalidatePath(`/products/${product.id}/edit`);
+    return { productId: product.id };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Unable to submit these listing changes." };
+  }
+}
+
 export type ImportRow = {
   sku: string;
   nameEn?: string;
   nameAr?: string;
   status?: string;
   price?: string;
+  currency?: string;
   stock?: string;
 };
 
@@ -132,11 +182,19 @@ export async function importProductsCsv(rows: ImportRow[], options: {
             throw new Error("Price import is ambiguous across multiple active price identities");
           }
           const existing = currentProduct.prices[0];
+          const currency = row.currency?.trim().toUpperCase();
+          if (currency && !(PRODUCT_CURRENCIES as readonly string[]).includes(currency)) {
+            throw new Error("Price currency is not supported");
+          }
+          if (existing && currency && existing.currency !== currency) {
+            throw new Error(`Price currency must remain ${existing.currency}`);
+          }
           if (existing) {
             await tx.productPrice.update({ where: { id: existing.id }, data: { price: priceNum } });
           } else {
+            if (!currency) throw new Error("Price creation requires an explicit currency column");
             await tx.productPrice.create({
-              data: { productId: currentProduct.id, type: "B2C", currency: "AED", price: priceNum },
+              data: { productId: currentProduct.id, type: "B2C", currency: currency as (typeof PRODUCT_CURRENCIES)[number], price: priceNum },
             });
           }
         }

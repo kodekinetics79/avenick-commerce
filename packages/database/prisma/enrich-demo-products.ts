@@ -41,6 +41,7 @@ async function main() {
     const byPart = new Map(products.map((product) => [product.commercialMetadata?.supplierPartNumber, product]));
 
     for (const source of sourced) {
+      if (!source.imageUrl) throw new Error(`Official MENNEKES image ${source.partNumber} is missing`);
       const product = byPart.get(source.partNumber);
       if (!product) throw new Error(`Reviewed catalog product ${source.partNumber} is missing`);
       const existingPrimary = product.images.find((image) => image.isPrimary);
