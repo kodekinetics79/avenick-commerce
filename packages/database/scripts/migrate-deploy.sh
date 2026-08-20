@@ -21,16 +21,36 @@ if [[ -z "${DIRECT_URL}" ]]; then
   exit 1
 fi
 
-# Fail fast on the #1 misconfig: a POOLED DIRECT_URL. Neon's pooler (PgBouncer)
-# drops the long advisory-lock connection `prisma migrate deploy` needs, which
-# surfaces as the cryptic `PostgreSQL connection: kind: Closed`. Retrying a
-# pooled URL can never succeed, so error clearly instead of burning retries.
-if [[ "${DIRECT_URL}" == *"-pooler."* ]]; then
-  echo "[migrate] FATAL: DIRECT_URL points at a POOLED endpoint (contains '-pooler')." >&2
-  echo "[migrate] Migrations require the DIRECT (unpooled) Neon endpoint." >&2
-  echo "[migrate] Fix: in the Neon console 'Connect' dialog, turn Connection Pooling" >&2
-  echo "[migrate]      OFF, copy that string (host has no '-pooler'), and set it as" >&2
-  echo "[migrate]      DIRECT_URL. Keep DATABASE_URL pooled for the app runtime." >&2
+# Fail fast on the #1 misconfig: a POOLED DIRECT_URL. Connection poolers in
+# TRANSACTION mode drop the long advisory-lock connection `prisma migrate deploy`
+# needs, which surfaces as the cryptic `PostgreSQL connection: kind: Closed`.
+# Retrying a pooled URL can never succeed, so error clearly instead of burning
+# retries.
+#
+# Detection must be provider-aware. Checking only for "-pooler." caught Neon and
+# silently passed Supabase, whose pooler host is "<region>.pooler.supabase.com" —
+# so a Supabase TRANSACTION pooler (port 6543) would sail through this guard and
+# then fail deep inside migrate with an unhelpful error.
+POOLED_REASON=""
+case "${DIRECT_URL}" in
+  # Neon: pooled endpoints carry "-pooler" in the hostname.
+  *-pooler.*)            POOLED_REASON="hostname contains '-pooler' (Neon pooled endpoint)" ;;
+  # Supabase: 6543 is the TRANSACTION pooler. 5432 is the SESSION pooler, which
+  # holds a dedicated connection and DOES support migrations — allow that one.
+  *pooler.supabase.com:6543*) POOLED_REASON="port 6543 is the Supabase TRANSACTION pooler" ;;
+esac
+# PgBouncer transaction mode is also signalled explicitly by Prisma's flag.
+case "${DIRECT_URL}" in
+  *pgbouncer=true*)      POOLED_REASON="URL sets pgbouncer=true (transaction pooling)" ;;
+esac
+
+if [[ -n "${POOLED_REASON}" ]]; then
+  echo "[migrate] FATAL: DIRECT_URL points at a POOLED endpoint — ${POOLED_REASON}." >&2
+  echo "[migrate] Migrations need a session-scoped connection." >&2
+  echo "[migrate] Neon:     Connect dialog -> Connection Pooling OFF -> host has no '-pooler'." >&2
+  echo "[migrate] Supabase: use the SESSION pooler on port 5432 (not 6543), or the" >&2
+  echo "[migrate]           direct db.<ref>.supabase.co host if your platform has IPv6." >&2
+  echo "[migrate] Keep DATABASE_URL pooled for the app runtime; only DIRECT_URL must be direct." >&2
   exit 1
 fi
 

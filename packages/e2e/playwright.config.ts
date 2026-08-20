@@ -67,6 +67,10 @@ export default defineConfig({
     {
       name: "auth-setup",
       testMatch: /setup\/auth\.setup\.ts/,
+      // Sign-in involves bcrypt plus a round trip to a remote database, so the
+      // default is tight. It no longer needs to cover a retry backoff — setup
+      // fails fast on rate limiting rather than sleeping through it.
+      timeout: 60_000,
       use: { ...devices["Desktop Chrome"] },
     },
     {

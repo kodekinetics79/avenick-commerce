@@ -22,45 +22,59 @@ for (const [name, persona] of Object.entries(PERSONAS)) {
   setup(`authenticate: ${persona.label}`, async ({ page }) => {
     assertPasswordConfigured();
 
-    // Sign-in is rate limited per identifier AND per client IP. Repeated suite
-    // runs legitimately exhaust the IP budget, which previously surfaced as a
-    // confusing "still on /login" failure. Back off and retry instead of
-    // treating a working security control as a broken test.
-    const MAX_ATTEMPTS = 4;
-    let lastReason = "";
+    // Sign-in is rate limited per identifier AND per client IP (30 per 15
+    // minutes). Repeated suite runs legitimately exhaust that budget.
+    //
+    // Do not retry it. The window is 15 minutes, so any backoff short enough to
+    // sit inside a test timeout is far too short to clear it — an earlier
+    // version burned 2.5 minutes of backoff and still failed. Detect the
+    // server's own signal and report the truth immediately.
+    await page.goto(url(persona.portal, "/login"), { waitUntil: "domcontentloaded" });
 
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      await page.goto(url(persona.portal, "/login"), { waitUntil: "domcontentloaded" });
+    await page.locator("#login-email, input[type=email]").first().fill(persona.email);
+    await page.locator("#login-password, input[type=password]").first().fill(SEED_PASSWORD);
+    await page.getByRole("button", { name: /sign in/i }).click();
 
-      await page.locator("#login-email, input[type=email]").first().fill(persona.email);
-      await page.locator("#login-password, input[type=password]").first().fill(SEED_PASSWORD);
-      await page.getByRole("button", { name: /sign in/i }).click();
+    // Wait for the navigation only. Racing this against a locator fails: a
+    // successful sign-in calls window.location.assign(), which destroys the
+    // execution context and rejects any pending locator instantly.
+    await page
+      .waitForURL((u) => !/\/login/.test(u.toString()), { timeout: 20_000 })
+      .catch(() => {
+        /* Still on /login — determined below. */
+      });
 
-      // Give the navigation a chance before inspecting the outcome.
-      await page.waitForTimeout(1_500);
-
-      if (!/\/login/.test(page.url())) {
-        await page.context().storageState({ path: storageStatePath(name) });
-        return;
-      }
-
-      lastReason = (await page.locator("body").innerText().catch(() => "")).slice(0, 300);
-
-      const throttled = /too many/i.test(lastReason);
-      if (!throttled) break; // A real credential rejection: fail fast, do not retry.
-
-      if (attempt < MAX_ATTEMPTS) {
-        // The window is 15 minutes; a short wait clears bursts, not the whole
-        // budget, so this is bounded and honest rather than a spin.
-        await page.waitForTimeout(attempt * 20_000);
-      }
+    if (!/\/login/.test(page.url())) {
+      await page.context().storageState({ path: storageStatePath(name) });
+      return;
     }
 
+    // Auth.js reports the precise reason as a `code` parameter. Read that rather
+    // than the rendered banner, which depends on client hydration.
+    const code = new URL(page.url()).searchParams.get("code") ?? "";
+    if (code === "rate_limited") {
+      throw new Error(
+        `Sign-in is rate limited for ${persona.email} — the per-IP budget ` +
+          `(30 attempts / 15 minutes) is exhausted.\n` +
+          `This is the security control working, not a broken test. Wait for the ` +
+          `window to roll over and re-run. Running the full suite repeatedly in ` +
+          `quick succession will reproduce it.`,
+      );
+    }
+
+    const banner = await page
+      .locator('[role="alert"]')
+      .first()
+      .innerText()
+      .catch(() => "");
+
     throw new Error(
-      `Could not authenticate ${persona.label} (${persona.email}) at ${url(persona.portal, "/login")}.\n` +
-        `Page said: ${lastReason || "(no message)"}\n` +
-        `If this mentions rate limiting, the per-IP sign-in budget is exhausted — wait for the ` +
-        `15-minute window to roll over. Otherwise check E2E_SEED_PASSWORD matches the seed's SEED_PASSWORD.`,
+      `Could not authenticate ${persona.label} (${persona.email}).\n` +
+        `Started at: ${url(persona.portal, "/login")}\n` +
+        `Ended at:   ${page.url()}\n` +
+        `Auth.js code: ${code || "(none)"}\n` +
+        `Page said: ${banner.trim() || "(no error banner)"}\n` +
+        `Check that E2E_SEED_PASSWORD matches the SEED_PASSWORD used by the seed.`,
     );
   });
 }
