@@ -31,8 +31,29 @@ for (const [name, persona] of Object.entries(PERSONAS)) {
     // server's own signal and report the truth immediately.
     await page.goto(url(persona.portal, "/login"), { waitUntil: "domcontentloaded" });
 
-    await page.locator("#login-email, input[type=email]").first().fill(persona.email);
-    await page.locator("#login-password, input[type=password]").first().fill(SEED_PASSWORD);
+    // Wait for hydration before typing. `fill()` sets the DOM value and dispatches
+    // an input event, but React only records it once the client bundle has
+    // hydrated — before that the component state stays empty and the form submits
+    // blank credentials, which the server correctly rejects as "Invalid email or
+    // password". Under parallel load that produced a failure that looked like bad
+    // credentials while the account was perfectly fine.
+    await page.waitForLoadState("networkidle").catch(() => {
+      /* Best effort: the assertion below is the real guarantee. */
+    });
+
+    const emailField = page.locator("#login-email, input[type=email]").first();
+    const passwordField = page.locator("#login-password, input[type=password]").first();
+
+    await emailField.fill(persona.email);
+    await passwordField.fill(SEED_PASSWORD);
+
+    // Confirm the values actually stuck. If hydration was still in flight the
+    // first fill is silently discarded, so re-enter rather than submit blanks.
+    if ((await emailField.inputValue()) !== persona.email) {
+      await emailField.fill(persona.email);
+      await passwordField.fill(SEED_PASSWORD);
+    }
+
     await page.getByRole("button", { name: /sign in/i }).click();
 
     // Wait for the navigation only. Racing this against a locator fails: a
