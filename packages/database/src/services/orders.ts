@@ -549,70 +549,17 @@ const RELEASE_STATUSES: OrderStatus[] = ["CANCELLED", "REFUNDED", "RETURNED"];
 /**
  * Transition an order's status and settle its inventory side-effects atomically.
  */
-export async function updateOrderStatus(orderId: string, status: OrderStatus, actorId: string, message?: string) {
-  if (!actorId) throw new Error("Order transition actor is required");
-  return db.$transaction(async (tx) => {
-    const current = await tx.order.findUnique({
-      where: { id: orderId },
-      include: { items: true },
-    });
-    if (!current) throw new Error("Order not found");
-
-    const wasReserved = RESERVED_STATUSES.includes(current.status);
-    const wasConsumed = CONSUME_STATUSES.includes(current.status);
-    const nowConsume = CONSUME_STATUSES.includes(status);
-    const nowRelease = RELEASE_STATUSES.includes(status);
-
-    if (wasReserved && (nowConsume || nowRelease)) {
-      for (const item of current.items) {
-        let remaining = item.quantity;
-        const rows = await tx.inventoryStock.findMany({
-          where: inventoryStockIdentityWhere(item.productId, item.variantId),
-          orderBy: { updatedAt: "asc" },
-        });
-        for (const s of rows) {
-          if (remaining <= 0) break;
-          const take = Math.min(remaining, s.reservedQty);
-          if (take <= 0) continue;
-          await tx.inventoryStock.update({
-            where: { id: s.id },
-            data: nowConsume
-              ? { reservedQty: { decrement: take }, qty: { decrement: take } }
-              : { reservedQty: { decrement: take } },
-          });
-          await tx.inventoryMovement.create({
-            data: {
-              stockId: s.id,
-              type: nowConsume ? "OUT" : "RELEASE",
-              qty: take,
-              reference: current.orderNumber,
-              notes: nowConsume ? "Shipped — reservation consumed" : "Order closed — reservation released",
-              createdBy: actorId,
-            },
-          });
-          remaining -= take;
-        }
-      }
-    }
-
-    const order = await tx.order.update({ where: { id: orderId }, data: { status } });
-    await tx.orderStatusHistory.create({ data: { orderId, status, message, actorId } });
-    if (wasConsumed || wasReserved) {
-      await tx.orderItem.updateMany({ where: { orderId }, data: { status } });
-    }
-    await tx.auditLog.create({
-      data: {
-        actorId,
-        entityType: "Order",
-        entityId: orderId,
-        action: "STATUS_CHANGE",
-        before: { status: current.status },
-        after: { status, message },
-      },
-    });
-    return order;
-  });
-}
+// updateOrderStatus was removed here.
+//
+// It had zero callers and was unsafe by construction: no advisory lock,
+// unlike every other stock writer in this file; a plain decrement rather
+// than the compare-and-set the reservation path uses; and no legal-
+// transition table, so it accepted any status from any status.
+//
+// Dead code with unsafe semantics is worse than no code — the next person
+// to need an order transition would have reached for it and quietly
+// bypassed the locking discipline. The governed path is
+// advanceSellerFulfillment in seller-fulfillment.ts.
 
 export async function getOrdersForSeller(sellerId: string, params: { page?: number; limit?: number; status?: OrderStatus }) {
   const { page = 1, limit = 20, status } = params;

@@ -35,8 +35,12 @@ services:
         sync: false
       - key: DIRECT_URL
         sync: false
-      - key: INTEGRATION_WORKER_ID
-        value: "render-primary"
+      # Deliberately unset: the worker generates a unique id per process.
+      # A fixed value made every instance upsert the SAME heartbeat row, so
+      # health reported one worker no matter how many were running. Row claiming
+      # stayed safe (SKIP LOCKED + fencing token); only observability broke.
+      # - key: INTEGRATION_WORKER_ID
+      #   value: "render-primary"
       # Each ERP adapter is pinned to an operator-owned origin and a dedicated
       # token variable. Admin configuration cannot select arbitrary hosts or
       # dereference unrelated runtime secrets.

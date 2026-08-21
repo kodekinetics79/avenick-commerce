@@ -48,4 +48,5 @@ export {
   type CacheEntry,
   type CachedResult,
 } from "./cache";
+export { installRedisCacheStore } from "./redis-cache-store";
 export { read, write, type ReadOptions } from "./resilient-ops";

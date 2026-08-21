@@ -74,6 +74,17 @@ export const RATE_LIMITS = {
   orderCreate: { name: "order-create", limit: 30, windowMs: 60_000 },
   /** AI draft generations per user. */
   aiDraft: { name: "ai-draft", limit: 20, windowMs: 60 * 60_000 },
+  /**
+   * Public catalog reads per client IP.
+   *
+   * /api/products is unauthenticated and runs an unbounded count() alongside the
+   * page query — the same seven-column ILIKE across two tables, with no LIMIT,
+   * because it must match every row rather than the first page. That made it the
+   * cheapest external way to load the database, and checkout transactions hold
+   * advisory locks behind the same connection pool. Generous enough for real
+   * browsing, low enough to stop a scraper.
+   */
+  catalogRead: { name: "catalog-read", limit: 120, windowMs: 60_000 },
 } satisfies Record<string, RateLimitRule>;
 
 export async function checkRateLimit(rule: RateLimitRule, identifier: string): Promise<RateLimitResult> {

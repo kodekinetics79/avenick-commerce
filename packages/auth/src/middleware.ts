@@ -33,6 +33,26 @@ const PUBLIC_API_PATHS: Record<PortalType, string[]> = {
   admin: ["/api/integrations/inbound"],
 };
 
+/**
+ * Extensions actually served as static files from /public.
+ *
+ * The previous check was `pathname.includes(".")`, which skipped middleware for
+ * ANY path containing a dot anywhere — so `/api/orders/abc.def` bypassed
+ * authentication entirely. Every route re-authenticates independently, which is
+ * why that was not exploitable, but the middleware was not a dependable
+ * boundary and the first route to trust it would have been open.
+ */
+const STATIC_ASSET_EXTENSION =
+  /\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|bmp|css|js|mjs|map|txt|xml|json|webmanifest|woff2?|ttf|otf|eot|mp4|webm)$/i;
+
+function isStaticAsset(pathname: string): boolean {
+  // An API route is never a static asset, whatever it is named. `/api/x.json`
+  // must still authenticate.
+  if (pathname.startsWith("/api/")) return false;
+  // The extension must terminate the path, not merely appear within it.
+  return STATIC_ASSET_EXTENSION.test(pathname);
+}
+
 function isPublicApiPath(pathname: string, portal: PortalType): boolean {
   return PUBLIC_API_PATHS[portal].some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
@@ -57,7 +77,7 @@ export function createMiddleware(portal: PortalType, authFn: () => Promise<Sessi
       pathname === "/api/health" ||
       pathname === "/api/ready" ||
       pathname === "/api/status" ||
-      pathname.includes(".")
+      isStaticAsset(pathname)
     ) {
       return NextResponse.next();
     }

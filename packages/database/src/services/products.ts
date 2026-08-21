@@ -18,9 +18,23 @@ export interface ProductListParams {
   currency?: Currency;
 }
 
+/**
+ * Shortest search term that can use the trigram indexes.
+ *
+ * The catalog search runs an unanchored ILIKE across seven columns on two
+ * tables, backed by pg_trgm GIN indexes. Trigrams need three characters: a
+ * one- or two-character term cannot use the index and degrades to a sequential
+ * scan on every matching row — on a public, unauthenticated route.
+ */
+export const MIN_CATALOG_SEARCH_LENGTH = 3;
+
 export function normalizeCatalogSearch(value?: string) {
   const normalized = value?.trim().replace(/\s+/g, " ");
-  return normalized || undefined;
+  if (!normalized) return undefined;
+  // Below the trigram floor, ignore the term rather than scanning the table.
+  // Returning undefined lists the catalog instead of pretending to search it.
+  if (normalized.length < MIN_CATALOG_SEARCH_LENGTH) return undefined;
+  return normalized;
 }
 
 export async function listProducts(params: ProductListParams) {

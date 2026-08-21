@@ -40,7 +40,17 @@ export class HttpErpAdapter implements ErpAdapter {
       ...(body ? { body: JSON.stringify(body) } : {}),
       signal: AbortSignal.timeout(20_000),
     });
-    if (!response.ok) throw new ErpAdapterError(response.status >= 500 ? "HTTP_500" : "HTTP_500", `ERP HTTP ${response.status}`, response.status >= 500);
+    if (!response.ok) {
+      // Both branches of this ternary previously read "HTTP_500", so a 404 or a
+      // 401 was reported as a server error — misleading every downstream log,
+      // dead-letter record and operator triage.
+      const serverSide = response.status >= 500;
+      throw new ErpAdapterError(
+        serverSide ? "HTTP_500" : "HTTP_4XX",
+        `ERP HTTP ${response.status}`,
+        serverSide,
+      );
+    }
     return response.json() as Promise<T>;
   }
   healthCheck() { return this.call<{ ok: boolean; system: string }>("/health"); }
@@ -54,7 +64,7 @@ export class HttpErpAdapter implements ErpAdapter {
 
 export class ErpAdapterError extends Error {
   constructor(
-    readonly code: "TIMEOUT" | "HTTP_500",
+    readonly code: "TIMEOUT" | "HTTP_500" | "HTTP_4XX",
     message: string,
     readonly retryable = true,
   ) {
@@ -160,4 +170,20 @@ export async function runDeterministicErpCertification() {
       throw error;
     }
   }));
+}
+
+/**
+ * Should this failure be retried, or is it permanent?
+ *
+ * `ErpAdapterError.retryable` was computed correctly and then never read by
+ * anything — so a permanent rejection (400 bad request, 401 bad credentials,
+ * 404 unknown order) consumed the full retry budget with exponential backoff
+ * before dead-lettering, taking hours to surface an error that was already
+ * final on the first attempt.
+ *
+ * Anything that is not a recognised permanent failure stays retryable, so an
+ * unknown error class still gets the benefit of the doubt.
+ */
+export function isRetryableIntegrationError(error: unknown): boolean {
+  return error instanceof ErpAdapterError ? error.retryable : true;
 }

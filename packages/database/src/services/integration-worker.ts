@@ -361,9 +361,25 @@ async function recordConnectionEvidence(connectionId: string | null, ok: boolean
   }).catch(() => undefined);
 }
 
+/**
+ * How many messages one worker cycle claims per direction.
+ *
+ * This was hardcoded to 1 while claimIntegrationOutbox already supported a
+ * bounded batch. At the default 2s poll that capped the platform near 0.5
+ * messages/second in each direction, so a busy sales day could take hours to
+ * drain — and one slow ERP call blocked both directions behind it. The claim
+ * query uses FOR UPDATE SKIP LOCKED, so batching stays safe with N workers.
+ */
+function cycleBatchSize(): number {
+  const parsed = Number.parseInt(process.env["INTEGRATION_BATCH_SIZE"] ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return 20;
+  return Math.min(parsed, 100);
+}
+
 export async function runGovernedIntegrationWorkerOnce(workerId: string) {
   await recordWorkerHeartbeat(workerId);
-  const outbound = await claimIntegrationOutbox({ workerId, limit: 1 });
+  const batchSize = cycleBatchSize();
+  const outbound = await claimIntegrationOutbox({ workerId, limit: batchSize });
   let outboundResult: unknown;
   if (outbound[0]) {
     await recordWorkerHeartbeat(workerId, "CLAIM");
@@ -387,7 +403,7 @@ export async function runGovernedIntegrationWorkerOnce(workerId: string) {
   const inbound = await runIntegrationInboxWorkerOnce({
     workerId,
     handlers: DEPLOYED_INTEGRATION_INBOX_HANDLERS,
-    limit: 1,
+    limit: batchSize,
   });
   if (inbound.claimed > 0) {
     await recordWorkerHeartbeat(workerId, "CLAIM");

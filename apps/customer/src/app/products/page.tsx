@@ -45,14 +45,11 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
   });
   const { products, totalPages, total } = await fetchBackendJson<{ products: any[]; total: number; totalPages: number }>(`/api/products?${qs.toString()}`);
 
-  const sortedProducts =
-    searchParams.sort === "price_asc" || searchParams.sort === "price_desc"
-      ? [...products].sort((a, b) => {
-          const aPrice = Number(a.prices?.find((pr: { type: string }) => pr.type === "B2C")?.price ?? a.prices?.[0]?.price ?? 0);
-          const bPrice = Number(b.prices?.find((pr: { type: string }) => pr.type === "B2C")?.price ?? b.prices?.[0]?.price ?? 0);
-          return searchParams.sort === "price_desc" ? bPrice - aPrice : aPrice - bPrice;
-        })
-      : products;
+  // Ordering is done by the database across the full result set. A previous
+  // version re-sorted by price here — but only across the 24 rows already on
+  // the page, so "Price: Low → High" produced a false ordering that restarted
+  // on every page. It also read the B2C tier while in B2B mode.
+  const sortedProducts = products;
 
   if (sortedProducts.length === 0) {
     // An empty category shows an honest zero-result state that keeps the

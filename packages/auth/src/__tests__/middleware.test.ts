@@ -180,3 +180,46 @@ describe("return path preservation through login", () => {
     expect(location.searchParams.get("callbackUrl")).toBe("/account/orders");
   });
 });
+
+describe("static-asset skip does not become an auth bypass", () => {
+  it("still authenticates an API path that merely contains a dot", async () => {
+    // `pathname.includes(".")` skipped middleware for any dotted path, so a
+    // protected API route could be reached unauthenticated just by naming it
+    // with a dot.
+    const mw = createMiddleware("customer", anon);
+    for (const path of [
+      "/api/orders/abc.def",
+      "/api/b2b/purchase-orders/x.y",
+      "/api/orders/report.json",
+      "/api/orders/archive.png",
+    ]) {
+      const res = await mw(req(path));
+      expect(res!.status, `${path} must still require authentication`).toBe(401);
+    }
+  });
+
+  it("still authenticates a page path that merely contains a dot", async () => {
+    const mw = createMiddleware("admin", anon);
+    const res = await mw(req("/users/john.doe"));
+
+    expect(res!.status).toBe(307);
+    expect(res!.headers.get("location")).toContain("/login");
+  });
+
+  it("lets genuine static assets through", async () => {
+    const mw = createMiddleware("customer", anon);
+    for (const path of ["/logo.svg", "/fonts/inter.woff2", "/site.webmanifest", "/robots.txt"]) {
+      const res = await mw(req(path));
+      expect(res!.status, `${path} should pass through`).toBe(200);
+      expect(res!.headers.get("location")).toBeNull();
+    }
+  });
+
+  it("does not treat a dotted directory segment as an asset", async () => {
+    // "/assets.v2/orders" ends in a path segment, not an extension.
+    const mw = createMiddleware("admin", anon);
+    const res = await mw(req("/assets.v2/orders"));
+
+    expect(res!.status).toBe(307);
+  });
+});

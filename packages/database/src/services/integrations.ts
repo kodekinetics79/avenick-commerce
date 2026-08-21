@@ -1,6 +1,7 @@
 import { Prisma, type IntegrationInbox, type IntegrationOutbox } from "@prisma/client";
 import { db } from "../index";
 import { requireCurrentAdminActor } from "./checkout-invariants";
+import { isRetryableIntegrationError } from "./erp-adapter";
 
 const DEFAULT_LEASE_MS = 5 * 60 * 1000;
 const DEFAULT_MAX_ATTEMPTS = 8;
@@ -203,7 +204,11 @@ export async function failIntegrationOutbox(
   maxAttempts = DEFAULT_MAX_ATTEMPTS,
 ) {
   const message = error instanceof Error ? error.message : String(error || "Unknown integration failure");
-  const dead = lease.attempts >= Math.max(1, maxAttempts);
+  // A permanent rejection is final on the first attempt. Retrying a 400 or a 401
+  // eight times with exponential backoff delays the operator's discovery by
+  // hours and cannot succeed. Only transient failures earn the retry budget.
+  const permanent = !isRetryableIntegrationError(error);
+  const dead = permanent || lease.attempts >= Math.max(1, maxAttempts);
   const nextAttemptAt = dead ? null : new Date(Date.now() + retryDelayMs(lease.attempts));
 
   const result = await db.integrationOutbox.updateMany({
