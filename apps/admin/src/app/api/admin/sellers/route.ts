@@ -15,7 +15,9 @@ export async function GET(req: NextRequest) {
       take: 100,
       include: {
         user: { select: { email: true, firstName: true, lastName: true } },
-        documents: { select: { id: true, type: true, fileUrl: true, fileName: true, status: true } },
+        // fileUrl is a private object key, never a link the browser can open;
+        // the page links to /documents/<id>/view, which signs it per request.
+        documents: { select: { id: true, type: true, fileName: true, status: true } },
         _count: { select: { products: true } },
       },
     });

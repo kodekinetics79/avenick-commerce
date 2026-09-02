@@ -32,6 +32,14 @@ export default async function IntegrationsPage() {
     db.integrationCompanyRoute.findMany({ where: { tenantKey: "default", purpose: "ORDER_SUBMISSION" } }),
   ]);
   const env = (key: string) => Boolean(process.env[key]);
+  // installRedisRateLimitStore() / installRedisCacheStore() install the shared
+  // store if and only if BOTH of these are present, so this is the actual
+  // install condition rather than a proxy for it. It reports this admin
+  // instance; each portal carries its own environment.
+  // Trimmed, because both install functions read them with `?.trim()`: a
+  // whitespace-only value installs nothing and must not report as configured.
+  const envSet = (key: string) => Boolean(process.env[key]?.trim());
+  const redisShared = envSet("UPSTASH_REDIS_REST_URL") && envSet("UPSTASH_REDIS_REST_TOKEN");
 
   const runtimeServices = [
     {
@@ -72,16 +80,18 @@ export default async function IntegrationsPage() {
     {
       name: "Elasticsearch",
       category: "Search",
-      state: env("ELASTICSEARCH_URL") ? "CONFIGURED" : "FALLBACK",
-      detail: env("ELASTICSEARCH_URL") ? "Endpoint configured" : "Database search fallback",
-      truth: "The public catalog remains functional without it; provider health is not inferred from a URL.",
+      state: "NOT_IMPLEMENTED",
+      detail: env("ELASTICSEARCH_URL") ? "Endpoint set but never read" : "No endpoint set",
+      truth: "No Elasticsearch client dependency or indexing/query code exists in this repository, so this is not a fallback — catalog search is served entirely by PostgreSQL. The environment variable proves configuration intent only.",
     },
     {
       name: "Redis",
       category: "Infrastructure",
-      state: env("REDIS_URL") ? "CONFIGURED" : "FALLBACK",
-      detail: env("REDIS_URL") ? "Endpoint configured" : "In-memory fallback",
-      truth: "A multi-instance production rollout requires shared Redis; in-memory fallback is single-instance only.",
+      state: redisShared ? "CONFIGURED" : "DEGRADED",
+      detail: redisShared ? "Upstash REST credentials present" : "In-memory store, this process only",
+      truth: redisShared
+        ? "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are both set, which is the condition under which the shared store is installed at boot. Credential presence only — no Redis reachability probe has been recorded on this screen."
+        : "UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN are unset, so the shared store was never installed: rate limiting and the read cache run in per-process memory, are not shared across instances and reset on every restart. Per-IP login, registration and catalog throttles are therefore only as strong as one instance. REDIS_URL is read by no code in this repository and configures nothing.",
     },
   ];
 

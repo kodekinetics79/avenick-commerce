@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { AuthProvider } from "@/components/auth-provider";
+import { platformName } from "@avenick/utils/portal-config";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Admin Console | Avenick Commerce", template: "%s | Admin" },
-  description: "Avenick Commerce Admin Console",
+  title: { default: `Admin Console | ${platformName()}`, template: "%s | Admin" },
+  description: `${platformName()} Admin Console`,
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

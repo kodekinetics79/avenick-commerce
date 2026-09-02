@@ -55,6 +55,9 @@ export default function AdminLoginPage() {
             {error && <p className="text-danger text-sm" role="alert">{error}</p>}
             <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
           </form>
+          {/* No reset link on purpose: the public reset flow refuses admin
+              accounts, so offering it here would be a control that does nothing. */}
+          <p className="mt-4 text-center text-xs text-muted-foreground">Admin accounts are provisioned by platform operations.</p>
         </div>
         <p className="text-center text-[11px] text-muted-foreground/70 mt-6">B2B-first. B2C-ready. Built for modern trade.</p>
       </div>

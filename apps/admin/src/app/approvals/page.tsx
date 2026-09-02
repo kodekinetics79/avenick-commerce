@@ -2,7 +2,8 @@ import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { db } from "@avenick/database";
 import Link from "next/link";
-import { CheckSquare, Package, Store, FileCheck, CheckCircle, XCircle, ArrowRight } from "lucide-react";
+import { CheckSquare, Package, Store, FileCheck, CheckCircle, ArrowRight } from "lucide-react";
+import { ProductReviewControls } from "./product-review-controls";
 
 export const metadata = { title: "Approvals" };
 
@@ -23,7 +24,7 @@ export default async function ApprovalsPage() {
   }).catch(() => []);
 
   const queues = [
-    { label: "Product Listings", count: pendingProducts, icon: Package, href: "/products", color: "bg-blue-100 text-primary" },
+    { label: "Product Listings", count: pendingProducts, icon: Package, href: "/products?status=PENDING_REVIEW", color: "bg-blue-100 text-primary" },
     { label: "Supplier Applications", count: pendingSellers, icon: Store, href: "/sellers/pending", color: "bg-purple-100 text-purple-600" },
     { label: "Compliance Documents", count: pendingDocs, icon: FileCheck, href: "/compliance", color: "bg-amber-100 text-amber-600" },
   ];
@@ -66,14 +67,13 @@ export default async function ApprovalsPage() {
           ) : (
             <div className="divide-y divide-border">
               {products.map((p) => (
-                <div key={p.id} className="flex items-center justify-between px-5 py-3.5">
+                <div key={p.id} className="flex items-center justify-between gap-4 px-5 py-3.5">
                   <div className="min-w-0">
                     <p className="font-medium text-sm">{p.nameEn}</p>
                     <p className="text-xs text-muted-foreground">{p.seller?.businessNameEn} · {p.category?.nameEn} · {p.sku}</p>
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    <button type="button" className="flex items-center gap-1 text-xs bg-green-500 text-white px-3 py-1.5 rounded-lg hover:bg-green-600 font-medium transition-colors"><CheckCircle className="h-3 w-3" /> Approve</button>
-                    <button type="button" className="flex items-center gap-1 text-xs border border-border text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 font-medium transition-colors"><XCircle className="h-3 w-3" /> Reject</button>
+                  <div className="shrink-0">
+                    <ProductReviewControls productId={p.id} />
                   </div>
                 </div>
               ))}
