@@ -2,21 +2,14 @@ import { test, expect } from "@playwright/test";
 import { url, FORBIDDEN_ON_PUBLIC_PAGES } from "../targets.mjs";
 
 /**
- * ============================================================================
- * EXPECTED TO FAIL on the tree audited in
- * AVENICK_GATE_1_WORKTREE_AUDIT_2026-08-17.md. That is intentional.
- * ============================================================================
+ * Regression guard for defect D-01 (CRITICAL, AVENICK_GATE_1_WORKTREE_AUDIT_
+ * 2026-08-17.md): working credential pairs were once rendered on the
+ * unauthenticated login page of all three portals. The credentials are gone,
+ * so this file is EXPECTED TO PASS.
  *
- * This file encodes defect D-01 (CRITICAL): working credential pairs are
- * rendered on the unauthenticated login page of all three portals —
- *
- *   apps/admin/src/app/login/page.tsx:53     admin@avenick.test  · Password123!
- *   apps/customer/src/app/login/page.tsx:65  buyer@avenick.test  · Password123!
- *   apps/seller/src/app/login/page.tsx:53    seller@avenick.test · Password123!
- *
- * A red result here is the regression guard doing its job. It should turn green
- * only when the credentials are actually removed — never by weakening the
- * assertion or skipping the test.
+ * A red result here means they have come back on a public page. Fix the page to
+ * turn it green — never by weakening the assertion, adding a skip, or narrowing
+ * FORBIDDEN_ON_PUBLIC_PAGES in targets.mjs. CI runs this on every push.
  */
 
 const LOGIN_PAGES = [

@@ -71,13 +71,20 @@ export default defineConfig({
       // default is tight. It no longer needs to cover a retry backoff — setup
       // fails fast on rate limiting rather than sleeping through it.
       timeout: 60_000,
-      use: { ...devices["Desktop Chrome"] },
+      // A trace embeds every request and response header, so one from this
+      // project carries the login POST body and the Set-Cookie that follows.
+      // The CI artifact excludes artifacts/auth/ for exactly that reason, and
+      // a trace would smuggle the same secret back in. Screenshot and video
+      // are still retained on failure; they cannot contain a cookie.
+      use: { ...devices["Desktop Chrome"], trace: "off" },
     },
     {
       name: "authenticated",
       testMatch: /authenticated\/.*\.spec\.ts/,
       dependencies: ["auth-setup"],
-      use: { ...devices["Desktop Chrome"] },
+      // Same reasoning as auth-setup: every request in this project sends the
+      // persona's session cookie, and a trace records it.
+      use: { ...devices["Desktop Chrome"], trace: "off" },
     },
   ],
 });

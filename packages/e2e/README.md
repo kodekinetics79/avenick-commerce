@@ -21,7 +21,11 @@ packages/e2e/
 ├── playwright.config.ts         primary suite — artifacts, RTL project
 ├── playwright/
 │   ├── storefront.spec.ts       public storefront smoke journeys
-│   └── security-guardrails.spec.ts   D-01 regression guard (expected RED)
+│   ├── security-guardrails.spec.ts   D-01 regression guard (expected GREEN)
+│   ├── setup/auth.setup.ts      signs six personas in; caches state under artifacts/auth/
+│   └── authenticated/
+│       ├── tenant-isolation.spec.ts    seller-A vs seller-B, buyer order isolation
+│       └── portal-boundaries.spec.ts   cross-portal denial with API/UI parity
 ├── cypress.config.ts
 ├── cypress/e2e/storefront.cy.ts
 ├── puppeteer/storefront.test.mjs     runs on `node --test`
@@ -146,23 +150,19 @@ the exact target URL and commit the run was made against.
    seeded or mocked rows and call the result a customer journey.
 3. **Never weaken a guardrail to get green.** See below.
 
-## The D-01 guardrail is expected to FAIL
+## The D-01 guardrail is expected to PASS
 
 `playwright/security-guardrails.spec.ts` and the matching Cypress and Puppeteer
 cases assert that no credential strings render on an unauthenticated login page.
 
-They currently **fail**, and that is correct. They encode defect D-01 (CRITICAL)
-from `AVENICK_GATE_1_WORKTREE_AUDIT_2026-08-17.md`:
+They encode defect D-01 (CRITICAL) from
+`AVENICK_GATE_1_WORKTREE_AUDIT_2026-08-17.md`: working credential pairs were once
+rendered on the login page of all three portals. Those strings have been
+removed, so the guard is **green** and CI runs it on every push.
 
-| Portal | Location | Leaked |
-|---|---|---|
-| admin | `apps/admin/src/app/login/page.tsx:53` | `admin@avenick.test · Password123!` |
-| customer | `apps/customer/src/app/login/page.tsx:65` | `buyer@avenick.test · Password123!` |
-| seller | `apps/seller/src/app/login/page.tsx:53` | `seller@avenick.test · Password123!` |
-
-These turn green when the credentials are removed from the pages — never by
-relaxing the assertion, adding `.skip`, or narrowing the forbidden list in
-`targets.mjs`.
+A red result means the credentials have come back on a public page. Fix the page
+to turn it green — never by relaxing the assertion, adding `.skip`, or narrowing
+the forbidden list in `targets.mjs`.
 
 ## Troubleshooting
 
@@ -183,9 +183,18 @@ and the suites then fail at launch rather than at install.
 declares no `test` script, so the vitest gate stays fast and database-only.
 Browser suites run only through the explicit `e2e:*` scripts.
 
-## Not yet wired
+## CI
 
-CI does not run these suites. `.github/workflows/ci.yml` was left untouched
-deliberately — adding a browser stage changes the release gate, which is a
-product-owner decision. Wiring it needs a job that builds the apps, starts the
-three portals against the CI Postgres, then runs `pnpm e2e`.
+`.github/workflows/ci.yml` runs these suites in the `Browser journey evidence`
+job after the unit gate passes: it builds the apps, starts the three portals
+against the CI Postgres, then runs the Playwright storefront, D-01 and
+`--project=authenticated` suites, followed by Puppeteer and Cypress.
+
+Artifacts under `artifacts/` are uploaded as `browser-journey-evidence`, with two
+exclusions that must stay:
+
+- `artifacts/auth/` — cached signed-in browser state, i.e. live session cookies.
+- Playwright traces from the `auth-setup` and `authenticated` projects — a trace
+  embeds every request and response header, so it would carry the login POST
+  and the `Set-Cookie` that follows. Those projects run with `trace: "off"`;
+  screenshots and video are still retained on failure.
