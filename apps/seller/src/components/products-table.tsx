@@ -3,11 +3,11 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { Package, Download, Upload, AlertTriangle, X, Loader2, CheckCircle, EyeOff } from "lucide-react";
 import { formatCurrency } from "@avenick/utils";
+import { platformName } from "@avenick/utils/portal-config";
 import { useToast } from "@/components/toast";
-import { bulkUpdateProductStatus, importProductsCsv, type ImportRow } from "@/app/products/actions";
+import { bulkUpdateProductStatus, importProductsCsv, type BulkStatusSkipReason, type ImportRow } from "@/app/products/actions";
 
 export type ProductRow = {
   id: string;
@@ -18,7 +18,7 @@ export type ProductRow = {
   listingHealth: number;
   available: number;
   price: number | null;
-  currency: string;
+  currency: string | null;
   issueCount: number;
   imageUrl: string | null;
 };
@@ -104,12 +104,42 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
 
   const selectedRows = rows.filter((r) => selected.has(r.id));
 
-  async function bulk(status: "ACTIVE" | "INACTIVE" | "SUPPRESSED") {
+  const SKIP_LABELS: Record<BulkStatusSkipReason, string> = {
+    NOT_APPROVED_YET: "not yet approved — submit it for review from the product form",
+    PLATFORM_SUPPRESSED: `suppressed or suspended by ${platformName()} — contact support`,
+    ALREADY_IN_STATUS: "already in that status",
+    NOT_PAUSABLE: "not live, so there is nothing to pause",
+  };
+
+  async function bulk(status: "ACTIVE" | "INACTIVE") {
     setPending(true);
-    const res = await bulkUpdateProductStatus([...selected], status);
+    let res: Awaited<ReturnType<typeof bulkUpdateProductStatus>>;
+    try {
+      res = await bulkUpdateProductStatus([...selected], status);
+    } catch {
+      setPending(false);
+      toast({ title: "Nothing was changed", description: "The update could not be applied. Refresh and try again.", variant: "error" });
+      return;
+    }
     setPending(false);
     setSelected(new Set());
-    toast({ title: `${res.count} product${res.count !== 1 ? "s" : ""} updated`, description: `Set to ${status.toLowerCase()}.`, variant: "success" });
+    const verb = status === "ACTIVE" ? "resumed" : "paused";
+    const skippedSummary = res.skipped.length
+      ? Object.entries(
+          res.skipped.reduce<Record<string, number>>((acc, s) => ({ ...acc, [s.reason]: (acc[s.reason] ?? 0) + 1 }), {}),
+        )
+          .map(([reason, n]) => `${n} ${SKIP_LABELS[reason as BulkStatusSkipReason]}`)
+          .join("; ")
+      : "";
+    if (res.count === 0) {
+      toast({ title: "No products changed", description: skippedSummary || "Nothing to do.", variant: "error" });
+    } else {
+      toast({
+        title: `${res.count} product${res.count !== 1 ? "s" : ""} ${verb}`,
+        description: skippedSummary ? `Skipped: ${skippedSummary}.` : undefined,
+        variant: "success",
+      });
+    }
     router.refresh();
   }
 
@@ -145,7 +175,17 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
 
       const res = await importProductsCsv(imports);
       const variant = res.updated > 0 ? "success" : "error";
-      const desc = res.skipped > 0 ? `${res.skipped} skipped${res.errors[0] ? ` — ${res.errors[0]}` : ""}` : undefined;
+      // A row can be updated and still have had a cell refused (a status the
+      // seller may not set, an unparseable price), which lands in `errors` with
+      // nothing in `skipped`. Reporting only skips let that import read as
+      // wholly applied, so both are named, and the count says how many more.
+      const parts = [
+        res.skipped > 0 ? `${res.skipped} skipped` : null,
+        res.errors[0]
+          ? `${res.errors[0]}${res.errors.length > 1 ? ` (+${res.errors.length - 1} more issue${res.errors.length > 2 ? "s" : ""})` : ""}`
+          : null,
+      ].filter(Boolean);
+      const desc = parts.length > 0 ? parts.join(" — ") : undefined;
       toast({ title: `${res.updated} product${res.updated !== 1 ? "s" : ""} updated`, ...(desc ? { description: desc } : {}), variant });
       router.refresh();
     } catch (err) {
@@ -200,7 +240,12 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 shrink-0 rounded-lg overflow-hidden bg-secondary">
                       {p.imageUrl ? (
-                        <Image src={p.imageUrl} alt={p.nameEn} width={40} height={40} className="object-cover w-full h-full" />
+                        // Plain <img>, not next/image: the optimizer throws for any host outside
+                        // next.config remotePatterns, and uploaded product images live on the object-
+                        // storage host, which is not listed there. One such row would take the whole
+                        // list down instead of just that thumbnail.
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.imageUrl} alt={p.nameEn} width={40} height={40} loading="lazy" className="object-cover w-full h-full" />
                       ) : <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">?</div>}
                     </div>
                     <div className="min-w-0">
@@ -215,7 +260,7 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
                 <td className="px-4 py-3">
                   <span className={p.available <= 0 ? "text-danger font-semibold" : p.available <= 10 ? "text-amber-600 dark:text-amber-400" : "text-foreground"}>{p.available}</span>
                 </td>
-                <td className="px-4 py-3 text-sm whitespace-nowrap">{p.price != null ? formatCurrency(p.price, p.currency as "AED") : "—"}</td>
+                <td className="px-4 py-3 text-sm whitespace-nowrap">{p.price != null && p.currency ? formatCurrency(p.price, p.currency as never) : "—"}</td>
                 <td className="px-4 py-3">
                   {p.issueCount > 0 ? (
                     <Link href="/issues" className="flex items-center gap-1 text-danger hover:underline text-xs"><AlertTriangle className="h-3.5 w-3.5" />{p.issueCount}</Link>
@@ -240,9 +285,8 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
         <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-border bg-card/95 backdrop-blur">
           <span className="text-sm font-medium">{selected.size} selected</span>
           <div className="flex items-center gap-2">
-            <button type="button" disabled={pending} onClick={() => bulk("ACTIVE")} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-success/15 text-success text-xs font-semibold hover:bg-success/25 transition-colors disabled:opacity-50"><CheckCircle className="h-3.5 w-3.5" /> Activate</button>
-            <button type="button" disabled={pending} onClick={() => bulk("INACTIVE")} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-secondary text-foreground text-xs font-semibold hover:bg-secondary/70 transition-colors disabled:opacity-50"><EyeOff className="h-3.5 w-3.5" /> Deactivate</button>
-            <button type="button" disabled={pending} onClick={() => bulk("SUPPRESSED")} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-danger/15 text-danger text-xs font-semibold hover:bg-danger/25 transition-colors disabled:opacity-50"><X className="h-3.5 w-3.5" /> Suppress</button>
+            <button type="button" disabled={pending} onClick={() => bulk("ACTIVE")} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-success/15 text-success text-xs font-semibold hover:bg-success/25 transition-colors disabled:opacity-50"><CheckCircle className="h-3.5 w-3.5" /> Resume</button>
+            <button type="button" disabled={pending} onClick={() => bulk("INACTIVE")} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-secondary text-foreground text-xs font-semibold hover:bg-secondary/70 transition-colors disabled:opacity-50"><EyeOff className="h-3.5 w-3.5" /> Pause</button>
             {pending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
             <button type="button" onClick={() => setSelected(new Set())} className="p-1.5 rounded-lg text-muted-foreground hover:bg-secondary" aria-label="Clear selection"><X className="h-4 w-4" /></button>
           </div>

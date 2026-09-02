@@ -1,5 +1,6 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import { securityHeadersRoute } from "@avenick/config/security-headers";
+import { objectStorageRemotePatterns } from "@avenick/config/image-hosts";
 import { PrismaPlugin } from "@prisma/nextjs-monorepo-workaround-plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
@@ -18,6 +19,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
     remotePatterns: [
+      // Uploaded media (S3/MinIO/R2), resolved from env at build time.
+      ...objectStorageRemotePatterns(),
       { protocol: "https", hostname: "*.avenick.com" },
       { protocol: "http", hostname: "localhost" },
       { protocol: "https", hostname: "placehold.co" },

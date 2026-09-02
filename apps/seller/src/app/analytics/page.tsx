@@ -11,13 +11,26 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 export default async function AnalyticsPage() {
   const { seller, membership } = await requireSellerPermission("analytics.view");
 
-  const items = await db.orderItem.findMany({
+  const allItems = await db.orderItem.findMany({
     where: { sellerId: seller.id, order: { status: { notIn: ["CANCELLED", "PENDING_PAYMENT"] } } },
     include: {
-      order: { select: { id: true, createdAt: true } },
+      order: { select: { id: true, createdAt: true, currency: true } },
       product: { select: { nameEn: true, category: { select: { nameEn: true } } } },
     },
   });
+
+  // Order lines carry the order's currency, and a GCC seller can sell in more
+  // than one. Adding lines across currencies and calling the sum "AED" (what
+  // this page used to do) produced a figure that exists in no ledger, so the
+  // analytics are computed in the seller's most-used currency and the lines
+  // left out are disclosed below the KPIs.
+  const currencyCounts = new Map<string, number>();
+  for (const i of allItems) currencyCounts.set(i.order.currency, (currencyCounts.get(i.order.currency) ?? 0) + 1);
+  const currency = [...currencyCounts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? null;
+  const items = currency ? allItems.filter((i) => i.order.currency === currency) : [];
+  const excludedCount = allItems.length - items.length;
+  const excludedCurrencies = [...currencyCounts.keys()].filter((c) => c !== currency).sort();
+  const money = (n: number) => (currency ? formatCurrency(n, currency as never) : "—");
 
   const orderIds = new Set(items.map((i) => i.order.id));
   const totalRevenue = items.reduce((s, i) => s + Number(i.total), 0);
@@ -57,10 +70,10 @@ export default async function AnalyticsPage() {
   const categories = [...byCat.entries()].map(([name, revenue]) => ({ name, revenue, pct: totalRevenue > 0 ? Math.round((revenue / totalRevenue) * 100) : 0 })).sort((a, b) => b.revenue - a.revenue);
 
   const kpis = [
-    { label: "Total revenue", value: formatCurrency(totalRevenue, "AED"), icon: Wallet },
-    { label: "This month", value: formatCurrency(thisMonthRev, "AED"), icon: TrendingUp },
+    { label: currency ? `Total revenue (${currency})` : "Total revenue", value: money(totalRevenue), icon: Wallet },
+    { label: "This month", value: money(thisMonthRev), icon: TrendingUp },
     { label: "Orders", value: orderIds.size, icon: ShoppingCart },
-    { label: "Avg order value", value: formatCurrency(aov, "AED"), icon: Package },
+    { label: "Avg order value", value: money(aov), icon: Package },
   ];
 
   const empty = items.length === 0;
@@ -84,6 +97,11 @@ export default async function AnalyticsPage() {
             </div>
           ))}
         </div>
+        {excludedCount > 0 && (
+          <p className="text-xs text-muted-foreground">
+            {excludedCount} order line{excludedCount === 1 ? "" : "s"} in {excludedCurrencies.join(", ")} {excludedCount === 1 ? "is" : "are"} not included; figures are in {currency} only and currencies are not converted.
+          </p>
+        )}
 
         {empty ? (
           <div className="rounded-2xl border border-border bg-card p-12 text-center">
@@ -101,7 +119,7 @@ export default async function AnalyticsPage() {
                   <div key={i} className="flex-1 flex flex-col items-center gap-2">
                     <span className="text-[10px] text-muted-foreground font-mono">{m.value > 0 ? `${Math.round(m.value / 1000)}k` : ""}</span>
                     <div className="w-full flex items-end justify-center flex-1">
-                      <div className="w-full max-w-[44px] rounded-t-lg bg-gradient-to-t from-primary-600 to-accent-500" style={{ height: `${Math.max(4, (m.value / trendMax) * 100)}%` }} title={formatCurrency(m.value, "AED")} />
+                      <div className="w-full max-w-[44px] rounded-t-lg bg-gradient-to-t from-primary-600 to-accent-500" style={{ height: `${Math.max(4, (m.value / trendMax) * 100)}%` }} title={money(m.value)} />
                     </div>
                     <span className="text-xs text-muted-foreground">{m.label}</span>
                   </div>
@@ -118,7 +136,7 @@ export default async function AnalyticsPage() {
                     <div key={p.name}>
                       <div className="flex items-center justify-between text-sm mb-1.5">
                         <span className="font-medium truncate flex items-center gap-2"><span className="text-xs text-muted-foreground w-4">{i + 1}</span>{p.name}</span>
-                        <span className="font-mono text-muted-foreground shrink-0">{formatCurrency(p.revenue, "AED")}</span>
+                        <span className="font-mono text-muted-foreground shrink-0">{money(p.revenue)}</span>
                       </div>
                       <div className="h-2 rounded-full bg-secondary overflow-hidden">
                         <div className="h-full rounded-full bg-gradient-to-r from-primary-500 to-accent-500" style={{ width: `${(p.revenue / topMax) * 100}%` }} />
@@ -136,7 +154,7 @@ export default async function AnalyticsPage() {
                     <div key={c.name}>
                       <div className="flex items-center justify-between text-sm mb-1.5">
                         <span className="font-medium">{c.name}</span>
-                        <span className="font-mono text-muted-foreground">{formatCurrency(c.revenue, "AED")} · {c.pct}%</span>
+                        <span className="font-mono text-muted-foreground">{money(c.revenue)} · {c.pct}%</span>
                       </div>
                       <div className="h-2 rounded-full bg-secondary overflow-hidden">
                         <div className="h-full rounded-full bg-gradient-to-r from-primary-500 to-accent-500" style={{ width: `${c.pct}%` }} />

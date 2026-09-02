@@ -5,6 +5,8 @@ import { fetchSellerBackend } from "@/lib/backend";
 import { QuoteForm } from "./quote-form";
 import { format } from "date-fns";
 import { requireSellerPermission } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import { RECORD_ID } from "@avenick/utils";
 
 export const metadata = { title: "Submit Quote" };
 export const dynamic = "force-dynamic";
@@ -28,7 +30,16 @@ export default async function SubmitQuotePage({ searchParams }: PageProps) {
   let rfq: RFQRow | null = null;
   let inbox: RFQRow[] = [];
   if (searchParams.rfq) {
-    const data = await fetchSellerBackend<{ rfq: RFQRow }>(`/api/seller/rfqs/${searchParams.rfq}`);
+    // This id arrives from the query string, so it is attacker-supplied via a
+    // crafted link — and fetchSellerBackend forwards the caller's cookies. An
+    // unencoded value containing "../" resolves against the backend origin and
+    // reaches a different authenticated route than the one intended. Validate
+    // the id shape first, then encode: the guard stops traversal reaching the
+    // URL builder at all, and the encoding is the fix if the shape ever widens.
+    if (!RECORD_ID.test(searchParams.rfq)) notFound();
+    const data = await fetchSellerBackend<{ rfq: RFQRow }>(
+      `/api/seller/rfqs/${encodeURIComponent(searchParams.rfq)}`,
+    );
     rfq = data.rfq;
   } else {
     const data = await fetchSellerBackend<{ inbox: RFQRow[] }>("/api/seller/rfqs");

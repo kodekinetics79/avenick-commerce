@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db, getRFQsForSeller } from "@avenick/database";
+import { db, getRFQsForSeller, SELLER_QUOTE_HISTORY_LIMIT } from "@avenick/database";
 import { getServerSellerContext, sellerHasPermission } from "@/lib/seller-server";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function GET() {
     db.rFQRequest.findMany({
       where: { sellerId: ctx.seller.id },
       orderBy: { updatedAt: "desc" },
-      take: 100,
+      take: SELLER_QUOTE_HISTORY_LIMIT,
       include: {
         company: { select: { nameEn: true } },
         items: true,

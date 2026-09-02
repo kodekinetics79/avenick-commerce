@@ -10,7 +10,13 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Dashboard permission required" }, { status: 403 });
     }
 
-    const [dashboard, expiringDocs, pendingRfqCount] = await Promise.all([
+    // The RFQ figure is `dashboard.rfqCount`: getSellerDashboard counts with
+    // the rfq service's inbox predicate, the one getRFQsForSeller lists with.
+    // This route used to add a second `pendingRfqCount` ("assigned to me AND
+    // still SUBMITTED"), which is empty by construction — submitQuote is the
+    // only writer of RFQRequest.sellerId and it sets QUOTED in the same
+    // update — so two RFQ numbers that could never agree left the payload.
+    const [dashboard, expiringDocs] = await Promise.all([
       getSellerDashboard(ctx.seller.id),
       db.sellerDocument.count({
         where: {
@@ -18,13 +24,10 @@ export async function GET() {
           expiryDate: { gte: new Date(), lte: new Date(Date.now() + 30 * 86400000) },
         },
       }),
-      db.rFQRequest.count({
-        where: { sellerId: ctx.seller.id, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } },
-      }),
     ]);
     return NextResponse.json({
       success: true,
-      data: { seller: ctx.seller, dashboard, expiringDocs, pendingRfqCount },
+      data: { seller: ctx.seller, dashboard, expiringDocs },
     });
   } catch {
     return NextResponse.json({ success: false, error: "Failed" }, { status: 500 });

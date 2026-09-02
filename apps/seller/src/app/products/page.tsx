@@ -33,7 +33,7 @@ export default async function ProductsPage() {
       listingHealth: p.listingHealth,
       available: stock ? stock.qty - stock.reservedQty : 0,
       price: price ? Number(price.price) : null,
-      currency: price?.currency ?? "AED",
+      currency: price?.currency ?? null,
       issueCount: p.issues.length,
       imageUrl: p.images[0]?.url ?? null,
     };

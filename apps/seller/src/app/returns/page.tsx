@@ -73,7 +73,8 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
         {pending > 0 && (
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-center gap-3">
             <RotateCcw className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
-            <p className="font-semibold text-sm">{pending} return{pending !== 1 ? "s" : ""} awaiting your response — respond within 48h to protect your performance score.</p>
+            {/* No deadline: nothing enforces a response window or ties one to the score. */}
+            <p className="font-semibold text-sm">{pending} return{pending !== 1 ? "s" : ""} awaiting your response.</p>
           </div>
         )}
 
