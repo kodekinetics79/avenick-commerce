@@ -27,6 +27,16 @@ export function getS3Config(): S3Config | null {
   const accessKey = process.env.S3_ACCESS_KEY?.trim();
   const secretKey = process.env.S3_SECRET_KEY?.trim();
   if (!endpoint || !bucket || !accessKey || !secretKey) return null;
+  // An endpoint that is set but not a URL must read as "not configured":
+  // otherwise every presign call throws from `new URL(endpoint)` and the
+  // callers' honest 503 branch ("storage is not configured") is never
+  // reached — they answer 500 instead.
+  try {
+    const parsed = new URL(endpoint);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+  } catch {
+    return null;
+  }
   return { endpoint, region, bucket, accessKey, secretKey };
 }
 
@@ -107,13 +117,29 @@ export function presignGetUrl(key: string, opts: { expiresIn?: number } = {}): s
   return presign("GET", key, opts.expiresIn ?? 300);
 }
 
-/** Public read URL for an uploaded object (path-style). */
+/**
+ * Public read URL for an uploaded object.
+ *
+ * Path-style against S3_ENDPOINT by default (MinIO, AWS). When
+ * S3_PUBLIC_BASE_URL is set — Cloudflare R2 public buckets, or a CDN in front
+ * of the bucket — public reads go to that origin instead, which already
+ * addresses the bucket, so the bucket segment is omitted. The same env feeds
+ * next/image's allow-list (@avenick/config/image-hosts), so a URL minted here
+ * is always one the portals are allowed to render.
+ */
 export function objectPublicUrl(key: string): string {
   const cfg = getS3Config();
   if (!cfg) throw new Error("Object storage is not configured");
-  const base = new URL(cfg.endpoint);
   const objectKey = key.replace(/^\/+/, "");
-  return `${base.protocol}//${base.host}/${enc(cfg.bucket)}/${objectKey.split("/").map(enc).join("/")}`;
+  const encodedKey = objectKey.split("/").map(enc).join("/");
+  const publicBase = process.env.S3_PUBLIC_BASE_URL?.trim();
+  if (publicBase) {
+    const base = new URL(publicBase);
+    const prefix = base.pathname.replace(/\/+$/, "");
+    return `${base.protocol}//${base.host}${prefix}/${encodedKey}`;
+  }
+  const base = new URL(cfg.endpoint);
+  return `${base.protocol}//${base.host}/${enc(cfg.bucket)}/${encodedKey}`;
 }
 
 /** Build a collision-resistant object key under a namespace, preserving extension. */

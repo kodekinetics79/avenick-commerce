@@ -45,10 +45,14 @@ export class HttpErpAdapter implements ErpAdapter {
       // 401 was reported as a server error — misleading every downstream log,
       // dead-letter record and operator triage.
       const serverSide = response.status >= 500;
+      // Reported class and retryability are separate questions: a 429 is
+      // honestly a 4xx, and just as honestly worth retrying.
       throw new ErpAdapterError(
         serverSide ? "HTTP_500" : "HTTP_4XX",
         `ERP HTTP ${response.status}`,
-        serverSide,
+        isRetryableHttpStatus(response.status),
+        response.status,
+        parseRetryAfterMs(response.headers.get("retry-after")) ?? undefined,
       );
     }
     return response.json() as Promise<T>;
@@ -67,10 +71,60 @@ export class ErpAdapterError extends Error {
     readonly code: "TIMEOUT" | "HTTP_500" | "HTTP_4XX",
     message: string,
     readonly retryable = true,
+    /** Transport status behind this failure, when there was one. */
+    readonly status?: number,
+    /** Wait the ERP asked for before the next attempt, in ms, from `Retry-After`. */
+    readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = "ErpAdapterError";
   }
+}
+
+/** Statuses that mean "later", not "never": request timeout, too early, rate limited. */
+const RETRYABLE_HTTP_STATUSES = new Set([408, 425, 429]);
+
+/** One hour — the same ceiling the durable retry schedule uses in integrations.ts. */
+const RETRY_AFTER_CAP_MS = 60 * 60 * 1000;
+
+/**
+ * 5xx is the ERP failing. 408, 425 and 429 are the ERP asking us to come back
+ * later — an ERP that rate-limits a burst of real customer orders returns 429 to
+ * every one of them, and classifying that terminal dead-letters the whole burst
+ * on first contact, pending manual redrive.
+ *
+ * Every other 4xx (400, 401, 403, 404, 422 …) describes a request that will be
+ * rejected identically on every future attempt, so it stays terminal: surfacing
+ * a permanent rejection immediately instead of eight retries later is the entire
+ * point of this split, and must not be traded away to make 429 work.
+ */
+export function isRetryableHttpStatus(status: number): boolean {
+  return status >= 500 || RETRYABLE_HTTP_STATUSES.has(status);
+}
+
+/**
+ * `Retry-After` is delta-seconds or an HTTP-date (RFC 9110 §10.2.3). Bounded to
+ * an hour so a misconfigured — or hostile — header cannot park a real customer
+ * order past the schedule an operator can reason about, and floored at zero so a
+ * date already in the past simply means "now".
+ */
+export function parseRetryAfterMs(header: string | null | undefined, now = Date.now()): number | null {
+  const value = header?.trim();
+  if (!value) return null;
+  if (/^\d+$/.test(value)) {
+    const seconds = Number(value);
+    return Number.isFinite(seconds) ? Math.min(seconds * 1000, RETRY_AFTER_CAP_MS) : null;
+  }
+  const at = Date.parse(value);
+  if (Number.isNaN(at)) return null;
+  return Math.min(Math.max(0, at - now), RETRY_AFTER_CAP_MS);
+}
+
+/** The wait an ERP asked for, when this failure carried one. */
+export function integrationRetryAfterMs(error: unknown): number | null {
+  return error instanceof ErpAdapterError && typeof error.retryAfterMs === "number"
+    ? error.retryAfterMs
+    : null;
 }
 
 function stableId(prefix: string, value: string) {
@@ -182,7 +236,8 @@ export async function runDeterministicErpCertification() {
  * final on the first attempt.
  *
  * Anything that is not a recognised permanent failure stays retryable, so an
- * unknown error class still gets the benefit of the doubt.
+ * unknown error class still gets the benefit of the doubt. Which HTTP statuses
+ * count as permanent is decided once, in `isRetryableHttpStatus`.
  */
 export function isRetryableIntegrationError(error: unknown): boolean {
   return error instanceof ErpAdapterError ? error.retryable : true;

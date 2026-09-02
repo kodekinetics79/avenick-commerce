@@ -6,7 +6,11 @@
     ".": "./src/index.ts",
     "./s3": "./src/s3.ts",
     "./crypto": "./src/crypto.ts",
-    "./browser-upload-policy": "./src/browser-upload-policy.ts"
+    "./browser-upload-policy": "./src/browser-upload-policy.ts",
+    "./portal-config": "./src/portal-config.ts"
+  },
+  "scripts": {
+    "test": "vitest run"
   },
   "dependencies": {
     "date-fns": "^4.1.0",

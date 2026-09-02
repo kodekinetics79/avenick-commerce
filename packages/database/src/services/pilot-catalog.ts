@@ -26,6 +26,13 @@ export type PilotCatalogRecord = {
   subcategory?: string | null;
   name: string;
   description?: string | null;
+  // Optional Arabic counterparts. A source that genuinely carries Arabic is
+  // honoured; nothing is ever synthesised to fill them.
+  nameAr?: string | null;
+  descriptionAr?: string | null;
+  brandAr?: string | null;
+  familyAr?: string | null;
+  subcategoryAr?: string | null;
   partNumberItem?: string | number | null;
   partNumber?: string | number | null;
   externalItemNumber?: string | number | null;
@@ -84,6 +91,23 @@ const clean = (value: unknown) => {
   const text = String(value).trim();
   return text && !["#N/A", "N/A", "-"].includes(text.toUpperCase()) ? text : undefined;
 };
+/**
+ * An Arabic column holds a genuine Arabic value or nothing at all.
+ *
+ * This importer used to mirror the English name into every Arabic column. That
+ * made the RTL storefront render English while presenting itself as Arabic, and
+ * left Arabic-language search structurally unable to match an imported row —
+ * wrong in a way no error ever surfaced. Do not restore the mirroring: an
+ * absent Arabic name is honest, an English one is not.
+ *
+ * Nullable Arabic columns get a real NULL. Product.nameAr and Category.nameAr
+ * are NOT NULL, so those two record absence as `?? ""` at the call site — which
+ * is already this codebase's encoding of a missing Arabic title, since
+ * calculateListingHealth raises MISSING_ARABIC_TITLE below three characters and
+ * the seed writes "" for the same case. Widening them to nullable would take a
+ * schema migration; it is not a reason to mirror English back into them.
+ */
+const arabicOrNull = (value: unknown) => clean(value) ?? null;
 const positiveInt = (value: unknown, fallback = 1) => {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? Math.max(1, Math.round(n)) : fallback;
@@ -168,7 +192,9 @@ async function ensureSeller(client: CatalogClient, sellerKey: string, testPasswo
     create: {
       userId: user.id,
       businessNameEn: config.name,
-      businessNameAr: config.name,
+      // No Arabic trading name exists for these synthetic pilot sellers, and
+      // the English one is not a translation of itself.
+      businessNameAr: null,
       crNumber: `PILOT-CATALOG-${sellerKey.toUpperCase()}`,
       type: SellerType.DISTRIBUTOR,
       country: "SA",
@@ -192,30 +218,37 @@ async function ensureSeller(client: CatalogClient, sellerKey: string, testPasswo
   return { seller, location };
 }
 
-async function ensureCategory(client: CatalogClient, family?: string | null, subcategory?: string | null) {
-  const familyName = family?.trim() || "Industrial Products";
+async function ensureCategory(client: CatalogClient, row: PilotCatalogRecord) {
+  const familyName = row.family?.trim() || "Industrial Products";
   const familySlug = `pilot-${slugify(familyName)}`;
+  const familyAr = arabicOrNull(row.familyAr);
   const parent = await client.category.upsert({
     where: { slug: familySlug },
-    update: { nameEn: familyName, isActive: true },
-    create: { nameEn: familyName, nameAr: familyName, slug: familySlug, isActive: true },
+    // Categories are shared by many rows and outlive any one import, so the
+    // Arabic name is written only when this row actually supplies one. A row
+    // without Arabic must not blank out an Arabic name another row, or a
+    // translator, already provided.
+    update: { nameEn: familyName, isActive: true, ...(familyAr ? { nameAr: familyAr } : {}) },
+    create: { nameEn: familyName, nameAr: familyAr ?? "", slug: familySlug, isActive: true },
   });
-  const childName = subcategory?.trim() || "General";
+  const childName = row.subcategory?.trim() || "General";
   const childSlug = `${familySlug}-${slugify(childName)}`;
+  const childAr = arabicOrNull(row.subcategoryAr);
   return client.category.upsert({
     where: { slug: childSlug },
-    update: { nameEn: childName, parentId: parent.id, isActive: true },
-    create: { nameEn: childName, nameAr: childName, slug: childSlug, parentId: parent.id, isActive: true },
+    update: { nameEn: childName, parentId: parent.id, isActive: true, ...(childAr ? { nameAr: childAr } : {}) },
+    create: { nameEn: childName, nameAr: childAr ?? "", slug: childSlug, parentId: parent.id, isActive: true },
   });
 }
 
-async function ensureBrand(client: CatalogClient, name?: string | null) {
+async function ensureBrand(client: CatalogClient, name?: string | null, nameAr?: string | null) {
   const brandName = name?.trim() || "Unspecified";
   const slug = `pilot-${slugify(brandName)}`;
+  const brandAr = arabicOrNull(nameAr);
   return client.brand.upsert({
     where: { slug },
-    update: { nameEn: brandName, isActive: true },
-    create: { nameEn: brandName, nameAr: brandName, slug, isActive: true },
+    update: { nameEn: brandName, isActive: true, ...(brandAr ? { nameAr: brandAr } : {}) },
+    create: { nameEn: brandName, nameAr: brandAr, slug, isActive: true },
   });
 }
 
@@ -238,8 +271,10 @@ function commercialPayload(row: PilotCatalogRecord): Prisma.InputJsonValue {
 }
 
 async function upsertProduct(client: CatalogClient, row: PilotCatalogRecord, sellerId: string, locationId: string, assetBaseUrl?: string) {
-  const category = await ensureCategory(client, row.family, row.subcategory);
-  const brand = await ensureBrand(client, row.brand ?? row.manufacturer ?? row.sourceSheet);
+  const category = await ensureCategory(client, row);
+  const brand = await ensureBrand(client, row.brand ?? row.manufacturer ?? row.sourceSheet, row.brandAr);
+  const arabicName = arabicOrNull(row.nameAr);
+  const arabicDescription = arabicOrNull(row.descriptionAr);
   const verifiedPrice = Number(row.unitPriceSAR) > 0 ? Number(row.unitPriceSAR) : null;
   const status = verifiedPrice ? ProductStatus.ACTIVE : ProductStatus.DRAFT;
   const fingerprint = pilotCatalogFingerprint(row);
@@ -254,9 +289,14 @@ async function upsertProduct(client: CatalogClient, row: PilotCatalogRecord, sel
       brandId: brand.id,
       slug,
       nameEn: row.name.trim(),
-      nameAr: row.name.trim(),
+      // Re-import must not destroy Arabic text this importer did not author. A
+      // seller or translator may have filled these in after the first import
+      // (that is exactly what the MISSING_ARABIC_TITLE issue below asks for),
+      // and the source file has no Arabic to replace it with. So the Arabic
+      // columns are touched only when this row genuinely supplies Arabic.
+      ...(arabicName ? { nameAr: arabicName } : {}),
+      ...(arabicDescription ? { descriptionAr: arabicDescription } : {}),
       descriptionEn: row.description?.trim() || null,
-      descriptionAr: null,
       status,
       isPubliclyDiscoverable: Boolean(verifiedPrice),
       isB2BEnabled: true,
@@ -275,8 +315,9 @@ async function upsertProduct(client: CatalogClient, row: PilotCatalogRecord, sel
       sku: row.sku,
       slug,
       nameEn: row.name.trim(),
-      nameAr: row.name.trim(),
+      nameAr: arabicName ?? "",
       descriptionEn: row.description?.trim() || null,
+      descriptionAr: arabicDescription,
       status,
       isPubliclyDiscoverable: Boolean(verifiedPrice),
       isB2BEnabled: true,
@@ -356,14 +397,29 @@ async function upsertProduct(client: CatalogClient, row: PilotCatalogRecord, sel
       resolvedAt: null,
     },
   });
-  await client.productIssue.create({
-    data: {
-      productId: product.id,
-      issueType: ProductIssueType.MISSING_ARABIC_TITLE,
-      severity: "WARNING",
-      message: "Client source did not include a verified Arabic title; English fallback is displayed until translation review.",
-    },
-  });
+  // Read the stored value rather than the row: on re-import the update above
+  // deliberately leaves an existing Arabic title alone, so only the persisted
+  // product can say whether one exists.
+  //
+  // A stored Arabic title byte-identical to the English one is this importer's
+  // own historic mirror, not a translation. The update above deliberately does
+  // not overwrite it, because it cannot prove the value is not a seller edit —
+  // so the row stays wrong, and must therefore stay visible. Flagging it is the
+  // whole point: silent wrongness is the defect this change exists to end.
+  const storedArabicTitle = product.nameAr.trim();
+  const arabicTitleIsMirroredEnglish = storedArabicTitle.length > 0 && storedArabicTitle === product.nameEn.trim();
+  if (!storedArabicTitle || arabicTitleIsMirroredEnglish) {
+    await client.productIssue.create({
+      data: {
+        productId: product.id,
+        issueType: ProductIssueType.MISSING_ARABIC_TITLE,
+        severity: "WARNING",
+        message: arabicTitleIsMirroredEnglish
+          ? "Arabic title is the English title copied verbatim by an earlier import, not a translation. It is left in place because this importer cannot prove it is not a seller edit; it requires a reviewed backfill and must not be trusted as Arabic."
+          : "Source catalog supplied no Arabic title. The Arabic name is stored empty rather than mirrored from English; Arabic-locale product cards, cart lines and checkout lines render no name for this product until a translation is entered.",
+      },
+    });
+  }
   if (!row.description?.trim()) {
     await client.productIssue.create({
       data: { productId: product.id, issueType: ProductIssueType.MISSING_ENGLISH_DESCRIPTION, severity: "WARNING", message: "Source catalog did not include an English product description." },

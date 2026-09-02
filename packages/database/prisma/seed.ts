@@ -187,9 +187,12 @@ async function main() {
       tier: SellerTier.VERIFIED,
       status: SellerStatus.ACTIVE,
       commissionRate: 5.0,
-      rating: 4.7,
-      reviewCount: 142,
-      accountHealth: 87,
+      // rating, reviewCount and accountHealth are deliberately absent. Nothing in
+      // the application writes them: the seller and admin surfaces aggregate
+      // ProductReview or derive a performance score on read, and the storefront
+      // (customer products/[slug]) reads the column and shows no star when it is
+      // null. A literal here would have been a rating no review backs, shown to
+      // buyers as if it were one, so the schema defaults stand.
       bankDetails: {
         iban: "AE070331234567890123456",
         bankName: "Emirates NBD",

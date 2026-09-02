@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, type RFQStatus } from "@prisma/client";
 import { db, AuditAction, type Currency } from "../index";
 import { requireCurrentSellerActor } from "./checkout-invariants";
 
@@ -63,9 +63,24 @@ export async function getRFQsForBuyer(opts: { buyerId: string; companyId?: strin
   });
 }
 
-/** Object-scoped detail: only the requesting buyer (or their company) can read it. */
+/**
+ * How many messages the buyer's RFQ page carries. `messageTotal` on the DTO
+ * says how many exist, so the page can state "latest N of M" honestly.
+ */
+export const RFQ_MESSAGE_WINDOW = 50;
+
+/**
+ * Object-scoped detail: only the requesting buyer (or their company) can read it.
+ *
+ * Messages are the newest RFQ_MESSAGE_WINDOW, returned oldest-first. Fetching
+ * `asc, take` would hand back the first fifty forever, so on a long thread the
+ * buyer would never see the seller's latest reply; fetching newest-first and
+ * flipping keeps the window on the live end of the conversation while the
+ * DTO stays chronological. The id tiebreak makes the order deterministic when
+ * two messages share a timestamp.
+ */
 export async function getRFQForBuyer(opts: { rfqId: string; buyerId: string; companyId?: string }) {
-  return db.rFQRequest.findFirst({
+  const rfq = await db.rFQRequest.findFirst({
     where: {
       id: opts.rfqId,
       ...(opts.companyId
@@ -75,9 +90,13 @@ export async function getRFQForBuyer(opts: { rfqId: string; buyerId: string; com
     include: {
       items: true,
       seller: { select: { businessNameEn: true, tier: true } },
-      messages: { orderBy: { createdAt: "asc" }, take: 50 },
+      messages: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: RFQ_MESSAGE_WINDOW },
+      _count: { select: { messages: true } },
     },
   });
+  if (!rfq) return null;
+  const { _count, messages, ...rest } = rfq;
+  return { ...rest, messages: messages.reverse(), messageTotal: _count.messages };
 }
 
 /** Buyer decision on a quoted RFQ. */
@@ -141,17 +160,51 @@ export async function decideRFQ(opts: {
 
 // ─── SELLER SIDE ──────────────────────────────────────────────────────────────
 
+/**
+ * Statuses in which an unclaimed RFQ is still open to any seller's quote.
+ * submitQuote is the only writer of RFQRequest.sellerId, and it moves the row
+ * to QUOTED in the same update, so "claimed and still in one of these" is
+ * empty by construction — which is why the claimed arm below has no status.
+ */
+export const UNASSIGNED_RFQ_OPEN_STATUSES = ["SUBMITTED", "UNDER_REVIEW"] as const satisfies readonly RFQStatus[];
+
+/**
+ * The seller inbox predicate: RFQs nobody has claimed yet and that are still
+ * open to quotes, plus every RFQ this seller has claimed (whatever its status
+ * now, so a quoted or accepted one stays reachable). getRFQsForSeller lists
+ * with it and getSellerDashboard (services/products.ts) counts with it, so
+ * the badge can never disagree with the list it opens onto.
+ */
+export function SELLER_RFQ_INBOX_WHERE(sellerId: string): Prisma.RFQRequestWhereInput {
+  return {
+    OR: [
+      { status: { in: [...UNASSIGNED_RFQ_OPEN_STATUSES] }, sellerId: null },
+      { sellerId },
+    ],
+  };
+}
+
+/**
+ * Inbox page size. getSellerDashboard counts every row the predicate matches,
+ * so the list can lag the badge once a seller has more than this; the page
+ * compares its row count against this constant to say when it was cut.
+ */
+export const SELLER_RFQ_INBOX_LIMIT = 50;
+
+/**
+ * How many of a seller's own quoted RFQs the quote-history list returns. The
+ * route's `take` and the page's "showing the newest N" notice read this same
+ * constant: a page that names a different number than the query used would be
+ * telling the seller their whole record is on screen when it is not.
+ */
+export const SELLER_QUOTE_HISTORY_LIMIT = 100;
+
 /** RFQs a seller can quote: open + unassigned, or already assigned to them. */
 export async function getRFQsForSeller(sellerId: string) {
   return db.rFQRequest.findMany({
-    where: {
-      OR: [
-        { status: { in: ["SUBMITTED", "UNDER_REVIEW"] }, sellerId: null },
-        { sellerId },
-      ],
-    },
+    where: SELLER_RFQ_INBOX_WHERE(sellerId),
     orderBy: { createdAt: "desc" },
-    take: 50,
+    take: SELLER_RFQ_INBOX_LIMIT,
     include: {
       items: true,
       company: { select: { nameEn: true } },

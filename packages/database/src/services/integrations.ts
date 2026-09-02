@@ -1,7 +1,7 @@
 import { Prisma, type IntegrationInbox, type IntegrationOutbox } from "@prisma/client";
 import { db } from "../index";
 import { requireCurrentAdminActor } from "./checkout-invariants";
-import { isRetryableIntegrationError } from "./erp-adapter";
+import { integrationRetryAfterMs, isRetryableIntegrationError } from "./erp-adapter";
 
 const DEFAULT_LEASE_MS = 5 * 60 * 1000;
 const DEFAULT_MAX_ATTEMPTS = 8;
@@ -23,10 +23,36 @@ function boundedLimit(limit: number) {
   return Math.max(1, Math.min(100, Math.trunc(limit || 1)));
 }
 
-function retryDelayMs(attempts: number) {
-  // 15s, 30s, 60s ... capped at 1h, with no jitter persisted here. Workers may
-  // add small fetch jitter; the durable schedule remains easy to audit.
-  return Math.min(60 * 60 * 1000, 15_000 * 2 ** Math.max(0, attempts - 1));
+const RETRY_BASE_MS = 15_000;
+const RETRY_CAP_MS = 60 * 60 * 1000;
+
+/**
+ * Durable retry schedule: ~15s, 30s, 60s ... capped at 1h, jittered.
+ *
+ * Half of each window is fixed, so the schedule still grows monotonically and an
+ * operator can still predict roughly when a message runs; the other half is
+ * random, because every message queued during one ERP outage otherwise carries
+ * the same `nextAttemptAt` to the millisecond and the whole backlog stampedes
+ * the ERP the instant it comes back — re-downing the system it was waiting for.
+ *
+ * A server-supplied `Retry-After` is a floor on top of that window, never a
+ * ceiling: waiting longer than the ERP asked is safe, waiting less is exactly
+ * what got us rate-limited. The total stays capped at an hour so no header can
+ * park a real customer order indefinitely.
+ *
+ * The floor is clamped to leave the whole jitter window beneath that cap, rather
+ * than clamping the sum. Clamping the sum silently destroys the jitter for any
+ * `Retry-After` at or near an hour — and "Retry-After: 3600" is exactly what a
+ * rate limiter with an hourly quota sends, so the entire burst would land on the
+ * identical millisecond: the stampede this function exists to prevent, rebuilt
+ * inside the header handling added to survive rate limiting.
+ */
+function retryDelayMs(attempts: number, retryAfterMs: number | null = null) {
+  const backoffWindow = Math.min(RETRY_CAP_MS, RETRY_BASE_MS * 2 ** Math.max(0, attempts - 1));
+  const jittered = backoffWindow / 2 + Math.random() * (backoffWindow / 2);
+  const highestFloor = Math.max(0, RETRY_CAP_MS - backoffWindow);
+  const floor = Math.min(highestFloor, Math.max(0, retryAfterMs ?? 0));
+  return Math.round(floor + jittered);
 }
 
 /**
@@ -209,7 +235,9 @@ export async function failIntegrationOutbox(
   // hours and cannot succeed. Only transient failures earn the retry budget.
   const permanent = !isRetryableIntegrationError(error);
   const dead = permanent || lease.attempts >= Math.max(1, maxAttempts);
-  const nextAttemptAt = dead ? null : new Date(Date.now() + retryDelayMs(lease.attempts));
+  const nextAttemptAt = dead
+    ? null
+    : new Date(Date.now() + retryDelayMs(lease.attempts, integrationRetryAfterMs(error)));
 
   const result = await db.integrationOutbox.updateMany({
     where: activeLeaseWhere(lease),
@@ -383,7 +411,7 @@ export async function markIntegrationInboxFailed(lease: IntegrationInboxLease, e
   const dead = lease.attempts >= maxAttempts;
   const result = await db.integrationInbox.updateMany({
     where: activeInboxLeaseWhere(lease),
-    data: { status: dead ? "DEAD" : "RETRY", nextAttemptAt: dead ? null : new Date(Date.now() + retryDelayMs(lease.attempts)), leaseOwner: null, leaseExpiresAt: null, lastError: message.slice(0, 4000) },
+    data: { status: dead ? "DEAD" : "RETRY", nextAttemptAt: dead ? null : new Date(Date.now() + retryDelayMs(lease.attempts, integrationRetryAfterMs(error))), leaseOwner: null, leaseExpiresAt: null, lastError: message.slice(0, 4000) },
   });
   if (result.count !== 1) throw new StaleIntegrationLeaseError(lease.id);
   return { dead };
