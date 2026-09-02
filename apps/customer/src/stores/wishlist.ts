@@ -15,6 +15,13 @@ export interface WishlistItem {
   quantity?: number;
   moq?: number;
   vatRate?: number;
+  /**
+   * Whether `price` came from one of several quantity bands in this currency.
+   * Carried through to the cart line so a later quantity change is repriced
+   * by the product page rather than edited against a tier that may no longer
+   * apply — see CartItem.priceTiered.
+   */
+  priceTiered?: boolean;
   currency: string;
   sku: string;
   sellerId: string;
@@ -46,6 +53,7 @@ export function toWishlistCartLine(item: WishlistItem) {
     moq: item.moq ?? 1,
     unitPrice: item.price,
     vatRate: item.vatRate,
+    priceTiered: item.priceTiered,
     sellerId: item.sellerId,
     currency: item.currency,
   };

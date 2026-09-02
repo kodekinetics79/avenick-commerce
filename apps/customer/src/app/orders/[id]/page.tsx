@@ -2,15 +2,18 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   CheckCircle, Package, Truck, Home, AlertCircle, ArrowLeft,
-  MapPin, RotateCcw, ShieldCheck, FileText, Clock,
+  MapPin, RotateCcw, ShieldCheck, Clock,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { auth } from "@/lib/auth-instance";
 import { db } from "@avenick/database";
-import { formatCurrency } from "@avenick/utils";
+import { formatCurrency, isRecordId } from "@avenick/utils";
 
 const MACRO_STEPS = [
-  { key: "CONFIRMED", label: "Order confirmed", icon: CheckCircle, rank: 1, desc: "Payment received and order confirmed." },
+  // "Confirmed" is an order state, not a payment state: bank-transfer and
+  // on-terms orders are confirmed before any money moves. Payment is reported
+  // separately from paymentStatus.
+  { key: "CONFIRMED", label: "Order confirmed", icon: CheckCircle, rank: 1, desc: "Order confirmed with the supplier." },
   { key: "PROCESSING", label: "Processing", icon: Package, rank: 2, desc: "Supplier is preparing your items." },
   { key: "SHIPPED", label: "Shipped", icon: Truck, rank: 3, desc: "Order is on its way to you." },
   { key: "DELIVERED", label: "Delivered", icon: Home, rank: 4, desc: "Order delivered successfully." },
@@ -39,34 +42,61 @@ type OrderStatusHistoryEntry = {
   createdAt: Date;
 };
 
-type OrderDetail = {
-  id: string;
-  orderNumber: string;
-  status: string;
+/**
+ * Human label for the order's real payment state.
+ *
+ * "On terms" used to be shown for every B2B order that was not PAID — including
+ * one that was partially paid, or a B2B cart checkout awaiting a bank transfer
+ * with no credit terms at all. Terms are only real when the order came through
+ * an approved purchase order AND the buying company has a non-zero payment
+ * term (Company.paymentTerms, in days); everything else is described by the
+ * PaymentStatus enum as stored.
+ */
+function paymentLabel(order: {
   type: string;
-  createdAt: Date;
-  total: string | number;
-  subtotal: string | number;
-  vatAmount: string | number;
+  status: string;
   paymentStatus: string;
-  currency: string;
-  shippingAddress: { line1?: string; city?: string; country?: string } | null;
-  items: Array<{ id: string; nameEn: string; quantity: number; unitPrice: string | number; total: string | number }>;
-  statusHistory: OrderStatusHistoryEntry[];
-  taxInvoice?: { invoiceNo: string } | null;
-};
+  purchaseOrderId: string | null;
+  company: { paymentTerms: number } | null;
+}): string {
+  switch (order.paymentStatus) {
+    case "PAID": return "Paid";
+    case "PARTIALLY_PAID": return "Partially paid";
+    case "REFUNDED": return "Refunded";
+    case "FAILED": return "Payment failed";
+    case "UNPAID": {
+      // A cancelled order is not waiting for money; nothing was charged.
+      if (order.status === "CANCELLED") return "Not charged";
+      const onApprovedTerms = order.type === "B2B" && order.purchaseOrderId !== null && (order.company?.paymentTerms ?? 0) > 0;
+      return onApprovedTerms ? `On terms · net ${order.company!.paymentTerms} days` : "Awaiting payment";
+    }
+    default: return order.paymentStatus.replace(/_/g, " ");
+  }
+}
+
+/** Delivery cell: derived from the order's status rank, with the closed states named rather than shown as "Preparing". */
+function deliveryLabel(status: string, rank: number, isDelivered: boolean): string {
+  if (isDelivered) return "Delivered";
+  if (status === "RETURNED" || status === "RETURN_REQUESTED") return "Returned";
+  if (status === "REFUNDED") return "Refunded";
+  if (rank < 0) return "Cancelled";
+  if (rank >= 3) return "In transit";
+  if (rank >= 1) return "Preparing";
+  return "Not started";
+}
 
 export default async function OrderDetailPage({ params }: { params: { id: string } }) {
   const session = await auth();
   const userId = session?.user?.id as string | undefined;
   if (!userId) notFound();
+  if (!isRecordId(params.id)) notFound();
 
   const order = await db.order.findFirst({
     where: { id: params.id, userId },
     include: {
       items: true,
       statusHistory: { orderBy: { createdAt: "asc" } },
-      taxInvoice: { select: { invoiceNo: true } },
+      company: { select: { paymentTerms: true } },
     },
   });
   if (!order) notFound();
@@ -106,8 +136,8 @@ export default async function OrderDetailPage({ params }: { params: { id: string
             <div className="grid grid-cols-3 gap-3 text-center text-sm">
               {[
                 { label: "Items", value: String(order.items.length) },
-                { label: "Payment", value: order.paymentStatus === "PAID" ? "Paid" : order.type === "B2B" ? "On terms" : order.paymentStatus.replace(/_/g, " ") },
-                { label: "Delivery", value: isDelivered ? "Delivered" : currentRank >= 3 ? "In transit" : "Preparing" },
+                { label: "Payment", value: paymentLabel(order) },
+                { label: "Delivery", value: deliveryLabel(order.status, currentRank, isDelivered) },
               ].map(({ label, value }) => (
                 <div key={label} className="bg-secondary/60 rounded-xl p-2.5">
                   <p className="font-bold capitalize">{value.toLowerCase()}</p>
@@ -215,11 +245,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
             <Link href="/support" className="flex-1 flex items-center justify-center gap-2 bg-card border border-border text-muted-foreground hover:border-danger/40 hover:text-danger font-medium px-4 py-2.5 rounded-xl text-sm transition-colors">
               <AlertCircle className="h-4 w-4" /> Report an issue
             </Link>
-            {order.taxInvoice && (
-              <button type="button" className="flex-1 flex items-center justify-center gap-2 bg-card border border-border text-muted-foreground hover:text-foreground font-medium px-4 py-2.5 rounded-xl text-sm transition-colors">
-                <FileText className="h-4 w-4" /> Invoice {order.taxInvoice.invoiceNo}
-              </button>
-            )}
+            {/* No "Invoice" button: nothing issues TaxInvoice rows yet, and the button it replaced did nothing when clicked. */}
           </div>
 
           <div className="mt-5 flex items-center justify-center gap-2 text-xs text-muted-foreground">

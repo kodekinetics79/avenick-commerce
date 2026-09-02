@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { platformName } from "@avenick/utils/portal-config";
 import {
   ShoppingCart,
   Search,
@@ -67,8 +68,9 @@ export function Header() {
         <div className="max-w-7xl mx-auto px-4 h-16 flex items-center gap-4">
           {/* Logo */}
           <Link href="/" className="shrink-0 flex items-center gap-2 group">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-primary-500 to-accent-600 text-white font-black shadow-glow-sm group-hover:scale-105 transition-transform">A</span>
-            <span className="text-lg font-extrabold tracking-tight">avenick</span>
+            {/* Wordmark from the resolver: the monogram is the name's first letter. */}
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-primary-500 to-accent-600 text-white font-black shadow-glow-sm group-hover:scale-105 transition-transform">{platformName().charAt(0).toUpperCase()}</span>
+            <span className="text-lg font-extrabold tracking-tight lowercase">{platformName()}</span>
           </Link>
 
           {/* Nav */}

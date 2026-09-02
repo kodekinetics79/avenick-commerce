@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { RECORD_ID } from "@avenick/utils";
 import { fetchB2BJson } from "@/lib/b2b";
 
 type Action = "approve" | "reject" | "order" | "cancel";
@@ -28,8 +29,22 @@ const DONE: Record<Action, string> = {
 async function transition(id: string, action: Action, returnTo: string) {
   let failure = "";
 
+  // A malformed id cannot come from the rendered page — every button binds an
+  // id the server itself read from the database — so this branch means a forged
+  // submission. Refuse before the value reaches the URL builder, and still land
+  // the caller on a banner rather than a silent no-op.
+  if (!RECORD_ID.test(id)) {
+    redirect(
+      `${returnTo}?poError=${encodeURIComponent(
+        "That purchase order could not be identified. Reload the page and try again.",
+      )}`,
+    );
+  }
+
   try {
-    await fetchB2BJson(`/api/b2b/purchase-orders/${id}`, {
+    // Encoding is the containment; the shape check above is the guard. Keep
+    // both — encodeURIComponent holds even if the id shape is ever widened.
+    await fetchB2BJson(`/api/b2b/purchase-orders/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ action }),

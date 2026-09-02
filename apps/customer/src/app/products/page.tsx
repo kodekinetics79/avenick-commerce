@@ -10,8 +10,9 @@ import { fetchBackendJson } from "@/lib/backend";
 import { getServerB2BContext } from "@/lib/b2b-server";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
 import { browseAllHref } from "@/lib/catalog-navigation";
+import { platformName } from "@avenick/utils/portal-config";
 
-export const metadata: Metadata = { title: "Products — Avenick Commerce" };
+export const metadata: Metadata = { title: `Products — ${platformName()}` };
 
 export const dynamic = "force-dynamic";
 
@@ -108,7 +109,7 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
               sellerName={p.seller?.businessNameEn}
               inStock={stock?.inStock === true}
               availabilityStatus={stock?.status}
-              hasVariants={p.hasVariants === true}
+              hasVariants={p.hasVariants === true} priceTiered={p.priceTiered === true}
               isB2B={wantsB2B}
               moq={p.moq}
             />

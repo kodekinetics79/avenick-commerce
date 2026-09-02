@@ -2,22 +2,22 @@ import Link from "next/link";
 import { Tag, Filter } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
+import { cookies } from "next/headers";
 import { fetchBackendJson } from "@/lib/backend";
+import { categoryLabel, getPublicCategories } from "@/lib/catalog-categories";
 
 export const metadata = { title: "Featured Products" };
 // Live catalog data — must not prerender at build time (no DB on build machines).
 export const dynamic = "force-dynamic";
 
-const CATEGORIES = [
-  { label: "All", slug: "" },
-  { label: "Safety & PPE", slug: "safety-ppe" },
-  { label: "Industrial", slug: "industrial-supplies" },
-  { label: "Office", slug: "office-supplies" },
-  { label: "Building", slug: "building-materials" },
-];
-
 export default async function DealsPage() {
-  const { products } = await fetchBackendJson<{ products: any[] }>("/api/products?limit=12&b2c=true");
+  const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
+  // Filter chips are the catalog's own top-level categories (those with
+  // products to show), not a list typed into this page.
+  const [{ products }, categories] = await Promise.all([
+    fetchBackendJson<{ products: any[] }>("/api/products?limit=12&b2c=true"),
+    getPublicCategories(),
+  ]);
 
   const deals = products
     .map((p) => {
@@ -40,8 +40,10 @@ export default async function DealsPage() {
         inStock: available > 0,
         availabilityStatus: stock?.status,
         hasVariants: p.hasVariants === true,
+        priceTiered: p.priceTiered === true,
         moq: p.moq,
-        category: p.category?.nameEn ?? "Industrial",
+        // No fallback label — an unknown category is shown as none, not guessed.
+        category: p.category?.nameEn ?? undefined,
       };
     })
     .filter((p): p is NonNullable<typeof p> => p !== null);
@@ -64,19 +66,27 @@ export default async function DealsPage() {
       </section>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Category filters */}
-        <div className="flex items-center gap-3 mb-6 overflow-x-auto scrollbar-hide pb-1">
-          <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
-          {CATEGORIES.map((cat) => (
+        {/* Category filters — omitted entirely when the catalog reports none */}
+        {categories.length > 0 && (
+          <div className="flex items-center gap-3 mb-6 overflow-x-auto scrollbar-hide pb-1">
+            <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
             <Link
-              key={cat.label}
-              href={cat.slug ? `/products?category=${cat.slug}` : "/deals"}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${cat.label === "All" ? "bg-primary text-primary-foreground" : "bg-card border border-border hover:border-primary/40 text-muted-foreground hover:text-foreground"}`}
+              href="/deals"
+              className="px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors bg-primary text-primary-foreground"
             >
-              {cat.label}
+              {locale === "ar" ? "الكل" : "All"}
             </Link>
-          ))}
-        </div>
+            {categories.map((cat) => (
+              <Link
+                key={cat.slug}
+                href={`/products?category=${encodeURIComponent(cat.slug)}`}
+                className="px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors bg-card border border-border hover:border-primary/40 text-muted-foreground hover:text-foreground"
+              >
+                {categoryLabel(cat, locale)}
+              </Link>
+            ))}
+          </div>
+        )}
 
         {deals.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">

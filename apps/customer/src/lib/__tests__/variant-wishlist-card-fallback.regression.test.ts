@@ -1,12 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   resolveStorefrontSelection,
   toStorefrontWishlistItem,
   type StorefrontProduct,
 } from "../catalog-commercial";
 import { productCardPricePresentation, productCardPurchaseAction, productCardReviewState, storefrontProductHref } from "../product-card-commerce";
-import { toWishlistCartLine, wishlistItemKey } from "../../stores/wishlist";
-import { cartQuantityChangeHref, replaceCartCommercialSelection } from "../../stores/cart";
+import { toWishlistCartLine, wishlistItemKey, type WishlistItem } from "../../stores/wishlist";
+import { cartLineNeedsRepricing, cartQuantityChangeHref, replaceCartCommercialSelection, useCartStore } from "../../stores/cart";
+import { defaultStorefrontCurrency } from "../market-context";
 import { cartDestination, summarizeCartCommercial } from "../cart-commercial";
 import { toCatalogListDto } from "../catalog-list-dto";
 import { canonicalRequisitionCartLines } from "../requisition-reprice";
@@ -223,5 +224,152 @@ describe("variant wishlist, list card, and base-price fallback", () => {
     expect(storefrontProductHref(dto.slug, { currency: dto.cardPrice.currency })).toBe("/products/multi?currency=AED");
     expect(storefrontProductHref(dto.slug, { currency: "SAR", b2b: true, variantId: "v", quantity: 20 }))
       .toBe("/products/multi?currency=SAR&b2b=true&variantId=v&qty=20");
+  });
+});
+
+/**
+ * A seller who publishes more than one price band makes the unit price a
+ * function of quantity. The product page already flags such lines so the
+ * cart sends a quantity change back through the catalog; the list card and
+ * the wishlist add lines without visiting that page and used to drop the
+ * flag, so the cart edited the line in place at whatever tier it was added
+ * at — a total the server never charges.
+ */
+describe("tiered prices reach the cart from the grid and the wishlist", () => {
+  const listSource = {
+    id: "tiered", sellerId: "s", sku: "T", slug: "tiered", nameEn: "Tiered", nameAr: "Tiered",
+    descriptionEn: null, descriptionAr: null, origin: null, tags: [], moq: 1,
+    isPubliclyDiscoverable: true, isB2CEnabled: true, isB2BEnabled: false, images: [],
+    prices: [
+      { type: "B2C", currency: "AED", minQty: 1, maxQty: 9, price: 100, vatRate: 5 },
+      { type: "B2C", currency: "AED", minQty: 10, maxQty: null, price: 80, vatRate: 5 },
+    ],
+    inventory: [{ variantId: null, qty: 50, reservedQty: 0 }],
+    variants: [],
+    category: { nameEn: "C", nameAr: "C", slug: "c" }, brand: null,
+    seller: { businessNameEn: "S", businessNameAr: null, tier: "VERIFIED", rating: 0 },
+  };
+
+  // The card copies the DTO's facts into a cart line or a wishlist item the
+  // same way product-card.tsx does; this is that projection without React.
+  const cardLineFrom = (dto: ReturnType<typeof toCatalogListDto>) => ({
+    productId: dto.id, slug: dto.slug, channel: "B2C" as const, nameEn: dto.nameEn, nameAr: dto.nameAr,
+    sku: dto.sku, qty: dto.moq, moq: dto.moq, unitPrice: dto.cardPrice!.amount, vatRate: dto.cardPrice!.vatRate,
+    priceTiered: dto.priceTiered, sellerId: dto.sellerId, currency: dto.cardPrice!.currency,
+  });
+  const cardWishlistFrom = (dto: ReturnType<typeof toCatalogListDto>): WishlistItem => ({
+    id: dto.id, slug: dto.slug, channel: "B2C", nameEn: dto.nameEn, nameAr: dto.nameAr,
+    price: dto.cardPrice!.amount, quantity: dto.moq, moq: dto.moq, vatRate: dto.cardPrice!.vatRate,
+    priceTiered: dto.priceTiered, currency: dto.cardPrice!.currency, sku: dto.sku, sellerId: dto.sellerId, inStock: true,
+  });
+
+  it("flags a multi-band product on the list DTO and carries it through the card's add-to-cart", () => {
+    const dto = toCatalogListDto(listSource, "B2C", "AED");
+    expect(dto.priceTiered).toBe(true);
+    expect(dto.cardPrice).toEqual({ amount: 100, currency: "AED", vatRate: 5, isFrom: false });
+    const line = cardLineFrom(dto);
+    expect(line.priceTiered).toBe(true);
+    expect(cartLineNeedsRepricing(line)).toBe(true);
+  });
+
+  it("carries the flag from the card's wishlist toggle through toWishlistCartLine", () => {
+    const dto = toCatalogListDto(listSource, "B2C", "AED");
+    const line = toWishlistCartLine(cardWishlistFrom(dto));
+    expect(line).toMatchObject({ productId: "tiered", unitPrice: 100, currency: "AED", priceTiered: true });
+    expect(cartLineNeedsRepricing(line)).toBe(true);
+  });
+
+  it("carries the flag from the product page's wishlist path the same way", () => {
+    const product: StorefrontProduct = {
+      id: "tiered", slug: "tiered", sellerId: "s", sku: "T", nameEn: "Tiered", nameAr: "Tiered",
+      prices: listSource.prices, inventory: [{ inStock: true, availableQty: 50 }], variants: [],
+    };
+    const selection = resolveStorefrontSelection(product, undefined, 1, "AED")!;
+    // The page's own test: more than one band in the resolved currency.
+    const priceTiered = product.prices.filter((price) => price.currency === selection.currency).length > 1;
+    const line = toWishlistCartLine({ ...toStorefrontWishlistItem(product, "tiered", selection, 1), priceTiered });
+    expect(line).toMatchObject({ unitPrice: 100, priceTiered: true });
+    expect(cartLineNeedsRepricing(line)).toBe(true);
+  });
+
+  it("counts only bands in the card currency and channel, so a single-band product is not flagged", () => {
+    const single = {
+      ...listSource,
+      prices: [
+        { type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 100, vatRate: 5 },
+        // A second band in another currency, and a B2B band, do not tier the AED B2C price.
+        { type: "B2C", currency: "SAR", minQty: 1, maxQty: null, price: 100, vatRate: 15 },
+        { type: "B2B", currency: "AED", minQty: 10, maxQty: null, price: 70, vatRate: 5 },
+      ],
+    };
+    const dto = toCatalogListDto(single, "B2C", "AED");
+    expect(dto.priceTiered).toBe(false);
+    expect(cartLineNeedsRepricing(cardLineFrom(dto))).toBe(false);
+    expect(cartLineNeedsRepricing(toWishlistCartLine(cardWishlistFrom(dto)))).toBe(false);
+  });
+
+  it("flags a variant product when any variant, with its base-price fallback, has more than one band", () => {
+    const dto = toCatalogListDto({
+      ...listSource,
+      prices: [{ type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 100, vatRate: 5 }],
+      inventory: [{ variantId: "v", qty: 50, reservedQty: 0 }],
+      variants: [{ id: "v", prices: [{ type: "B2C", currency: "AED", minQty: 10, maxQty: null, price: 80, vatRate: 5 }] }],
+    }, "B2C", "AED");
+    expect(dto.priceTiered).toBe(true);
+  });
+
+  it("refuses an in-place quantity change on a tiered line at the store, not only in the stepper", () => {
+    const dto = toCatalogListDto(listSource, "B2C", "AED");
+    const store = useCartStore.getState();
+    store.clearCart();
+    store.addItem(cardLineFrom(dto));
+    store.addItem(cardLineFrom({ ...dto, id: "flat", slug: "flat", priceTiered: false }));
+    const [tiered, flat] = useCartStore.getState().items;
+    expect(tiered!.qty).toBe(1);
+    expect(flat!.qty).toBe(1);
+
+    // The tiered line keeps its quantity: 10 units would qualify for the 80
+    // band, and setQty has no catalog to re-resolve the price from. The flat
+    // line, whose price does not depend on quantity, changes as before.
+    store.setQty(tiered!.id, 10);
+    store.setQty(flat!.id, 10);
+    const after = useCartStore.getState().items;
+    expect(after.find((i) => i.id === tiered!.id)).toMatchObject({ qty: 1, unitPrice: 100 });
+    expect(after.find((i) => i.id === flat!.id)).toMatchObject({ qty: 10 });
+    expect(cartQuantityChangeHref(tiered!, 10)).toBe("/products/tiered?currency=AED&qty=10");
+    store.clearCart();
+  });
+});
+
+describe("storefront currency default", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("reads NEXT_PUBLIC_DEFAULT_CURRENCY when it names a storefront currency", () => {
+    vi.stubEnv("NEXT_PUBLIC_DEFAULT_CURRENCY", "sar");
+    expect(defaultStorefrontCurrency()).toBe("SAR");
+  });
+
+  it("treats an unset or unknown value as the launch market", () => {
+    vi.stubEnv("NEXT_PUBLIC_DEFAULT_CURRENCY", "");
+    expect(defaultStorefrontCurrency()).toBe("AED");
+    vi.stubEnv("NEXT_PUBLIC_DEFAULT_CURRENCY", "XYZ");
+    expect(defaultStorefrontCurrency()).toBe("AED");
+  });
+
+  it("is the currency the list card prefers when the request names none", () => {
+    vi.stubEnv("NEXT_PUBLIC_DEFAULT_CURRENCY", "SAR");
+    const dto = toCatalogListDto({
+      id: "p", sellerId: "s", sku: "P", slug: "p", nameEn: "P", nameAr: "P",
+      descriptionEn: null, descriptionAr: null, origin: null, tags: [], moq: 1,
+      isPubliclyDiscoverable: true, isB2CEnabled: true, isB2BEnabled: false, images: [],
+      prices: [
+        { type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 100, vatRate: 5 },
+        { type: "B2C", currency: "SAR", minQty: 1, maxQty: null, price: 90, vatRate: 15 },
+      ],
+      inventory: [{ variantId: null, qty: 5, reservedQty: 0 }], variants: [],
+      category: { nameEn: "C", nameAr: "C", slug: "c" }, brand: null,
+      seller: { businessNameEn: "S", businessNameAr: null, tier: "VERIFIED", rating: 0 },
+    }, "B2C");
+    expect(dto.cardPrice).toMatchObject({ currency: "SAR", amount: 90 });
   });
 });

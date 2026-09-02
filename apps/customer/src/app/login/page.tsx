@@ -66,7 +66,8 @@ export default function LoginPage() {
               {error && <p className="text-sm text-danger" role="alert">{error}</p>}
               <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
             </form>
-            <div className="mt-4 text-center text-sm text-muted-foreground">
+            <div className="mt-4 text-center text-sm text-muted-foreground space-y-1">
+              <p><Link href="/auth/forgot-password" className="text-primary font-medium hover:underline">Forgot password?</Link></p>
               <p>Don&apos;t have an account? <Link href="/register" className="text-primary font-medium hover:underline">Register</Link></p>
             </div>
           </div>

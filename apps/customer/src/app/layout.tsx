@@ -5,11 +5,14 @@ import { getMessages } from "next-intl/server";
 import { cookies } from "next/headers";
 import { AuthProvider } from "@/components/auth-provider";
 import { NavigationProgress } from "@/components/navigation-progress";
+import { platformName } from "@avenick/utils/portal-config";
 import "./globals.css";
 
+// "The leading platform" (المنصة الرائدة) was a market-position claim nothing
+// measures; the description now says what the platform is, not where it ranks.
 export const metadata: Metadata = {
-  title: { default: "Avenick Commerce", template: "%s | Avenick Commerce" },
-  description: "B2B-first. B2C-ready. Built for modern trade. — المنصة الرائدة للتجارة الحديثة في الخليج",
+  title: { default: platformName(), template: `%s | ${platformName()}` },
+  description: "B2B-first. B2C-ready. Built for modern trade. — منصة للتجارة الحديثة في الخليج",
 };
 
 export const dynamic = "force-dynamic";

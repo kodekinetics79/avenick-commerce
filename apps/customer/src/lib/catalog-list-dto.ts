@@ -1,3 +1,5 @@
+import { defaultStorefrontCurrency } from "./market-context";
+
 type CatalogPrice = {
   type: string; currency: string; minQty: number; maxQty: number | null;
   price: unknown; vatRate: unknown;
@@ -25,7 +27,8 @@ export function toCatalogListDto(source: CatalogListSource, channel: "B2C" | "B2
   const allBasePrices = source.prices.filter(applicableAtMoq);
   const allVariantPrices = source.variants.flatMap((variant) => variant.prices.filter(applicableAtMoq));
   const availableCurrencies = [...new Set([...allBasePrices, ...allVariantPrices].map((price) => price.currency))].sort();
-  const cardCurrency = currency ?? (availableCurrencies.includes("AED") ? "AED" : availableCurrencies[0]);
+  const preferredCurrency = defaultStorefrontCurrency();
+  const cardCurrency = currency ?? (availableCurrencies.includes(preferredCurrency) ? preferredCurrency : availableCurrencies[0]);
   const basePrices = allBasePrices.filter((price) => price.currency === cardCurrency);
   const availableByIdentity = new Map<string | null, number>();
   for (const stock of source.inventory) {
@@ -47,6 +50,17 @@ export function toCatalogListDto(source: CatalogListSource, channel: "B2C" | "B2
     .map((price) => ({ amount: Number(price.price), currency: price.currency, vatRate: Number(price.vatRate) }))
     .filter((price) => Number.isFinite(price.amount) && Number.isFinite(price.vatRate))
     .sort((a, b) => a.amount - b.amount)[0] ?? null;
+  // More than one price band in the card currency means the unit price depends
+  // on the quantity — the same test the product page applies to the selected
+  // variant together with its base-price fallback. The list card and the
+  // wishlist add cart lines without visiting that page, so the flag travels
+  // with the DTO; the cart uses it to send a quantity change back through the
+  // catalog instead of editing the line against a tier that may no longer apply.
+  const bandsInCardCurrency = (prices: CatalogPrice[]) =>
+    prices.filter((price) => price.type === channel && price.currency === cardCurrency).length;
+  const priceTiered = hasVariants
+    ? source.variants.some((variant) => bandsInCardCurrency([...variant.prices, ...source.prices]) > 1)
+    : bandsInCardCurrency(source.prices) > 1;
   return {
     id: source.id,
     sellerId: source.sellerId,
@@ -76,6 +90,7 @@ export function toCatalogListDto(source: CatalogListSource, channel: "B2C" | "B2
     }],
     hasVariants,
     cardPrice: cardPrice && { ...cardPrice, isFrom: hasVariants },
+    priceTiered,
     category: source.category,
     brand: source.brand,
     seller: source.seller,

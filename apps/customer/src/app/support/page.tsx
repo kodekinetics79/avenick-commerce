@@ -6,8 +6,9 @@ import { auth } from "@/lib/auth-instance";
 import { ValidatedForm } from "@/components/b2b/validated-form";
 import { createTicket } from "./actions";
 import { cookieHeaderFromStore, fetchBackendJsonWithCookies } from "@/lib/backend";
+import { platformContacts, platformName } from "@avenick/utils/portal-config";
 
-export const metadata = { title: "Support & Help Center — Avenick Commerce" };
+export const metadata = { title: `Support & Help Center — ${platformName()}` };
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +21,14 @@ const STATUS: Record<string, { label: string; cls: string; icon: typeof Clock }>
 
 const CATEGORIES = ["ORDER", "DELIVERY", "PAYMENT", "PRODUCT", "ACCOUNT", "OTHER"];
 
+// The brand name is read from the resolver so a renamed deployment does not
+// keep answering "what is <old name>?" in its own help centre.
 const FAQS = [
   {
-    qEn: "What is Avenick Commerce?",
-    qAr: "ما هي منصة أفينيك كومرس؟",
-    aEn: "Avenick Commerce is a B2B and B2C procurement platform connecting approved suppliers with buyers for industrial supply, tools, and office procurement.",
-    aAr: "أفينيك كومرس هي منصة مشتريات للشركات والأفراد تربط الموردين المعتمدين بالمشترين لتوريد المنتجات الصناعية والأدوات والمستلزمات المكتبية."
+    qEn: `What is ${platformName()}?`,
+    qAr: `ما هي منصة ${platformName()}؟`,
+    aEn: `${platformName()} is a B2B and B2C procurement platform connecting approved suppliers with buyers for industrial supply, tools, and office procurement.`,
+    aAr: `${platformName()} هي منصة مشتريات للشركات والأفراد تربط الموردين المعتمدين بالمشترين لتوريد المنتجات الصناعية والأدوات والمستلزمات المكتبية.`
   },
   {
     qEn: "How do I request a bulk quote (RFQ)?",
@@ -47,7 +50,9 @@ const FAQS = [
   }
 ];
 
-const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+// Tickets arrive through the JSON API, so createdAt is an ISO string, not a
+// Date; formatting it without parsing threw for every user who had a ticket.
+const fmt = (d: string | Date) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 export default async function SupportPage() {
   const cookieStore = await cookies();
@@ -55,6 +60,9 @@ export default async function SupportPage() {
   const isAr = locale === "ar";
   const session = await auth();
   const userId = session?.user?.id as string | undefined;
+  // The support mailbox is deployment configuration. When none is configured
+  // the card is omitted: printing an address nobody reads is worse than none.
+  const supportEmail = platformContacts().support;
 
   const tickets = userId
     ? await fetchBackendJsonWithCookies<any[]>("/api/support", undefined, cookieHeaderFromStore(cookieStore))
@@ -82,7 +90,7 @@ export default async function SupportPage() {
             <p className="text-muted-foreground text-sm lg:text-base">
               {isAr 
                 ? "ابحث عن إجابات سريعة للأسئلة الشائعة أو تواصل مع مسؤولي الدعم الفني مباشرة." 
-                : "Find instant answers to common questions or reach out to our dedicated support representatives."}
+                : "Find answers to common questions or open a support ticket."}
             </p>
           </div>
 
@@ -91,21 +99,23 @@ export default async function SupportPage() {
             {/* Left Column: FAQs & Contact Info */}
             <div className="space-y-8">
               
-              {/* Contact Information Cards */}
-              <div className="bg-card/40 backdrop-blur-md border border-border/80 rounded-2xl p-6">
-                <h2 className="text-lg font-bold tracking-tight mb-4 flex items-center gap-2">
-                  <Mail className="h-5 w-5 text-primary" />
-                  {isAr ? "قنوات الاتصال المباشر" : "Direct Contact Channels"}
-                </h2>
-                <div className="grid gap-4">
-                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/40 hover:border-primary/20 transition-all">
-                    <Mail className="h-5 w-5 text-primary mb-2" />
-                    <p className="text-xs text-muted-foreground mb-1">{isAr ? "البريد الإلكتروني" : "Email us"}</p>
-                    <a href="mailto:support@avenick.com" className="font-semibold text-sm text-primary hover:underline break-all">support@avenick.com</a>
-                    <p className="text-[10px] text-muted-foreground mt-1">{isAr ? "الرد خلال ٢٤ ساعة" : "Response in 24 hours"}</p>
+              {/* Contact Information Cards — no response-time promise: the
+                  platform measures no support SLA, so none is stated. */}
+              {supportEmail && (
+                <div className="bg-card/40 backdrop-blur-md border border-border/80 rounded-2xl p-6">
+                  <h2 className="text-lg font-bold tracking-tight mb-4 flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-primary" />
+                    {isAr ? "قنوات الاتصال المباشر" : "Direct Contact Channels"}
+                  </h2>
+                  <div className="grid gap-4">
+                    <div className="bg-secondary/30 rounded-xl p-4 border border-border/40 hover:border-primary/20 transition-all">
+                      <Mail className="h-5 w-5 text-primary mb-2" />
+                      <p className="text-xs text-muted-foreground mb-1">{isAr ? "البريد الإلكتروني" : "Email us"}</p>
+                      <a href={`mailto:${supportEmail}`} className="font-semibold text-sm text-primary hover:underline break-all">{supportEmail}</a>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* FAQs Section */}
               <div className="space-y-4">

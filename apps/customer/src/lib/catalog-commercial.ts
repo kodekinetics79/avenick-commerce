@@ -1,3 +1,5 @@
+import { defaultStorefrontCurrency } from "./market-context";
+
 export type StorefrontPrice = {
   type: string;
   currency: string;
@@ -39,7 +41,7 @@ export function resolveStorefrontSelection(
   product: StorefrontProduct,
   variantId: string | undefined,
   quantity: number,
-  preferredCurrency = "AED",
+  preferredCurrency: string = defaultStorefrontCurrency(),
 ) {
   const variant = variantId ? product.variants.find((candidate) => candidate.id === variantId) : undefined;
   if (product.variants.length > 0 && !variant) return null;

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { platformName } from "@avenick/utils/portal-config";
 
 // Deliberately standalone: no MainLayout, no backend data layer, no shared data
 // fetching. A status page must render even when the rest of the app is degraded,
@@ -72,7 +73,7 @@ export default function StatusPage() {
 
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "48px 20px", fontFamily: "system-ui, sans-serif" }}>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Avenick — System Status</h1>
+      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>{platformName()} — System Status</h1>
 
       <div
         style={{

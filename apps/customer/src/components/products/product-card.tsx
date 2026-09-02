@@ -10,6 +10,7 @@ import { useWishlist } from "@/stores/wishlist";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { productCardPricePresentation, productCardPurchaseAction, productCardReviewState, storefrontProductHref } from "@/lib/product-card-commerce";
+import type { Currency } from "@/lib/market-context";
 
 interface ProductCardProps {
   id: string;
@@ -22,6 +23,19 @@ interface ProductCardProps {
   currency?: string;
   vatRate?: number;
   priceIsFrom?: boolean;
+  /**
+   * From the list DTO: the card price is one of several quantity bands in
+   * this currency. Lines added from the grid or saved to the wishlist carry it
+   * so the cart sends a quantity change back through the product page instead
+   * of editing the line at a tier that may no longer apply.
+   *
+   * Required, not optional, on purpose: a consumer that forgets to forward
+   * `priceTiered` from the DTO would put a tiered product in the cart as a
+   * flat-priced line and the stepper would then quietly edit it at the wrong
+   * tier. The typechecker refusing the omission is the only place that
+   * mistake is visible, so every grid passes `priceTiered={p.priceTiered === true}`.
+   */
+  priceTiered: boolean;
   sku: string;
   sellerId: string;
   sellerName?: string;
@@ -38,7 +52,7 @@ interface ProductCardProps {
 }
 
 export function ProductCard({
-  id, slug, nameEn, nameAr, imageUrl, price, originalPrice, currency, vatRate, priceIsFrom = false,
+  id, slug, nameEn, nameAr, imageUrl, price, originalPrice, currency, vatRate, priceIsFrom = false, priceTiered,
   sku, sellerId, sellerName, inStock = true, availabilityStatus, moq = 1, hasVariants = false,
   rating, reviewCount = 0, locale, isB2B = false,
   badge = null, category,
@@ -74,7 +88,7 @@ export function ProductCard({
       return;
     }
     if (price == null || !currency || vatRate == null) return;
-    addItem({ productId: id, slug, channel: isB2B ? "B2B" : "B2C", nameEn, nameAr, imageUrl, sku, qty: moq, moq, unitPrice: price, vatRate, sellerId, currency });
+    addItem({ productId: id, slug, channel: isB2B ? "B2B" : "B2C", nameEn, nameAr, imageUrl, sku, qty: moq, moq, unitPrice: price, vatRate, priceTiered, sellerId, currency });
   }
 
   function handleWishlist(e: React.MouseEvent) {
@@ -84,7 +98,7 @@ export function ProductCard({
       return;
     }
     if (price == null || !currency || vatRate == null) return;
-    toggle({ id, slug, channel: isB2B ? "B2B" : "B2C", nameEn, nameAr, imageUrl, price, quantity: moq, moq, vatRate, currency, sku, sellerId, sellerName, inStock });
+    toggle({ id, slug, channel: isB2B ? "B2B" : "B2C", nameEn, nameAr, imageUrl, price, quantity: moq, moq, vatRate, priceTiered, currency, sku, sellerId, sellerName, inStock });
   }
 
   const badgeClass =
@@ -152,7 +166,10 @@ export function ProductCard({
 
       {/* Content */}
       <div className="p-3.5">
-        <p className="text-[11px] font-medium text-primary mb-1 truncate">{category ?? sellerName ?? "Avenick"}</p>
+        {/* The eyebrow names the category or the seller. When neither is known
+            it is left empty (height kept) — printing the platform name there
+            read as "sold by the platform", which is never true of a listing. */}
+        <p className="text-[11px] font-medium text-primary mb-1 truncate min-h-[1rem]">{category ?? sellerName ?? ""}</p>
         <h3 className="text-sm font-semibold leading-snug line-clamp-2 min-h-[2.5rem] text-foreground">{name}</h3>
 
         {review.kind === "RATED" ? (
@@ -166,9 +183,9 @@ export function ProductCard({
         <div className="mt-2.5 flex items-end justify-between">
           <div>
             {price != null && originalPrice && originalPrice > price && currency && (
-              <span className="block text-xs text-muted-foreground line-through font-mono">{formatCurrency(originalPrice, currency as "AED", activeLocale)}</span>
+              <span className="block text-xs text-muted-foreground line-through font-mono">{formatCurrency(originalPrice, currency as Currency, activeLocale)}</span>
             )}
-            <span className="text-lg font-bold font-mono tracking-tight text-foreground">{price != null && currency ? `${pricePresentation === "FROM" || priceIsFrom ? "From " : ""}${formatCurrency(price, currency as "AED", activeLocale)}` : "See options"}</span>
+            <span className="text-lg font-bold font-mono tracking-tight text-foreground">{price != null && currency ? `${pricePresentation === "FROM" || priceIsFrom ? "From " : ""}${formatCurrency(price, currency as Currency, activeLocale)}` : "See options"}</span>
             {moq > 1 && <span className="block text-[11px] text-muted-foreground">{tp("minOrder")}: {moq} {tp("units")}</span>}
           </div>
         </div>

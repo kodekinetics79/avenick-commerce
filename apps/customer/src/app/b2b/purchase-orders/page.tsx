@@ -4,8 +4,9 @@ import { fetchB2BJson } from "@/lib/b2b";
 import { approvePO, rejectPO, markOrdered, cancelPO } from "./actions";
 import { FileCheck2, Clock, CheckCircle2, Truck, XCircle, FileEdit, Building2, Plus, ShoppingCart } from "lucide-react";
 import { POActionBanner } from "@/components/b2b/po-action-banner";
+import { platformName } from "@avenick/utils/portal-config";
 
-export const metadata = { title: "Purchase Orders — Avenick for Business" };
+export const metadata = { title: `Purchase Orders — ${platformName()} for Business` };
 
 const STATUS: Record<string, { label: string; cls: string; icon: typeof Clock }> = {
   DRAFT: { label: "Draft", cls: "bg-secondary text-muted-foreground", icon: FileEdit },

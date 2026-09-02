@@ -35,6 +35,7 @@ function trustedPortalOrigins() {
   const origins = new Set<string>();
   for (const value of [
     process.env.NEXT_PUBLIC_BACKEND_URL,
+    process.env.NEXT_PUBLIC_CUSTOMER_PORTAL_URL,
     process.env.RENDER_EXTERNAL_URL,
     process.env.NEXTAUTH_URL,
     process.env.CUSTOMER_URL,

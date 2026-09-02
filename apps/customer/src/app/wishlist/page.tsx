@@ -9,6 +9,7 @@ import { toWishlistCartLine, useWishlist, wishlistItemKey } from "@/stores/wishl
 import { useCartStore } from "@/stores/cart";
 import { formatCurrency } from "@avenick/utils";
 import { storefrontProductHref } from "@/lib/product-card-commerce";
+import type { Currency } from "@/lib/market-context";
 
 export default function WishlistPage() {
   const { items, remove } = useWishlist();
@@ -85,7 +86,7 @@ export default function WishlistPage() {
                     <Link href={storefrontProductHref(item.slug, { currency: item.currency, b2b: item.channel === "B2B", variantId: item.variantId, quantity: item.quantity })}>
                       <h3 className="text-sm font-semibold hover:text-primary transition-colors line-clamp-2 mb-2 leading-snug min-h-[2.5rem]">{item.nameEn}</h3>
                     </Link>
-                    <p className="text-lg font-bold text-primary mb-3">{formatCurrency(item.price, item.currency as "AED")}</p>
+                    <p className="text-lg font-bold text-primary mb-3">{formatCurrency(item.price, item.currency as Currency)}</p>
                     <div className="flex gap-2">
                       <Button size="sm" variant="primary" className="flex-1" disabled={!item.inStock} onClick={() => addToCart(item)}>
                         <ShoppingCart className="h-3.5 w-3.5 me-1" />

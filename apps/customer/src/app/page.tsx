@@ -1,42 +1,14 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  Factory,
-  Briefcase,
-  Cpu,
-  ShieldAlert,
-  UtensilsCrossed,
-  Building2,
-  ShieldCheck,
-  Truck,
-  BadgeCheck,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, ShieldCheck, Truck, BadgeCheck, Sparkles } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
+import { categoryIcon } from "@/components/products/category-icon";
 import { fetchBackendJson } from "@/lib/backend";
+import { categoryLabel, getPublicCategories } from "@/lib/catalog-categories";
 
 export const dynamic = "force-dynamic";
-
-const CATEGORIES = [
-  { slug: "industrial-supplies", nameEn: "Industrial", icon: Factory },
-  { slug: "electronics", nameEn: "Electronics", icon: Cpu },
-  { slug: "office-supplies", nameEn: "Office", icon: Briefcase },
-  { slug: "safety-ppe", nameEn: "Safety & PPE", icon: ShieldAlert },
-  { slug: "food-hospitality", nameEn: "Hospitality", icon: UtensilsCrossed },
-  { slug: "building-materials", nameEn: "Building", icon: Building2 },
-];
-
-const CATEGORY_TRANSLATIONS: Record<string, string> = {
-  "industrial-supplies": "catIndustrial",
-  "electronics": "catElectronics",
-  "office-supplies": "catOffice",
-  "safety-ppe": "catSafety",
-  "food-hospitality": "catHospitality",
-  "building-materials": "catBuilding",
-};
 
 async function getFeaturedProducts() {
   try {
@@ -52,7 +24,9 @@ export default async function HomePage() {
   const cookieStore = await cookies();
   const locale = (cookieStore.get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
   const t = await getTranslations("home");
-  const products = await getFeaturedProducts();
+  // The category strip comes from the catalog, not from a list typed into this
+  // page: a typed list kept advertising categories with nothing to sell.
+  const [products, categories] = await Promise.all([getFeaturedProducts(), getPublicCategories()]);
 
   const mapped = products.map((p) => {
     const stock = p.inventory?.[0];
@@ -73,8 +47,11 @@ export default async function HomePage() {
       inStock: available > 0,
       availabilityStatus: stock?.status,
       hasVariants: p.hasVariants === true,
+      priceTiered: p.priceTiered === true,
       moq: p.moq,
-      category: p.category?.nameEn ?? "Industrial",
+      // No fallback label: a product whose category is unknown is shown without
+      // one rather than filed under a category it may not belong to.
+      category: p.category?.nameEn ?? undefined,
     };
   });
 
@@ -120,22 +97,29 @@ export default async function HomePage() {
       </section>
 
       {/* ─── Category strip ───────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 py-10">
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
-          {CATEGORIES.map(({ slug, icon: Icon }) => (
-            <Link
-              key={slug}
-              href={`/products?category=${slug}`}
-              className="group shrink-0 flex items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-3 hover:border-primary/40 hover:shadow-card transition-all"
-            >
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                <Icon className="h-4 w-4" />
-              </span>
-              <span className="text-sm font-semibold whitespace-nowrap">{t(CATEGORY_TRANSLATIONS[slug] || "catIndustrial")}</span>
-            </Link>
-          ))}
-        </div>
-      </section>
+      {/* Rendered only when the catalog reports categories with products to
+          browse; an empty catalog gets no strip rather than a decorative one. */}
+      {categories.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 py-10">
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
+            {categories.map((category) => {
+              const Icon = categoryIcon(category.iconName);
+              return (
+                <Link
+                  key={category.slug}
+                  href={`/products?category=${encodeURIComponent(category.slug)}`}
+                  className="group shrink-0 flex items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-3 hover:border-primary/40 hover:shadow-card transition-all"
+                >
+                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="text-sm font-semibold whitespace-nowrap">{categoryLabel(category, locale)}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ─── Best sellers ─────────────────────────────────── */}
       <Section title={t("bestSellers")} subtitle={t("bestSellersSub")} href="/products">
