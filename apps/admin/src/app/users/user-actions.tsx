@@ -1,30 +1,56 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, CheckCircle2, Loader2 } from "lucide-react";
+import { Ban, CheckCircle2 } from "lucide-react";
+import { Button, Surface } from "@avenick/ui";
+import { DecisionNoticeInline } from "@/app/approvals/decision-notice";
 
 interface Props {
   userId: string;
+  /** The person's own name, so the confirm sentence names who is being changed. */
+  name: string;
   status: string;
   isSelf: boolean;
 }
 
-export function UserStatusActions({ userId, status, isSelf }: Props) {
+/**
+ * Suspend or restore a person's access.
+ *
+ * The confirmation is inline and it NAMES THE PERSON, because a `window.confirm`
+ * reading "Suspend this user?" in a twenty-row table tells the operator nothing
+ * about which row the click landed on. Signing someone out of the platform is
+ * not a decision to take against an unnamed pronoun.
+ *
+ * Presentation only: the same PATCH, the same body, the same response handling.
+ * A refusal renders as the compare-and-swap notice.
+ */
+export function UserStatusActions({ userId, name, status, isSelf }: Props) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
 
-  if (isSelf) return <span className="text-xs text-muted-foreground">—</span>;
+  // Every hook runs before the first early return. React identifies hooks by
+  // call order, so a `return` above one makes the order differ between renders
+  // — and the row that renders the self-account notice would desynchronise the
+  // hook state of every row after it in the table.
+  const panelRef = useRef<HTMLElement>(null);
+  const promptId = useId();
+  useEffect(() => {
+    if (confirming) panelRef.current?.focus();
+  }, [confirming]);
 
-  const suspend = status === "ACTIVE";
-  const nextStatus = suspend ? "SUSPENDED" : "ACTIVE";
+  // The operator's own row carries a stated reason rather than a bare dash: a
+  // missing control with no explanation reads as a bug.
+  if (isSelf) return <span className="u-meta text-ink-3">Your own account</span>;
+
+  const suspending = status === "ACTIVE";
+  const nextStatus = suspending ? "SUSPENDED" : "ACTIVE";
 
   async function changeStatus() {
-    const verb = suspend ? "Suspend" : "Activate";
-    if (!window.confirm(`${verb} this user? ${suspend ? "They will no longer be able to sign in." : "They will regain access immediately."}`)) return;
     setPending(true);
-    setError(null);
+    setRefusal(null);
     try {
       const res = await fetch(`/api/admin/users/${userId}/status`, {
         method: "PATCH",
@@ -33,33 +59,81 @@ export function UserStatusActions({ userId, status, isSelf }: Props) {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setError(json.error ?? "Failed to update status");
+        setRefusal(json.error ?? "Failed to update status");
         return;
       }
+      setConfirming(false);
       router.refresh();
     } catch {
-      setError("Network error — please retry");
+      setRefusal("The platform could not be reached, so nothing was written. Retry when the connection is back.");
     } finally {
       setPending(false);
     }
   }
 
+  if (confirming) {
+    return (
+      <div className="flex flex-col items-end gap-2">
+        {/* A real <form>, and it TAKES FOCUS when it opens. The trigger button
+            unmounts the instant this renders, so without the focus move a
+            keyboard operator is dropped back to <body> halfway down a register
+            and a screen reader announces nothing — strictly worse than the
+            window.confirm this replaced, which at least focused itself. Focus
+            lands on the panel, not on "Confirm suspension": pre-focusing the
+            destructive step is how it gets taken by an Enter meant for the
+            first click. */}
+        <Surface
+          rung={1}
+          as="form"
+          ref={panelRef}
+          tabIndex={-1}
+          aria-labelledby={promptId}
+          onSubmit={(event: FormEvent) => {
+            event.preventDefault();
+            void changeStatus();
+          }}
+          className="w-full max-w-xs space-y-2 p-2.5 text-start outline-none"
+        >
+          <p id={promptId} className="u-meta text-ink-1">
+            {suspending ? (
+              <>
+                Suspend <span className="font-medium">{name}</span>? They will not be able to sign in until this is
+                reversed.
+              </>
+            ) : (
+              <>
+                Restore access for <span className="font-medium">{name}</span>? They can sign in again immediately.
+              </>
+            )}
+          </p>
+          <div className="flex items-center justify-end gap-1.5">
+            <Button type="button" variant="ghost" size="xs" disabled={pending} onClick={() => setConfirming(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" variant={suspending ? "danger" : "secondary"} size="xs" loading={pending}>
+              {suspending ? "Confirm suspension" : "Confirm restore"}
+            </Button>
+          </div>
+        </Surface>
+        {refusal && <DecisionNoticeInline message={refusal} className="w-full max-w-xs" />}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-1">
-      <button
+    <div className="flex flex-col items-end gap-2">
+      <Button
         type="button"
-        onClick={changeStatus}
-        disabled={pending}
-        className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-50 ${
-          suspend
-            ? "border-red-200 text-red-600 hover:bg-red-50"
-            : "border-green-200 text-green-700 hover:bg-green-50"
-        }`}
+        variant={suspending ? "ghost" : "secondary"}
+        size="xs"
+        className={suspending ? "hover:text-danger-ink" : "text-success-ink"}
+        onClick={() => setConfirming(true)}
       >
-        {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : suspend ? <Ban className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-        {suspend ? "Suspend" : "Activate"}
-      </button>
-      {error && <span className="text-[11px] text-red-600">{error}</span>}
+        {suspending ? <Ban className="h-3.5 w-3.5" aria-hidden="true" /> : <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />}
+        {suspending ? "Suspend" : "Restore"}
+        <span className="sr-only"> {name}</span>
+      </Button>
+      {refusal && <DecisionNoticeInline message={refusal} className="w-full max-w-xs" />}
     </div>
   );
 }

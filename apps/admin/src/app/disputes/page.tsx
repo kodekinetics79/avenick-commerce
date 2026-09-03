@@ -1,27 +1,36 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAdminReturns, ReturnStatus } from "@avenick/database";
-import { formatCurrency } from "@avenick/utils";
+import { cn, formatCurrency } from "@avenick/utils";
 import { ReturnActions } from "./return-actions";
-import { Scale, Clock, CheckCircle, XCircle, Truck, PackageCheck, Banknote } from "lucide-react";
+import { FilterTabs, Pager, queryHref } from "@/components/console/chrome";
+import { Scale } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+import {
+  Button, CellGrid, EmptyState, LedgerTable, PageHeader, Stat, StatusPill, type PillTone,
+} from "@avenick/ui";
 
 export const metadata = { title: "Disputes & Returns" };
 export const dynamic = "force-dynamic";
 
-const STATUS_CONFIG: Record<ReturnStatus, { label: string; color: string; icon: typeof Clock }> = {
-  REQUESTED: { label: "Requested", color: "bg-blue-100 text-primary", icon: Clock },
-  APPROVED: { label: "Approved", color: "bg-amber-100 text-amber-700", icon: CheckCircle },
-  REJECTED: { label: "Rejected", color: "bg-red-100 text-red-700", icon: XCircle },
-  IN_TRANSIT: { label: "In Transit", color: "bg-purple-100 text-purple-700", icon: Truck },
-  RECEIVED: { label: "Received", color: "bg-indigo-100 text-indigo-700", icon: PackageCheck },
-  REFUNDED: { label: "Refunded", color: "bg-green-100 text-green-700", icon: Banknote },
+const STATUS_CONFIG: Record<ReturnStatus, { label: string; tone: PillTone }> = {
+  REQUESTED: { label: "Requested", tone: "warning" },
+  APPROVED: { label: "Approved", tone: "accent" },
+  REJECTED: { label: "Rejected", tone: "danger" },
+  IN_TRANSIT: { label: "In transit", tone: "accent" },
+  RECEIVED: { label: "Received", tone: "accent" },
+  REFUNDED: { label: "Refunded", tone: "success" },
 };
+
+/** The two states that still need a person, and nothing else. */
+const NEEDS_A_PERSON: ReturnStatus[] = ["REQUESTED", "RECEIVED"];
 
 interface PageProps {
   searchParams: { status?: string; page?: string };
 }
+
+type ReturnRow = Awaited<ReturnType<typeof getAdminReturns>>["returns"][number];
 
 export default async function DisputesPage({ searchParams }: PageProps) {
   await requireAdminSession();
@@ -37,139 +46,193 @@ export default async function DisputesPage({ searchParams }: PageProps) {
 
   const countFor = (statuses: ReturnStatus[]) =>
     statusCounts.filter((c) => statuses.includes(c.status)).reduce((s, c) => s + c._count._all, 0);
-
-  const filterHref = (params: Record<string, string | undefined>) => {
-    const merged = { ...searchParams, page: undefined, ...params };
-    const qs = new URLSearchParams(
-      Object.entries(merged).filter((e): e is [string, string] => Boolean(e[1])),
-    ).toString();
-    return qs ? `/disputes?${qs}` : "/disputes";
-  };
+  const allCount = statusCounts.reduce((s, c) => s + c._count._all, 0);
+  const href = (next: Record<string, string | undefined>) => queryHref("/disputes", searchParams, next);
+  const awaiting = countFor(["REQUESTED"]);
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Disputes & Returns</h1>
-            <p className="text-muted-foreground text-sm">
-              Buyer return requests and their resolution. Approvals, rejections, and refunds are audit-logged.
-            </p>
-          </div>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          eyebrow="Support"
+          title="Returns and disputes"
+          description="Buyer return requests and their resolution. Approvals, rejections and recorded refunds are all written to the audit stream."
+          actions={<StatusPill>Read only beyond this register</StatusPill>}
+          dateline="Refund amounts are shown in each order's own recorded currency and are never converted. Recording a refund here is the platform's record of money already returned by the gateway or bank; it does not move any."
+        />
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Awaiting decision", value: countFor(["REQUESTED"]), color: "bg-blue-50 border-blue-200" },
-            { label: "In progress", value: countFor(["APPROVED", "IN_TRANSIT", "RECEIVED"]), color: "bg-amber-50 border-amber-200" },
-            { label: "Refunded", value: countFor(["REFUNDED"]), color: "bg-green-50 border-green-200" },
-            { label: "Rejected", value: countFor(["REJECTED"]), color: "bg-red-50 border-red-200" },
-          ].map((s) => (
-            <div key={s.label} className={`rounded-2xl border p-4 ${s.color}`}>
-              <span className="text-sm text-muted-foreground">{s.label}</span>
-              <p className="text-2xl font-bold mt-1">{s.value}</p>
-            </div>
-          ))}
-        </div>
+        <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
+          <Stat
+            label="Awaiting a decision"
+            value={awaiting}
+            icon={Scale}
+            chip={awaiting > 0 ? "warning" : "neutral"}
+            href={href({ status: ReturnStatus.REQUESTED })}
+            linkComponent={Link}
+          />
+          <Stat label="In progress" value={countFor(["APPROVED", "IN_TRANSIT", "RECEIVED"])} icon={Scale} />
+          <Stat label="Refunded" value={countFor(["REFUNDED"])} icon={Scale} />
+          <Stat label="Rejected" value={countFor(["REJECTED"])} icon={Scale} />
+        </CellGrid>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {([undefined, ...Object.values(ReturnStatus)] as const).map((s) => {
-            const active = status === s || (!status && !s);
-            return (
-              <Link
-                key={s ?? "all"}
-                href={filterHref({ status: s })}
-                className={`text-xs px-3 py-1.5 rounded-lg border ${active ? "bg-primary text-white border-primary" : "border-border hover:bg-muted"}`}
-              >
-                {s ? STATUS_CONFIG[s].label : "All"}
-              </Link>
-            );
+        <FilterTabs
+          label="Filter returns by status"
+          tabs={[
+            { href: href({ status: undefined }), label: "All", count: allCount, active: !status },
+            ...Object.values(ReturnStatus).map((s) => ({
+              href: href({ status: s }),
+              label: STATUS_CONFIG[s].label,
+              count: countFor([s]),
+              active: status === s,
+            })),
+          ]}
+        />
+
+        <LedgerTable<ReturnRow>
+          rows={returns}
+          getRowKey={(r) => r.id}
+          stickyHead
+          // Every row reserves the 3px inline-start rule and only a row that
+          // still needs a person colours it in — the same construction .u-commit
+          // uses, so marking one can never reflow the rows beneath it. In a
+          // register that mixes six states, this is what makes the work findable
+          // without reading a single status pill.
+          rowProps={(r) => ({
+            className: cn(
+              "border-s-[3px]",
+              NEEDS_A_PERSON.includes(r.status) ? "border-s-warning" : "border-s-transparent",
+            ),
           })}
-        </div>
-
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
-                <tr>
-                  {["Return", "Order", "Buyer", "Seller", "Reason", "Refund", "Status", "Opened", "Actions"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {returns.length === 0 && (
-                  <tr>
-                    <td colSpan={9} className="px-4 py-12 text-center">
-                      <Scale className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        {status ? "No returns match the current filter." : "No return requests yet."}
-                      </p>
-                    </td>
-                  </tr>
-                )}
-                {returns.map((r) => {
-                  const cfg = STATUS_CONFIG[r.status];
-                  const StatusIcon = cfg.icon;
-                  return (
-                    <tr key={r.id} className="hover:bg-slate-50/60">
-                      <td className="px-4 py-3 font-medium">{r.returnNumber}</td>
-                      <td className="px-4 py-3">
-                        <Link href={`/orders/${r.order.id}`} className="text-primary hover:underline">
-                          {r.order.orderNumber}
-                        </Link>
-                        <p className="text-[11px] text-muted-foreground">
-                          {formatCurrency(Number(r.order.total), r.order.currency as never)}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="font-medium">{r.order.user.firstName} {r.order.user.lastName}</p>
-                        <p className="text-xs text-muted-foreground">{r.order.user.email}</p>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">{r.seller.businessNameEn}</td>
-                      <td className="px-4 py-3 text-muted-foreground max-w-[16rem]">
-                        <p className="truncate" title={r.reason}>{r.reason}</p>
-                        {r.resolution && (
-                          <p className="text-[11px] text-muted-foreground/80 truncate" title={r.resolution}>↳ {r.resolution}</p>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 font-semibold">
-                        {r.refundAmount ? formatCurrency(Number(r.refundAmount), r.order.currency as never) : "—"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${cfg.color}`}>
-                          <StatusIcon className="h-3 w-3" /> {cfg.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{format(r.createdAt, "MMM d, yyyy")}</td>
-                      <td className="px-4 py-3">
-                        <ReturnActions
-                          returnId={r.id}
-                          status={r.status}
-                          orderTotal={Number(r.refundAmount ?? r.order.total)}
-                        />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-border text-sm">
-              <span className="text-muted-foreground">Page {page} of {totalPages} · {total} returns</span>
-              <div className="flex gap-2">
-                {page > 1 && (
-                  <Link href={filterHref({ page: String(page - 1) })} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs">Previous</Link>
-                )}
-                {page < totalPages && (
-                  <Link href={filterHref({ page: String(page + 1) })} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs">Next</Link>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
+          columns={[
+            {
+              key: "return",
+              label: "Return",
+              width: "160px",
+              render: (r) => (
+                <>
+                  <span className="u-mono block truncate text-ink-1">{r.returnNumber}</span>
+                  <Link
+                    href={`/orders/${r.order.id}`}
+                    className="u-focus u-mono u-meta block truncate rounded-nested text-primary-ink underline-offset-4 hover:underline"
+                  >
+                    {r.order.orderNumber}
+                  </Link>
+                </>
+              ),
+            },
+            {
+              key: "buyer",
+              label: "Buyer",
+              render: (r) => (
+                <>
+                  <span className="block truncate text-ink-1">
+                    {`${r.order.user.firstName} ${r.order.user.lastName}`.trim() || r.order.user.email}
+                  </span>
+                  <span className="u-meta block truncate text-ink-3">{r.seller.businessNameEn}</span>
+                </>
+              ),
+            },
+            {
+              key: "reason",
+              label: "Reason",
+              hideOnMobile: true,
+              render: (r) => (
+                <>
+                  <span className="block truncate text-ink-2">{r.reason}</span>
+                  {r.resolution && (
+                    <span className="u-meta block truncate text-ink-3">Resolution: {r.resolution}</span>
+                  )}
+                </>
+              ),
+            },
+            {
+              key: "refund",
+              label: "Refund",
+              numeric: true,
+              width: "140px",
+              render: (r) =>
+                r.refundAmount ? (
+                  <>
+                    <span className="block text-ink-1">
+                      {formatCurrency(Number(r.refundAmount), r.order.currency as never)}
+                    </span>
+                    <span className="u-meta block text-ink-3">
+                      of {formatCurrency(Number(r.order.total), r.order.currency as never)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="u-meta text-ink-3">None recorded</span>
+                ),
+            },
+            {
+              key: "status",
+              label: "Status",
+              width: "124px",
+              render: (r) => (
+                <StatusPill tone={STATUS_CONFIG[r.status].tone} dot={NEEDS_A_PERSON.includes(r.status)}>
+                  {STATUS_CONFIG[r.status].label}
+                </StatusPill>
+              ),
+            },
+            {
+              key: "opened",
+              label: "Opened",
+              hideOnMobile: true,
+              width: "104px",
+              render: (r) => <span className="tnum text-ink-2">{format(r.createdAt, "d MMM yyyy")}</span>,
+            },
+            {
+              key: "decision",
+              label: "Decision",
+              align: "end",
+              width: "200px",
+              render: (r) => (
+                <ReturnActions
+                  returnId={r.id}
+                  returnNumber={r.returnNumber}
+                  status={r.status}
+                  orderTotal={Number(r.refundAmount ?? r.order.total)}
+                  currency={r.order.currency}
+                />
+              ),
+            },
+          ]}
+          footer={
+            <Pager
+              page={page}
+              totalPages={totalPages}
+              hrefFor={(p) => href({ page: String(p), status })}
+              summary={`${total.toLocaleString()} ${total === 1 ? "return" : "returns"}${status ? ` in ${STATUS_CONFIG[status].label.toLowerCase()}` : ""}`}
+            />
+          }
+          empty={
+            status ? (
+              <EmptyState
+                eyebrow="No match"
+                headline={`No return is currently ${STATUS_CONFIG[status].label.toLowerCase()}.`}
+                body="The register itself is not empty — clearing the filter returns every request it holds."
+                action={
+                  <Button variant="secondary" size="sm" asChild>
+                    <Link href="/disputes">Show every return</Link>
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                variant="certificate"
+                glyph={<Scale />}
+                eyebrow="Nothing disputed"
+                headline="No buyer has raised a return request."
+                body="A request appears here the moment a buyer opens one against a delivered order, and stays through approval, transit and receipt until a refund is recorded or it is rejected."
+                action={
+                  <Button variant="secondary" size="sm" asChild>
+                    <Link href="/orders">Open the order register</Link>
+                  </Button>
+                }
+              />
+            )
+          }
+        />
       </div>
     </AdminLayout>
   );

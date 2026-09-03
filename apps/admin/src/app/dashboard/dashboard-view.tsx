@@ -5,10 +5,11 @@ import Link from "next/link";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import {
   Button, CellGrid, Dateline, Divider, EmptyState, Eyebrow, FieldWell,
-  LedgerTable, Meter, Num, SectionHeader, Stat, StatusPill, Surface, TierMark,
+  LedgerTable, Meter, Num, SectionHeader, SpecularSurface, Stat, StatusPill, Surface, TierMark,
   type StatDelta,
 } from "@avenick/ui";
 import type { ExecutiveKpis } from "@avenick/database";
+import { cn } from "@avenick/utils";
 import {
   TrendingUp, TrendingDown, Building2, Users, Store, ShoppingCart, Coins, Truck,
   Boxes, FileQuestion, ArrowRight, Circle, Plus, UserPlus, Megaphone, Tag,
@@ -101,7 +102,11 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
     // truncated: losing "· this month" would turn a monthly figure into an
     // unqualified one, which is exactly the kind of quiet untruth this codebase
     // spent a hardening programme removing.
-    { label: "GMV · this month", value: amount(gmvMonth), icon: TrendingUp, trend: k.gmvTrend, rank: "hero" },
+    // Section rank, not hero. The masthead already spends this page's one
+    // hero-rank figure on the count that needs a person, and a console that
+    // shouts its revenue as loudly as its alarms has told the operator nothing
+    // about which to read first.
+    { label: "GMV · this month", value: amount(gmvMonth), icon: TrendingUp, trend: k.gmvTrend, rank: "section" },
     // The service computes the B2B/B2C split and commission over all paid
     // orders, not the current month, so the labels say so; each trend is that
     // channel's own month-over-month movement.
@@ -156,37 +161,117 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
           break reads as bigger than a card break. space-y-block would have made
           both 16px, which is a stack of undifferentiated slabs. */}
       <div className="space-y-section">
-        {/* The command band is RECESSED, because it is context: it names the
-            screen and states what the figures below are. The buttons on it stay
-            raised, because they are the actions. That is the whole elevation law
-            in one component — and it is why the blur-[100px] orb and the grid
-            overlay that used to sit here are gone: neither carried information. */}
+        {/* THE MASTHEAD, and the one place on this page with real range.
+            Round one set the whole console at document scale: a 44px title over
+            a 15px lead, and every other block within one order of magnitude of
+            it. That is not restraint, it is a page with no dynamics — and it is
+            why an operator opening this screen has to READ it to find out
+            whether anything is wrong.
+
+            So the composition states the reading instead. The band is still
+            RECESSED, because it is context; the ATTENTION PLATE inside it is the
+            single rung-3 surface on the page, because it is the one raised,
+            actionable object here and law A is read off elevation before it is
+            read off colour. The page title deliberately steps down to h2 rank:
+            the enormous thing on a console is the number that needs a person,
+            not the name of the screen. Two 44px blocks side by side are the same
+            rank twice, which is exactly the failure the seven-lever rule names.
+
+            Nothing here is invented. The figure is a count of rows already on
+            this page, and the sentence beneath it says what was counted. */}
         <FieldWell className="p-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="min-w-0">
+          <div className="grid gap-5 lg:grid-cols-12 lg:items-end">
+            <div className="min-w-0 lg:col-span-7">
               <Eyebrow>Platform operations</Eyebrow>
-              <h1 className="u-h1 mt-1 text-ink-1">Executive Command Center</h1>
+              <h1 className="u-h2 mt-1 text-ink-1">Executive Command Center</h1>
               <p className="u-body mt-1.5 max-w-prose text-ink-2">
                 Marketplace performance across B2B and B2C — revenue, suppliers, fulfillment, and rule-based actions.
               </p>
               <Dateline className="mt-2">
                 Every figure on this page is read from the platform database at request time.
               </Dateline>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {QUICK_ACTIONS.map(({ label, icon: Icon, href }) => (
+                  <Button key={label} variant="secondary" size="sm" asChild>
+                    <Link href={href}>
+                      <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {label}
+                    </Link>
+                  </Button>
+                ))}
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {QUICK_ACTIONS.map(({ label, icon: Icon, href }) => (
-                <Button key={label} variant="secondary" size="sm" asChild>
-                  <Link href={href}>
-                    <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {label}
-                  </Link>
-                </Button>
-              ))}
-            </div>
+
+            {/* The rung-3 plate, and the console's ONE lit object.
+
+                `rim` is the fresnel shoulder — admin carries the strongest
+                shoulders of the three portals despite being the calmest,
+                because at a 32px row height a console has to separate its
+                objects with material, having no space to separate them with.
+
+                <SpecularSurface> is the whole admin specular budget spent here
+                and nowhere else: the portal posture allows one pointer-tracked
+                surface, the single hero KPI, and this is it. It writes --mx/--my
+                at most once a frame and early-RETURNS before attaching any
+                listener at all on a coarse pointer or under reduced motion, so
+                on a phone the handler is never registered. Never a table row —
+                forty rows tracking a pointer is a composite storm. */}
+            <SpecularSurface className="lg:col-span-5">
+              <Surface rung={3} rim specular className="h-full p-4">
+                <Eyebrow tone={flagged > 0 ? "brass" : "muted"}>Needs a person now</Eyebrow>
+                {/* <Num>, not a hand-set figure: it is the structural guarantee
+                    that a digit is never the animated element. A count that ticks
+                    up is a count an operator cannot trust. */}
+                <Num value={flagged} rank="hero" className="mt-1 block text-ink-1" />
+                {/* No denominator here on purpose. `signals` has already had
+                    the danger rows sitting at zero filtered out of it, so
+                    `signals.length` is the number of rows the table below
+                    happens to show, not the number of things this console
+                    watches — quoting it as "of the N this console tracks" would
+                    state a total that shrinks whenever the platform gets
+                    healthier. The ledger under it carries the denominator, where
+                    it is the true one. */}
+                <p className="u-provenance mt-1 text-ui text-ink-2">
+                  {flagged > 0
+                    ? `${flagged === 1 ? "One signal" : `${flagged} signals`} on this console ${flagged === 1 ? "is" : "are"} flagged right now.`
+                    : "No signal on this console is flagged right now."}
+                </p>
+                {/* The flagged signals themselves, at metadata rank, each one a
+                    route to the screen that resolves it. The 3px inline-start rule
+                    is the system's one gesture in another posture — always
+                    present, only its colour changes, so nothing reflows. */}
+                {flagged > 0 ? (
+                  <ul className="mt-3 space-y-px">
+                    {signals
+                      .filter((s) => s.tone !== "neutral")
+                      .slice(0, 4)
+                      .map((s) => (
+                        <li key={s.key}>
+                          <Link
+                            href={s.href}
+                            className={cn(
+                              "u-focus u-state-wash flex items-baseline gap-2 rounded-nested border-s-[3px] py-1 ps-2.5 pe-1.5",
+                              s.tone === "danger" ? "border-s-danger" : "border-s-warning",
+                            )}
+                          >
+                            <span className="u-ui min-w-0 flex-1 truncate text-ink-1">{s.label}</span>
+                            <span className="fig u-ui shrink-0 font-medium text-ink-1">{s.value}</span>
+                          </Link>
+                        </li>
+                      ))}
+                  </ul>
+                ) : (
+                  <p className="u-meta mt-3 text-ink-3">
+                    Seller applications, support tickets, stock lines and unfulfilled paid orders are all inside their
+                    thresholds.
+                  </p>
+                )}
+              </Surface>
+            </SpecularSurface>
           </div>
         </FieldWell>
 
-        {/* What is wrong right now, first — before the money. A console exists to
-            be acted on, and this is the only block on the page that is a queue. */}
+        {/* The full ledger behind the reading above. It stays a table because an
+            operator works it row by row; the masthead only states its headline. */}
         <section aria-label="Operational signals">
           <SectionHeader
             title="Operational signals"
@@ -201,6 +286,16 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
             rows={signals}
             getRowKey={(s) => s.key}
             density="compact"
+            // Every row reserves the 3px rule and only a flagged one colours it
+            // in — the same construction .u-commit uses, so marking a row can
+            // never reflow the rows under it, and the flagged ones are findable
+            // in a scan without reading a word.
+            rowProps={(s) => ({
+              className: cn(
+                "border-s-[3px]",
+                s.tone === "danger" ? "border-s-danger" : s.tone === "warning" ? "border-s-warning" : "border-s-transparent",
+              ),
+            })}
             columns={[
               {
                 key: "label",
@@ -472,10 +567,14 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                           says nothing, so it earns none. */}
                       {s.tier && s.tier !== "STANDARD" && <TierMark tier={s.tier} className="shrink-0" />}
                     </span>
-                    <span className="u-meta block text-ink-3">
-                      {/* The service returns 0 when a supplier has no reviews; 0 is not a rating. */}
-                      {s.rating > 0 ? `Rated ${s.rating}` : "No reviews"}
-                    </span>
+                    {/* The service returns 0 when a supplier has no reviews, and
+                        0 is not a rating. Round one printed "No reviews" on
+                        every row instead — technically true, and it turned a
+                        five-row supplier ledger into a column of absence whose
+                        loudest signal was that nobody has reviewed anyone.
+                        Truth does not require printing the same null five times:
+                        the slot simply is not there until a rating exists. */}
+                    {s.rating > 0 && <span className="u-meta block text-ink-3">Rated {s.rating}</span>}
                   </>
                 ),
               },

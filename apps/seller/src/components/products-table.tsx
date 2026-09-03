@@ -3,15 +3,17 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle, Download, EyeOff, Search, Upload, X } from "lucide-react";
-import { formatCurrency, isSupportedCurrency } from "@avenick/utils";
+import { AlertTriangle, CheckCircle, Download, EyeOff, Package, Search, Upload, X } from "lucide-react";
+import { cn, formatCurrency, isSupportedCurrency } from "@avenick/utils";
 import { platformName } from "@avenick/utils/portal-config";
 import {
+  AvailabilityDot,
   Button,
   Dateline,
   Divider,
   EmptyState,
   FieldWell,
+  ImageFrame,
   Input,
   LedgerTable,
   Meter,
@@ -225,22 +227,27 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
               className="u-focus h-4 w-4 shrink-0 rounded-sm border-border accent-primary"
             />
           )}
-          <div className="h-9 w-9 shrink-0 overflow-hidden rounded-nested bg-surface-1">
-            {row.imageUrl ? (
-              // Plain <img>, not next/image: the optimizer throws for any host outside
-              // next.config remotePatterns, and uploaded product images live on the object-
-              // storage host, which is not listed there. One such row would take the whole
-              // list down instead of just that thumbnail.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={row.imageUrl} alt="" width={36} height={36} loading="lazy" className="h-full w-full object-cover" />
-            ) : (
-              // Decorative: the listing's missing image is already reported as an
-              // issue, so this placeholder says nothing a screen reader needs.
-              <span aria-hidden="true" className="flex h-full w-full items-center justify-center text-meta text-ink-3">
-                —
-              </span>
-            )}
-          </div>
+          {/* THE FRAME. Every product image in all three portals goes through
+              <ImageFrame>: contained rather than cropped, inset off its own edge,
+              on the same lit plate with the same cast floor under it. This cell
+              was the last `object-cover` in the seller portal — cover on a square
+              crops the valve off a fitting and the label off a drum, and one
+              frame with cover in a column of forty with contain announces that
+              the system is not actually a system.
+
+              It also keeps the plain-<img> decision that was here before, because
+              ImageFrame renders one: next/image's optimizer throws for any host
+              outside next.config remotePatterns, and one bad row would take the
+              whole list down rather than just that thumbnail. The no-image state
+              is now designed — the same plate and floor, with the SKU in mono —
+              rather than an em dash, and it occupies the identical box so a list
+              mixing presence and absence has no ragged column. */}
+          <ImageFrame
+            src={row.imageUrl}
+            alt={row.imageUrl ? row.nameEn : ""}
+            state={row.available <= 0 ? "out" : "available"}
+            className="h-9 w-9 shrink-0 rounded-nested"
+          />
           <div className="min-w-0">
             <p className="truncate font-medium text-ink-1">{row.nameEn}</p>
             {row.nameAr && <p className="truncate text-meta text-ink-3">{row.nameAr}</p>}
@@ -288,15 +295,32 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
       key: "available",
       label: "Available",
       numeric: true,
-      render: (row) =>
-        // Zero is a fact; anything above it is not called "low" here, because
-        // the reorder point that would decide that lives per warehouse location
-        // and this page does not read it.
-        row.available <= 0 ? (
-          <span className="text-danger-ink">{row.available}</span>
-        ) : (
-          <span>{row.available}</span>
-        ),
+      // Zero is a fact; anything above it is not called "low" here, because the
+      // reorder point that would decide that lives per warehouse location and
+      // this page does not read it.
+      //
+      // The lamp is <AvailabilityDot> — the SAME dot a buyer sees on the
+      // storefront and an operator sees in the admin stock console. Colour is
+      // never the only channel: the figure is the label, so a reader who cannot
+      // separate the two hues still reads the number. One stock language across
+      // three portals is the cheapest coherence there is.
+      render: (row) => (
+        <AvailabilityDot
+          state={row.available <= 0 ? "OUT_OF_STOCK" : "IN_STOCK"}
+          // The figure IS the label. The lamp adds the state without a second
+          // string, and the accessible name a screen reader gets is the column
+          // head plus the number, which is exactly what the sighted reader gets.
+          label={String(row.available)}
+          // The dot's own type is `u-meta text-ink-2` — correct beside a word,
+          // wrong for a figure in a ledger cell, which every other numeric column
+          // sets at the row's ui rank in ink-1. Left as it comes, the one number
+          // a supplier scans this table FOR would be the smallest and palest
+          // thing in the row. text-ui restores the cell's own rank (Tailwind's
+          // utilities are emitted after the system sheet, so it wins over
+          // .u-meta); the ink stays semantic.
+          className={cn("text-ui", row.available <= 0 ? "text-danger-ink" : "text-ink-1")}
+        />
+      ),
     },
     {
       key: "price",
@@ -441,7 +465,11 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
                   "transition-[background-color,border-color,color,box-shadow] duration-hover ease-standard",
                   active
                     ? "border border-border-strong bg-surface-2 text-ink-1 shadow-elev-2"
-                    : "border border-transparent text-ink-2 hover:text-ink-1",
+                    // .u-state-wash is the system's oklab state layer for a
+                    // surface you do NOT own — it mixes into whatever is behind
+                    // it and inverts with the theme in one token, which is what
+                    // the forty hand-tuned hover values it replaces never did.
+                    : "u-state-wash border border-transparent text-ink-2 hover:text-ink-1",
                 ].join(" ")}
               >
                 {entry.label}
@@ -477,18 +505,33 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
         })}
         empty={
           rows.length === 0 ? (
-            <EmptyState
-              eyebrow="Nothing recorded"
-              headline="This catalog has no listings yet."
-              body="A listing you add here is saved as a draft until it has been through review."
-              action={
-                canManage ? (
+            /* THE CERTIFICATE. The primary empty region of a page gets the
+               composed plate — brass rule, ruled ground, cropped mark, one real
+               action — because in a product that may not invent data an honest
+               empty surface has to read as deliberate. A member who cannot manage
+               the catalog has nothing to do here, so they get the plain editorial
+               blank instead: the certificate variant requires an action, and an
+               action they are not permitted is a dead end wearing a button. */
+            canManage ? (
+              <EmptyState
+                variant="certificate"
+                glyph={<Package />}
+                eyebrow="Nothing recorded"
+                headline="This catalog has no listings yet."
+                body="A listing you add here is saved as a draft until it has been through review, and it is not on the public storefront until a further decision after that."
+                action={
                   <Button variant="primary" size="sm" asChild>
                     <Link href="/products/new">Add your first product</Link>
                   </Button>
-                ) : undefined
-              }
-            />
+                }
+              />
+            ) : (
+              <EmptyState
+                eyebrow="Nothing recorded"
+                headline="This catalog has no listings yet."
+                body="Your role can read this catalog but not add to it. Ask a seller owner for the catalog.manage permission."
+              />
+            )
           ) : (
             <EmptyState
               eyebrow="No match"

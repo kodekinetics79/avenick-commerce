@@ -10,14 +10,23 @@ import * as React from "react";
  * unlike a rotation it cannot be turned up too far by whoever implements it
  * next. Tilt is banned outright; so are blend modes.
  *
- * It writes --mx/--my at most once per animation frame, adds will-change on
- * enter and REMOVES it on leave (a will-change left standing in a stylesheet is
- * a real cost on mid-range Android), and early-returns before attaching any
- * listener at all on a coarse pointer or under reduced motion — the listener is
- * never registered, not merely made a no-op.
+ * It writes --mx/--my at most once per animation frame, and early-returns before
+ * attaching any listener at all on a coarse pointer or under reduced motion —
+ * the listener is never registered, not merely made a no-op. Every new client
+ * island in this system copies that guard shape verbatim.
+ *
+ * FIXED THIS ROUND: it used to set `will-change: transform` on pointerenter, on
+ * a wrapper that never transforms. It promoted a compositor layer for zero
+ * benefit and cost memory on exactly the mid-range Android this product must
+ * serve. The rAF throttle and the two early-returns were already correct and are
+ * untouched.
  *
  * Product cards, category tiles, and the single admin hero KPI. Never a table
  * row: 40 rows tracking a pointer is a composite storm.
+ *
+ * FOR A GRID, USE <LightGrid> INSTEAD. One pointermove listener on the container
+ * beats N listeners on N cards, and the cards then read as one lit material
+ * rather than as N independent hover states.
  */
 export interface SpecularSurfaceProps {
   children: React.ReactNode;
@@ -55,22 +64,10 @@ export function SpecularSurface({ children, className }: SpecularSurfaceProps) {
       if (!frame) frame = window.requestAnimationFrame(flush);
     };
 
-    const onEnter = () => {
-      el.style.willChange = "transform";
-    };
-    const onLeave = () => {
-      el.style.willChange = "";
-    };
-
     el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerenter", onEnter);
-    el.addEventListener("pointerleave", onLeave);
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
       el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerenter", onEnter);
-      el.removeEventListener("pointerleave", onLeave);
-      el.style.willChange = "";
     };
   }, []);
 

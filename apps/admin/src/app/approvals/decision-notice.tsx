@@ -49,7 +49,12 @@ export function DecisionNotice({
       tone="warning"
       role="alert"
       aria-live="assertive"
-      className={cn("border-s-4 border-s-warning p-3", className)}
+      // 3px, not 4: this is the SAME rule as the active nav item, the
+      // committed row, the flagged dashboard signal and the certificate's top
+      // edge. One gesture in different postures is most of what makes a system
+      // read as designed rather than assembled, and a notice that invents its
+      // own width is the twelfth agent's sixth brass gesture.
+      className={cn("border-s-[3px] border-s-warning p-3", className)}
     >
       <div className="flex items-start gap-2.5">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-ink" aria-hidden="true" />
@@ -81,32 +86,41 @@ export function DecisionNotice({
 export function DecisionNoticeInline({
   message,
   currentStatus,
+  action,
   className,
-}: Pick<DecisionNoticeProps, "message" | "currentStatus" | "className">) {
+}: Pick<DecisionNoticeProps, "message" | "currentStatus" | "action" | "className">) {
   return (
     <Surface
       rung={2}
       tone="warning"
       role="alert"
       aria-live="assertive"
-      className={cn("border-s-4 border-s-warning px-2.5 py-2", className)}
+      className={cn("border-s-[3px] border-s-warning px-2.5 py-2", className)}
     >
-      <p className="u-ui flex items-start gap-2 text-ink-1">
+      <div className="u-ui flex items-start gap-2 text-ink-1">
         {/* The mark carries the tone at a glance. In a fifty-row table the
             reader has to be able to find the one row that refused without
             reading it, which a tinted box alone does not do. */}
         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning-ink" aria-hidden="true" />
-        <span className="min-w-0">
-          {message}
-          {currentStatus && (
-            <>
-              {" "}
-              <span className="text-ink-2">Recorded status is now</span>{" "}
-              <span className="font-medium">{currentStatus.replace(/_/g, " ")}</span>.
-            </>
-          )}
-        </span>
-      </p>
+        <div className="min-w-0">
+          <p>
+            {message}
+            {currentStatus && (
+              <>
+                {" "}
+                <span className="text-ink-2">Recorded status is now</span>{" "}
+                <span className="font-medium">{currentStatus.replace(/_/g, " ")}</span>.
+              </>
+            )}
+          </p>
+          {/* The recovery, in the notice rather than in the operator's head. The
+              queue deliberately does not reload itself when a decision is
+              refused — the reviewer would lose their place — so the way back to
+              a truthful row has to be offered here, once, next to the sentence
+              that says the page is now stale. */}
+          {action && <div className="mt-1.5">{action}</div>}
+        </div>
+      </div>
     </Surface>
   );
 }

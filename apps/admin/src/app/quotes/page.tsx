@@ -10,7 +10,7 @@ import {
   type PillTone,
 } from "@avenick/ui";
 import { CountStat, MoneyStat } from "@/app/finance/money-figures";
-import { FilterTabs, Pager, CONTROL } from "@/app/finance/console-chrome";
+import { FilterTabs, Pager, CONTROL } from "@/components/console/chrome";
 
 export const metadata = { title: "Quotes" };
 export const dynamic = "force-dynamic";

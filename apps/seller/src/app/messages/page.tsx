@@ -16,13 +16,12 @@ import { cn } from "@avenick/utils";
 import {
   Button,
   buttonVariants,
-  CellGrid,
   Dateline,
   EmptyState,
   Eyebrow,
   FieldWell,
   PageHeader,
-  Stat,
+  Num,
   StatusPill,
   Surface,
   type PillTone,
@@ -67,7 +66,46 @@ interface RfqRowView {
   description: string;
   receivedAt: string;
   dueBy: string;
+  /**
+   * How the buyer's own required-by date stands against today, or null when the
+   * request carries no such date.
+   *
+   * This is presentation of a stored column, not a service level: the platform
+   * publishes no response-time commitment, so the wording is "the date the buyer
+   * asked for has passed", never "overdue" and never "late". `days` is whole
+   * CALENDAR days from today, computed against the same clock for every row on
+   * the page, so the day the buyer asked for reads as today rather than as past.
+   */
+  due: { days: number; passed: boolean } | null;
   posture: ReturnType<typeof sellerRfqPosture>;
+}
+
+/**
+ * Whole CALENDAR days from today to a required-by day. One clock for the whole
+ * render, and the comparison is day-to-day rather than instant-to-instant.
+ *
+ * That distinction is the whole of it. RFQRequest.requiredBy is written from an
+ * `<input type="date">` on the buyer's side — `new Date("2026-09-03")`, which is
+ * UTC MIDNIGHT of the chosen day. Comparing it against `now` as an instant makes
+ * every request stamped "past the date the buyer asked for" from the small hours
+ * of the very day the buyer asked for, in danger red, while the same row prints
+ * that date as today directly beneath. It also made the "Required today" case
+ * unreachable, which is the case a supplier most needs to see.
+ *
+ * Both dates are reduced to their local calendar day — the same local reading
+ * date-fns uses to PRINT them a line above, so the badge and the date can never
+ * disagree — and rounded rather than floored so a DST shift cannot move a day.
+ */
+function startOfLocalDay(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+function daysUntil(target: Date, now: Date): number {
+  return Math.round((startOfLocalDay(target) - startOfLocalDay(now)) / 86_400_000);
+}
+
+/** One day count, one derived reading — so the badge and the rule cannot diverge. */
+function passedOrDue(days: number): { days: number; passed: boolean } {
+  return { days, passed: days < 0 };
 }
 
 /**
@@ -87,26 +125,49 @@ function RfqRow({ rfq, canQuote }: { rfq: RfqRowView; canQuote: boolean }) {
   // the quote pages keeps the link builder safe if the id scheme ever widens.
   const rfqParam = encodeURIComponent(rfq.id);
 
+  /**
+   * The buyer's own required-by date, read against today. It is shown only on a
+   * request still open to a quote — on a settled row the date is history and
+   * marking it "passed" would be scolding a supplier for something already done.
+   *
+   * Wording is deliberate: "required by … — that date has passed" states the
+   * record. "Overdue" and "late" would imply a commitment the platform has never
+   * published, which is the same class of claim as an invented response time.
+   */
+  const due = isPending ? rfq.due : null;
+
   return (
     <li
       className={cn(
-        "flex flex-wrap items-start justify-between gap-3 border-s-[3px] px-4 py-3",
-        isPending ? "border-warning" : "border-transparent",
+        "u-state-wash flex flex-wrap items-start justify-between gap-3 border-s-[3px] px-4 py-3",
+        // Always 3px, only the colour changes, so a request whose date has passed
+        // cannot be a different width from one that has not. Danger is reserved
+        // for the passed case; open-but-in-time is the warning it always was.
+        isPending ? (due?.passed ? "border-danger" : "border-warning") : "border-transparent",
       )}
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="u-mono u-micro text-ink-3">{rfq.rfqNumber}</span>
           <StatusPill tone={sc.tone}>{sc.label}</StatusPill>
+          {due?.passed && (
+            <StatusPill tone="danger">
+              <Clock className="h-3 w-3" aria-hidden="true" />
+              Required-by date passed
+            </StatusPill>
+          )}
+          {due && !due.passed && due.days <= 2 && (
+            <StatusPill tone="warning">
+              <Clock className="h-3 w-3" aria-hidden="true" />
+              {due.days === 0 ? "Required today" : due.days === 1 ? "Required tomorrow" : `Required in ${due.days} days`}
+            </StatusPill>
+          )}
         </div>
         <p className="u-ui mt-1 font-medium text-ink-1">{rfq.buyerCompany}</p>
         <p className="u-meta line-clamp-1 text-ink-2">{rfq.description}</p>
-        <p className="u-meta mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-ink-3">
-          <span className="inline-flex items-center gap-1">
-            <Clock className="h-3 w-3" aria-hidden="true" /> Received {rfq.receivedAt}
-          </span>
-          <span>Due {rfq.dueBy}</span>
-        </p>
+        <Dateline className="mt-1">
+          Received {rfq.receivedAt} · buyer required by {rfq.dueBy}
+        </Dateline>
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
@@ -159,7 +220,10 @@ export default async function MessagesPage() {
     db.rFQRequest.count({ where: SELLER_RFQ_INBOX_WHERE(seller.id) }),
   ]);
 
-  const fmtD = (d: Date | null) => (d ? format(d, "MMM d, yyyy") : "—");
+  // One clock for the whole render, so every row's required-by reading is taken
+  // at the same instant.
+  const now = new Date();
+  const fmtD = (d: Date | null) => (d ? format(d, "MMM d, yyyy") : "not stated");
   const rfqInbox: RfqRowView[] = rawRfqs.map((r) => ({
     id: r.id,
     rfqNumber: r.rfqNumber,
@@ -168,9 +232,19 @@ export default async function MessagesPage() {
     description: r.items[0]?.nameEn ?? `${r.items.length} item${r.items.length !== 1 ? "s" : ""}`,
     receivedAt: format(r.createdAt, "MMM d, yyyy"),
     dueBy: fmtD(r.requiredBy),
+    // Null when the request carries no required-by date, which is a real state:
+    // a buyer is not obliged to name one, and inventing a window for them would
+    // be exactly the kind of fiction this codebase spent a programme removing.
+    // `passed` is derived from the same day count, never from an instant
+    // comparison: a date is past when its DAY is behind today, not when its
+    // UTC-midnight timestamp is behind this second.
+    due: r.requiredBy ? passedOrDue(daysUntil(r.requiredBy, now)) : null,
     posture: sellerRfqPosture(r, seller.id),
   }));
   const pendingRfqs = rfqInbox.filter((r) => r.posture === "open");
+  // Counted from the same rows the list below renders, so the masthead figure can
+  // never claim a number the page cannot show.
+  const pastDueRfqs = pendingRfqs.filter((r) => r.due?.passed);
   // Presentation-only partition: the rows are unchanged and their order within
   // each group is the order the query returned. What changes is that a supplier
   // scanning this page cannot miss the requests still waiting on them.
@@ -191,40 +265,104 @@ export default async function MessagesPage() {
         />
 
         <section aria-label="RFQ inbox" className="space-y-4">
-          {/* One panel divided by hairlines rather than three floating tiles.
-              The counts describe the rows below, which is why the dateline
-              names the cap instead of leaving a full page to read as "all". */}
-          <CellGrid cols={{ base: 1, sm: 3 }} density="compact">
-            <Stat
-              label="Awaiting your quote"
-              value={pendingRfqs.length}
-              rank="section"
-              icon={AlertCircle}
-              chip={pendingRfqs.length > 0 ? "warning" : "neutral"}
-            />
-            <Stat label="Quoted by you" value={quotedRfqs.length} icon={FileText} chip="neutral" />
-            <Stat label="Requests listed" value={rfqInbox.length} icon={Inbox} chip="neutral" />
-          </CellGrid>
-          {rfqCapped && (
-            <Dateline>
-              Counts describe the {SELLER_RFQ_INBOX_LIMIT} newest of {rfqTotal} requests listed here; older ones are
-              not listed yet.
-            </Dateline>
-          )}
+          {/* ══ NEEDS RESPONSE, AT SCALE ══
+              This was three equal cells: "awaiting your quote", "quoted by you"
+              and "requests listed", all the same size, so the one number a
+              supplier opens this page for sat beside two that merely describe the
+              list. It is now the page's one large figure — hero rank, 46px
+              against 12px metadata — and the two counts that qualify it are
+              metadata beside it, which is what "qualify" is supposed to look
+              like.
+
+              Both figures are counted from the rows rendered below, so the
+              masthead can never claim a number the page cannot show; where the
+              inbox is capped the dateline says so rather than letting a full page
+              read as "all".
+
+              The ruling sits on an inner element rather than on the plate: the
+              shoulder and the ruling are both drawn by a ::before, and an element
+              has only one, so `rim` and [data-rule-ground] on the same node lose
+              the shoulder silently. */}
+          <Surface rung={2} rim className="overflow-hidden">
+            <div data-rule-ground="" className="p-5 [&>*]:relative">
+              <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+                <div className="min-w-0">
+                  <Eyebrow className="flex items-center gap-1.5">
+                    <AlertCircle className="h-3 w-3" aria-hidden="true" />
+                    Awaiting your quote
+                  </Eyebrow>
+                  <div className="mt-1">
+                    <Num value={pendingRfqs.length} rank="hero" />
+                  </div>
+                  {pastDueRfqs.length > 0 && (
+                    <StatusPill tone="danger" className="mt-2">
+                      <Clock className="h-3 w-3" aria-hidden="true" />
+                      {pastDueRfqs.length} past the date the buyer asked for
+                    </StatusPill>
+                  )}
+                </div>
+
+                {/* The qualifying counts, as metadata rather than as peers. */}
+                <dl className="flex flex-wrap gap-x-8 gap-y-2">
+                  <div>
+                    <dt>
+                      <Eyebrow className="flex items-center gap-1.5">
+                        <FileText className="h-3 w-3" aria-hidden="true" />
+                        Quoted by you
+                      </Eyebrow>
+                    </dt>
+                    <dd className="mt-0.5">
+                      <Num value={quotedRfqs.length} />
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>
+                      <Eyebrow className="flex items-center gap-1.5">
+                        <Inbox className="h-3 w-3" aria-hidden="true" />
+                        Requests listed
+                      </Eyebrow>
+                    </dt>
+                    <dd className="mt-0.5">
+                      <Num value={rfqInbox.length} />
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              <Dateline className="mt-3">
+                {rfqCapped
+                  ? `Counted from the ${SELLER_RFQ_INBOX_LIMIT} newest of ${rfqTotal} requests visible to this account; older ones are not listed yet · the platform publishes no response-time commitment, so a required-by date is the buyer's own and nothing here is a service level`
+                  : "Counted from the requests listed below · the platform publishes no response-time commitment, so a required-by date is the buyer's own and nothing here is a service level"}
+              </Dateline>
+            </div>
+          </Surface>
 
           {rfqInbox.length === 0 ? (
-            <Surface rung={1}>
-              <EmptyState
-                eyebrow="Nothing recorded"
-                headline="No requests for quotation have reached this account."
-                body="Open RFQs and RFQs assigned to you appear here as buyers submit them."
-              />
-            </Surface>
+            // The certificate, because this is the page's primary empty region
+            // and it is the surface a new supplier looks at longest. It says what
+            // the inbox actually contains — open unclaimed requests plus this
+            // account's own — and gives the one real thing there is to do while
+            // it is empty, which is to make the catalogue findable.
+            <EmptyState
+              variant="certificate"
+              glyph={<Inbox />}
+              eyebrow="Nothing recorded"
+              headline="No request for quotation has reached this account."
+              body="This inbox holds every open request no supplier has claimed, plus every request assigned to you. Nothing is being withheld and nothing is queued behind a filter — no buyer has submitted one that reaches this account yet."
+              action={
+                <Button variant="secondary" size="sm" asChild>
+                  <Link href="/products">Review your listings</Link>
+                </Button>
+              }
+            />
           ) : (
             <div className="space-y-4">
               {pendingRfqs.length > 0 && (
                 <div>
-                  <Eyebrow as="h2" className="mb-2">Awaiting your quote — {pendingRfqs.length}</Eyebrow>
+                  {/* The count lives in the masthead above at hero rank;
+                      repeating it in the group heading is how a figure stops
+                      reading as the answer and starts reading as decoration. */}
+                  <Eyebrow as="h2" className="mb-2">Awaiting your quote</Eyebrow>
                   {/* Stated once for the whole group, as a fact about this
                       account rather than as fine print under each row. */}
                   {!canQuote && (
@@ -246,17 +384,32 @@ export default async function MessagesPage() {
                 </div>
               )}
 
+              {/* Settled requests fold away. They are the majority of a working
+                  inbox and none of them wants anything, so leaving them expanded
+                  buries the rows that do — the single reason "needs response" was
+                  missable here. <details>/<summary> means this costs no client
+                  component, keeps the rows in the DOM for browser find-in-page,
+                  and the chevron is drawn from two rotated borders so there is
+                  nothing to mirror in Arabic. It opens by default only when there
+                  is nothing waiting, so a supplier with a clear queue still lands
+                  on something to read. */}
               {settledRfqs.length > 0 && (
-                <div>
-                  <Eyebrow as="h2" className="mb-2">Quoted, declined or closed — {settledRfqs.length}</Eyebrow>
-                  <Surface rung={1} className="overflow-hidden">
-                    <ul className="divide-y divide-hairline">
-                      {settledRfqs.map((rfq) => (
-                        <RfqRow key={rfq.id} rfq={rfq} canQuote={canQuote} />
-                      ))}
-                    </ul>
-                  </Surface>
-                </div>
+                <Surface
+                  rung={1}
+                  as="details"
+                  className="u-facet overflow-hidden px-4"
+                  {...(pendingRfqs.length === 0 ? { open: true } : {})}
+                >
+                  <summary className="u-focus">
+                    <Eyebrow as="span">Quoted, declined or closed — {settledRfqs.length}</Eyebrow>
+                    <span className="u-facet__chev" aria-hidden="true" />
+                  </summary>
+                  <ul className="-mx-4 divide-y divide-hairline border-t border-hairline">
+                    {settledRfqs.map((rfq) => (
+                      <RfqRow key={rfq.id} rfq={rfq} canQuote={canQuote} />
+                    ))}
+                  </ul>
+                </Surface>
               )}
             </div>
           )}
@@ -278,6 +431,9 @@ export default async function MessagesPage() {
           )}
 
           {threads.length === 0 ? (
+            // The plain editorial blank, not a second certificate: the budget is
+            // one composed plate per empty REGION, and two of them stacked on one
+            // page is two objects competing to be the thing you look at.
             <Surface rung={1}>
               <EmptyState
                 eyebrow="Nothing recorded"

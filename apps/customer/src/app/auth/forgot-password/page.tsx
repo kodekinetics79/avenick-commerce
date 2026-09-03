@@ -1,6 +1,8 @@
 import Link from "next/link";
-import { passwordResetTtlLabel } from "@/lib/password-reset";
+import { cookies } from "next/headers";
+import { PASSWORD_RESET_TTL_SECONDS, passwordResetTtlLabel } from "@/lib/password-reset";
 import { AuthShell } from "../auth-shell";
+import { identityCopy, LOCALE_COOKIE, resetTtlLabel, toIdentityLocale } from "../identity-copy";
 import { ForgotForm } from "./forgot-form";
 
 /**
@@ -8,26 +10,36 @@ import { ForgotForm } from "./forgot-form";
  * portal users — the seller portal links here. The page is a server component
  * so the expiry the form promises is read from the same constant the token
  * verifier enforces; the form itself never imports the (node:crypto) module.
+ *
+ * The TTL is localised here rather than translated: `passwordResetTtlLabel()`
+ * derives the English form from PASSWORD_RESET_TTL_SECONDS, and resetTtlLabel()
+ * derives the Arabic from the same number. Translating the English string would
+ * make the Arabic a copy of a copy, and a promise that can drift from the
+ * expiry the verifier actually enforces is a truth defect, not a wording one.
  */
-export default function ForgotPasswordPage() {
+export default async function ForgotPasswordPage() {
+  const locale = toIdentityLocale((await cookies()).get(LOCALE_COOKIE)?.value);
+  const t = identityCopy(locale).forgot;
+  const ttl = resetTtlLabel(locale, PASSWORD_RESET_TTL_SECONDS, passwordResetTtlLabel());
+
   return (
     <AuthShell
-      eyebrow="Password reset"
-      title="Forgot your password?"
-      subtitle="Enter your email and we will send you a link to choose a new one."
-      // The TTL is read from the constant the verifier enforces, so this line is
-      // a fact about the system rather than a reassuring guess.
-      note={`A reset link is valid for ${passwordResetTtlLabel()} from the moment it is requested.`}
+      locale={locale}
+      eyebrow={t.eyebrow}
+      title={t.title}
+      subtitle={t.subtitle}
+      // A fact about the system rather than a reassuring guess.
+      note={t.note(ttl)}
       footer={
         <p className="u-meta text-ink-3">
-          Remembered it?{" "}
+          {t.remembered}{" "}
           <Link href="/login" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
-            Sign in
+            {t.signIn}
           </Link>
         </p>
       }
     >
-      <ForgotForm expiresIn={passwordResetTtlLabel()} />
+      <ForgotForm locale={locale} expiresIn={ttl} />
     </AuthShell>
   );
 }

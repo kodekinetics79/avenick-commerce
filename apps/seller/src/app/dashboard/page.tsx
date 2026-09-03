@@ -10,10 +10,11 @@ import {
 } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
-import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
 import Link from "next/link";
 import { requireSellerPermission } from "@/lib/auth";
+import { orderStatusMeta } from "@/components/orders/status-meta";
+import { cn, formatCurrency } from "@avenick/utils";
 import {
   Button,
   CellGrid,
@@ -28,7 +29,6 @@ import {
   Stat,
   StatusPill,
   Surface,
-  type PillTone,
 } from "@avenick/ui";
 import {
   Activity, AlertTriangle, Clock, CreditCard, FileCheck,
@@ -111,14 +111,6 @@ export default async function DashboardPage() {
     },
   ].filter((item) => item.value > 0);
 
-  // A CellGrid is one panel divided by hairlines: the panel itself paints the
-  // divider colour and each cell paints over it, so a partially-filled row shows
-  // its empty track as a bare rectangle of divider colour rather than as a cell.
-  // The column count therefore has to DIVIDE the cell count at every breakpoint,
-  // not just at the widest one — three items in a two-column row is the case
-  // that leaves a hole.
-  const attentionCols = (attention.length >= 3 ? 3 : attention.length === 2 ? 2 : 1) as 1 | 2 | 3;
-
   // The system's :focus-visible ring is an OUTWARD two-stop box-shadow, and a
   // CellGrid cell fills its grid track inside an overflow-hidden panel — so on
   // these cells the ring is clipped away to nothing and a keyboard user sees no
@@ -143,11 +135,6 @@ export default async function DashboardPage() {
     { key: "compliance", label: "Documents in review", value: dash.pendingCompliance, href: "/compliance", icon: FileCheck, note: "Filed and waiting on platform review." },
   ];
 
-  // Enum → label mapping only. The tone says what the status IS; it never
-  // implies a judgement the order data does not carry.
-  const orderStatusTone = (status: string): PillTone =>
-    status === "DELIVERED" ? "success" : status === "CANCELLED" ? "danger" : status === "PROCESSING" ? "primary" : "neutral";
-
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={dash.issueCount} unreadMessages={dash.unreadMessages} performance={performance} permissions={membership.permissions}>
       <div className="space-y-block">
@@ -160,42 +147,132 @@ export default async function DashboardPage() {
 
         <OnboardingChecklist seller={seller} />
 
-        {/* What the seller can clear themselves, or an explicit statement that
-            there is nothing — an empty surface has to read as deliberate. */}
-        {attention.length > 0 ? (
-          <section aria-label="Action required">
-            <SectionHeader
-              icon={AlertTriangle}
-              title="Action Required — إجراء مطلوب"
-              description="Each of these is yours to clear."
-            />
-            <CellGrid cols={{ base: 1, sm: attentionCols, lg: attentionCols }}>
-              {attention.map((item) => (
-                <Stat
-                  key={item.key}
-                  label={item.label}
-                  value={item.value}
-                  rank="section"
-                  chip={item.chip}
-                  icon={item.icon}
-                  note={item.note}
-                  href={item.href}
-                  linkComponent={Link}
-                  className={CELL_FOCUS}
-                />
-              ))}
-            </CellGrid>
-          </section>
-        ) : (
-          <Surface rung={1} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-4">
-            <StatusPill tone="success" dot>
-              Nothing needs attention
-            </StatusPill>
-            <Dateline className="min-w-0">
-              No unresolved listing issue, no stock at its reorder point, and no document expiring in the next 30 days.
-            </Dateline>
-          </Surface>
-        )}
+        {/* ══ THE MASTHEAD ══
+            The one thing on this page with real scale.
+
+            What was here was three CellGrids in a row — action required, trading,
+            queue — every cell the same size, the same weight and the same ink, so
+            nothing on the page could be subordinate to anything and a supplier
+            opening it at 9am had to read all eleven figures to find the two that
+            wanted them. A console does not get a hero rung (the portal token
+            makes --fs-hero resolve to --fs-h1 by design), so the range comes from
+            the FIGURE ladder instead: one number at hero rank, 46px against the
+            12px metadata beside it, which is the same 3.8× the storefront gets
+            from its display type.
+
+            The score is the right figure to promote and the revenue sum is not:
+            getSellerDashboard adds order-line totals ACROSS every currency the
+            seller trades in, so that sum can carry no currency code — and an
+            unlabelled cross-currency figure is the last thing that should be set
+            at 46px. The score is unitless, computed from this seller's own paid
+            lines, listings and current documents, and null when there is too
+            little activity to state one honestly.
+
+            Ruled ground and the fresnel shoulder, because this is the page's one
+            composed object. Both are portal-dialled: the seller's rim shoulder is
+            .38 against the storefront's .48, and the ruling is the same gesture
+            at the same --lh-body rhythm as the field behind the page. */}
+        <Surface rung={2} rim className="overflow-hidden">
+          <div className="grid gap-px bg-hairline lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+            {/* The ruling goes on THIS cell, not on the panel: the cells are
+                opaque --surface-2 painted over a 1px hairline gap, so a ruling on
+                the panel would be entirely hidden behind them. [&>*]:relative
+                lifts the content above the ::before layer, which is positioned at
+                z-index 0 and would otherwise paint on top of the words — the same
+                rule .u-empty applies to its own children. */}
+            <div data-rule-ground="" className="bg-surface-2 p-5 [&>*]:relative">
+              <Eyebrow>Performance score</Eyebrow>
+              {performance === null ? (
+                <>
+                  {/* The provenance voice at h2, not a grey dash. An honest
+                      absence is a statement about the data, which is exactly
+                      what the serif is reserved for. */}
+                  <p className="u-provenance mt-2 max-w-desc text-h2 text-ink-1">
+                    Not enough activity to state a score.
+                  </p>
+                  <p className="u-meta mt-2 max-w-desc text-ink-2">
+                    A score needs at least {MIN_ORDER_ITEMS_FOR_SCORE} paid order lines or {MIN_RFQS_FOR_SCORE} quoted
+                    RFQs in the last {PERFORMANCE_WINDOW_DAYS} days. Until then any number here would be scoring you on
+                    almost nothing.
+                  </p>
+                </>
+              ) : (
+                <>
+                  {/* Hero rank. The digits are a <Num>: tabular, and structurally
+                      never the animated element — on a trade platform a figure
+                      that ticks is a figure you cannot trust. */}
+                  <div className="mt-1">
+                    <Num value={performance.score} unit="/100" rank="hero" />
+                  </div>
+                  <Meter
+                    className="mt-3"
+                    value={performance.score}
+                    tone="accent"
+                    size="lg"
+                    label={`Performance score: ${performance.score} out of 100`}
+                  />
+                  <Dateline className="mt-2">
+                    Orders from the last {performance.windowDays} days; listings and documents as they stand now
+                  </Dateline>
+                </>
+              )}
+              <Button variant="link" size="sm" asChild className="mt-2 -ms-1 px-1">
+                <Link href="/performance">How this is calculated</Link>
+              </Button>
+            </div>
+
+            {/* What the seller can clear themselves. Rows with the always-present
+                3px inline-start rule — the same gesture the RFQ inbox, the
+                listing-issue list and the commit mark use, in a different
+                posture. A row, not a tile: a tile makes three items look like
+                three metrics, and these are three jobs. */}
+            <div className="bg-surface-2">
+              <div className="flex items-center gap-2 border-b border-hairline px-5 py-3">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-ink-3" aria-hidden="true" />
+                <Eyebrow as="h2">Action required</Eyebrow>
+                {attention.length > 0 && (
+                  <span className="fig u-meta ms-auto text-ink-2">{attention.length}</span>
+                )}
+              </div>
+
+              {attention.length > 0 ? (
+                <ul>
+                  {attention.map((item) => (
+                    <li key={item.key}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "u-focus u-state-wash flex items-start gap-3 border-s-[3px] px-5 py-3",
+                          "border-b border-b-hairline last:border-b-0",
+                          item.chip === "danger" ? "border-s-danger" : "border-s-warning",
+                        )}
+                      >
+                        <item.icon className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
+                        <span className="min-w-0 flex-1">
+                          <span className="u-ui block font-medium text-ink-1">{item.label}</span>
+                          <span className="u-meta block text-ink-2">{item.note}</span>
+                        </span>
+                        <Num value={item.value} className="shrink-0" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                // An empty surface has to read as deliberate, and it has to say
+                // exactly WHAT was checked — "all clear" with no basis is a claim.
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-5">
+                  <StatusPill tone="success" dot>
+                    Nothing needs attention
+                  </StatusPill>
+                  <Dateline className="min-w-0">
+                    No unresolved listing issue, no stock at its reorder point, and no document expiring in the next
+                    30 days.
+                  </Dateline>
+                </div>
+              )}
+            </div>
+          </div>
+        </Surface>
 
         {/* Trading. One panel divided by hairlines, not four floating tiles, and
             the month's revenue carries section rank because it is the figure the
@@ -240,74 +317,61 @@ export default async function DashboardPage() {
           </CellGrid>
         </section>
 
-        {/* Performance score — the same computed score as the sidebar and
-            /performance, and null when there is too little activity to state one. */}
-        <Surface rung={2} className="p-5">
-          <SectionHeader
-            title="Performance score"
-            dateline={
-              performance
-                ? `Orders from the last ${performance.windowDays} days; listings and documents as they stand now`
-                : undefined
-            }
-            action={
-              <Button variant="link" size="sm" asChild>
-                <Link href="/performance">View details</Link>
-              </Button>
-            }
-          />
-          {performance === null ? (
-            <EmptyState
-              eyebrow="Not enough data"
-              headline="No performance score yet."
-              body={`A score needs at least ${MIN_ORDER_ITEMS_FOR_SCORE} paid order lines or ${MIN_RFQS_FOR_SCORE} quoted RFQs in the last ${PERFORMANCE_WINDOW_DAYS} days. Until then any number here would be scoring you on almost nothing.`}
+        {/* What the score above is MADE of. The figure itself moved into the
+            masthead — it used to be printed twice on one page, at section rank
+            here and again in the sidebar pill, which is how a number stops
+            reading as the answer and starts reading as decoration. This panel is
+            now the breakdown only, and it renders nothing at all when there is no
+            score to break down. */}
+        {performance !== null && (
+          <Surface rung={2} className="p-5">
+            <SectionHeader
+              title="What the score is made of"
+              dateline={`Weights are re-scaled across the components that have data, so a component with none is left out rather than counted as zero · orders from the last ${performance.windowDays} days`}
+              action={
+                <Button variant="link" size="sm" asChild>
+                  <Link href="/performance">View details</Link>
+                </Button>
+              }
             />
-          ) : (
-            <>
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                <Num value={performance.score} unit="/100" rank="section" />
-                {/* Recessed track, raised fill: the reading is carried by depth
-                    rather than by a red/amber/green a supplier sees sixty times a
-                    day, and the number itself is right beside it. */}
-                <Meter
-                  className="min-w-[12rem] flex-1"
-                  value={performance.score}
-                  tone="accent"
-                  size="lg"
-                  label={`Performance score: ${performance.score} out of 100`}
-                />
-              </div>
-              <div className="mt-5 grid gap-x-6 gap-y-4 sm:grid-cols-3">
-                {performance.components.map((component, index) => (
-                  <div key={component.key}>
-                    <div className="flex items-baseline justify-between gap-2">
-                      <Eyebrow className="truncate">{component.label}</Eyebrow>
-                      <span className="fig u-meta shrink-0 text-ink-1">
-                        {component.share === null ? "—" : `${Math.round(component.share * 100)}%`}
-                      </span>
-                    </div>
-                    <Meter
-                      className="mt-1.5"
-                      value={component.share ?? 0}
-                      max={1}
-                      tone="accent"
-                      index={index}
-                      label={`${component.label}: ${component.share === null ? "no data in this window" : `${component.good} of ${component.total}`}`}
-                    />
-                    <p className="u-meta mt-1 text-ink-3">
-                      {component.share === null ? "No data in this window" : `${component.good} of ${component.total}`}
-                    </p>
+            <div className="grid gap-x-6 gap-y-4 sm:grid-cols-3">
+              {performance.components.map((component, index) => (
+                <div key={component.key}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <Eyebrow className="truncate">{component.label}</Eyebrow>
+                    <span className="fig u-meta shrink-0 text-ink-1">
+                      {component.share === null ? "—" : `${Math.round(component.share * 100)}%`}
+                    </span>
                   </div>
-                ))}
-              </div>
-            </>
-          )}
-        </Surface>
+                  <Meter
+                    className="mt-1.5"
+                    value={component.share ?? 0}
+                    max={1}
+                    tone="accent"
+                    index={index}
+                    label={`${component.label}: ${component.share === null ? "no data in this window" : `${component.good} of ${component.total}`}`}
+                  />
+                  <p className="u-meta mt-1 text-ink-3">
+                    {component.share === null ? "No data in this window" : `${component.good} of ${component.total}`}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </Surface>
+        )}
 
         {/* Recent orders. This used to disappear entirely when there were none,
             which left a new seller staring at a page with a hole in it. */}
+        {/* The heading dropped its "— الطلبات الأخيرة" suffix, and so did the
+            action band above. This portal has a full next-intl message tree and
+            calls it from nowhere: an Arabic phrase glued onto two of nineteen
+            English headings is decoration, not bilingualism, and it is the exact
+            tell law 3 names — it says the Arabic build is a setting rather than a
+            design. The real fix is the message tree, which is a cross-track item
+            (apps/seller/messages/*.json is not owned here); the theatre goes now
+            so nothing reads as though the job were already done. */}
         <LedgerTable
-          title="Recent Orders — الطلبات الأخيرة"
+          title="Recent orders"
           dateline="The ten most recent orders containing your lines · each total is your share of that order, in the order's own currency"
           toolbar={
             <Button variant="link" size="sm" asChild>
@@ -346,7 +410,14 @@ export default async function DashboardPage() {
               key: "status",
               label: "Status",
               align: "end",
-              render: (order) => <StatusPill tone={orderStatusTone(order.status)}>{order.status}</StatusPill>,
+              // One order-status vocabulary for the whole fulfilment surface.
+              // This page used to collapse eleven states into four tones and
+              // print the raw SCREAMING_SNAKE enum as the label, while the orders
+              // table three clicks away carried a different map again.
+              render: (order) => {
+                const meta = orderStatusMeta(order.status);
+                return <StatusPill tone={meta.tone}>{meta.label}</StatusPill>;
+              },
             },
           ]}
           empty={

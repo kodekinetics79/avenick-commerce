@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useId } from "react";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { CheckCircle2, XCircle, FileText } from "lucide-react";
+import Link from "next/link";
+import { CheckCircle2, XCircle, FileText, AlertTriangle, Store } from "lucide-react";
 import { format } from "date-fns";
 import {
   Button,
@@ -135,17 +136,31 @@ export default function PendingSellersPage() {
         ) : loadError ? (
           <Surface rung={1}>
             <EmptyState
+              variant="certificate"
+              glyph={<AlertTriangle />}
               eyebrow="Not read"
               headline="The application queue could not be read."
-              body="This is not an empty queue — the platform did not answer, so nothing on this page can be relied on. Reload to try again."
+              body="This is not an empty queue — the platform did not answer, so nothing on this page can be relied on, and no application should be assumed decided or undecided from it."
+              action={
+                <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
+                  Read the queue again
+                </Button>
+              }
             />
           </Surface>
         ) : sellers.length === 0 ? (
           <Surface rung={1}>
             <EmptyState
+              variant="certificate"
+              glyph={<Store />}
               eyebrow="Nothing awaiting review"
               headline="No supplier application is waiting on an administrator."
-              body="Applications appear here as soon as a business completes registration."
+              body="An application appears here the moment a business completes registration, carrying its trade licence and every other document it filed. Nothing is filtered out of this queue."
+              action={
+                <Button variant="secondary" size="sm" asChild>
+                  <Link href="/sellers">Review approved suppliers</Link>
+                </Button>
+              }
             />
           </Surface>
         ) : (

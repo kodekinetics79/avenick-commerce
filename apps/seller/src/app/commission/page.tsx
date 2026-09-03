@@ -5,7 +5,20 @@ import { db, Prisma, type Currency } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
 import Link from "next/link";
-import { Clock, CreditCard, Info, Percent, Receipt } from "lucide-react";
+import {
+  Button,
+  CellGrid,
+  Dateline,
+  EmptyState,
+  Eyebrow,
+  LedgerTable,
+  PageHeader,
+  Stat,
+  StatusPill,
+  Surface,
+  type PillTone,
+} from "@avenick/ui";
+import { Clock, CreditCard, Percent, Receipt } from "lucide-react";
 
 export const metadata = { title: "Commission" };
 
@@ -133,47 +146,32 @@ export default async function CommissionPage() {
   const currencyTotals = [...totalsByCurrency.values()].sort((a, b) => b.rows - a.rows);
   const monthRows = [...months.values()].sort((a, b) => b.ts - a.ts || a.currency.localeCompare(b.currency));
   const unsettledRows = currencyTotals.reduce((sum, t) => sum + t.unsettledRows, 0);
+  const multiCurrency = currencyTotals.length > 1;
 
-  const linesFor = (pick: (t: CurrencyTotals) => Prisma.Decimal) => {
-    const lines = currencyTotals
-      .filter((t) => !pick(t).isZero())
-      .map((t) => ({ text: money(pick(t), t.currency), credit: pick(t).isNegative() }));
-    // A figure that is genuinely zero (e.g. a month's charges fully reversed) is a
-    // fact about the ledger, not missing data: print it as zero rather than as "—",
-    // which would contradict the record count printed beneath it.
-    if (lines.length === 0 && currencyTotals.length > 0) {
-      return [{ text: money(ZERO, currencyTotals[0].currency), credit: false }];
-    }
-    return lines;
+  /**
+   * Every money figure on this page is a LIST of per-currency amounts joined by
+   * a middot, never a sum. A figure that is genuinely zero (a month's charges
+   * fully reversed, say) is a fact about the ledger rather than missing data, so
+   * it prints as zero — an em dash there would contradict the record count
+   * printed beside it.
+   */
+  const linesFor = (pick: (t: CurrencyTotals) => Prisma.Decimal): string => {
+    const lines = currencyTotals.filter((t) => !pick(t).isZero()).map((t) => money(pick(t), t.currency));
+    if (lines.length === 0 && currencyTotals.length > 0) return money(ZERO, currencyTotals[0].currency);
+    if (lines.length === 0) return "—";
+    return lines.join(" · ");
   };
 
-  const moneyCards = [
-    {
-      label: "Net commission (YTD)",
-      note: `Charges less refund reversals since ${format(yearStart, "d MMM yyyy")}`,
-      icon: CreditCard,
-      color: "text-danger",
-      bg: "bg-card border-border",
-      lines: linesFor((t) => t.netYtd),
-    },
-    {
-      label: "Net commission (lifetime)",
-      note: `${ledger.length} commission record${ledger.length === 1 ? "" : "s"}`,
-      icon: Receipt,
-      color: "text-foreground",
-      bg: "bg-card border-border",
-      lines: linesFor((t) => t.netLifetime),
-    },
-    {
-      label: "Not yet settled",
-      note: `${unsettledRows} record${unsettledRows === 1 ? "" : "s"} awaiting a paid payout`,
-      icon: Clock,
-      color: "text-primary",
-      bg: "bg-primary/5 border-primary/20",
-      lines: linesFor((t) => t.unsettled),
-    },
-  ];
-
+  /**
+   * How the rate is applied. Everything stated here is implemented in
+   * accrueCommissions() and the payout settlement transition; nothing on this
+   * page describes a rate schedule the platform does not operate.
+   *
+   * It is a <details> disclosure rather than six always-open cards. This is the
+   * page a supplier opens once to understand the model and thereafter to read a
+   * figure; six paragraphs of correct fine print sitting permanently above the
+   * ledger is how the ledger stops being found.
+   */
   const facts: { term: string; detail: React.ReactNode }[] = [
     {
       term: "Your rate",
@@ -205,7 +203,7 @@ export default async function CommissionPage() {
         <>
           A record is marked settled when the payout covering its order is marked paid against a settlement reference.
           Payout amounts, references and dates are on{" "}
-          <Link href="/payouts" className="underline underline-offset-2">
+          <Link href="/payouts" className="u-focus rounded-nested font-medium text-primary-ink underline underline-offset-2">
             Payouts
           </Link>
           .
@@ -214,216 +212,275 @@ export default async function CommissionPage() {
     },
   ];
 
+  const settlementView = (settled: number, rows: number): { label: string; tone: PillTone } =>
+    settled === rows
+      ? { label: "Settled", tone: "success" }
+      : settled === 0
+        ? { label: "Not settled", tone: "primary" }
+        : { label: `${settled} of ${rows} settled`, tone: "warning" };
+
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Commission</h1>
-          <p className="text-sm text-muted-foreground">
-            The commission {platformName()} has recorded against your orders, and the rate each record was charged at
-          </p>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          className="mb-0"
+          eyebrow="Finance"
+          title="Commission"
+          description={`The commission ${platformName()} has recorded against your orders, and the rate each record was charged at.`}
+          dateline="Every total is computed over all commission records on this account · amounts are listed per currency and never converted or added across them"
+        />
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-2xl border p-4 bg-primary/5 border-primary/20">
-            <Percent className="h-4 w-4 text-primary mb-2" />
-            <p className="text-xl font-bold text-primary">{formatRate(accountRate)}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Your commission rate</p>
-            <p className="text-[11px] text-muted-foreground mt-1">Applied when an order is paid, ex-VAT</p>
-          </div>
-          {moneyCards.map((card) => (
-            <div key={card.label} className={`rounded-2xl border p-4 ${card.bg}`}>
-              <card.icon className={`h-4 w-4 ${card.color} mb-2`} />
-              {card.lines.length === 0 ? (
-                <p className="text-xl font-bold text-muted-foreground">—</p>
-              ) : (
-                card.lines.map((line) => (
-                  <p key={line.text} className={`text-xl font-bold ${line.credit ? "text-success" : card.color}`}>
-                    {line.text}
-                  </p>
-                ))
-              )}
-              <p className="text-xs text-muted-foreground mt-0.5">{card.label}</p>
-              <p className="text-[11px] text-muted-foreground mt-1">{card.note}</p>
-            </div>
-          ))}
-        </div>
+        {/* THE RATE LEADS. It is the one number that governs every other figure
+            on the page, so it is the only one at section rank; the three money
+            totals qualify it. Four identically-weighted tiles — which is what
+            this was — is a grid with no answer to "what am I looking at". */}
+        <CellGrid cols={{ base: 2, lg: 4 }}>
+          <Stat
+            label="Your commission rate"
+            value={formatRate(accountRate)}
+            rank="section"
+            icon={Percent}
+            chip="neutral"
+            note="Applied when an order is paid, on merchandise value excluding VAT."
+          />
+          <Stat
+            label="Net commission, year to date"
+            value={linesFor((t) => t.netYtd)}
+            icon={CreditCard}
+            note={`Charges less refund reversals since ${format(yearStart, "d MMM yyyy")}.`}
+          />
+          <Stat
+            label="Net commission, lifetime"
+            value={linesFor((t) => t.netLifetime)}
+            icon={Receipt}
+            note={`${ledger.length} commission record${ledger.length === 1 ? "" : "s"} on this account.`}
+          />
+          <Stat
+            label="Not yet settled"
+            value={linesFor((t) => t.unsettled)}
+            icon={Clock}
+            chip={unsettledRows > 0 ? "warning" : "neutral"}
+            note={`${unsettledRows} record${unsettledRows === 1 ? "" : "s"} awaiting a paid payout.`}
+            href="/payouts"
+            linkComponent={Link}
+            className="focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+          />
+        </CellGrid>
 
-        {/* How the rate is applied. Everything stated here is implemented in
-            accrueCommissions() and the payout settlement transition; nothing on
-            this page describes a rate schedule the platform does not operate. */}
-        <div className="bg-card rounded-2xl border border-border shadow-card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Info className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-semibold">How your commission is calculated</h2>
-          </div>
-          <dl className="grid gap-3 sm:grid-cols-2">
+        {/* JS-free disclosure: <details>/<summary>, so this needs no client
+            component at all, and the chevron is drawn from two rotated borders —
+            nothing to mirror in Arabic. */}
+        <Surface rung={1} as="details" className="u-facet px-4">
+          <summary className="u-focus">
+            <span className="min-w-0">
+              <Eyebrow as="span" className="block">
+                Reference
+              </Eyebrow>
+              <span className="u-ui font-medium text-ink-1">How your commission is calculated</span>
+            </span>
+            <span className="u-facet__chev" aria-hidden="true" />
+          </summary>
+
+          <dl className="grid gap-x-6 gap-y-3 border-t border-hairline pb-4 pt-3 sm:grid-cols-2">
             {facts.map((fact) => (
-              <div key={fact.term} className="rounded-xl border border-border p-3">
-                <dt className="text-sm font-semibold">{fact.term}</dt>
-                <dd className="text-xs text-muted-foreground mt-1 leading-relaxed">{fact.detail}</dd>
+              <div key={fact.term} className="min-w-0">
+                <dt className="u-ui font-medium text-ink-1">{fact.term}</dt>
+                <dd className="u-meta mt-0.5 max-w-prose text-ink-2">{fact.detail}</dd>
               </div>
             ))}
           </dl>
-          <p className="mt-4 text-xs text-muted-foreground">
+          <Dateline className="border-t border-hairline pb-4 pt-3">
             One rate per seller account is the whole of the commission model. There is no tiered or volume-based rate
             schedule in the platform, and no reduced rate is available to earn: your account tier ({seller.tier}) is a
             profile label and has no effect on the rate above.
-          </p>
-        </div>
+          </Dateline>
+        </Surface>
 
         {ledger.length === 0 ? (
-          <div className="bg-card rounded-2xl border border-border shadow-card p-10 text-center">
-            <CreditCard className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
-            <p className="font-semibold">No commission recorded yet</p>
-            <p className="text-sm text-muted-foreground mt-1">
-              A commission record is written when an order containing your items is paid.
-            </p>
-          </div>
+          <EmptyState
+            variant="certificate"
+            glyph={<Receipt />}
+            eyebrow="Nothing recorded"
+            headline="No commission has been recorded against this account."
+            body={`A commission record is written once, inside the transaction that confirms payment on an order containing your lines. Your rate of ${formatRate(accountRate)} is on file and will be snapshotted onto the first record when one exists.`}
+            action={
+              <Button variant="secondary" size="sm" asChild>
+                <Link href="/orders">Open your orders</Link>
+              </Button>
+            }
+          />
         ) : (
           <>
-            {/* By month */}
-            <div className="bg-card rounded-2xl border border-border shadow-card overflow-hidden">
-              <div className="px-5 py-4 border-b border-border">
-                <h2 className="font-semibold">Commission by month</h2>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-secondary/50 border-b border-border">
-                    <tr>
-                      {["Period", "Records", "Rate(s) charged", "Charged", "Refund reversals", "Net", "Settlement"].map((h) => (
-                        <th
-                          key={h}
-                          className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {monthRows.map((m) => {
-                      const net = m.charged.sub(m.reversed);
-                      const settlement =
-                        m.settledRows === m.rows
-                          ? { label: "Settled", className: "bg-success/15 text-success" }
-                          : m.settledRows === 0
-                            ? { label: "Not settled", className: "bg-primary/15 text-primary" }
-                            : { label: `${m.settledRows} of ${m.rows} settled`, className: "bg-amber-500/15 text-amber-600 dark:text-amber-400" };
-                      return (
-                        <tr key={m.key} className="hover:bg-secondary/40 transition-colors">
-                          <td className="px-4 py-3 font-medium whitespace-nowrap">
-                            {m.period}
-                            {currencyTotals.length > 1 && (
-                              <span className="text-xs text-muted-foreground ms-1">({m.currency})</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground">{m.rows}</td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            {m.rates.size === 0 ? (
-                              <span className="text-muted-foreground">—</span>
-                            ) : (
-                              [...m.rates].sort().join(", ")
-                            )}
-                          </td>
-                          <td className="px-4 py-3 font-mono">{money(m.charged, m.currency)}</td>
-                          <td className="px-4 py-3 font-mono text-success">
-                            {m.reversed.isZero() ? (
-                              <span className="text-muted-foreground">—</span>
-                            ) : (
-                              `+${money(m.reversed, m.currency)}`
-                            )}
-                          </td>
-                          <td className={`px-4 py-3 font-mono font-bold ${net.isNegative() ? "text-success" : "text-danger"}`}>
-                            {money(net, m.currency)}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold whitespace-nowrap ${settlement.className}`}>
-                              {settlement.label}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <p className="px-5 py-3 text-xs text-muted-foreground border-t border-border">
-                Charged and reversed amounts are the recorded commission itself, not your sales. Refund reversals are
-                credits back to you.
-              </p>
-            </div>
+            <LedgerTable
+              title="Commission by month"
+              dateline="Charged and reversed amounts are the recorded commission itself, not your sales · a refund reversal is a credit back to you"
+              rows={monthRows}
+              getRowKey={(month) => month.key}
+              density="compact"
+              columns={[
+                {
+                  key: "period",
+                  label: "Period",
+                  render: (month) => (
+                    <span className="whitespace-nowrap font-medium text-ink-1">
+                      {month.period}
+                      {multiCurrency && <span className="u-meta ms-1.5 text-ink-3">{month.currency}</span>}
+                    </span>
+                  ),
+                },
+                { key: "rows", label: "Records", numeric: true, hideOnMobile: true },
+                {
+                  key: "rates",
+                  label: "Rate(s) charged",
+                  hideOnMobile: true,
+                  render: (month) =>
+                    month.rates.size === 0 ? (
+                      <span className="text-ink-3">—</span>
+                    ) : (
+                      <span className="fig whitespace-nowrap text-ink-2">{[...month.rates].sort().join(", ")}</span>
+                    ),
+                },
+                {
+                  key: "charged",
+                  label: "Charged",
+                  numeric: true,
+                  render: (month) => <span className="text-ink-2">{money(month.charged, month.currency)}</span>,
+                },
+                {
+                  key: "reversed",
+                  label: "Reversals",
+                  numeric: true,
+                  hideOnMobile: true,
+                  render: (month) =>
+                    month.reversed.isZero() ? (
+                      <span className="text-ink-3">—</span>
+                    ) : (
+                      // A credit back to the seller. success ink, not a green
+                      // wash: the sign is already carried by the leading plus.
+                      <span className="text-success-ink">+{money(month.reversed, month.currency)}</span>
+                    ),
+                },
+                {
+                  key: "net",
+                  label: "Net",
+                  numeric: true,
+                  render: (month) => {
+                    const net = month.charged.sub(month.reversed);
+                    return (
+                      <span className={net.isNegative() ? "font-medium text-success-ink" : "font-medium text-ink-1"}>
+                        {money(net, month.currency)}
+                      </span>
+                    );
+                  },
+                },
+                {
+                  key: "settlement",
+                  label: "Settlement",
+                  align: "end",
+                  render: (month) => {
+                    const view = settlementView(month.settledRows, month.rows);
+                    return <StatusPill tone={view.tone}>{view.label}</StatusPill>;
+                  },
+                },
+              ]}
+              empty={
+                <EmptyState
+                  eyebrow="Nothing recorded"
+                  headline="No month carries a commission record."
+                  body="A month appears here as soon as one of its orders is paid."
+                />
+              }
+            />
 
-            {/* Individual records */}
-            <div className="bg-card rounded-2xl border border-border shadow-card overflow-hidden">
-              <div className="px-5 py-4 border-b border-border">
-                <h2 className="font-semibold">Commission records</h2>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-secondary/50 border-b border-border">
-                    <tr>
-                      {["Date", "Order", "Type", "Commissionable value (ex-VAT)", "Rate charged", "Commission", "Settled"].map((h) => (
-                        <th
-                          key={h}
-                          className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap"
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {recent.map((c) => {
-                      const isReversal = c.amount.isNegative();
-                      // The accrual basis, recomputed from the order lines themselves:
-                      // line total minus line VAT, exactly what accrueCommissions()
-                      // multiplies by the snapshot rate. A reversal is not a charge on
-                      // those lines, so no basis is shown for it.
-                      const basis =
-                        isReversal || c.order.items.length === 0
-                          ? null
-                          : c.order.items.reduce((sum, item) => sum.add(item.total.sub(item.vatAmount)), ZERO);
-                      return (
-                        <tr key={c.id} className="hover:bg-secondary/40 transition-colors">
-                          <td className="px-4 py-3 whitespace-nowrap">{format(c.createdAt, "d MMM yyyy")}</td>
-                          <td className="px-4 py-3 font-mono text-xs">{c.order.orderNumber}</td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            {isReversal ? (
-                              <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-success/15 text-success">
-                                Refund reversal
-                              </span>
-                            ) : (
-                              <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-secondary text-muted-foreground">
-                                Commission
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 font-mono">
-                            {basis === null ? <span className="text-muted-foreground">—</span> : money(basis, c.currency)}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">{formatRate(c.rate)}</td>
-                          <td className={`px-4 py-3 font-mono font-medium ${isReversal ? "text-success" : "text-danger"}`}>
-                            {money(c.amount, c.currency)}
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                            {c.settledAt ? format(c.settledAt, "d MMM yyyy") : "—"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <p className="px-5 py-3 text-xs text-muted-foreground border-t border-border">
-                {recent.length === ledger.length
-                  ? `All ${ledger.length} record${ledger.length === 1 ? "" : "s"} shown.`
-                  : `Showing the ${recent.length} most recent of ${ledger.length} records; the totals above cover all of them.`}{" "}
-                Commissionable value is recomputed from your lines on the order (line total minus VAT). Rate charged and
-                Commission are the values stored on the record itself; on a refund reversal the rate shown is the rate of
-                the charge being reversed.
-              </p>
-            </div>
+            <LedgerTable
+              title="Commission records"
+              dateline="Commissionable value is recomputed from your lines on the order (line total minus VAT) · rate charged and commission are the values stored on the record itself"
+              rows={recent}
+              getRowKey={(record) => record.id}
+              density="compact"
+              footer={
+                recent.length === ledger.length
+                  ? `All ${ledger.length} record${ledger.length === 1 ? "" : "s"} shown. On a refund reversal the rate shown is the rate of the charge being reversed.`
+                  : `The ${recent.length} most recent of ${ledger.length} records; the totals above cover all of them. On a refund reversal the rate shown is the rate of the charge being reversed.`
+              }
+              columns={[
+                {
+                  key: "createdAt",
+                  label: "Date",
+                  render: (record) => (
+                    <span className="u-meta whitespace-nowrap text-ink-2">{format(record.createdAt, "d MMM yyyy")}</span>
+                  ),
+                },
+                {
+                  key: "order",
+                  label: "Order",
+                  render: (record) => <span className="u-mono text-meta text-ink-2">{record.order.orderNumber}</span>,
+                },
+                {
+                  key: "type",
+                  label: "Type",
+                  render: (record) =>
+                    record.amount.isNegative() ? (
+                      <StatusPill tone="success">Refund reversal</StatusPill>
+                    ) : (
+                      <StatusPill tone="neutral">Commission</StatusPill>
+                    ),
+                },
+                {
+                  key: "basis",
+                  label: "Commissionable (ex-VAT)",
+                  numeric: true,
+                  hideOnMobile: true,
+                  render: (record) => {
+                    // The accrual basis, recomputed from the order lines
+                    // themselves: line total minus line VAT, exactly what
+                    // accrueCommissions() multiplies by the snapshot rate. A
+                    // reversal is not a charge on those lines, so no basis is
+                    // shown for it.
+                    if (record.amount.isNegative() || record.order.items.length === 0) {
+                      return <span className="text-ink-3">—</span>;
+                    }
+                    const basis = record.order.items.reduce((sum, item) => sum.add(item.total.sub(item.vatAmount)), ZERO);
+                    return <span className="text-ink-2">{money(basis, record.currency)}</span>;
+                  },
+                },
+                {
+                  key: "rate",
+                  label: "Rate charged",
+                  numeric: true,
+                  hideOnMobile: true,
+                  render: (record) => <span className="text-ink-2">{formatRate(record.rate)}</span>,
+                },
+                {
+                  key: "amount",
+                  label: "Commission",
+                  numeric: true,
+                  render: (record) => (
+                    <span className={record.amount.isNegative() ? "font-medium text-success-ink" : "font-medium text-ink-1"}>
+                      {money(record.amount, record.currency)}
+                    </span>
+                  ),
+                },
+                {
+                  key: "settledAt",
+                  label: "Settled",
+                  align: "end",
+                  render: (record) =>
+                    record.settledAt ? (
+                      <span className="u-meta whitespace-nowrap text-ink-2">{format(record.settledAt, "d MMM yyyy")}</span>
+                    ) : (
+                      <span className="u-meta text-ink-3">Not yet</span>
+                    ),
+                },
+              ]}
+              empty={
+                <EmptyState
+                  eyebrow="Nothing recorded"
+                  headline="No individual commission record exists."
+                  body="Records are written one per paid order containing your lines."
+                />
+              }
+            />
           </>
         )}
       </div>

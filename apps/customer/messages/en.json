@@ -16,7 +16,9 @@
     "viewAll": "View all",
     "learnMore": "Learn more",
     "freeDelivery": "Delivery terms are confirmed while your order is processed",
-    "searchPlaceholder": "Search the marketplace"
+    "searchPlaceholder": "Search the marketplace",
+    "skipToContent": "Skip to content",
+    "metaDescription": "A GCC marketplace for business and consumer buying: search a supplier catalogue, order directly, or submit an RFQ for volume requirements."
   },
   "nav": {
     "home": "Home",
@@ -35,7 +37,31 @@
     "signOut": "Sign out",
     "trackOrder": "Track orders",
     "getQuote": "Get a quote",
-    "myAccount": "My account"
+    "myAccount": "My account",
+    "primaryNav": "Primary navigation",
+    "submenu": "submenu",
+    "submenuOf": "{label} submenu",
+    "cartWithCount": "{count, plural, one {Cart, {n} item} other {Cart, {n} items}}",
+    "accountMenu": "Account menu",
+    "openMenu": "Open menu",
+    "menu": "Menu",
+    "closeMenu": "Close menu",
+    "wishlist": "Wishlist",
+    "catalogue": "Catalogue",
+    "ordersAndSaved": "Orders & saved",
+    "sourcing": "Sourcing",
+    "ordering": "Ordering",
+    "company": "Company",
+    "quotes": "Quotes",
+    "lists": "Saved lists",
+    "purchaseOrders": "Purchase orders",
+    "approvals": "Approvals",
+    "approvalPolicies": "Approval policies",
+    "companyProfile": "Company profile",
+    "team": "Team",
+    "deliveryAddresses": "Delivery addresses",
+    "billing": "Billing",
+    "spendAnalytics": "Spend analytics"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -78,7 +104,10 @@
     "selectOptions": "Select options",
     "requestAvailability": "Request availability",
     "noReviews": "No reviews yet",
-    "availabilityUnconfirmed": "Availability unconfirmed"
+    "availabilityUnconfirmed": "Availability unconfirmed",
+    "inStock": "In stock",
+    "priceFrom": "From",
+    "vatExcl": "Excl. {rate}% VAT"
   },
   "cart": {
     "title": "Your cart",
@@ -218,6 +247,312 @@
     "catOffice": "Office supplies",
     "catSafety": "Safety & PPE",
     "catHospitality": "Hospitality",
-    "catBuilding": "Building materials"
+    "catBuilding": "Building materials",
+    "heroProvenance": "{count, plural, one {{n} category currently listed} other {{n} categories currently listed}}",
+    "specimenEyebrow": "From the catalogue",
+    "specimenView": "View {name}",
+    "specimenEmptyEyebrow": "Nothing published",
+    "specimenEmptyHeadline": "No supplier has published a listing for this storefront yet.",
+    "specimenEmptyBody": "A product appears here the moment one is published. Until then, describe what you need and suppliers answer with quotes.",
+    "categoriesEyebrow": "Catalogue",
+    "categoriesTitle": "Shop by category",
+    "categoriesCount": "{count, plural, one {{n} category} other {{n} categories}}",
+    "allProducts": "All products",
+    "browseAll": "Browse all products",
+    "railPrev": "Scroll categories back",
+    "railNext": "Scroll categories forward",
+    "catalogEyebrow": "Catalogue",
+    "catalogEmptyEyebrow": "Nothing published",
+    "catalogEmptyHeadline": "No supplier lists a product in this storefront yet.",
+    "catalogEmptyBody": "Listings appear here once a supplier publishes one and it becomes discoverable. A quote request reaches suppliers directly in the meantime.",
+    "propsEyebrow": "How the platform works",
+    "propsTitle": "What happens between a requirement and a delivered order",
+    "b2bEyebrow": "B2B sourcing"
+  },
+  "footer": {
+    "helpTitle": "Need a hand?",
+    "helpBody": "Order questions go to the help center; bulk pricing goes through a quote request.",
+    "helpCenter": "Help center",
+    "requestQuote": "Request a quote",
+    "tagline": "B2B-first. B2C-ready. Built for modern industrial supply and procurement.",
+    "supportEmailAria": "Support email: {address}",
+    "shop": "Shop",
+    "allProducts": "All products",
+    "brands": "Brands",
+    "wishlist": "Wishlist",
+    "trackOrder": "Track orders",
+    "forBusiness": "For business",
+    "b2bPortal": "B2B portal",
+    "quotes": "Quotes",
+    "becomeSeller": "Become a seller",
+    "returns": "Returns",
+    "company": "Company",
+    "support": "Support",
+    "status": "System status",
+    "myAccount": "My account",
+    "signIn": "Sign in",
+    "legal": "Legal",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "cookies": "Cookies",
+    "rights": "© {year} {brand}. All rights reserved."
+  },
+  "pdp": {
+    "breadcrumbLabel": "Breadcrumb",
+    "home": "Home",
+    "allProducts": "Products",
+    "gallery": {
+      "label": "Product images",
+      "select": "Show image {index} of {total}",
+      "position": "Image {index} of {total}",
+      "empty": "No image has been uploaded for this product"
+    },
+    "availability": {
+      "IN_STOCK": "In stock",
+      "OUT_OF_STOCK": "Out of stock",
+      "UNCONFIRMED": "Availability unconfirmed"
+    },
+    "sku": "SKU",
+    "origin": "Origin",
+    "businessOrders": "Available for business orders",
+    "wishlistAdd": "Add to wishlist",
+    "wishlistRemove": "Remove from wishlist",
+    "variantLabel": "Variant",
+    "variantOutOfStock": "Out of stock",
+    "price": {
+      "eyebrow": "Unit price",
+      "eyebrowAtQty": "Unit price at {qty, plural, one {# unit} other {# units}}",
+      "inclVat": "Incl. VAT",
+      "exclVat": "Excl. VAT",
+      "secondaryIncl": "{amount} incl. VAT",
+      "secondaryExcl": "{amount} excl. VAT",
+      "vatRow": "VAT at {rate}% per unit",
+      "quantityRow": "Quantity",
+      "unitsValue": "{qty, plural, one {# unit} other {# units}}",
+      "totalRow": "Total including VAT",
+      "basis": "Published price for this selection at this quantity · price, tax and availability are revalidated when the order is submitted",
+      "none": "No applicable price is available for this selection and quantity.",
+      "noneBasis": "Prices are published per currency and per quantity band; none of the published bands covers this combination"
+    },
+    "ladder": {
+      "title": "Volume pricing",
+      "caption": "Unit price by quantity band, as published by the supplier",
+      "qtyHeader": "Quantity",
+      "priceHeader": "Per unit",
+      "band": "{from}–{to}",
+      "bandOpen": "{from}+",
+      "moq": "Minimum order {qty, plural, one {# unit} other {# units}}",
+      "nextOffer": "{more, plural, one {# more unit} other {# more units}} reaches {price} per unit",
+      "nextOfferAction": "Set the quantity to {qty, plural, one {# unit} other {# units}}"
+    },
+    "buy": {
+      "quantityGroup": "Quantity",
+      "decrease": "Decrease quantity",
+      "increase": "Increase quantity",
+      "addToCart": "Add to cart",
+      "added": "Added to cart",
+      "addedShort": "Added",
+      "announce": "{qty, plural, one {# unit} other {# units}} added to your cart",
+      "moqNote": "Minimum order {qty, plural, one {# unit} other {# units}}. The quantity cannot go below it.",
+      "availableNote": "{qty, plural, one {# unit} other {# units}} available for this selection",
+      "requestAvailability": "Request availability"
+    },
+    "assurance": {
+      "priceChecked": "Price checked at order",
+      "delivery": "Delivery terms confirmed at order",
+      "returns": "Returns & refunds"
+    },
+    "seller": {
+      "eyebrow": "Sold by",
+      "location": "{city}, {country}",
+      "requestQuote": "Request a quote",
+      "ratingBasis": "Averaged across {count, plural, one {# review} other {# reviews}} of this supplier",
+      "tier": {
+        "STANDARD": "Standard",
+        "VERIFIED": "Verified",
+        "GOLD": "Gold",
+        "PLATINUM": "Platinum"
+      }
+    },
+    "sections": {
+      "label": "Product sections",
+      "description": "Description",
+      "specs": "Specifications",
+      "reviews": "Reviews",
+      "shipping": "Shipping & returns"
+    },
+    "description": {
+      "none": "No description has been published for this product"
+    },
+    "specs": {
+      "basisProduct": "As recorded on this product",
+      "basisVariant": "As recorded on this product and the selected variant",
+      "sku": "SKU",
+      "brand": "Brand",
+      "origin": "Origin",
+      "weight": "Weight",
+      "weightValue": "{value} kg",
+      "moq": "Minimum order",
+      "consumerOrders": "Consumer orders",
+      "businessOrders": "Business orders",
+      "available": "Available",
+      "unavailable": "Not available",
+      "unrecorded": "Not recorded on this product: {fields}"
+    },
+    "reviews": {
+      "title": "Reviews",
+      "outOf": "{value} out of 5",
+      "ofFive": "out of 5",
+      "averageAria": "Rated {value} out of 5. Read {count, plural, one {# review} other {# reviews}}.",
+      "count": "{count, plural, one {# review} other {# reviews}}",
+      "countRecent": "{count, plural, one {# recent review} other {# recent reviews}}",
+      "averagedOver": "Averaged over {count, plural, one {# review} other {# reviews}}",
+      "averagedOverRecent": "Averaged over the {shown} most recent of {total} reviews",
+      "distributionLabel": "Rating distribution across the reviews shown",
+      "starsRow": "{stars} of 5",
+      "starsRowAria": "{count, plural, one {# review} other {# reviews}} at {stars} out of 5",
+      "verified": "Verified",
+      "author": "Buyer",
+      "authorYou": "You",
+      "emptyEyebrow": "No reviews recorded",
+      "emptyHeadline": "No one has reviewed this product yet.",
+      "emptyBody": "A review here can only be written by a buyer whose order containing this product was delivered, so the page shows none until one has been.",
+      "emptyAction": "Sign in to review",
+      "signIn": "Sign in",
+      "signInPrompt": "to review this product. Reviews are open to buyers who have received it.",
+      "notPurchased": "Only buyers who received this product can review it.",
+      "alreadyReviewed": "You have already reviewed this product.",
+      "unknown": "Could not check whether you can review this product right now."
+    },
+    "form": {
+      "eyebrow": "Your review",
+      "heading": "Write a review",
+      "basis": "You received this product, so your review will carry the Verified badge",
+      "rating": "Rating",
+      "star": "{count, plural, one {# star} other {# stars}}",
+      "ratingValue": "{value}/5",
+      "aria": "Write a review",
+      "titleField": "Title (optional)",
+      "titlePlaceholder": "Sum it up in a line",
+      "bodyField": "Review (optional)",
+      "bodyPlaceholder": "What was it like to order, receive and use?",
+      "bodyTooShort": "At least {min} characters, or leave it empty.",
+      "counter": "{count}/{max}",
+      "pickRating": "Pick a star rating to continue.",
+      "submit": "Submit review",
+      "submitting": "Submitting…",
+      "failed": "Could not submit your review. Please try again."
+    },
+    "shipping": {
+      "delivery": "Delivery",
+      "deliveryBody": "Available delivery terms are confirmed during order processing.",
+      "protection": "Order protection",
+      "protectionBody": "Price, tax and availability are revalidated when the order is submitted.",
+      "returns": "Returns policy",
+      "returnsBody": "Return eligibility and any applicable window are confirmed against the published returns policy when a return is requested.",
+      "business": "Business orders",
+      "businessBody": "Bulk quantities are priced from the bands the supplier has published. Terms beyond those bands are agreed on a quotation."
+    }
+  },
+  "catalogue": {
+    "eyebrow": "Catalogue",
+    "title": {
+      "all": "All products",
+      "category": "{category}",
+      "search": "Results for “{query}”"
+    },
+    "productsCount": "{count, plural, =0 {No products} one {1 product} other {# products}}",
+    "forQuery": "for “{query}”",
+    "showingAll": "Showing every published listing.",
+    "showingPage": "Showing {shown} of {total} · page {page} of {pages}",
+    "loadingProducts": "Loading products",
+    "sort": "Sort",
+    "filters": {
+      "label": "Filters",
+      "categories": "Categories",
+      "availability": "Availability",
+      "inStockOnly": "In stock only",
+      "anyAvailability": "Any availability",
+      "allProducts": "All products",
+      "applied": "Applied filters",
+      "remove": "Remove filter: {label}",
+      "clear": "Clear all"
+    },
+    "pagination": {
+      "label": "Pagination",
+      "next": "Next",
+      "previous": "Previous",
+      "page": "Page {page}"
+    },
+    "empty": {
+      "eyebrow": "Nothing published",
+      "category": {
+        "headline": "No published listings in this category yet.",
+        "body": "A product appears here once a seller publishes it and it is discoverable in this storefront."
+      },
+      "filters": {
+        "headline": "No products match these filters.",
+        "body": "Clear a filter to widen the search — the catalogue may still carry what you need."
+      },
+      "browseAll": "Browse all products",
+      "requestQuote": "Request a quote"
+    },
+    "refused": {
+      "eyebrow": "Search not run",
+      "headline": "“{query}” is shorter than the {min}-character minimum for name search.",
+      "body": "Product names and descriptions were not searched at all, so this is not a statement about what the catalogue carries. Part numbers, SKUs and brand codes work at any length."
+    },
+    "search": {
+      "eyebrow": "Search",
+      "prompt": "Enter a keyword above to search the catalogue.",
+      "titleEmpty": "Search the catalogue",
+      "titleResults": "Results for “{query}”",
+      "productsFound": "{count, plural, =0 {No products} one {1 product} other {# products}} found",
+      "ranked": "Ranked by how closely each match fits your term.",
+      "rankedTruncated": "Ranked by how closely each match fits your term · showing the first {shown}.",
+      "moreNotShown": "{count, plural, one {1 further match is} other {# further matches are}} not shown here ({formatted} in total).",
+      "seeAll": "See all results",
+      "browseByCategory": "Browse by category",
+      "noMatch": {
+        "eyebrow": "No matches",
+        "headline": "Nothing in the catalogue matches “{query}”.",
+        "body": "Try a shorter term, a different spelling, or browse by category.",
+        "identifierBody": "No part number, SKU or brand code matches “{query}”. Names and descriptions were searched too."
+      },
+      "noCategories": {
+        "eyebrow": "Nothing to browse",
+        "headline": "No categories carry a published listing yet.",
+        "body": "A category appears here once a seller publishes a product into it."
+      }
+    },
+    "category": {
+      "eyebrow": "Category",
+      "showingAll": "Showing every published listing in this category.",
+      "showingFirst": "Showing the first {shown} of {total} listings in this category.",
+      "moreNotShown": "{count, plural, one {1 further listing is} other {# further listings are}} not shown here ({formatted} in total).",
+      "seeFull": "See the full category",
+      "empty": {
+        "headline": "No published listings in {category} yet.",
+        "body": "A product appears here once a seller publishes it and it is discoverable in this storefront."
+      }
+    },
+    "viewProduct": "View {name}",
+    "skuLabel": "SKU",
+    "from": "From",
+    "vatExcl": "Excl. {rate}% VAT",
+    "seeOptions": "See options",
+    "minOrder": "{count, plural, one {Minimum order 1 unit} other {Minimum order # units}}",
+    "b2bMark": "B2B",
+    "wishlistAdd": "Add {name} to wishlist",
+    "wishlistRemove": "Remove {name} from wishlist",
+    "added": "Added",
+    "addedAnnouncement": "{name} added to cart",
+    "sortLabel": "Sort products",
+    "ladder": {
+      "caption": "Price by quantity",
+      "qty": "Qty",
+      "unit": "Unit price",
+      "more": "{count, plural, one {1 further band} other {# further bands}} on the product page"
+    }
   }
 }

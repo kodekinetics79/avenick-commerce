@@ -356,16 +356,36 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
     <Surface rung={1} className="flex h-full flex-col rounded-none border-0 border-e border-border">
       {/* The wordmark. The gradient tile with a font-black "A" is gone: an
           indigo→violet gradient square is the most-copied mark on the internet,
-          and the platform name is configuration, never a literal. */}
-      <div className={cn("flex h-16 shrink-0 items-center border-b border-border px-4", collapsed && "justify-center px-2")}>
+          and the platform name is configuration, never a literal.
+
+          data-console-brow settles this plate off the SAME timeline and the same
+          keyframe as the header opposite it, so the two rules that meet at the
+          top of the console stay welded together as it condenses. The inner row
+          carries the header's own control height as a minimum, which is what
+          makes the two blocks resolve to an identical height rather than to two
+          numbers that happen to be close. */}
+      <div
+        data-console-brow=""
+        className={cn("flex shrink-0 items-center border-b border-border px-4", collapsed && "justify-center px-2")}
+      >
         {collapsed ? (
-          <span className="fig text-ui font-medium text-ink-1" aria-hidden="true">
+          <span
+            className="fig flex items-center text-ui font-medium text-ink-1"
+            style={{ minBlockSize: "var(--control-h-md)" }}
+            aria-hidden="true"
+          >
             {platformName().charAt(0)}
           </span>
         ) : (
-          <div className="min-w-0">
+          // One line, two registers. Stacked, the eyebrow made this plate taller
+          // than the header it has to agree with; inline, the mark reads as a
+          // wordmark rather than as a label with a caption under it.
+          <div
+            className="flex min-w-0 items-center gap-2"
+            style={{ minBlockSize: "var(--control-h-md)" }}
+          >
             <p className="u-ui truncate font-medium text-ink-1">{platformName()}</p>
-            <Eyebrow>Admin console</Eyebrow>
+            <Eyebrow as="span" className="shrink-0">Admin</Eyebrow>
           </div>
         )}
       </div>
@@ -501,7 +521,12 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
   }));
 
   return (
-    <div className="flex h-screen overflow-hidden bg-transparent">
+    // data-console-pane carries the timeline-scope. It sits on the OUTERMOST
+    // element on purpose: the rail is a SIBLING of the scrolling pane, and a
+    // named scroll timeline is only visible inside the subtree of the element
+    // that scopes it — put it on the inner column and the rail's wordmark plate
+    // silently falls off the timeline and parks at its end state.
+    <div data-console-pane="" className="flex h-screen overflow-hidden bg-transparent">
       {/* Forty navigable screens sit between the top of the document and the
           page itself. Without this, reaching the content by keyboard means
           tabbing past every one of them on every navigation. */}
@@ -554,18 +579,33 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
         </div>
       )}
 
-      {/* Main content */}
+      {/* Main content. The header and the rail's wordmark plate both consume the
+          timeline declared by <main> below — see the block at the foot of
+          app/globals.css for why the system's scroll(root block) cannot work in
+          this shell. */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Rung 4 glass: the one blurred surface in the console at rest. Only
             the bottom edge is drawn — light comes from overhead, so an edge on
-            all four sides would be lit from below as well. */}
+            all four sides would be lit from below as well.
+
+            .u-chrome makes it SETTLE rather than toggle: across the first 96px
+            of the pane's scroll the glass deepens from .55 to .92 and the
+            padding tightens from 18px to 10px, so the bar continuously gains
+            weight instead of snapping at a threshold. There is deliberately no
+            h-16 or py-* here: a Tailwind height or padding utility out-ranks
+            .u-chrome's own padding-block and silently kills half the effect,
+            which is the single documented way this gesture ships broken. */}
         <Surface
           as="header"
           rung={4}
           glass
-          className="z-sticky flex h-16 shrink-0 items-center justify-between gap-3 rounded-none border-x-0 border-t-0 px-4"
+          data-console-chrome=""
+          className="u-chrome z-sticky flex shrink-0 items-center justify-between gap-3 rounded-none border-x-0 border-t-0 px-4"
         >
-          <div className="flex min-w-0 items-center gap-2">
+          {/* The header's own controls set the minimum height both top plates
+              resolve to; without it the bar would be shorter than the rail's
+              wordmark plate on any breakpoint that hides the palette button. */}
+          <div className="flex min-w-0 items-center gap-2" style={{ minBlockSize: "var(--control-h-md)" }}>
             {/* PanelLeft draws a panel pinned to the LEFT of its frame. The rail
                 it stands for sits at the inline start, which is the right-hand
                 side in Arabic, so the glyph is mirrored under [dir="rtl"] — an
@@ -689,8 +729,15 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
           </div>
         </Surface>
 
-        {/* tabIndex -1 so the skip link can actually land focus here. */}
-        <main id="admin-main" tabIndex={-1} className="flex-1 overflow-y-auto p-4 outline-none lg:p-6">
+        {/* tabIndex -1 so the skip link can actually land focus here.
+            data-console-scroller declares the named scroll timeline: this
+            element, not the document, is what an operator actually scrolls. */}
+        <main
+          id="admin-main"
+          tabIndex={-1}
+          data-console-scroller=""
+          className="flex-1 overflow-y-auto p-4 outline-none lg:p-6"
+        >
           {children}
         </main>
       </div>

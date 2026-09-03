@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, CheckCircle2, RotateCcw } from "lucide-react";
+import { Ban, CheckCircle2, RefreshCw, RotateCcw } from "lucide-react";
 import { Button, Input, Surface } from "@avenick/ui";
 import { ProductReviewControls } from "@/app/approvals/product-review-controls";
 import { DecisionNoticeInline } from "@/app/approvals/decision-notice";
@@ -96,7 +96,17 @@ export function ProductControls({ productId, status, restoreTarget }: Props) {
             {restoreTarget === "ACTIVE" ? "Returns to its pre-suppression state (live unless the seller had paused it)" : "Never approved — returns to draft"}
           </span>
         )}
-        {refusal && <DecisionNoticeInline message={refusal} className="w-full max-w-sm" />}
+        {refusal && (
+          <DecisionNoticeInline
+            message={refusal}
+            className="w-full max-w-sm"
+            action={
+              <Button type="button" variant="ghost" size="xs" onClick={() => router.refresh()}>
+                <RefreshCw className="h-3 w-3" aria-hidden="true" /> Re-read this row
+              </Button>
+            }
+          />
+        )}
       </div>
     );
   }
@@ -164,7 +174,17 @@ export function ProductControls({ productId, status, restoreTarget }: Props) {
           <Ban className="h-3.5 w-3.5" aria-hidden="true" /> Suppress
         </Button>
       )}
-      {refusal && <DecisionNoticeInline message={refusal} className="w-full max-w-sm" />}
+      {refusal && (
+          <DecisionNoticeInline
+            message={refusal}
+            className="w-full max-w-sm"
+            action={
+              <Button type="button" variant="ghost" size="xs" onClick={() => router.refresh()}>
+                <RefreshCw className="h-3 w-3" aria-hidden="true" /> Re-read this row
+              </Button>
+            }
+          />
+        )}
     </div>
   );
 }

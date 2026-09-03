@@ -1,13 +1,39 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { db, getCustomerSegments } from "@avenick/database";
-import { BadgePercent, Crown, Moon, TicketPercent, Users, UserRoundPlus } from "lucide-react";
+import { BadgePercent, Crown, Moon, TicketPercent, Users, UserRoundPlus, Megaphone } from "lucide-react";
 import { createCoupon, createPromotion, createReferralProgram, setPromotionStatus } from "./actions";
+import { CONTROL } from "@/components/console/chrome";
+import Link from "next/link";
+import {
+  Button, CellGrid, Dateline, EmptyState, Field, LedgerTable, PageHeader,
+  SectionHeader, Stat, StatusPill, Surface, type PillTone,
+} from "@avenick/ui";
 
 export const metadata = { title: "Campaigns & Promotions" };
 export const dynamic = "force-dynamic";
 
-const input = "h-10 rounded-xl border border-input bg-background px-3 text-sm";
+const CURRENCIES = ["SAR", "AED", "QAR", "KWD", "OMR", "BHD", "USD"] as const;
+
+const STATUS_TONE: Record<string, PillTone> = {
+  ACTIVE: "success",
+  DRAFT: "neutral",
+  PAUSED: "warning",
+  ENDED: "neutral",
+};
+
+/**
+ * Whether checkout treats a promotion as coupon-only.
+ *
+ * `createCoupon` writes `eligibility.requiresCoupon = true` on the promotion the
+ * moment a code is issued against it, and `evaluatePromotions` skips any rule
+ * carrying that flag. It is the rule's own record of the answer, which the
+ * presence of a coupon row in a truncated fetch is not.
+ */
+function requiresCoupon(eligibility: unknown): boolean {
+  if (!eligibility || typeof eligibility !== "object" || Array.isArray(eligibility)) return false;
+  return (eligibility as Record<string, unknown>)["requiresCoupon"] === true;
+}
 
 export default async function CampaignsPage() {
   await requireAdminSession();
@@ -26,131 +52,375 @@ export default async function CampaignsPage() {
     couponByPromotion.set(coupon.promotionId, rows);
   }
 
-  const audiences = [
-    { icon: Crown, title: "High-value buyers", count: segments.highValue.length, detail: "Top 20% by lifetime spend" },
-    { icon: Moon, title: "Dormant buyers", count: segments.dormant60d, detail: "No purchase for 60+ days" },
-    { icon: Users, title: "Active buyers", count: segments.activeLast30d, detail: "Purchased in the last 30 days" },
-  ];
-
   return (
     <AdminLayout>
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-2xl font-bold">Campaigns & Commercial Offers</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Platform-governed promotions, coupon codes, referrals and live customer audiences. Discount amounts are evaluated again by checkout; the browser never supplies the commercial answer.
-          </p>
+      <div className="space-y-section">
+        <PageHeader
+          eyebrow="CRM"
+          title="Campaigns and commercial offers"
+          description="Platform-governed promotions, coupon codes and referral programmes, against live customer audiences."
+          dateline="Every discount is evaluated again by checkout against the stored rule; the browser never supplies the commercial answer. New offers are created in DRAFT and do nothing until an administrator activates them, and every status change is written to the audit stream."
+        />
+
+        {/* The audiences are counts of real buyers, computed at request time —
+            not a segmentation model and not an estimate. Each says exactly what
+            it counted, because "high value" means nothing until it names its own
+            cut-off. */}
+        <section aria-label="Live audiences">
+          <SectionHeader title="Live audiences" description="Counted from paid orders when this page was requested." />
+          <CellGrid cols={{ base: 1, sm: 3 }} density="compact">
+            <Stat
+              label="High-value buyers"
+              value={segments.highValue.length}
+              icon={Crown}
+              note="The top fifth by lifetime spend"
+            />
+            <Stat
+              label="Dormant buyers"
+              value={segments.dormant60d}
+              icon={Moon}
+              note="No paid order in the last 60 days"
+            />
+            <Stat
+              label="Active buyers"
+              value={segments.activeLast30d}
+              icon={Users}
+              note="At least one paid order in the last 30 days"
+            />
+          </CellGrid>
+        </section>
+
+        <div className="grid grid-cols-1 gap-block xl:grid-cols-2">
+          {/* Every field carries a real <label>. Round one used placeholders as
+              labels throughout, which vanish the moment a character is typed and
+              are never announced as names — on a form that sets discount ceilings
+              and usage caps, that is a correctness problem, not a polish one. */}
+          <Surface rung={2} className="p-4">
+            <form action={createPromotion} className="space-y-3">
+              <SectionHeader
+                icon={BadgePercent}
+                title="Create a promotion"
+                description="It is created in DRAFT and applies to nothing until it is activated."
+              />
+              <Field label="Promotion name" htmlFor="promo-name" required>
+                <input id="promo-name" className={CONTROL} data-rung={1} name="name" required minLength={2} maxLength={120} />
+              </Field>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Discount type" htmlFor="promo-type" required>
+                  <select id="promo-type" className={CONTROL} data-rung={1} name="type" defaultValue="PERCENTAGE">
+                    <option value="PERCENTAGE">Percentage of the order</option>
+                    <option value="FIXED_AMOUNT">Fixed amount off</option>
+                  </select>
+                </Field>
+                <Field label="Currency" htmlFor="promo-currency" required hint="Used for fixed amounts and for every cap below.">
+                  <select id="promo-currency" className={CONTROL} data-rung={1} name="currency" defaultValue="SAR">
+                    {CURRENCIES.map((currency) => <option key={currency}>{currency}</option>)}
+                  </select>
+                </Field>
+                <Field label="Discount value" htmlFor="promo-value" required hint="A percentage may not exceed 100.">
+                  <input id="promo-value" className={CONTROL} data-rung={1} name="value" type="number" min="0.01" step="0.01" required />
+                </Field>
+                <Field label="Minimum order" htmlFor="promo-min" hint="Leave blank for no minimum.">
+                  <input id="promo-min" className={CONTROL} data-rung={1} name="minOrderAmount" type="number" min="0" step="0.01" />
+                </Field>
+                <Field label="Maximum discount" htmlFor="promo-max" hint="Leave blank for no ceiling.">
+                  <input id="promo-max" className={CONTROL} data-rung={1} name="maxDiscountAmount" type="number" min="0" step="0.01" />
+                </Field>
+                <Field label="Priority" htmlFor="promo-priority" hint="Lower numbers are considered first.">
+                  <input id="promo-priority" className={CONTROL} data-rung={1} name="priority" type="number" min="1" step="1" defaultValue="100" />
+                </Field>
+                <Field label="Total redemptions" htmlFor="promo-usage" hint="Leave blank for no cap.">
+                  <input id="promo-usage" className={CONTROL} data-rung={1} name="usageLimit" type="number" min="1" step="1" />
+                </Field>
+                <Field label="Redemptions per buyer" htmlFor="promo-per" hint="Leave blank for no cap.">
+                  <input id="promo-per" className={CONTROL} data-rung={1} name="perCustomerLimit" type="number" min="1" step="1" />
+                </Field>
+                <Field label="Starts at" htmlFor="promo-starts">
+                  <input id="promo-starts" className={CONTROL} data-rung={1} name="startsAt" type="datetime-local" />
+                </Field>
+                <Field label="Ends at" htmlFor="promo-ends" hint="Must be after the start.">
+                  <input id="promo-ends" className={CONTROL} data-rung={1} name="endsAt" type="datetime-local" />
+                </Field>
+              </div>
+              <Field label="Internal description" htmlFor="promo-desc" hint="Never shown to a buyer.">
+                <textarea
+                  id="promo-desc"
+                  className={`${CONTROL} min-h-[72px] py-2`}
+                  data-rung={1}
+                  name="description"
+                  maxLength={1000}
+                />
+              </Field>
+              <label className="u-ui flex items-center gap-2 text-ink-1">
+                <input name="stackable" type="checkbox" className="h-4 w-4 accent-[hsl(var(--primary))]" />
+                Allow this offer to stack with others
+              </label>
+              <Button type="submit" size="sm">Create draft promotion</Button>
+            </form>
+          </Surface>
+
+          <div className="space-y-block">
+            <Surface rung={2} className="p-4">
+              <form action={createCoupon} className="space-y-3">
+                <SectionHeader
+                  icon={TicketPercent}
+                  title="Issue a coupon code"
+                  description="A code always resolves to a governed promotion; it never carries a discount of its own."
+                />
+                {promotions.length === 0 ? (
+                  <EmptyState
+                    eyebrow="Nothing to attach to"
+                    headline="There is no promotion for a code to resolve to."
+                    body="Create a promotion first. Issuing a code also switches that promotion to coupon-only, so checkout cannot apply it automatically and then apply it again when the buyer types the code."
+                  />
+                ) : (
+                  <>
+                    <Field label="Promotion this code applies" htmlFor="coupon-promotion" required>
+                      <select id="coupon-promotion" className={CONTROL} data-rung={1} name="promotionId" required>
+                        {promotions.map((promotion) => (
+                          <option key={promotion.id} value={promotion.id}>
+                            {promotion.name} · {promotion.status}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <Field label="Code" htmlFor="coupon-code" required hint="3–40 letters, numbers, hyphens or underscores.">
+                        <input
+                          id="coupon-code"
+                          className={`${CONTROL} u-mono uppercase`}
+                          data-rung={1}
+                          name="code"
+                          required
+                          pattern="[A-Za-z0-9_-]{3,40}"
+                        />
+                      </Field>
+                      <Field label="Total redemptions" htmlFor="coupon-usage" hint="Leave blank for no cap.">
+                        <input id="coupon-usage" className={CONTROL} data-rung={1} name="usageLimit" type="number" min="1" step="1" />
+                      </Field>
+                      <Field label="Redemptions per buyer" htmlFor="coupon-per" hint="Leave blank for no cap.">
+                        <input id="coupon-per" className={CONTROL} data-rung={1} name="perCustomerLimit" type="number" min="1" step="1" />
+                      </Field>
+                      <Field label="Starts at" htmlFor="coupon-starts">
+                        <input id="coupon-starts" className={CONTROL} data-rung={1} name="startsAt" type="datetime-local" />
+                      </Field>
+                      <Field label="Ends at" htmlFor="coupon-ends" hint="Must be after the start.">
+                        <input id="coupon-ends" className={CONTROL} data-rung={1} name="endsAt" type="datetime-local" />
+                      </Field>
+                    </div>
+                    <Button type="submit" variant="secondary" size="sm">Issue the code</Button>
+                  </>
+                )}
+              </form>
+            </Surface>
+
+            <Surface rung={2} className="p-4">
+              <form action={createReferralProgram} className="space-y-3">
+                <SectionHeader
+                  icon={UserRoundPlus}
+                  title="Create a referral programme"
+                  description="Both rewards are fixed amounts in the currency chosen here."
+                />
+                <Field label="Programme name" htmlFor="referral-name" required>
+                  <input id="referral-name" className={CONTROL} data-rung={1} name="name" required minLength={2} maxLength={120} />
+                </Field>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label="Currency" htmlFor="referral-currency" required>
+                    <select id="referral-currency" className={CONTROL} data-rung={1} name="currency" defaultValue="SAR">
+                      {CURRENCIES.map((currency) => <option key={currency}>{currency}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Uses per code" htmlFor="referral-uses" hint="Leave blank for no cap.">
+                    <input id="referral-uses" className={CONTROL} data-rung={1} name="maxUsesPerCode" type="number" min="1" step="1" />
+                  </Field>
+                  <Field label="Reward to the referrer" htmlFor="referral-referrer" required>
+                    <input id="referral-referrer" className={CONTROL} data-rung={1} name="referrerRewardValue" type="number" min="0" step="0.01" required />
+                  </Field>
+                  <Field label="Reward to the new buyer" htmlFor="referral-referee" required>
+                    <input id="referral-referee" className={CONTROL} data-rung={1} name="refereeRewardValue" type="number" min="0" step="0.01" required />
+                  </Field>
+                  <Field label="Starts at" htmlFor="referral-starts">
+                    <input id="referral-starts" className={CONTROL} data-rung={1} name="startsAt" type="datetime-local" />
+                  </Field>
+                  <Field label="Ends at" htmlFor="referral-ends" hint="Must be after the start.">
+                    <input id="referral-ends" className={CONTROL} data-rung={1} name="endsAt" type="datetime-local" />
+                  </Field>
+                </div>
+                <Button type="submit" variant="secondary" size="sm">Create draft programme</Button>
+              </form>
+            </Surface>
+          </div>
         </div>
 
-        <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          {audiences.map((audience) => {
-            const Icon = audience.icon;
-            return (
-              <div key={audience.title} className="rounded-2xl border bg-white p-5">
-                <Icon className="h-5 w-5 text-primary mb-3" />
-                <p className="text-2xl font-bold">{audience.count}</p>
-                <p className="font-semibold text-sm mt-1">{audience.title}</p>
-                <p className="text-xs text-muted-foreground mt-1">{audience.detail}</p>
-              </div>
-            );
-          })}
-        </section>
-
-        <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <form action={createPromotion} className="rounded-2xl border bg-white p-5 space-y-4">
-            <div className="flex items-center gap-2">
-              <BadgePercent className="h-5 w-5 text-primary" />
-              <div>
-                <h2 className="font-semibold">Create promotion</h2>
-                <p className="text-xs text-muted-foreground">New offers begin in Draft and must be explicitly activated.</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <input className={`${input} sm:col-span-2`} name="name" placeholder="Promotion name" required minLength={2} maxLength={120} />
-              <select className={input} name="type" defaultValue="PERCENTAGE">
-                <option value="PERCENTAGE">Percentage discount</option>
-                <option value="FIXED_AMOUNT">Fixed amount</option>
-              </select>
-              <select className={input} name="currency" defaultValue="SAR">
-                {['SAR','AED','QAR','KWD','OMR','BHD','USD'].map((currency) => <option key={currency}>{currency}</option>)}
-              </select>
-              <input className={input} name="value" type="number" min="0.01" step="0.01" placeholder="Discount value" required />
-              <input className={input} name="minOrderAmount" type="number" min="0" step="0.01" placeholder="Minimum order" />
-              <input className={input} name="maxDiscountAmount" type="number" min="0" step="0.01" placeholder="Maximum discount" />
-              <input className={input} name="usageLimit" type="number" min="1" step="1" placeholder="Total usage limit" />
-              <input className={input} name="perCustomerLimit" type="number" min="1" step="1" placeholder="Per-customer limit" />
-              <input className={input} name="priority" type="number" min="1" step="1" defaultValue="100" aria-label="Priority" />
-              <input className={input} name="startsAt" type="datetime-local" aria-label="Starts at" />
-              <input className={input} name="endsAt" type="datetime-local" aria-label="Ends at" />
-              <label className="flex items-center gap-2 text-sm px-1"><input name="stackable" type="checkbox" /> Allow stacking</label>
-              <textarea className="sm:col-span-2 min-h-20 rounded-xl border border-input bg-background p-3 text-sm" name="description" placeholder="Internal offer description" maxLength={1000} />
-            </div>
-            <button className="h-10 rounded-xl bg-primary px-4 text-sm font-semibold text-white" type="submit">Create draft promotion</button>
-          </form>
-
-          <div className="space-y-6">
-            <form action={createCoupon} className="rounded-2xl border bg-white p-5 space-y-4">
-              <div className="flex items-center gap-2"><TicketPercent className="h-5 w-5 text-primary" /><h2 className="font-semibold">Issue coupon code</h2></div>
-              {promotions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Create a promotion first; coupon codes always resolve to a governed promotion.</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <select className={`${input} sm:col-span-2`} name="promotionId" required>
-                    {promotions.map((promotion) => <option key={promotion.id} value={promotion.id}>{promotion.name} · {promotion.status}</option>)}
-                  </select>
-                  <input className={input} name="code" placeholder="SUMMER20" required pattern="[A-Za-z0-9_-]{3,40}" />
-                  <input className={input} name="usageLimit" type="number" min="1" step="1" placeholder="Total uses" />
-                  <input className={input} name="perCustomerLimit" type="number" min="1" step="1" placeholder="Uses / customer" />
-                  <input className={input} name="startsAt" type="datetime-local" aria-label="Coupon starts at" />
-                  <input className={input} name="endsAt" type="datetime-local" aria-label="Coupon ends at" />
-                  <button className="h-10 rounded-xl bg-primary px-4 text-sm font-semibold text-white sm:col-span-2" type="submit">Create coupon</button>
+        <LedgerTable
+          title="Promotion register"
+          dateline="The 100 most recently created promotions · every status change is appended to the audit stream"
+          rows={promotions}
+          getRowKey={(p) => p.id}
+          stickyHead
+          columns={[
+            {
+              key: "promotion",
+              label: "Promotion",
+              render: (p) => (
+                <>
+                  <span className="block truncate font-medium text-ink-1">{p.name}</span>
+                  <span className="u-meta block text-ink-3">
+                    Priority <span className="fig">{p.priority}</span> · {p.stackable ? "stacks with others" : "exclusive"}
+                  </span>
+                </>
+              ),
+            },
+            {
+              key: "rule",
+              label: "Rule",
+              numeric: true,
+              width: "132px",
+              render: (p) =>
+                p.type === "PERCENTAGE"
+                  ? `${Number(p.value)}%`
+                  : `${p.currency ?? ""} ${Number(p.value).toFixed(2)}`.trim(),
+            },
+            {
+              key: "limits",
+              label: "Caps",
+              hideOnMobile: true,
+              width: "168px",
+              render: (p) => (
+                <span className="u-meta block text-ink-2">
+                  {p.usageLimit ? `${p.usageLimit} in total` : "No total cap"}
+                  <br />
+                  {p.perCustomerLimit ? `${p.perCustomerLimit} per buyer` : "No per-buyer cap"}
+                </span>
+              ),
+            },
+            {
+              key: "codes",
+              label: "Codes",
+              width: "180px",
+              render: (p) => {
+                const rows = couponByPromotion.get(p.id) ?? [];
+                // "Applied automatically" is a statement about how CHECKOUT
+                // treats this rule, so it is read from the rule itself, not from
+                // whether a coupon row happened to land inside the hundred most
+                // recent codes fetched above. A promotion whose codes fall
+                // outside that window is still coupon-gated, and printing
+                // "Applied automatically" against it would tell an operator the
+                // opposite of what the engine does.
+                if (rows.length === 0) {
+                  return requiresCoupon(p.eligibility) ? (
+                    <span className="u-meta text-ink-3">Code required · none in the latest 100</span>
+                  ) : (
+                    <span className="u-meta text-ink-3">Applied automatically</span>
+                  );
+                }
+                return (
+                  <span className="flex flex-wrap gap-1">
+                    {rows.map((coupon) => (
+                      <span key={coupon.id} className="u-mono u-meta rounded-nested bg-neutral-soft px-1.5 py-0.5 text-ink-2">
+                        {coupon.code}
+                      </span>
+                    ))}
+                  </span>
+                );
+              },
+            },
+            {
+              key: "status",
+              label: "Status",
+              width: "108px",
+              render: (p) => (
+                <StatusPill tone={STATUS_TONE[p.status] ?? "neutral"} dot={p.status === "ACTIVE"}>
+                  {p.status}
+                </StatusPill>
+              ),
+            },
+            {
+              key: "control",
+              label: "Control",
+              align: "end",
+              width: "212px",
+              render: (p) => (
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                  {["ACTIVE", "PAUSED", "ENDED"]
+                    .filter((next) => next !== p.status)
+                    .map((next) => (
+                      <form key={next} action={setPromotionStatus.bind(null, p.id, next)}>
+                        {/* Activating is the one step that starts discounting
+                            money, so it is the only raised control here. */}
+                        <Button type="submit" variant={next === "ACTIVE" ? "secondary" : "ghost"} size="xs">
+                          {next === "ACTIVE" ? "Activate" : next === "PAUSED" ? "Pause" : "End"}
+                          <span className="sr-only"> {p.name}</span>
+                        </Button>
+                      </form>
+                    ))}
                 </div>
-              )}
-            </form>
+              ),
+            },
+          ]}
+          empty={
+            <EmptyState
+              variant="certificate"
+              glyph={<Megaphone />}
+              eyebrow="Nothing configured"
+              headline="No promotion has been created on this platform."
+              body="Until one exists and is activated, checkout applies no platform discount at all. The form above creates one in DRAFT, where it affects nothing."
+              action={
+                <Button variant="secondary" size="sm" asChild>
+                  <Link href="/segments">Review the audiences first</Link>
+                </Button>
+              }
+            />
+          }
+        />
 
-            <form action={createReferralProgram} className="rounded-2xl border bg-white p-5 space-y-4">
-              <div className="flex items-center gap-2"><UserRoundPlus className="h-5 w-5 text-primary" /><h2 className="font-semibold">Create referral program</h2></div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input className={`${input} sm:col-span-2`} name="name" placeholder="Referral program name" required />
-                <select className={input} name="currency" defaultValue="SAR">{['SAR','AED','QAR','KWD','OMR','BHD','USD'].map((currency) => <option key={currency}>{currency}</option>)}</select>
-                <input className={input} name="maxUsesPerCode" type="number" min="1" step="1" placeholder="Max uses / code" />
-                <input className={input} name="referrerRewardValue" type="number" min="0" step="0.01" placeholder="Referrer reward" required />
-                <input className={input} name="refereeRewardValue" type="number" min="0" step="0.01" placeholder="New buyer reward" required />
-                <input className={input} name="startsAt" type="datetime-local" aria-label="Referral starts at" />
-                <input className={input} name="endsAt" type="datetime-local" aria-label="Referral ends at" />
-                <button className="h-10 rounded-xl bg-primary px-4 text-sm font-semibold text-white sm:col-span-2" type="submit">Create draft referral program</button>
-              </div>
-            </form>
-          </div>
-        </section>
+        <LedgerTable
+          title="Referral programmes"
+          dateline="The 50 most recently created programmes"
+          rows={referrals}
+          getRowKey={(r) => r.id}
+          density="compact"
+          columns={[
+            {
+              key: "name",
+              label: "Programme",
+              render: (r) => <span className="block truncate text-ink-1">{r.name}</span>,
+            },
+            {
+              key: "referrer",
+              label: "Referrer reward",
+              numeric: true,
+              render: (r) => `${r.currency} ${Number(r.referrerRewardValue).toFixed(2)}`,
+            },
+            {
+              key: "referee",
+              label: "New buyer reward",
+              numeric: true,
+              render: (r) => `${r.currency} ${Number(r.refereeRewardValue).toFixed(2)}`,
+            },
+            {
+              key: "status",
+              label: "Status",
+              align: "end",
+              width: "108px",
+              render: (r) => (
+                <StatusPill tone={STATUS_TONE[r.status] ?? "neutral"}>{r.status}</StatusPill>
+              ),
+            },
+          ]}
+          empty={
+            <EmptyState
+              eyebrow="Nothing configured"
+              headline="No referral programme has been created."
+              body="A programme appears here as soon as one is created, and starts in DRAFT."
+            />
+          }
+        />
 
-        <section className="rounded-2xl border bg-white overflow-hidden">
-          <div className="p-5 border-b"><h2 className="font-semibold">Promotion register</h2><p className="text-xs text-muted-foreground mt-1">Every status change is written to the immutable audit stream.</p></div>
-          {promotions.length === 0 ? <p className="p-5 text-sm text-muted-foreground">No promotions configured.</p> : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left"><tr><th className="p-3">Promotion</th><th className="p-3">Rule</th><th className="p-3">Limits</th><th className="p-3">Codes</th><th className="p-3">Status</th><th className="p-3">Control</th></tr></thead>
-                <tbody>
-                  {promotions.map((promotion) => (
-                    <tr key={promotion.id} className="border-t align-top">
-                      <td className="p-3"><p className="font-medium">{promotion.name}</p><p className="text-xs text-muted-foreground">Priority {promotion.priority}{promotion.stackable ? ' · stackable' : ' · exclusive'}</p></td>
-                      <td className="p-3">{promotion.type === 'PERCENTAGE' ? `${Number(promotion.value)}%` : `${promotion.currency ?? ''} ${Number(promotion.value).toFixed(2)}`}</td>
-                      <td className="p-3 text-xs text-muted-foreground">{promotion.usageLimit ? `${promotion.usageLimit} total` : 'No total cap'}<br />{promotion.perCustomerLimit ? `${promotion.perCustomerLimit} / buyer` : 'No buyer cap'}</td>
-                      <td className="p-3 text-xs">{(couponByPromotion.get(promotion.id) ?? []).map((coupon) => <span key={coupon.id} className="mr-1 mb-1 inline-block rounded bg-muted px-2 py-1 font-mono">{coupon.code}</span>)}</td>
-                      <td className="p-3"><span className="rounded-full bg-muted px-2 py-1 text-xs font-medium">{promotion.status}</span></td>
-                      <td className="p-3"><div className="flex flex-wrap gap-1">{['ACTIVE','PAUSED','ENDED'].filter((status) => status !== promotion.status).map((status) => <form action={setPromotionStatus.bind(null, promotion.id, status)} key={status}><button className="rounded-lg border px-2 py-1 text-xs hover:bg-muted" type="submit">{status === 'ACTIVE' ? 'Activate' : status === 'PAUSED' ? 'Pause' : 'End'}</button></form>)}</div></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-
-        <section className="rounded-2xl border bg-white p-5">
-          <h2 className="font-semibold mb-3">Referral programs</h2>
-          {referrals.length === 0 ? <p className="text-sm text-muted-foreground">No referral programs configured.</p> : <div className="grid md:grid-cols-2 gap-3">{referrals.map((program) => <div key={program.id} className="rounded-xl border p-3"><div className="flex justify-between gap-3"><p className="font-medium text-sm">{program.name}</p><span className="text-xs rounded-full bg-muted px-2 py-1">{program.status}</span></div><p className="text-xs text-muted-foreground mt-2">Referrer: {program.currency} {Number(program.referrerRewardValue).toFixed(2)} · New buyer: {program.currency} {Number(program.refereeRewardValue).toFixed(2)}</p></div>)}</div>}
-        </section>
+        <Dateline>
+          Discount values, caps and eligibility are re-evaluated by checkout against the stored rule on every order.
+          Nothing on this screen is the authority on what a buyer is actually charged.
+        </Dateline>
       </div>
     </AdminLayout>
   );

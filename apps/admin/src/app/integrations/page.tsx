@@ -7,7 +7,7 @@ import {
   type PillTone,
 } from "@avenick/ui";
 import { CountStat } from "@/app/finance/money-figures";
-import { CONTROL, CONTROL_SM } from "@/app/finance/console-chrome";
+import { CONTROL, CONTROL_SM } from "@/components/console/chrome";
 import { configureCompanyOrderRoute, createIntegrationConnection, redriveInboundIntegrationMessage, redriveIntegrationMessage, setIntegrationConnectionStatus } from "./actions";
 
 export const metadata = { title: "Integration Hub" };

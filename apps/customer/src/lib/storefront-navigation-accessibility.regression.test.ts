@@ -38,10 +38,17 @@ describe("storefront navigation accessibility", () => {
 
     // The wishlist control reports its own state, and its label names the
     // product it acts on so a screen reader hears which card was toggled.
+    //
+    // The label is built from the message tree now, so the product name arrives
+    // as an interpolation value rather than a template literal. Assert that the
+    // name reaches the label by SOME mechanism rather than pinning one syntax —
+    // pinning it is what made this test fail twice on redesigns that improved
+    // the very thing it guards.
     expect(card).toContain("aria-pressed={wishlisted}");
     const labelIndex = card.indexOf("aria-label={wishlisted ?");
-    expect(labelIndex).toBeGreaterThan(-1);
-    expect(card.slice(labelIndex, labelIndex + 220)).toContain("${name}");
+    expect(labelIndex, "wishlist control has no state-dependent label").toBeGreaterThan(-1);
+    const label = card.slice(labelIndex, labelIndex + 260);
+    expect(label, "the wishlist label does not name the product").toMatch(/\$\{name\}|\{\s*name\s*\}/);
 
     // Controls must not be revealed on hover alone: a keyboard or touch user
     // never triggers :hover, so a hover-gated action is an action they cannot
@@ -57,12 +64,14 @@ describe("storefront navigation accessibility", () => {
     expect(header).toMatch(/role="search"/);
 
     // Both menu triggers are real buttons — an element the keyboard can focus
-    // and activate — not a div with a click handler.
-    expect(header).toMatch(/<button[\s\S]{0,400}?aria-label=\{say\("accountMenu"\)\}/);
-    expect(header).toMatch(/<button[\s\S]{0,400}?aria-label=\{say\("openMenu"\)\}/);
+    // and activate — not a div with a click handler. The translator's local name
+    // is not part of the guarantee, so it is not part of the assertion.
+    expect(header).toMatch(/<button[\s\S]{0,500}?aria-label=\{\w+\("accountMenu"\)\}/);
+    expect(header).toMatch(/<button[\s\S]{0,500}?aria-label=\{\w+\("openMenu"\)\}/);
 
     // The mobile trigger opens a dialog and says so, and reports open state.
-    const mobileTrigger = header.slice(header.indexOf('aria-label={say("openMenu")}') - 400, header.indexOf('aria-label={say("openMenu")}'));
+    const openMenuIndex = header.search(/aria-label=\{\w+\("openMenu"\)\}/);
+    const mobileTrigger = header.slice(Math.max(0, openMenuIndex - 500), openMenuIndex);
     expect(mobileTrigger).toContain('aria-haspopup="dialog"');
     expect(mobileTrigger).toContain("aria-expanded={mobileOpen}");
 
@@ -76,6 +85,6 @@ describe("storefront navigation accessibility", () => {
 
     // Navigation regions are named, and the names come from the message tree
     // rather than being English literals in a bilingual storefront.
-    expect(header).toMatch(/<nav[\s\S]{0,200}?aria-label=\{say\("primaryNav"\)\}/);
+    expect(header).toMatch(/<nav[\s\S]{0,260}?aria-label=\{\w+\("primaryNav"\)\}/);
   });
 });

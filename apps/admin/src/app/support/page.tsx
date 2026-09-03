@@ -2,26 +2,76 @@ import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { db } from "@avenick/database";
 import { setTicketStatus } from "./actions";
-import { MessageSquare, Clock, AlertTriangle, CheckCircle, Activity, Scale, Gauge } from "lucide-react";
+import { MessageSquare, Clock, CheckCircle, Activity, Scale, Gauge } from "lucide-react";
 import Link from "next/link";
+import {
+  Button, CellGrid, EmptyState, LedgerTable, PageHeader, Stat, StatusPill, type PillTone,
+} from "@avenick/ui";
 
 export const metadata = { title: "Support Tickets" };
 
-const STATUS: Record<string, { label: string; cls: string; icon: typeof Clock }> = {
-  OPEN: { label: "Open", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400", icon: Clock },
-  IN_PROGRESS: { label: "In progress", cls: "bg-primary/15 text-primary", icon: Activity },
-  RESOLVED: { label: "Resolved", cls: "bg-success/15 text-success", icon: CheckCircle },
-  CLOSED: { label: "Closed", cls: "bg-secondary text-muted-foreground", icon: CheckCircle },
+/** Enum → tone and label. The four states an operator distinguishes, and nothing else. */
+const STATUS: Record<string, { label: string; tone: PillTone }> = {
+  OPEN: { label: "Open", tone: "warning" },
+  IN_PROGRESS: { label: "In progress", tone: "accent" },
+  RESOLVED: { label: "Resolved", tone: "success" },
+  CLOSED: { label: "Closed", tone: "neutral" },
 };
 
-const PRIORITY: Record<string, string> = {
-  URGENT: "bg-danger/15 text-danger",
-  HIGH: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-  NORMAL: "bg-secondary text-muted-foreground",
-  LOW: "bg-secondary text-muted-foreground",
+const PRIORITY_TONE: Record<string, PillTone> = {
+  URGENT: "danger",
+  HIGH: "warning",
+  NORMAL: "neutral",
+  LOW: "neutral",
+};
+
+type Ticket = {
+  id: string;
+  ticketNumber: string;
+  subject: string;
+  description: string;
+  orderRef: string | null;
+  category: string;
+  priority: string;
+  status: string;
+  createdAt: Date;
+  user: { firstName: string; lastName: string; email: string };
 };
 
 const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+/**
+ * One transition, as a real form posting a server action.
+ *
+ * The three of them deliberately do NOT look alike. Round one rendered them as
+ * three identical 12px links in a row — Start / Resolve / Close — and in a
+ * hundred-row queue the wrong one gets hit. Weight separates them instead of
+ * colour, which survives both themes: the forward step is a raised secondary,
+ * closing is a flat ghost.
+ */
+function Transition({
+  id,
+  number,
+  to,
+  label,
+  variant,
+}: {
+  id: string;
+  /** The ticket's own number, so a hundred identical buttons are not all "Start ticket". */
+  number: string;
+  to: "IN_PROGRESS" | "RESOLVED" | "CLOSED";
+  label: string;
+  variant: "secondary" | "ghost";
+}) {
+  return (
+    <form action={setTicketStatus.bind(null, id, to)}>
+      <Button type="submit" variant={variant} size="xs">
+        {label}
+        <span className="sr-only"> ticket {number}</span>
+      </Button>
+    </form>
+  );
+}
 
 export default async function SupportPage() {
   await requireAdminSession();
@@ -33,91 +83,172 @@ export default async function SupportPage() {
   });
 
   const count = (s: string) => tickets.filter((t) => t.status === s).length;
-  const stats = [
-    { label: "Open", value: count("OPEN"), icon: Clock },
-    { label: "In progress", value: count("IN_PROGRESS"), icon: Activity },
-    { label: "Resolved", value: count("RESOLVED"), icon: CheckCircle },
-    { label: "Total", value: tickets.length, icon: MessageSquare },
-  ];
+
+  // The queue an operator opened this page to work, put first. The query is
+  // newest-first across every state, so without this split the open tickets are
+  // scattered through a hundred rows of already-closed ones.
+  const live = tickets.filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS");
+  const settled = tickets.filter((t) => t.status === "RESOLVED" || t.status === "CLOSED");
+
+  const identity = (t: Ticket) => (
+    <Link href={`/support/${t.id}`} className="u-focus block min-w-0 rounded-nested">
+      <span className="block truncate font-medium text-ink-1">{t.subject}</span>
+      <span className="u-meta block truncate text-ink-3">
+        <span className="u-mono">{t.ticketNumber}</span> · {t.user.firstName} {t.user.lastName}
+        {t.orderRef && <> · <span className="u-mono">{t.orderRef}</span></>}
+      </span>
+    </Link>
+  );
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Support &amp; Disputes</h1>
-            <p className="text-muted-foreground text-sm">Customer tickets raised across the marketplace.</p>
-          </div>
-          <div className="flex gap-2">
-            <Link href="/disputes" className="flex items-center gap-1.5 text-sm border border-border bg-card hover:bg-secondary px-3 py-2 rounded-xl font-medium transition-colors">
-              <Scale className="h-3.5 w-3.5" /> Disputes
-            </Link>
-            <Link href="/sla" className="flex items-center gap-1.5 text-sm bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-xl font-semibold transition-colors">
-              <Gauge className="h-3.5 w-3.5" /> SLA Monitor
-            </Link>
-          </div>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          eyebrow="Support"
+          title="Support tickets"
+          description="Customer tickets raised across the marketplace. Every status change is written to the audit stream."
+          dateline="The 100 most recently opened tickets, newest first. Counts below describe this loaded set, not the whole register."
+          actions={
+            <>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/disputes">
+                  <Scale className="h-3.5 w-3.5" aria-hidden="true" /> Disputes
+                </Link>
+              </Button>
+              <Button variant="secondary" size="sm" asChild>
+                <Link href="/sla">
+                  <Gauge className="h-3.5 w-3.5" aria-hidden="true" /> SLA monitor
+                </Link>
+              </Button>
+            </>
+          }
+        />
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {stats.map((s) => (
-            <div key={s.label} className="rounded-2xl border border-border bg-card p-4">
-              <div className="flex items-center gap-2 text-muted-foreground mb-2"><s.icon className="h-4 w-4" /><span className="text-[11px]">{s.label}</span></div>
-              <p className="text-2xl font-bold font-mono tracking-tight">{s.value}</p>
-            </div>
-          ))}
-        </div>
+        <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
+          <Stat label="Open" value={count("OPEN")} icon={Clock} chip={count("OPEN") > 0 ? "warning" : "neutral"} />
+          <Stat label="In progress" value={count("IN_PROGRESS")} icon={Activity} />
+          <Stat label="Resolved" value={count("RESOLVED")} icon={CheckCircle} />
+          <Stat label="Loaded" value={tickets.length} icon={MessageSquare} note="Of the whole register" />
+        </CellGrid>
 
-        <div className="rounded-2xl border border-border bg-card overflow-hidden">
-          {tickets.length === 0 ? (
-            <div className="p-12 text-center">
-              <MessageSquare className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
-              <p className="font-semibold">No tickets yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Customer tickets will appear here as they're filed.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-secondary/50 border-b border-border">
-                  <tr>
-                    {["Ticket", "Subject", "Customer", "Category", "Priority", "Status", "Opened", "Actions"].map((h) => (
-                      <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {tickets.map((t) => {
-                    const st = STATUS[t.status] ?? STATUS.OPEN!;
-                    return (
-                      <tr key={t.id} className="hover:bg-secondary/40 transition-colors align-top">
-                        <td className="px-4 py-3 font-mono text-xs font-semibold text-primary whitespace-nowrap">{t.ticketNumber}</td>
-                        <td className="px-4 py-3 max-w-[240px]">
-                          <p className="font-medium truncate">{t.subject}</p>
-                          <p className="text-xs text-muted-foreground line-clamp-1">{t.description}</p>
-                          {t.orderRef && <p className="text-[11px] text-muted-foreground font-mono mt-0.5">{t.orderRef}</p>}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <p className="font-medium">{t.user.firstName} {t.user.lastName}</p>
-                          <p className="text-xs text-muted-foreground">{t.user.email}</p>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground text-xs">{t.category}</td>
-                        <td className="px-4 py-3"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${PRIORITY[t.priority] ?? PRIORITY.NORMAL}`}>{t.priority}</span></td>
-                        <td className="px-4 py-3"><span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${st.cls}`}><st.icon className="h-3 w-3" /> {st.label}</span></td>
-                        <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap">{fmt(t.createdAt)}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            {t.status === "OPEN" && <form action={setTicketStatus.bind(null, t.id, "IN_PROGRESS")}><button type="submit" className="text-xs font-semibold text-primary hover:underline">Start</button></form>}
-                            {t.status === "IN_PROGRESS" && <form action={setTicketStatus.bind(null, t.id, "RESOLVED")}><button type="submit" className="text-xs font-semibold text-success hover:underline">Resolve</button></form>}
-                            {t.status !== "CLOSED" && <form action={setTicketStatus.bind(null, t.id, "CLOSED")}><button type="submit" className="text-xs font-medium text-muted-foreground hover:text-danger">Close</button></form>}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <LedgerTable<Ticket>
+          title="Awaiting a person"
+          dateline="Tickets in OPEN or IN_PROGRESS, newest first · only tickets inside the 100 rows loaded on this page appear here"
+          rows={live}
+          getRowKey={(t) => t.id}
+          stickyHead
+          columns={[
+            { key: "subject", label: "Ticket", render: identity },
+            {
+              key: "category",
+              label: "Category",
+              hideOnMobile: true,
+              width: "128px",
+              render: (t) => <span className="u-meta text-ink-2">{t.category.replace(/_/g, " ")}</span>,
+            },
+            {
+              key: "priority",
+              label: "Priority",
+              width: "96px",
+              render: (t) => <StatusPill tone={PRIORITY_TONE[t.priority] ?? "neutral"}>{t.priority}</StatusPill>,
+            },
+            {
+              key: "status",
+              label: "Status",
+              width: "112px",
+              render: (t) => (
+                <StatusPill tone={STATUS[t.status]?.tone ?? "neutral"} dot>
+                  {STATUS[t.status]?.label ?? t.status}
+                </StatusPill>
+              ),
+            },
+            {
+              key: "opened",
+              label: "Opened",
+              hideOnMobile: true,
+              width: "88px",
+              render: (t) => <span className="tnum text-ink-2">{fmt(t.createdAt)}</span>,
+            },
+            {
+              key: "decision",
+              label: "Decision",
+              align: "end",
+              width: "184px",
+              // ONE forward step per row, and only the one this register has
+              // always offered. A "Close" on every live row would let a ticket
+              // go from OPEN straight to CLOSED with no resolution ever
+              // recorded — a path the detail screen deliberately does not
+              // expose, and a capability a presentation pass has no business
+              // adding. Closing happens on the ticket, where the resolution the
+              // customer is owed was written.
+              render: (t) => (
+                <div className="flex items-center justify-end gap-1.5">
+                  {t.status === "OPEN" && (
+                    <Transition id={t.id} number={t.ticketNumber} to="IN_PROGRESS" label="Start" variant="secondary" />
+                  )}
+                  {t.status === "IN_PROGRESS" && (
+                    <Transition id={t.id} number={t.ticketNumber} to="RESOLVED" label="Resolve" variant="secondary" />
+                  )}
+                </div>
+              ),
+            },
+          ]}
+          empty={
+            <EmptyState
+              variant="certificate"
+              glyph={<MessageSquare />}
+              eyebrow="Queue clear"
+              headline="No ticket in the loaded set is waiting on a person."
+              body="A ticket appears here the moment a customer files one, and leaves it when someone resolves or closes it. Everything already decided is in the register below."
+              action={
+                <Button variant="secondary" size="sm" asChild>
+                  <Link href="/sla">Check responsiveness</Link>
+                </Button>
+              }
+            />
+          }
+        />
+
+        <LedgerTable<Ticket>
+          title="Already settled"
+          dateline="Resolved and closed tickets in the loaded set, newest first"
+          rows={settled}
+          getRowKey={(t) => t.id}
+          density="compact"
+          columns={[
+            { key: "subject", label: "Ticket", render: identity },
+            {
+              key: "category",
+              label: "Category",
+              hideOnMobile: true,
+              width: "128px",
+              render: (t) => <span className="u-meta text-ink-2">{t.category.replace(/_/g, " ")}</span>,
+            },
+            {
+              key: "status",
+              label: "Status",
+              width: "112px",
+              render: (t) => (
+                <StatusPill tone={STATUS[t.status]?.tone ?? "neutral"}>{STATUS[t.status]?.label ?? t.status}</StatusPill>
+              ),
+            },
+            {
+              key: "opened",
+              label: "Opened",
+              align: "end",
+              width: "88px",
+              render: (t) => <span className="tnum text-ink-2">{fmt(t.createdAt)}</span>,
+            },
+          ]}
+          footer={`${settled.length} settled ${settled.length === 1 ? "ticket" : "tickets"} loaded`}
+          empty={
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline="No ticket in the loaded set has been resolved or closed."
+              body="A ticket moves here once someone records a decision on it."
+            />
+          }
+        />
       </div>
     </AdminLayout>
   );

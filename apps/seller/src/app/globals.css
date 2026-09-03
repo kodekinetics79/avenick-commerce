@@ -38,6 +38,16 @@
     --space-block: 24px;
     --space-section: 40px;
     --field-intensity: 0.3;
-    --motion-scale: 0.8;
+    --motion-scale: 0.85;
+    /* The fresnel shoulder and the image frame are portal dials too, and they
+       belong in the unconditional half for the same reason the radius does: the
+       portal must already look like itself before hydration adds data-portal. */
+    --rim-shoulder-2: 0.26;
+    --rim-shoulder-3: 0.38;
+    --rim-shoulder-4: 0.48;
+    /* Inventory, not merchandising: a supplier is checking that the right photo
+       is on the right SKU, not being sold to. */
+    --img-ratio-card: 1 / 1;
+    --img-inset: 5%;
   }
 }

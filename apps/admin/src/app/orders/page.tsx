@@ -10,7 +10,7 @@ import {
   type PillTone,
 } from "@avenick/ui";
 import { CountStat, MoneyStat } from "@/app/finance/money-figures";
-import { FilterTabs } from "@/app/finance/console-chrome";
+import { FilterTabs } from "@/components/console/chrome";
 import { OrderControls } from "./order-controls";
 
 export const metadata = { title: "Orders" };

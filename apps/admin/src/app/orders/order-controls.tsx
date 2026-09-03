@@ -4,7 +4,7 @@ import { useId, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Package, Truck, Navigation, CheckCircle, Ban, MessageSquare } from "lucide-react";
 import { Button, FieldWell, Surface } from "@avenick/ui";
-import { CONTROL, CONTROL_SM } from "@/app/finance/console-chrome";
+import { CONTROL, CONTROL_SM } from "@/components/console/chrome";
 import { addOrderNoteAction, advanceOrderAction, cancelOrderAction } from "./actions";
 
 type Target = "PROCESSING" | "SHIPPED" | "OUT_FOR_DELIVERY" | "DELIVERED";

@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { AlertCircle } from "lucide-react";
 import { log } from "@avenick/observability";
 import { portalUrl } from "@avenick/utils/portal-config";
 import { AuthNotice, AuthShell } from "../auth-shell";
-import { passwordResetTtlLabel, verifyPasswordResetToken } from "@/lib/password-reset";
+import { identityCopy, LOCALE_COOKIE, resetTtlLabel, toIdentityLocale, type IdentityLocale } from "../identity-copy";
+import { PASSWORD_RESET_TTL_SECONDS, passwordResetTtlLabel, verifyPasswordResetToken } from "@/lib/password-reset";
 import { ResetForm } from "./reset-form";
 
 /**
@@ -15,7 +17,11 @@ import { ResetForm } from "./reset-form";
  * eligible needs the database and is decided by the redeem route on submit.
  * Nothing about the token is logged: it is a credential.
  */
-export default function ResetPasswordPage({ searchParams }: { searchParams?: { token?: string | string[] } }) {
+export default async function ResetPasswordPage({ searchParams }: { searchParams?: { token?: string | string[] } }) {
+  const locale = toIdentityLocale((await cookies()).get(LOCALE_COOKIE)?.value);
+  const t = identityCopy(locale).reset;
+  const ttl = resetTtlLabel(locale, PASSWORD_RESET_TTL_SECONDS, passwordResetTtlLabel());
+
   const raw = searchParams?.token;
   const token = typeof raw === "string" && raw.length > 0 ? raw : null;
   const preflight = token ? verifyPasswordResetToken(token) : null;
@@ -31,39 +37,37 @@ export default function ResetPasswordPage({ searchParams }: { searchParams?: { t
 
   return (
     <AuthShell
-      eyebrow="Password reset"
-      title="Choose a new password"
-      subtitle="Pick something you have not used on this account before."
-      note={`Reset links expire ${passwordResetTtlLabel()} after they are requested.`}
+      locale={locale}
+      eyebrow={t.eyebrow}
+      title={t.title}
+      subtitle={t.subtitle}
+      note={t.note(ttl)}
       footer={
         <p className="u-meta text-ink-3">
-          Back to{" "}
+          {t.backTo}{" "}
           <Link href="/login" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
-            Sign in
+            {t.signIn}
           </Link>
         </p>
       }
     >
-      {!token && (
-        <Unusable>
-          This page needs the link from your reset email — the reset code is missing from the address.
-        </Unusable>
-      )}
+      {!token && <Unusable locale={locale}>{t.missingToken}</Unusable>}
       {token && preflight && !preflight.ok && preflight.reason === "no-secret" && (
-        <p className="u-ui text-ink-2" role="alert">
-          Password reset is not available from this environment.
+        <p className="u-body text-ink-2" role="alert">
+          {t.noSecret}
         </p>
       )}
       {token && preflight && !preflight.ok && preflight.reason !== "no-secret" && (
-        <Unusable>This reset link is invalid or has expired.</Unusable>
+        <Unusable locale={locale}>{t.deadToken}</Unusable>
       )}
-      {token && preflight?.ok && <ResetForm token={token} sellerSignInUrl={sellerSignInUrl} />}
+      {token && preflight?.ok && <ResetForm locale={locale} token={token} sellerSignInUrl={sellerSignInUrl} />}
     </AuthShell>
   );
 }
 
 /** A dead link is told so plainly, with the one action that fixes it. */
-function Unusable({ children }: { children: React.ReactNode }) {
+function Unusable({ locale, children }: { locale: IdentityLocale; children: React.ReactNode }) {
+  const t = identityCopy(locale).reset;
   return (
     <div className="space-y-3">
       <AuthNotice tone="danger" icon={<AlertCircle className="h-4 w-4" />}>
@@ -74,7 +78,7 @@ function Unusable({ children }: { children: React.ReactNode }) {
           href="/auth/forgot-password"
           className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
         >
-          Request a new reset link
+          {t.requestNew}
         </Link>
       </p>
     </div>

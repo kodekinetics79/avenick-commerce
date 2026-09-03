@@ -1,27 +1,45 @@
 import Link from "next/link";
-import { Compass, LayoutDashboard } from "lucide-react";
+import { Compass, LayoutDashboard, Search } from "lucide-react";
+import { Button, EmptyState } from "@avenick/ui";
 
+/**
+ * The Certificate plate, not a 404 poster. Round one set the numeral at 48px in
+ * a clip-text gradient — `.text-gradient` is banned by name, it is unselectable
+ * in some engines and invisible under forced-colors, and "404" is the least
+ * useful thing that could occupy the largest type on the screen.
+ *
+ * What an operator needs here is the two routes back into the console, and
+ * saying which one finds an arbitrary screen fastest.
+ */
 export default function NotFound() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background text-foreground px-4">
-      <div className="max-w-lg w-full text-center space-y-6 py-12">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-primary to-accent text-white shadow-elevated">
-          <Compass className="h-7 w-7" />
-        </span>
-        <div className="space-y-2">
-          <h1 className="text-5xl font-extrabold tracking-tighter text-gradient">404</h1>
-          <h2 className="text-xl font-bold tracking-tight">Page not found</h2>
-          <p className="text-muted-foreground text-sm max-w-md mx-auto leading-relaxed">
-            That page doesn't exist in the admin console. It may have moved.
-          </p>
-        </div>
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-2 h-11 px-6 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/95 transition-all shadow-glow-sm"
-        >
-          <LayoutDashboard className="h-4 w-4" />
-          Back to dashboard
-        </Link>
+    <div className="flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="w-full max-w-2xl">
+        <EmptyState
+          variant="certificate"
+          glyph={<Compass />}
+          eyebrow="No such screen"
+          headline="The console has no page at this address."
+          // NOT "every screen is reachable from the sidebar": detail routes and
+          // the document register are not in it, so the claim is falsifiable by
+          // the first operator who checks. The sidebar lists the SECTIONS, which
+          // is both true and the useful thing to say here.
+          body="It may have been renamed, or the link may have been written by hand. The sidebar lists every section of the console, and the jump-to-page palette on ⌘K / Ctrl K searches those sections by name."
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" asChild>
+                <Link href="/dashboard">
+                  <LayoutDashboard className="h-3.5 w-3.5" aria-hidden="true" /> Command center
+                </Link>
+              </Button>
+              <Button variant="secondary" size="sm" asChild>
+                <Link href="/audit">
+                  <Search className="h-3.5 w-3.5" aria-hidden="true" /> Audit trail
+                </Link>
+              </Button>
+            </div>
+          }
+        />
       </div>
     </div>
   );

@@ -319,6 +319,12 @@ export default async function OnboardingPage() {
   const completedSteps = steps.filter((step) => step.state === "COMPLETE").length;
   const progress = Math.round((completedSteps / steps.length) * 100);
   const blockedSteps = steps.filter((step) => step.state === "BLOCKED").length;
+  /**
+   * The first step that is not finished, which is the one this page exists to
+   * point at. Undefined once everything is complete, and the list then carries no
+   * current marker at all rather than nominating a step arbitrarily.
+   */
+  const nextStep = steps.find((step) => step.state !== "COMPLETE");
 
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
@@ -337,13 +343,19 @@ export default async function OnboardingPage() {
 
         {/* Progress — computed from the step states, which are computed from rows.
             Recessed, because progress is context for the steps below it rather
-            than an object in its own right. */}
+            than an object in its own right.
+
+            The figure moved from section rank to hero rank. This is a five-step
+            page whose whole job is to answer one question — how far along am I —
+            and the answer was set at the same size as every step label under it.
+            The console has no display rung by design; the figure ladder is where
+            a console gets its range. */}
         <FieldWell className="p-4 sm:p-5">
           <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
             <div className="min-w-0">
               <Eyebrow>Overall progress</Eyebrow>
               <div className="mt-1">
-                <Num value={progress} unit="%" rank="section" />
+                <Num value={progress} unit="%" rank="hero" />
               </div>
             </div>
             <Meter
@@ -358,22 +370,36 @@ export default async function OnboardingPage() {
           <Dateline className="mt-2">
             {completedSteps} of {steps.length} steps complete
             {blockedSteps > 0 ? ` · ${blockedSteps} blocked by the platform` : ""}
+            {nextStep ? ` · next: ${nextStep.label.toLowerCase()}` : " · nothing outstanding"}
           </Dateline>
         </FieldWell>
 
-        {/* Step list */}
+        {/* Step list. It is a SEQUENCE, not five equal rows: the first step that
+            is not complete carries the brass drawn rule down its inline start —
+            the same active-indicator gesture as the current nav entry, the
+            selected tab and the certificate's top edge — and its own label steps
+            up to h3. Nothing reflows to do it: the rule occupies a 3px track that
+            every row already reserves, exactly as the commit rule does. */}
         <Surface rung={2} className="overflow-hidden">
           {steps.map((step, idx) => {
             const isLast = idx === steps.length - 1;
             const Icon = step.icon;
             const cfg = STEP_STATE_CONFIG[step.state];
+            const isCurrent = nextStep?.id === step.id;
             // Each destination enforces its own capability and *throws* when the
             // member lacks it (/settings requires settings.manage, which this page
             // does not). Linking unconditionally would drop a documents-only staff
             // member on an error boundary, so an unreachable step is rendered as
             // plain text instead — the same rule the sidebar already applies.
             const canOpen = sellerNavigationAllows(grantedPermissions, step.permissions);
-            const rowClass = cn("flex items-start gap-4 p-4", !isLast && "border-b border-hairline");
+            const rowClass = cn(
+              // The 3px inline-start track is always present and only its colour
+              // changes, so marking the current step cannot shift a single pixel
+              // of the four rows around it. border-s, never border-l.
+              "flex items-start gap-4 border-s-[3px] p-4",
+              isCurrent ? "border-s-brass bg-surface-1" : "border-s-transparent",
+              !isLast && "border-b border-b-hairline",
+            );
             // The system's :focus-visible ring is an OUTWARD two-stop box-shadow
             // and these rows are full-bleed children of an overflow-hidden panel,
             // so that ring is clipped away to nothing and a keyboard user sees no
@@ -398,11 +424,22 @@ export default async function OnboardingPage() {
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
+                  {isCurrent && (
+                    // Brass eyebrow: brass marks the current position, and one of
+                    // its three permitted uses in the whole product is exactly
+                    // this — the active indicator.
+                    <Eyebrow tone="brass" className="mb-0.5">
+                      Next step
+                    </Eyebrow>
+                  )}
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="u-ui font-medium text-ink-1">{step.label}</p>
+                    {/* Rank, not colour: the step you are on is a size step up
+                        from the four around it. Two adjacent ranks that differ
+                        only in colour are the same rank. */}
+                    <p className={cn(isCurrent ? "u-h3 text-ink-1" : "u-ui font-medium text-ink-1")}>{step.label}</p>
                     <StatusPill tone={cfg.tone}>{cfg.label}</StatusPill>
                   </div>
-                  <p className="u-meta mt-0.5 text-ink-2">{step.desc}</p>
+                  <p className={cn("mt-0.5 text-ink-2", isCurrent ? "u-body" : "u-meta")}>{step.desc}</p>
                 </div>
                 {/* A direction-implying icon must flip in Arabic. */}
                 {canOpen && <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-ink-3 rtl:rotate-180" aria-hidden="true" />}

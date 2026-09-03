@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { AlertTriangle, PackageSearch } from "lucide-react";
 import { Button, CommitRow, Dateline, EmptyState, Eyebrow, SectionHeader, Surface, useCommitState } from "@avenick/ui";
 import { ProductReviewControls, type ReviewKind, type ReviewOutcome } from "./product-review-controls";
 
@@ -72,15 +73,24 @@ export function ReviewQueue({ listings, totalPending, unavailable = false }: Pro
       {visible.length === 0 ? (
         unavailable ? (
           <EmptyState
+            variant="certificate"
+            glyph={<AlertTriangle />}
             eyebrow="Not read"
             headline="The review queue could not be read."
-            body="This is not the same as an empty queue: the platform did not answer, so nothing here can be relied on. Reload the page."
+            body="This is not the same as an empty queue: the platform did not answer, so nothing here can be relied on and no listing should be assumed decided or undecided from it."
+            action={
+              <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
+                Read the queue again
+              </Button>
+            }
           />
         ) : (
           <EmptyState
+            variant="certificate"
+            glyph={<PackageSearch />}
             eyebrow="Nothing awaiting review"
             headline="No product listing is waiting on an administrator."
-            body="Listings appear here the moment a seller submits one for review."
+            body="A listing appears here the moment a seller submits one for review, and leaves it as soon as somebody approves or rejects it. Nothing is filtered out of this queue."
             action={
               <Button variant="secondary" size="sm" asChild>
                 <Link href="/products?status=ACTIVE">Review live listings</Link>

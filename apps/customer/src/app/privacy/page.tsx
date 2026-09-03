@@ -171,6 +171,12 @@ export default async function PrivacyPage() {
 
   return (
     <MainLayout>
+      {/* The brass reading hairline is mounted ONCE, by <MainLayout>, for every
+          route in this app. A second <ScrollProgress> here stacked a second
+          position:fixed, scroll-timeline-animated layer on exactly the same 2px
+          band — two compositor layers and two running animations drawing one
+          rule. "One per document" is the budget, and MainLayout already spends
+          it. */}
       <div className="mx-auto max-w-6xl px-4 py-block">
         <PageHeader
           eyebrow={isAr ? "الشؤون القانونية" : "Legal"}
@@ -191,6 +197,30 @@ export default async function PrivacyPage() {
           linkComponent={Link}
         />
 
+
+        {/* The table of contents was `hidden lg:block`, so on a phone a
+            seven-section legal document had no navigation at all — you scrolled
+            it or you did not read it. A <details> disclosure needs no client
+            component, works before hydration and with scripting off, and the
+            chevron is drawn from two rotated borders, so there is nothing to
+            mirror in Arabic. */}
+        <details className="u-facet mb-stack border-y border-hairline lg:hidden">
+          <summary className="u-focus">
+            <span className="u-micro text-ink-3">{isAr ? "جدول المحتويات" : "Table of contents"}</span>
+            <span className="u-facet__chev" aria-hidden="true" />
+          </summary>
+          <nav aria-label={isAr ? "جدول المحتويات" : "Table of contents"} className="flex flex-col pb-3">
+            {SECTIONS.map((sec) => (
+              <a
+                key={sec.id}
+                href={`#${sec.id}`}
+                className="u-focus u-ui rounded-e-nested border-s-2 border-hairline py-1.5 ps-3 text-ink-2"
+              >
+                {isAr ? sec.titleAr : sec.titleEn}
+              </a>
+            ))}
+          </nav>
+        </details>
         <div className="grid grid-cols-1 items-start gap-block lg:grid-cols-[240px_minmax(0,1fr)]">
           {/* The sidebar carried `hidden lg:sticky` and no `lg:block`, so it was
               hidden at every breakpoint and the table of contents never appeared
@@ -227,7 +257,7 @@ export default async function PrivacyPage() {
                 id={sec.id}
                 className={`scroll-mt-24 p-6 lg:p-8 ${i > 0 ? "border-t border-hairline" : ""}`}
               >
-                <h2 className="u-h3 text-ink-1">{isAr ? sec.titleAr : sec.titleEn}</h2>
+                <h2 className="u-h2 text-ink-1">{isAr ? sec.titleAr : sec.titleEn}</h2>
                 <div className="u-body mt-3 max-w-prose space-y-4 text-ink-2 [&_strong]:font-semibold [&_strong]:text-ink-1">
                   {isAr ? sec.contentAr : sec.contentEn}
                 </div>

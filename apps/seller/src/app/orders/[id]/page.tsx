@@ -15,46 +15,24 @@ import {
   Eyebrow,
   Dateline,
   Button,
-  type PillTone,
 } from "@avenick/ui";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { requireSellerAnyPermission } from "@/lib/auth";
+import { ORDER_PRE_RELEASE, ORDER_STAGES, orderStatusMeta } from "@/components/orders/status-meta";
 
 export const metadata = { title: "Order detail" };
 
 /**
- * Every OrderStatus the schema can hold, with the label a seller reads and the
- * tone it maps to. Exhaustive on purpose: a status with no entry used to render
- * as a raw SCREAMING_SNAKE enum in an indigo pill, which told a supplier nothing
- * about whether the state was good, bad or merely in progress.
+ * The status vocabulary, the stage sequence and the pre-release set now live in
+ * ONE module shared with the orders ledger, the fulfilment bulk actions and the
+ * dashboard — components/orders/status-meta.ts. This page used to carry its own
+ * exhaustive copy while the table three clicks away carried a second one written
+ * in raw Tailwind hues; three maps for one enum is how the same order comes to
+ * read "Out for delivery" here and "OUT FOR DELIVERY" there.
  */
-const ORDER_STATUS: Record<string, { label: string; tone: PillTone }> = {
-  PENDING_PAYMENT: { label: "Pending payment", tone: "neutral" },
-  PAYMENT_CONFIRMED: { label: "Payment confirmed", tone: "accent" },
-  CONFIRMED: { label: "Confirmed", tone: "accent" },
-  PROCESSING: { label: "Processing", tone: "primary" },
-  SHIPPED: { label: "Shipped", tone: "primary" },
-  OUT_FOR_DELIVERY: { label: "Out for delivery", tone: "warning" },
-  DELIVERED: { label: "Delivered", tone: "success" },
-  CANCELLED: { label: "Cancelled", tone: "danger" },
-  REFUNDED: { label: "Refunded", tone: "danger" },
-  RETURN_REQUESTED: { label: "Return requested", tone: "warning" },
-  RETURNED: { label: "Returned", tone: "danger" },
-};
-
-const statusView = (status: string) =>
-  ORDER_STATUS[status] ?? { label: status.replace(/_/g, " "), tone: "neutral" as PillTone };
-
-/**
- * The fulfilment state machine, in the order the platform advances it — the same
- * sequence orders/actions.ts is allowed to move a seller's lines through. It is
- * the real machine, not a decorative progress bar, so it is drawn from that one
- * list rather than from a hand-written set of steps that could drift from it.
- */
-const STAGES = ["CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"] as const;
-
-/** Statuses that sit before the machine starts: the order exists but is not released. */
-const PRE_RELEASE = new Set(["PENDING_PAYMENT", "PAYMENT_CONFIRMED"]);
+const statusView = orderStatusMeta;
+const STAGES = ORDER_STAGES;
+const PRE_RELEASE = ORDER_PRE_RELEASE;
 
 /**
  * formatCurrency's own fallback prints an unrecognised code verbatim rather than

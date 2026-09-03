@@ -1,38 +1,51 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { getAuditLogs, getAuditEntityTypes, AuditAction } from "@avenick/database";
-import { ScrollText, Search, Shield, User, DollarSign, Package, Building2, FileText } from "lucide-react";
+import { FilterTabs, Pager, ConsoleSearch, queryHref } from "@/components/console/chrome";
+import { ScrollText, X } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+import { Button, EmptyState, LedgerTable, PageHeader, StatusPill, type PillTone } from "@avenick/ui";
 
 export const metadata = { title: "Audit Trail" };
 export const dynamic = "force-dynamic";
 
-const ENTITY_CONFIG: Record<string, { color: string; icon: typeof Shield }> = {
-  User: { color: "bg-blue-100 text-primary", icon: User },
-  Company: { color: "bg-indigo-100 text-indigo-700", icon: Building2 },
-  SellerProfile: { color: "bg-orange-100 text-orange-700", icon: Package },
-  Product: { color: "bg-cyan-100 text-cyan-700", icon: Package },
-  Order: { color: "bg-green-100 text-green-700", icon: DollarSign },
-  default: { color: "bg-slate-100 text-muted-foreground", icon: FileText },
-};
-
-const ACTION_COLOR: Record<string, string> = {
-  APPROVE: "text-green-600",
-  ACTIVATE: "text-green-600",
-  CREATE: "text-purple-600",
-  UPDATE: "text-primary",
-  STATUS_CHANGE: "text-primary",
-  PRICE_CHANGE: "text-amber-600",
-  REJECT: "text-red-600",
-  SUSPEND: "text-red-600",
-  DELETE: "text-red-600",
-  LOGIN: "text-muted-foreground",
-  LOGOUT: "text-muted-foreground",
+/**
+ * An action's tone. Only the three an operator scans for get one — something was
+ * refused, something was revoked, something was destroyed — and everything else
+ * stays neutral. Round one painted eleven actions in eight hand-mixed hues,
+ * which is a legend nobody can hold in their head and, worse, made an ordinary
+ * UPDATE as loud as a DELETE.
+ */
+const ACTION_TONE: Record<string, PillTone> = {
+  REJECT: "danger",
+  SUSPEND: "danger",
+  DELETE: "danger",
 };
 
 interface PageProps {
   searchParams: { entityType?: string; action?: string; search?: string; page?: string };
+}
+
+type AuditRow = Awaited<ReturnType<typeof getAuditLogs>>["logs"][number];
+
+/**
+ * What changed, in one line. A status transition is rendered as one, a reason is
+ * quoted, and anything else is stated as recorded-but-not-summarisable rather
+ * than as an em dash — an em dash in a "Details" column reads as "nothing
+ * happened", which on an audit register is the one wrong thing to imply.
+ */
+function detailOf(log: AuditRow): { text: string; muted: boolean } {
+  const after = (log.after ?? {}) as Record<string, unknown>;
+  const before = (log.before ?? {}) as Record<string, unknown>;
+  if (typeof after["reason"] === "string" && after["reason"].trim()) {
+    return { text: after["reason"], muted: false };
+  }
+  if (before["status"] && after["status"]) {
+    return { text: `${String(before["status"])} → ${String(after["status"])}`, muted: false };
+  }
+  if (after["status"]) return { text: `→ ${String(after["status"])}`, muted: false };
+  return { text: "Recorded with no summarisable change", muted: true };
 }
 
 export default async function AuditPage({ searchParams }: PageProps) {
@@ -51,163 +64,170 @@ export default async function AuditPage({ searchParams }: PageProps) {
     getAuditEntityTypes(),
   ]);
   const totalPages = Math.max(1, Math.ceil(total / limit));
-
-  const filterHref = (params: Record<string, string | undefined>) => {
-    const merged = { ...searchParams, page: undefined, ...params };
-    const qs = new URLSearchParams(
-      Object.entries(merged).filter((e): e is [string, string] => Boolean(e[1])),
-    ).toString();
-    return qs ? `/audit?${qs}` : "/audit";
-  };
+  const href = (next: Record<string, string | undefined>) => queryHref("/audit", searchParams, next);
+  const filtered = Boolean(search || entityType || action);
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Audit Trail</h1>
-            <p className="text-muted-foreground text-sm">
-              Immutable log of administrative and system actions, sourced from the audit database.
-            </p>
-          </div>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          eyebrow="Settings"
+          title="Audit trail"
+          description="Every administrative and system action the platform recorded, in the order it happened."
+          actions={<StatusPill>Read only</StatusPill>}
+          /* Round one closed this header with a band of four stat cards, one of
+             which read "Page 2 / 17". A pagination cursor is not a metric, and
+             "Actions tracked: 11" counts an enum rather than anything that
+             happened. The one number worth stating is how many events match what
+             the operator is currently looking at, and the pager already says it
+             in full — so the band is gone rather than filled. */
+          dateline={`${total.toLocaleString()} ${total === 1 ? "event" : "events"} ${filtered ? "match the filters in force" : "recorded"} · the register is append-only and external retention is not activated`}
+        />
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Total events", value: total },
-            { label: "Entity types", value: entityTypes.length },
-            { label: "Actions tracked", value: Object.keys(AuditAction).length },
-            { label: "Page", value: `${page} / ${totalPages}` },
-          ].map((s) => (
-            <div key={s.label} className="rounded-2xl border border-border bg-white p-4">
-              <span className="text-sm text-muted-foreground">{s.label}</span>
-              <p className="text-2xl font-bold mt-1">{s.value}</p>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href={filterHref({ entityType: undefined })}
-            className={`text-xs px-3 py-1.5 rounded-lg border ${!entityType ? "bg-primary text-white border-primary" : "border-border hover:bg-muted"}`}
-          >
-            All
-          </Link>
-          {entityTypes.map((t) => (
-            <Link
-              key={t}
-              href={filterHref({ entityType: t })}
-              className={`text-xs px-3 py-1.5 rounded-lg border ${entityType === t ? "bg-primary text-white border-primary" : "border-border hover:bg-muted"}`}
-            >
-              {t}
-            </Link>
-          ))}
-        </div>
-
-        <form method="get" action="/audit" className="relative max-w-sm">
-          {entityType && <input type="hidden" name="entityType" value={entityType} />}
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="search"
-            name="search"
-            defaultValue={search ?? ""}
-            placeholder="Search by entity id or actor email…"
-            className="w-full ps-9 pe-3 py-2 text-sm rounded-xl border border-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+        <div className="flex flex-wrap items-start gap-3">
+          <FilterTabs
+            label="Filter the audit trail by entity type"
+            tabs={[
+              { href: href({ entityType: undefined }), label: "All entities", active: !entityType },
+              ...entityTypes.map((t) => ({
+                href: href({ entityType: t }),
+                label: t,
+                active: entityType === t,
+              })),
+            ]}
           />
-        </form>
-
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
-                <tr>
-                  {["Time", "Actor", "Action", "Entity", "Details"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {logs.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-12 text-center">
-                      <ScrollText className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        {search || entityType || action
-                          ? "No audit events match the current filters."
-                          : "No audit events recorded yet. Administrative actions will appear here."}
-                      </p>
-                    </td>
-                  </tr>
-                )}
-                {logs.map((log) => {
-                  const cfg = ENTITY_CONFIG[log.entityType] ?? ENTITY_CONFIG["default"]!;
-                  const Icon = cfg.icon;
-                  const after = (log.after ?? {}) as Record<string, unknown>;
-                  const before = (log.before ?? {}) as Record<string, unknown>;
-                  const detail =
-                    typeof after["reason"] === "string"
-                      ? String(after["reason"])
-                      : before["status"] && after["status"]
-                        ? `${before["status"]} → ${after["status"]}`
-                        : after["status"]
-                          ? `→ ${after["status"]}`
-                          : "—";
-                  return (
-                    <tr key={log.id} className="hover:bg-slate-50/60">
-                      <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
-                        {format(log.createdAt, "MMM d, yyyy HH:mm:ss")}
-                      </td>
-                      <td className="px-4 py-3">
-                        {log.actor ? (
-                          <div>
-                            <p className="font-medium">
-                              {log.actor.firstName} {log.actor.lastName}
-                            </p>
-                            <p className="text-xs text-muted-foreground">{log.actor.email}</p>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">System</span>
-                        )}
-                      </td>
-                      <td className={`px-4 py-3 font-semibold text-xs ${ACTION_COLOR[log.action] ?? "text-foreground"}`}>
-                        {log.action.replace(/_/g, " ")}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${cfg.color}`}>
-                          <Icon className="h-3 w-3" /> {log.entityType}
-                        </span>
-                        <p className="text-[11px] text-muted-foreground mt-0.5 font-mono">{log.entityId}</p>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground max-w-xs truncate">{detail}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-border text-sm">
-              <span className="text-muted-foreground">
-                Page {page} of {totalPages} · {total} events
-              </span>
-              <div className="flex gap-2">
-                {page > 1 && (
-                  <Link href={filterHref({ page: String(page - 1), search })} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs">
-                    Previous
-                  </Link>
-                )}
-                {page < totalPages && (
-                  <Link href={filterHref({ page: String(page + 1), search })} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs">
-                    Next
-                  </Link>
-                )}
-              </div>
-            </div>
-          )}
+          <ConsoleSearch
+            className="ms-auto"
+            action="/audit"
+            label="Search the audit trail by entity id or actor email"
+            placeholder="Entity id or actor email…"
+            defaultValue={search}
+            preserve={{ entityType, action }}
+            clearHref={href({ search: undefined })}
+          />
         </div>
+
+        {/* The action filter has no chip row of its own: eleven more chips beside
+            the entity types is a wall. It is set by clicking an action in the
+            table and cleared here, which is the only place it needs to be
+            visible — an applied filter the operator cannot see is how a register
+            silently lies about what it contains. */}
+        {action && (
+          <p className="flex flex-wrap items-center gap-2">
+            <span className="u-meta text-ink-3">Showing only</span>
+            <StatusPill tone={ACTION_TONE[action] ?? "neutral"}>{action.replace(/_/g, " ")}</StatusPill>
+            <Button variant="ghost" size="xs" asChild>
+              <Link href={href({ action: undefined })}>
+                <X className="h-3 w-3" aria-hidden="true" /> Show every action
+              </Link>
+            </Button>
+          </p>
+        )}
+
+        <LedgerTable<AuditRow>
+          rows={logs}
+          getRowKey={(log) => log.id}
+          density="compact"
+          stickyHead
+          columns={[
+            {
+              key: "time",
+              label: "Recorded",
+              width: "168px",
+              render: (log) => (
+                <span className="tnum text-ink-2">{format(log.createdAt, "d MMM yyyy HH:mm:ss")}</span>
+              ),
+            },
+            {
+              key: "actor",
+              label: "Actor",
+              render: (log) =>
+                log.actor ? (
+                  <>
+                    <span className="block truncate text-ink-1">
+                      {`${log.actor.firstName} ${log.actor.lastName}`.trim() || log.actor.email}
+                    </span>
+                    <span className="u-meta block truncate text-ink-3">{log.actor.email}</span>
+                  </>
+                ) : (
+                  // Not "—": an action with no actor was taken by the platform
+                  // itself, which is a different fact from a missing value.
+                  <span className="u-meta text-ink-3">The platform, with no acting person</span>
+                ),
+            },
+            {
+              key: "action",
+              label: "Action",
+              width: "156px",
+              render: (log) => (
+                <Link href={href({ action: log.action })} className="u-focus inline-block rounded-nested">
+                  <StatusPill tone={ACTION_TONE[log.action] ?? "neutral"}>
+                    {log.action.replace(/_/g, " ")}
+                  </StatusPill>
+                  <span className="sr-only"> — show only this action</span>
+                </Link>
+              ),
+            },
+            {
+              key: "entity",
+              label: "Entity",
+              width: "196px",
+              render: (log) => (
+                <>
+                  <Link href={href({ entityType: log.entityType })} className="u-focus block rounded-nested text-ink-1 underline-offset-4 hover:underline">
+                    {log.entityType}
+                    <span className="sr-only"> — show only this entity type</span>
+                  </Link>
+                  <span className="u-mono u-meta block truncate text-ink-3">{log.entityId}</span>
+                </>
+              ),
+            },
+            {
+              key: "detail",
+              label: "What changed",
+              hideOnMobile: true,
+              render: (log) => {
+                const detail = detailOf(log);
+                return <span className={detail.muted ? "u-meta text-ink-3" : "text-ink-2"}>{detail.text}</span>;
+              },
+            },
+          ]}
+          footer={
+            <Pager
+              page={page}
+              totalPages={totalPages}
+              hrefFor={(p) => href({ page: String(p), search, entityType, action })}
+              summary={`${total.toLocaleString()} ${total === 1 ? "event" : "events"}${filtered ? " match these filters" : ""}`}
+            />
+          }
+          empty={
+            filtered ? (
+              <EmptyState
+                eyebrow="No match"
+                headline="No recorded event matches the filters currently applied."
+                body="The register itself is not empty — clearing the filters returns every event it holds."
+                action={
+                  <Button variant="secondary" size="sm" asChild>
+                    <Link href="/audit">Clear the filters</Link>
+                  </Button>
+                }
+              />
+            ) : (
+              <EmptyState
+                variant="certificate"
+                glyph={<ScrollText />}
+                eyebrow="Nothing recorded"
+                headline="No administrative or system action has been written to this register yet."
+                body="An entry is appended the moment anyone approves a supplier, changes a status, moves a payout or erases a subject. Nothing in it is ever edited or removed."
+                action={
+                  <Button variant="secondary" size="sm" asChild>
+                    <Link href="/dashboard">Back to the command center</Link>
+                  </Button>
+                }
+              />
+            )
+          }
+        />
       </div>
     </AdminLayout>
   );

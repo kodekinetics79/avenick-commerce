@@ -4,14 +4,17 @@ import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Input, Button } from "@avenick/ui";
 import { AuthNotice, FormErrorSlot } from "../auth-shell";
+import { identityCopy, type IdentityLocale } from "../identity-copy";
 
 /**
  * Posts to /api/auth/password-reset/request and shows the one sentence that
  * is true whether or not the address has an account. `expiresIn` is handed in
- * by the server page from the real TTL constant — this component must not
- * carry its own copy of the number.
+ * by the server page from the real TTL constant, already localised — this
+ * component must not carry its own copy of the number or its own translation
+ * of it.
  */
-export function ForgotForm({ expiresIn }: { expiresIn: string }) {
+export function ForgotForm({ locale, expiresIn }: { locale: IdentityLocale; expiresIn: string }) {
+  const t = identityCopy(locale).forgot;
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -31,10 +34,10 @@ export function ForgotForm({ expiresIn }: { expiresIn: string }) {
       if (res.ok && data.success) {
         setDone(true);
       } else {
-        setError(data.error ?? "Something went wrong. Please try again.");
+        setError(data.error ?? t.genericError);
       }
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(t.genericError);
     } finally {
       setLoading(false);
     }
@@ -43,27 +46,27 @@ export function ForgotForm({ expiresIn }: { expiresIn: string }) {
   if (done) {
     return (
       <AuthNotice icon={<CheckCircle2 className="h-4 w-4" />}>
-        If an account exists for that address, we have sent a reset link. It expires in {expiresIn}.
+        {t.sent(expiresIn)}
       </AuthNotice>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4" aria-label="Request a password reset / إعادة تعيين كلمة المرور">
+    <form onSubmit={handleSubmit} className="space-y-4" aria-label={t.formLabel}>
       <Input
         id="forgot-email"
         name="email"
         type="email"
-        label="Email / البريد الإلكتروني"
+        label={t.email}
         autoComplete="username"
-        placeholder="you@example.com"
+        placeholder={identityCopy(locale).login.emailPlaceholder}
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         required
       />
       <FormErrorSlot message={error} />
-      <Button type="submit" className="w-full" loading={loading}>
-        Send reset link
+      <Button type="submit" size="lg" className="w-full" loading={loading}>
+        {t.submit}
       </Button>
     </form>
   );

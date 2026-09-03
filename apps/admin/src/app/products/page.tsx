@@ -7,6 +7,7 @@ import {
   Button,
   EmptyState,
   FieldWell,
+  ImageFrame,
   LedgerTable,
   Meter,
   NavItem,
@@ -109,13 +110,21 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
               label: "Listing",
               render: (p) => (
                 <div className="flex items-center gap-2.5">
-                  {p.images[0] ? (
-                    <Image src={p.images[0].url} alt="" width={32} height={32} className="shrink-0 rounded-nested object-cover" />
-                  ) : (
-                    // Not a broken image and not an icon tile: a recessed blank
-                    // that says "no primary image filed" by being empty.
-                    <span className="h-8 w-8 shrink-0 rounded-nested bg-surface-1 shadow-elev-1" aria-hidden="true" />
-                  )}
+                  {/* <ImageFrame>, not a bare <Image>: object-fit was COVER here,
+                      which is the last one in this portal. On seller-supplied
+                      photography arriving at every crop and every background
+                      tone, cover crops the valve off a fitting and the label off
+                      a drum — and one frame with cover in a column of forty with
+                      contain announces that the system is not actually a system.
+                      Admin's --img-inset is 0 and its ratio is 1/1, because a
+                      plate around a 32px thumbnail is a box around a box; the
+                      contain fit, the plate and the designed no-image state are
+                      the same object the storefront uses. */}
+                  <ImageFrame className="h-8 w-8 shrink-0 rounded-nested" alt={p.nameEn}>
+                    {p.images[0] && (
+                      <Image src={p.images[0].url} alt={p.nameEn} width={32} height={32} sizes="32px" />
+                    )}
+                  </ImageFrame>
                   <div className="min-w-0">
                     <p className="font-medium text-ink-1">{p.nameEn}</p>
                     {/* Mono is for identifiers. A SKU is one. */}

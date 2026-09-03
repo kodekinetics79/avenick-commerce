@@ -7,13 +7,6 @@ import { fetchB2BJson } from "@/lib/b2b";
 
 type Action = "approve" | "reject" | "order" | "cancel";
 
-const DONE: Record<Action, string> = {
-  approve: "Purchase order approved.",
-  reject: "Purchase order rejected.",
-  order: "Order placed.",
-  cancel: "Purchase order cancelled.",
-};
-
 /**
  * Governed purchase-order state transitions.
  *
@@ -34,11 +27,10 @@ async function transition(id: string, action: Action, returnTo: string) {
   // submission. Refuse before the value reaches the URL builder, and still land
   // the caller on a banner rather than a silent no-op.
   if (!RECORD_ID.test(id)) {
-    redirect(
-      `${returnTo}?poError=${encodeURIComponent(
-        "That purchase order could not be identified. Reload the page and try again.",
-      )}`,
-    );
+    // `identity` is a CODE, not a sentence: <ActionBanner> states it in the
+    // reader's language. A server action runs before the page and has no locale
+    // of its own, so any copy written here could only ever be English.
+    redirect(`${returnTo}?poError=identity`);
   }
 
   try {
@@ -53,10 +45,12 @@ async function transition(id: string, action: Action, returnTo: string) {
     // Surface the server's own reason where there is one — "already approved"
     // or "price changed, re-approval required" are actionable; a generic
     // failure message is not.
+    // The server's own reason where there is one; otherwise the code `failed`,
+    // which the banner translates. Never an English fallback sentence: it would
+    // be the one line on an Arabic page that is not in Arabic, and it would
+    // appear at exactly the moment the reader most needs to understand it.
     failure =
-      error instanceof Error && error.message.trim()
-        ? error.message
-        : "The request could not be completed. Please retry.";
+      error instanceof Error && error.message.trim() ? error.message : "failed";
   }
 
   revalidatePath("/b2b/purchase-orders");
@@ -65,9 +59,14 @@ async function transition(id: string, action: Action, returnTo: string) {
   if (action === "order") revalidatePath("/b2b/billing");
 
   // redirect() throws by design, so it must sit outside the try block above.
+  // The success path carries the ACTION, not an English sentence, so the banner
+  // can state the outcome in the reader's language. The failure path carries the
+  // server's own reason verbatim — "already decided", "price changed,
+  // re-approval required" — because that is data, and replacing it with a
+  // generic translated line would throw away the only actionable part of it.
   const param = failure
     ? `poError=${encodeURIComponent(failure)}`
-    : `poDone=${encodeURIComponent(DONE[action])}`;
+    : `poDone=${action}`;
   redirect(`${returnTo}?${param}`);
 }
 

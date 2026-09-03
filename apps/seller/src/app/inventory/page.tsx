@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { requireSellerAnyPermission } from "@/lib/auth";
 import { getSellerInventory } from "@avenick/database";
+import { cn } from "@avenick/utils";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import {
+  AvailabilityDot,
   CellGrid,
   Dateline,
   EmptyState,
   Eyebrow,
+  ImageFrame,
   LedgerTable,
   PageHeader,
   Stat,
@@ -35,27 +38,23 @@ export default async function InventoryPage() {
       width: "32%",
       render: (row) => (
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 shrink-0 overflow-hidden rounded-nested bg-surface-1">
-            {row.product?.images[0] ? (
-              // Plain <img>, not next/image: uploaded product images live on the
-              // object-storage host, which is not in next.config's remotePatterns
-              // allowlist, and the optimizer throws for any host that is not. One
-              // such row would take the whole page down instead of one thumbnail.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={row.product.images[0].url}
-                alt=""
-                width={36}
-                height={36}
-                loading="lazy"
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span aria-hidden="true" className="flex h-full w-full items-center justify-center text-meta text-ink-3">
-                —
-              </span>
-            )}
-          </div>
+          {/* THE FRAME. Every product image in all three portals goes through
+              <ImageFrame>: contained rather than cropped (cover crops the valve
+              off a fitting and the label off a drum), inset off its own edge, on
+              the same lit plate with the same cast floor under it. It keeps the
+              plain-<img> decision this cell already carried — ImageFrame renders
+              one, because next/image's optimizer throws for any host outside
+              next.config's remotePatterns and one bad row would take the whole
+              page down rather than one thumbnail — and it replaces the em dash
+              with the system's designed no-image state, which occupies the
+              identical box so a column mixing presence and absence stays
+              straight. */}
+          <ImageFrame
+            src={row.product?.images[0]?.url ?? null}
+            alt={row.product?.images[0] ? (row.product?.nameEn ?? "") : ""}
+            state={row.isOut ? "out" : "available"}
+            className="h-9 w-9 shrink-0 rounded-nested"
+          />
           <div className="min-w-0">
             <p className="truncate font-medium text-ink-1">{row.product?.nameEn}</p>
             <p className="truncate u-mono text-meta text-ink-3">{row.product?.sku}</p>
@@ -85,10 +84,27 @@ export default async function InventoryPage() {
       key: "available",
       label: "Available",
       numeric: true,
+      // The lamp is <AvailabilityDot> — the same 6px dot with a 3px ring that a
+      // buyer sees on the storefront and an operator sees in the admin stock
+      // console. One stock language across three portals is the cheapest
+      // coherence there is, and the figure itself is the label, so colour is
+      // never the only channel carrying the state.
       render: (row) => (
-        <span className={row.isOut ? "text-danger-ink" : row.isLow ? "text-warning-ink" : "text-ink-1"}>
-          {row.available}
-        </span>
+        // Two states, not three: UNCONFIRMED means "the platform does not know",
+        // and a row at its reorder point is a row the platform knows precisely.
+        // "Low" is a different axis and the Status column already carries it, so
+        // the lamp answers availability and the ink answers urgency.
+        <AvailabilityDot
+          state={row.isOut ? "OUT_OF_STOCK" : "IN_STOCK"}
+          label={String(row.available)}
+          // text-ui because the dot's own type is `u-meta`: without it the one
+          // figure a supplier scans this table for renders a rank below every
+          // other numeric cell in the same row.
+          className={cn(
+            "text-ui",
+            row.isOut ? "text-danger-ink" : row.isLow ? "text-warning-ink" : "text-ink-1",
+          )}
+        />
       ),
     },
     {

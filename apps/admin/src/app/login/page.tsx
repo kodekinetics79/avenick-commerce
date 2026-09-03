@@ -1,11 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { signInWithCredentials } from "@avenick/auth/client";
 import { messageForSignInError as messageForError } from "@avenick/auth/sign-in-messages";
 import { useSearchParams } from "next/navigation";
-import { Input, Button } from "@avenick/ui";
+import { Input, Button, Dateline, Divider, Eyebrow, Surface } from "@avenick/ui";
+import { platformName } from "@avenick/utils/portal-config";
 
+/**
+ * The console's front door, and the first surface anyone sees.
+ *
+ * Round one left it carrying every gesture the system has since banned by name:
+ * an indigo→violet gradient tile with a font-black "A", two blur-[120px] orbs, a
+ * `shadow-glow`, a forced `dark` class that overrode the operator's own theme on
+ * this one page, and the marketing line "B2B-first. B2C-ready. Built for modern
+ * trade." on an internal sign-in screen.
+ *
+ * What replaces them is the system's own vocabulary: the ambient ruled field the
+ * root layout already mounts, one floating rung-4 slab with the four-part light
+ * on it, the brass rule as the mark, and the platform name read from
+ * configuration rather than written into the page. Nothing here claims anything.
+ */
 export default function AdminLoginPage() {
   const searchParams = useSearchParams();
   const urlError = searchParams.get("code") ?? searchParams.get("error");
@@ -14,7 +29,7 @@ export default function AdminLoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(messageForError(urlError));
 
-  async function handleLogin(e: React.FormEvent) {
+  async function handleLogin(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -33,33 +48,71 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="dark relative min-h-screen flex items-center justify-center overflow-hidden bg-background px-4">
-      <div className="absolute inset-0 bg-grid mask-fade-b opacity-40" />
-      <div className="absolute -top-20 start-1/3 h-96 w-96 rounded-full bg-primary/25 blur-[120px]" />
-      <div className="absolute bottom-0 end-1/3 h-80 w-80 rounded-full bg-accent/20 blur-[120px]" />
+    // No forced `dark`. The root layout's inline script has already applied the
+    // operator's own theme by the time this paints, and overriding it here meant
+    // one screen in the console disagreed with every other.
+    <div className="flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="w-full max-w-sm">
+        <div className="mb-6">
+          {/* The brass rule as the mark. It is the same gesture as the active nav
+              item, the empty state's top edge and the commit rule — one gesture
+              in different postures is most of what makes a system read as
+              designed rather than assembled. */}
+          <Divider drawn on className="mb-4 w-12" />
+          <Eyebrow>Platform operations</Eyebrow>
+          <h1 className="u-h2 mt-1 text-ink-1">{platformName()} admin console</h1>
+          <p className="u-body mt-1.5 text-ink-2">Sign in with the account platform operations issued you.</p>
+        </div>
 
-      <div className="relative w-full max-w-sm animate-fade-up">
-        <div className="text-center mb-8">
-          <span className="inline-grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-primary-500 to-accent-600 text-white font-black text-lg shadow-glow mb-4">A</span>
-          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Admin Console</h1>
-          <p className="text-sm text-muted-foreground mt-1">Avenick Commerce — Platform Operations</p>
-        </div>
-        <div className="glass-strong rounded-2xl p-6 shadow-elevated">
+        {/* Rung 4, and the only floating surface on the page: it is the one
+            object here, and law A says a thing you act on stands off the ground.
+            `rim` draws the fresnel shoulder around its perimeter. */}
+        <Surface rung={4} rim className="p-5">
           <form onSubmit={handleLogin} className="space-y-3.5" aria-label="Sign in">
-            {/* Placeholders are not accessible names: they vanish on input and
-                are not exposed as labels by every assistive technology. */}
-            <label htmlFor="login-email" className="sr-only">Admin email</label>
-            <Input id="login-email" name="email" type="email" autoComplete="username" placeholder="Admin email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <label htmlFor="login-password" className="sr-only">Password</label>
-            <Input id="login-password" name="password" type="password" autoComplete="current-password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            {error && <p className="text-danger text-sm" role="alert">{error}</p>}
-            <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
+            {/* A placeholder is not an accessible name: it vanishes on input and
+                is not exposed as a label by every assistive technology. These are
+                real labels, and they are visible — a sign-in form is not the
+                place to trade legibility for tidiness. */}
+            <Input
+              id="login-email"
+              label="Admin email"
+              name="email"
+              type="email"
+              autoComplete="username"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+            <Input
+              id="login-password"
+              label="Password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+            {error && (
+              // A failed sign-in is announced, not just coloured: role="alert"
+              // is what makes it reach a screen-reader user who has just pressed
+              // a button and heard nothing.
+              <p className="u-ui text-danger-ink" role="alert">
+                {error}
+              </p>
+            )}
+            <Button type="submit" className="w-full" loading={loading}>
+              Sign in
+            </Button>
           </form>
-          {/* No reset link on purpose: the public reset flow refuses admin
-              accounts, so offering it here would be a control that does nothing. */}
-          <p className="mt-4 text-center text-xs text-muted-foreground">Admin accounts are provisioned by platform operations.</p>
-        </div>
-        <p className="text-center text-[11px] text-muted-foreground/70 mt-6">B2B-first. B2C-ready. Built for modern trade.</p>
+        </Surface>
+
+        {/* No reset link on purpose: the public reset flow refuses admin
+            accounts, so offering it here would be a control that does nothing. */}
+        <Dateline className="mt-4">
+          Administrator accounts are provisioned by platform operations. Password reset is not available from this
+          screen.
+        </Dateline>
       </div>
     </div>
   );

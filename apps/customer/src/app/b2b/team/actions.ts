@@ -3,14 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { db, updateGovernedCompanyMember } from "@avenick/database";
 import { getB2BContext, type B2BActionState } from "@/lib/b2b";
+import { actionT } from "@/components/b2b/action-i18n";
 import { sendInviteEmail } from "@/lib/email";
 
 const ROLES = ["COMPANY_ADMIN", "COMPANY_BUYER", "COMPANY_APPROVER"] as const;
 type Role = (typeof ROLES)[number];
 
 export async function inviteMember(_prev: B2BActionState, formData: FormData): Promise<B2BActionState> {
+  const t = actionT();
   const ctx = await getB2BContext();
-  if (!ctx || ctx.member.role !== "COMPANY_ADMIN") return { error: "Only company admins can invite members." };
+  if (!ctx || ctx.member.role !== "COMPANY_ADMIN") return { error: t("act.team.adminOnly") };
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const name = String(formData.get("name") ?? "").trim();
@@ -19,11 +21,11 @@ export async function inviteMember(_prev: B2BActionState, formData: FormData): P
   const spendRaw = String(formData.get("spendLimit") ?? "").trim();
   const spendLimit = spendRaw ? Number(spendRaw) : null;
 
-  if (!name || !email) return { error: "Name and email are required." };
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: "Enter a valid email address." };
-  if (!ROLES.includes(role)) return { error: "Pick a valid role." };
-  if (spendRaw && (Number.isNaN(spendLimit) || (spendLimit ?? 0) < 0)) return { error: "Spend limit must be a positive number." };
-  if (await db.user.findUnique({ where: { email } })) return { error: "That email is already registered." };
+  if (!name || !email) return { error: t("act.team.needNameEmail") };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: t("act.team.emailInvalid") };
+  if (!ROLES.includes(role)) return { error: t("act.team.roleInvalid") };
+  if (spendRaw && (Number.isNaN(spendLimit) || (spendLimit ?? 0) < 0)) return { error: t("act.team.spendPositive") };
+  if (await db.user.findUnique({ where: { email } })) return { error: t("act.team.emailTaken") };
 
   const [firstName, ...rest] = name.split(" ");
   try {
@@ -45,7 +47,7 @@ export async function inviteMember(_prev: B2BActionState, formData: FormData): P
       });
     });
   } catch {
-    return { error: "Could not invite member. Please try again." };
+    return { error: t("act.team.failed") };
   }
 
   const inviter = await db.user.findUnique({ where: { id: ctx.userId }, select: { firstName: true, lastName: true } });
@@ -59,9 +61,7 @@ export async function inviteMember(_prev: B2BActionState, formData: FormData): P
   revalidatePath("/b2b/team");
   return {
     ok: true,
-    message: sent
-      ? `Invitation email sent to ${email}.`
-      : `${email} added — they'll show as “Invited” until they set a password. (Set RESEND_API_KEY to email invites.)`,
+    message: sent ? t("act.team.inviteSent", { email }) : t("act.team.inviteNotSent", { email }),
   };
 }
 

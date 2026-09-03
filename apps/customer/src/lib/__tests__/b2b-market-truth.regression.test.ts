@@ -46,6 +46,8 @@ describe("B2B market truth", () => {
     expect(rendered).not.toMatch(/Download statement|Export statement/);
     // The PDF link must be behind a check on the stored file, never bare.
     expect(rendered).toMatch(/inv\.fileUrl \?/);
-    expect(rendered).toMatch(/No file|PDF unavailable/);
+    // The fallback is translated now, so match the key OR the old literals —
+    // what must hold is that the guarded branch has an else, not its wording.
+    expect(rendered).toMatch(/No file|PDF unavailable|billing\.noFile/);
   });
 });

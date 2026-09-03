@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { SlidersHorizontal, X } from "lucide-react";
 import { Button, Eyebrow } from "@avenick/ui";
-import { CONTROL_SM } from "@/app/finance/console-chrome";
+import { CONTROL_SM } from "@/components/console/chrome";
 import { adjustStockAction } from "./actions";
 
 interface Props {

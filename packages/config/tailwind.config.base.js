@@ -29,10 +29,19 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: ["var(--font-sans)", "Inter", "system-ui", "sans-serif"],
+        // Latin display is Inter with its optical-size axis at 32 — no second
+        // Latin family, and therefore no second decision to get wrong. Arabic
+        // display is Noto Kufi, because Kufi is the script of official
+        // inscription and this product is a register.
+        display: ["var(--font-display)", "Inter", "system-ui", "sans-serif"],
+        "display-ar": ["var(--font-display-ar)", "Noto Kufi Arabic", "system-ui", "sans-serif"],
         arabic: ["var(--font-sans-ar)", "IBM Plex Sans Arabic", "system-ui", "sans-serif"],
         mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
         // The provenance voice. <Dateline> and <EmptyState> only — it is not a
-        // display family, and under [dir="rtl"] it swaps to upright Plex Arabic.
+        // display family. Under [dir="rtl"] --font-provenance is swapped at
+        // token level to Noto Naskh Arabic, Arabic's own authored register:
+        // Source Serif 4 has ZERO Arabic coverage, so round one's Arabic build
+        // fell back silently and had no human voice at all.
         provenance: ["var(--font-provenance)", "Georgia", "Times New Roman", "serif"],
       },
 
@@ -59,6 +68,13 @@ module.exports = {
         "border-strong": "hsl(var(--border-strong) / <alpha-value>)",
         rim: "hsl(var(--rim) / <alpha-value>)",
         scrim: "hsl(var(--scrim) / <alpha-value>)",
+        // Parts 3 and 4 of the four-part light model, exposed so a bespoke
+        // surface can build its own stack from the same physics rather than
+        // inventing an approximation.
+        fresnel: "hsl(var(--fresnel-under) / <alpha-value>)",
+        contact: "hsl(var(--contact) / <alpha-value>)",
+        // The plate every product image sits on. Portal-varying by token.
+        plate: "hsl(var(--img-plate) / <alpha-value>)",
 
         input: "hsl(var(--input) / <alpha-value>)",
         ring: "hsl(var(--ring) / <alpha-value>)",
@@ -238,13 +254,23 @@ module.exports = {
 
       backdropBlur: {
         float: "var(--blur-float)",
+        display: "var(--blur-display)",
         modal: "var(--blur-modal)",
         scrim: "var(--blur-scrim)",
       },
 
       backdropSaturate: {
         glass: "var(--sat-glass)",
+        display: "var(--sat-display)",
         modal: "var(--sat-modal)",
+      },
+
+      // The product-image frame's own metrics, so a bespoke frame (a PDP gallery
+      // thumbnail strip, say) stays on the same ratio and inset as every other
+      // frame in the product instead of guessing.
+      aspectRatio: {
+        card: "var(--img-ratio-card)",
+        hero: "var(--img-ratio-hero)",
       },
 
       // The type scale as utilities, each carrying its own line-height and
@@ -262,7 +288,15 @@ module.exports = {
         display: ["var(--fs-display)", { lineHeight: "var(--lh-display)", letterSpacing: "var(--tr-display)" }],
         // Figures. A metric's figure is at least 3× its label — that ratio is
         // the whole of the hierarchy fix, and it lives in these three steps.
+        // The hero rung. 92px against 15px body is a 6.1x ratio where round one
+        // had 3.5x, and range is most of what "impressive" actually means.
+        // Seller and admin resolve --fs-hero back to --fs-h1, so this utility is
+        // structurally unavailable there rather than merely discouraged.
+        hero: ["var(--fs-hero)", { lineHeight: "var(--lh-hero)", letterSpacing: "var(--tr-hero)" }],
         "fig-inline": ["var(--fs-fig-inline)", { lineHeight: "var(--lh-fig-inline)", letterSpacing: "var(--tr-fig)" }],
+        // 20px is a dashboard stat size, not a shopfront price, and the price is
+        // the first thing a shopper's eye lands on.
+        "fig-card": ["var(--fs-fig-card)", { lineHeight: "var(--lh-fig-card)", letterSpacing: "var(--tr-fig)" }],
         "fig-section": ["var(--fs-fig-section)", { lineHeight: "var(--lh-fig-section)", letterSpacing: "var(--tr-fig)" }],
         "fig-hero": ["var(--fs-fig-hero)", { lineHeight: "var(--lh-fig-hero)", letterSpacing: "var(--tr-fig)" }],
       },
@@ -270,6 +304,10 @@ module.exports = {
       // 700, 800 and 900 do not exist in this product outside a hero-rank
       // numeral, and the Google Fonts request no longer downloads 800/900.
       // These are remapped rather than removed so no existing class breaks.
+      // 700, 800 and 900 do not exist in this product outside a hero-rank
+      // numeral and the single .u-hero exemption at weight 680 — and that one is
+      // set in CSS from --fw-hero, not from a class, precisely so it cannot be
+      // sprayed anywhere else.
       fontWeight: {
         normal: "400",
         medium: "500",
@@ -280,6 +318,8 @@ module.exports = {
       },
 
       spacing: {
+        edge: "var(--edge)",
+        "img-inset": "var(--img-inset)",
         row: "var(--row-h)",
         "control-sm": "var(--control-h-sm)",
         "control-md": "var(--control-h-md)",
@@ -300,8 +340,15 @@ module.exports = {
         out: "var(--ease-out)",
         "in-out": "var(--ease-in-out)",
         exit: "var(--ease-exit)",
-        // Customer portal only, and exactly two permitted uses. An overshoot
-        // curve handed to a dozen agents becomes a bouncy product.
+        drawer: "var(--ease-drawer)",
+        // An overshoot curve handed to a dozen agents becomes a bouncy product.
+        // `overshoot` is the cubic-bezier that used to be called `spring` and it
+        // is for button press-and-release only.
+        overshoot: "var(--ease-overshoot)",
+        // `spring` is now the real thing: a sampled linear() curve. The system
+        // is capped at ONE spring and it has exactly one job — the commit badge
+        // container pulse. A GCC trade platform that bounces reads as a consumer
+        // app cosplaying as infrastructure.
         spring: "var(--ease-spring)",
       },
 
@@ -330,6 +377,12 @@ module.exports = {
       },
 
       backgroundImage: {
+        // The tiled grain, so a bespoke plate can carry the same texture as the
+        // field. NEVER `filter: url(#noise)` on a live element, never inside a
+        // [data-glass] subtree, and never on more than three elements per
+        // viewport. Prefer the [data-grain] attribute, which also carries the
+        // retina correction.
+        noise: "var(--noise)",
         "grid-light":
           "linear-gradient(to right, hsl(var(--ink-1) / 0.04) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--ink-1) / 0.04) 1px, transparent 1px)",
         "grid-dark":
@@ -338,6 +391,7 @@ module.exports = {
 
       zIndex: {
         field: "-1",
+        progress: "40",
         sticky: "30",
         layer: "50",
       },

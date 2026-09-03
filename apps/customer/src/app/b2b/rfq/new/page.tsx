@@ -2,9 +2,12 @@ import { cookies } from "next/headers";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
 import { getServerB2BContext } from "@/lib/b2b-server";
 import { categoryLabel, getPublicCategories } from "@/lib/catalog-categories";
+import { b2bMetadata } from "@/components/b2b/i18n";
 import { NewRFQForm } from "./new-rfq-form";
 
-export const metadata = { title: "New RFQ" };
+export async function generateMetadata() {
+  return b2bMetadata("newRfq.title");
+}
 // Live catalog and company data — must not prerender at build time.
 export const dynamic = "force-dynamic";
 

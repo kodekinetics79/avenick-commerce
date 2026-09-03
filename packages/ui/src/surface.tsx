@@ -19,6 +19,17 @@ import { cn } from "@avenick/utils";
 
 export type Rung = 0 | 1 | 2 | 3 | 4 | 5;
 export type SurfaceTone = "default" | "success" | "warning" | "danger" | "accent";
+/**
+ * `true` is CHROME GLASS — bars, dropdowns, drawers, modals. It carries text, so
+ * its alpha is high and its contrast is deterministic.
+ *
+ * `"display"` is DISPLAY GLASS — thinner, blurrier, more saturated, and it
+ * carries NO body text: headings ≥24px and figures ≥20px only. At .58 alpha a
+ * 13px label's contrast would depend on where the ambient field happened to have
+ * drifted, which is a coin toss rather than a contrast story. Customer portal
+ * only, one per route, and both rules are enforced by the throws below.
+ */
+export type SurfaceGlass = boolean | "display";
 
 export interface SurfaceProps extends React.HTMLAttributes<HTMLElement> {
   /** 0 flat · 1 recessed · 2 the card · 3 raised · 4 floating · 5 modal. */
@@ -28,7 +39,14 @@ export interface SurfaceProps extends React.HTMLAttributes<HTMLElement> {
   /** Adds the 2px hover lift. Implied by `interactive` unless explicitly false. */
   lift?: boolean;
   /** backdrop-filter. Rungs 4 and 5 only, never nested, budget of 2–3 per viewport. */
-  glass?: boolean;
+  glass?: SurfaceGlass;
+  /**
+   * The fresnel shoulder — part 2 of the four-part light model, a masked conic
+   * ring that fades the highlight AROUND the perimeter instead of sitting on the
+   * top edge. Defaults ON at rungs 3–5 and OFF at 0–2: rung 2 is content, and
+   * content does not need shoulders.
+   */
+  rim?: boolean;
   /** Tints the fill and edge without changing the rung. */
   tone?: SurfaceTone;
   /** Renders as another element or component. Defaults to a div. */
@@ -49,6 +67,7 @@ export const Surface = React.forwardRef<HTMLElement, SurfaceProps>(function Surf
     interactive = false,
     lift,
     glass = false,
+    rim,
     tone = "default",
     as,
     inset,
@@ -65,14 +84,31 @@ export const Surface = React.forwardRef<HTMLElement, SurfaceProps>(function Surf
   // Fail loudly in development rather than shipping a milky page. Blur sprayed
   // onto rung 2 is the number one way this system ships badly: the moment every
   // card is blurred, blur stops meaning "floating" and becomes texture.
-  if (process.env.NODE_ENV !== "production" && glass && rung < 4) {
+  if (process.env.NODE_ENV !== "production" && glass === true && rung < 4) {
     throw new Error(
       `<Surface glass> requires rung 4 or 5 (got ${rung}). backdrop-filter marks a floating layer — a sticky bar, a dropdown, a drawer, a modal. It is not a card treatment.`,
     );
   }
 
+  // Display glass is the storefront's one luxury material and it does not travel.
+  // A supplier reading a settlement and an operator approving a payout are not
+  // audiences for spatial UI; a buyer choosing between two suppliers is. This
+  // makes that judgement structural rather than a review item.
+  //
+  // NOT a hook. Surface is a Server Component and dozens of server pages render
+  // it; a useEffect here would break the RSC pass for all of them. The guard is
+  // a plain render-time read guarded on `document` existing, so it is a no-op on
+  // the server and runs on the client where the DOM can actually be counted.
+  if (process.env.NODE_ENV !== "production" && glass === "display") {
+    assertDisplayGlassBudget();
+  }
+
   const Comp: React.ElementType = as ?? "div";
   const shouldLift = lift ?? interactive;
+  // Shoulders default on at the raised rungs and off at content rungs, so a
+  // caller gets the four-part light without opting in and a card does not get a
+  // ring it has no business having.
+  const showRim = rim ?? (glass === false && rung >= 3);
 
   return (
     <Comp
@@ -80,7 +116,8 @@ export const Surface = React.forwardRef<HTMLElement, SurfaceProps>(function Surf
       data-rung={rung}
       data-interactive={interactive ? "" : undefined}
       data-lift={shouldLift ? "" : undefined}
-      data-glass={glass ? "true" : undefined}
+      data-glass={glass === "display" ? "display" : glass ? "true" : undefined}
+      data-rim={showRim ? "" : undefined}
       data-tone={tone !== "default" ? tone : undefined}
       data-specular={specular ? "" : undefined}
       data-focus-lift={focusLift ? "" : undefined}
@@ -98,6 +135,34 @@ export const Surface = React.forwardRef<HTMLElement, SurfaceProps>(function Surf
     </Comp>
   );
 });
+
+/**
+ * The display-glass budget check.
+ *
+ * A dev-time throw is worth more than a lint rule here, because the failure it
+ * prevents is invisible in review: two display plates on one route double the
+ * blurred area, and a second one halves the impact of the first while doubling
+ * its cost. It runs only in development, only in the browser, and it counts what
+ * is actually in the DOM rather than trusting a prop.
+ */
+function assertDisplayGlassBudget() {
+  if (typeof document === "undefined") return;
+
+  if (document.documentElement.dataset.portal !== "customer") {
+    throw new Error(
+      '<Surface glass="display"> is customer-only. Display glass is the storefront\'s one luxury material; seller and admin get chrome glass (glass) and nothing else. See DESIGN_SYSTEM.md §6.',
+    );
+  }
+  // Counts what is actually in the DOM rather than trusting a prop, because the
+  // failure is invisible in review: two display plates on one route double the
+  // blurred area, and the second halves the impact of the first.
+  const count = document.querySelectorAll('[data-glass="display"]').length;
+  if (count > 1) {
+    throw new Error(
+      `Found ${count} <Surface glass="display"> on this route. The budget is ONE. A second display plate halves the impact of the first and doubles the cost.`,
+    );
+  }
+}
 
 /**
  * FieldWell — a rung-1 recessed surface. This exists as a component rather than

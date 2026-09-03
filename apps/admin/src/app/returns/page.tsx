@@ -10,7 +10,7 @@ import {
   PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Num, Button, type PillTone,
 } from "@avenick/ui";
 import { CountStat } from "@/app/finance/money-figures";
-import { FilterTabs } from "@/app/finance/console-chrome";
+import { FilterTabs } from "@/components/console/chrome";
 
 export const metadata = { title: "Returns" };
 export const dynamic = "force-dynamic";
@@ -260,8 +260,10 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
                 <div className="flex justify-end py-1">
                   <ReturnActions
                     returnId={r.id}
+                    returnNumber={r.returnNumber}
                     status={r.status}
                     orderTotal={Number(r.refundAmount ?? r.order.total)}
+                    currency={r.order.currency}
                   />
                 </div>
               ),

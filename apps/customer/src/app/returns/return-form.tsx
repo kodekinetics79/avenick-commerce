@@ -4,31 +4,13 @@ import { useState } from "react";
 import { AlertCircle, CheckCircle2, Send } from "lucide-react";
 import { Button, Surface, Textarea } from "@avenick/ui";
 import { createReturnRequest, type ReturnActionState } from "./actions";
-
-const RETURN_REASONS = [
-  "Wrong item received",
-  "Item damaged / defective",
-  "Item not as described",
-  "Changed my mind",
-  "Order arrived too late",
-  "Missing parts / accessories",
-  "Other",
-];
-
-/**
- * A native <select> dressed as the system's recessed rung-1 control, so it sits
- * at the same depth and height as the Textarea beside it. See the same recipe in
- * the register and support forms; it wants to become a packages/ui primitive.
- *
- * The focus ring is the .u-focus utility rather than a hand-written shadow-[...]
- * value: a page may not spell out a box-shadow of its own, or the five-rung
- * ladder quietly grows a sixth step.
- */
-const CONTROL_CLASS =
-  "u-focus w-full border border-input bg-surface-1 px-3 text-ui text-ink-1 outline-none " +
-  "transition-[border-color,box-shadow] duration-press ease-standard";
-
-const LABEL_CLASS = "u-ui mb-1.5 block font-medium text-ink-1";
+import {
+  IDENTITY_CONTROL_CLASS,
+  IDENTITY_LABEL_CLASS,
+  IdentitySelect,
+} from "../auth/identity-controls";
+import { accountCopy, RETURN_REASON_VALUES } from "../account/account-copy";
+import type { IdentityLocale } from "../auth/identity-copy";
 
 interface OrderOption {
   id: string;
@@ -40,7 +22,21 @@ interface OrderOption {
   items: Array<{ id: string; nameEn: string; quantity: number; total: number }>;
 }
 
-export function ReturnForm({ orders }: { orders: OrderOption[] }) {
+/**
+ * The return request form.
+ *
+ * THE REASON VALUES ARE NOT LOCALISED and must not be. `reason` is a free string
+ * written to Return.reason and read back by a seller and by an operator, who may
+ * be working in the other language; the <option> value stays English and only
+ * its label changes. A localised value in a database column is a data defect
+ * that looks like a translation.
+ *
+ * The three copies of a hand-rolled CONTROL_CLASS that used to live in this
+ * file, the register form and the support form are now one shared recessed
+ * control. Three copies of a control is how a fourth one drifts.
+ */
+export function ReturnForm({ locale, orders }: { locale: IdentityLocale; orders: OrderOption[] }) {
+  const t = accountCopy(locale).returns.form;
   const [state, setState] = useState<ReturnActionState>({});
   const [pending, setPending] = useState(false);
   const [orderId, setOrderId] = useState("");
@@ -57,39 +53,34 @@ export function ReturnForm({ orders }: { orders: OrderOption[] }) {
 
   if (state.ok) {
     return (
-      <Surface rung={1} tone="success" role="status" className="flex items-start gap-2.5 p-4">
+      <Surface rung={1} tone="success" role="status" className="u-pop flex items-start gap-2.5 p-4">
         <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success-ink" aria-hidden="true" />
-        <p className="u-ui text-success-ink">{state.message}</p>
+        <p className="u-body text-success-ink">{state.message}</p>
       </Surface>
     );
   }
 
   return (
     <form action={handle} className="space-y-4">
-      <div>
-        <label htmlFor="return-order" className={LABEL_CLASS}>Order</label>
-        <select
-          id="return-order"
-          name="orderId"
-          data-rung={1}
-          required
-          value={orderId}
-          onChange={(event) => setOrderId(event.target.value)}
-          className={CONTROL_CLASS}
-          style={{ height: "var(--control-h-md)" }}
-        >
-          <option value="">Select a delivered order…</option>
-          {orders.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.orderNumber} — {o.summary.slice(0, 60)}
-            </option>
-          ))}
-        </select>
-      </div>
+      <IdentitySelect
+        id="return-order"
+        name="orderId"
+        label={t.order}
+        required
+        value={orderId}
+        onChange={(event) => setOrderId(event.target.value)}
+      >
+        <option value="">{t.orderPlaceholder}</option>
+        {orders.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.orderNumber} — {o.summary.slice(0, 60)}
+          </option>
+        ))}
+      </IdentitySelect>
 
       {selectedOrder && (
         <fieldset>
-          <legend className={LABEL_CLASS}>Items and quantities</legend>
+          <legend className={IDENTITY_LABEL_CLASS}>{t.items}</legend>
           {/* One panel with hairline rules between rows, rather than one bordered
               box per item. */}
           <Surface rung={2} className="overflow-hidden">
@@ -108,7 +99,7 @@ export function ReturnForm({ orders }: { orders: OrderOption[] }) {
                   value={item.id}
                   className="u-focus h-4 w-4 shrink-0 rounded-sm accent-primary"
                 />
-                <label htmlFor={`return-item-${item.id}`} className="u-ui min-w-0 flex-1 text-ink-1">
+                <label htmlFor={`return-item-${item.id}`} className="u-body min-w-0 flex-1 text-ink-1">
                   {item.nameEn}
                 </label>
                 <input
@@ -118,45 +109,33 @@ export function ReturnForm({ orders }: { orders: OrderOption[] }) {
                   min={1}
                   max={item.quantity}
                   defaultValue={1}
-                  className={`${CONTROL_CLASS} w-20 shrink-0 text-end`}
+                  className={`${IDENTITY_CONTROL_CLASS} w-20 shrink-0 text-end`}
                   style={{ height: "var(--control-h-sm)" }}
-                  aria-label={`Return quantity for ${item.nameEn}`}
+                  aria-label={t.quantityFor(item.nameEn)}
                 />
               </div>
             ))}
           </Surface>
-          <p className="u-meta mt-1.5 text-ink-3">
-            Tick each item you are returning. The quantity may not exceed what was ordered.
-          </p>
+          <p className="u-meta mt-1.5 text-ink-3">{t.itemsHint}</p>
         </fieldset>
       )}
 
-      <div>
-        <label htmlFor="return-reason" className={LABEL_CLASS}>Reason</label>
-        <select
-          id="return-reason"
-          name="reason"
-          data-rung={1}
-          required
-          className={CONTROL_CLASS}
-          style={{ height: "var(--control-h-md)" }}
-        >
-          <option value="">Select a reason…</option>
-          {RETURN_REASONS.map((r) => (
-            <option key={r} value={r}>{r}</option>
-          ))}
-        </select>
-      </div>
+      <IdentitySelect id="return-reason" name="reason" label={t.reason} required defaultValue="">
+        <option value="">{t.reasonPlaceholder}</option>
+        {RETURN_REASON_VALUES.map((value) => (
+          <option key={value} value={value}>{t.reasonLabels[value] ?? value}</option>
+        ))}
+      </IdentitySelect>
 
       <div>
-        <label htmlFor="return-notes" className={LABEL_CLASS}>Details</label>
+        <label htmlFor="return-notes" className={IDENTITY_LABEL_CLASS}>{t.notes}</label>
         <Textarea
           id="return-notes"
           name="notes"
           rows={3}
-          placeholder="Which items, what happened, photos to follow…"
+          placeholder={t.notesPlaceholder}
         />
-        <p className="u-meta mt-1 text-ink-3">Optional.</p>
+        <p className="u-meta mt-1 text-ink-3">{t.optional}</p>
       </div>
 
       {/* The slot is always present, so a rejected submission never shoves the
@@ -171,11 +150,12 @@ export function ReturnForm({ orders }: { orders: OrderOption[] }) {
 
       <Button type="submit" loading={pending}>
         {pending ? (
-          "Submitting…"
+          t.submitting
         ) : (
           <>
-            <Send className="h-4 w-4" aria-hidden="true" />
-            Submit return request
+            {/* The plane points along the reading direction, so it mirrors. */}
+            <Send className="h-4 w-4 rtl:-scale-x-100" aria-hidden="true" />
+            {t.submit}
           </>
         )}
       </Button>

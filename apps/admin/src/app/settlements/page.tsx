@@ -11,7 +11,7 @@ import {
   Num, Eyebrow, Dateline, Button, type PillTone,
 } from "@avenick/ui";
 import { MoneyStat } from "@/app/finance/money-figures";
-import { FilterTabs, Pager, CONTROL, CONTROL_SM } from "@/app/finance/console-chrome";
+import { FilterTabs, Pager, CONTROL, CONTROL_SM } from "@/components/console/chrome";
 
 export const metadata = { title: "Settlements" };
 export const dynamic = "force-dynamic";
