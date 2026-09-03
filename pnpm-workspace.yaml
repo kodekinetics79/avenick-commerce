@@ -16,3 +16,8 @@ allowBuilds:
   # the suites fail at launch rather than at install time.
   cypress: true
   puppeteer: true
+
+minimumReleaseAgeExclude:
+  - '@playwright/test@1.62.1'
+  - playwright-core@1.62.1
+  - playwright@1.62.1

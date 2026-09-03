@@ -126,6 +126,66 @@
     "productCount": "{count, plural, one {# product} other {# products}}",
     "browse": "Browse"
   },
+  "spatialCommerce": {
+    "metadataTitle": "Spatial Commerce Preview",
+    "eyebrow": "Spatial commerce",
+    "title": "Mechanical SKU explorer",
+    "description": "Inspect a lightweight assembly and use the standard SKU list to identify mapped parts. Commercial data remains available outside the 3D viewer.",
+    "phase": "Phase 1 preview",
+    "back": "Back to business workspace",
+    "showViewer": "Show 3D viewer",
+    "hideViewer": "Hide 3D viewer",
+    "fixture": {
+      "title": "Development fixture.",
+      "description": "These synthetic SKUs and prices are not saleable catalog records and cannot be submitted to checkout or quote workflows."
+    },
+    "viewer": {
+      "eyebrow": "Assembly view",
+      "title": "Mechanical assembly",
+      "mode": "Interactive 3D",
+      "regionLabel": "Interactive mechanical assembly viewer",
+      "loading": "Loading interactive assembly",
+      "retry": "Retry 3D viewer",
+      "unavailable": "Interactive 3D is unavailable on this device. Use the SKU list and part controls instead.",
+      "error": "The interactive assembly could not be displayed. The standard SKU workflow remains available.",
+      "partsLabel": "Mechanical assembly parts",
+      "nodes": {
+        "mountingPlate": "Mounting plate",
+        "motorHousing": "Motor housing",
+        "driveShaft": "Drive shaft",
+        "outputCoupling": "Output coupling"
+      }
+    },
+    "table": {
+      "eyebrow": "Procurement data",
+      "title": "SKU and part list",
+      "caption": "Mechanical assembly SKU catalog",
+      "count": "{count, plural, =0 {No SKUs} one {# SKU} other {# SKUs}}",
+      "sku": "SKU",
+      "item": "Item",
+      "availability": "Availability",
+      "moq": "MOQ",
+      "leadTime": "Lead time",
+      "spatialStatus": "3D status",
+      "bound3d": "3D mapped",
+      "missing3d": "3D unavailable",
+      "loading": "Loading SKUs",
+      "empty": "No authorized spatial SKU data is available for this workspace.",
+      "error": "Unable to load SKUs",
+      "days": "{value, plural, one {# day} other {# days}}"
+    },
+    "availability": {
+      "available": "Available",
+      "limited": "Limited",
+      "unavailable": "Unavailable"
+    },
+    "selection": {
+      "none": "Select a SKU to identify its assembly part.",
+      "mapped": "Selected {item}. Its mapped assembly part is highlighted.",
+      "unmapped": "Selected {item}. A 3D view is unavailable for this item.",
+      "sequence": "Selection confirmed again; the mapped-part highlight restarted."
+    }
+  },
   "home": {
     "bestSellers": "Products to explore",
     "bestSellersSub": "Browse a selection from the current catalog",
