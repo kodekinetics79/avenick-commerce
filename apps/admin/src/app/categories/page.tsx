@@ -3,10 +3,14 @@ import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { db } from "@avenick/database";
 import { Tag, FolderTree, CornerDownRight } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { EmptyState, Eyebrow, PageHeader, StatusPill, Surface } from "@avenick/ui";
 import { CategoryForm, type CategoryOption } from "./category-form";
 
-export const metadata = { title: "Categories" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminReview");
+  return { title: t("meta.categories") };
+}
 
 type CategoryRow = {
   id: string;
@@ -21,6 +25,7 @@ type CategoryRow = {
 
 export default async function CategoriesPage() {
   await requireAdminSession();
+  const t = await getTranslations("adminReview");
 
   // The whole tree is small and the form needs every node to offer valid
   // parents, so one query serves both the listing and the selects.
@@ -97,7 +102,7 @@ export default async function CategoriesPage() {
           <div className="min-w-0">
             <p className="u-ui flex items-center gap-2 font-medium text-ink-1">
               <span className="truncate">{c.nameEn}</span>
-              {!c.isActive && <StatusPill tone="neutral">Inactive</StatusPill>}
+              {!c.isActive && <StatusPill tone="neutral">{t("categories.inactive")}</StatusPill>}
             </p>
             <p className="u-meta text-ink-2" dir="rtl">{c.nameAr}</p>
             {/* A slug is a URL segment the storefront keeps forever: an identifier. */}
@@ -106,11 +111,11 @@ export default async function CategoriesPage() {
         </div>
         <dl className="ms-auto flex shrink-0 items-start gap-6">
           <div>
-            <dt><Eyebrow>Subcategories</Eyebrow></dt>
+            <dt><Eyebrow>{t("categories.subcategories")}</Eyebrow></dt>
             <dd className="u-ui tnum text-ink-2">{c._count.children}</dd>
           </div>
           <div>
-            <dt><Eyebrow>Products</Eyebrow></dt>
+            <dt><Eyebrow>{t("categories.products")}</Eyebrow></dt>
             <dd className="u-ui tnum text-ink-1">{c._count.products}</dd>
           </div>
         </dl>
@@ -123,10 +128,17 @@ export default async function CategoriesPage() {
     <AdminLayout>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Catalogue structure"
-          title="Categories"
-          description={`${topLevel.length} top-level ${topLevel.length === 1 ? "category" : "categories"}, ${categories.length} in total.`}
-          dateline="The whole tree, ordered by sort order then English name · a slug is the storefront URL and does not change on its own"
+          eyebrow={t("categories.eyebrow")}
+          title={t("categories.title")}
+          // Both figures go in as strings, formatted on an explicit en-US, so
+          // they stay in Western digits inside an Arabic sentence; `count` is
+          // the number only because it selects the plural form.
+          description={t("categories.description", {
+            count: topLevel.length,
+            topLevel: topLevel.length.toLocaleString("en-US"),
+            total: categories.length.toLocaleString("en-US"),
+          })}
+          dateline={t("categories.dateline")}
         />
 
         {/* The create form expands to a full line when it opens, so it lives on
@@ -138,9 +150,9 @@ export default async function CategoriesPage() {
         {categories.length === 0 ? (
           <Surface rung={1}>
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline="No categories have been created yet."
-              body="The storefront navigation and every product listing are organised by this tree, so it is the first thing to build."
+              eyebrow={t("categories.empty.eyebrow")}
+              headline={t("categories.empty.headline")}
+              body={t("categories.empty.body")}
               icon={<FolderTree className="h-3.5 w-3.5" aria-hidden="true" />}
             />
           </Surface>

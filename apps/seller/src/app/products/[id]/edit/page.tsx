@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { AlertTriangle } from "lucide-react";
 import { db } from "@avenick/database";
 import { Dateline, Eyebrow, PageHeader, StatusPill, Surface } from "@avenick/ui";
@@ -16,7 +17,12 @@ import { loadStatutoryVatTable } from "@/app/products/actions";
 // the build instead of rendering raw.
 import { statusMeta } from "@/components/products/status-meta";
 
-export const metadata = { title: "Edit product" };
+// The tab title is read by a person too, so it comes from the catalog rather
+// than a literal — which means it has to be resolved per request.
+export async function generateMetadata() {
+  const t = await getTranslations("sellerCatalog");
+  return { title: t("edit.metaTitle") };
+}
 
 // Everything on this page is one seller's own row, read at request time.
 export const dynamic = "force-dynamic";
@@ -46,6 +52,7 @@ function categoryOptions(rows: readonly CategoryRow[]): ProductFormOption[] {
 }
 
 export default async function EditProductPage({ params }: { params: { id: string } }) {
+  const t = await getTranslations("sellerCatalog");
   const { seller, membership, userRole } = await requireSellerPermission("catalog.manage");
 
   if (!RECORD_ID.test(params.id)) notFound();
@@ -132,8 +139,8 @@ export default async function EditProductPage({ params }: { params: { id: string
   // the picker (the server refuses it on save), so say why the field looks
   // empty rather than leaving the seller to guess.
   const staleReferences = [
-    product.category.isActive ? null : `Its category “${product.category.nameEn}” has been deactivated — choose another category before saving.`,
-    product.brand && !product.brand.isActive ? `Its brand “${product.brand.nameEn}” has been deactivated — choose another brand or leave the brand blank.` : null,
+    product.category.isActive ? null : t("edit.stale.category", { name: product.category.nameEn }),
+    product.brand && !product.brand.isActive ? t("edit.stale.brand", { name: product.brand.nameEn }) : null,
   ].filter((notice): notice is string => notice !== null);
 
   const status = statusMeta(product.status);
@@ -142,16 +149,18 @@ export default async function EditProductPage({ params }: { params: { id: string
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-4">
         <PageHeader
-          eyebrow="Catalog"
-          title="Edit product"
+          eyebrow={t("edit.eyebrow")}
+          title={t("edit.title")}
           linkComponent={Link}
-          breadcrumbs={[{ label: "Products", href: "/products" }, { label: product.nameEn }]}
+          breadcrumbs={[{ label: t("breadcrumb.products"), href: "/products" }, { label: product.nameEn }]}
           // The record being edited, cited rather than repeated as a subtitle.
           dateline={`${product.sku} · ${product.nameEn}`}
           actions={
             <>
-              <StatusPill tone={status.tone}>{status.label}</StatusPill>
-              {product.isPubliclyDiscoverable && <StatusPill tone="accent">On public storefront</StatusPill>}
+              {/* statusMeta hands back a key, not a word; an unlabelled status
+                  still shows its raw state rather than disappearing. */}
+              <StatusPill tone={status.tone}>{status.labelKey ? t(status.labelKey) : status.fallbackLabel}</StatusPill>
+              {product.isPubliclyDiscoverable && <StatusPill tone="accent">{t("edit.onPublicStorefront")}</StatusPill>}
             </>
           }
         />
@@ -162,7 +171,7 @@ export default async function EditProductPage({ params }: { params: { id: string
           <Surface rung={1} tone="warning" className="flex items-start gap-3 p-4">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-ink" aria-hidden="true" />
             <div>
-              <Eyebrow className="mb-1">Needs a new choice</Eyebrow>
+              <Eyebrow className="mb-1">{t("edit.stale.eyebrow")}</Eyebrow>
               <ul className="u-ui max-w-prose space-y-1 text-ink-1">
                 {staleReferences.map((notice) => (
                   <li key={notice}>{notice}</li>
@@ -174,11 +183,19 @@ export default async function EditProductPage({ params }: { params: { id: string
 
         {stockIsSplit && (
           <Dateline>
-            Stock is recorded in {product.inventory.length} locations
-            {reservedQty > 0 ? `, with ${reservedQty} unit(s) reserved by open orders` : ""} · not settable from this
-            form ·{" "}
-            <Link href="/inventory" className="u-focus rounded-nested text-primary-ink hover:underline">Inventory</Link>{" "}
-            shows the figures read-only
+            {/* One whole sentence per case rather than clauses spliced together:
+                the reserved-units aside sits in a different place in Arabic, and
+                the link has to travel inside the sentence with it. */}
+            {t.rich(reservedQty > 0 ? "edit.splitStock.withReserved" : "edit.splitStock.plain", {
+              count: product.inventory.length,
+              n: String(product.inventory.length),
+              reserved: String(reservedQty),
+              link: (chunks) => (
+                <Link href="/inventory" className="u-focus rounded-nested text-primary-ink hover:underline">
+                  {chunks}
+                </Link>
+              ),
+            })}
           </Dateline>
         )}
 

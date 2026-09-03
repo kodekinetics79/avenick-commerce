@@ -4,16 +4,21 @@ import { db } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
 import { Coins, Layers, Store } from "lucide-react";
 import { format } from "date-fns";
+import { getTranslations } from "next-intl/server";
 import {
   PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Surface, Num, Eyebrow, Dateline,
 } from "@avenick/ui";
 import { CountStat } from "@/app/finance/money-figures";
 
-export const metadata = { title: "Pricing & Commission" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminCommerce.pricing");
+  return { title: t("meta.title") };
+}
 export const dynamic = "force-dynamic";
 
 export default async function PricingPage() {
   await requireAdminSession();
+  const t = await getTranslations("adminCommerce.pricing");
 
   const [priceStats, sellers, recentPriceChanges, tieredProducts] = await Promise.all([
     db.productPrice.groupBy({
@@ -67,48 +72,48 @@ export default async function PricingPage() {
     <AdminLayout>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Commerce"
-          title="Pricing & commission"
-          description="Live price tiers, per-seller commission rates, and the price-change audit trail."
-          dateline="Tier prices are shown in the currency each price row was set in · no conversion applied"
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
+          dateline={t("dateline")}
         />
 
         <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
-          <CountStat label="Active B2C prices" value={b2cCount} />
-          <CountStat label="Active B2B prices" value={b2bCount} />
+          <CountStat label={t("stats.b2c")} value={b2cCount} />
+          <CountStat label={t("stats.b2b")} value={b2bCount} />
           <CountStat
-            label="Avg commission rate"
+            label={t("stats.avgCommission")}
             value={`${avgCommission}%`}
             rank="section"
-            dateline={`Unweighted mean across ${sellers.length} active seller${sellers.length === 1 ? "" : "s"}`}
+            dateline={t("stats.avgCommissionDateline", { count: sellers.length, value: String(sellers.length) })}
           />
           <CountStat
-            label="Volume-tiered products"
+            label={t("stats.tiered")}
             value={tieredProducts.length}
-            dateline="Of the 10 loaded below, not the whole catalogue"
+            dateline={t("stats.tieredDateline")}
           />
         </CellGrid>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Commission rates */}
           <LedgerTable
-            title="Commission rates by seller"
-            dateline="Active sellers, highest rate first"
+            title={t("commission.title")}
+            dateline={t("commission.dateline")}
             rows={sellers}
             getRowKey={(s) => s.id}
             density="compact"
             columns={[
-              { key: "seller", label: "Seller", render: (s) => <span className="font-medium text-ink-1">{s.businessNameEn}</span> },
-              { key: "tier", label: "Tier", render: (s) => <StatusPill tone="neutral">{s.tier}</StatusPill> },
-              { key: "rate", label: "Rate", numeric: true, render: (s) => <Num value={`${Number(s.commissionRate)}%`} /> },
-              { key: "products", label: "Products", numeric: true, render: (s) => <span className="text-ink-3">{s._count.products}</span> },
-              { key: "commissions", label: "Commissions", numeric: true, render: (s) => <span className="text-ink-3">{s._count.commissions}</span> },
+              { key: "seller", label: t("commission.columns.seller"), render: (s) => <span className="font-medium text-ink-1">{s.businessNameEn}</span> },
+              { key: "tier", label: t("commission.columns.tier"), render: (s) => <StatusPill tone="neutral">{s.tier}</StatusPill> },
+              { key: "rate", label: t("commission.columns.rate"), numeric: true, render: (s) => <Num value={`${Number(s.commissionRate)}%`} /> },
+              { key: "products", label: t("commission.columns.products"), numeric: true, render: (s) => <span className="text-ink-3">{s._count.products}</span> },
+              { key: "commissions", label: t("commission.columns.commissions"), numeric: true, render: (s) => <span className="text-ink-3">{s._count.commissions}</span> },
             ]}
             empty={
               <EmptyState
-                eyebrow="Nothing recorded"
-                headline="No seller is active."
-                body="A seller appears here once their account is approved and active."
+                eyebrow={t("emptyEyebrow")}
+                headline={t("commission.emptyHeadline")}
+                body={t("commission.emptyBody")}
                 icon={<Store className="h-3.5 w-3.5" aria-hidden="true" />}
               />
             }
@@ -117,14 +122,14 @@ export default async function PricingPage() {
           {/* Price change audit */}
           <Surface className="overflow-hidden">
             <div className="border-b-2 border-border-strong px-5 py-3">
-              <h2 className="u-h3 text-ink-1">Recent price changes</h2>
-              <Dateline className="mt-0.5">The audit trail, newest first · latest 10 entries</Dateline>
+              <h2 className="u-h3 text-ink-1">{t("changes.title")}</h2>
+              <Dateline className="mt-0.5">{t("changes.dateline")}</Dateline>
             </div>
             {recentPriceChanges.length === 0 ? (
               <EmptyState
-                eyebrow="Nothing recorded"
-                headline="No price change has been recorded."
-                body="A seller's price edit appears here with its before and after values."
+                eyebrow={t("emptyEyebrow")}
+                headline={t("changes.emptyHeadline")}
+                body={t("changes.emptyBody")}
                 icon={<Coins className="h-3.5 w-3.5" aria-hidden="true" />}
               />
             ) : (
@@ -135,8 +140,8 @@ export default async function PricingPage() {
                   return (
                     <li key={c.id} className="border-b border-hairline px-5 py-3 last:border-b-0">
                       <p className="u-ui text-ink-1">
-                        <span className="font-medium">{c.actor ? `${c.actor.firstName} ${c.actor.lastName}` : "System"}</span>
-                        <span className="text-ink-2"> changed a price on </span>
+                        <span className="font-medium">{c.actor ? `${c.actor.firstName} ${c.actor.lastName}` : t("changes.system")}</span>
+                        <span className="text-ink-2">{t("changes.changedPrice")}</span>
                         <span className="u-mono text-meta">{c.entityId}</span>
                       </p>
                       <p className="u-meta mt-0.5 text-ink-3">
@@ -163,14 +168,14 @@ export default async function PricingPage() {
 
         {/* Volume tiers */}
         <LedgerTable
-          title="Volume-tiered pricing"
-          dateline="Products offering quantity breaks (B2B bulk tiers) · latest 10 loaded"
+          title={t("tiers.title")}
+          dateline={t("tiers.dateline")}
           rows={tieredProducts}
           getRowKey={(p) => p.id}
           columns={[
             {
               key: "product",
-              label: "Product",
+              label: t("tiers.columns.product"),
               render: (p) => (
                 <div className="min-w-0 py-1">
                   <p className="truncate font-medium text-ink-1">{p.nameEn}</p>
@@ -178,20 +183,20 @@ export default async function PricingPage() {
                 </div>
               ),
             },
-            { key: "seller", label: "Seller", render: (p) => <span className="text-ink-2">{p.seller.businessNameEn}</span> },
+            { key: "seller", label: t("tiers.columns.seller"), render: (p) => <span className="text-ink-2">{p.seller.businessNameEn}</span> },
             {
               key: "tiers",
-              label: "Tiers",
+              label: t("tiers.columns.tiers"),
               render: (p) => (
                 <div className="flex flex-wrap gap-1.5 py-1">
-                  {p.prices.map((t, i) => (
+                  {p.prices.map((tier, i) => (
                     <span key={i} className="u-meta inline-flex items-center gap-1 rounded-nested bg-neutral-soft px-2 py-0.5 text-ink-2 ring-1 ring-neutral-rule">
-                      <Eyebrow as="span">{t.type}</Eyebrow>
+                      <Eyebrow as="span">{tier.type}</Eyebrow>
                       <span className="fig">
-                        {t.minQty}
-                        {t.maxQty ? `–${t.maxQty}` : "+"}
+                        {tier.minQty}
+                        {tier.maxQty ? `–${tier.maxQty}` : "+"}
                       </span>
-                      <span className="fig font-medium text-ink-1">{formatCurrency(Number(t.price), t.currency as never)}</span>
+                      <span className="fig font-medium text-ink-1">{formatCurrency(Number(tier.price), tier.currency as never)}</span>
                     </span>
                   ))}
                 </div>
@@ -200,9 +205,9 @@ export default async function PricingPage() {
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline="No product offers a volume tier."
-              body="A product appears here once a seller sets a price row with a minimum quantity above one."
+              eyebrow={t("emptyEyebrow")}
+              headline={t("tiers.emptyHeadline")}
+              body={t("tiers.emptyBody")}
               icon={<Layers className="h-3.5 w-3.5" aria-hidden="true" />}
             />
           }

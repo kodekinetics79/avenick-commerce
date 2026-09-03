@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { isRecordId } from "@avenick/utils";
 import { checkRateLimit, RATE_LIMITS } from "@avenick/auth/rate-limit";
@@ -23,16 +24,24 @@ export type ReplyActionState = {
   buyerVisible?: boolean;
 };
 
-const ReplySchema = z.object({
-  // The id is interpolated into a revalidation path below; pin the record-id
-  // shape rather than trusting a route param that a crafted link can shape.
-  threadId: z.string().refine(isRecordId, "That conversation could not be identified — reopen it from the inbox."),
-  body: z
-    .string()
-    .trim()
-    .min(1, "Write a reply before sending.")
-    .max(MESSAGE_BODY_MAX_LENGTH, `Replies are limited to ${MESSAGE_BODY_MAX_LENGTH} characters.`),
-});
+/**
+ * Built per call rather than at module scope so every refusal it can state is
+ * written in the caller's language; the shape and the rules are unchanged.
+ */
+function replySchema(t: (key: string, values?: Record<string, string | number>) => string) {
+  return z.object({
+    // The id is interpolated into a revalidation path below; pin the record-id
+    // shape rather than trusting a route param that a crafted link can shape.
+    threadId: z.string().refine(isRecordId, t("replyErrors.threadNotIdentified")),
+    body: z
+      .string()
+      .trim()
+      .min(1, t("reply.writeSomething"))
+      // The ceiling is passed as a string so it stays in Western digits inside
+      // an Arabic sentence.
+      .max(MESSAGE_BODY_MAX_LENGTH, t("replyErrors.tooLong", { max: String(MESSAGE_BODY_MAX_LENGTH) })),
+  });
+}
 
 /**
  * Post a seller reply on a buyer thread.
@@ -44,6 +53,7 @@ const ReplySchema = z.object({
  * runaway staff account cannot silence the whole organisation.
  */
 export async function replyToThreadAction(input: unknown): Promise<ReplyActionState> {
+  const t = await getTranslations("sellerRelations");
   let context: Awaited<ReturnType<typeof requireSellerPermission>>;
   try {
     context = await requireSellerPermission(SELLER_MESSAGING_PERMISSION);
@@ -52,20 +62,20 @@ export async function replyToThreadAction(input: unknown): Promise<ReplyActionSt
     // so; "retry" would be a lie. Session redirects (NEXT_REDIRECT) are not
     // Errors with this prefix and keep propagating to the client boundary.
     if (error instanceof Error && error.message.startsWith("Seller permission required")) {
-      return { error: `Replying needs the ${SELLER_MESSAGING_PERMISSION} permission. Ask your seller owner to grant it.` };
+      return { error: t("replyErrors.permissionRequired", { permission: SELLER_MESSAGING_PERMISSION }) };
     }
     throw error;
   }
   const { seller, userId } = context;
 
-  const parsed = ReplySchema.safeParse(input);
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid reply." };
+  const parsed = replySchema(t).safeParse(input);
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? t("replyErrors.invalid") };
   const { threadId, body } = parsed.data;
 
   const rl = await checkRateLimit(RATE_LIMITS.messageReply, userId);
   if (!rl.ok) {
     const minutes = Math.max(1, Math.ceil((rl.resetAt - Date.now()) / 60_000));
-    return { error: `Reply limit reached. Try again in about ${minutes} minute${minutes === 1 ? "" : "s"}.` };
+    return { error: t("replyErrors.rateLimited", { count: minutes, n: String(minutes) }) };
   }
 
   let result;
@@ -81,7 +91,7 @@ export async function replyToThreadAction(input: unknown): Promise<ReplyActionSt
       return { error: error.message };
     }
     log.error("seller thread reply failed", error, { scope: "messages.actions", sellerId: seller.id, threadId });
-    return { error: "The reply could not be sent. Nothing was recorded — please try again." };
+    return { error: t("replyErrors.notSent") };
   }
 
   revalidatePath("/messages");

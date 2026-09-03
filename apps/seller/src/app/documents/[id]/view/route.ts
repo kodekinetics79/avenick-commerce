@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { db } from "@avenick/database";
 import { isRecordId } from "@avenick/utils";
 import { browserDirectUploadsEnabled, isKeyInUploadNamespace } from "@avenick/utils/browser-upload-policy";
@@ -41,6 +42,9 @@ function isFollowableLink(fileUrl: string): boolean {
 
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
   if (!isRecordId(params.id)) notFound();
+  // These bodies are read by the seller in a browser tab, so they are written
+  // in the reader's language like every other refusal in this portal.
+  const t = await getTranslations("sellerRelations");
 
   // A seller under review may read what they have filed. The permission
   // failure is answered here as 403 rather than left to bubble as a 500;
@@ -53,7 +57,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     sellerId = context.seller.id;
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("Seller permission required:")) {
-      return new NextResponse("You do not have permission to view documents for this seller.", {
+      return new NextResponse(t("documentView.forbidden"), {
         status: 403,
         headers: NO_STORE,
       });
@@ -70,10 +74,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 
   if (isKeyInUploadNamespace(document.fileUrl, { kind: "seller", sellerId }, "seller-document")) {
     if (!browserDirectUploadsEnabled()) {
-      return new NextResponse(
-        "File storage is not configured in this environment, so this document cannot be opened.",
-        { status: 503, headers: NO_STORE },
-      );
+      return new NextResponse(t("documentView.storageUnavailable"), { status: 503, headers: NO_STORE });
     }
     // The helper's default TTL (minutes, not hours) is the whole lifetime of
     // this link; the browser follows it immediately.
@@ -86,7 +87,7 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 
   // Neither a key this seller owns nor a link: the row cannot be opened, and
   // saying so beats a redirect to nowhere.
-  return new NextResponse("This document's file reference cannot be opened from this environment.", {
+  return new NextResponse(t("documentView.unopenable"), {
     status: 409,
     headers: NO_STORE,
   });

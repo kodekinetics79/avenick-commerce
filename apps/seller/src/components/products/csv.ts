@@ -3,10 +3,11 @@ import type { ImportRow } from "@/app/products/actions";
 /**
  * The CSV contract, in one place.
  *
- * The import tells a seller with a bad header to "export the CSV first to get
- * the right format". That sentence is only true while one list defines both
- * sides, so the export writer and the import reader share this module rather
- * than each carrying their own copy of the column names.
+ * The import sheet tells a seller with a bad header to export the table first
+ * to get the right shape (`sellerCatalog.import.exportFirst`). That sentence is
+ * only true while one list defines both sides, so the export writer and the
+ * import reader share this module rather than each carrying their own copy of
+ * the column names.
  */
 export const PRODUCT_CSV_HEADERS = ["sku", "nameEn", "nameAr", "status", "price", "stock"] as const;
 
@@ -67,24 +68,29 @@ export function parseCsv(text: string): string[][] {
 }
 
 /**
+ * Why a file could not be turned into rows, as a code rather than a sentence.
+ * This module has no translator in scope, so the refusal is NAMED here and
+ * WORDED by the sheet that renders it (`sellerCatalog.import.problem.*`).
+ */
+export type ImportRowsProblem =
+  | { code: "NO_DATA_ROWS" }
+  /** Carries the header the file was expected to have, for the sentence. */
+  | { code: "NO_SKU_COLUMN"; expectedHeader: string };
+
+/**
  * Turn a parsed grid into the rows the server action accepts, or say why it
  * cannot. The refusals are the file's problem, not the seller's: they name the
  * missing thing rather than reporting a generic failure.
  */
-export function toImportRows(grid: string[][]): { rows: ImportRow[] } | { error: { title: string; detail: string } } {
+export function toImportRows(grid: string[][]): { rows: ImportRow[] } | { error: ImportRowsProblem } {
   if (grid.length < 2) {
-    return { error: { title: "Nothing to import", detail: "The file has a header row but no data rows under it." } };
+    return { error: { code: "NO_DATA_ROWS" } };
   }
   const header = grid[0].map((cell) => cell.trim().toLowerCase());
   const indexOf = (name: string) => header.indexOf(name.toLowerCase());
   const skuIndex = indexOf("sku");
   if (skuIndex === -1) {
-    return {
-      error: {
-        title: "No “sku” column",
-        detail: `A row is matched to a listing by its SKU, so that column is required. Expected header: ${PRODUCT_CSV_HEADERS.join(", ")}.`,
-      },
-    };
+    return { error: { code: "NO_SKU_COLUMN", expectedHeader: PRODUCT_CSV_HEADERS.join(", ") } };
   }
   const cols = {
     nameEn: indexOf("nameen"),

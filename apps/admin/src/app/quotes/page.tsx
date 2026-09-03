@@ -3,6 +3,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { db, Prisma, RFQStatus } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { format } from "date-fns";
 import { Quote, CheckCircle, Clock, XCircle, MessageSquare, Ban, CircleOff, FileText, FileQuestion, Search } from "lucide-react";
 import {
@@ -12,7 +13,10 @@ import {
 import { CountStat, MoneyStat } from "@/app/finance/money-figures";
 import { FilterTabs, Pager, CONTROL } from "@/components/console/chrome";
 
-export const metadata = { title: "Quotes" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminCommerce.quotes");
+  return { title: t("meta.title") };
+}
 export const dynamic = "force-dynamic";
 
 /**
@@ -32,17 +36,20 @@ const QUOTED: Prisma.RFQRequestWhereInput = { quoteVersion: { gt: 0 } };
  * Nine statuses, four tones. The old map spent seven hues on nine states, which
  * left "under review" (purple) and "negotiating" (orange) looking like different
  * kinds of thing when they are both simply "still open".
+ *
+ * Only the tone and the icon live here; each label is translated under
+ * `adminCommerce.quotes.status`, keyed by the enum value.
  */
-const STATUS_CONFIG: Record<RFQStatus, { label: string; tone: PillTone; icon: typeof CheckCircle }> = {
-  DRAFT:        { label: "Draft",         tone: "neutral", icon: FileText },
-  SUBMITTED:    { label: "Submitted",     tone: "neutral", icon: FileText },
-  UNDER_REVIEW: { label: "Under review",  tone: "neutral", icon: FileText },
-  QUOTED:       { label: "Awaiting buyer", tone: "warning", icon: Clock },
-  NEGOTIATING:  { label: "Negotiating",   tone: "warning", icon: MessageSquare },
-  ACCEPTED:     { label: "Accepted",      tone: "success", icon: CheckCircle },
-  REJECTED:     { label: "Rejected",      tone: "danger",  icon: XCircle },
-  EXPIRED:      { label: "Expired",       tone: "neutral", icon: CircleOff },
-  CANCELLED:    { label: "Cancelled",     tone: "neutral", icon: Ban },
+const STATUS_CONFIG: Record<RFQStatus, { tone: PillTone; icon: typeof CheckCircle }> = {
+  DRAFT:        { tone: "neutral", icon: FileText },
+  SUBMITTED:    { tone: "neutral", icon: FileText },
+  UNDER_REVIEW: { tone: "neutral", icon: FileText },
+  QUOTED:       { tone: "warning", icon: Clock },
+  NEGOTIATING:  { tone: "warning", icon: MessageSquare },
+  ACCEPTED:     { tone: "success", icon: CheckCircle },
+  REJECTED:     { tone: "danger",  icon: XCircle },
+  EXPIRED:      { tone: "neutral", icon: CircleOff },
+  CANCELLED:    { tone: "neutral", icon: Ban },
 };
 
 /** Statuses a quoted RFQ can legitimately sit in, in lifecycle order. */
@@ -55,6 +62,7 @@ interface PageProps {
 
 export default async function QuotesPage({ searchParams }: PageProps) {
   await requireAdminSession();
+  const t = await getTranslations("adminCommerce.quotes");
 
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const limit = 25;
@@ -144,23 +152,23 @@ export default async function QuotesPage({ searchParams }: PageProps) {
     <AdminLayout>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="B2B trade"
-          title="Quotes"
-          description="Supplier quotes submitted against marketplace RFQs, live from the RFQ workflow."
-          dateline="A quote is an RFQ a seller has priced · there is no margin column, because the platform never records what the goods cost the seller"
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
+          dateline={t("dateline")}
         />
 
         {totalQuotes === 0 ? (
           <Surface>
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline="No supplier quote has ever been submitted."
-              body="A quote appears here the moment a seller prices an open RFQ — that is the only way one is created. Until then there is nothing to report: no accepted value and no win rate can be computed."
+              eyebrow={t("none.eyebrow")}
+              headline={t("none.headline")}
+              body={t("none.body")}
               icon={<Quote className="h-3.5 w-3.5" aria-hidden="true" />}
               action={
                 <Button variant="secondary" size="sm" asChild>
                   <Link href="/rfqs">
-                    <FileQuestion className="h-3.5 w-3.5" aria-hidden="true" /> Open the RFQ register
+                    <FileQuestion className="h-3.5 w-3.5" aria-hidden="true" /> {t("none.action")}
                   </Link>
                 </Button>
               }
@@ -169,45 +177,43 @@ export default async function QuotesPage({ searchParams }: PageProps) {
         ) : (
           <>
             <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
-              <CountStat label="Quoted RFQs" value={totalQuotes} rank="section" />
+              <CountStat label={t("stats.quoted")} value={totalQuotes} rank="section" />
               <CountStat
-                label="Awaiting buyer decision"
+                label={t("stats.awaiting")}
                 value={countFor(["QUOTED", "NEGOTIATING"])}
                 tone={countFor(["QUOTED", "NEGOTIATING"]) > 0 ? "warning" : "default"}
               />
               {/* Win rate is only meaningful over decided quotes; with none decided
                   it is undefined and is shown as such rather than as 0%. */}
               <CountStat
-                label="Win rate"
+                label={t("stats.winRate")}
                 value={decidedCount > 0 ? `${Math.round((acceptedCount / decidedCount) * 100)}%` : "—"}
                 note={
                   decidedCount > 0
-                    ? `${acceptedCount} of ${decidedCount} decided`
+                    ? t("stats.winRateNote", { accepted: String(acceptedCount), decided: String(decidedCount) })
                     : undefined
                 }
-                dateline={decidedCount > 0 ? undefined : "No quote has been decided yet, so a rate cannot be computed"}
+                dateline={decidedCount > 0 ? undefined : t("stats.winRateDateline")}
               />
               <MoneyStat
-                label="Accepted value"
-                lines={acceptedTotals.map((t) => ({
-                  currency: t.currency,
-                  formatted: formatCurrency(t.amount, t.currency as never),
+                label={t("stats.acceptedValue")}
+                lines={acceptedTotals.map((row) => ({
+                  currency: row.currency,
+                  formatted: formatCurrency(row.amount, row.currency as never),
                 }))}
                 dateline={
-                  acceptedTotals.length > 1
-                    ? "One line per currency · no conversion applied"
-                    : "Total quoted on accepted RFQs, as recorded"
+                  acceptedTotals.length > 1 ? t("stats.acceptedMulti") : t("stats.acceptedSingle")
                 }
               />
             </CellGrid>
 
             <div className="flex flex-col gap-2 lg:flex-row lg:items-start">
               <FilterTabs
-                label="Filter quotes by status"
+                label={t("filters.label")}
                 className="min-w-0 flex-1"
                 tabs={tabs.map((s) => ({
                   href: filterHref({ status: s }),
-                  label: s ? STATUS_CONFIG[s].label : "All",
+                  label: s ? t(`status.${s}`) : t("filters.all"),
                   // Counts are platform-wide (they must be, so the zero-quote
                   // empty state stays honest), so they are hidden while a search
                   // narrows the table rather than shown against unrelated rows.
@@ -224,8 +230,8 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                   type="search"
                   name="search"
                   defaultValue={search ?? ""}
-                  aria-label="Search quotes by RFQ number, buyer or supplier"
-                  placeholder="RFQ #, buyer or supplier…"
+                  aria-label={t("search.label")}
+                  placeholder={t("search.placeholder")}
                   className={`${CONTROL} ps-9`}
                 />
               </form>
@@ -235,11 +241,11 @@ export default async function QuotesPage({ searchParams }: PageProps) {
               rows={quotes}
               getRowKey={(q) => q.id}
               stickyHead
-              dateline="Ordered by most recent quote activity · quoted totals in the currency of the RFQ, no conversion applied"
+              dateline={t("table.dateline")}
               columns={[
                 {
                   key: "rfq",
-                  label: "RFQ",
+                  label: t("columns.rfq"),
                   render: (q) => (
                     <div className="py-1">
                       <Link
@@ -249,7 +255,7 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                         {q.rfqNumber}
                       </Link>
                       <p className="u-meta mt-0.5 text-ink-3">
-                        Raised {format(q.createdAt, "MMM d, yyyy")}
+                        {t("raised", { date: format(q.createdAt, "MMM d, yyyy") })}
                         {q._count.messages > 0 && (
                           <span className="ms-2 inline-flex items-center gap-1">
                             <MessageSquare className="h-3 w-3" aria-hidden="true" /> {q._count.messages}
@@ -261,13 +267,13 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                 },
                 {
                   key: "buyer",
-                  label: "Buyer",
+                  label: t("columns.buyer"),
                   render: (q) => {
                     const buyer = buyerMap.get(q.buyerId);
                     const buyerName = [buyer?.firstName, buyer?.lastName].filter(Boolean).join(" ");
                     return (
                       <div className="min-w-0 py-1">
-                        <p className="truncate font-medium text-ink-1">{q.company?.nameEn ?? (buyerName || "Individual buyer")}</p>
+                        <p className="truncate font-medium text-ink-1">{q.company?.nameEn ?? (buyerName || t("individualBuyer"))}</p>
                         {buyer && <p className="u-meta truncate text-ink-3">{buyer.email}</p>}
                       </div>
                     );
@@ -275,13 +281,13 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                 },
                 {
                   key: "seller",
-                  label: "Quoting supplier",
+                  label: t("columns.seller"),
                   hideOnMobile: true,
-                  render: (q) => <span className="text-ink-2">{q.seller?.businessNameEn ?? "Unassigned"}</span>,
+                  render: (q) => <span className="text-ink-2">{q.seller?.businessNameEn ?? t("unassigned")}</span>,
                 },
                 {
                   key: "items",
-                  label: "Quoted items",
+                  label: t("columns.items"),
                   hideOnMobile: true,
                   render: (q) => {
                     const itemSummary = q.items
@@ -294,14 +300,16 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                     return (
                       <div className="max-w-xs py-1 text-ink-2">
                         <p className="truncate">{itemSummary || "—"}</p>
-                        {q.items.length > 2 && <p className="u-meta text-ink-3">+{q.items.length - 2} more</p>}
+                        {q.items.length > 2 && (
+                          <p className="u-meta text-ink-3">{t("moreItems", { count: String(q.items.length - 2) })}</p>
+                        )}
                       </div>
                     );
                   },
                 },
                 {
                   key: "totalQuoted",
-                  label: "Quoted total",
+                  label: t("columns.total"),
                   numeric: true,
                   render: (q) =>
                     q.totalQuoted !== null ? (
@@ -312,39 +320,39 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                 },
                 {
                   key: "quoteVersion",
-                  label: "Rev",
+                  label: t("columns.rev"),
                   numeric: true,
-                  render: (q) => <span className="text-ink-3">v{q.quoteVersion}</span>,
+                  render: (q) => <span className="text-ink-3">{t("revValue", { version: String(q.quoteVersion) })}</span>,
                 },
                 {
                   key: "status",
-                  label: "Status",
+                  label: t("columns.status"),
                   render: (q) => {
                     const cfg = STATUS_CONFIG[q.status];
                     const StatusIcon = cfg.icon;
                     return (
                       <StatusPill tone={cfg.tone}>
-                        <StatusIcon className="h-3 w-3" aria-hidden="true" /> {cfg.label}
+                        <StatusIcon className="h-3 w-3" aria-hidden="true" /> {t(`status.${q.status}`)}
                       </StatusPill>
                     );
                   },
                 },
                 {
                   key: "updatedAt",
-                  label: "Last updated",
+                  label: t("columns.updated"),
                   hideOnMobile: true,
                   render: (q) => <span className="whitespace-nowrap text-ink-2">{format(q.updatedAt, "MMM d, yyyy")}</span>,
                 },
               ]}
               empty={
                 <EmptyState
-                  eyebrow="Nothing matches"
-                  headline="No quote matches the current filters."
-                  body="Clear the status filter or the search to see every quote on record."
+                  eyebrow={t("empty.eyebrow")}
+                  headline={t("empty.headline")}
+                  body={t("empty.body")}
                   icon={<FileQuestion className="h-3.5 w-3.5" aria-hidden="true" />}
                   action={
                     <Button variant="secondary" size="sm" asChild>
-                      <Link href="/quotes">Show every quote</Link>
+                      <Link href="/quotes">{t("empty.action")}</Link>
                     </Button>
                   }
                 />
@@ -354,11 +362,11 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                   page={page}
                   totalPages={totalPages}
                   hrefFor={(target) => filterHref({ page: String(target), search })}
-                  summary={
-                    <>
-                      <span className="fig text-ink-2">{total}</span> quote{total === 1 ? "" : "s"} in the current filter
-                    </>
-                  }
+                  summary={t.rich("footer", {
+                    total: String(total),
+                    count: total,
+                    n: (chunks) => <span className="fig text-ink-2">{chunks}</span>,
+                  })}
                 />
               }
             />

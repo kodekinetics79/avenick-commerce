@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { confirmBankTransferPayment } from "@avenick/database";
+import { getTranslations } from "next-intl/server";
 import { requireAdminSession } from "@/lib/auth";
 
 const value = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
@@ -49,18 +50,19 @@ function withOutcome(returnTo: string, params: Record<string, string | undefined
  */
 export async function confirmBankTransfer(paymentId: string, formData: FormData) {
   const { userId } = await requireAdminSession();
+  const t = await getTranslations("adminCommerce.paymentActions");
   const returnTo = safeReturnTo(value(formData, "returnTo"));
   const refuse: (message: string) => never = (message) =>
     redirect(withOutcome(returnTo, { confirmError: message, payment: paymentId || undefined }));
 
-  if (!paymentId) refuse("A payment must be selected");
+  if (!paymentId) refuse(t("paymentRequired"));
 
   const bankReference = value(formData, "bankReference");
   const amount = value(formData, "amount");
   const valueDate = value(formData, "valueDate");
-  if (!bankReference) refuse("The bank reference from the statement is required");
-  if (!amount) refuse("The amount actually credited is required");
-  if (!valueDate) refuse("The bank value date is required");
+  if (!bankReference) refuse(t("bankReferenceRequired"));
+  if (!amount) refuse(t("amountRequired"));
+  if (!valueDate) refuse(t("valueDateRequired"));
 
   let result: Awaited<ReturnType<typeof confirmBankTransferPayment>>;
   try {

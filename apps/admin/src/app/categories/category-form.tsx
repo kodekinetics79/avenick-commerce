@@ -3,6 +3,7 @@
 import { useId, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Plus, Pencil, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button, Dateline, Field, Input, Surface } from "@avenick/ui";
 import { slugify } from "@avenick/utils";
 import { createCategoryAction, updateCategoryAction } from "./actions";
@@ -81,6 +82,7 @@ function orderedOptions(options: CategoryOption[]): Array<CategoryOption & { dep
  * cannot be expressed from this form; the server refuses it independently.
  */
 export function CategoryForm({ mode, category, options, defaultParentId = null }: Props) {
+  const t = useTranslations("adminReview");
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -145,15 +147,21 @@ export function CategoryForm({ mode, category, options, defaultParentId = null }
     });
   }
 
+  // The category's own name is data, so it is interpolated rather than
+  // translated; only the word standing in for a nameless one is a message.
+  const categoryName = category?.nameEn ?? t("categoryForm.categoryFallback");
+
   if (!open) {
     return mode === "create" ? (
       <Button type="button" size="sm" onClick={() => setOpen(true)}>
-        <Plus className="h-3.5 w-3.5" aria-hidden="true" /> {defaultParentId ? "Add subcategory" : "New Category"}
+        <Plus className="h-3.5 w-3.5" aria-hidden="true" />{" "}
+        {defaultParentId ? t("categoryForm.addSubcategory") : t("categoryForm.newCategory")}
       </Button>
     ) : (
       <Button type="button" variant="link" size="xs" onClick={() => setOpen(true)}>
         <Pencil className="h-3 w-3" aria-hidden="true" />
-        Edit<span className="sr-only"> {category?.nameEn ?? "category"}</span>
+        {t("categoryForm.edit")}
+        <span className="sr-only">{t("categoryForm.editSr", { name: categoryName })}</span>
       </Button>
     );
   }
@@ -167,36 +175,42 @@ export function CategoryForm({ mode, category, options, defaultParentId = null }
       as="form"
       onSubmit={submit}
       className="w-full basis-full space-y-3 p-4"
-      aria-label={mode === "edit" ? `Edit ${category?.nameEn ?? "category"}` : "New category"}
+      aria-label={mode === "edit" ? t("categoryForm.ariaEdit", { name: categoryName }) : t("categoryForm.ariaNew")}
     >
       <div className="flex items-center justify-between">
-        <p className="u-h3 text-ink-1">{mode === "edit" ? "Edit category" : defaultParentId ? "New subcategory" : "New category"}</p>
-        <Button type="button" variant="ghost" size="icon" onClick={close} aria-label="Close">
+        <p className="u-h3 text-ink-1">
+          {mode === "edit"
+            ? t("categoryForm.headingEdit")
+            : defaultParentId
+              ? t("categoryForm.headingNewSubcategory")
+              : t("categoryForm.headingNew")}
+        </p>
+        <Button type="button" variant="ghost" size="icon" onClick={close} aria-label={t("categoryForm.close")}>
           <X className="h-4 w-4" aria-hidden="true" />
         </Button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Input label="Name (English)" value={nameEn} onChange={(event) => onNameEn(event.target.value)} error={errors.nameEn} required maxLength={120} disabled={pending} />
-        <Input label="Name (Arabic)" value={nameAr} onChange={(event) => setNameAr(event.target.value)} error={errors.nameAr} required maxLength={120} dir="rtl" disabled={pending} />
+        <Input label={t("categoryForm.nameEn")} value={nameEn} onChange={(event) => onNameEn(event.target.value)} error={errors.nameEn} required maxLength={120} disabled={pending} />
+        <Input label={t("categoryForm.nameAr")} value={nameAr} onChange={(event) => setNameAr(event.target.value)} error={errors.nameAr} required maxLength={120} dir="rtl" disabled={pending} />
         <Input
-          label="Slug"
+          label={t("categoryForm.slug")}
           value={slug}
           onChange={(event) => {
             setSlugTouched(true);
             setSlug(event.target.value);
           }}
           error={errors.slug}
-          hint={slugTouched ? "Edited by hand; no longer follows the English name" : "Follows the English name until you edit it"}
+          hint={slugTouched ? t("categoryForm.slugHintTouched") : t("categoryForm.slugHintAuto")}
           required
           maxLength={120}
           disabled={pending}
         />
-        <Input label="Sort order" type="number" inputMode="numeric" min={0} step={1} value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} error={errors.sortOrder} disabled={pending} />
+        <Input label={t("categoryForm.sortOrder")} type="number" inputMode="numeric" min={0} step={1} value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} error={errors.sortOrder} disabled={pending} />
         <Field
-          label="Parent category"
+          label={t("categoryForm.parent")}
           htmlFor={`parent-${category?.id ?? "new"}`}
           error={errors.parentId}
-          hint="A category cannot be moved under itself or its own descendants."
+          hint={t("categoryForm.parentHint")}
         >
           {/* A native select, kept deliberately: it is the one control on this
               form that has to work with a hardware keyboard, a screen reader and
@@ -212,7 +226,7 @@ export function CategoryForm({ mode, category, options, defaultParentId = null }
             className="u-focus w-full border border-input bg-surface-1 px-3 text-ui text-ink-1 outline-none transition-[border-color,box-shadow] duration-press ease-standard disabled:cursor-not-allowed disabled:opacity-50"
             style={{ height: "var(--control-h-md)" }}
           >
-            <option value="">Top level</option>
+            <option value="">{t("categoryForm.topLevel")}</option>
             {parentChoices.map((option) => (
               <option key={option.id} value={option.id}>
                 {`${"  ".repeat(option.depth)}${option.nameEn}`}
@@ -231,7 +245,7 @@ export function CategoryForm({ mode, category, options, defaultParentId = null }
               aria-describedby={activeMessageId}
               className="u-focus h-4 w-4 rounded-sm border-input accent-primary"
             />
-            Active (shown in storefront navigation)
+            {t("categoryForm.active")}
           </label>
           {/* The line is reserved either way, so an error never shifts the
               buttons beneath it up or down the page. It is wired to the control
@@ -249,17 +263,17 @@ export function CategoryForm({ mode, category, options, defaultParentId = null }
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger-ink" aria-hidden="true" />
             <div className="min-w-0">
               <p className="u-ui text-ink-1">{formError}</p>
-              <Dateline>Nothing was saved · this form still holds everything you typed</Dateline>
+              <Dateline>{t("categoryForm.errorDateline")}</Dateline>
             </div>
           </div>
         </Surface>
       )}
       <div className="flex items-center gap-2 justify-end">
         <Button type="button" variant="ghost" size="sm" onClick={close} disabled={pending}>
-          Cancel
+          {t("categoryForm.cancel")}
         </Button>
         <Button type="submit" size="sm" loading={pending}>
-          {mode === "edit" ? "Save changes" : "Create category"}
+          {mode === "edit" ? t("categoryForm.saveChanges") : t("categoryForm.create")}
         </Button>
       </div>
     </Surface>

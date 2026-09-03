@@ -6,19 +6,33 @@ import {
   PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Surface, Eyebrow, Dateline, Button,
   type PillTone,
 } from "@avenick/ui";
+import { getTranslations } from "next-intl/server";
 import { CountStat } from "@/app/finance/money-figures";
 import { CONTROL, CONTROL_SM } from "@/components/console/chrome";
 import { configureCompanyOrderRoute, createIntegrationConnection, redriveInboundIntegrationMessage, redriveIntegrationMessage, setIntegrationConnectionStatus } from "./actions";
 
-export const metadata = { title: "Integration Hub" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminCommerce.integrations");
+  return { title: t("meta.title") };
+}
 export const dynamic = "force-dynamic";
 
-function fmtDate(value: Date | null) {
-  return value ? value.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : "Never";
-}
+/**
+ * Every operational state this screen can render. A state outside the set is
+ * printed as its own code rather than under an invented label, so a new value
+ * from the queue or the registry can never be silently mislabelled.
+ */
+const KNOWN_STATES = new Set([
+  "LIVE", "DOWN", "CONFIGURED", "NOT_CONFIGURED", "INCOMPLETE", "NOT_IMPLEMENTED",
+  "DEGRADED", "ACTIVE", "DISABLED", "DEAD", "RETRY", "PENDING", "PROCESSING", "PROCESSED",
+]);
 
 export default async function IntegrationsPage() {
   await requireAdminSession();
+  const t = await getTranslations("adminCommerce.integrations");
+  const fmtDate = (value: Date | null) =>
+    value ? value.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" }) : t("never");
+  const stateLabel = (state: string) => (KNOWN_STATES.has(state) ? t(`state.${state}`) : state.replaceAll("_", " "));
   const [dbHealth, summary, failedMessages, failedInboundMessages, companies, routes] = await Promise.all([
     checkDatabaseHealth(),
     getIntegrationOperationalSummary(),
@@ -48,54 +62,52 @@ export default async function IntegrationsPage() {
   const runtimeServices = [
     {
       name: "PostgreSQL",
-      category: "Database",
+      category: t("services.category.database"),
       state: dbHealth.ok ? "LIVE" : "DOWN",
-      detail: dbHealth.ok ? `Health query ${dbHealth.latencyMs}ms` : dbHealth.error ?? "Unreachable",
-      truth: "Health verified by this deployment.",
+      detail: dbHealth.ok ? t("services.postgresOk", { latency: String(dbHealth.latencyMs) }) : dbHealth.error ?? t("services.postgresUnreachable"),
+      truth: t("services.postgresTruth"),
     },
     {
       name: "Checkout.com",
-      category: "Payments",
+      category: t("services.category.payments"),
       state: env("CHECKOUT_SECRET_KEY") && env("CHECKOUT_WEBHOOK_SECRET") ? "INCOMPLETE" : "NOT_CONFIGURED",
-      detail: env("CHECKOUT_SECRET_KEY") ? "Credentials detected" : "Credentials missing",
-      truth: "Signed webhook consumption exists, but outbound payment-session initiation is not implemented yet. Card/mada/Apple Pay therefore fail closed.",
+      detail: env("CHECKOUT_SECRET_KEY") ? t("services.checkoutPresent") : t("services.checkoutMissing"),
+      truth: t("services.checkoutTruth"),
     },
     {
       name: "Resend",
-      category: "Messaging",
+      category: t("services.category.messaging"),
       state: env("RESEND_API_KEY") ? "CONFIGURED" : "NOT_CONFIGURED",
-      detail: env("RESEND_API_KEY") ? "Credential present" : "Email disabled",
-      truth: "Presence only; no provider health check has been recorded on this screen.",
+      detail: env("RESEND_API_KEY") ? t("services.credentialPresent") : t("services.emailDisabled"),
+      truth: t("services.presenceOnly"),
     },
     {
       name: "Twilio",
-      category: "Messaging",
+      category: t("services.category.messaging"),
       state: env("TWILIO_AUTH_TOKEN") ? "CONFIGURED" : "NOT_CONFIGURED",
-      detail: env("TWILIO_AUTH_TOKEN") ? "Credential present" : "SMS/WhatsApp disabled",
-      truth: "Presence only; no provider health check has been recorded on this screen.",
+      detail: env("TWILIO_AUTH_TOKEN") ? t("services.credentialPresent") : t("services.smsDisabled"),
+      truth: t("services.presenceOnly"),
     },
     {
       name: "S3 / MinIO",
-      category: "Storage",
+      category: t("services.category.storage"),
       state: env("S3_ENDPOINT") && env("S3_ACCESS_KEY") ? "CONFIGURED" : "NOT_CONFIGURED",
-      detail: env("S3_ENDPOINT") ? "Endpoint configured" : "Uploads disabled",
-      truth: "Configuration presence only. Pilot media import should run only after a write/read/delete probe succeeds.",
+      detail: env("S3_ENDPOINT") ? t("services.s3Present") : t("services.s3Missing"),
+      truth: t("services.s3Truth"),
     },
     {
       name: "Elasticsearch",
-      category: "Search",
+      category: t("services.category.search"),
       state: "NOT_IMPLEMENTED",
-      detail: env("ELASTICSEARCH_URL") ? "Endpoint set but never read" : "No endpoint set",
-      truth: "No Elasticsearch client dependency or indexing/query code exists in this repository, so this is not a fallback — catalog search is served entirely by PostgreSQL. The environment variable proves configuration intent only.",
+      detail: env("ELASTICSEARCH_URL") ? t("services.elasticSet") : t("services.elasticUnset"),
+      truth: t("services.elasticTruth"),
     },
     {
       name: "Redis",
-      category: "Infrastructure",
+      category: t("services.category.infrastructure"),
       state: redisShared ? "CONFIGURED" : "DEGRADED",
-      detail: redisShared ? "Upstash REST credentials present" : "In-memory store, this process only",
-      truth: redisShared
-        ? "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are both set, which is the condition under which the shared store is installed at boot. Credential presence only — no Redis reachability probe has been recorded on this screen."
-        : "UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN are unset, so the shared store was never installed: rate limiting and the read cache run in per-process memory, are not shared across instances and reset on every restart. Per-IP login, registration and catalog throttles are therefore only as strong as one instance. REDIS_URL is read by no code in this repository and configures nothing.",
+      detail: redisShared ? t("services.redisShared") : t("services.redisLocal"),
+      truth: redisShared ? t("services.redisTruthShared") : t("services.redisTruthLocal"),
     },
   ];
 
@@ -112,37 +124,37 @@ export default async function IntegrationsPage() {
     <AdminLayout>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Platform"
-          title="Integration hub"
-          description="Configuration, health evidence, durable queue state and ERP acceptance truth are shown separately."
-          dateline="A credential being present is never presented as a successful integration"
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
+          dateline={t("dateline")}
         />
 
         {/* Two panels rather than one seven-cell strip: the outbound queue and
             the inbound queue are different ledgers and were never one row. */}
         <div className="space-y-4">
           <div>
-            <Eyebrow className="mb-2">Outbound durable queue</Eyebrow>
+            <Eyebrow className="mb-2">{t("outbox.title")}</Eyebrow>
             <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
-              <CountStat label="Pending" value={summary.outbox.pending} />
-              <CountStat label="Processing" value={summary.outbox.processing} />
-              <CountStat label="Retry" value={summary.outbox.retry} tone={summary.outbox.retry > 0 ? "warning" : "default"} />
-              <CountStat label="Dead-letter" value={summary.outbox.dead} tone={summary.outbox.dead > 0 ? "danger" : "default"} />
+              <CountStat label={t("outbox.pending")} value={summary.outbox.pending} />
+              <CountStat label={t("outbox.processing")} value={summary.outbox.processing} />
+              <CountStat label={t("outbox.retry")} value={summary.outbox.retry} tone={summary.outbox.retry > 0 ? "warning" : "default"} />
+              <CountStat label={t("outbox.dead")} value={summary.outbox.dead} tone={summary.outbox.dead > 0 ? "danger" : "default"} />
             </CellGrid>
           </div>
           <div>
-            <Eyebrow className="mb-2">Registry and inbound queue</Eyebrow>
+            <Eyebrow className="mb-2">{t("registry.title")}</Eyebrow>
             <CellGrid cols={{ base: 1, sm: 3 }} density="compact">
-              <CountStat label="ERP connections" value={summary.connections.length} rank="section" />
-              <CountStat label="Inbound retry" value={summary.inbox.retry ?? 0} tone={(summary.inbox.retry ?? 0) > 0 ? "warning" : "default"} />
-              <CountStat label="Inbound dead" value={summary.inbox.dead ?? 0} tone={(summary.inbox.dead ?? 0) > 0 ? "danger" : "default"} />
+              <CountStat label={t("registry.connections")} value={summary.connections.length} rank="section" />
+              <CountStat label={t("registry.inboundRetry")} value={summary.inbox.retry ?? 0} tone={(summary.inbox.retry ?? 0) > 0 ? "warning" : "default"} />
+              <CountStat label={t("registry.inboundDead")} value={summary.inbox.dead ?? 0} tone={(summary.inbox.dead ?? 0) > 0 ? "danger" : "default"} />
             </CellGrid>
           </div>
         </div>
 
         <section>
           <h2 className="u-h3 mb-3 inline-flex items-center gap-2 text-ink-1">
-            <Plug className="h-4 w-4 text-ink-3" aria-hidden="true" /> Runtime services
+            <Plug className="h-4 w-4 text-ink-3" aria-hidden="true" /> {t("services.title")}
           </h2>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {runtimeServices.map((service) => (
@@ -158,7 +170,7 @@ export default async function IntegrationsPage() {
                     </div>
                   </div>
                   <StatusPill tone={stateTone(service.state)} className="shrink-0 whitespace-nowrap">
-                    {service.state.replaceAll("_", " ")}
+                    {stateLabel(service.state)}
                   </StatusPill>
                 </div>
                 <p className="u-meta mt-3 font-medium text-ink-1">{service.detail}</p>
@@ -172,50 +184,47 @@ export default async function IntegrationsPage() {
 
         <section className="grid grid-cols-1 gap-4 xl:grid-cols-[380px_1fr]">
           <Surface className="p-5">
-            <h2 className="u-h3 text-ink-1">Register ERP / operational system</h2>
-            <Dateline className="mt-1">
-              Only secret-manager references are stored. Editing a connection always returns it to Disabled until an
-              admin explicitly activates it.
-            </Dateline>
+            <h2 className="u-h3 text-ink-1">{t("register.title")}</h2>
+            <Dateline className="mt-1">{t("register.dateline")}</Dateline>
             <form action={createIntegrationConnection} className="mt-4 grid gap-3">
               <label className="u-meta flex flex-col gap-1 text-ink-2">
-                System
+                {t("register.system")}
                 <select name="system" data-rung={1} className={CONTROL} defaultValue="D365">
                   <option>D365</option><option>SAP</option><option>ERP</option><option>WMS</option><option>PIM</option>
                 </select>
               </label>
               <label className="u-meta flex flex-col gap-1 text-ink-2">
-                Connection key
+                {t("register.connectionKey")}
                 <input name="connectionKey" data-rung={1} className={CONTROL} required placeholder="primary-ksa" pattern="[a-z0-9][a-z0-9_-]{1,48}" />
               </label>
               <label className="u-meta flex flex-col gap-1 text-ink-2">
-                Name
+                {t("register.name")}
                 <input name="name" data-rung={1} className={CONTROL} required placeholder="Dynamics 365 — KSA Production" minLength={2} maxLength={120} />
               </label>
               <label className="u-meta flex flex-col gap-1 text-ink-2">
-                Base URL
+                {t("register.baseUrl")}
                 <input name="baseUrl" data-rung={1} className={CONTROL} placeholder="https://erp.example.com" type="url" />
               </label>
               <label className="u-meta flex flex-col gap-1 text-ink-2">
-                Credentials reference
+                {t("register.credentialsRef")}
                 <input name="credentialsRef" data-rung={1} className={CONTROL} placeholder="env:D365_CLIENT_SECRET" />
               </label>
               <Button type="submit" variant="secondary" size="md" className="justify-self-start">
-                Save disabled connection
+                {t("register.submit")}
               </Button>
             </form>
           </Surface>
 
           <LedgerTable
-            title="ERP / system registry"
-            dateline="ACTIVE means administratively enabled. “Verified” requires a recorded successful health or transaction event."
+            title={t("registryTable.title")}
+            dateline={t("registryTable.dateline")}
             rows={summary.connections}
             getRowKey={(connection) => connection.id}
             density="compact"
             columns={[
               {
                 key: "system",
-                label: "System",
+                label: t("registryTable.columns.system"),
                 render: (connection) => (
                   <div className="min-w-0 py-1">
                     <p className="font-medium text-ink-1">{connection.name}</p>
@@ -225,26 +234,26 @@ export default async function IntegrationsPage() {
               },
               {
                 key: "endpoint",
-                label: "Endpoint / secret ref",
+                label: t("registryTable.columns.endpoint"),
                 hideOnMobile: true,
                 render: (connection) => (
                   <div className="py-1">
-                    <p className="u-meta max-w-[260px] truncate text-ink-2">{connection.baseUrl ?? "No endpoint"}</p>
-                    <p className="u-meta text-ink-3">{connection.credentialsRef ? "Secret reference set" : "No secret reference"}</p>
+                    <p className="u-meta max-w-[260px] truncate text-ink-2">{connection.baseUrl ?? t("registryTable.noEndpoint")}</p>
+                    <p className="u-meta text-ink-3">{connection.credentialsRef ? t("registryTable.secretSet") : t("registryTable.noSecret")}</p>
                   </div>
                 ),
               },
               {
                 key: "evidence",
-                label: "Evidence",
+                label: t("registryTable.columns.evidence"),
                 render: (connection) => {
                   const verified = Boolean(connection.lastSuccessAt && (!connection.lastFailureAt || connection.lastSuccessAt > connection.lastFailureAt));
                   return (
                     <div className="py-1">
                       <p className={`u-meta font-medium ${verified ? "text-success-ink" : "text-ink-3"}`}>
-                        {verified ? "Last result: verified success" : "No verified success"}
+                        {verified ? t("registryTable.verified") : t("registryTable.notVerified")}
                       </p>
-                      <p className="u-meta text-ink-3">Success: {fmtDate(connection.lastSuccessAt)}</p>
+                      <p className="u-meta text-ink-3">{t("registryTable.success", { date: fmtDate(connection.lastSuccessAt) })}</p>
                       {connection.lastError && (
                         <p className="u-meta mt-1 max-w-[260px] truncate text-danger-ink" title={connection.lastError}>
                           {connection.lastError}
@@ -256,24 +265,24 @@ export default async function IntegrationsPage() {
               },
               {
                 key: "state",
-                label: "State",
-                render: (connection) => <StatusPill tone={stateTone(connection.status)}>{connection.status}</StatusPill>,
+                label: t("registryTable.columns.state"),
+                render: (connection) => <StatusPill tone={stateTone(connection.status)}>{stateLabel(connection.status)}</StatusPill>,
               },
               {
                 key: "control",
-                label: "Control",
+                label: t("registryTable.columns.control"),
                 width: "280px",
                 render: (connection) => (
                   <div className="flex flex-col gap-2 py-1">
                     <div className="flex flex-wrap gap-1">
                       {connection.status !== "ACTIVE" && (
                         <form action={setIntegrationConnectionStatus.bind(null, connection.id, "ACTIVE")}>
-                          <Button type="submit" variant="secondary" size="xs">Activate</Button>
+                          <Button type="submit" variant="secondary" size="xs">{t("registryTable.activate")}</Button>
                         </form>
                       )}
                       {connection.status !== "DISABLED" && (
                         <form action={setIntegrationConnectionStatus.bind(null, connection.id, "DISABLED")}>
-                          <Button type="submit" variant="ghost" size="xs">Disable</Button>
+                          <Button type="submit" variant="ghost" size="xs">{t("registryTable.disable")}</Button>
                         </form>
                       )}
                     </div>
@@ -283,36 +292,41 @@ export default async function IntegrationsPage() {
                           name="companyId"
                           data-rung={1}
                           className={`${CONTROL_SM} min-w-0 flex-1`}
-                          aria-label={`Company to route through ${connection.name}`}
+                          aria-label={t("registryTable.routeCompanyLabel", { name: connection.name })}
                           required
                           defaultValue=""
                         >
-                          <option value="" disabled>Route company…</option>
+                          <option value="" disabled>{t("registryTable.routeCompanyPlaceholder")}</option>
                           {companies.map((company) => <option key={company.id} value={company.id}>{company.nameEn}</option>)}
                         </select>
                         <select
                           name="enabled"
                           data-rung={1}
                           className={`${CONTROL_SM} w-auto shrink-0`}
-                          aria-label={`Assign or remove the route on ${connection.name}`}
+                          aria-label={t("registryTable.routeModeLabel", { name: connection.name })}
                           defaultValue="true"
                         >
-                          <option value="true">Assign</option>
-                          <option value="false">Remove</option>
+                          <option value="true">{t("registryTable.assign")}</option>
+                          <option value="false">{t("registryTable.remove")}</option>
                         </select>
-                        <Button type="submit" variant="secondary" size="xs" className="shrink-0">Apply</Button>
+                        <Button type="submit" variant="secondary" size="xs" className="shrink-0">{t("registryTable.apply")}</Button>
                       </form>
                     )}
-                    <Eyebrow>{routes.filter((route) => route.connectionId === connection.id).length} company route(s)</Eyebrow>
+                    <Eyebrow>
+                      {t("registryTable.routes", {
+                        count: routes.filter((route) => route.connectionId === connection.id).length,
+                        value: String(routes.filter((route) => route.connectionId === connection.id).length),
+                      })}
+                    </Eyebrow>
                   </div>
                 ),
               },
             ]}
             empty={
               <EmptyState
-                eyebrow="Nothing registered"
-                headline="No ERP, WMS or PIM connection has been registered."
-                body="Register one on the left. It is saved disabled until an administrator explicitly activates it."
+                eyebrow={t("registryTable.emptyEyebrow")}
+                headline={t("registryTable.emptyHeadline")}
+                body={t("registryTable.emptyBody")}
                 icon={<ServerCog className="h-3.5 w-3.5" aria-hidden="true" />}
               />
             }
@@ -320,8 +334,8 @@ export default async function IntegrationsPage() {
         </section>
 
         <LedgerTable
-          title="Outbound retry / dead-letter queue"
-          dateline="Manual redrive is explicit and audited; processed messages cannot be replayed from this control."
+          title={t("outboundQueue.title")}
+          dateline={t("outboundQueue.dateline")}
           toolbar={<RefreshCcw className="h-4 w-4 text-ink-3" aria-hidden="true" />}
           rows={failedMessages}
           getRowKey={(message) => message.id}
@@ -332,7 +346,7 @@ export default async function IntegrationsPage() {
           columns={[
             {
               key: "event",
-              label: "Event",
+              label: t("outboundQueue.columns.event"),
               render: (message) => (
                 <div className="min-w-0 py-1">
                   <p className="font-medium text-ink-1">{message.eventType}</p>
@@ -340,41 +354,41 @@ export default async function IntegrationsPage() {
                 </div>
               ),
             },
-            { key: "destination", label: "Destination", render: (message) => <span className="text-ink-2">{message.destination}</span> },
-            { key: "attempts", label: "Attempts", numeric: true, render: (message) => message.attempts },
+            { key: "destination", label: t("outboundQueue.columns.destination"), render: (message) => <span className="text-ink-2">{message.destination}</span> },
+            { key: "attempts", label: t("outboundQueue.columns.attempts"), numeric: true, render: (message) => message.attempts },
             {
               key: "lastError",
-              label: "Last error",
+              label: t("outboundQueue.columns.lastError"),
               render: (message) => (
                 <span className="block max-w-[320px] truncate text-meta text-danger-ink" title={message.lastError ?? undefined}>
                   {message.lastError ?? "—"}
                 </span>
               ),
             },
-            { key: "status", label: "State", render: (message) => <StatusPill tone={stateTone(message.status)}>{message.status}</StatusPill> },
+            { key: "status", label: t("outboundQueue.columns.state"), render: (message) => <StatusPill tone={stateTone(message.status)}>{stateLabel(message.status)}</StatusPill> },
             {
               key: "redrive",
-              label: "Redrive",
+              label: t("outboundQueue.columns.redrive"),
               align: "end",
               render: (message) => (
                 <form action={redriveIntegrationMessage.bind(null, message.id)} className="flex justify-end">
-                  <Button type="submit" variant="secondary" size="xs">Redrive</Button>
+                  <Button type="submit" variant="secondary" size="xs">{t("outboundQueue.redrive")}</Button>
                 </form>
               ),
             },
           ]}
           empty={
             <EmptyState
-              eyebrow="Queue is clear"
-              headline="No outbound message is in retry or dead-letter."
-              body="A message lands here only after the durable outbox has exhausted its automatic attempts."
+              eyebrow={t("outboundQueue.emptyEyebrow")}
+              headline={t("outboundQueue.emptyHeadline")}
+              body={t("outboundQueue.emptyBody")}
             />
           }
         />
 
         <LedgerTable
-          title="Inbound retry / dead-letter queue"
-          dateline="Provider deliveries retain source identity, attempt history and audited manual redrive."
+          title={t("inboundQueue.title")}
+          dateline={t("inboundQueue.dateline")}
           toolbar={<RefreshCcw className="h-4 w-4 text-ink-3" aria-hidden="true" />}
           rows={failedInboundMessages}
           getRowKey={(message) => message.id}
@@ -385,7 +399,7 @@ export default async function IntegrationsPage() {
           columns={[
             {
               key: "event",
-              label: "Event",
+              label: t("outboundQueue.columns.event"),
               render: (message) => (
                 <div className="min-w-0 py-1">
                   <p className="font-medium text-ink-1">{message.eventType}</p>
@@ -393,34 +407,34 @@ export default async function IntegrationsPage() {
                 </div>
               ),
             },
-            { key: "source", label: "Source", render: (message) => <span className="text-ink-2">{message.source}</span> },
-            { key: "attempts", label: "Attempts", numeric: true, render: (message) => message.attempts },
+            { key: "source", label: t("inboundQueue.columns.source"), render: (message) => <span className="text-ink-2">{message.source}</span> },
+            { key: "attempts", label: t("outboundQueue.columns.attempts"), numeric: true, render: (message) => message.attempts },
             {
               key: "lastError",
-              label: "Last error",
+              label: t("outboundQueue.columns.lastError"),
               render: (message) => (
                 <span className="block max-w-[320px] truncate text-meta text-danger-ink" title={message.lastError ?? undefined}>
                   {message.lastError ?? "—"}
                 </span>
               ),
             },
-            { key: "status", label: "State", render: (message) => <StatusPill tone={stateTone(message.status)}>{message.status}</StatusPill> },
+            { key: "status", label: t("outboundQueue.columns.state"), render: (message) => <StatusPill tone={stateTone(message.status)}>{stateLabel(message.status)}</StatusPill> },
             {
               key: "redrive",
-              label: "Redrive",
+              label: t("outboundQueue.columns.redrive"),
               align: "end",
               render: (message) => (
                 <form action={redriveInboundIntegrationMessage.bind(null, message.id)} className="flex justify-end">
-                  <Button type="submit" variant="secondary" size="xs">Redrive</Button>
+                  <Button type="submit" variant="secondary" size="xs">{t("outboundQueue.redrive")}</Button>
                 </form>
               ),
             },
           ]}
           empty={
             <EmptyState
-              eyebrow="Queue is clear"
-              headline="No inbound message is in retry or dead-letter."
-              body="A provider delivery lands here only after its automatic attempts are exhausted."
+              eyebrow={t("outboundQueue.emptyEyebrow")}
+              headline={t("inboundQueue.emptyHeadline")}
+              body={t("inboundQueue.emptyBody")}
             />
           }
         />
@@ -428,9 +442,7 @@ export default async function IntegrationsPage() {
         <Surface tone="warning" className="flex gap-2 p-4">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-ink" aria-hidden="true" />
           <p className="u-ui max-w-prose text-ink-1">
-            <span className="font-medium">Activation is not certification.</span> A connection can be administratively
-            active while health is unverified. Production-pilot certification requires a successful provider/ERP
-            handshake plus an accepted and rejected transaction scenario with evidence.
+            <span className="font-medium">{t("notice.lead")}</span> {t("notice.body")}
           </p>
         </Surface>
       </div>

@@ -9,26 +9,39 @@ import type { ProductStatus } from "@avenick/database";
  * means a new status fails the build rather than rendering as a raw
  * SCREAMING_SNAKE token in front of a supplier.
  *
+ * The words themselves live in the message catalog under
+ * `sellerCatalog.status.<STATUS>` — this module is not a component and has no
+ * translator in scope, so it hands back the KEY and the caller, which does have
+ * one, resolves it. The tone stays here because it is a design decision, not a
+ * translated string.
+ *
  * The tone is the semantic pill tone, never a raw hue: four states, which is
  * what lets a table of forty rows stay calm.
  */
 export type StatusTone = "neutral" | "success" | "warning" | "danger" | "accent" | "primary";
 
 export interface StatusMeta {
-  label: string;
+  /**
+   * Message key under the `sellerCatalog.status` namespace, or null for a
+   * status nobody has labelled yet.
+   */
+  labelKey: string | null;
+  /** What to show when there is no key — the raw status, made readable. */
+  fallbackLabel: string;
   tone: StatusTone;
 }
 
-const STATUS_META: Record<ProductStatus, StatusMeta> = {
-  DRAFT: { label: "Draft", tone: "neutral" },
-  PENDING_REVIEW: { label: "In review", tone: "warning" },
-  ACTIVE: { label: "Active", tone: "success" },
-  // The seller pauses and resumes; "Paused" is the verb the bulk action and the
-  // CSV import both use, so the state is named after the action that caused it.
-  INACTIVE: { label: "Paused", tone: "neutral" },
-  SUPPRESSED: { label: "Suppressed", tone: "danger" },
-  SUSPENDED: { label: "Suspended by platform", tone: "danger" },
-  REJECTED: { label: "Rejected", tone: "danger" },
+const STATUS_TONE: Record<ProductStatus, StatusTone> = {
+  DRAFT: "neutral",
+  PENDING_REVIEW: "warning",
+  ACTIVE: "success",
+  // The seller pauses and resumes; the INACTIVE label reads "Paused", the verb
+  // the bulk action and the CSV import both use, so the state is named after
+  // the action that caused it.
+  INACTIVE: "neutral",
+  SUPPRESSED: "danger",
+  SUSPENDED: "danger",
+  REJECTED: "danger",
 };
 
 /**
@@ -51,10 +64,19 @@ export const STATUS_ORDER: ProductStatus[] = [
  * labelled yet is still a fact about the listing.
  */
 export function statusMeta(status: string): StatusMeta {
-  return (
-    STATUS_META[status as ProductStatus] ?? {
-      label: status.replace(/_/g, " ").toLowerCase(),
-      tone: "neutral",
-    }
-  );
+  // hasOwnProperty rather than `in`: `in` walks the prototype chain, so a row
+  // carrying "toString" would be treated as a known status and asked for the
+  // message key `status.toString`, which no catalog has.
+  if (Object.prototype.hasOwnProperty.call(STATUS_TONE, status)) {
+    return {
+      labelKey: `status.${status}`,
+      fallbackLabel: status,
+      tone: STATUS_TONE[status as ProductStatus],
+    };
+  }
+  return {
+    labelKey: null,
+    fallbackLabel: status.replace(/_/g, " ").toLowerCase(),
+    tone: "neutral",
+  };
 }

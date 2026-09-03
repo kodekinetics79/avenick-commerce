@@ -6,6 +6,7 @@ import { generatePayoutsForPeriod, markPayoutPaid, startPayoutProcessing } from 
 import { Receipt, CheckCircle, Clock, RefreshCw, XCircle, Store, AlertTriangle, PlayCircle } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import {
   PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Surface,
   Num, Eyebrow, Dateline, Button, type PillTone,
@@ -13,21 +14,18 @@ import {
 import { MoneyStat } from "@/app/finance/money-figures";
 import { FilterTabs, Pager, CONTROL, CONTROL_SM } from "@/components/console/chrome";
 
-export const metadata = { title: "Settlements" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminCommerce.settlements");
+  return { title: t("meta.title") };
+}
 export const dynamic = "force-dynamic";
 
-const STATUS_CONFIG: Record<PayoutStatus, { label: string; tone: PillTone; icon: typeof CheckCircle }> = {
-  PENDING: { label: "Pending", tone: "warning", icon: Clock },
-  PROCESSING: { label: "Processing", tone: "accent", icon: RefreshCw },
-  PAID: { label: "Paid", tone: "success", icon: CheckCircle },
-  FAILED: { label: "Failed", tone: "danger", icon: XCircle },
-};
-
-const CARD_LABEL: Record<PayoutStatus, string> = {
-  PENDING: "Awaiting settlement",
-  PROCESSING: "In transfer",
-  PAID: "Settled",
-  FAILED: "Failed",
+/** Tone and icon per status; the labels are translated from `settlements.status` and `settlements.card`. */
+const STATUS_META: Record<PayoutStatus, { tone: PillTone; icon: typeof CheckCircle }> = {
+  PENDING: { tone: "warning", icon: Clock },
+  PROCESSING: { tone: "accent", icon: RefreshCw },
+  PAID: { tone: "success", icon: CheckCircle },
+  FAILED: { tone: "danger", icon: XCircle },
 };
 
 const ZERO = new Prisma.Decimal(0);
@@ -62,6 +60,7 @@ interface PageProps {
 
 export default async function SettlementsPage({ searchParams }: PageProps) {
   await requireAdminSession();
+  const t = await getTranslations("adminCommerce.settlements");
 
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const limit = 25;
@@ -106,11 +105,11 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
       <div className="space-y-block">
         <PageHeader
           linkComponent={Link}
-          breadcrumbs={[{ label: "Finance", href: "/finance" }, { label: "Settlements" }]}
-          eyebrow="Money out"
-          title="Supplier settlements"
-          description="Payouts to sellers net of commission. Generating a run and every status change are audit-logged."
-          dateline="Amounts per seller and currency, as accrued · no conversion applied"
+          breadcrumbs={[{ label: t("breadcrumbFinance"), href: "/finance" }, { label: t("breadcrumbSelf") }]}
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
+          dateline={t("dateline")}
         />
 
         {ran && (
@@ -119,22 +118,27 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
           <Surface role="status" tone={failed > 0 ? "danger" : "accent"} className="p-4">
             <p className="u-ui font-medium text-ink-1">
               {generated > 0
-                ? `Settlement run created ${generated} payout${generated === 1 ? "" : "s"}.`
-                : "Settlement run created no payouts."}
+                ? t("run.created", { count: generated, value: String(generated) })
+                : t("run.createdNone")}
             </p>
             <p className="u-meta mt-1 max-w-prose text-ink-2">
-              {counter(searchParams.sellers)} seller{counter(searchParams.sellers) === 1 ? "" : "s"} examined ·{" "}
-              {counter(searchParams.claimed)} had no unclaimed accrual left in that window
-              {unpayable > 0 ? ` · ${unpayable} had nothing payable (claimable orders refunded in full)` : ""}
-              {heldSellers > 0 ? ` · ${heldSellers} held (closed seller account)` : ""}
-              {heldAccruals > 0 ? ` · ${heldAccruals} accrual${heldAccruals === 1 ? "" : "s"} held because the order is cancelled or unpaid` : ""}.
-              {generated > 0 ? " New payouts are PENDING until you record the transfer below." : ""}
+              {t("run.examined", {
+                count: counter(searchParams.sellers),
+                value: String(counter(searchParams.sellers)),
+              })}{" · "}
+              {t("run.claimed", { value: String(counter(searchParams.claimed)) })}
+              {unpayable > 0 ? ` · ${t("run.unpayable", { value: String(unpayable) })}` : ""}
+              {heldSellers > 0 ? ` · ${t("run.heldSellers", { value: String(heldSellers) })}` : ""}
+              {heldAccruals > 0
+                ? ` · ${t("run.heldAccruals", { count: heldAccruals, value: String(heldAccruals) })}`
+                : ""}.
+              {generated > 0 ? t("run.pendingNote") : ""}
             </p>
             {failed > 0 && (
               <div className="mt-3 border-t border-danger-rule pt-3">
                 <p className="u-ui inline-flex items-center gap-2 font-medium text-danger-ink">
                   <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  {failed} seller{failed === 1 ? "" : "s"} refused: the ledger did not reconcile, so nothing was written for them.
+                  {t("run.refused", { count: failed, value: String(failed) })}
                 </p>
                 <ul className="u-meta mt-1.5 list-disc space-y-0.5 ps-5 text-ink-2">
                   {refusals.map((line, index) => <li key={index}>{line}</li>)}
@@ -151,12 +155,12 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
             return (
               <MoneyStat
                 key={s}
-                label={CARD_LABEL[s]}
+                label={t(`card.${s}`)}
                 lines={lines.map((line) => ({
                   currency: line.currency,
                   formatted: money(line._sum.amount ?? ZERO, line.currency),
                 }))}
-                note={`${count} payout${count === 1 ? "" : "s"}`}
+                note={t("tiles.note", { count, value: String(count) })}
               />
             );
           })}
@@ -168,22 +172,18 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
         <Surface className="overflow-hidden">
           <div className="border-b-2 border-border-strong px-5 py-3">
             <h2 className="u-h3 inline-flex items-center gap-2 text-ink-1">
-              <PlayCircle className="h-4 w-4 text-ink-3" aria-hidden="true" /> Generate payouts
+              <PlayCircle className="h-4 w-4 text-ink-3" aria-hidden="true" /> {t("generate.title")}
             </h2>
           </div>
           {claimable.byCurrency.length === 0 ? (
             <EmptyState
-              eyebrow="Nothing awaiting settlement"
-              headline="No commission is awaiting settlement."
-              body="Commission accrues when an order containing a seller's items is paid; each accrual can be claimed into exactly one payout, and everything accrued so far already has been."
+              eyebrow={t("generate.emptyEyebrow")}
+              headline={t("generate.emptyHeadline")}
+              body={t("generate.emptyBody")}
             />
           ) : (
             <div className="p-5">
-              <p className="u-ui max-w-prose text-ink-2">
-                Unsettled commission is grouped by seller and currency: one payout per pair, one line per order, gross
-                less commission. Refunds already completed on an order are deducted from its line and their open
-                receivable is marked applied. Re-running a period cannot pay the same order twice.
-              </p>
+              <p className="u-ui max-w-prose text-ink-2">{t("generate.intro")}</p>
 
               {/* What the run has to work with, per currency. Presented as one
                   hairline-divided panel, because these figures are one fact. */}
@@ -194,9 +194,13 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                 {claimable.byCurrency.map((row) => (
                   <MoneyStat
                     key={row.currency}
-                    label={`${row.currency} awaiting settlement`}
+                    label={t("generate.currencyLabel", { currency: row.currency })}
                     lines={[{ currency: row.currency, formatted: money(row.amount, row.currency) }]}
-                    dateline={`Accrued on ${row.orders} order${row.orders === 1 ? "" : "s"} across ${row.sellers} seller${row.sellers === 1 ? "" : "s"} · oldest ${format(row.earliestAt, "MMM d, yyyy")}`}
+                    dateline={t("generate.currencyDateline", {
+                      orders: t("generate.ordersCount", { count: row.orders, value: String(row.orders) }),
+                      sellers: t("generate.sellersCount", { count: row.sellers, value: String(row.sellers) }),
+                      date: format(row.earliestAt, "MMM d, yyyy"),
+                    })}
                   />
                 ))}
               </CellGrid>
@@ -209,7 +213,7 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                 className="mt-4 flex flex-wrap items-end gap-3 border border-border p-4"
               >
                 <label className="u-meta flex flex-col gap-1 font-medium text-ink-2">
-                  Accrued from (UTC)
+                  {t("generate.from")}
                   <input
                     data-rung={1}
                     type="date"
@@ -221,7 +225,7 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                   />
                 </label>
                 <label className="u-meta flex flex-col gap-1 font-medium text-ink-2">
-                  to (UTC, inclusive)
+                  {t("generate.to")}
                   <input
                     data-rung={1}
                     type="date"
@@ -233,25 +237,25 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                   />
                 </label>
                 <label className="u-meta flex min-w-[16rem] flex-col gap-1 font-medium text-ink-2">
-                  Seller
+                  {t("generate.seller")}
                   <select data-rung={1} name="sellerId" defaultValue="" className={CONTROL}>
-                    <option value="">All sellers with unsettled commission</option>
+                    <option value="">{t("generate.allSellers")}</option>
                     {claimableSellers.map((row) => (
                       <option key={row.sellerId} value={row.sellerId}>{row.sellerName}</option>
                     ))}
                   </select>
                 </label>
                 <Button type="submit" variant="secondary" size="md">
-                  Generate payouts
+                  {t("generate.submit")}
                 </Button>
               </form>
 
               <div className="mt-4 overflow-x-auto scrollbar-thin">
                 <table className="w-full border-collapse">
-                  <caption className="sr-only">Commission awaiting settlement, by seller and currency</caption>
+                  <caption className="sr-only">{t("generate.tableCaption")}</caption>
                   <thead>
                     <tr className="border-b-2 border-border-strong">
-                      {["Seller", "Currency", "Orders", "Commission awaiting settlement"].map((h, i) => (
+                      {[t("generate.columns.seller"), t("generate.columns.currency"), t("generate.columns.orders"), t("generate.columns.commission")].map((h, i) => (
                         <th key={h} scope="col" className={`px-3 py-2 ${i === 3 ? "text-end" : "text-start"}`}>
                           <Eyebrow as="span" className="block">{h}</Eyebrow>
                         </th>
@@ -271,8 +275,7 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                 </table>
                 {claimable.truncated && (
                   <Dateline className="mt-2">
-                    Showing the largest {claimable.bySeller.length} seller/currency positions. A run with no seller
-                    selected settles every seller, including those not listed here.
+                    {t("generate.truncated", { count: String(claimable.bySeller.length) })}
                   </Dateline>
                 )}
               </div>
@@ -281,10 +284,10 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
         </Surface>
 
         <FilterTabs
-          label="Filter payouts by status"
+          label={t("filters.label")}
           tabs={([undefined, ...Object.values(PayoutStatus)] as const).map((s) => ({
             href: filterHref({ status: s }),
-            label: s ? STATUS_CONFIG[s].label : "All",
+            label: s ? t(`status.${s}`) : t("filters.all"),
             active: status === s || (!status && !s),
           }))}
         />
@@ -293,7 +296,7 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
           rows={payouts}
           getRowKey={(p) => p.id}
           stickyHead
-          dateline="One payout per seller and currency, gross less commission · no conversion applied"
+          dateline={t("table.dateline")}
           rowProps={(p) => ({
             // A payout whose lines do not add up to its own total is the one
             // thing on this page that must never be scrolled past.
@@ -306,7 +309,7 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
           columns={[
             {
               key: "seller",
-              label: "Seller",
+              label: t("columns.seller"),
               render: (p) => (
                 <span className="inline-flex items-center gap-2 py-1">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-nested bg-neutral-soft text-ink-3">
@@ -318,7 +321,7 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
             },
             {
               key: "period",
-              label: "Period",
+              label: t("columns.period"),
               hideOnMobile: true,
               render: (p) => (
                 <span className="whitespace-nowrap text-ink-2">
@@ -328,7 +331,7 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
             },
             {
               key: "lines",
-              label: "Lines",
+              label: t("columns.lines"),
               width: "22rem",
               render: (p) => {
                 // Totals are aggregated over every line; p.items is a preview.
@@ -336,13 +339,17 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                 return (
                   <details className="max-w-[22rem] py-1">
                     <summary className="u-focus cursor-pointer select-none rounded-nested text-ink-2 marker:text-ink-3">
-                      <span className="fig">{p._count.items}</span> order{p._count.items === 1 ? "" : "s"}
+                      {t.rich("lines.orders", {
+                        count: p._count.items,
+                        value: String(p._count.items),
+                        n: (chunks) => <span className="fig">{chunks}</span>,
+                      })}
                     </summary>
                     <table className="mt-2 w-full border-collapse">
-                      <caption className="sr-only">Lines making up this payout</caption>
+                      <caption className="sr-only">{t("lines.caption")}</caption>
                       <thead>
                         <tr className="border-b border-hairline">
-                          {["Order", "Gross", "Commission", "Net"].map((h, i) => (
+                          {[t("lines.columns.order"), t("lines.columns.gross"), t("lines.columns.commission"), t("lines.columns.net")].map((h, i) => (
                             <th key={h} scope="col" className={`py-1 ${i === 0 ? "text-start" : "text-end"}`}>
                               <Eyebrow as="span" className="block">{h}</Eyebrow>
                             </th>
@@ -359,7 +366,7 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                           </tr>
                         ))}
                         <tr className="border-t border-border-strong">
-                          <td className="py-1 text-meta font-medium text-ink-1">Total</td>
+                          <td className="py-1 text-meta font-medium text-ink-1">{t("lines.total")}</td>
                           <td className="fig py-1 text-end text-meta text-ink-1">{money(gross, p.currency)}</td>
                           <td className="fig py-1 text-end text-meta text-danger-ink">−{money(commission, p.currency)}</td>
                           <td className="fig py-1 text-end text-meta font-medium text-ink-1">{money(lineNet, p.currency)}</td>
@@ -368,7 +375,7 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                     </table>
                     {p._count.items > p.items.length && (
                       <Dateline className="mt-1">
-                        First {p.items.length} of {p._count.items} lines shown; the totals cover every line.
+                        {t("lines.truncated", { shown: String(p.items.length), total: String(p._count.items) })}
                       </Dateline>
                     )}
                     {p.notes && <Dateline className="mt-1.5">{p.notes}</Dateline>}
@@ -378,7 +385,7 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
             },
             {
               key: "amount",
-              label: "Payout total",
+              label: t("columns.amount"),
               numeric: true,
               render: (p) => {
                 const lineNet = p.lineTotals.net;
@@ -391,7 +398,7 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                     {!lineNet.equals(p.amount) && (
                       <span className="u-meta inline-flex items-center gap-1 whitespace-nowrap font-medium text-danger-ink">
                         <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
-                        lines total {money(lineNet, p.currency)}
+                        {t("lineMismatch", { amount: money(lineNet, p.currency) })}
                       </span>
                     )}
                   </div>
@@ -400,14 +407,14 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
             },
             {
               key: "status",
-              label: "Status",
+              label: t("columns.status"),
               render: (p) => {
-                const cfg = STATUS_CONFIG[p.status];
+                const cfg = STATUS_META[p.status];
                 const StatusIcon = cfg.icon;
                 return (
                   <div className="py-1">
                     <StatusPill tone={cfg.tone}>
-                      <StatusIcon className="h-3 w-3" aria-hidden="true" /> {cfg.label}
+                      <StatusIcon className="h-3 w-3" aria-hidden="true" /> {t(`status.${p.status}`)}
                     </StatusPill>
                     {p.processedAt && (
                       <p className="u-meta mt-0.5 text-ink-3">{format(p.processedAt, "MMM d, yyyy")}</p>
@@ -418,29 +425,29 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
             },
             {
               key: "reference",
-              label: "Reference",
+              label: t("columns.reference"),
               hideOnMobile: true,
               render: (p) => <span className="u-mono text-meta text-ink-3">{p.reference ?? "—"}</span>,
             },
             {
               key: "createdAt",
-              label: "Created",
+              label: t("columns.created"),
               hideOnMobile: true,
               render: (p) => <span className="whitespace-nowrap text-ink-2">{format(p.createdAt, "MMM d, yyyy")}</span>,
             },
             {
               key: "record",
-              label: "Record settlement",
+              label: t("columns.record"),
               width: "260px",
               render: (p) => {
-                if (p.status === "PAID") return <span className="u-meta text-ink-3">Settled</span>;
+                if (p.status === "PAID") return <span className="u-meta text-ink-3">{t("record.settled")}</span>;
                 if (p.status === "FAILED") {
                   return (
                     // The only transition out of FAILED is back to PROCESSING
                     // (finance.setPayoutStatus); a Paid control here would always error.
                     <form action={startPayoutProcessing.bind(null, p.id)}>
                       <Button type="submit" variant="secondary" size="xs">
-                        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Retry transfer
+                        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> {t("record.retry")}
                       </Button>
                     </form>
                   );
@@ -450,7 +457,7 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                     {p.status === "PENDING" && (
                       <form action={startPayoutProcessing.bind(null, p.id)}>
                         <Button type="submit" variant="secondary" size="xs">
-                          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Mark in transfer
+                          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> {t("record.markInTransfer")}
                         </Button>
                       </form>
                     )}
@@ -463,22 +470,20 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                       data-rung={1}
                       className="flex flex-col gap-1.5 border border-border p-2"
                     >
-                      <Eyebrow>Record as paid · final</Eyebrow>
+                      <Eyebrow>{t("record.eyebrow")}</Eyebrow>
                       <input
                         data-rung={1}
                         name="reference"
                         required
                         maxLength={120}
-                        placeholder="Bank reference"
-                        aria-label={`Bank reference for the payout to ${p.seller.businessNameEn}`}
+                        placeholder={t("record.referencePlaceholder")}
+                        aria-label={t("record.referenceLabel", { seller: p.seller.businessNameEn })}
                         className={CONTROL_SM}
                       />
                       <Button type="submit" variant="secondary" size="xs" className="self-start">
-                        <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" /> Mark paid
+                        <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" /> {t("record.markPaid")}
                       </Button>
-                      <span className="u-meta text-ink-3">
-                        Settles this payout&apos;s commission. It cannot be undone.
-                      </span>
+                      <span className="u-meta text-ink-3">{t("record.finalNote")}</span>
                     </form>
                   </div>
                 );
@@ -487,25 +492,25 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
+              eyebrow={t("empty.eyebrow")}
               headline={
                 status
-                  ? "No payout is in that state."
+                  ? t("empty.headlineFiltered")
                   : claimable.byCurrency.length > 0
-                    ? "No payout has been generated yet."
-                    : "No payout has been generated, and no commission is awaiting settlement."
+                    ? t("empty.headlineClaimable")
+                    : t("empty.headlineNone")
               }
               body={
                 status
-                  ? "Clear the status filter to see every payout on record."
+                  ? t("empty.bodyFiltered")
                   : claimable.byCurrency.length > 0
-                    ? "The commission above is awaiting a settlement run. Generating one writes a payout per seller and currency."
-                    : "Commission accrues when an order containing a seller's items is paid; a payout is written when a run claims it."
+                    ? t("empty.bodyClaimable")
+                    : t("empty.bodyNone")
               }
               action={
                 status ? (
                   <Button variant="secondary" size="sm" asChild>
-                    <Link href="/settlements">Show every payout</Link>
+                    <Link href="/settlements">{t("empty.action")}</Link>
                   </Button>
                 ) : undefined
               }
@@ -517,11 +522,11 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
               page={page}
               totalPages={totalPages}
               hrefFor={(target) => filterHref({ page: String(target) })}
-              summary={
-                <>
-                  <span className="fig text-ink-2">{total}</span> payout{total === 1 ? "" : "s"} in the current filter
-                </>
-              }
+              summary={t.rich("footer", {
+                total: String(total),
+                count: total,
+                n: (chunks) => <span className="fig text-ink-2">{chunks}</span>,
+              })}
             />
           }
         />

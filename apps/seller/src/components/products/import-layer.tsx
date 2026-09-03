@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { AlertCircle, FileSpreadsheet, Loader2, UploadCloud } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button, Dateline, Eyebrow, FieldWell, Layer } from "@avenick/ui";
 import { SELLER_BULK_STATUSES } from "@/lib/product-status-transitions";
 import { importProductsCsv } from "@/app/products/actions";
@@ -32,6 +33,7 @@ export function ImportLayer({
   /** Handed the report so it can live on the page rather than inside a modal. */
   onComplete: (report: ActionReportData) => void;
 }) {
+  const t = useTranslations("sellerCatalog");
   const fileRef = React.useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = React.useState(false);
   const [pending, setPending] = React.useState(false);
@@ -43,7 +45,16 @@ export function ImportLayer({
     try {
       const parsed = toImportRows(parseCsv(await file.text()));
       if ("error" in parsed) {
-        setProblem(parsed.error);
+        // csv.ts names the refusal; the wording is this sheet's, because that
+        // module has no translator in scope.
+        setProblem(
+          parsed.error.code === "NO_DATA_ROWS"
+            ? { title: t("import.problem.noDataRows.title"), detail: t("import.problem.noDataRows.detail") }
+            : {
+                title: t("import.problem.noSkuColumn.title"),
+                detail: t("import.problem.noSkuColumn.detail", { header: parsed.error.expectedHeader }),
+              },
+        );
         return;
       }
 
@@ -55,35 +66,38 @@ export function ImportLayer({
       // applied, so every line the platform returned is listed.
       const notes: string[] = [];
       if (result.skipped > 0) {
-        notes.push(
-          `${result.skipped} row${result.skipped === 1 ? "" : "s"} changed nothing. A row whose SKU cell is empty is counted here without a line of its own, because there is no listing to name.`,
-        );
+        notes.push(t("import.notes.skipped", { count: result.skipped, n: String(result.skipped) }));
       }
       // Derived from the answer rather than from a copy of the server's batch
       // ceiling: rows the platform neither updated nor skipped were never seen.
       const unprocessed = parsed.rows.length - (result.updated + result.skipped);
       if (unprocessed > 0) {
-        notes.push(
-          `${unprocessed} row${unprocessed === 1 ? " was" : "s were"} not processed — an import is applied in a bounded batch. Split the file and import the remainder.`,
-        );
+        notes.push(t("import.notes.unprocessed", { count: unprocessed, n: String(unprocessed) }));
       }
 
       onComplete({
         tone: result.updated > 0 ? (result.errors.length > 0 ? "warning" : "success") : "danger",
-        headline: `${result.updated} listing${result.updated === 1 ? "" : "s"} updated from ${file.name}`,
-        dateline: `Rows matched to your catalog by SKU · ${parsed.rows.length} data row${parsed.rows.length === 1 ? "" : "s"} read from the file`,
-        linesTitle: "What the platform refused",
+        headline: t("import.report.headline", {
+          count: result.updated,
+          n: String(result.updated),
+          file: file.name,
+        }),
+        dateline: t("import.report.dateline", {
+          count: parsed.rows.length,
+          n: String(parsed.rows.length),
+        }),
+        linesTitle: t("import.report.linesTitle"),
         lines: result.errors.map((message, index) => {
           const { sku, detail } = splitImportIssue(message);
-          return { key: `${index}-${message}`, label: sku ?? "Row", detail };
+          return { key: `${index}-${message}`, label: sku ?? t("import.report.rowLabel"), detail };
         }),
         ...(notes.length > 0 ? { note: notes.join(" ") } : {}),
       });
       onOpenChange(false);
     } catch (error) {
       setProblem({
-        title: "The import did not run",
-        detail: error instanceof Error ? error.message : "Nothing was changed. Try the file again.",
+        title: t("import.problem.didNotRun.title"),
+        detail: error instanceof Error ? error.message : t("import.problem.didNotRun.detail"),
       });
     } finally {
       setPending(false);
@@ -99,13 +113,13 @@ export function ImportLayer({
         // from. This is the only place the layer refuses to close.
         if (!pending) onOpenChange(next);
       }}
-      title="Import a product CSV"
-      description="Existing listings are matched by SKU and updated. A SKU that is not already in your catalog is reported back, never created."
+      title={t("import.title")}
+      description={t("import.description")}
       size="lg"
       footer={
         <div className="flex items-center justify-end gap-2">
           <Button variant="ghost" size="sm" disabled={pending} onClick={() => onOpenChange(false)}>
-            Cancel
+            {t("import.cancel")}
           </Button>
         </div>
       }
@@ -145,8 +159,11 @@ export function ImportLayer({
             // to stop.
             if (dropped.length > 1) {
               setProblem({
-                title: "One file at a time",
-                detail: `${dropped.length} files were dropped. Nothing was imported — drop the one you want applied.`,
+                title: t("import.problem.oneFileAtATime.title"),
+                detail: t("import.problem.oneFileAtATime.detail", {
+                  count: dropped.length,
+                  n: String(dropped.length),
+                }),
               });
               return;
             }
@@ -167,9 +184,13 @@ export function ImportLayer({
             <UploadCloud className="h-6 w-6 text-ink-3" aria-hidden="true" />
           )}
           <span className="u-body font-medium text-ink-1">
-            {pending ? "Applying the file…" : dragging ? "Drop the file to import it" : "Drop a CSV here, or choose a file"}
+            {pending
+              ? t("import.dropzone.applying")
+              : dragging
+                ? t("import.dropzone.drop")
+                : t("import.dropzone.idle")}
           </span>
-          <span className="u-meta text-ink-3">Comma separated, with a header row.</span>
+          <span className="u-meta text-ink-3">{t("import.dropzone.format")}</span>
         </button>
 
         {problem && (
@@ -183,35 +204,34 @@ export function ImportLayer({
 
         <FieldWell padded className="space-y-2">
           <Eyebrow className="flex items-center gap-1.5">
-            <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden="true" /> Columns
+            <FileSpreadsheet className="h-3.5 w-3.5" aria-hidden="true" /> {t("import.columns.eyebrow")}
           </Eyebrow>
           <p className="u-mono text-meta text-ink-1">{PRODUCT_CSV_HEADERS.join(",")}</p>
           <ul className="u-ui space-y-1 text-ink-2">
             <li>
-              <span className="u-mono text-meta text-ink-1">sku</span> — required. It is how a row finds its listing.
+              <span className="u-mono text-meta text-ink-1">sku</span> {t("import.columns.sku")}
             </li>
             <li>
               <span className="u-mono text-meta text-ink-1">nameEn</span>,{" "}
               <span className="u-mono text-meta text-ink-1">nameAr</span>,{" "}
               <span className="u-mono text-meta text-ink-1">price</span>,{" "}
-              <span className="u-mono text-meta text-ink-1">stock</span> — optional. An empty cell leaves that value alone.
+              <span className="u-mono text-meta text-ink-1">stock</span> {t("import.columns.optional")}
             </li>
             <li>
-              <span className="u-mono text-meta text-ink-1">status</span> — optional. The only values a cell may carry are{" "}
+              <span className="u-mono text-meta text-ink-1">status</span> {t("import.columns.status")}{" "}
               {SELLER_BULK_STATUSES.map((value, index) => (
                 <React.Fragment key={value}>
-                  {index > 0 && " or "}
+                  {index > 0 && t("import.columns.statusOr")}
                   {/* The literal cell value, not the label the table shows: this
                       is what has to be typed into the spreadsheet, so it is set
                       in the mono face like every other identifier here. */}
                   <span className="u-mono text-meta text-ink-1">{value}</span>
                 </React.Fragment>
               ))}
-              . Every other move belongs to review or to the platform, and a cell asking for one is reported back rather
-              than applied.
+              {t("import.columns.statusTail")}
             </li>
           </ul>
-          <Dateline>Export the table first to get a file already in this shape.</Dateline>
+          <Dateline>{t("import.exportFirst")}</Dateline>
         </FieldWell>
       </div>
     </Layer>

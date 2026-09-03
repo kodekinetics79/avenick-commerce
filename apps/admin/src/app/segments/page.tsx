@@ -5,17 +5,17 @@ import { PieChart, Users, Crown } from "lucide-react";
 import {
   PageHeader, CellGrid, Surface, Bar, EmptyState, Eyebrow, Dateline,
 } from "@avenick/ui";
+import { getTranslations } from "next-intl/server";
 import { CountStat } from "@/app/finance/money-figures";
 
-export const metadata = { title: "Customer Segments" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminCommerce.segments");
+  return { title: t("meta.title") };
+}
 export const dynamic = "force-dynamic";
 
-const ROLE_LABEL: Record<string, string> = {
-  CONSUMER: "B2C consumers",
-  COMPANY_ADMIN: "Company admins",
-  COMPANY_BUYER: "Company buyers",
-  COMPANY_APPROVER: "Company approvers",
-};
+/** Buyer roles the platform models; the labels come from `segments.role`. */
+const KNOWN_ROLES = new Set(["CONSUMER", "COMPANY_ADMIN", "COMPANY_BUYER", "COMPANY_APPROVER"]);
 
 // Spend is SUM(order total) per buyer as recorded in each order's own currency;
 // nothing is converted, so the figure carries no currency symbol.
@@ -23,50 +23,54 @@ const amount = (n: number) => n.toLocaleString("en", { maximumFractionDigits: 0 
 
 export default async function SegmentsPage() {
   await requireAdminSession();
+  const t = await getTranslations("adminCommerce.segments");
 
   const s = await getCustomerSegments();
+  // A role the platform does not model is shown by its own code rather than
+  // under an invented label.
+  const roleLabel = (role: string) => (KNOWN_ROLES.has(role) ? t(`role.${role}`) : role);
   const totalUsers = s.byRole.reduce((sum, r) => sum + r.count, 0);
 
   return (
     <AdminLayout>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="CRM"
-          title="Customer segments"
-          description="Segments computed live from user roles and purchase behaviour — no manual lists to maintain."
-          dateline="Spend is the sum of order totals as recorded, each in its own currency · no conversion applied, so it carries no currency symbol"
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
+          dateline={t("dateline")}
         />
 
         <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
-          <CountStat label="Buyer accounts" value={totalUsers} rank="section" />
-          <CountStat label="Active (30d)" value={s.activeLast30d} />
-          <CountStat label="High value (top 20%)" value={s.highValue.length} />
-          <CountStat label="Dormant (60d+)" value={s.dormant60d} />
+          <CountStat label={t("stats.accounts")} value={totalUsers} rank="section" />
+          <CountStat label={t("stats.active")} value={s.activeLast30d} />
+          <CountStat label={t("stats.highValue")} value={s.highValue.length} />
+          <CountStat label={t("stats.dormant")} value={s.dormant60d} />
         </CellGrid>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* By role */}
           <Surface className="p-5">
             <h2 className="u-h3 inline-flex items-center gap-2 border-b-2 border-border-strong pb-2 text-ink-1">
-              <PieChart className="h-4 w-4 text-ink-3" aria-hidden="true" /> Buyer accounts by role
+              <PieChart className="h-4 w-4 text-ink-3" aria-hidden="true" /> {t("byRole.title")}
             </h2>
             {s.byRole.length === 0 ? (
               <EmptyState
-                eyebrow="Nothing recorded"
-                headline="No buyer account exists yet."
-                body="A role appears here as soon as one account carries it."
+                eyebrow={t("emptyEyebrow")}
+                headline={t("byRole.emptyHeadline")}
+                body={t("byRole.emptyBody")}
                 icon={<Users className="h-3.5 w-3.5" aria-hidden="true" />}
               />
             ) : (
               <ul className="mt-4 space-y-3">
                 {s.byRole.map((r, index) => (
                   <li key={r.role} className="flex items-center gap-3">
-                    <span className="u-ui w-40 shrink-0 text-ink-1">{ROLE_LABEL[r.role] ?? r.role}</span>
+                    <span className="u-ui w-40 shrink-0 text-ink-1">{roleLabel(r.role)}</span>
                     <Bar
                       value={Math.max(3, (r.count / Math.max(1, totalUsers)) * 100)}
                       max={100}
                       index={index}
-                      label={`${ROLE_LABEL[r.role] ?? r.role}: ${r.count} of ${totalUsers} accounts`}
+                      label={t("byRole.barLabel", { role: roleLabel(r.role), count: String(r.count), total: String(totalUsers) })}
                       className="flex-1"
                     />
                     <span className="fig u-ui w-10 shrink-0 text-end font-medium text-ink-1">{r.count}</span>
@@ -82,17 +86,20 @@ export default async function SegmentsPage() {
               <h2 className="u-h3 inline-flex items-center gap-2 text-ink-1">
                 {/* The one brass mark on this page — a tier marker, which is one
                     of its three permitted uses. */}
-                <Crown className="h-4 w-4 text-brass-ink" aria-hidden="true" /> High-value buyers
+                <Crown className="h-4 w-4 text-brass-ink" aria-hidden="true" /> {t("highValue.title")}
               </h2>
               <Dateline className="mt-0.5">
-                Top 20% by lifetime spend · {s.totalWithPurchases} buyer{s.totalWithPurchases === 1 ? "" : "s"} with purchases
+                {t("highValue.dateline", {
+                  count: s.totalWithPurchases,
+                  value: String(s.totalWithPurchases),
+                })}
               </Dateline>
             </div>
             {s.highValue.length === 0 ? (
               <EmptyState
-                eyebrow="Nothing recorded"
-                headline="No purchase has been made yet."
-                body="A high-value buyer appears here once orders exist to rank."
+                eyebrow={t("emptyEyebrow")}
+                headline={t("highValue.emptyHeadline")}
+                body={t("highValue.emptyBody")}
                 icon={<Crown className="h-3.5 w-3.5" aria-hidden="true" />}
               />
             ) : (
@@ -105,7 +112,7 @@ export default async function SegmentsPage() {
                     </div>
                     <div className="shrink-0 text-end">
                       <p className="fig u-ui font-medium text-ink-1">{amount(b.spent)}</p>
-                      <Eyebrow>{b.orders} order{b.orders === 1 ? "" : "s"}</Eyebrow>
+                      <Eyebrow>{t("ordersCount", { count: b.orders, value: String(b.orders) })}</Eyebrow>
                     </div>
                   </li>
                 ))}

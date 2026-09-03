@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertTriangle, ArrowRight, Ban, Clock, LogOut, XCircle } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { Button, Eyebrow, FieldWell, Surface } from "@avenick/ui";
 import { db } from "@avenick/database";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
@@ -10,7 +11,10 @@ import { getSellerAccountState } from "@/lib/auth";
 import { signOut } from "@/lib/auth-instance";
 import { sellerLandingRoute } from "@/lib/seller-home";
 
-export const metadata: Metadata = { title: "Account status" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sellerRelations");
+  return { title: t("pending.metaTitle") };
+}
 
 // Everything here is read from the acting seller's own rows; never prerender.
 export const dynamic = "force-dynamic";
@@ -47,6 +51,7 @@ const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day
 export default async function PendingPage() {
   const state = await getSellerAccountState();
   if (!state) redirect("/login");
+  const t = await getTranslations("sellerRelations");
 
   const { user, seller, membership } = state;
   // An ACTIVE seller has a workspace; the landing route honours staff
@@ -73,84 +78,105 @@ export default async function PendingPage() {
           <Surface as="span" rung={2} className="mb-3 inline-grid h-12 w-12 place-items-center rounded-lg text-lead font-medium text-ink-1">
             {brand.charAt(0).toUpperCase()}
           </Surface>
-          <h1 className="u-h2 text-ink-1">Seller Central</h1>
+          <h1 className="u-h2 text-ink-1">{t("pending.sellerCentral")}</h1>
           <p className="u-ui mt-1 text-ink-2">
-            Signed in as <span className="font-medium text-ink-1">{user.email}</span>
+            {t.rich("pending.signedInAs", {
+              email: user.email,
+              strong: (chunks) => <span className="font-medium text-ink-1">{chunks}</span>,
+            })}
           </p>
         </div>
 
         <Surface rung={2} className="space-y-4 p-6">
           {!seller ? (
-            <StatusBlock icon={AlertTriangle} tone="warning" title="Your account is not attached to a seller organisation.">
+            <StatusBlock icon={AlertTriangle} tone="warning" title={t("pending.noOrg.title")}>
               <p>
-                This login has a seller role but no seller profile behind it, so there is nothing to show here.
+                {t("pending.noOrg.body")}
                 {support ? (
                   <>
                     {" "}
-                    If you were invited to a store, ask its owner to add you; otherwise contact support at{" "}
-                    <a href={`mailto:${support}`} className="u-focus rounded-nested font-medium text-primary-ink underline">{support}</a>.
+                    {t.rich("pending.noOrg.askOwnerWithSupport", {
+                      support,
+                      link: (chunks) => (
+                        <a href={`mailto:${support}`} className="u-focus rounded-nested font-medium text-primary-ink underline">{chunks}</a>
+                      ),
+                    })}
                   </>
                 ) : (
-                  " If you were invited to a store, ask its owner to add you; otherwise contact support."
+                  ` ${t("pending.noOrg.askOwner")}`
                 )}
               </p>
             </StatusBlock>
           ) : seller.status === "PENDING_REVIEW" ? (
-            <StatusBlock icon={Clock} tone="info" title="Your application is being reviewed.">
+            <StatusBlock icon={Clock} tone="info" title={t("pending.underReview.title")}>
               <p>
-                <span className="font-medium text-ink-1">{seller.businessNameEn}</span> applied on{" "}
-                {fmtDate(seller.createdAt)}. You will not receive an email — sign in to check status.
+                {t.rich("pending.underReview.body", {
+                  date: fmtDate(seller.createdAt),
+                  name: seller.businessNameEn,
+                  strong: (chunks) => <span className="font-medium text-ink-1">{chunks}</span>,
+                })}
               </p>
               {canOpenDocuments ? (
                 <Link
                   href="/documents"
                   className="u-focus u-ui inline-flex items-center gap-1.5 rounded-nested font-medium text-primary-ink hover:underline"
                 >
-                  Upload your registration documents to speed up review
+                  {t("pending.underReview.uploadCta")}
                   {/* A direction-implying icon must flip in Arabic. */}
                   <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />
                 </Link>
               ) : (
-                <p>Registration documents are uploaded by the store owner or staff with the documents permission.</p>
+                <p>{t("pending.underReview.uploadedByOwner")}</p>
               )}
             </StatusBlock>
           ) : seller.status === "REJECTED" ? (
-            <StatusBlock icon={XCircle} tone="danger" title="Your seller application was not approved.">
+            <StatusBlock icon={XCircle} tone="danger" title={t("pending.rejected.title")}>
               <p>
-                The application for <span className="font-medium text-ink-1">{seller.businessNameEn}</span> was
-                reviewed and declined.
+                {t.rich("pending.rejected.body", {
+                  name: seller.businessNameEn,
+                  strong: (chunks) => <span className="font-medium text-ink-1">{chunks}</span>,
+                })}
               </p>
               {rejectionReason && (
                 // Recessed: the reviewer's words are context quoted into the page,
                 // and a well is what this system uses to say so.
                 <FieldWell as="blockquote" className="u-ui px-4 py-3 text-ink-1">
-                  <Eyebrow className="mb-1">Reason given by the reviewer</Eyebrow>
+                  <Eyebrow className="mb-1">{t("pending.rejected.reasonEyebrow")}</Eyebrow>
                   {rejectionReason}
                 </FieldWell>
               )}
               <p>
-                If you believe this is an error, contact support
                 {support ? (
-                  <>
-                    {" "}at <a href={`mailto:${support}`} className="u-focus rounded-nested font-medium text-primary-ink underline">{support}</a>
-                  </>
-                ) : null}
-                .
+                  t.rich("pending.rejected.contactSupportAt", {
+                    support,
+                    link: (chunks) => (
+                      <a href={`mailto:${support}`} className="u-focus rounded-nested font-medium text-primary-ink underline">{chunks}</a>
+                    ),
+                  })
+                ) : (
+                  t("pending.rejected.contactSupport")
+                )}
               </p>
             </StatusBlock>
           ) : (
-            <StatusBlock icon={Ban} tone="danger" title="Your seller account is suspended.">
+            <StatusBlock icon={Ban} tone="danger" title={t("pending.suspended.title")}>
               <p>
-                <span className="font-medium text-ink-1">{seller.businessNameEn}</span> cannot use Seller Central
-                while the suspension is in place.
+                {t.rich("pending.suspended.body", {
+                  name: seller.businessNameEn,
+                  strong: (chunks) => <span className="font-medium text-ink-1">{chunks}</span>,
+                })}
                 {support ? (
                   <>
                     {" "}
-                    To discuss it, contact support at{" "}
-                    <a href={`mailto:${support}`} className="u-focus rounded-nested font-medium text-primary-ink underline">{support}</a>.
+                    {t.rich("pending.suspended.contactSupportAt", {
+                      support,
+                      link: (chunks) => (
+                        <a href={`mailto:${support}`} className="u-focus rounded-nested font-medium text-primary-ink underline">{chunks}</a>
+                      ),
+                    })}
                   </>
                 ) : (
-                  " To discuss it, contact support."
+                  ` ${t("pending.suspended.contactSupport")}`
                 )}
               </p>
             </StatusBlock>
@@ -164,7 +190,7 @@ export default async function PendingPage() {
             className="border-t border-hairline pt-3"
           >
             <Button type="submit" variant="ghost" size="sm">
-              <LogOut className="h-4 w-4" aria-hidden="true" /> Sign out
+              <LogOut className="h-4 w-4" aria-hidden="true" /> {t("pending.signOut")}
             </Button>
           </form>
         </Surface>

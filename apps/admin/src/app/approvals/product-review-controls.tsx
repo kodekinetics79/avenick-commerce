@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, RefreshCw, XCircle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button, Input, Surface } from "@avenick/ui";
 import { approvePendingProduct, rejectPendingProduct } from "./actions";
 import { DecisionNoticeInline } from "./decision-notice";
@@ -42,6 +43,7 @@ interface Props {
  * compare-and-swap notice, because when it appears nothing was written.
  */
 export function ProductReviewControls({ productId, onOutcome }: Props) {
+  const t = useTranslations("adminReview");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [rejecting, setRejecting] = useState(false);
@@ -63,7 +65,7 @@ export function ProductReviewControls({ productId, onOutcome }: Props) {
         onOutcome?.("failed", "approve");
         return;
       }
-      setDone(result.message ?? "Approved");
+      setDone(result.message ?? t("productReview.approvedFallback"));
       onOutcome?.("committed", "approve");
       router.refresh();
     });
@@ -72,7 +74,7 @@ export function ProductReviewControls({ productId, onOutcome }: Props) {
   function reject() {
     const trimmed = reason.trim();
     if (!trimmed) {
-      setFieldError("A rejection reason is required");
+      setFieldError(t("productReview.reasonRequired"));
       return;
     }
     setFieldError(null);
@@ -95,7 +97,7 @@ export function ProductReviewControls({ productId, onOutcome }: Props) {
         onOutcome?.("failed", "reject");
         return;
       }
-      setDone(result.message ?? "Rejected");
+      setDone(result.message ?? t("productReview.rejectedFallback"));
       setRejecting(false);
       onOutcome?.("committed", "reject");
       router.refresh();
@@ -119,7 +121,7 @@ export function ProductReviewControls({ productId, onOutcome }: Props) {
         <Surface
           rung={1}
           as="form"
-          aria-label="Reject this listing"
+          aria-label={t("productReview.formLabel")}
           className="w-full max-w-sm space-y-2 p-3"
           onSubmit={(event) => {
             event.preventDefault();
@@ -128,14 +130,14 @@ export function ProductReviewControls({ productId, onOutcome }: Props) {
         >
           <Input
             autoFocus
-            label="Reason the seller will see"
+            label={t("productReview.reasonLabel")}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="What has to change before this can be listed"
+            placeholder={t("productReview.reasonPlaceholder")}
             maxLength={1000}
             disabled={pending}
             error={fieldError ?? undefined}
-            hint="Written to the seller's issues queue."
+            hint={t("productReview.reasonHint")}
           />
           <div className="flex items-center justify-end gap-2">
             <Button
@@ -149,17 +151,17 @@ export function ProductReviewControls({ productId, onOutcome }: Props) {
                 setRefusal(null);
               }}
             >
-              Cancel
+              {t("productReview.cancel")}
             </Button>
             <Button type="submit" variant="danger" size="sm" loading={pending}>
-              <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> Confirm rejection
+              <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> {t("productReview.confirmReject")}
             </Button>
           </div>
         </Surface>
       ) : (
         <div className="flex items-center gap-2">
           <Button type="button" variant="secondary" size="sm" onClick={approve} loading={pending} className="text-success-ink">
-            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> Approve
+            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> {t("productReview.approve")}
           </Button>
           <Button
             type="button"
@@ -169,7 +171,7 @@ export function ProductReviewControls({ productId, onOutcome }: Props) {
             onClick={() => setRejecting(true)}
             className="hover:text-danger-ink"
           >
-            <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> Reject
+            <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> {t("productReview.reject")}
           </Button>
         </div>
       )}
@@ -179,7 +181,7 @@ export function ProductReviewControls({ productId, onOutcome }: Props) {
           className="w-full max-w-sm"
           action={
             <Button type="button" variant="ghost" size="xs" onClick={() => router.refresh()}>
-              <RefreshCw className="h-3 w-3" aria-hidden="true" /> Re-read this row
+              <RefreshCw className="h-3 w-3" aria-hidden="true" /> {t("notice.reread")}
             </Button>
           }
         />

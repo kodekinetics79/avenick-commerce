@@ -14,14 +14,26 @@ import {
   Surface,
 } from "@avenick/ui";
 import { TrendingUp, ShoppingCart, Wallet, Package } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { ColumnChart } from "./column-chart";
 
-export const metadata = { title: "Analytics" };
+export async function generateMetadata() {
+  const t = await getTranslations("sellerShell.analytics");
+  return { title: t("title") };
+}
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/**
+ * Month keys, not month names: the axis labels are read from the message tree
+ * inside the page, where a translator exists. The order is the calendar's, so
+ * the index from Date#getMonth still addresses it.
+ */
+const MONTH_KEYS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"] as const;
 
 export default async function AnalyticsPage() {
   const { seller, membership } = await requireSellerPermission("analytics.view");
+  const t = await getTranslations("sellerShell.analytics");
+  const tMonth = await getTranslations("sellerShell.months");
+  const monthLabel = (index: number) => tMonth(MONTH_KEYS[index]!);
 
   const allItems = await db.orderItem.findMany({
     where: { sellerId: seller.id, order: { status: { notIn: ["CANCELLED", "PENDING_PAYMENT"] } } },
@@ -57,7 +69,7 @@ export default async function AnalyticsPage() {
   for (let m = 5; m >= 0; m--) {
     const d = new Date(now.getFullYear(), now.getMonth() - m, 1);
     const value = items.filter((i) => i.order.createdAt.getMonth() === d.getMonth() && i.order.createdAt.getFullYear() === d.getFullYear()).reduce((s, i) => s + Number(i.total), 0);
-    trend.push({ label: MONTHS[d.getMonth()]!, value });
+    trend.push({ label: monthLabel(d.getMonth()), value });
   }
 
   // Top products
@@ -75,7 +87,7 @@ export default async function AnalyticsPage() {
   // Revenue by category
   const byCat = new Map<string, number>();
   for (const i of items) {
-    const k = i.product?.category?.nameEn ?? "Other";
+    const k = i.product?.category?.nameEn ?? t("category.other");
     byCat.set(k, (byCat.get(k) ?? 0) + Number(i.total));
   }
   const categories = [...byCat.entries()].map(([name, revenue]) => ({ name, revenue, pct: totalRevenue > 0 ? Math.round((revenue / totalRevenue) * 100) : 0 })).sort((a, b) => b.revenue - a.revenue);
@@ -89,10 +101,10 @@ export default async function AnalyticsPage() {
     // Total revenue leads at section rank: the other three qualify it, and a
     // grid of four figures at identical weight is why nothing on this page could
     // be subordinate to anything.
-    { label: currency ? `Total revenue (${currency})` : "Total revenue", value: money(totalRevenue), icon: Wallet, rank: "section" as const, note: "Every order line outside cancelled and unpaid orders." },
-    { label: "This month", value: money(thisMonthRev), icon: TrendingUp, rank: "inline" as const, note: "Order lines placed since the 1st." },
-    { label: "Orders", value: orderIds.size, icon: ShoppingCart, rank: "inline" as const, note: "Distinct orders containing a line of yours." },
-    { label: "Avg order value", value: money(aov), icon: Package, rank: "inline" as const, note: "Revenue above divided by those orders." },
+    { key: "revenue", label: currency ? t("kpi.totalRevenueIn", { currency }) : t("kpi.totalRevenue"), value: money(totalRevenue), icon: Wallet, rank: "section" as const, note: t("kpi.totalRevenueNote") },
+    { key: "month", label: t("kpi.thisMonth"), value: money(thisMonthRev), icon: TrendingUp, rank: "inline" as const, note: t("kpi.thisMonthNote") },
+    { key: "orders", label: t("kpi.orders"), value: orderIds.size, icon: ShoppingCart, rank: "inline" as const, note: t("kpi.ordersNote") },
+    { key: "aov", label: t("kpi.aov"), value: money(aov), icon: Package, rank: "inline" as const, note: t("kpi.aovNote") },
   ];
 
   const empty = items.length === 0;
@@ -102,33 +114,34 @@ export default async function AnalyticsPage() {
       <div className="space-y-block">
         <PageHeader
           className="mb-0"
-          eyebrow="Overview"
-          title="Analytics"
-          description="Sales performance across your catalog"
-          dateline={
-            currency
-              ? `Order lines in ${currency}, excluding cancelled and unpaid orders · currencies are not converted`
-              : "No order lines recorded against this account yet"
-          }
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
+          dateline={currency ? t("datelineWithCurrency", { currency }) : t("datelineEmpty")}
         />
 
         <CellGrid cols={{ base: 2, lg: 4 }}>
           {kpis.map((k) => (
-            <Stat key={k.label} label={k.label} value={k.value} rank={k.rank} icon={k.icon} note={k.note} />
+            <Stat key={k.key} label={k.label} value={k.value} rank={k.rank} icon={k.icon} note={k.note} />
           ))}
         </CellGrid>
         {excludedCount > 0 && (
           <Dateline>
-            {excludedCount} order line{excludedCount === 1 ? "" : "s"} in {excludedCurrencies.join(", ")} {excludedCount === 1 ? "is" : "are"} not included; figures are in {currency} only and currencies are not converted.
+            {t("excluded", {
+              count: excludedCount,
+              n: String(excludedCount),
+              currencies: excludedCurrencies.join(", "),
+              currency: currency ?? "",
+            })}
           </Dateline>
         )}
 
         {empty ? (
           <Surface rung={1}>
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline="No sales have been recorded against your catalogue."
-              body="Every figure on this page is computed from your own order lines, so it stays blank until a buyer pays for one."
+              eyebrow={t("empty.eyebrow")}
+              headline={t("empty.headline")}
+              body={t("empty.body")}
             />
           </Surface>
         ) : (
@@ -137,11 +150,11 @@ export default async function AnalyticsPage() {
             <Surface rung={2} className="p-5">
               <SectionHeader
                 icon={TrendingUp}
-                title="Revenue trend"
-                dateline={`Last six calendar months, in ${currency} · column labels are abbreviated, the exact figure is on each column`}
+                title={t("trend.title")}
+                dateline={t("trend.dateline", { currency: currency ?? "" })}
               />
               <ColumnChart
-                label={`Revenue by month in ${currency}`}
+                label={t("trend.chartLabel", { currency: currency ?? "" })}
                 plotHeight="h-44"
                 data={trend.map((m) => ({
                   label: m.label,
@@ -157,12 +170,12 @@ export default async function AnalyticsPage() {
                   the revenue can be read down their own columns. */}
               <LedgerTable
                 className="min-w-0"
-                title="Top products"
-                dateline={`Your six highest-revenue products, in ${currency}`}
+                title={t("top.title")}
+                dateline={t("top.dateline", { currency: currency ?? "" })}
                 rows={topProducts}
                 getRowKey={(product) => product.name}
                 columns={[
-                  { key: "name", label: "Product", render: (product) => <span className="truncate">{product.name}</span> },
+                  { key: "name", label: t("top.columns.product"), render: (product) => <span className="truncate">{product.name}</span> },
                   {
                     key: "share",
                     // The bar is scaled to the highest-revenue product, not to a
@@ -171,7 +184,7 @@ export default async function AnalyticsPage() {
                     // headed "Share of top six", and a reader would have taken a
                     // full bar to mean 100% of the six — a percentage the data
                     // does not carry. The head now says what the bar is.
-                    label: "Vs. top product",
+                    label: t("top.columns.vsTop"),
                     width: "112px",
                     hideOnMobile: true,
                     render: (product, index) => (
@@ -180,18 +193,22 @@ export default async function AnalyticsPage() {
                         max={topMax}
                         tone="accent"
                         index={index}
-                        label={`${product.name}: ${money(product.revenue)}, against ${money(topMax)} for the highest-revenue product`}
+                        label={t("top.meterLabel", {
+                          name: product.name,
+                          value: money(product.revenue),
+                          max: money(topMax),
+                        })}
                       />
                     ),
                   },
-                  { key: "units", label: "Units", numeric: true },
-                  { key: "revenue", label: "Revenue", numeric: true, render: (product) => money(product.revenue) },
+                  { key: "units", label: t("top.columns.units"), numeric: true },
+                  { key: "revenue", label: t("top.columns.revenue"), numeric: true, render: (product) => money(product.revenue) },
                 ]}
                 empty={
                   <EmptyState
-                    eyebrow="Nothing recorded"
-                    headline="No product has sold yet."
-                    body={`Products appear here once a paid order line in ${currency} is recorded against them.`}
+                    eyebrow={t("top.empty.eyebrow")}
+                    headline={t("top.empty.headline")}
+                    body={t("top.empty.body", { currency: currency ?? "" })}
                   />
                 }
               />
@@ -199,15 +216,20 @@ export default async function AnalyticsPage() {
               {/* Revenue by category */}
               <LedgerTable
                 className="min-w-0"
-                title="Revenue by category"
-                dateline={`Share of ${money(totalRevenue)} · ${totalUnits.toLocaleString()} units across ${categories.length} categor${categories.length !== 1 ? "ies" : "y"}`}
+                title={t("category.title")}
+                dateline={t("category.dateline", {
+                  total: money(totalRevenue),
+                  units: totalUnits.toLocaleString(),
+                  count: categories.length,
+                  n: String(categories.length),
+                })}
                 rows={categories}
                 getRowKey={(category) => category.name}
                 columns={[
-                  { key: "name", label: "Category", render: (category) => <span className="truncate">{category.name}</span> },
+                  { key: "name", label: t("category.columns.category"), render: (category) => <span className="truncate">{category.name}</span> },
                   {
                     key: "share",
-                    label: "Share",
+                    label: t("category.columns.share"),
                     width: "112px",
                     hideOnMobile: true,
                     render: (category, index) => (
@@ -215,18 +237,18 @@ export default async function AnalyticsPage() {
                         value={category.pct}
                         tone="accent"
                         index={index}
-                        label={`${category.name}: ${category.pct}% of revenue`}
+                        label={t("category.meterLabel", { name: category.name, pct: String(category.pct) })}
                       />
                     ),
                   },
                   { key: "pct", label: "%", numeric: true, render: (category) => `${category.pct}%` },
-                  { key: "revenue", label: "Revenue", numeric: true, render: (category) => money(category.revenue) },
+                  { key: "revenue", label: t("category.columns.revenue"), numeric: true, render: (category) => money(category.revenue) },
                 ]}
                 empty={
                   <EmptyState
-                    eyebrow="Nothing recorded"
-                    headline="No category has revenue against it."
-                    body="A category appears here as soon as one of its products is bought."
+                    eyebrow={t("category.empty.eyebrow")}
+                    headline={t("category.empty.headline")}
+                    body={t("category.empty.body")}
                   />
                 }
               />

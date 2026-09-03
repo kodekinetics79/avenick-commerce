@@ -1,10 +1,1675 @@
 {
-  "common": { "loading": "Loading...", "error": "Something went wrong", "save": "Save", "cancel": "Cancel", "confirm": "Confirm", "delete": "Delete", "edit": "Edit", "back": "Back", "next": "Next", "submit": "Submit", "search": "Search", "filter": "Filter", "noResults": "No results found", "viewAll": "View all", "export": "Export CSV", "approve": "Approve", "reject": "Reject" },
-  "nav": { "dashboard": "Dashboard", "products": "Products", "inventory": "Inventory", "pricing": "Pricing", "orders": "Orders", "quotes": "Quotes", "customers": "Customers", "messages": "Messages", "compliance": "Compliance", "payouts": "Payouts", "reports": "Reports", "settings": "Settings", "signOut": "Sign Out", "issues": "Fix Your Products" },
-  "dashboard": { "title": "Seller Dashboard", "todaySales": "Today's Sales", "pendingOrders": "Pending Orders", "activeListings": "Active Listings", "monthRevenue": "Month Revenue", "accountHealth": "Account Health", "pendingPayout": "Pending Payout", "lowStock": "Low Stock Alerts", "compliance": "Compliance Issues", "unreadMessages": "Unread Messages", "openRFQs": "Open RFQs", "recentOrders": "Recent Orders" },
-  "products": { "title": "My Products", "new": "Add Product", "sku": "SKU", "status": "Status", "health": "Listing Health", "stock": "Stock", "price": "Price", "category": "Category", "issues": "Issues", "actions": "Actions", "noProducts": "No products found", "healthScore": "Health Score" },
-  "orders": { "title": "Orders", "orderNumber": "Order #", "buyer": "Buyer", "date": "Date", "items": "Items", "total": "Total", "status": "Status", "action": "Action", "confirm": "Confirm Order", "markShipped": "Mark as Shipped", "trackingNumber": "Tracking Number", "carrier": "Carrier", "cancel": "Cancel Order", "cancelReason": "Cancellation Reason" },
-  "compliance": { "title": "Compliance Documents", "upload": "Upload Document", "type": "Document Type", "status": "Status", "expiry": "Expiry Date", "uploaded": "Uploaded", "noDocuments": "No documents uploaded", "expiringWarning": "Expiring within 30 days", "expiredError": "Expired documents" },
-  "inventory": { "title": "Inventory", "product": "Product", "warehouse": "Warehouse", "onHand": "On Hand", "reserved": "Reserved", "available": "Available", "reorderPoint": "Reorder Point", "status": "Status", "ok": "OK", "low": "Low", "out": "Out of Stock" },
-  "payouts": { "title": "Payouts", "period": "Period", "amount": "Amount", "commission": "Commission", "net": "Net", "status": "Status", "reference": "Reference", "noPayout": "No payouts yet" }
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "submit": "Submit",
+    "search": "Search",
+    "filter": "Filter",
+    "noResults": "No results found",
+    "viewAll": "View all",
+    "export": "Export CSV",
+    "approve": "Approve",
+    "reject": "Reject"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "products": "Products",
+    "inventory": "Inventory",
+    "pricing": "Pricing",
+    "orders": "Orders",
+    "quotes": "Quotes",
+    "customers": "Customers",
+    "messages": "Messages",
+    "compliance": "Compliance",
+    "payouts": "Payouts",
+    "reports": "Reports",
+    "settings": "Settings",
+    "signOut": "Sign Out",
+    "issues": "Fix Your Products"
+  },
+  "dashboard": {
+    "title": "Seller Dashboard",
+    "todaySales": "Today's Sales",
+    "pendingOrders": "Pending Orders",
+    "activeListings": "Active Listings",
+    "monthRevenue": "Month Revenue",
+    "accountHealth": "Account Health",
+    "pendingPayout": "Pending Payout",
+    "lowStock": "Low Stock Alerts",
+    "compliance": "Compliance Issues",
+    "unreadMessages": "Unread Messages",
+    "openRFQs": "Open RFQs",
+    "recentOrders": "Recent Orders"
+  },
+  "products": {
+    "title": "My Products",
+    "new": "Add Product",
+    "sku": "SKU",
+    "status": "Status",
+    "health": "Listing Health",
+    "stock": "Stock",
+    "price": "Price",
+    "category": "Category",
+    "issues": "Issues",
+    "actions": "Actions",
+    "noProducts": "No products found",
+    "healthScore": "Health Score"
+  },
+  "orders": {
+    "title": "Orders",
+    "orderNumber": "Order #",
+    "buyer": "Buyer",
+    "date": "Date",
+    "items": "Items",
+    "total": "Total",
+    "status": "Status",
+    "action": "Action",
+    "confirm": "Confirm Order",
+    "markShipped": "Mark as Shipped",
+    "trackingNumber": "Tracking Number",
+    "carrier": "Carrier",
+    "cancel": "Cancel Order",
+    "cancelReason": "Cancellation Reason"
+  },
+  "compliance": {
+    "title": "Compliance Documents",
+    "upload": "Upload Document",
+    "type": "Document Type",
+    "status": "Status",
+    "expiry": "Expiry Date",
+    "uploaded": "Uploaded",
+    "noDocuments": "No documents uploaded",
+    "expiringWarning": "Expiring within 30 days",
+    "expiredError": "Expired documents"
+  },
+  "inventory": {
+    "title": "Inventory",
+    "product": "Product",
+    "warehouse": "Warehouse",
+    "onHand": "On Hand",
+    "reserved": "Reserved",
+    "available": "Available",
+    "reorderPoint": "Reorder Point",
+    "status": "Status",
+    "ok": "OK",
+    "low": "Low",
+    "out": "Out of Stock"
+  },
+  "payouts": {
+    "title": "Payouts",
+    "period": "Period",
+    "amount": "Amount",
+    "commission": "Commission",
+    "net": "Net",
+    "status": "Status",
+    "reference": "Reference",
+    "noPayout": "No payouts yet"
+  },
+  "sellerCatalog": {
+    "status": {
+      "DRAFT": "Draft",
+      "PENDING_REVIEW": "In review",
+      "ACTIVE": "Active",
+      "INACTIVE": "Paused",
+      "SUPPRESSED": "Suppressed",
+      "SUSPENDED": "Suspended by platform",
+      "REJECTED": "Rejected"
+    },
+    "breadcrumb": {
+      "products": "Products"
+    },
+    "report": {
+      "eyebrow": "Result",
+      "dismiss": "Dismiss this result",
+      "notChangedFallback": "Not changed"
+    },
+    "list": {
+      "eyebrow": "Catalog",
+      "title": "Products",
+      "dateline": "Every listing on this account · one active price row and one stock row for each, in its own currency and with no conversion applied — a listing priced across several channels or quantity tiers shows only the first of those rows here",
+      "aiListingCopy": "AI listing copy",
+      "addProduct": "Add product"
+    },
+    "submitted": {
+      "eyebrow": "Submitted",
+      "changes": "Listing changes were submitted for review.",
+      "listing": "Listing was submitted for review.",
+      "dateline": "It does not become active until an administrator approves it, and appearing on the public storefront is a further decision after that."
+    },
+    "table": {
+      "columns": {
+        "product": "Product",
+        "sku": "SKU",
+        "status": "Status",
+        "health": "Listing health",
+        "available": "Available",
+        "price": "Price",
+        "issues": "Issues"
+      },
+      "selectRow": "Select {name}",
+      "openIssues": "{count, plural, one {open issue on {name}} other {open issues on {name}}}",
+      "noIssues": "None",
+      "edit": "Edit",
+      "viewOnly": "View only",
+      "dateline": "Your listings as recorded, most recently updated first · a deleted listing is not shown",
+      "footerAll": "{count, plural, one {{n} listing} other {{n} listings}}",
+      "footerFiltered": "{count, plural, one {{shown} of {n} listing shown} other {{shown} of {n} listings shown}}"
+    },
+    "filters": {
+      "all": "All",
+      "needsAttention": "Needs attention"
+    },
+    "toolbar": {
+      "searchPlaceholder": "Search name or SKU",
+      "searchLabel": "Search this catalog by product name or SKU",
+      "importCsv": "Import CSV",
+      "exportSelected": "Export {n} selected",
+      "exportRows": "Export these rows",
+      "selectAllShown": "Select all {n} shown"
+    },
+    "empty": {
+      "eyebrow": "Nothing recorded",
+      "headline": "This catalog has no listings yet.",
+      "body": "A listing you add here is saved as a draft until it has been through review, and it is not on the public storefront until a further decision after that.",
+      "action": "Add your first product",
+      "readOnlyBody": "Your role can read this catalog but not add to it. Ask a seller owner for the catalog.manage permission."
+    },
+    "noMatch": {
+      "eyebrow": "No match",
+      "headline": "No listing in this catalog matches the current filter.",
+      "body": "{count, plural, one {{n} listing is recorded — clear the filter to see it.} other {{n} listings are recorded — clear the filter to see them.}}",
+      "action": "Clear the filter"
+    },
+    "skip": {
+      "NOT_APPROVED_YET": "not yet approved — submit it for review from the product form",
+      "PLATFORM_SUPPRESSED": "suppressed or suspended by {platform} — contact support",
+      "ALREADY_IN_STATUS": "already in that status",
+      "NOT_PAUSABLE": "not live, so there is nothing to pause"
+    },
+    "bulk": {
+      "barLabel": "Actions for the selected listings",
+      "selectedCount": "<fig>{n}</fig> selected",
+      "hiddenBySelection": "{count, plural, one {<fig>{n}</fig> of them is hidden by the current filter and will still be changed.} other {<fig>{n}</fig> of them are hidden by the current filter and will still be changed.}}",
+      "resume": "Resume",
+      "pause": "Pause",
+      "clearSelection": "Clear the selection",
+      "dateline": "Resuming and pausing obey the same rule as review: a listing the platform stopped, or one that has never been approved, is reported back rather than moved.",
+      "noAnswer": {
+        "title": "No answer came back",
+        "description": "The platform did not confirm this update, so what it did is not known here. Reload the list to see the catalog as it now stands."
+      },
+      "report": {
+        "resumed": "{count, plural, one {{n} listing resumed} other {{n} listings resumed}}",
+        "paused": "{count, plural, one {{n} listing paused} other {{n} listings paused}}",
+        "dateline": "{count, plural, one {Counted from the {n} listing selected, as the platform answered} other {Counted from the {n} listings selected, as the platform answered}}",
+        "notChanged": "Not changed",
+        "unreconciled": "The platform reported {changeCount, plural, one {{changes} change} other {{changes} changes}} for {listingCount, plural, one {{listings} listing} other {{listings} listings}} it did not refuse, so none are marked in the table below. Refresh to see the catalog as it now stands."
+      }
+    },
+    "import": {
+      "title": "Import a product CSV",
+      "description": "Existing listings are matched by SKU and updated. A SKU that is not already in your catalog is reported back, never created.",
+      "cancel": "Cancel",
+      "exportFirst": "Export the table first to get a file already in this shape.",
+      "dropzone": {
+        "applying": "Applying the file…",
+        "drop": "Drop the file to import it",
+        "idle": "Drop a CSV here, or choose a file",
+        "format": "Comma separated, with a header row."
+      },
+      "problem": {
+        "noDataRows": {
+          "title": "Nothing to import",
+          "detail": "The file has a header row but no data rows under it."
+        },
+        "noSkuColumn": {
+          "title": "No “sku” column",
+          "detail": "A row is matched to a listing by its SKU, so that column is required. Expected header: {header}."
+        },
+        "oneFileAtATime": {
+          "title": "One file at a time",
+          "detail": "{count, plural, one {{n} file was dropped. Nothing was imported — drop the one you want applied.} other {{n} files were dropped. Nothing was imported — drop the one you want applied.}}"
+        },
+        "didNotRun": {
+          "title": "The import did not run",
+          "detail": "Nothing was changed. Try the file again."
+        }
+      },
+      "notes": {
+        "skipped": "{count, plural, one {{n} row changed nothing. A row whose SKU cell is empty is counted here without a line of its own, because there is no listing to name.} other {{n} rows changed nothing. A row whose SKU cell is empty is counted here without a line of its own, because there is no listing to name.}}",
+        "unprocessed": "{count, plural, one {{n} row was not processed — an import is applied in a bounded batch. Split the file and import the remainder.} other {{n} rows were not processed — an import is applied in a bounded batch. Split the file and import the remainder.}}"
+      },
+      "report": {
+        "headline": "{count, plural, one {{n} listing updated from {file}} other {{n} listings updated from {file}}}",
+        "dateline": "{count, plural, one {Rows matched to your catalog by SKU · {n} data row read from the file} other {Rows matched to your catalog by SKU · {n} data rows read from the file}}",
+        "linesTitle": "What the platform refused",
+        "rowLabel": "Row"
+      },
+      "columns": {
+        "eyebrow": "Columns",
+        "sku": "— required. It is how a row finds its listing.",
+        "optional": "— optional. An empty cell leaves that value alone.",
+        "status": "— optional. The only values a cell may carry are",
+        "statusOr": " or ",
+        "statusTail": ". Every other move belongs to review or to the platform, and a cell asking for one is reported back rather than applied."
+      }
+    },
+    "inventory": {
+      "eyebrow": "Stock",
+      "title": "Inventory",
+      "dateline": "Stock rows for this seller's products, lowest quantity first · first {limit} rows · read-only",
+      "columns": {
+        "product": "Product",
+        "warehouse": "Warehouse",
+        "onHand": "On hand",
+        "reserved": "Reserved",
+        "available": "Available",
+        "reorderAt": "Reorder at",
+        "status": "Status"
+      },
+      "state": {
+        "out": "Out of stock",
+        "atReorder": "At reorder point",
+        "in": "In stock"
+      },
+      "stats": {
+        "out": {
+          "label": "Out of stock",
+          "note": "No units available to promise."
+        },
+        "atReorder": {
+          "label": "At reorder point",
+          "note": "Available stock has reached the point recorded for that location."
+        },
+        "rowsShown": {
+          "label": "Stock rows shown",
+          "note": "One row per product per warehouse location."
+        }
+      },
+      "replenish": {
+        "eyebrow": "Replenish",
+        "out": "{count, plural, one {{n} stock row is out of stock.} other {{n} stock rows are out of stock.}}",
+        "atReorder": "{count, plural, one {{n} row has reached its reorder point.} other {{n} rows have reached their reorder point.}}",
+        "dateline": "A listing with nothing available to promise can be suppressed and cannot be ordered. Stock is adjusted in the warehouse system; this page reports it and does not change it."
+      },
+      "empty": {
+        "eyebrow": "Nothing recorded",
+        "headline": "No stock has been recorded against this seller's products.",
+        "body": "A stock row appears here once a product is stocked at a warehouse location."
+      },
+      "footerCapped": "{limit} rows shown — this page reads a bounded batch, so rows beyond it are not listed.",
+      "footerCount": "{count, plural, one {{n} stock row} other {{n} stock rows}}"
+    },
+    "new": {
+      "metaTitle": "Add product",
+      "eyebrow": "Catalog",
+      "title": "Add product",
+      "description": "A new listing is saved as a draft or submitted for review. It is not shown to buyers until a {platform} approver activates it, and whether it appears on the public storefront is a separate admin decision."
+    },
+    "edit": {
+      "metaTitle": "Edit product",
+      "eyebrow": "Catalog",
+      "title": "Edit product",
+      "onPublicStorefront": "On public storefront",
+      "stale": {
+        "eyebrow": "Needs a new choice",
+        "category": "Its category “{name}” has been deactivated — choose another category before saving.",
+        "brand": "Its brand “{name}” has been deactivated — choose another brand or leave the brand blank."
+      },
+      "splitStock": {
+        "plain": "{count, plural, one {Stock is recorded in {n} location · not settable from this form · <link>Inventory</link> shows the figures read-only} other {Stock is recorded in {n} locations · not settable from this form · <link>Inventory</link> shows the figures read-only}}",
+        "withReserved": "{count, plural, one {Stock is recorded in {n} location, with {reserved} unit(s) reserved by open orders · not settable from this form · <link>Inventory</link> shows the figures read-only} other {Stock is recorded in {n} locations, with {reserved} unit(s) reserved by open orders · not settable from this form · <link>Inventory</link> shows the figures read-only}}"
+      }
+    },
+    "form": {
+      "backToProducts": "Back to products",
+      "steps": {
+        "details": "Details",
+        "description": "Description",
+        "commerce": "Channels & pricing",
+        "stock": "Stock",
+        "images": "Images",
+        "railLabel": "Product form steps",
+        "hasError": "has a field to correct"
+      },
+      "state": {
+        "DRAFT": "a draft",
+        "PENDING_REVIEW": "in review",
+        "ACTIVE": "active",
+        "INACTIVE": "paused",
+        "SUPPRESSED": "suppressed",
+        "SUSPENDED": "suspended by the platform",
+        "REJECTED": "rejected"
+      },
+      "banner": {
+        "create": {
+          "headline": "A new listing goes to review before buyers can see it.",
+          "body": "This form cannot set a listing to Active. Save it as a draft to keep working on it, or submit it for review by a {platform} approver. Appearing on the public storefront is a further admin decision on top of approval."
+        },
+        "is": "This listing is {state}.",
+        "isImmediate": "This listing is {state} — changes take effect immediately.",
+        "inReviewBody": "Saving changes keeps it in the review queue. Withdrawing it to draft takes it out of the queue until you submit it again.",
+        "draftableBody": "Saving as a draft keeps it out of the storefront. Submitting for review sends it to a {platform} approver; this form cannot set it to Active.",
+        "immediateBody": "Saving here edits the listing in place and does not change its status. Use the bulk actions on the products list to activate, deactivate or suppress it."
+      },
+      "errors": {
+        "wholeUnitsMin1": "Enter a whole number of units, 1 or more.",
+        "wholeNumberMin1": "Enter a whole number, 1 or more.",
+        "wholeNumberOrBlank": "Enter a whole number, or leave it blank.",
+        "wholeUnitsMin0": "Enter a whole number of units, 0 or more.",
+        "stockUnreadable": "The stock figure this page loaded with is unreadable. Reload the page.",
+        "correctHighlighted": "Please correct the highlighted fields.",
+        "couldNotSave": "Couldn't save this product."
+      },
+      "toast": {
+        "created": "Product created",
+        "saved": "Product saved",
+        "sentForReview": "Sent to {platform} for catalog review.",
+        "savedDraft": "Saved as a draft. It is not visible to buyers.",
+        "statusUnchanged": "Saved. Its status is unchanged."
+      },
+      "origin": {
+        "AE": "United Arab Emirates",
+        "SA": "Saudi Arabia",
+        "QA": "Qatar",
+        "KW": "Kuwait",
+        "OM": "Oman",
+        "BH": "Bahrain"
+      },
+      "details": {
+        "title": "Product details",
+        "nameEn": "Product name (English)",
+        "nameEnPlaceholder": "e.g. Hardened steel bearing assortment",
+        "nameAr": "Product name (Arabic) — optional",
+        "arabicPlaceholder": "اتركه فارغًا إذا لم تتوفر ترجمة",
+        "nameArHint": "Leave blank if you don't have a translation yet. We never copy the English name here — an untranslated listing is reported as an issue so it can be fixed properly.",
+        "sku": "SKU",
+        "skuPlaceholder": "e.g. BRG-6204-2RS",
+        "skuHint": "Unique across the marketplace. Letters, digits and . _ / -",
+        "moq": "Minimum order quantity",
+        "category": "Category",
+        "categoryPlaceholder": "Choose a category",
+        "categorySearch": "Search categories…",
+        "categoryEmpty": "No matching category",
+        "brand": "Brand — optional",
+        "brandPlaceholder": "Choose a brand, or none",
+        "brandSearch": "Search brands…",
+        "brandEmpty": "No matching brand",
+        "origin": "Country of origin — optional",
+        "originNotStated": "Not stated",
+        "tags": "Tags — optional",
+        "tagsPlaceholder": "bearings, iso-9001, industrial",
+        "tagsHint": "Comma separated, up to 20."
+      },
+      "description": {
+        "title": "Description",
+        "draftWithAi": "Draft with AI",
+        "aiContextLabel": "Product name & key specs to write from",
+        "aiContextPlaceholder": "e.g. CNC bearing assortment, hardened steel, ISO 9001",
+        "regenerate": "Regenerate",
+        "generate": "Generate",
+        "close": "Close",
+        "replaceEnglish": "Replace the English description",
+        "appendToIt": "Append to it",
+        "provenance": "Machine-drafted from the context above · check the specs before you save.",
+        "english": "English description",
+        "englishPlaceholder": "Specs, materials, certifications, typical use cases…",
+        "arabic": "Arabic description — optional"
+      },
+      "ai": {
+        "couldNotGenerate": "Couldn't generate a draft.",
+        "unavailable": "AI drafting is unavailable in this environment.",
+        "emptyDraft": "The AI service returned an empty draft.",
+        "unreachable": "Couldn't reach the AI service."
+      },
+      "channels": {
+        "title": "Sales channels",
+        "body": "Which side of the marketplace this product is offered on. A price can only be added for a channel that is switched on here.",
+        "b2c": "Sell to consumers (B2C)",
+        "b2b": "Sell to businesses (B2B)"
+      },
+      "pricing": {
+        "title": "Pricing",
+        "noCapability": "Your account does not have the <code>pricing.manage</code> capability, so prices are not editable here and this save will leave them exactly as they are.",
+        "noVatTable": "No currency has a resolvable statutory VAT rate in this environment, so a price cannot be written that checkout would accept. Pricing is unavailable until that is configured.",
+        "vatEyebrow": "VAT is set by statute, not by you",
+        "vatBody": "Checkout refuses an order whose price row disagrees with the statutory rate for the delivery destination, so the rate below is taken from the statutory table for the currency and saved with the price.",
+        "vatNoJurisdiction": "Currencies with no home VAT jurisdiction are not offered here, because no rate could be stored for them truthfully.",
+        "vatTiers": "Several rows in the same channel and currency are quantity tiers. Their ranges must not overlap: give each lower tier a max quantity below the next tier's min quantity. Only one row may cover a single unit.",
+        "statutoryTable": "Statutory table, as resolved for this environment ·",
+        "noPriceYet": "No price yet. A listing needs at least one price before it can be submitted for review.",
+        "channel": "Channel",
+        "currency": "Currency",
+        "unitPrice": "Unit price",
+        "minQty": "Min qty",
+        "maxQty": "Max qty — optional",
+        "vatRow": "VAT {rate}% — the statutory rate in {country}, saved with this price",
+        "vatRowUnavailable": "VAT unavailable — no statutory rate resolves for this currency",
+        "remove": "Remove",
+        "removeRow": "the {channel} price tier in {currency}",
+        "vatMismatch": "This price is stored at {stored}% VAT but the statutory rate in {country} is {rate}%. Orders cannot be placed while those disagree — saving corrects it to {rate}%.",
+        "addB2C": "Add B2C price",
+        "addB2B": "Add B2B price"
+      },
+      "stock": {
+        "title": "Stock",
+        "noCapability": "Your account does not have the <code>inventory.manage</code> capability, so stock is not editable here and this save will leave it exactly as it is.",
+        "split": "Stock for this product is held in more than one location, so it cannot be set from a single field here. The seller portal has no per-location stock adjustment yet; the <link>Inventory</link> page shows the current figures but cannot change them.",
+        "openingLabel": "Opening stock on hand",
+        "label": "Stock on hand",
+        "reservedHint": "{count, plural, one {{n} unit is reserved by open orders — on-hand stock cannot be set below that.} other {{n} units are reserved by open orders — on-hand stock cannot be set below that.}}",
+        "openingHint": "Leave blank to record no opening stock.",
+        "hint": "Only a changed figure is saved; leaving it as loaded leaves stock untouched."
+      },
+      "images": {
+        "title": "Images",
+        "primary": "Primary",
+        "removeImage": "Remove image {position}",
+        "uploading": "Uploading…",
+        "atCeiling": "This listing already has {max} images",
+        "dropToUpload": "Drop the images to upload them",
+        "dropzoneIdle": "Drop images here, or choose files",
+        "policy": "{types}, up to {mb} MB each · {max} images maximum",
+        "primaryNote": "The first image is the one buyers see as the primary one.",
+        "uploadsDisabled": "Image upload is unavailable in this environment — file storage is not configured, so no upload could be stored. You can save this listing now; until an image is added it will carry a “missing images” issue on the <link>Fix Your Products</link> page.",
+        "tooLarge": "“{name}” is larger than {mb} MB and was not uploaded.",
+        "unreachable": "Couldn't reach the upload service. Save the listing now and add images later.",
+        "unavailable": "Image upload is unavailable right now (HTTP {status}). You can save the listing without images.",
+        "unusableGrant": "The upload service returned a response this form can't use. No image was attached.",
+        "putFailedWithStatus": "Uploading “{name}” failed (HTTP {status}). No image was attached.",
+        "putFailed": "Uploading “{name}” failed. No image was attached."
+      },
+      "bar": {
+        "step": "Step <fig>{current}</fig> of <fig>{total}</fig>",
+        "back": "Back",
+        "next": "Next",
+        "withdrawToDraft": "Withdraw to draft",
+        "saveStaysInReview": "Save changes (stays in review)",
+        "saveAsDraft": "Save as draft",
+        "resubmitForReview": "Resubmit for review",
+        "submitForReview": "Submit for review",
+        "saveChanges": "Save changes",
+        "cancel": "Cancel"
+      }
+    }
+  },
+  "sellerOps": {
+    "listSeparator": ", ",
+    "orders": {
+      "metaTitle": "Orders",
+      "eyebrow": "Fulfilment",
+      "title": "Orders",
+      "filters": {
+        "navLabel": "Filter orders by fulfilment stage",
+        "all": "All orders",
+        "confirmed": "Confirmed",
+        "processing": "Processing",
+        "shipped": "Shipped",
+        "delivered": "Delivered"
+      },
+      "dateline": {
+        "all": "Orders containing your lines · {shown} shown of {total} on your account · every total is your lines only",
+        "atStatus": "Orders containing your lines · {shown} shown of {total} at status {status} · every total is your lines only"
+      },
+      "manageShipments": "Manage shipments"
+    },
+    "orderDetail": {
+      "metaTitle": "Order detail",
+      "backToOrders": "Back to orders",
+      "eyebrow": "Order",
+      "orderTypeLabel": "Order type: ",
+      "orderStatusLabel": "Order status: ",
+      "stage": {
+        "heading": "Your fulfilment stage",
+        "railLabel": "Fulfilment stages",
+        "noneNoLines": "No fulfilment position is shown: this order carries no lines from your account.",
+        "noneOffTrack": "No fulfilment position is shown, because your lines on this order are not all inside the fulfilment sequence.",
+        "recordedAs": "Your lines are recorded as {states} · the order itself is recorded as {status}",
+        "srCompleted": "Completed: ",
+        "srCurrent": "Current stage: ",
+        "srNotReached": "Not reached: ",
+        "preRelease": "Your lines are recorded as {states} — this order has not been released for fulfilment · position only, no stage timestamps on this view",
+        "splitStages": "Position of your own lines, not the order's · your {n} lines are not all at the same stage, so the rail shows the least advanced of them · this view carries no stage timestamps",
+        "position": "Position of your own lines, not the order's · the order's own status is the pill beside the title · this view carries no stage timestamps"
+      },
+      "lines": {
+        "title": "Your lines ({n})",
+        "dateline": "Only {sellerName} lines and totals · other sellers' lines and platform charges are not shown",
+        "col": {
+          "item": "Item",
+          "qty": "Qty",
+          "unitPrice": "Unit price",
+          "vat": "VAT",
+          "lineTotal": "Line total",
+          "lineStatus": "Line status"
+        },
+        "empty": {
+          "eyebrow": "Nothing recorded",
+          "headline": "This order carries no lines from your account.",
+          "body": "You are seeing the order because it did at the time it was opened. Reload to refresh what is recorded."
+        }
+      },
+      "summary": {
+        "subtotal": "Subtotal",
+        "vat": "VAT",
+        "sellerTotal": "Seller total",
+        "dateline": "Summed from your lines above, in the order's own currency · no conversion applied"
+      }
+    },
+    "shipments": {
+      "metaTitle": "Shipments",
+      "eyebrow": "Fulfilment",
+      "title": "Shipments",
+      "description": "Track and update carrier progress for your orders.",
+      "dateline": "{count, plural, =0 {No shipments to show} one {Your most recent shipment} other {Your {n} most recent shipments}} · the counts below describe this view, not your full history",
+      "stats": {
+        "inTransit": "In transit",
+        "delivered": "Delivered",
+        "shownHere": "Shown here"
+      },
+      "status": {
+        "PENDING": "Pending",
+        "PICKED_UP": "Picked up",
+        "IN_TRANSIT": "In transit",
+        "OUT_FOR_DELIVERY": "Out for delivery",
+        "DELIVERED": "Delivered",
+        "FAILED": "Failed",
+        "RETURNED": "Returned"
+      },
+      "advance": {
+        "PENDING": "Mark picked up",
+        "PICKED_UP": "Mark in transit",
+        "IN_TRANSIT": "Out for delivery",
+        "OUT_FOR_DELIVERY": "Mark delivered"
+      },
+      "advanceAria": "{verb} for shipment {number}",
+      "recordsEvent": "Records a {status} event",
+      "orderLabel": "Order",
+      "carrierNotRecorded": "Carrier not recorded",
+      "railLabel": "Stage {index} of {total}: {status}",
+      "offSequence": "This shipment left the carrier sequence and is recorded as {status}",
+      "eventsHeading": "Carrier events",
+      "empty": {
+        "eyebrow": "Nothing recorded",
+        "headline": "No shipments have been created on your account.",
+        "body": "A shipment appears here once a confirmed order is released to a carrier.",
+        "action": "Review your orders"
+      }
+    },
+    "returns": {
+      "metaTitle": "Returns",
+      "eyebrow": "Fulfilment",
+      "title": "Returns",
+      "description": "Return requests raised by buyers against your products.",
+      "dateline": "{count, plural, =0 {No return requests to show} one {Your most recent return request} other {Your {n} most recent return requests}} · the counts below describe this view, not your full history",
+      "flash": {
+        "failed": "Action failed",
+        "done": "Done"
+      },
+      "stats": {
+        "pending": "Awaiting your response",
+        "pendingDateline": "Status REQUESTED · no response deadline is enforced by the platform",
+        "refunded": "Refunded",
+        "shownHere": "Shown here"
+      },
+      "tableDateline": "Buyer-raised requests, as recorded · a refund is executed by the platform, not from this page",
+      "col": {
+        "returnNumber": "Return",
+        "order": "Order",
+        "buyer": "Buyer",
+        "reason": "Reason",
+        "requested": "Requested",
+        "status": "Status",
+        "decision": "Decision"
+      },
+      "status": {
+        "REQUESTED": "Requested",
+        "APPROVED": "Approved",
+        "REJECTED": "Rejected",
+        "IN_TRANSIT": "In transit",
+        "RECEIVED": "Received",
+        "REFUNDED": "Refunded"
+      },
+      "approve": "Approve",
+      "reject": "Reject",
+      "approveAria": "Approve return {number}",
+      "rejectAria": "Reject return {number}",
+      "awaitingRefund": "Awaiting platform refund",
+      "empty": {
+        "eyebrow": "Nothing recorded",
+        "headline": "No buyer has raised a return against your products.",
+        "body": "A return request appears here as soon as a buyer opens one, with the decision controls on its row.",
+        "action": "Review your orders"
+      },
+      "action": {
+        "unsupportedStatus": "Unsupported return status.",
+        "notOnAccount": "That return is not available on your account.",
+        "updateFailed": "The return could not be updated. Please retry.",
+        "done": "Return {status}."
+      }
+    },
+    "payouts": {
+      "metaTitle": "Payouts",
+      "eyebrow": "Finance",
+      "title": "Payouts",
+      "description": "What the platform has settled to you, and what is still owed in either direction.",
+      "dateline": "Payout and adjustment totals, as recorded, each in its own currency · no conversion is applied",
+      "pending": {
+        "label": "Pending payout",
+        "dateline": "Payouts recorded as pending or processing"
+      },
+      "paid": {
+        "label": "Paid out",
+        "dateline": "Payouts recorded as paid, all time"
+      },
+      "commission": {
+        "label": "Commission rate",
+        "dateline": "The rate on your account today, not the rate applied to past payouts"
+      },
+      "receivable": {
+        "label": "Refund receivable",
+        "openAdjustments": "{count, plural, one {{n} open adjustment} other {{n} open adjustments}}",
+        "netPosition": "Net position",
+        "netDateline": "Pending payouts less open refund adjustments, in each currency"
+      },
+      "status": {
+        "PENDING": "Pending",
+        "PROCESSING": "Processing",
+        "PAID": "Paid",
+        "FAILED": "Failed"
+      },
+      "history": {
+        "title": "Payout history",
+        "dateline": "Every payout raised on your account, as recorded · gross, commission and net are summed from that payout's own lines",
+        "footer": "{count, plural, one {{n} payout recorded} other {{n} payouts recorded}}",
+        "col": {
+          "period": "Period",
+          "gross": "Gross",
+          "commission": "Commission",
+          "net": "Net",
+          "status": "Status",
+          "reference": "Reference",
+          "processed": "Processed"
+        },
+        "empty": {
+          "eyebrow": "Nothing recorded",
+          "headline": "No payout has been raised on your account yet.",
+          "body": "Payouts are raised by the platform as your delivered orders settle.",
+          "action": "Review your orders"
+        }
+      }
+    }
+  },
+  "sellerRelations": {
+    "common": {
+      "nothingRecorded": "Nothing recorded",
+      "actionRequired": "Action required",
+      "closed": "Closed",
+      "cancel": "Cancel",
+      "inquiry": "Inquiry",
+      "directBuyer": "Direct buyer",
+      "individualBuyer": "Individual buyer",
+      "notStated": "not stated",
+      "opensInNewTab": "(opens in a new tab)",
+      "listSeparator": ", ",
+      "itemCount": "{count, plural, one {{n} item} other {{n} items}}"
+    },
+    "rfqStatus": {
+      "DRAFT": "Draft",
+      "SUBMITTED": "Open",
+      "UNDER_REVIEW": "Under review",
+      "QUOTED": "Quoted",
+      "NEGOTIATING": "Negotiating",
+      "ACCEPTED": "Accepted",
+      "REJECTED": "Declined",
+      "EXPIRED": "Expired",
+      "CANCELLED": "Cancelled"
+    },
+    "quoteStatus": {
+      "DRAFT": "Draft",
+      "SUBMITTED": "Submitted",
+      "UNDER_REVIEW": "Under review",
+      "QUOTED": "Awaiting response",
+      "NEGOTIATING": "Negotiating",
+      "ACCEPTED": "Accepted",
+      "REJECTED": "Declined",
+      "EXPIRED": "Expired",
+      "CANCELLED": "Cancelled"
+    },
+    "documentType": {
+      "COMMERCIAL_REGISTRATION": "Commercial Registration (CR)",
+      "TRADE_LICENSE": "Trade License",
+      "VAT_CERTIFICATE": "VAT Certificate",
+      "SASO_CERTIFICATE": "SASO Certificate",
+      "SFDA_APPROVAL": "SFDA Approval",
+      "HALAL_CERTIFICATE": "Halal Certificate",
+      "ESMA_CERTIFICATE": "ESMA Certificate",
+      "ISO_CERTIFICATE": "ISO Certificate",
+      "OTHER": "Other document"
+    },
+    "sellerType": {
+      "MANUFACTURER": "Manufacturer",
+      "DISTRIBUTOR": "Distributor",
+      "IMPORTER": "Importer",
+      "RETAILER": "Retailer"
+    },
+    "sellerStatus": {
+      "PENDING_REVIEW": "Pending review",
+      "ACTIVE": "Active",
+      "SUSPENDED": "Suspended",
+      "REJECTED": "Rejected"
+    },
+    "inbox": {
+      "metaTitle": "Messages & RFQs",
+      "eyebrow": "Sourcing",
+      "title": "Messages & RFQs",
+      "description": "Requests for quotation from buyers, and the threads those buyers opened with you.",
+      "headerDateline": "Open requests no supplier has claimed, plus every request assigned to this account",
+      "aiDraftReply": "AI draft reply",
+      "rfqSectionLabel": "RFQ inbox",
+      "threadsSectionLabel": "Message threads",
+      "awaitingYourQuote": "Awaiting your quote",
+      "quotedByYou": "Quoted by you",
+      "requestsListed": "Requests listed",
+      "pastRequiredDate": "{count, plural, one {{n} past the date the buyer asked for} other {{n} past the date the buyer asked for}}",
+      "countedCapped": "Counted from the {limit} newest of {total} requests visible to this account; older ones are not listed yet · the platform publishes no response-time commitment, so a required-by date is the buyer's own and nothing here is a service level",
+      "countedListed": "Counted from the requests listed below · the platform publishes no response-time commitment, so a required-by date is the buyer's own and nothing here is a service level",
+      "noQuotePermission": "Your role can read these requests but not quote them. Ask a seller owner for the {permission} permission.",
+      "settledGroup": "Quoted, declined or closed — {n}",
+      "threadsHeading": "Message threads — {n}",
+      "unreadCount": "{count, plural, one {{n} unread} other {{n} unread}}",
+      "newCount": "{count, plural, one {{n} new} other {{n} new}}",
+      "threadsCapped": "The {limit} most recently active threads; older threads are not listed here yet.",
+      "youPrefix": "You: ",
+      "empty": {
+        "headline": "No request for quotation has reached this account.",
+        "body": "This inbox holds every open request no supplier has claimed, plus every request assigned to you. Nothing is being withheld and nothing is queued behind a filter — no buyer has submitted one that reaches this account yet.",
+        "action": "Review your listings"
+      },
+      "threadsEmpty": {
+        "headline": "No buyer has opened a conversation with you yet.",
+        "body": "Buyer messages and support threads appear here as they are raised."
+      },
+      "row": {
+        "requiredByPassed": "Required-by date passed",
+        "requiredToday": "Required today",
+        "requiredTomorrow": "Required tomorrow",
+        "requiredInDays": "{count, plural, one {Required in {n} day} other {Required in {n} days}}",
+        "receivedAndDue": "Received {received} · buyer required by {due}",
+        "viewQuote": "View quote",
+        "quoteHistory": "Quote history",
+        "quoteThisRfq": "Quote this RFQ"
+      }
+    },
+    "thread": {
+      "metaTitle": "Conversation",
+      "buyer": "Buyer",
+      "yourTeam": "Your team",
+      "platformTeam": "Platform team",
+      "system": "System",
+      "open": "Open",
+      "openedDateline": "Opened {date} · {count, plural, one {{n} message} other {{n} messages}} on record",
+      "request": "Request",
+      "order": "Order",
+      "viewOrder": "View order",
+      "noLinesOfYours": "No lines of yours on this order",
+      "quotingNeedsPermission": "Quoting needs the {permission} permission",
+      "conversation": "Conversation",
+      "replyHeading": "Reply",
+      "attachmentsUnavailable": "{count, plural, one {{n} attachment} other {{n} attachments}} — attachment viewing is not available in this portal yet.",
+      "empty": {
+        "headline": "No messages have been written on this thread.",
+        "body": "The buyer opened it, but nothing has been said yet. Your reply below would be the first."
+      }
+    },
+    "reply": {
+      "fieldLabel": "Your reply",
+      "placeholder": "Write your reply to the buyer…",
+      "placeholderClosed": "Thread closed",
+      "threadClosed": "This thread is closed. Replies are no longer accepted on it.",
+      "writeSomething": "Write a reply before sending.",
+      "sendFailed": "Couldn't send the reply — please retry.",
+      "sentVisible": "Reply sent. The buyer will see it on their RFQ page.",
+      "recordedNotVisible": "Reply recorded. This thread has no RFQ, so the buyer cannot read it yet.",
+      "provenanceRfq": "The buyer can read replies on their RFQ page.",
+      "provenanceNoRfq": "The buyer can read replies on their RFQ page; general threads are not yet visible to buyers.",
+      "charactersLeft": "{n} left",
+      "send": "Send reply",
+      "sending": "Sending…"
+    },
+    "replyErrors": {
+      "threadNotIdentified": "That conversation could not be identified — reopen it from the inbox.",
+      "tooLong": "Replies are limited to {max} characters.",
+      "permissionRequired": "Replying needs the {permission} permission. Ask your seller owner to grant it.",
+      "invalid": "Invalid reply.",
+      "rateLimited": "{count, plural, one {Reply limit reached. Try again in about {n} minute.} other {Reply limit reached. Try again in about {n} minutes.}}",
+      "notSent": "The reply could not be sent. Nothing was recorded — please try again."
+    },
+    "quotes": {
+      "metaTitle": "Quote History",
+      "eyebrow": "RFQ / Quotes",
+      "title": "Quote history",
+      "datelineCapped": "Your {limit} most recently updated quotations · every figure below describes these rows, not your lifetime total",
+      "datelineAll": "Every quotation you have submitted to buyers",
+      "rfqInbox": "RFQ inbox",
+      "tableCapped": "The {limit} most recently updated quotes; older quotes are not listed here yet.",
+      "stats": {
+        "listedNewest": "Listed (newest {limit})",
+        "totalSubmitted": "Total submitted",
+        "accepted": "Accepted",
+        "winRate": "Win rate",
+        "winRateBasis": "Accepted out of the {n} that received a decision",
+        "noDecisionYet": "No listed quote has received a decision yet",
+        "acceptedValue": "Accepted value",
+        "acceptedValueByCurrency": "Accepted value by currency",
+        "noConversion": "Each currency as recorded · no conversion applied"
+      },
+      "columns": {
+        "rfqNumber": "RFQ #",
+        "buyer": "Buyer",
+        "items": "Items",
+        "quotedTotal": "Quoted total",
+        "requiredBy": "Required by",
+        "status": "Status"
+      },
+      "empty": {
+        "headline": "You have not submitted a quotation yet.",
+        "body": "RFQs routed to you arrive in your inbox; every quote you send from there is listed here.",
+        "action": "Open the RFQ inbox"
+      }
+    },
+    "quoteSubmit": {
+      "metaTitle": "Submit Quote",
+      "eyebrow": "Respond to a request",
+      "title": "Quote {rfqNumber}",
+      "lineCount": "{count, plural, one {{n} line} other {{n} lines}}",
+      "pricedIn": "priced in {currency}",
+      "neededBy": "needed by {date}",
+      "whatTheBuyerAsked": "What the buyer asked for",
+      "newQuote": "New quote",
+      "chooseTitle": "Choose a request to quote",
+      "chooseDateline": "Requests still open for a response · pick one to start pricing it",
+      "moreItems": "+{n} more",
+      "empty": {
+        "eyebrow": "Nothing to quote",
+        "headline": "No request is open for a response right now.",
+        "body": "New buyer requests appear here as soon as they are submitted."
+      }
+    },
+    "quoteForm": {
+      "columns": {
+        "item": "Item",
+        "quantity": "Qty",
+        "unitPrice": "Unit price ({currency})",
+        "lineTotal": "Line total"
+      },
+      "unitPriceFor": "Unit price for {item}",
+      "priceEveryLine": "Enter a positive unit price for every line item.",
+      "submitFailed": "Couldn't submit the quote — please retry.",
+      "notesLabel": "Notes to the buyer (optional)",
+      "notesPlaceholder": "Lead time, delivery terms, validity period, payment terms…",
+      "quoteTotal": "Quote total",
+      "linesPricedMeter": "Line items priced",
+      "linesPriced": "{priced} of {count, plural, one {{n} line} other {{n} lines}} priced",
+      "submit": "Submit quote",
+      "submitting": "Submitting…",
+      "empty": {
+        "eyebrow": "Nothing to price",
+        "headline": "This request has no line items.",
+        "body": "Nothing can be quoted until the buyer adds at least one line to it."
+      }
+    },
+    "quoteErrors": {
+      "rfqNotIdentified": "That RFQ could not be identified — reopen it from the RFQ list.",
+      "invalidPayload": "Invalid quote payload",
+      "submitFailed": "Failed to submit the quote"
+    },
+    "documents": {
+      "metaTitle": "Document Center",
+      "eyebrow": "Compliance",
+      "title": "Document Center",
+      "description": "Every compliance and business document filed against this account.",
+      "headerDateline": "Status as at page load · a document is expired the moment its expiry date passes · warnings start {days} days out",
+      "uploadDocument": "Upload document",
+      "viewOnlyNotice": "Your role can view these documents but not upload them; a member with the {permission} capability can.",
+      "sealBasis": "{type} reviewed {date}",
+      "filedSectionLabel": "Filed documents",
+      "onFile": "On file — {n}",
+      "uploadedOn": "Uploaded {date}",
+      "expiredOn": "Expired on {date}",
+      "expiresOn": "Expires {date}",
+      "expiresToday": "(today)",
+      "daysLeft": "({count, plural, one {{n} day left} other {{n} days left}})",
+      "view": "View",
+      "viewSrHint": "{name} (opens in a new tab)",
+      "status": {
+        "APPROVED": "Valid",
+        "PENDING_REVIEW": "Under review",
+        "REJECTED": "Rejected",
+        "EXPIRED": "Expired",
+        "SUPERSEDED": "Replaced"
+      },
+      "underReviewBanner": {
+        "title": "Your application is under review — upload the documents below to complete it.",
+        "body": "Each upload is reviewed by the platform team. Its status changes here once a decision is made."
+      },
+      "standing": {
+        "eyebrow": "Compliance standing",
+        "reviewed": "Reviewed",
+        "approvedAndInDate": "{count, plural, one {{n} document on this account is approved and in date.} other {{n} documents on this account are approved and in date.}}",
+        "moreWithReviewTeam": "{count, plural, one {{n} more is with the review team.} other {{n} more are with the review team.}}",
+        "markProvenance": "The mark cites the most recently reviewed approval on file. It is drawn from that row and disappears with it.",
+        "nothingFiled": "Nothing has been filed against this account yet.",
+        "nothingApprovedYet": "Nothing is approved yet — your filings are with the review team.",
+        "noneInDate": "No filing on this account is currently approved and in date.",
+        "noMarkExplanation": "No verification mark is shown, because there is no reviewed approval to cite. One appears here as soon as the platform approves a document and records when it did."
+      },
+      "stats": {
+        "valid": "Valid documents",
+        "expiringSoon": "Expiring soon",
+        "withinDays": "Within {days} days",
+        "expired": "Expired",
+        "underReview": "Under review"
+      },
+      "action": {
+        "expiredHeadline": "{count, plural, one {{n} document expired — action required} other {{n} documents expired — action required}}",
+        "expiredBody": "{names} — upload a renewed copy so the review team can re-approve it.",
+        "renewNow": "Renew now",
+        "expiringHeadline": "{count, plural, one {{n} document expiring within {days} days} other {{n} documents expiring within {days} days}}",
+        "expiringBody": "{names} — upload renewed copies before they lapse. The current approval stays valid until the renewal is decided.",
+        "uploadRenewal": "Upload renewal"
+      },
+      "followUp": {
+        "renew": "Renew",
+        "reupload": "Re-upload",
+        "replace": "Replace"
+      },
+      "empty": {
+        "headline": "No document has been filed against {seller}.",
+        "bodyCanUpload": "Use “{action}” above to submit the first one; the review team decides on it from there.",
+        "bodyReadOnly": "Documents filed for this account will be listed here."
+      }
+    },
+    "upload": {
+      "eyebrow": "New filing",
+      "heading": "Upload a document",
+      "rule": "One review is open per document type: uploading a type that is already awaiting review replaces that upload. A document that has been approved stays approved until the admin decides on the new one.",
+      "close": "Close uploader",
+      "typeLabel": "Document type",
+      "selectType": "Select a type…",
+      "expiryLabel": "Expiry date (optional)",
+      "expiryHint": "Used to warn you before this document lapses. Leave blank if the document does not state one.",
+      "fileLabel": "File",
+      "fileHint": "Accepted: {accepted} · up to {max}. The file is stored privately and is only visible to you and the review team.",
+      "submit": "Upload for review",
+      "storageUnavailable": "Document uploads are not enabled in this environment — file storage is not configured, so no upload could be stored. Existing records are listed below.",
+      "chooseTypeFirst": "Choose the document type first.",
+      "chooseFile": "Choose a file to upload.",
+      "tooLarge": "\"{name}\" is larger than {max} and was not uploaded.",
+      "serviceUnreachable": "Couldn't reach the upload service. Nothing was uploaded.",
+      "unavailableHttp": "Upload is unavailable right now (HTTP {status}). Nothing was uploaded.",
+      "unusableResponse": "The upload service returned a response this form can't use. Nothing was uploaded.",
+      "putFailed": "Uploading \"{name}\" failed. No document was recorded.",
+      "putFailedHttp": "Uploading \"{name}\" failed (HTTP {status}). No document was recorded.",
+      "recordFailed": "The file was uploaded but could not be recorded. Please try again — the review only starts once the record exists.",
+      "phase": {
+        "presign": "Requesting upload…",
+        "put": "Uploading file…",
+        "record": "Recording document…"
+      },
+      "toast": {
+        "title": "Document submitted for review",
+        "replaced": "{type} uploaded. It replaces the previous upload that was still awaiting review.",
+        "queued": "{type} uploaded. It will appear as “{status}” until an admin decides."
+      }
+    },
+    "documentErrors": {
+      "fileNameRequired": "A file name is required",
+      "expiryNotCalendarDate": "Expiry date must be a calendar date",
+      "uploadsDisabled": "Document uploads are not enabled in this environment, so nothing was recorded.",
+      "invalidDetails": "The upload details were not valid.",
+      "foreignKey": "Only files uploaded through the Document Center can be recorded.",
+      "typeMismatch": "The file type does not match the uploaded object.",
+      "tooLarge": "The reported file size exceeds the upload ceiling.",
+      "expiryInvalid": "Expiry date is not a valid date.",
+      "expiryNotFuture": "The expiry date must be in the future — an already-expired document cannot be filed.",
+      "rateLimited": "Too many document uploads in the last hour. Please try again later.",
+      "notRecorded": "The document could not be recorded. The file was uploaded, but no record was created — please try again."
+    },
+    "documentView": {
+      "forbidden": "You do not have permission to view documents for this seller.",
+      "storageUnavailable": "File storage is not configured in this environment, so this document cannot be opened.",
+      "unopenable": "This document's file reference cannot be opened from this environment."
+    },
+    "compliance": {
+      "metaTitle": "Compliance",
+      "eyebrow": "Compliance",
+      "title": "Compliance",
+      "description": "Every document the platform holds for this account, and what it is worth right now.",
+      "headerDateline": "Status as at page load · expiry is derived on read, not stored · warnings start 30 days out",
+      "expiredHeadline": "Expired documents ({n})",
+      "expiredBody": "These documents have expired and may affect your account status.",
+      "expiringHeadline": "Expiring within 30 days ({n})",
+      "expiringBody": "Please renew these documents soon to avoid service interruptions.",
+      "status": {
+        "APPROVED": "Approved",
+        "PENDING_REVIEW": "Pending review",
+        "REJECTED": "Rejected",
+        "EXPIRED": "Expired",
+        "SUPERSEDED": "Replaced"
+      },
+      "columns": {
+        "documentType": "Document type",
+        "file": "File",
+        "status": "Status",
+        "expiry": "Expiry",
+        "uploaded": "Uploaded",
+        "followUp": "Follow-up"
+      },
+      "empty": {
+        "headline": "No compliance document has been filed for this account.",
+        "body": "Documents you upload are listed here with the decision the review team reached on each.",
+        "action": "Upload the first one"
+      }
+    },
+    "settings": {
+      "metaTitle": "Settings",
+      "eyebrow": "Account",
+      "title": "Settings",
+      "description": "How your store presents itself to buyers, and where the platform pays you.",
+      "idLabel": "ID",
+      "sellerEditable": "Seller-editable",
+      "readOnly": "Read-only",
+      "requestIncomplete": "The request did not complete. Refresh the page and try again.",
+      "profile": {
+        "title": "Business profile",
+        "description": "Names, description and city shown to buyers",
+        "nameEn": "Business name (EN)",
+        "nameAr": "Business name (AR)",
+        "descriptionEn": "Description (EN)",
+        "descriptionAr": "Description (AR)",
+        "descriptionPlaceholder": "What you sell and who you serve",
+        "city": "City",
+        "save": "Save business details",
+        "saved": "Business details saved.",
+        "savedToast": "Business details saved",
+        "nothingChanged": "Nothing to save — the details already match."
+      },
+      "registration": {
+        "title": "Registration & platform terms",
+        "description": "Verified at onboarding and set by the platform — not editable here",
+        "crNumber": "CR Number",
+        "vatNumber": "VAT Number",
+        "notProvided": "Not provided",
+        "country": "Country",
+        "sellerType": "Seller Type",
+        "tier": "Tier",
+        "status": "Status",
+        "commissionRate": "Commission Rate",
+        "contactSupport": "Contact support to change registration details."
+      },
+      "payout": {
+        "title": "Banking & payouts",
+        "description": "Bank account details held on file for payouts",
+        "iban": "IBAN",
+        "bank": "Bank",
+        "accountHolder": "Account holder",
+        "lastChangedLabel": "Last changed",
+        "lastChanged": "Last changed {date}",
+        "none": "No payout account on file.",
+        "replaceHeading": "Replace payout account",
+        "addHeading": "Add payout account",
+        "ibanPlaceholder": "Country code, check digits, account",
+        "ibanHint": "Checked against the IBAN checksum before it is stored. Spaces are ignored.",
+        "bankName": "Bank name",
+        "accountHolderName": "Account holder name",
+        "accountHolderHint": "Exactly as it appears on the bank account.",
+        "save": "Save account",
+        "replace": "Replace account",
+        "saved": "Payout account saved.",
+        "savedToast": "Payout account saved",
+        "nothingChanged": "That is already the payout account on file."
+      }
+    },
+    "settingsErrors": {
+      "businessNameRequired": "Business name is required",
+      "cityRequired": "City is required",
+      "ibanTooLong": "IBAN is too long",
+      "ibanTooShort": "IBAN is too short",
+      "ibanChecksum": "That IBAN did not pass the checksum — re-enter it exactly as printed by your bank.",
+      "bankNameRequired": "Bank name is required",
+      "accountNameRequired": "Account holder name is required",
+      "permissionWithdrawn": "You no longer have permission to manage these settings.",
+      "checkBusinessDetails": "Check the business details and try again.",
+      "checkPayoutDetails": "Check the payout account details and try again.",
+      "profileSaveFailed": "Couldn't save the business details — please retry.",
+      "payoutSaveFailed": "Couldn't save the payout account — please retry."
+    },
+    "onboarding": {
+      "metaTitle": "Onboarding",
+      "eyebrow": "Store readiness",
+      "title": "Onboarding",
+      "description": "Every item below reflects what is recorded for {seller} right now. Nothing on this page is an example.",
+      "accountStatus": "Account status: {status}",
+      "overallProgress": "Overall progress",
+      "progressMeterLabel": "Onboarding progress: {completed} of {total} steps complete",
+      "stepsComplete": "{completed} of {total} steps complete",
+      "blockedByPlatform": "{n} blocked by the platform",
+      "nextIs": "next: {step}",
+      "nothingOutstanding": "nothing outstanding",
+      "nextStep": "Next step",
+      "requiredDocuments": "Required documents",
+      "requiredDateline": "Status is read from your document records · a type with no record shows as “{notOnFile}”",
+      "documentCenter": "Document Center",
+      "missingNotice": "A document shown as “{notOnFile}” can be submitted from the <link>{center}</link>. Each upload is reviewed before it counts as approved.",
+      "notRequired": "Not required",
+      "filedOn": "filed {date}",
+      "expiresOn": "expires {date}",
+      "otherDocuments": "Other documents on file",
+      "docStatus": {
+        "APPROVED": "Approved",
+        "PENDING_REVIEW": "Under review",
+        "REJECTED": "Rejected",
+        "EXPIRED": "Expired",
+        "MISSING": "Not on file",
+        "SUPERSEDED": "Replaced"
+      },
+      "stepState": {
+        "COMPLETE": "Complete",
+        "IN_PROGRESS": "In progress",
+        "BLOCKED": "Blocked by platform",
+        "PENDING": "Not started"
+      },
+      "renewal": {
+        "pending": "Renewal pending review",
+        "rejected": "Renewal rejected",
+        "generic": "Renewal {status}"
+      },
+      "profileFields": {
+        "businessNameAr": "Arabic business name",
+        "description": "Business description",
+        "logo": "Store logo"
+      },
+      "required": {
+        "COMMERCIAL_REGISTRATION": {
+          "why": "Required for every seller account."
+        },
+        "TRADE_LICENSE": {
+          "why": "Valid trade license from your issuing authority."
+        },
+        "VAT_CERTIFICATE": {
+          "whyRegistered": "Required because VAT number {vatNumber} is recorded on your profile.",
+          "whyNotRegistered": "Only required if your account carries a VAT registration number. None is recorded on your profile."
+        }
+      },
+      "steps": {
+        "profile": {
+          "label": "Business profile",
+          "complete": "Arabic name, description, and logo are all on file.",
+          "missing": "Still missing: {fields}."
+        },
+        "documents": {
+          "label": "Compliance documents",
+          "none": "No compliance documents apply to this account.",
+          "approved": "{approved} of {count, plural, one {{n} required document} other {{n} required documents}} approved."
+        },
+        "payout": {
+          "label": "Payout details",
+          "complete": "Bank details are recorded for settlement.",
+          "missing": "No bank details are recorded on your profile, so payouts cannot be settled."
+        },
+        "products": {
+          "label": "Product listings",
+          "none": "You have no products in the catalogue yet.",
+          "active": "{active} active of {count, plural, one {{n} product} other {{n} products}} in your catalogue."
+        },
+        "firstOrder": {
+          "label": "First order",
+          "none": "No buyer has ordered from you yet.",
+          "received": "{count, plural, one {{n} order line} other {{n} order lines}} received to date."
+        }
+      },
+      "empty": {
+        "eyebrow": "Nothing filed",
+        "headline": "No document has ever been filed against this account.",
+        "body": "Nothing is recorded for {seller}, so your compliance obligations are not yet satisfied.",
+        "action": "Upload a document"
+      }
+    },
+    "pending": {
+      "metaTitle": "Account status",
+      "sellerCentral": "Seller Central",
+      "signedInAs": "Signed in as <strong>{email}</strong>",
+      "signOut": "Sign out",
+      "noOrg": {
+        "title": "Your account is not attached to a seller organisation.",
+        "body": "This login has a seller role but no seller profile behind it, so there is nothing to show here.",
+        "askOwner": "If you were invited to a store, ask its owner to add you; otherwise contact support.",
+        "askOwnerWithSupport": "If you were invited to a store, ask its owner to add you; otherwise contact support at <link>{support}</link>."
+      },
+      "underReview": {
+        "title": "Your application is being reviewed.",
+        "body": "<strong>{name}</strong> applied on {date}. You will not receive an email — sign in to check status.",
+        "uploadCta": "Upload your registration documents to speed up review",
+        "uploadedByOwner": "Registration documents are uploaded by the store owner or staff with the documents permission."
+      },
+      "rejected": {
+        "title": "Your seller application was not approved.",
+        "body": "The application for <strong>{name}</strong> was reviewed and declined.",
+        "reasonEyebrow": "Reason given by the reviewer",
+        "contactSupport": "If you believe this is an error, contact support.",
+        "contactSupportAt": "If you believe this is an error, contact support at <link>{support}</link>."
+      },
+      "suspended": {
+        "title": "Your seller account is suspended.",
+        "body": "<strong>{name}</strong> cannot use Seller Central while the suspension is in place.",
+        "contactSupport": "To discuss it, contact support.",
+        "contactSupportAt": "To discuss it, contact support at <link>{support}</link>."
+      }
+    },
+    "register": {
+      "metaTitle": "Apply to sell",
+      "brandEyebrow": "{brand} Seller Central",
+      "title": "Apply to sell on {brand}",
+      "intro": "Tell us about your business and who runs it. Applications are reviewed by the platform team before a store can trade.",
+      "haveAccount": "Already have a seller account?",
+      "signIn": "Sign in",
+      "provenance": "An application is a record on this platform from the moment it is submitted. Nothing about your business is published until the review is complete and a store is opened.",
+      "formLabel": "Seller application",
+      "step": "Step {current} of {total}",
+      "yourBusiness": "Your business",
+      "accountOwner": "Account owner",
+      "accountOwnerNote": "This person signs in to Seller Central and can invite staff later.",
+      "optionalLabel": "{label} (optional)",
+      "selectType": "Select type",
+      "selectCountry": "Select country",
+      "descriptionPlaceholder": "What you sell, which markets you serve, and anything the reviewer should know",
+      "passwordHint": "At least 8 characters, with an uppercase letter and a number.",
+      "acceptTerms": "I have read and accept the <link>terms of service</link>.",
+      "submit": "Submit application",
+      "fields": {
+        "businessNameEn": "Business name (English)",
+        "businessNameAr": "Business name (Arabic)",
+        "crNumber": "Commercial registration number",
+        "vatNumber": "VAT number",
+        "type": "Business type",
+        "country": "Country",
+        "city": "City",
+        "description": "Description",
+        "firstName": "First name",
+        "lastName": "Last name",
+        "email": "Email address",
+        "phone": "Phone number",
+        "password": "Password",
+        "language": "Preferred language",
+        "acceptTerms": "Terms of service"
+      },
+      "validation": {
+        "required": "{label} is required.",
+        "tooShort": "{label} must be at least {min} characters.",
+        "tooLong": "{label} must be at most {max} characters.",
+        "invalidEmail": "Enter a valid email address.",
+        "chooseOne": "Choose a {label}."
+      },
+      "errors": {
+        "correctFields": "Please correct the highlighted fields.",
+        "failed": "Registration failed. Please try again.",
+        "rateLimited": "Too many registration attempts. Please try again later.",
+        "unexpected": "Something went wrong. Please try again."
+      }
+    }
+  },
+  "sellerShell": {
+    "meta": {
+      "title": "Seller Central | {platform}",
+      "titleTemplate": "%s | Seller Central",
+      "description": "{platform} Seller Central — manage your store"
+    },
+    "months": {
+      "jan": "Jan",
+      "feb": "Feb",
+      "mar": "Mar",
+      "apr": "Apr",
+      "may": "May",
+      "jun": "Jun",
+      "jul": "Jul",
+      "aug": "Aug",
+      "sep": "Sep",
+      "oct": "Oct",
+      "nov": "Nov",
+      "dec": "Dec"
+    },
+    "nav": {
+      "groups": {
+        "overview": "Overview",
+        "catalog": "Catalog",
+        "orders": "Orders",
+        "rfq": "RFQ / Quotes",
+        "finance": "Finance",
+        "documents": "Documents",
+        "support": "Support",
+        "account": "Account"
+      },
+      "items": {
+        "dashboard": "Dashboard",
+        "analytics": "Analytics",
+        "performance": "Performance",
+        "products": "Products",
+        "inventory": "Inventory",
+        "listingIssues": "Listing Issues",
+        "orders": "Orders",
+        "shipments": "Shipments",
+        "returns": "Returns",
+        "inbox": "Inbox",
+        "submitQuote": "Submit Quote",
+        "quoteHistory": "Quote History",
+        "payouts": "Payouts",
+        "invoices": "Invoices",
+        "commission": "Commission",
+        "documentCenter": "Document Center",
+        "onboarding": "Onboarding",
+        "compliance": "Compliance",
+        "tickets": "Tickets",
+        "contactAdmin": "Contact Admin"
+      }
+    },
+    "tier": {
+      "STANDARD": "Standard",
+      "VERIFIED": "Verified",
+      "GOLD": "Gold",
+      "PLATINUM": "Platinum"
+    },
+    "shell": {
+      "navAriaLabel": "Seller Central sections",
+      "navItemWithCount": "{label} ({count})",
+      "openMenu": "Open navigation menu",
+      "expandNav": "Expand navigation",
+      "collapseNav": "Collapse navigation",
+      "closeMenu": "Close menu",
+      "drawerTitle": "{name} — navigation",
+      "drawerTitleFallback": "Navigation",
+      "search": "Search…",
+      "settings": "Settings",
+      "performance": "Performance",
+      "signOut": "Sign out",
+      "messages": "Messages",
+      "messagesUnread": "Messages ({count} unread)",
+      "accountMenu": "Account menu",
+      "accountMenuFor": "Account menu for {name}"
+    },
+    "score": {
+      "title": "Performance score",
+      "notEnoughData": "Not enough data yet",
+      "howCalculated": "How the performance score is calculated",
+      "meterLabel": "Performance score: {score} out of 100",
+      "provenance": "Orders from the last {days} days; listings and documents as they stand now.",
+      "provenanceDateline": "Orders from the last {days} days; listings and documents as they stand now",
+      "weightsNote": "Weights are re-scaled across the components that have data, so a component with none is left out rather than counted as zero.",
+      "noData": "no data",
+      "noDataInWindow": "no data in this window",
+      "noDataInWindowSentence": "No data in this window",
+      "goodOfTotal": "{good} of {total}",
+      "componentMeterLabel": "{label}: {detail}"
+    },
+    "dashboard": {
+      "eyebrow": "Seller overview",
+      "howCalculated": "How this is calculated",
+      "scoreEmpty": {
+        "headline": "Not enough activity to state a score.",
+        "body": "A score needs at least {orderLines} paid order lines or {rfqs} quoted RFQs in the last {days} days. Until then any number here would be scoring you on almost nothing."
+      },
+      "attention": {
+        "title": "Action required",
+        "allClearPill": "Nothing needs attention",
+        "allClearNote": "No unresolved listing issue, no stock at its reorder point, and no document expiring in the next 30 days.",
+        "issues": {
+          "label": "Product issues",
+          "note": "Unresolved listing issues that may affect your sales."
+        },
+        "stock": {
+          "label": "Below reorder point",
+          "note": "Stock rows at or under the reorder point you set."
+        },
+        "expiring": {
+          "label": "Documents expiring",
+          "note": "Documents on file whose expiry date falls in the next 30 days."
+        }
+      },
+      "trading": {
+        "title": "Trading",
+        "dateline": "Revenue and payout totals are summed as recorded · currencies are not converted",
+        "revenue": {
+          "label": "Revenue this month",
+          "note": "Paid order lines placed since the 1st."
+        },
+        "orderLinesToday": {
+          "label": "Order lines today",
+          "note": "Your lines on orders placed since midnight, paid or not."
+        },
+        "pendingPayout": {
+          "label": "Pending payout",
+          "note": "Payouts recorded and not yet settled."
+        },
+        "activeListings": {
+          "label": "Active listings",
+          "note": "Products live in the catalogue."
+        }
+      },
+      "queue": {
+        "title": "In your queue",
+        "description": "Each figure says underneath it exactly what it counts, and links to the page that holds those rows.",
+        "orders": {
+          "label": "Order lines to fulfil",
+          "note": "Your order lines still in PROCESSING."
+        },
+        "rfqs": {
+          "label": "Open RFQs",
+          "note": "Awaiting a quote — the first seller to quote is assigned."
+        },
+        "messages": {
+          "label": "Unread messages",
+          "note": "Buyer threads you have not opened."
+        },
+        "compliance": {
+          "label": "Documents in review",
+          "note": "Filed and waiting on platform review."
+        }
+      },
+      "breakdown": {
+        "title": "What the score is made of",
+        "dateline": "Weights are re-scaled across the components that have data, so a component with none is left out rather than counted as zero · orders from the last {days} days",
+        "viewDetails": "View details"
+      },
+      "recentOrders": {
+        "title": "Recent orders",
+        "dateline": "The ten most recent orders containing your lines · each total is your share of that order, in the order's own currency",
+        "placedOn": "{month} {day}, {year}",
+        "viewAll": "View all orders",
+        "columns": {
+          "order": "Order",
+          "placed": "Placed",
+          "channel": "Channel",
+          "yourShare": "Your share",
+          "status": "Status"
+        },
+        "empty": {
+          "eyebrow": "Nothing recorded",
+          "headline": "No buyer has ordered from you yet.",
+          "body": "An order appears here the moment one of your lines is bought, whichever channel it comes through.",
+          "action": "Review your listings"
+        }
+      }
+    },
+    "onboarding": {
+      "eyebrow": "Store setup",
+      "title": "Get your store live",
+      "meterLabel": "Store setup: {done} of {total} steps complete",
+      "dateline": "{done} of {total} steps complete · each one read from your own rows",
+      "steps": {
+        "profile": {
+          "label": "Complete business profile",
+          "cta": "Complete profile",
+          "done": "Arabic name, description and logo on file.",
+          "missing": "Still missing: {fields}."
+        },
+        "product": {
+          "label": "Add your first product",
+          "cta": "Add a product",
+          "detail": "{count, plural, one {{n} product in your catalogue.} other {{n} products in your catalogue.}}"
+        },
+        "documents": {
+          "label": "Upload compliance documents",
+          "cta": "Upload documents",
+          "filed": "{count, plural, one {{n} document filed. Each is reviewed before it counts as approved.} other {{n} documents filed. Each is reviewed before it counts as approved.}}",
+          "none": "Nothing filed yet."
+        },
+        "payout": {
+          "label": "Set up payout details",
+          "cta": "Add payout details",
+          "done": "Bank details are recorded for settlement.",
+          "missing": "No bank details recorded, so payouts cannot be settled."
+        },
+        "sale": {
+          "label": "Make your first sale",
+          "cta": "Review your listings",
+          "received": "{count, plural, one {{n} order line received.} other {{n} order lines received.}}",
+          "none": "No buyer has ordered from you yet."
+        }
+      }
+    },
+    "analytics": {
+      "title": "Analytics",
+      "eyebrow": "Overview",
+      "description": "Sales performance across your catalog",
+      "datelineWithCurrency": "Order lines in {currency}, excluding cancelled and unpaid orders · currencies are not converted",
+      "datelineEmpty": "No order lines recorded against this account yet",
+      "kpi": {
+        "totalRevenueIn": "Total revenue ({currency})",
+        "totalRevenue": "Total revenue",
+        "totalRevenueNote": "Every order line outside cancelled and unpaid orders.",
+        "thisMonth": "This month",
+        "thisMonthNote": "Order lines placed since the 1st.",
+        "orders": "Orders",
+        "ordersNote": "Distinct orders containing a line of yours.",
+        "aov": "Avg order value",
+        "aovNote": "Revenue above divided by those orders."
+      },
+      "excluded": "{count, plural, one {{n} order line in {currencies} is not included; figures are in {currency} only and currencies are not converted.} other {{n} order lines in {currencies} are not included; figures are in {currency} only and currencies are not converted.}}",
+      "empty": {
+        "eyebrow": "Nothing recorded",
+        "headline": "No sales have been recorded against your catalogue.",
+        "body": "Every figure on this page is computed from your own order lines, so it stays blank until a buyer pays for one."
+      },
+      "trend": {
+        "title": "Revenue trend",
+        "dateline": "Last six calendar months, in {currency} · column labels are abbreviated, the exact figure is on each column",
+        "chartLabel": "Revenue by month in {currency}"
+      },
+      "top": {
+        "title": "Top products",
+        "dateline": "Your six highest-revenue products, in {currency}",
+        "columns": {
+          "product": "Product",
+          "vsTop": "Vs. top product",
+          "units": "Units",
+          "revenue": "Revenue"
+        },
+        "meterLabel": "{name}: {value}, against {max} for the highest-revenue product",
+        "empty": {
+          "eyebrow": "Nothing recorded",
+          "headline": "No product has sold yet.",
+          "body": "Products appear here once a paid order line in {currency} is recorded against them."
+        }
+      },
+      "category": {
+        "title": "Revenue by category",
+        "dateline": "Share of {total} · {units} units across {count, plural, one {{n} category} other {{n} categories}}",
+        "other": "Other",
+        "columns": {
+          "category": "Category",
+          "share": "Share",
+          "revenue": "Revenue"
+        },
+        "meterLabel": "{name}: {pct}% of revenue",
+        "empty": {
+          "eyebrow": "Nothing recorded",
+          "headline": "No category has revenue against it.",
+          "body": "A category appears here as soon as one of its products is bought."
+        }
+      }
+    },
+    "performance": {
+      "title": "Performance",
+      "eyebrow": "Overview",
+      "description": "Measured from your own orders, shipments, returns, and messages",
+      "dateline": "No target, no platform average and no colouring by threshold — the platform publishes no benchmark",
+      "empty": {
+        "eyebrow": "Not enough data",
+        "headline": "There is no performance score for this account yet.",
+        "body": "A score needs at least {orderLines} paid order lines or {rfqs} quoted RFQs in the last {days} days. Everything further down this page is measured and shown regardless; the score is the only figure that waits."
+      },
+      "noEffect": "The score has no effect on commission or ranking.",
+      "metrics": {
+        "title": "Service metrics",
+        "description": "Each figure is either measured or shown as “—”. None of them feeds the score above.",
+        "onTime": {
+          "label": "On-time delivery",
+          "basis": "{onTime} of {total} delivered shipments with a promised date",
+          "none": "No delivered shipments with a promised date yet"
+        },
+        "returns": {
+          "label": "Return rate",
+          "basis": "{returns, plural, one {{r} return request} other {{r} return requests}} across {orders, plural, one {{o} order} other {{o} orders}}",
+          "none": "No orders yet"
+        },
+        "response": {
+          "label": "Avg first response",
+          "value": "{value}h",
+          "basis": "Across {count, plural, one {{n} buyer thread} other {{n} buyer threads}} you replied to",
+          "none": "No buyer threads answered yet"
+        },
+        "rating": {
+          "label": "Buyer rating",
+          "basis": "{count, plural, one {From {n} review} other {From {n} reviews}}",
+          "none": "No reviews yet"
+        }
+      },
+      "monthly": {
+        "title": "Monthly orders",
+        "dateline": "Orders containing a line of yours, by the month they were placed · last six calendar months",
+        "chartLabel": "Orders by month",
+        "exact": "{count, plural, one {{n} order} other {{n} orders}}"
+      }
+    },
+    "aiAssist": {
+      "triggerLabel": "AI assist",
+      "headingRfq": "Draft a quote reply",
+      "headingListing": "Write listing copy",
+      "description": "A starting point written from the text you enter. Read it before you send it.",
+      "close": "Close",
+      "generate": "Generate",
+      "regenerate": "Regenerate",
+      "fieldRfq": "RFQ details / what to address",
+      "fieldListing": "Product name & key specs",
+      "hint": "Only this text is sent. Nothing is read from your catalogue.",
+      "placeholderRfq": "e.g. Safety helmets EN397 × 200, needed in Dubai within 2 weeks",
+      "placeholderListing": "e.g. CNC bearing assortment, hardened steel, ISO 9001",
+      "emptyDraft": "The service returned an empty draft. Try again, or add more detail above.",
+      "unavailable": "Drafting is unavailable right now.",
+      "errorGenerate": "Couldn't generate a draft",
+      "copiedToast": "Copied to clipboard",
+      "errorCopyTitle": "Couldn't copy the draft",
+      "errorCopyBody": "Select the text and copy it manually.",
+      "provenance": "Written from the text above · not checked against your catalogue, stock, prices or lead times",
+      "copy": "Copy",
+      "copied": "Copied"
+    }
+  }
 }

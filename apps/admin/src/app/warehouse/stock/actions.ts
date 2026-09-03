@@ -2,25 +2,43 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { getTranslations } from "next-intl/server";
 import { requireAdminSession } from "@/lib/auth";
 import { adminAdjustStock, describeAdminFailure } from "@avenick/database";
 import { log } from "@avenick/observability";
 import { RECORD_ID } from "@avenick/utils";
 import type { ActionResult } from "@/app/approvals/actions";
 
-const adjustInput = z.object({
-  stockId: z.string().trim().regex(RECORD_ID, "Invalid stock reference"),
-  newQty: z.coerce.number({ invalid_type_error: "Enter the new on-hand quantity" }).int("On-hand must be a whole number").min(0, "On-hand cannot be negative").max(1_000_000_000, "On-hand is unrealistically large"),
-  reason: z.string().trim().min(3, "Say why the count changed (stocktake, damage, receipt…)").max(500, "Keep the reason under 500 characters"),
-  reference: z.string().trim().max(120, "Keep the reference under 120 characters").optional().transform((value) => (value ? value : undefined)),
-});
+/**
+ * The refusal messages are read by the operator, so they are translated; the
+ * schema is therefore built inside the request, where a translator exists.
+ */
+type Msg = (key: string, values?: Record<string, string | number>) => string;
+
+const adjustInput = (t: Msg) =>
+  z.object({
+    stockId: z.string().trim().regex(RECORD_ID, t("invalidStockRef")),
+    newQty: z.coerce
+      .number({ invalid_type_error: t("enterQty") })
+      .int(t("wholeNumber"))
+      .min(0, t("notNegative"))
+      .max(1_000_000_000, t("tooLarge")),
+    reason: z.string().trim().min(3, t("reasonRequired")).max(500, t("reasonTooLong", { max: 500 })),
+    reference: z
+      .string()
+      .trim()
+      .max(120, t("referenceTooLong", { max: 120 }))
+      .optional()
+      .transform((value) => (value ? value : undefined)),
+  });
 
 export async function adjustStockAction(input: { stockId: string; newQty: string | number; reason: string; reference?: string }): Promise<ActionResult> {
   const { userId } = await requireAdminSession();
-  const parsed = adjustInput.safeParse(input);
+  const t = await getTranslations("adminCommerce.stockActions");
+  const parsed = adjustInput(t).safeParse(input);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
-    return { ok: false, error: issue?.message ?? "Invalid input", field: issue?.path[0]?.toString() };
+    return { ok: false, error: issue?.message ?? t("invalidInput"), field: issue?.path[0]?.toString() };
   }
   const { data } = parsed;
   let result: { previousQty: number; qty: number };
@@ -29,9 +47,9 @@ export async function adjustStockAction(input: { stockId: string; newQty: string
   } catch (error) {
     log.error("admin stock adjustment failed", error, { scope: "warehouse.adjust", stockId: data.stockId });
     const field = (error as { field?: string } | null)?.field;
-    return { ok: false, error: describeAdminFailure(error, "Could not adjust stock; reload and retry"), field };
+    return { ok: false, error: describeAdminFailure(error, t("failed")), field };
   }
   revalidatePath("/warehouse/stock");
   revalidatePath("/warehouse");
-  return { ok: true, message: `On-hand ${result.previousQty} → ${result.qty}` };
+  return { ok: true, message: t("adjusted", { from: String(result.previousQty), to: String(result.qty) }) };
 }

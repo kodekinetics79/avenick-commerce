@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { generateSellerPayouts, setPayoutStatus } from "@avenick/database";
+import { getTranslations } from "next-intl/server";
 import { requireAdminSession } from "@/lib/auth";
 
 const value = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
@@ -18,10 +19,10 @@ const REFUSAL_TEXT_LIMIT = 1500;
  * accrual regardless of where the admin is sitting, and the end date is
  * inclusive to its last millisecond.
  */
-function parseDay(raw: string, edge: "start" | "end"): Date {
-  if (!DAY.test(raw)) throw new Error("A settlement run needs a start and an end date");
+function parseDay(raw: string, edge: "start" | "end", t: (key: string, values?: Record<string, string>) => string): Date {
+  if (!DAY.test(raw)) throw new Error(t("periodRequired"));
   const date = new Date(`${raw}T${edge === "start" ? "00:00:00.000" : "23:59:59.999"}Z`);
-  if (Number.isNaN(date.getTime())) throw new Error(`${raw} is not a valid date`);
+  if (Number.isNaN(date.getTime())) throw new Error(t("invalidDate", { value: raw }));
   return date;
 }
 
@@ -32,8 +33,9 @@ function parseDay(raw: string, edge: "start" | "end"): Date {
  */
 export async function generatePayoutsForPeriod(formData: FormData) {
   const { userId } = await requireAdminSession();
-  const periodFrom = parseDay(value(formData, "periodFrom"), "start");
-  const periodTo = parseDay(value(formData, "periodTo"), "end");
+  const t = await getTranslations("adminCommerce.settlementActions");
+  const periodFrom = parseDay(value(formData, "periodFrom"), "start", t);
+  const periodTo = parseDay(value(formData, "periodTo"), "end", t);
   const sellerId = value(formData, "sellerId") || undefined;
 
   const result = await generateSellerPayouts({ periodFrom, periodTo, sellerId, actorId: userId });
@@ -66,18 +68,20 @@ export async function generatePayoutsForPeriod(formData: FormData) {
  */
 export async function startPayoutProcessing(payoutId: string) {
   const { userId } = await requireAdminSession();
-  if (!payoutId) throw new Error("A payout is required");
+  const t = await getTranslations("adminCommerce.settlementActions");
+  if (!payoutId) throw new Error(t("payoutRequired"));
   await setPayoutStatus({ payoutId, status: "PROCESSING", actorId: userId });
   revalidatePath("/settlements");
 }
 
 export async function markPayoutPaid(payoutId: string, formData: FormData) {
   const { userId } = await requireAdminSession();
-  if (!payoutId) throw new Error("A payout is required");
+  const t = await getTranslations("adminCommerce.settlementActions");
+  if (!payoutId) throw new Error(t("payoutRequired"));
   const reference = value(formData, "reference");
   // setPayoutStatus rejects a paid payout without a reference; refuse here too
   // so the admin sees why instead of an error page after the round trip.
-  if (!reference) throw new Error("A bank or transfer reference is required to mark a payout paid");
+  if (!reference) throw new Error(t("referenceRequired"));
   await setPayoutStatus({ payoutId, status: "PAID", actorId: userId, reference });
   revalidatePath("/settlements");
 }

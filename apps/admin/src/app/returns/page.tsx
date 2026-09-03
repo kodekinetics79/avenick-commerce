@@ -6,28 +6,34 @@ import { ReturnActions } from "../disputes/return-actions";
 import { RotateCcw, Clock, CheckCircle, XCircle, Truck, PackageCheck, Banknote, CornerDownRight } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import {
   PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Num, Button, type PillTone,
 } from "@avenick/ui";
 import { CountStat } from "@/app/finance/money-figures";
 import { FilterTabs } from "@/components/console/chrome";
 
-export const metadata = { title: "Returns" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminCommerce.returns");
+  return { title: t("meta.title") };
+}
 export const dynamic = "force-dynamic";
 
-const STATUS: Record<ReturnStatus, { label: string; tone: PillTone; icon: typeof Clock }> = {
-  REQUESTED:  { label: "Awaiting decision", tone: "warning", icon: Clock },
-  APPROVED:   { label: "Approved",          tone: "accent",  icon: CheckCircle },
-  IN_TRANSIT: { label: "In transit",        tone: "neutral", icon: Truck },
-  RECEIVED:   { label: "Received",          tone: "neutral", icon: PackageCheck },
-  REFUNDED:   { label: "Refunded",          tone: "success", icon: Banknote },
-  REJECTED:   { label: "Rejected",          tone: "danger",  icon: XCircle },
+/** Tone and icon per status; the label is translated from `returns.status`. */
+const STATUS: Record<ReturnStatus, { tone: PillTone; icon: typeof Clock }> = {
+  REQUESTED:  { tone: "warning", icon: Clock },
+  APPROVED:   { tone: "accent",  icon: CheckCircle },
+  IN_TRANSIT: { tone: "neutral", icon: Truck },
+  RECEIVED:   { tone: "neutral", icon: PackageCheck },
+  REFUNDED:   { tone: "success", icon: Banknote },
+  REJECTED:   { tone: "danger",  icon: XCircle },
 };
 
 const PAGE_SIZE = 100;
 
 export default async function ReturnsPage({ searchParams }: { searchParams: { status?: string } }) {
   await requireAdminSession();
+  const t = await getTranslations("adminCommerce.returns");
 
   const status = Object.values(ReturnStatus).includes(searchParams.status as ReturnStatus)
     ? (searchParams.status as ReturnStatus)
@@ -74,56 +80,57 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
   // were rather than adding AED to KWD and calling the result money.
   const refundValue =
     refundedCurrencies.length === 0
-      ? "None yet"
+      ? t("refund.none")
       : refundedCurrencies.length === 1
         ? formatCurrency(Number(refundedSum._sum.refundAmount ?? 0), refundedCurrencies[0]!.currency)
-        : `${countFor([ReturnStatus.REFUNDED])} refunds`;
-  const refundValueLabel = refundedCurrencies.length > 1 ? "Refunded (mixed currencies)" : "Refunded value";
+        : t("refund.count", {
+            count: countFor([ReturnStatus.REFUNDED]),
+            value: String(countFor([ReturnStatus.REFUNDED])),
+          });
+  const refundValueLabel = refundedCurrencies.length > 1 ? t("refund.labelMixed") : t("refund.label");
 
   const tabs: Array<{ value?: ReturnStatus; label: string; count: number }> = [
-    { value: undefined, label: "All", count: totalRequests },
-    ...Object.values(ReturnStatus).map((s) => ({ value: s, label: STATUS[s].label, count: countFor([s]) })),
+    { value: undefined, label: t("filters.all"), count: totalRequests },
+    ...Object.values(ReturnStatus).map((s) => ({ value: s, label: t(`status.${s}`), count: countFor([s]) })),
   ];
 
   return (
     <AdminLayout>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Money out"
-          title="Returns & refunds"
-          description="Buyer return requests across every seller. Approvals, rejections and refunds are audit-logged."
-          dateline={`Newest first · latest ${PAGE_SIZE} shown · refund amounts in the currency of the order`}
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
+          dateline={t("dateline", { count: String(PAGE_SIZE) })}
         />
 
         <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
           <CountStat
-            label="Awaiting decision"
+            label={t("stats.awaiting")}
             value={awaiting}
             rank="section"
             tone={awaiting > 0 ? "warning" : "default"}
           />
-          <CountStat label="In progress" value={inProgress} note="approved, in transit or received" />
+          <CountStat label={t("stats.inProgress")} value={inProgress} note={t("stats.inProgressNote")} />
           {/* One currency: the real total. Several: a count, because adding AED
               to KWD and calling the result money would be a fiction. */}
           <CountStat
             label={refundValueLabel}
             value={refundValue}
             dateline={
-              refundedCurrencies.length > 1
-                ? "Refunds were taken in more than one currency, so a total cannot be stated"
-                : undefined
+              refundedCurrencies.length > 1 ? t("refund.mixedDateline") : undefined
             }
           />
-          <CountStat label="Total requests" value={totalRequests} />
+          <CountStat label={t("stats.total")} value={totalRequests} />
         </CellGrid>
 
         <FilterTabs
-          label="Filter returns by status"
-          tabs={tabs.map((t) => ({
-            href: t.value ? `/returns?status=${t.value}` : "/returns",
-            label: t.label,
-            count: t.count,
-            active: status === t.value,
+          label={t("filters.label")}
+          tabs={tabs.map((tab) => ({
+            href: tab.value ? `/returns?status=${tab.value}` : "/returns",
+            label: tab.label,
+            count: tab.count,
+            active: status === tab.value,
           }))}
         />
 
@@ -131,7 +138,7 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
           rows={returns}
           getRowKey={(r) => r.id}
           stickyHead
-          dateline="Buyer-opened requests, as recorded · refund amounts in the currency of the order, no conversion applied"
+          dateline={t("table.dateline")}
           rowProps={(r) => ({
             // The rows that need a human decision are the reason this page exists.
             // Hover deepens the same hue; the generic row hover is a plain
@@ -141,12 +148,12 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
           columns={[
             {
               key: "returnNumber",
-              label: "Return #",
+              label: t("columns.returnNumber"),
               render: (r) => <span className="u-mono whitespace-nowrap text-meta font-medium text-ink-1">{r.returnNumber}</span>,
             },
             {
               key: "order",
-              label: "Order",
+              label: t("columns.order"),
               render: (r) => (
                 <Link
                   href={`/orders/${r.order.id}`}
@@ -158,7 +165,7 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
             },
             {
               key: "buyer",
-              label: "Buyer",
+              label: t("columns.buyer"),
               render: (r) => {
                 const buyer = r.order.company?.nameEn ?? `${r.order.user.firstName} ${r.order.user.lastName}`.trim();
                 return (
@@ -171,7 +178,7 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
             },
             {
               key: "seller",
-              label: "Seller",
+              label: t("columns.seller"),
               hideOnMobile: true,
               render: (r) => (
                 <span className="block max-w-[160px] truncate text-ink-2" title={r.seller.businessNameEn}>
@@ -181,7 +188,7 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
             },
             {
               key: "items",
-              label: "Items",
+              label: t("columns.items"),
               hideOnMobile: true,
               render: (r) => {
                 const [firstItem, ...otherItems] = r.items;
@@ -189,13 +196,15 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
                 if (!firstItem) {
                   // Legacy/admin-opened returns predate line selection; there is
                   // nothing itemised to show and nothing to infer.
-                  return <span className="u-meta text-ink-3">Not itemised</span>;
+                  return <span className="u-meta text-ink-3">{t("notItemised")}</span>;
                 }
                 return (
                   <div className="max-w-[200px] py-1">
                     <p className="truncate text-ink-1" title={itemTitle}>{firstItem.orderItem.nameEn} × {firstItem.quantity}</p>
                     {otherItems.length > 0 && (
-                      <p className="u-meta text-ink-3">+{otherItems.length} more line{otherItems.length !== 1 ? "s" : ""}</p>
+                      <p className="u-meta text-ink-3">
+                        {t("moreLines", { count: otherItems.length, value: String(otherItems.length) })}
+                      </p>
                     )}
                   </div>
                 );
@@ -203,7 +212,7 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
             },
             {
               key: "reason",
-              label: "Reason",
+              label: t("columns.reason"),
               render: (r) => (
                 <div className="max-w-[220px] py-1">
                   <p className="truncate text-ink-2" title={r.reason}>{r.reason}</p>
@@ -222,39 +231,39 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
             },
             {
               key: "refundAmount",
-              label: "Amount",
+              label: t("columns.amount"),
               numeric: true,
               render: (r) =>
                 r.refundAmount ? (
                   <Num value={formatCurrency(Number(r.refundAmount), r.order.currency)} className="whitespace-nowrap" />
                 ) : (
-                  <span className="u-meta text-ink-3" title="No authorised refund amount is recorded on this request.">
-                    Not set
+                  <span className="u-meta text-ink-3" title={t("amountNotSetTitle")}>
+                    {t("amountNotSet")}
                   </span>
                 ),
             },
             {
               key: "status",
-              label: "Status",
+              label: t("columns.status"),
               render: (r) => {
                 const sc = STATUS[r.status];
                 const StatusIcon = sc.icon;
                 return (
                   <StatusPill tone={sc.tone} className="whitespace-nowrap">
-                    <StatusIcon className="h-3 w-3" aria-hidden="true" /> {sc.label}
+                    <StatusIcon className="h-3 w-3" aria-hidden="true" /> {t(`status.${r.status}`)}
                   </StatusPill>
                 );
               },
             },
             {
               key: "createdAt",
-              label: "Requested",
+              label: t("columns.requested"),
               hideOnMobile: true,
               render: (r) => <span className="whitespace-nowrap text-ink-2">{format(r.createdAt, "MMM d, yyyy")}</span>,
             },
             {
               key: "actions",
-              label: "Actions",
+              label: t("columns.actions"),
               align: "end",
               render: (r) => (
                 <div className="flex justify-end py-1">
@@ -271,18 +280,14 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline={status ? "No return is in that state." : "No buyer has opened a return."}
-              body={
-                status
-                  ? "Clear the status filter to see every return on record."
-                  : "A request appears here as soon as one is opened against a delivered order."
-              }
+              eyebrow={t("empty.eyebrow")}
+              headline={status ? t("empty.headlineFiltered") : t("empty.headline")}
+              body={status ? t("empty.bodyFiltered") : t("empty.body")}
               icon={<RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />}
               action={
                 status ? (
                   <Button variant="secondary" size="sm" asChild>
-                    <Link href="/returns">Show every return</Link>
+                    <Link href="/returns">{t("empty.action")}</Link>
                   </Button>
                 ) : undefined
               }
@@ -292,12 +297,15 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
             returns.length > 0 ? (
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span>
-                  Showing <span className="fig text-ink-2">{returns.length}</span> of{" "}
-                  <span className="fig text-ink-2">{status ? countFor([status]) : totalRequests}</span> return
-                  {(status ? countFor([status]) : totalRequests) !== 1 ? "s" : ""}
-                  {status ? ` with status ${STATUS[status].label.toLowerCase()}` : ""}
+                  {t.rich("footer.showing", {
+                    shown: String(returns.length),
+                    total: String(status ? countFor([status]) : totalRequests),
+                    count: status ? countFor([status]) : totalRequests,
+                    scope: status ? t("footer.scope", { status: t(`status.${status}`).toLowerCase() }) : "",
+                    n: (chunks) => <span className="fig text-ink-2">{chunks}</span>,
+                  })}
                 </span>
-                <span>Newest first, latest {PAGE_SIZE} shown</span>
+                <span>{t("footer.newest", { count: String(PAGE_SIZE) })}</span>
               </div>
             ) : undefined
           }

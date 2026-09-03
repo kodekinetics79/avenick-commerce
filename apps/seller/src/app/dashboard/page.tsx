@@ -10,7 +10,7 @@ import {
 } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
-import { format } from "date-fns";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { requireSellerPermission } from "@/lib/auth";
 import { orderStatusMeta } from "@/components/orders/status-meta";
@@ -35,8 +35,20 @@ import {
   MessageSquare, Package, ShoppingCart, Wallet, Zap,
 } from "lucide-react";
 
+/**
+ * Month keys, not month names. The "Placed" column used to be formatted with
+ * date-fns' "MMM d, yyyy", which prints an English abbreviation whatever the
+ * locale — so the Arabic build carried "Jan 5, 2026" in an otherwise Arabic
+ * table. The abbreviation now comes from sellerShell.months and the order of the
+ * three parts from dashboard.recentOrders.placedOn, which each language sets for
+ * itself. The parts are read with getMonth/getDate/getFullYear, the same local
+ * timezone date-fns used, so the English rendering is unchanged.
+ */
+const MONTH_KEYS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"] as const;
+
 export default async function DashboardPage() {
   const { seller, membership } = await requireSellerPermission("dashboard.view");
+  const t = await getTranslations("sellerShell");
   const [dash, expiringDocs, openRfqCount, performance] = await Promise.all([
     getSellerDashboard(seller.id),
     db.sellerDocument.count({
@@ -81,33 +93,33 @@ export default async function DashboardPage() {
   const attention = [
     {
       key: "issues",
-      label: "Product issues",
+      label: t("dashboard.attention.issues.label"),
       value: dash.issueCount,
       href: "/issues",
       icon: AlertTriangle,
       chip: "danger" as const,
-      note: "Unresolved listing issues that may affect your sales.",
+      note: t("dashboard.attention.issues.note"),
     },
     {
       key: "stock",
-      label: "Below reorder point",
+      label: t("dashboard.attention.stock.label"),
       value: dash.lowStockItems,
       href: "/inventory",
       icon: Zap,
       chip: "warning" as const,
-      note: "Stock rows at or under the reorder point you set.",
+      note: t("dashboard.attention.stock.note"),
     },
     {
       key: "expiring",
-      label: "Documents expiring",
+      label: t("dashboard.attention.expiring.label"),
       value: expiringDocs,
       href: "/documents",
       icon: FileCheck,
       chip: "warning" as const,
       // The count above is every document row carrying an expiry date inside the
-      // window, whatever its review status — so the note says "on file" and does
-      // not claim they are all approved.
-      note: "Documents on file whose expiry date falls in the next 30 days.",
+      // window, whatever its review status — so attention.expiring.note says the
+      // documents are "on file" and does not claim they are all approved.
+      note: t("dashboard.attention.expiring.note"),
     },
   ].filter((item) => item.value > 0);
 
@@ -128,11 +140,13 @@ export default async function DashboardPage() {
     // Lines, not orders: getSellerDashboard counts orderItem rows, so a basket
     // holding three of this seller's lines is three here. Naming it "orders"
     // overstated the figure by however many lines a single basket held — the
-    // same defect that made "Today's Orders" wrong.
-    { key: "orders", label: "Order lines to fulfil", value: dash.pendingOrders, href: "/orders", icon: Clock, note: "Your order lines still in PROCESSING." },
-    { key: "rfqs", label: "Open RFQs", value: openRfqCount, href: "/messages", icon: Activity, note: "Awaiting a quote — the first seller to quote is assigned." },
-    { key: "messages", label: "Unread messages", value: dash.unreadMessages, href: "/messages", icon: MessageSquare, note: "Buyer threads you have not opened." },
-    { key: "compliance", label: "Documents in review", value: dash.pendingCompliance, href: "/compliance", icon: FileCheck, note: "Filed and waiting on platform review." },
+    // same defect that made the old "Today's Orders" label wrong. Both labels
+    // now live under dashboard.queue.* and dashboard.trading.*, and both say
+    // "order lines" in either language.
+    { key: "orders", label: t("dashboard.queue.orders.label"), value: dash.pendingOrders, href: "/orders", icon: Clock, note: t("dashboard.queue.orders.note") },
+    { key: "rfqs", label: t("dashboard.queue.rfqs.label"), value: openRfqCount, href: "/messages", icon: Activity, note: t("dashboard.queue.rfqs.note") },
+    { key: "messages", label: t("dashboard.queue.messages.label"), value: dash.unreadMessages, href: "/messages", icon: MessageSquare, note: t("dashboard.queue.messages.note") },
+    { key: "compliance", label: t("dashboard.queue.compliance.label"), value: dash.pendingCompliance, href: "/compliance", icon: FileCheck, note: t("dashboard.queue.compliance.note") },
   ];
 
   return (
@@ -140,7 +154,7 @@ export default async function DashboardPage() {
       <div className="space-y-block">
         <PageHeader
           className="mb-0"
-          eyebrow="Seller overview"
+          eyebrow={t("dashboard.eyebrow")}
           title={seller.businessNameAr ?? seller.businessNameEn}
           description={seller.businessNameEn}
         />
@@ -181,19 +195,21 @@ export default async function DashboardPage() {
                 z-index 0 and would otherwise paint on top of the words — the same
                 rule .u-empty applies to its own children. */}
             <div data-rule-ground="" className="bg-surface-2 p-5 [&>*]:relative">
-              <Eyebrow>Performance score</Eyebrow>
+              <Eyebrow>{t("score.title")}</Eyebrow>
               {performance === null ? (
                 <>
                   {/* The provenance voice at h2, not a grey dash. An honest
                       absence is a statement about the data, which is exactly
                       what the serif is reserved for. */}
                   <p className="u-provenance mt-2 max-w-desc text-h2 text-ink-1">
-                    Not enough activity to state a score.
+                    {t("dashboard.scoreEmpty.headline")}
                   </p>
                   <p className="u-meta mt-2 max-w-desc text-ink-2">
-                    A score needs at least {MIN_ORDER_ITEMS_FOR_SCORE} paid order lines or {MIN_RFQS_FOR_SCORE} quoted
-                    RFQs in the last {PERFORMANCE_WINDOW_DAYS} days. Until then any number here would be scoring you on
-                    almost nothing.
+                    {t("dashboard.scoreEmpty.body", {
+                      orderLines: String(MIN_ORDER_ITEMS_FOR_SCORE),
+                      rfqs: String(MIN_RFQS_FOR_SCORE),
+                      days: String(PERFORMANCE_WINDOW_DAYS),
+                    })}
                   </p>
                 </>
               ) : (
@@ -209,15 +225,15 @@ export default async function DashboardPage() {
                     value={performance.score}
                     tone="accent"
                     size="lg"
-                    label={`Performance score: ${performance.score} out of 100`}
+                    label={t("score.meterLabel", { score: String(performance.score) })}
                   />
                   <Dateline className="mt-2">
-                    Orders from the last {performance.windowDays} days; listings and documents as they stand now
+                    {t("score.provenanceDateline", { days: String(performance.windowDays) })}
                   </Dateline>
                 </>
               )}
               <Button variant="link" size="sm" asChild className="mt-2 -ms-1 px-1">
-                <Link href="/performance">How this is calculated</Link>
+                <Link href="/performance">{t("dashboard.howCalculated")}</Link>
               </Button>
             </div>
 
@@ -229,7 +245,7 @@ export default async function DashboardPage() {
             <div className="bg-surface-2">
               <div className="flex items-center gap-2 border-b border-hairline px-5 py-3">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-ink-3" aria-hidden="true" />
-                <Eyebrow as="h2">Action required</Eyebrow>
+                <Eyebrow as="h2">{t("dashboard.attention.title")}</Eyebrow>
                 {attention.length > 0 && (
                   <span className="fig u-meta ms-auto text-ink-2">{attention.length}</span>
                 )}
@@ -262,12 +278,9 @@ export default async function DashboardPage() {
                 // exactly WHAT was checked — "all clear" with no basis is a claim.
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-5 py-5">
                   <StatusPill tone="success" dot>
-                    Nothing needs attention
+                    {t("dashboard.attention.allClearPill")}
                   </StatusPill>
-                  <Dateline className="min-w-0">
-                    No unresolved listing issue, no stock at its reorder point, and no document expiring in the next
-                    30 days.
-                  </Dateline>
+                  <Dateline className="min-w-0">{t("dashboard.attention.allClearNote")}</Dateline>
                 </div>
               )}
             </div>
@@ -277,30 +290,30 @@ export default async function DashboardPage() {
         {/* Trading. One panel divided by hairlines, not four floating tiles, and
             the month's revenue carries section rank because it is the figure the
             other three qualify. */}
-        <section aria-label="Trading">
+        <section aria-label={t("dashboard.trading.title")}>
           <SectionHeader
-            title="Trading"
-            dateline="Revenue and payout totals are summed as recorded · currencies are not converted"
+            title={t("dashboard.trading.title")}
+            dateline={t("dashboard.trading.dateline")}
           />
           <CellGrid cols={{ base: 2, lg: 4 }}>
-            <Stat label="Revenue this month" value={amount(Number(dash.monthRevenue))} rank="section" icon={Wallet} note="Paid order lines placed since the 1st." />
-            {/* Relabelled from "Today's Orders": the figure counts order LINES,
-                paid or not, so calling it orders overstated it by however many
-                lines a single basket held. */}
-            <Stat label="Order lines today" value={dash.todayOrderCount} icon={ShoppingCart} note="Your lines on orders placed since midnight, paid or not." />
-            <Stat label="Pending payout" value={amount(Number(dash.pendingPayoutAmount))} icon={CreditCard} note="Payouts recorded and not yet settled." href="/payouts" linkComponent={Link} className={CELL_FOCUS} />
-            <Stat label="Active listings" value={dash.activeListings} icon={Package} note="Products live in the catalogue." href="/products" linkComponent={Link} className={CELL_FOCUS} />
+            <Stat label={t("dashboard.trading.revenue.label")} value={amount(Number(dash.monthRevenue))} rank="section" icon={Wallet} note={t("dashboard.trading.revenue.note")} />
+            {/* Relabelled from "Today's Orders" (now dashboard.trading.orderLinesToday):
+                the figure counts order LINES, paid or not, so calling it orders
+                overstated it by however many lines a single basket held. */}
+            <Stat label={t("dashboard.trading.orderLinesToday.label")} value={dash.todayOrderCount} icon={ShoppingCart} note={t("dashboard.trading.orderLinesToday.note")} />
+            <Stat label={t("dashboard.trading.pendingPayout.label")} value={amount(Number(dash.pendingPayoutAmount))} icon={CreditCard} note={t("dashboard.trading.pendingPayout.note")} href="/payouts" linkComponent={Link} className={CELL_FOCUS} />
+            <Stat label={t("dashboard.trading.activeListings.label")} value={dash.activeListings} icon={Package} note={t("dashboard.trading.activeListings.note")} href="/products" linkComponent={Link} className={CELL_FOCUS} />
           </CellGrid>
         </section>
 
         {/* Work that is queued rather than wrong. */}
-        <section aria-label="In your queue">
+        <section aria-label={t("dashboard.queue.title")}>
           {/* The unread-message and RFQ figures ARE counted by their
               destination's own predicate, but the fulfilment figure counts order
               LINES while /orders lists orders — so the panel states what each
               cell counts underneath it rather than making one guarantee for all
               four that only two of them keep. */}
-          <SectionHeader title="In your queue" description="Each figure says underneath it exactly what it counts, and links to the page that holds those rows." />
+          <SectionHeader title={t("dashboard.queue.title")} description={t("dashboard.queue.description")} />
           <CellGrid cols={{ base: 2, lg: 4 }}>
             {workload.map((item) => (
               <Stat
@@ -326,11 +339,11 @@ export default async function DashboardPage() {
         {performance !== null && (
           <Surface rung={2} className="p-5">
             <SectionHeader
-              title="What the score is made of"
-              dateline={`Weights are re-scaled across the components that have data, so a component with none is left out rather than counted as zero · orders from the last ${performance.windowDays} days`}
+              title={t("dashboard.breakdown.title")}
+              dateline={t("dashboard.breakdown.dateline", { days: String(performance.windowDays) })}
               action={
                 <Button variant="link" size="sm" asChild>
-                  <Link href="/performance">View details</Link>
+                  <Link href="/performance">{t("dashboard.breakdown.viewDetails")}</Link>
                 </Button>
               }
             />
@@ -349,10 +362,18 @@ export default async function DashboardPage() {
                     max={1}
                     tone="accent"
                     index={index}
-                    label={`${component.label}: ${component.share === null ? "no data in this window" : `${component.good} of ${component.total}`}`}
+                    label={t("score.componentMeterLabel", {
+                      label: component.label,
+                      detail:
+                        component.share === null
+                          ? t("score.noDataInWindow")
+                          : t("score.goodOfTotal", { good: String(component.good), total: String(component.total) }),
+                    })}
                   />
                   <p className="u-meta mt-1 text-ink-3">
-                    {component.share === null ? "No data in this window" : `${component.good} of ${component.total}`}
+                    {component.share === null
+                      ? t("score.noDataInWindowSentence")
+                      : t("score.goodOfTotal", { good: String(component.good), total: String(component.total) })}
                   </p>
                 </div>
               ))}
@@ -362,20 +383,19 @@ export default async function DashboardPage() {
 
         {/* Recent orders. This used to disappear entirely when there were none,
             which left a new seller staring at a page with a hole in it. */}
-        {/* The heading dropped its "— الطلبات الأخيرة" suffix, and so did the
-            action band above. This portal has a full next-intl message tree and
-            calls it from nowhere: an Arabic phrase glued onto two of nineteen
-            English headings is decoration, not bilingualism, and it is the exact
-            tell law 3 names — it says the Arabic build is a setting rather than a
-            design. The real fix is the message tree, which is a cross-track item
-            (apps/seller/messages/*.json is not owned here); the theatre goes now
-            so nothing reads as though the job were already done. */}
+        {/* This heading once carried a hardcoded "— الطلبات الأخيرة" suffix while
+            the other seventeen headings on this portal were English only: an
+            Arabic phrase glued onto two of nineteen headings is decoration, not
+            bilingualism, and it is the exact tell law 3 names. The suffix went
+            first; the real fix — every string on this page resolved from the
+            message tree, so the Arabic build is a design rather than a setting —
+            is what dashboard.recentOrders.* and the rest of sellerShell are. */}
         <LedgerTable
-          title="Recent orders"
-          dateline="The ten most recent orders containing your lines · each total is your share of that order, in the order's own currency"
+          title={t("dashboard.recentOrders.title")}
+          dateline={t("dashboard.recentOrders.dateline")}
           toolbar={
             <Button variant="link" size="sm" asChild>
-              <Link href="/orders">View all orders</Link>
+              <Link href="/orders">{t("dashboard.recentOrders.viewAll")}</Link>
             </Button>
           }
           rows={dash.recentOrders}
@@ -383,7 +403,7 @@ export default async function DashboardPage() {
           columns={[
             {
               key: "orderNumber",
-              label: "Order",
+              label: t("dashboard.recentOrders.columns.order"),
               render: (order) => (
                 <Link
                   href={`/orders/${order.id}`}
@@ -395,20 +415,27 @@ export default async function DashboardPage() {
             },
             {
               key: "createdAt",
-              label: "Placed",
+              label: t("dashboard.recentOrders.columns.placed"),
               hideOnMobile: true,
-              render: (order) => format(new Date(order.createdAt), "MMM d, yyyy"),
+              render: (order) => {
+                const placed = new Date(order.createdAt);
+                return t("dashboard.recentOrders.placedOn", {
+                  month: t(`months.${MONTH_KEYS[placed.getMonth()]!}`),
+                  day: String(placed.getDate()),
+                  year: String(placed.getFullYear()),
+                });
+              },
             },
-            { key: "type", label: "Channel", hideOnMobile: true },
+            { key: "type", label: t("dashboard.recentOrders.columns.channel"), hideOnMobile: true },
             {
               key: "total",
-              label: "Your share",
+              label: t("dashboard.recentOrders.columns.yourShare"),
               numeric: true,
               render: (order) => formatCurrency(Number(order.total), order.currency),
             },
             {
               key: "status",
-              label: "Status",
+              label: t("dashboard.recentOrders.columns.status"),
               align: "end",
               // One order-status vocabulary for the whole fulfilment surface.
               // This page used to collapse eleven states into four tones and
@@ -422,12 +449,12 @@ export default async function DashboardPage() {
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline="No buyer has ordered from you yet."
-              body="An order appears here the moment one of your lines is bought, whichever channel it comes through."
+              eyebrow={t("dashboard.recentOrders.empty.eyebrow")}
+              headline={t("dashboard.recentOrders.empty.headline")}
+              body={t("dashboard.recentOrders.empty.body")}
               action={
                 <Button variant="secondary" size="sm" asChild>
-                  <Link href="/products">Review your listings</Link>
+                  <Link href="/products">{t("dashboard.recentOrders.empty.action")}</Link>
                 </Button>
               }
             />
