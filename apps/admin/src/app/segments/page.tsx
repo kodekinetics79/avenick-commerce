@@ -1,7 +1,6 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { getCustomerSegments } from "@avenick/database";
-import { formatCurrency } from "@avenick/utils";
 import { PieChart, Users, Crown, Moon, Zap } from "lucide-react";
 
 export const metadata = { title: "Customer Segments" };
@@ -13,6 +12,10 @@ const ROLE_LABEL: Record<string, string> = {
   COMPANY_BUYER: "Company buyers",
   COMPANY_APPROVER: "Company approvers",
 };
+
+// Spend is SUM(order total) per buyer as recorded in each order's own currency;
+// nothing is converted, so the figure carries no currency symbol.
+const amount = (n: number) => n.toLocaleString("en", { maximumFractionDigits: 0 });
 
 export default async function SegmentsPage() {
   await requireAdminSession();
@@ -100,7 +103,7 @@ export default async function SegmentsPage() {
                       <p className="text-xs text-muted-foreground truncate">{b.email}</p>
                     </div>
                     <div className="text-end shrink-0">
-                      <p className="text-sm font-semibold">{formatCurrency(b.spent, "AED")}</p>
+                      <p className="text-sm font-semibold">{amount(b.spent)}</p>
                       <p className="text-[11px] text-muted-foreground">{b.orders} order{b.orders === 1 ? "" : "s"}</p>
                     </div>
                   </li>

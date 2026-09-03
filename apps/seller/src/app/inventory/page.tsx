@@ -1,15 +1,15 @@
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerAnyPermission } from "@/lib/auth";
 import { getSellerInventory } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import Image from "next/image";
 import { AlertTriangle } from "lucide-react";
 
 export default async function InventoryPage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerAnyPermission(["inventory.view", "inventory.manage"]);
   const stocks = await getSellerInventory(seller.id, { limit: 100 });
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Inventory — المخزون</h1>

@@ -11,3 +11,8 @@ allowBuilds:
   esbuild: true
   prisma: true
   unrs-resolver: false
+  # Browser journey tooling (@avenick/e2e). Both download a browser binary from a
+  # postinstall script; without an entry here pnpm skips the download silently and
+  # the suites fail at launch rather than at install time.
+  cypress: true
+  puppeteer: true

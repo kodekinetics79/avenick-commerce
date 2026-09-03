@@ -5,6 +5,7 @@ import { B2BShell } from "@/components/b2b/b2b-shell";
 import { db } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
 import { getB2BContext } from "@/lib/b2b";
+import { companyCurrencyForCountry } from "@/lib/company-currency";
 import { format } from "date-fns";
 
 export const metadata = { title: "Company Profile" };
@@ -35,12 +36,23 @@ export default async function CompanyPage() {
         _count: { select: { orders: true, purchaseOrders: true, rfqRequests: true } },
       },
     }),
-    db.order.aggregate({
+    // Grouped by currency: a sum across currencies is not a sum of anything.
+    db.order.groupBy({
+      by: ["currency"],
       where: { companyId: ctx.companyId, paymentStatus: "PAID" },
       _sum: { total: true },
     }),
   ]);
   if (!company) redirect("/b2b/register");
+
+  // Company.creditLimit has no currency column; it is read in the company's
+  // jurisdiction currency, the same assumption the billing page states.
+  const companyCurrency = companyCurrencyForCountry(company.country);
+  const lifetimeSpend = orderAgg
+    .filter((row) => Number(row._sum.total ?? 0) > 0)
+    .sort((a, b) => a.currency.localeCompare(b.currency))
+    .map((row) => formatCurrency(Number(row._sum.total ?? 0), row.currency))
+    .join(" · ");
 
   const memberUsers = await db.user.findMany({
     where: { id: { in: company.members.map((m) => m.userId) } },
@@ -89,9 +101,9 @@ export default async function CompanyPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Credit limit", value: company.creditLimit ? formatCurrency(Number(company.creditLimit), "AED") : "Not set", icon: CreditCard },
+            { label: "Credit limit", value: company.creditLimit ? formatCurrency(Number(company.creditLimit), companyCurrency) : "Not set", icon: CreditCard },
             { label: "Payment terms", value: company.paymentTerms > 0 ? `Net ${company.paymentTerms} days` : "Prepaid", icon: FileText },
-            { label: "Lifetime spend", value: formatCurrency(Number(orderAgg._sum.total ?? 0), "AED"), icon: CreditCard },
+            { label: "Lifetime spend", value: lifetimeSpend || "—", icon: CreditCard },
             { label: "Orders / POs / RFQs", value: `${company._count.orders} / ${company._count.purchaseOrders} / ${company._count.rfqRequests}`, icon: FileText },
           ].map((s) => {
             const Icon = s.icon;

@@ -7,8 +7,12 @@ import { ProductCard } from "@/components/products/product-card";
 import { SortSelect } from "@/components/products/sort-select";
 import { PageLoader } from "@avenick/ui";
 import { fetchBackendJson } from "@/lib/backend";
+import { getServerB2BContext } from "@/lib/b2b-server";
+import { companyCurrencyForCountry } from "@/lib/company-currency";
+import { browseAllHref } from "@/lib/catalog-navigation";
+import { platformName } from "@avenick/utils/portal-config";
 
-export const metadata: Metadata = { title: "Products — Avenick Commerce" };
+export const metadata: Metadata = { title: `Products — ${platformName()}` };
 
 export const dynamic = "force-dynamic";
 
@@ -20,22 +24,21 @@ interface SearchParams {
   inStock?: string;
   minPrice?: string;
   maxPrice?: string;
+  b2b?: string;
+  currency?: string;
 }
 
-const PRICE_RANGES = [
-  { label: "Under AED 50", min: 0, max: 50 },
-  { label: "AED 50 – 200", min: 50, max: 200 },
-  { label: "AED 200 – 500", min: 200, max: 500 },
-  { label: "AED 500+", min: 500, max: 999999 },
-];
-
 async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
+  const wantsB2B = searchParams.b2b === "true";
+  const context = wantsB2B ? await getServerB2BContext() : null;
+  const currency = searchParams.currency?.toUpperCase() ?? (context ? companyCurrencyForCountry(context.company.country) : undefined);
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10));
   const limit = 24;
   const qs = new URLSearchParams({
     page: String(page),
     limit: String(limit),
-    b2c: "true",
+    ...(wantsB2B ? { b2b: "true" } : { b2c: "true" }),
+    ...(currency ? { currency } : {}),
     ...(searchParams.search ? { search: searchParams.search } : {}),
     ...(searchParams.category ? { categorySlug: searchParams.category } : {}),
     ...(searchParams.inStock === "1" ? { inStock: "true" } : {}),
@@ -43,25 +46,34 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
   });
   const { products, totalPages, total } = await fetchBackendJson<{ products: any[]; total: number; totalPages: number }>(`/api/products?${qs.toString()}`);
 
-  const sortedProducts =
-    searchParams.sort === "price_asc" || searchParams.sort === "price_desc"
-      ? [...products].sort((a, b) => {
-          const aPrice = Number(a.prices?.find((pr: { type: string }) => pr.type === "B2C")?.price ?? a.prices?.[0]?.price ?? 0);
-          const bPrice = Number(b.prices?.find((pr: { type: string }) => pr.type === "B2C")?.price ?? b.prices?.[0]?.price ?? 0);
-          return searchParams.sort === "price_desc" ? bPrice - aPrice : aPrice - bPrice;
-        })
-      : products;
+  // Ordering is done by the database across the full result set. A previous
+  // version re-sorted by price here — but only across the 24 rows already on
+  // the page, so "Price: Low → High" produced a false ordering that restarted
+  // on every page. It also read the B2C tier while in B2B mode.
+  const sortedProducts = products;
 
   if (sortedProducts.length === 0) {
+    // An empty category shows an honest zero-result state that keeps the
+    // selection visible. Silently redirecting to the full catalog answered a
+    // question the visitor did not ask and hid the fact that the category is
+    // empty.
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mb-4">
           <PackageSearch className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h3 className="font-semibold text-lg mb-1">No products found</h3>
+        <h3 className="font-semibold text-lg mb-1">
+          {searchParams.category ? "No products in this category yet" : "No products found"}
+        </h3>
         <p className="text-muted-foreground text-sm mb-4">لم يتم العثور على منتجات</p>
-        <p className="text-sm text-muted-foreground mb-6">Try adjusting your filters or search term.</p>
-        <Link href="/products" className="text-sm text-primary hover:underline font-medium">Clear all filters →</Link>
+        <p className="text-sm text-muted-foreground mb-6">
+          {searchParams.category
+            ? "This category has no published products right now."
+            : "Try adjusting your filters or search term."}
+        </p>
+        <Link href={browseAllHref(searchParams)} className="text-sm text-primary hover:underline font-medium">
+          Browse all products →
+        </Link>
       </div>
     );
   }
@@ -79,7 +91,6 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
         {sortedProducts.map((p) => {
-          const b2cPrice = p.prices?.find((pr: { type: string; price: number }) => pr.type === "B2C") ?? p.prices?.[0];
           const stock = p.inventory?.[0];
           return (
             <ProductCard
@@ -89,11 +100,17 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
               nameEn={p.nameEn}
               nameAr={p.nameAr}
               imageUrl={p.images?.[0]?.url}
-              price={b2cPrice ? Number(b2cPrice.price) : 0}
+              price={p.cardPrice?.amount}
+              currency={p.cardPrice?.currency}
+              vatRate={p.cardPrice?.vatRate}
+              priceIsFrom={p.cardPrice?.isFrom === true}
               sku={p.sku}
               sellerId={p.sellerId}
               sellerName={p.seller?.businessNameEn}
-              inStock={stock ? stock.qty - stock.reservedQty > 0 : false}
+              inStock={stock?.inStock === true}
+              availabilityStatus={stock?.status}
+              hasVariants={p.hasVariants === true} priceTiered={p.priceTiered === true}
+              isB2B={wantsB2B}
               moq={p.moq}
             />
           );
@@ -129,9 +146,6 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
     return `/products?${params.toString()}`;
   };
 
-  const currentMin = searchParams.minPrice ? parseInt(searchParams.minPrice) : undefined;
-  const currentMax = searchParams.maxPrice ? parseInt(searchParams.maxPrice) : undefined;
-
   return (
     <aside className="w-full lg:w-60 shrink-0 space-y-4">
       {/* Categories */}
@@ -156,26 +170,6 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
               </a>
             </li>
           ))}
-        </ul>
-      </div>
-
-      {/* Price range */}
-      <div className="bg-card rounded-2xl border border-border p-4">
-        <h3 className="font-semibold text-sm mb-3">Price Range</h3>
-        <ul className="space-y-0.5">
-          {PRICE_RANGES.map((r) => {
-            const active = currentMin === r.min && currentMax === r.max;
-            return (
-              <li key={r.label}>
-                <a
-                  href={active ? buildUrl({ minPrice: undefined, maxPrice: undefined }) : buildUrl({ minPrice: String(r.min), maxPrice: String(r.max) })}
-                  className={`block px-3 py-2 rounded-lg text-sm transition-colors ${active ? "bg-primary/10 text-primary font-medium" : "hover:bg-secondary text-muted-foreground"}`}
-                >
-                  {r.label}
-                </a>
-              </li>
-            );
-          })}
         </ul>
       </div>
 

@@ -1,4 +1,6 @@
 import createNextIntlPlugin from "next-intl/plugin";
+import { securityHeadersRoute } from "@avenick/config/security-headers";
+import { objectStorageRemotePatterns } from "@avenick/config/image-hosts";
 import { PrismaPlugin } from "@prisma/nextjs-monorepo-workaround-plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
@@ -17,10 +19,27 @@ const nextConfig = {
   images: {
     unoptimized: true,
     remotePatterns: [
+      // Uploaded media (S3/MinIO/R2), resolved from env at build time.
+      ...objectStorageRemotePatterns(),
       { protocol: "https", hostname: "*.avenick.com", pathname: "/**" },
       { protocol: "http", hostname: "localhost", pathname: "/**" },
       { protocol: "https", hostname: "placehold.co", pathname: "/**" },
+      // Official manufacturer media used by the isolated, source-attributed
+      // demo enrichment. Commercial price/stock never comes from this host.
+      { protocol: "https", hostname: "www.mennekes.org", pathname: "/fileadmin/products_media/**" },
     ],
+  },
+  // Baseline security headers for every route. Policy lives in
+  // @avenick/config/security-headers so all three portals stay in step.
+  async headers() {
+    const backend = process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
+    return [
+      securityHeadersRoute({
+        imgSrc: ["https://www.mennekes.org"],
+        connectSrc: backend ? [backend] : [],
+        isDev: process.env.NODE_ENV !== "production",
+      }),
+    ];
   },
   // Copies the Prisma query engine into the serverless bundle (pnpm monorepo).
   webpack: (config, { isServer }) => {

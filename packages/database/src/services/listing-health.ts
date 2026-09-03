@@ -1,5 +1,5 @@
 import { db } from "../index";
-import type { Product, ProductImage, ProductPrice, InventoryStock, ProductComplianceDocument, ProductStatus } from "@prisma/client";
+import type { Product, ProductImage, ProductPrice, InventoryStock, ProductComplianceDocument, ProductIssueType, ProductStatus } from "@prisma/client";
 
 type ProductWithRelations = Product & {
   images: ProductImage[];
@@ -63,6 +63,15 @@ export async function refreshProductHealth(productId: string): Promise<number> {
   return health.score;
 }
 
+/** Issue types this module derives from product data. Anything else is human-authored. */
+const GENERATED_ISSUE_TYPES = [
+  "MISSING_IMAGES",
+  "MISSING_ARABIC_TITLE",
+  "MISSING_ARABIC_DESCRIPTION",
+  "NO_PRICE",
+  "NO_STOCK",
+] as const satisfies readonly ProductIssueType[];
+
 export async function generateProductIssues(productId: string): Promise<void> {
   const product = await db.product.findUnique({
     where: { id: productId },
@@ -70,8 +79,17 @@ export async function generateProductIssues(productId: string): Promise<void> {
   });
   if (!product) return;
 
-  // Clear existing unresolved issues
-  await db.productIssue.deleteMany({ where: { productId, resolvedAt: null } });
+  // Clear the unresolved issues THIS generator owns before re-deriving them.
+  // Rows written by people — an admin's REJECTED_BY_ADMIN with its reason —
+  // are not ours to erase: they are resolved by the status change that
+  // supersedes them (approval), never by the seller saving the form.
+  await db.productIssue.deleteMany({ where: { productId, resolvedAt: null, issueType: { in: [...GENERATED_ISSUE_TYPES] } } });
+  if (product.status !== "REJECTED") {
+    await db.productIssue.updateMany({
+      where: { productId, resolvedAt: null, issueType: "REJECTED_BY_ADMIN" },
+      data: { resolvedAt: new Date() },
+    });
+  }
 
   type IssueCreate = { productId: string; issueType: string; severity: string; message: string; messageAr?: string };
   const issues: IssueCreate[] = [];

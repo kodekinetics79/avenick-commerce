@@ -1,13 +1,14 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { MessageSquare, Plus, Clock, CheckCircle2, Activity, Lock, Phone, Mail, MapPin, HelpCircle, Shield } from "lucide-react";
+import { MessageSquare, Plus, Clock, CheckCircle2, Activity, Lock, Mail, HelpCircle, Shield } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { auth } from "@/lib/auth-instance";
 import { ValidatedForm } from "@/components/b2b/validated-form";
 import { createTicket } from "./actions";
 import { cookieHeaderFromStore, fetchBackendJsonWithCookies } from "@/lib/backend";
+import { platformContacts, platformName } from "@avenick/utils/portal-config";
 
-export const metadata = { title: "Support & Help Center — Avenick Commerce" };
+export const metadata = { title: `Support & Help Center — ${platformName()}` };
 
 export const dynamic = "force-dynamic";
 
@@ -20,34 +21,38 @@ const STATUS: Record<string, { label: string; cls: string; icon: typeof Clock }>
 
 const CATEGORIES = ["ORDER", "DELIVERY", "PAYMENT", "PRODUCT", "ACCOUNT", "OTHER"];
 
+// The brand name is read from the resolver so a renamed deployment does not
+// keep answering "what is <old name>?" in its own help centre.
 const FAQS = [
   {
-    qEn: "What is Avenick Commerce?",
-    qAr: "ما هي منصة أفينيك كومرس؟",
-    aEn: "Avenick Commerce is the GCC's premier B2B and B2C procurement platform, connecting verified suppliers with buyers across the Gulf region for industrial supply, tools, and office procurement.",
-    aAr: "أفينيك كومرس هي منصة المشتريات الرائدة في دول مجلس التعاون الخليجي للشركات والأفراد، حيث تربط الموردين المعتمدين بالمشترين عبر منطقة الخليج لتوريد المنتجات الصناعية والأدوات والمستلزمات المكتبية."
+    qEn: `What is ${platformName()}?`,
+    qAr: `ما هي منصة ${platformName()}؟`,
+    aEn: `${platformName()} is a B2B and B2C procurement platform connecting approved suppliers with buyers for industrial supply, tools, and office procurement.`,
+    aAr: `${platformName()} هي منصة مشتريات للشركات والأفراد تربط الموردين المعتمدين بالمشترين لتوريد المنتجات الصناعية والأدوات والمستلزمات المكتبية.`
   },
   {
     qEn: "How do I request a bulk quote (RFQ)?",
     qAr: "كيف يمكنني طلب عرض سعر للكميات الكبيرة (RFQ)؟",
-    aEn: "To request a bulk quote, log in to your account and click 'Get a Quote' or navigate to the RFQ portal. Fill out the item details, quantity, and delivery requirements. Multiple verified suppliers will submit competitive quotes for your review.",
-    aAr: "لطلب عرض سعر للكميات، قم بتسجيل الدخول إلى حسابك وانقر على 'طلب عرض سعر' أو انتقل إلى منصة طلبات عروض الأسعار (RFQ). قم بتعبئة تفاصيل المنتجات والكمية ومتطلبات التسليم لتتلقى عروض أسعار تنافسية من موردين معتمدين."
+    aEn: "To request a bulk quote, log in and open the RFQ portal. Enter the item, quantity, and delivery requirements. The portal will show the quotes actually submitted for your request.",
+    aAr: "لطلب عرض سعر للكميات، سجل الدخول وافتح بوابة طلبات عروض الأسعار. أدخل المنتج والكمية ومتطلبات التسليم، وستعرض البوابة العروض المقدمة فعلياً لطلبك."
   },
   {
     qEn: "What are the shipping times and coverage areas?",
     qAr: "ما هي أوقات الشحن ومناطق التغطية؟",
-    aEn: "We deliver GCC-wide (UAE, Saudi Arabia, Qatar, Oman, Bahrain, Kuwait) using integrated 3PL logistics. Local delivery within major cities usually takes 1-3 business days, while cross-border GCC shipping takes 3-7 business days.",
-    aAr: "نقوم بالتوصيل إلى جميع أنحاء دول مجلس التعاون الخليجي (الإمارات، السعودية، قطر، عمان، البحرين، الكويت) باستخدام خدمات لوجستية متكاملة. يستغرق التوصيل المحلي داخل المدن الكبرى عادةً من يوم إلى 3 أيام عمل، بينما يستغرق الشحن عبر الحدود من 3 إلى 7 أيام عمل."
+    aEn: "Coverage, delivery timing, charges, and tracking availability are confirmed for each order during processing. The storefront does not promise a carrier or delivery window before confirmation.",
+    aAr: "يتم تأكيد نطاق التوصيل والمدة والرسوم وإمكانية التتبع لكل طلب أثناء المعالجة. ولا يعد المتجر بناقل أو مدة توصيل قبل التأكيد."
   },
   {
     qEn: "Can my company pay using credit or net terms?",
     qAr: "هل يمكن لشركتي الدفع باستخدام الائتمان أو شروط الدفع الآجل؟",
-    aEn: "Yes! Registered B2B companies can apply for trade credit (e.g. Net 30, Net 45 terms) by submitting their Commercial Registration (CR), VAT Certificate, and financial references through the B2B Company portal.",
-    aAr: "نعم! يمكن للشركات المسجلة التقدم بطلب للحصول على تسهيلات ائتمانية تجارية (مثل شروط دفع بعد 30 أو 45 يوماً) من خلال تقديم السجل التجاري، شهادة ضريبة القيمة المضافة، والمراجع المالية عبر بوابة الشركات."
+    aEn: "Only payment terms already approved and displayed on the active company account may be used. New credit terms are unavailable until a reviewed approval workflow is enabled.",
+    aAr: "لا يمكن استخدام سوى شروط الدفع المعتمدة والظاهرة في حساب الشركة النشط. ولا تتاح شروط ائتمانية جديدة حتى يتم تفعيل مسار موافقة خاضع للمراجعة."
   }
 ];
 
-const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+// Tickets arrive through the JSON API, so createdAt is an ISO string, not a
+// Date; formatting it without parsing threw for every user who had a ticket.
+const fmt = (d: string | Date) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 export default async function SupportPage() {
   const cookieStore = await cookies();
@@ -55,6 +60,9 @@ export default async function SupportPage() {
   const isAr = locale === "ar";
   const session = await auth();
   const userId = session?.user?.id as string | undefined;
+  // The support mailbox is deployment configuration. When none is configured
+  // the card is omitted: printing an address nobody reads is worse than none.
+  const supportEmail = platformContacts().support;
 
   const tickets = userId
     ? await fetchBackendJsonWithCookies<any[]>("/api/support", undefined, cookieHeaderFromStore(cookieStore))
@@ -82,7 +90,7 @@ export default async function SupportPage() {
             <p className="text-muted-foreground text-sm lg:text-base">
               {isAr 
                 ? "ابحث عن إجابات سريعة للأسئلة الشائعة أو تواصل مع مسؤولي الدعم الفني مباشرة." 
-                : "Find instant answers to common questions or reach out to our dedicated support representatives."}
+                : "Find answers to common questions or open a support ticket."}
             </p>
           </div>
 
@@ -91,32 +99,23 @@ export default async function SupportPage() {
             {/* Left Column: FAQs & Contact Info */}
             <div className="space-y-8">
               
-              {/* Contact Information Cards */}
-              <div className="bg-card/40 backdrop-blur-md border border-border/80 rounded-2xl p-6">
-                <h2 className="text-lg font-bold tracking-tight mb-4 flex items-center gap-2">
-                  <Mail className="h-5 w-5 text-primary" />
-                  {isAr ? "قنوات الاتصال المباشر" : "Direct Contact Channels"}
-                </h2>
-                <div className="grid sm:grid-cols-3 gap-4">
-                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/40 hover:border-primary/20 transition-all">
-                    <Phone className="h-5 w-5 text-primary mb-2" />
-                    <p className="text-xs text-muted-foreground mb-1">{isAr ? "اتصل بنا" : "Call us"}</p>
-                    <p className="font-semibold text-sm font-mono">+971 4 234 5678</p>
-                    <p className="text-[10px] text-muted-foreground mt-1">{isAr ? "الاثنين - الجمعة، ٩ - ٦" : "Mon - Fri, 9 AM - 6 PM"}</p>
-                  </div>
-                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/40 hover:border-primary/20 transition-all">
-                    <Mail className="h-5 w-5 text-primary mb-2" />
-                    <p className="text-xs text-muted-foreground mb-1">{isAr ? "البريد الإلكتروني" : "Email us"}</p>
-                    <a href="mailto:support@avenick.com" className="font-semibold text-sm text-primary hover:underline break-all">support@avenick.com</a>
-                    <p className="text-[10px] text-muted-foreground mt-1">{isAr ? "الرد خلال ٢٤ ساعة" : "Response in 24 hours"}</p>
-                  </div>
-                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/40 hover:border-primary/20 transition-all">
-                    <MapPin className="h-5 w-5 text-primary mb-2" />
-                    <p className="text-xs text-muted-foreground mb-1">{isAr ? "الموقع الرئيسي" : "Headquarters"}</p>
-                    <p className="font-semibold text-xs leading-normal">Al Quoz Industrial, Dubai, UAE</p>
+              {/* Contact Information Cards — no response-time promise: the
+                  platform measures no support SLA, so none is stated. */}
+              {supportEmail && (
+                <div className="bg-card/40 backdrop-blur-md border border-border/80 rounded-2xl p-6">
+                  <h2 className="text-lg font-bold tracking-tight mb-4 flex items-center gap-2">
+                    <Mail className="h-5 w-5 text-primary" />
+                    {isAr ? "قنوات الاتصال المباشر" : "Direct Contact Channels"}
+                  </h2>
+                  <div className="grid gap-4">
+                    <div className="bg-secondary/30 rounded-xl p-4 border border-border/40 hover:border-primary/20 transition-all">
+                      <Mail className="h-5 w-5 text-primary mb-2" />
+                      <p className="text-xs text-muted-foreground mb-1">{isAr ? "البريد الإلكتروني" : "Email us"}</p>
+                      <a href={`mailto:${supportEmail}`} className="font-semibold text-sm text-primary hover:underline break-all">{supportEmail}</a>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* FAQs Section */}
               <div className="space-y-4">

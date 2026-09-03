@@ -1,4 +1,4 @@
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerAnyPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { db } from "@avenick/database";
 import { advanceShipment } from "./actions";
@@ -23,7 +23,7 @@ const NEXT_LABEL: Record<string, string> = {
 const fmt = (d: Date | null) => (d ? d.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "—");
 
 export default async function ShipmentsPage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerAnyPermission(["shipments.view", "shipments.manage"]);
 
   const shipments = await db.shipment.findMany({
     where: { sellerId: seller.id },
@@ -44,7 +44,7 @@ export default async function ShipmentsPage() {
   ];
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Shipments</h1>

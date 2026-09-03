@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./commerce-governance": "./src/services/commerce-governance.ts",
+    "./pilot-catalog": "./src/services/pilot-catalog.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -16,12 +18,20 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:prod": "bash scripts/migrate-deploy.sh",
     "db:seed": "tsx prisma/seed.ts",
+    "db:seed:certification": "tsx prisma/seed-certification.ts",
+    "db:enrich:demo-products": "tsx prisma/enrich-demo-products.ts",
+    "db:provision:industrial-demo": "tsx prisma/provision-industrial-demo.ts",
+    "db:import-pilot": "tsx prisma/import-pilot-catalog.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
+    "integration:worker": "tsx scripts/integration-worker.ts",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
     "@avenick/observability": "workspace:*",
+    "@avenick/utils": "workspace:*",
+    "@noble/hashes": "1.7.1",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3"
   },

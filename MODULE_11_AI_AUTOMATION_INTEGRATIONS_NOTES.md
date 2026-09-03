@@ -62,7 +62,7 @@ to the Module 1–10 design system and did a final consistency sweep of the whol
 - **Branding**: Avenick Commerce, green primary, dark navy enterprise chrome
 - **Design system**: segment-based bars (no inline styles), consistent status badges, slate-900 sidebars
 - **Database**: PostgreSQL (dev) with MySQL-compatible schema notes per module for production migration
-- **Auth**: per-app cookie isolation, role-gated middleware, seeded test accounts (all `Password123!`)
+- **Auth**: per-app cookie isolation, role-gated middleware, seeded test accounts (password set via `SEED_PASSWORD`, otherwise generated per seed run)
 - **Apps**: customer :13100, seller :13101, admin :13102 — all running, zero app-level TS errors
 
 ### Documentation produced

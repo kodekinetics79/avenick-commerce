@@ -1,8 +1,9 @@
 /**
  * Claude-powered drafting for sellers (RFQ replies + listing copy).
  * Calls the Anthropic Messages API via HTTP (no SDK dependency). Falls back to
- * a sensible template when ANTHROPIC_API_KEY isn't configured, so the feature
- * works in local/demo environments.
+ * an explicit unavailable response when ANTHROPIC_API_KEY isn't configured.
+ * Commercial availability, lead time, compliance, and stock must never be
+ * invented by a drafting fallback.
  */
 import { log } from "@avenick/observability";
 
@@ -18,12 +19,7 @@ export async function generateDraft(kind: Kind, context: string): Promise<{ text
   const clean = context.trim().slice(0, 2000);
 
   if (!key) {
-    // Template fallback — still useful, clearly editable.
-    const text =
-      kind === "rfq"
-        ? `Thank you for your enquiry regarding "${clean || "your requested items"}".\n\nWe can fulfil this order — the items are in stock with an estimated lead time of 3–5 business days, delivered across the GCC. Pricing is competitive for the requested volume and we're happy to discuss tiered rates for larger quantities.\n\nShall we proceed with a formal quotation? Reply here and we'll send it within the hour.`
-        : `${clean || "Premium product"} — built for the job.\n\nEngineered for reliability and everyday performance, this item meets GCC compliance standards and ships fast from verified stock. Ideal for industrial, facilities, and trade buyers who need dependable supply at scale.`;
-    return { text, ai: false };
+    return { text: "AI drafting is not configured in this environment.", ai: false };
   }
 
   try {

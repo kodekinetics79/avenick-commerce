@@ -1,0 +1,7 @@
+# Journey evidence artifacts — regenerated per run, never committed.
+artifacts/
+playwright-report/
+test-results/
+cypress/screenshots/
+cypress/videos/
+.cache/

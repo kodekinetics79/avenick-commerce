@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { AuthProvider } from "@/components/auth-provider";
+import { platformName } from "@avenick/utils/portal-config";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Seller Central | Avenick Commerce", template: "%s | Seller Central" },
-  description: "Avenick Commerce Seller Central — Manage your store",
+  title: { default: `Seller Central | ${platformName()}`, template: "%s | Seller Central" },
+  description: `${platformName()} Seller Central — manage your store`,
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

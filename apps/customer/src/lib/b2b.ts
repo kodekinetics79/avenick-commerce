@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth-instance";
 import { db } from "@avenick/database";
 import { cookies } from "next/headers";
 import { cookieHeaderFromStore, fetchBackendJsonWithCookies } from "@/lib/backend";
+import { isDurableB2BMember } from "./b2b-access";
 
 /** Return shape for B2B form server actions (used with useActionState). */
 export type B2BActionState = { error?: string; ok?: boolean; message?: string };
@@ -22,9 +23,10 @@ export async function getB2BContext() {
 
   const member = await db.companyMember.findUnique({
     where: { userId },
-    include: { company: true },
+    include: { company: true, user: { select: { role: true, status: true, deletedAt: true } } },
   });
-  if (!member) return null;
+  // `member &&` does the null-narrowing the guard used to do as a type predicate.
+  if (!member || !isDurableB2BMember(member)) return null;
 
   return { userId, member, company: member.company, companyId: member.companyId };
 }

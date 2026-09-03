@@ -1,13 +1,13 @@
 import { B2BShell } from "@/components/b2b/b2b-shell";
-import { formatCurrency } from "@avenick/utils";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
 import { createList, deleteList, addItem, removeItem } from "./actions";
 import { ValidatedForm } from "@/components/b2b/validated-form";
 import { ReorderButton } from "@/components/b2b/reorder-button";
 import { ListChecks, Plus, Trash2, X, Building2 } from "lucide-react";
+import { platformName } from "@avenick/utils/portal-config";
 
-export const metadata = { title: "Requisition Lists — Avenick for Business" };
+export const metadata = { title: `Requisition Lists — ${platformName()} for Business` };
 
 export default async function RequisitionListsPage() {
   const ctx = await getB2BContext();
@@ -49,14 +49,11 @@ export default async function RequisitionListsPage() {
       ) : (
         <div className="grid lg:grid-cols-2 gap-4">
           {lists.map((l) => {
-            const total = l.items.reduce((s, it) => s + (it.unitPrice ? Number(it.unitPrice) * it.qty : 0), 0);
-            const reorderItems = l.items.map((it) => ({
-              productId: it.productId,
+            const reorderItems = l.items.filter((it) => it.productId != null).map((it) => ({
+              productId: it.productId!,
               sku: it.sku,
               nameEn: it.nameEn,
               qty: it.qty,
-              unitPrice: it.unitPrice ? Number(it.unitPrice) : null,
-              sellerId: it.product?.sellerId ?? null,
             }));
             return (
               <div key={l.id} className="rounded-2xl border border-border bg-card p-5">
@@ -65,7 +62,7 @@ export default async function RequisitionListsPage() {
                     <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary shrink-0"><ListChecks className="h-5 w-5" /></span>
                     <div className="min-w-0">
                       <p className="font-semibold truncate">{l.name}</p>
-                      <p className="text-xs text-muted-foreground">{l.items.length} item{l.items.length !== 1 ? "s" : ""}{total > 0 ? ` · ${formatCurrency(total, "AED")}` : ""}</p>
+                      <p className="text-xs text-muted-foreground">{l.items.length} item{l.items.length !== 1 ? "s" : ""} · repriced when reordered</p>
                     </div>
                   </div>
                   <form action={deleteList.bind(null, l.id)}>
@@ -80,7 +77,7 @@ export default async function RequisitionListsPage() {
                       <li key={it.id} className="flex items-center justify-between py-2 text-sm">
                         <div className="min-w-0">
                           <p className="font-medium truncate">{it.nameEn}</p>
-                          <p className="text-xs text-muted-foreground font-mono">{it.sku} · ×{it.qty}{it.unitPrice ? ` · ${formatCurrency(Number(it.unitPrice), "AED")}` : ""}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{it.sku} · ×{it.qty}</p>
                         </div>
                         <form action={removeItem.bind(null, it.id)}>
                           <button type="submit" className="p-1 rounded-md text-muted-foreground hover:text-danger transition-colors" aria-label="Remove item"><X className="h-3.5 w-3.5" /></button>

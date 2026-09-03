@@ -1,10 +1,12 @@
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { Scale, Users, CreditCard, ShoppingBag, ShieldAlert, Award, HelpCircle } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
+import { platformContacts, platformName } from "@avenick/utils/portal-config";
 
 export const metadata = {
-  title: "Terms of Service — Avenick Commerce",
-  description: "Avenick Commerce terms of service, B2B procurement rules, and regulatory guidelines.",
+  title: `Terms of Service — ${platformName()}`,
+  description: `${platformName()} terms of service, B2B procurement rules, and regulatory guidelines.`,
 };
 
 export const dynamic = "force-dynamic";
@@ -18,7 +20,22 @@ interface LegalSection {
   icon: typeof Scale;
 }
 
-const SECTIONS: LegalSection[] = [
+/**
+ * Built per request: the legal contact address is deployment configuration
+ * (platformContacts) and is never typed into the terms. With no address
+ * configured, the section points at the support portal instead.
+ */
+function buildSections(legalEmail: string | null): LegalSection[] {
+  // The operator's name appears throughout the agreement; it is read once from
+  // the resolver so a renamed deployment does not bind users to the old name.
+  const name = platformName();
+  const emailLink = legalEmail ? (
+    <a href={`mailto:${legalEmail}`} className="text-primary hover:underline font-semibold">{legalEmail}</a>
+  ) : null;
+  const supportLink = (ar: boolean) => (
+    <Link href="/support" className="text-primary hover:underline font-semibold">{ar ? "بوابة الدعم الفني" : "support portal"}</Link>
+  );
+  return [
   {
     id: "terms",
     titleEn: "1. Acceptance of Terms",
@@ -26,13 +43,13 @@ const SECTIONS: LegalSection[] = [
     icon: Scale,
     contentEn: (
       <>
-        <p>By registering for, accessing, or using the Avenick Commerce B2B/B2C trading platform, you agree to be bound by these Terms of Service. These terms constitute a legally binding agreement between you (and your company, if registering as a business entity) and Avenick Commerce.</p>
+        <p>By registering for, accessing, or using the {name} B2B/B2C trading platform, you agree to be bound by these Terms of Service. These terms constitute a legally binding agreement between you (and your company, if registering as a business entity) and {name}.</p>
         <p>If you do not agree with any part of these terms, you must not access the platform or use our services.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>من خلال التسجيل أو الوصول أو استخدام منصة أفينيك كومرس (Avenick Commerce) للتجارة، فإنكم توافقون على الالتزام بشروط الخدمة هذه. تشكل هذه الشروط اتفاقية ملزمة قانونياً بينكم (وبين شركتكم، في حال التسجيل ككيان تجاري) وبين المنصة.</p>
+        <p>من خلال التسجيل أو الوصول أو استخدام منصة {name} للتجارة، فإنكم توافقون على الالتزام بشروط الخدمة هذه. تشكل هذه الشروط اتفاقية ملزمة قانونياً بينكم (وبين شركتكم، في حال التسجيل ككيان تجاري) وبين المنصة.</p>
         <p>إذا كنتم لا توافقون على أي جزء من هذه الشروط، فيجب عليكم عدم الدخول إلى المنصة أو استخدام خدماتنا.</p>
       </>
     ),
@@ -44,13 +61,13 @@ const SECTIONS: LegalSection[] = [
     icon: Users,
     contentEn: (
       <>
-        <p>To access the B2B portal, businesses must submit a valid Commercial Registration (CR) and VAT certificate. You represent that all details provided are accurate and authorize Avenick to conduct KYC checks.</p>
+        <p>To access the B2B portal, businesses must submit a valid Commercial Registration (CR) and VAT certificate. You represent that all details provided are accurate and authorize {name} to conduct KYC checks.</p>
         <p>Companies can invite team members and delegate specific roles: Company Admin, Company Buyer, and Company Approver. The company assumes full liability for all purchase orders approved and payments committed by their invited users.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>للوصول إلى بوابة الشركات (B2B)، يجب على المنشآت تقديم سجل تجاري ساري المفعول (CR) وشهادة ضريبة القيمة المضافة. وتتعهدون بأن جميع البيانات المقدمة دقيقة وتفوضون أفينيك لإجراء عمليات التحقق من الهوية (KYC).</p>
+        <p>للوصول إلى بوابة الشركات (B2B)، يجب على المنشآت تقديم سجل تجاري ساري المفعول (CR) وشهادة ضريبة القيمة المضافة. وتتعهدون بأن جميع البيانات المقدمة دقيقة وتفوضون {name} لإجراء عمليات التحقق من الهوية (KYC).</p>
         <p>يمكن للشركات دعوة أعضاء الفريق وتفويض أدوار محددة لهم: مدير الشركة، المشتري، والمفوّض بالاعتماد. وتتحمل الشركة المسؤولية القانونية الكاملة عن جميع أوامر الشراء التي تمت الموافقة عليها والمدفوعات الملتزم بها من قبل مستخدميها المدعوين.</p>
       </>
     ),
@@ -62,14 +79,14 @@ const SECTIONS: LegalSection[] = [
     icon: CreditCard,
     contentEn: (
       <>
-        <p>Qualified B2B buyers may apply for credit lines and Net payment terms (e.g. Net 30, Net 60). Credit limits are reviewed periodically based on purchase history and creditworthiness checks.</p>
-        <p>All tax invoices issued under Net terms must be paid in full by their respective due dates. Overdue invoices will result in immediate suspension of credit line facilities and temporary B2B account lockouts.</p>
+        <p>A company account may carry a credit limit and payment terms recorded by {name}. Only terms already approved and shown on the active company account apply. There is currently no self-service application for credit lines or Net terms, and no automated periodic review of credit limits.</p>
+        <p>Tax invoices issued under recorded payment terms must be paid in full by their due dates. {name} does not currently operate automated credit suspension or account lockout on overdue invoices; any such action is taken manually under the executed customer agreement.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>يمكن للمشترين المؤهلين تقديم طلب للحصول على خط ائتمان تجاري وشروط دفع صافية (مثل صافي ٣٠ يوماً، صافي ٦٠ يوماً). ويتم مراجعة الحدود الائتمانية بشكل دوري بناءً على تاريخ الشراء والتحقق من الجدارة الائتمانية.</p>
-        <p>يجب سداد جميع الفواتير الضريبية الصادرة بموجب شروط الدفع المحددة بالكامل في تواريخ استحقاقها. وسيترتب على الفواتير المتأخرة تعليق فوري للتسهيلات الائتمانية وإغلاق مؤقت لحساب الشركة.</p>
+        <p>قد يحمل حساب الشركة حداً ائتمانياً وشروط دفع مسجلة لدى {name}. ولا تسري إلا الشروط المعتمدة مسبقاً والظاهرة على حساب الشركة النشط. ولا يتوفر حالياً طلب ذاتي للحصول على خطوط ائتمان أو شروط دفع صافية، ولا توجد مراجعة دورية آلية للحدود الائتمانية.</p>
+        <p>يجب سداد الفواتير الضريبية الصادرة بموجب شروط الدفع المسجلة بالكامل في تواريخ استحقاقها. ولا تُشغّل {name} حالياً تعليقاً ائتمانياً آلياً أو إغلاقاً للحساب عند تأخر الفواتير؛ وأي إجراء من هذا القبيل يُتخذ يدوياً بموجب اتفاقية العميل المبرمة.</p>
       </>
     ),
   },
@@ -80,13 +97,13 @@ const SECTIONS: LegalSection[] = [
     icon: ShoppingBag,
     contentEn: (
       <>
-        <p>When you submit a Request for Quotation (RFQ), it is distributed to matching verified suppliers. Quotations received from suppliers are binding offers valid until the expiration date specified on the quote.</p>
+        <p>When you submit a Request for Quotation (RFQ), it is recorded and may be assigned to a supplier. {name} does not guarantee that an RFQ is distributed to multiple suppliers or that a quote will be returned. Quotations received from suppliers are binding offers valid until the expiration date specified on the quote.</p>
         <p>Upon accepting a quotation, the platform automatically drafts a Purchase Order (PO). If approval policies are configured, the PO will wait for approval from your designated Company Approver before converting to a formal order.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>عند إرسال طلب عرض أسعار (RFQ)، يتم توزيعه على الموردين المعتمدين والمطابقين. وتعتبر عروض الأسعار الواردة من الموردين عروضاً ملزمة وسارية المفعول حتى تاريخ انتهاء الصلاحية المحدد في العرض.</p>
+        <p>عند إرسال طلب عرض أسعار (RFQ)، يتم تسجيله وقد يُسنَد إلى مورد. ولا تضمن {name} توزيع الطلب على عدة موردين أو ورود عرض أسعار. وتعتبر عروض الأسعار الواردة من الموردين عروضاً ملزمة وسارية المفعول حتى تاريخ انتهاء الصلاحية المحدد في العرض.</p>
         <p>عند قبول عرض الأسعار، تقوم المنصة تلقائياً بصياغة أمر الشراء (PO). وفي حالة تهيئة سياسات الموافقة، سينتظر أمر الشراء موافقة المفوّض المعيّن قبل تحويله إلى طلب رسمي.</p>
       </>
     ),
@@ -98,14 +115,14 @@ const SECTIONS: LegalSection[] = [
     icon: ShieldAlert,
     contentEn: (
       <>
-        <p>Avenick operates escrow protection. Payments are released to suppliers only after delivery is successfully verified or within the inspection window (typically 3 business days from receipt).</p>
-        <p>In case of defective, incorrect, or missing items, buyers must raise a formal dispute or request return within the inspection window. Support tickets will be mediated by the Avenick customer care team.</p>
+        <p>{name} does not currently provide an escrow service. Bank-transfer orders remain unpaid until finance reconciliation; online card payment methods remain unavailable until outbound payment initiation and settlement controls are certified.</p>
+        <p>In case of defective, incorrect, or missing items, buyers must raise a formal dispute or request return within the inspection window. Support tickets will be mediated by the {name} customer care team.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>تدير أفينيك نظام حماية الضمان (Escrow). ولا يتم تحرير المدفوعات للموردين إلا بعد التحقق من نجاح التسليم أو خلال فترة الفحص (عادة ٣ أيام عمل من الاستلام).</p>
-        <p>في حالة وجود سلع معيبة أو غير صحيحة أو مفقودة، يجب على المشتري رفع نزاع رسمي أو طلب إرجاع خلال فترة الفحص. وسيتم التوسط في تذاكر الدعم بواسطة فريق خدمة عملاء أفينيك.</p>
+        <p>لا توفر {name} حالياً خدمة ضمان مالي (Escrow). وتظل طلبات التحويل البنكي غير مدفوعة حتى تسوية فريق المالية، كما تبقى طرق الدفع الإلكتروني بالبطاقات غير متاحة إلى أن يتم اعتماد بدء الدفع والتسوية.</p>
+        <p>في حالة وجود سلع معيبة أو غير صحيحة أو مفقودة، يجب على المشتري رفع نزاع رسمي أو طلب إرجاع خلال فترة الفحص. وسيتم التوسط في تذاكر الدعم بواسطة فريق خدمة عملاء {name}.</p>
       </>
     ),
   },
@@ -116,12 +133,12 @@ const SECTIONS: LegalSection[] = [
     icon: Award,
     contentEn: (
       <>
-        <p>These Terms of Service are governed by and construed in accordance with the laws of the United Arab Emirates. Any dispute arising out of or in connection with these terms shall be subject to the exclusive jurisdiction of the courts of Dubai, UAE.</p>
+        <p>The governing law and dispute forum must be stated in the executed customer agreement for the deployed tenant. This demo does not assign a jurisdiction by default. Contact the legal desk before relying on these terms for a live transaction.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>تخضع شروط الخدمة هذه وتفسر وفقاً للقوانين المعمول بها في دولة الإمارات العربية المتحدة. وتخضع أي نزاعات تنشأ عنها أو تتعلق بها للاختصاص القضائي الحصري لمحاكم دبي، الإمارات العربية المتحدة.</p>
+        <p>يجب تحديد القانون الحاكم وجهة الفصل في النزاعات ضمن اتفاقية العميل الموقعة للبيئة المنشورة. لا تحدد هذه البيئة التجريبية اختصاصاً قضائياً افتراضياً. يرجى التواصل مع القسم القانوني قبل الاعتماد على هذه الشروط في معاملة فعلية.</p>
       </>
     ),
   },
@@ -132,21 +149,23 @@ const SECTIONS: LegalSection[] = [
     icon: HelpCircle,
     contentEn: (
       <>
-        <p>If you have any questions or require clarification regarding these terms, please contact our legal desk at <a href="mailto:legal@avenick.com" className="text-primary hover:underline font-semibold">legal@avenick.com</a>.</p>
+        <p>If you have any questions or require clarification regarding these terms, {emailLink ? <>contact our legal desk at {emailLink} or </> : null}open a ticket in our {supportLink(false)}.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>إذا كانت لديكم أي استفسارات أو طلبات إيضاح بشأن هذه الشروط، يرجى التواصل مع مكتبنا القانوني عبر البريد الإلكتروني <a href="mailto:legal@avenick.com" className="text-primary hover:underline font-semibold">legal@avenick.com</a>.</p>
+        <p>إذا كانت لديكم أي استفسارات أو طلبات إيضاح بشأن هذه الشروط، {emailLink ? <>يرجى التواصل مع مكتبنا القانوني عبر {emailLink} أو </> : null}افتحوا تذكرة في {supportLink(true)}.</p>
       </>
     ),
   },
-];
+  ];
+}
 
 export default async function TermsPage() {
   const cookieStore = await cookies();
   const locale = cookieStore.get("AVENICK_LOCALE")?.value ?? "en";
   const isAr = locale === "ar";
+  const SECTIONS = buildSections(platformContacts().legal);
 
   return (
     <MainLayout>
@@ -162,10 +181,12 @@ export default async function TermsPage() {
             <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight mb-3">
               {isAr ? "شروط الخدمة" : "Terms of Service"}
             </h1>
+            {/* No "last updated" date: nothing records when this text changed,
+                so a typed date would be a claim the platform cannot back. */}
             <p className="text-muted-foreground text-sm">
-              {isAr 
-                ? "آخر تحديث: يونيو ٢٠٢٦ — يرجى قراءة شروط الخدمة بعناية قبل استخدام منصة أفينيك للتجارة." 
-                : "Last updated: June 2026 — Please read these terms carefully before utilizing the Avenick Commerce platform."}
+              {isAr
+                ? "يرجى قراءة شروط الخدمة بعناية قبل استخدام المنصة."
+                : `Please read these terms carefully before using the ${platformName()} platform.`}
             </p>
           </div>
 

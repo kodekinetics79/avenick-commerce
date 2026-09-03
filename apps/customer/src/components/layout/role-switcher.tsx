@@ -21,7 +21,6 @@ const B2B_NAV = [
 
 const GUEST_NAV = [
   { href: "/products", label: "Products" },
-  { href: "/deals", label: "Deals" },
   { href: "/brands", label: "Brands" },
   { href: "/categories/industrial-supplies", label: "Categories" },
 ];

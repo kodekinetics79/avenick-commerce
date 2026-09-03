@@ -2,6 +2,56 @@ import { db, Prisma } from "../index";
 
 // ─── EXECUTIVE DASHBOARD ──────────────────────────────────────────────────────
 
+/**
+ * Percentage change of `current` over `previous`, rounded to a whole percent.
+ *
+ * Returns null — never 0 — when there is nothing to measure against: a prior
+ * period of zero (or a non-finite input) is not a flat month, and the view
+ * withholds the badge for null rather than paint "0%" as a measured result.
+ * A genuine 0 is returned only when both months exist and are equal.
+ */
+export function monthOverMonth(current: number, previous: number): number | null {
+  if (!Number.isFinite(current) || !Number.isFinite(previous) || previous <= 0) return null;
+  const percent = Math.round(((current - previous) / previous) * 100);
+  // Math.round(-0.4) is -0, which Object.is and React's serialiser treat as a
+  // distinct value from 0; a dip too small to register is a flat month.
+  return percent === 0 ? 0 : percent;
+}
+
+/**
+ * Executive KPIs. Every `*Trend` is a month-over-month percentage delta or
+ * null when the figure is not measured against a prior period. Null is a
+ * statement the view must honour — it is never coerced to 0 or borrowed from
+ * a neighbouring metric.
+ */
+export interface ExecutiveKpis {
+  gmvMonth: number;
+  gmvTotal: number;
+  gmvTrend: number | null;
+  ordersTotal: number;
+  aov: number;
+  b2bRevenue: number;
+  b2bTrend: number | null;
+  b2cRevenue: number;
+  b2cTrend: number | null;
+  commission: number;
+  commissionTrend: number | null;
+  activeCompanies: number;
+  companiesTrend: number | null;
+  activeCustomers: number;
+  customersTrend: number | null;
+  activeSuppliers: number;
+  suppliersTrend: number | null;
+  rfqConversion: number;
+  rfqConversionTrend: number | null;
+  fulfillmentRate: number;
+  fulfillmentTrend: number | null;
+  warehouseUtilization: number;
+  warehouseTrend: number | null;
+  openDisputes: number;
+  delayedOrders: number;
+}
+
 export async function getExecutiveDashboardData() {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -29,6 +79,10 @@ export async function getExecutiveDashboardData() {
     stockAgg,
     openDisputes,
     delayedOrders,
+    monthTypeSplit,
+    prevMonthTypeSplit,
+    monthCommissionAgg,
+    prevMonthCommissionAgg,
   ] = await Promise.all([
     db.order.aggregate({ where: { paymentStatus: "PAID" }, _sum: { total: true }, _count: { _all: true }, _avg: { total: true } }),
     db.order.aggregate({ where: { paymentStatus: "PAID", createdAt: { gte: monthStart } }, _sum: { total: true } }),
@@ -61,11 +115,17 @@ export async function getExecutiveDashboardData() {
       JOIN "OrderItem" oi ON oi."sellerId" = sp.id
       JOIN "Order" o ON o.id = oi."orderId" AND o."paymentStatus" = 'PAID'
       GROUP BY sp.id ORDER BY gmv DESC LIMIT 5`,
+    // Erasure (services/data-rights.ts) anonymises the identity in place and
+    // sets deletedAt: the orders are retained because they must be, but the
+    // person is gone and must stop being named in reports. Without the guard
+    // this report renders "Erased User" and their tombstone address next to a
+    // spend figure — the same guard the consumerCount above already applies.
     db.$queryRaw<Array<{ id: string; name: string; type: string; totalorders: bigint; totalspent: Prisma.Decimal }>>`
       SELECT u.id, u."firstName" || ' ' || u."lastName" AS name,
              CASE WHEN u.role = 'CONSUMER' THEN 'B2C' ELSE 'B2B' END AS type,
              COUNT(o.id) AS totalorders, COALESCE(SUM(o.total), 0) AS totalspent
       FROM "User" u JOIN "Order" o ON o."userId" = u.id AND o."paymentStatus" = 'PAID'
+      WHERE u."deletedAt" IS NULL
       GROUP BY u.id ORDER BY totalspent DESC LIMIT 5`,
     db.commission.aggregate({ _sum: { amount: true } }),
     db.user.count({ where: { role: "CONSUMER", status: "ACTIVE", deletedAt: null } }),
@@ -78,11 +138,21 @@ export async function getExecutiveDashboardData() {
         createdAt: { lt: new Date(Date.now() - 48 * 3600_000) },
       },
     }),
+    // The same two windows and the same PAID filter as monthAgg/prevMonthAgg,
+    // split per channel, so the B2B and B2C trends are measured exactly the
+    // way the GMV trend is instead of being copies of it.
+    db.order.groupBy({ by: ["type"], where: { paymentStatus: "PAID", createdAt: { gte: monthStart } }, _sum: { total: true } }),
+    db.order.groupBy({ by: ["type"], where: { paymentStatus: "PAID", createdAt: { gte: prevMonthStart, lt: monthStart } }, _sum: { total: true } }),
+    // Commission rows carry their own createdAt, so the same comparison holds.
+    db.commission.aggregate({ where: { createdAt: { gte: monthStart } }, _sum: { amount: true } }),
+    db.commission.aggregate({ where: { createdAt: { gte: prevMonthStart, lt: monthStart } }, _sum: { amount: true } }),
   ]);
 
   const gmvTotal = Number(paidAgg._sum.total ?? 0);
-  const b2b = Number(typeSplit.find((t) => t.type === "B2B")?._sum.total ?? 0);
-  const b2c = Number(typeSplit.find((t) => t.type === "B2C")?._sum.total ?? 0);
+  const typeTotal = (rows: typeof typeSplit, type: "B2B" | "B2C") =>
+    Number(rows.find((t) => t.type === type)?._sum.total ?? 0);
+  const b2b = typeTotal(typeSplit, "B2B");
+  const b2c = typeTotal(typeSplit, "B2C");
 
   const statusCount = (statuses: string[]) =>
     statusCounts.filter((s) => statuses.includes(s.status)).reduce((sum, s) => sum + s._count._all, 0);
@@ -92,7 +162,13 @@ export async function getExecutiveDashboardData() {
   const lowStockCount = Number(lowStock[0]?.count ?? 0);
   const gmvMonth = Number(monthAgg._sum.total ?? 0);
   const gmvPrevMonth = Number(prevMonthAgg._sum.total ?? 0);
-  const gmvTrend = gmvPrevMonth > 0 ? Math.round(((gmvMonth - gmvPrevMonth) / gmvPrevMonth) * 100) : 0;
+  const gmvTrend = monthOverMonth(gmvMonth, gmvPrevMonth);
+  const b2bTrend = monthOverMonth(typeTotal(monthTypeSplit, "B2B"), typeTotal(prevMonthTypeSplit, "B2B"));
+  const b2cTrend = monthOverMonth(typeTotal(monthTypeSplit, "B2C"), typeTotal(prevMonthTypeSplit, "B2C"));
+  const commissionTrend = monthOverMonth(
+    Number(monthCommissionAgg._sum.amount ?? 0),
+    Number(prevMonthCommissionAgg._sum.amount ?? 0),
+  );
 
   const totalRfqs = rfqCounts.reduce((s, c) => s + c._count._all, 0);
   const rfqConversion = totalRfqs > 0 ? Math.round((rfqCount(["ACCEPTED"]) / totalRfqs) * 100) : 0;
@@ -146,37 +222,42 @@ export async function getExecutiveDashboardData() {
     });
   }
 
+  // Keys match the DashboardView contract. GMV, B2B, B2C and commission are
+  // measured this month against the previous month (null when the previous
+  // month is empty). The remaining figures are point-in-time counts and
+  // ratios with no prior-period query behind them, so their trend is null —
+  // not 0, which would read as "measured and flat".
+  const kpis: ExecutiveKpis = {
+    gmvMonth,
+    gmvTotal,
+    gmvTrend,
+    ordersTotal: paidAgg._count._all,
+    aov: Number(paidAgg._avg.total ?? 0),
+    b2bRevenue: b2b,
+    b2bTrend,
+    b2cRevenue: b2c,
+    b2cTrend,
+    commission: Number(commissionAgg._sum.amount ?? 0),
+    commissionTrend,
+    activeCompanies,
+    companiesTrend: null,
+    activeCustomers: consumerCount,
+    customersTrend: null,
+    activeSuppliers: activeSellers,
+    suppliersTrend: null,
+    rfqConversion,
+    rfqConversionTrend: null,
+    fulfillmentRate,
+    fulfillmentTrend: null,
+    warehouseUtilization,
+    warehouseTrend: null,
+    openDisputes,
+    delayedOrders,
+  };
+
   return {
     exec: {
-      // Keys match the DashboardView contract. Trend values are real
-      // month-over-month deltas where a prior period exists; otherwise 0.
-      kpis: {
-        gmvMonth,
-        gmvTotal,
-        gmvTrend,
-        ordersTotal: paidAgg._count._all,
-        aov: Number(paidAgg._avg.total ?? 0),
-        b2bRevenue: b2b,
-        b2bTrend: gmvTrend,
-        b2cRevenue: b2c,
-        b2cTrend: gmvTrend,
-        commission: Number(commissionAgg._sum.amount ?? 0),
-        commissionTrend: 0,
-        activeCompanies,
-        companiesTrend: 0,
-        activeCustomers: consumerCount,
-        customersTrend: 0,
-        activeSuppliers: activeSellers,
-        suppliersTrend: 0,
-        rfqConversion,
-        rfqConversionTrend: 0,
-        fulfillmentRate,
-        fulfillmentTrend: 0,
-        warehouseUtilization,
-        warehouseTrend: 0,
-        openDisputes,
-        delayedOrders,
-      },
+      kpis,
       // Absolute amounts — the view formats them as currency and derives %.
       revenueSplit: { b2b, b2c },
       rfqFunnel: [
@@ -301,17 +382,23 @@ export async function getCrmOverview() {
       take: 20,
       include: { buyer: { select: { firstName: true, lastName: true, email: true } } },
     }),
+    // Erased subjects are excluded here too — see getExecutiveDashboardData.
+    // This one also selects the email, so the tombstone address would be shown.
     db.$queryRaw<Array<{ id: string; name: string; email: string; role: string; orders: bigint; spent: Prisma.Decimal; lastorder: Date | null }>>`
       SELECT u.id, u."firstName" || ' ' || u."lastName" AS name, u.email, u.role::text AS role,
              COUNT(o.id) AS orders, COALESCE(SUM(o.total), 0) AS spent, MAX(o."createdAt") AS lastorder
       FROM "User" u JOIN "Order" o ON o."userId" = u.id AND o."paymentStatus" = 'PAID'
+      WHERE u."deletedAt" IS NULL
       GROUP BY u.id ORDER BY spent DESC LIMIT 10`,
   ]);
 
   // SellerCustomer.buyerId has no Prisma relation — resolve identities in one query.
+  // Erased subjects resolve to no identity, so the relationship row survives
+  // (the trading history is real) but renders as "Unknown buyer" instead of
+  // naming someone who exercised their right to erasure.
   const buyerIds = [...new Set(rawRelationships.map((r) => r.buyerId))];
   const buyers = await db.user.findMany({
-    where: { id: { in: buyerIds } },
+    where: { id: { in: buyerIds }, deletedAt: null },
     select: { id: true, firstName: true, lastName: true, email: true, role: true },
   });
   const buyerMap = new Map(buyers.map((b) => [b.id, b]));
@@ -418,10 +505,15 @@ export async function getCustomerSegments() {
 
   const [byRole, spenders, recentBuyers, dormant] = await Promise.all([
     db.user.groupBy({ by: ["role"], where: { deletedAt: null, role: { in: ["CONSUMER", "COMPANY_ADMIN", "COMPANY_BUYER", "COMPANY_APPROVER"] } }, _count: { _all: true } }),
+    // Erased subjects are excluded, matching the byRole groupBy directly above
+    // — which already filters deletedAt, so without this the two halves of the
+    // same page disagreed about who exists. This list is also a campaign
+    // audience: an erased subject must never be marketed to.
     db.$queryRaw<Array<{ id: string; name: string; email: string; spent: Prisma.Decimal; orders: bigint }>>`
       SELECT u.id, u."firstName" || ' ' || u."lastName" AS name, u.email,
              COALESCE(SUM(o.total), 0) AS spent, COUNT(o.id) AS orders
       FROM "User" u JOIN "Order" o ON o."userId" = u.id AND o."paymentStatus" = 'PAID'
+      WHERE u."deletedAt" IS NULL
       GROUP BY u.id ORDER BY spent DESC`,
     db.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(DISTINCT "userId") AS count FROM "Order" WHERE "paymentStatus" = 'PAID' AND "createdAt" >= ${since30}`,

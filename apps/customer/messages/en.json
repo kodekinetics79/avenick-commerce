@@ -15,7 +15,7 @@
     "noResults": "No matching results",
     "viewAll": "View all",
     "learnMore": "Learn more",
-    "freeDelivery": "Delivery options and costs are shown at checkout",
+    "freeDelivery": "Delivery terms are confirmed while your order is processed",
     "searchPlaceholder": "Search the marketplace"
   },
   "nav": {
@@ -74,7 +74,10 @@
     "relatedProducts": "Related products",
     "addToWishlist": "Add to wishlist",
     "removeFromWishlist": "Remove from wishlist",
-    "units": "units"
+    "units": "units",
+    "selectOptions": "Select options",
+    "requestAvailability": "Request availability",
+    "noReviews": "No reviews yet"
   },
   "cart": {
     "title": "Your cart",
@@ -141,9 +144,9 @@
     "prop1Title": "Supplier due diligence",
     "prop1Desc": "Business documentation may be reviewed before marketplace access.",
     "prop2Title": "Clear order review",
-    "prop2Desc": "Review pricing, VAT, delivery details, and payment method before placing an order.",
+    "prop2Desc": "Review pricing, VAT and delivery details before ordering. Bank transfer is supported; online payment methods remain unavailable until provider certification.",
     "prop3Title": "GCC delivery details",
-    "prop3Desc": "Set delivery addresses in supported GCC markets and follow order progress.",
+    "prop3Desc": "Set delivery addresses in supported GCC markets. Coverage, timing and tracking are confirmed for each order during processing.",
     "prop4Title": "Structured RFQs",
     "prop4Desc": "Capture quantities, specifications, target pricing, and delivery needs in one request.",
     "b2bTitle": "Buying at volume?",

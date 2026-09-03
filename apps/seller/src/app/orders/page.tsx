@@ -1,5 +1,5 @@
-import { requireSellerSession } from "@/lib/auth";
-import { getOrdersForSeller, db } from "@avenick/database";
+import { requireSellerAnyPermission } from "@/lib/auth";
+import { getSellerOrderProjections, db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { OrdersTable, type OrderRow } from "@/components/orders-table";
 import { SavedViews } from "@/components/saved-views";
@@ -18,8 +18,8 @@ const FILTER_TABS = [
 ];
 
 export default async function OrdersPage({ searchParams }: { searchParams: { status?: string } }) {
-  const { seller } = await requireSellerSession();
-  const { orders, total } = await getOrdersForSeller(seller.id, { status: searchParams.status as never, limit: 50 });
+  const { seller, membership } = await requireSellerAnyPermission(["orders.view", "orders.fulfill"]);
+  const { orders, total } = await getSellerOrderProjections(seller.id, { status: searchParams.status as never, limit: 50 });
   const activeTab = searchParams.status ?? "";
 
   const savedViews = await db.savedView.findMany({
@@ -42,7 +42,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
   }));
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-5">
         <div className="flex items-start justify-between">
           <div>

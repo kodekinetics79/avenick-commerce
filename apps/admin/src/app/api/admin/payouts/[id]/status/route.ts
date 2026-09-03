@@ -22,7 +22,7 @@ export const PATCH = guarded({ auth, roles: ADMIN_ROLES }, async ({ req, params,
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to update payout";
     if (/not found/i.test(message)) throw new ApiError(message, 404);
-    if (/already settled/i.test(message)) throw new ApiError(message, 409);
+    if (/cannot move|settlement reference|requires an actor|already settled/i.test(message)) throw new ApiError(message, 409);
     throw e;
   }
 });

@@ -143,7 +143,11 @@ export default async function DisputesPage({ searchParams }: PageProps) {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{format(r.createdAt, "MMM d, yyyy")}</td>
                       <td className="px-4 py-3">
-                        <ReturnActions returnId={r.id} status={r.status} orderTotal={Number(r.order.total)} />
+                        <ReturnActions
+                          returnId={r.id}
+                          status={r.status}
+                          orderTotal={Number(r.refundAmount ?? r.order.total)}
+                        />
                       </td>
                     </tr>
                   );

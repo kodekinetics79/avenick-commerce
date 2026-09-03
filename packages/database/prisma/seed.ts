@@ -28,10 +28,24 @@ import {
   AuditAction,
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { randomBytes } from "node:crypto";
 
 const prisma = new PrismaClient();
 
 const HASH = (pw: string) => bcrypt.hash(pw, 12);
+
+/**
+ * Seed account password.
+ *
+ * Never hardcoded: a committed credential ends up in the repository, in build
+ * output, in documentation and — as this project found at Gate 1 — rendered on
+ * public login pages. Supply SEED_PASSWORD for a reproducible local login;
+ * otherwise a fresh random password is generated per run and printed once when
+ * the seed finishes.
+ */
+const SEED_PASSWORD_WAS_GENERATED = !process.env.SEED_PASSWORD?.trim();
+const SEED_PASSWORD =
+  process.env.SEED_PASSWORD?.trim() || randomBytes(18).toString("base64url");
 
 /**
  * The seed performs an unconditional cascade of deleteMany() across ~40 tables.
@@ -127,7 +141,7 @@ async function main() {
     update: {},
     create: {
       email: "admin@avenick.test",
-      passwordHash: await HASH("Password123!"),
+      passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Platform",
       lastName: "Admin",
       role: UserRole.SUPER_ADMIN,
@@ -144,7 +158,7 @@ async function main() {
     update: {},
     create: {
       email: "seller@avenick.test",
-      passwordHash: await HASH("Password123!"),
+      passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Mohammed",
       lastName: "Al-Rashidi",
       firstNameAr: "محمد",
@@ -173,9 +187,12 @@ async function main() {
       tier: SellerTier.VERIFIED,
       status: SellerStatus.ACTIVE,
       commissionRate: 5.0,
-      rating: 4.7,
-      reviewCount: 142,
-      accountHealth: 87,
+      // rating, reviewCount and accountHealth are deliberately absent. Nothing in
+      // the application writes them: the seller and admin surfaces aggregate
+      // ProductReview or derive a performance score on read, and the storefront
+      // (customer products/[slug]) reads the column and shows no star when it is
+      // null. A literal here would have been a rating no review backs, shown to
+      // buyers as if it were one, so the schema defaults stand.
       bankDetails: {
         iban: "AE070331234567890123456",
         bankName: "Emirates NBD",
@@ -209,13 +226,66 @@ async function main() {
   });
   console.log(`✅ Seller: ${sellerUser.email}`);
 
+  // ── MARKETPLACE CERTIFICATION IDENTITIES ─────────────────────────────────
+  // Stable local accounts used by browser/manual certification. Seller A is
+  // the primary seeded seller above; its staff roles intentionally cannot see
+  // finance, documents, RFQs, returns, settings, or other capability domains.
+  const fulfillmentStaff = await prisma.user.upsert({
+    where: { email: "seller-a-fulfillment@avenick.test" },
+    update: { role: UserRole.SELLER_STAFF, status: UserStatus.ACTIVE, deletedAt: null },
+    create: {
+      email: "seller-a-fulfillment@avenick.test", passwordHash: await HASH(SEED_PASSWORD),
+      firstName: "Seller A", lastName: "Fulfillment", role: UserRole.SELLER_STAFF,
+      status: UserStatus.ACTIVE, language: Language.EN,
+    },
+  });
+  const catalogStaff = await prisma.user.upsert({
+    where: { email: "seller-a-catalog@avenick.test" },
+    update: { role: UserRole.SELLER_STAFF, status: UserStatus.ACTIVE, deletedAt: null },
+    create: {
+      email: "seller-a-catalog@avenick.test", passwordHash: await HASH(SEED_PASSWORD),
+      firstName: "Seller A", lastName: "Catalog", role: UserRole.SELLER_STAFF,
+      status: UserStatus.ACTIVE, language: Language.EN,
+    },
+  });
+  await prisma.sellerMembership.upsert({
+    where: { userId: fulfillmentStaff.id },
+    update: { sellerId: seller.id, title: "Fulfillment specialist", permissions: ["orders.view", "orders.fulfill"], isActive: true },
+    create: { userId: fulfillmentStaff.id, sellerId: seller.id, title: "Fulfillment specialist", permissions: ["orders.view", "orders.fulfill"], isActive: true },
+  });
+  await prisma.sellerMembership.upsert({
+    where: { userId: catalogStaff.id },
+    update: { sellerId: seller.id, title: "Catalog specialist", permissions: ["catalog.view", "catalog.manage"], isActive: true },
+    create: { userId: catalogStaff.id, sellerId: seller.id, title: "Catalog specialist", permissions: ["catalog.view", "catalog.manage"], isActive: true },
+  });
+
+  const sellerBUser = await prisma.user.upsert({
+    where: { email: "seller-b-owner@avenick.test" },
+    update: { role: UserRole.SELLER_OWNER, status: UserStatus.ACTIVE, deletedAt: null },
+    create: {
+      email: "seller-b-owner@avenick.test", passwordHash: await HASH(SEED_PASSWORD),
+      firstName: "Seller B", lastName: "Owner", role: UserRole.SELLER_OWNER,
+      status: UserStatus.ACTIVE, language: Language.EN,
+    },
+  });
+  const sellerB = await prisma.sellerProfile.upsert({
+    where: { userId: sellerBUser.id },
+    update: { status: SellerStatus.ACTIVE, deletedAt: null },
+    create: {
+      userId: sellerBUser.id, businessNameEn: "Emirates Marketplace Tools LLC",
+      crNumber: "AE-CERT-SELLER-B", type: SellerType.DISTRIBUTOR, country: Country.AE,
+      city: "Abu Dhabi", tier: SellerTier.VERIFIED, status: SellerStatus.ACTIVE,
+      commissionRate: 5,
+    },
+  });
+
   // ── B2C BUYER ──────────────────────────────────────────────────────────────
   const buyerUser = await prisma.user.upsert({
     where: { email: "buyer@avenick.test" },
     update: {},
     create: {
       email: "buyer@avenick.test",
-      passwordHash: await HASH("Password123!"),
+      passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Sara",
       lastName: "Al-Mansouri",
       firstNameAr: "سارة",
@@ -232,7 +302,7 @@ async function main() {
     update: {},
     create: {
       email: "company@avenick.test",
-      passwordHash: await HASH("Password123!"),
+      passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Omar",
       lastName: "Al-Suwaidi",
       firstNameAr: "عمر",
@@ -745,6 +815,7 @@ async function main() {
         brandId: p.brandId,
         sellerId: seller.id,
         status: p.status,
+        isPubliclyDiscoverable: p.isB2C,
         isB2CEnabled: p.isB2C,
         isB2BEnabled: p.isB2B,
         origin: p.origin,
@@ -776,6 +847,18 @@ async function main() {
     createdProducts.push({ id: product.id, sku: product.sku });
   }
   console.log(`✅ Products seeded (${createdProducts.length})`);
+
+  const sellerBProduct = await prisma.product.upsert({
+    where: { sku: "CERT-SELLER-B-TOOL" },
+    update: { sellerId: sellerB.id, status: ProductStatus.ACTIVE },
+    create: {
+      sellerId: sellerB.id, categoryId: buildCat.id, sku: "CERT-SELLER-B-TOOL",
+      slug: "cert-seller-b-tool", nameEn: "Seller B Certification Tool",
+      nameAr: "أداة اعتماد البائع ب", status: ProductStatus.ACTIVE,
+      isPubliclyDiscoverable: false, isB2CEnabled: true, isB2BEnabled: true, origin: Country.AE, moq: 1,
+      prices: { create: { type: PricingType.B2C, currency: Currency.AED, minQty: 1, price: 200, vatRate: 5 } },
+    },
+  });
 
   // ── PRODUCT REVIEWS ─────────────────────────────────────────────────────────
   const REVIEW_SEED = [
@@ -1024,6 +1107,21 @@ async function main() {
       },
     });
   }
+  if (p1) {
+    await prisma.order.create({
+      data: {
+        orderNumber: "AVN-CERT-MULTI-SELLER", userId: buyerUser.id, type: OrderType.B2C,
+        status: OrderStatus.DELIVERED, fulfillment: FulfillmentType.SELLER_FULFILLED,
+        currency: Currency.AED, subtotal: 300, vatAmount: 15, total: 315,
+        paymentMethod: PaymentMethod.CREDIT_CARD, paymentStatus: PaymentStatus.PAID,
+        shippingAddress: { label: "Certification", line1: "Pilot Lane", city: "Dubai", country: "AE" },
+        items: { create: [
+          { productId: p1.id, sellerId: seller.id, sku: p1.sku, nameEn: p1.nameEn, nameAr: p1.nameAr, quantity: 2, unitPrice: 50, vatRate: 5, vatAmount: 5, total: 105 },
+          { productId: sellerBProduct.id, sellerId: sellerB.id, sku: sellerBProduct.sku, nameEn: sellerBProduct.nameEn, nameAr: sellerBProduct.nameAr, quantity: 1, unitPrice: 200, vatRate: 5, vatAmount: 10, total: 210 },
+        ] },
+      },
+    });
+  }
   console.log("✅ Orders seeded");
 
   // ── RFQs ────────────────────────────────────────────────────────────────────
@@ -1142,7 +1240,7 @@ async function main() {
     update: {},
     create: {
       email: "pending-seller@avenick.test",
-      passwordHash: await HASH("Password123!"),
+      passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Khalid",
       lastName: "Al-Otaibi",
       firstNameAr: "خالد",
@@ -1178,12 +1276,25 @@ async function main() {
 
   console.log("\n🎉 Seed complete!");
   console.log("─────────────────────────────────────────────────────");
-  console.log("  admin@avenick.test          / Password123!");
-  console.log("  seller@avenick.test         / Password123!");
-  console.log("  buyer@avenick.test          / Password123!");
-  console.log("  company@avenick.test        / Password123!");
-  console.log("  pending-seller@avenick.test / Password123!");
+  console.log("  admin@avenick.test");
+  console.log("  seller@avenick.test");
+  console.log("  seller-a-fulfillment@avenick.test");
+  console.log("  seller-a-catalog@avenick.test");
+  console.log("  seller-b-owner@avenick.test");
+  console.log("  buyer@avenick.test");
+  console.log("  company@avenick.test");
+  console.log("  pending-seller@avenick.test");
   console.log("─────────────────────────────────────────────────────");
+
+  // Echo the generated password once, to this terminal only. If the operator
+  // supplied SEED_PASSWORD themselves, it is never echoed back.
+  if (SEED_PASSWORD_WAS_GENERATED) {
+    console.log(`\n  Generated seed password: ${SEED_PASSWORD}`);
+    console.log("  Shown once. Set SEED_PASSWORD to choose your own.");
+    console.log("  Do not commit it, paste it into docs, or capture it in screenshots.\n");
+  } else {
+    console.log("\n  Seed password taken from SEED_PASSWORD.\n");
+  }
 }
 
 main()

@@ -4,6 +4,9 @@ import { SellerLayout } from "@/components/layout/seller-layout";
 import { fetchSellerBackend } from "@/lib/backend";
 import { QuoteForm } from "./quote-form";
 import { format } from "date-fns";
+import { requireSellerPermission } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import { RECORD_ID } from "@avenick/utils";
 
 export const metadata = { title: "Submit Quote" };
 export const dynamic = "force-dynamic";
@@ -13,6 +16,7 @@ interface PageProps {
 }
 
 export default async function SubmitQuotePage({ searchParams }: PageProps) {
+  const { membership } = await requireSellerPermission("quotes.submit");
   type RFQRow = {
     id: string;
     rfqNumber: string;
@@ -26,7 +30,16 @@ export default async function SubmitQuotePage({ searchParams }: PageProps) {
   let rfq: RFQRow | null = null;
   let inbox: RFQRow[] = [];
   if (searchParams.rfq) {
-    const data = await fetchSellerBackend<{ rfq: RFQRow }>(`/api/seller/rfqs/${searchParams.rfq}`);
+    // This id arrives from the query string, so it is attacker-supplied via a
+    // crafted link — and fetchSellerBackend forwards the caller's cookies. An
+    // unencoded value containing "../" resolves against the backend origin and
+    // reaches a different authenticated route than the one intended. Validate
+    // the id shape first, then encode: the guard stops traversal reaching the
+    // URL builder at all, and the encoding is the fix if the shape ever widens.
+    if (!RECORD_ID.test(searchParams.rfq)) notFound();
+    const data = await fetchSellerBackend<{ rfq: RFQRow }>(
+      `/api/seller/rfqs/${encodeURIComponent(searchParams.rfq)}`,
+    );
     rfq = data.rfq;
   } else {
     const data = await fetchSellerBackend<{ inbox: RFQRow[] }>("/api/seller/rfqs");
@@ -35,7 +48,7 @@ export default async function SubmitQuotePage({ searchParams }: PageProps) {
   const openInbox = inbox.filter((r) => ["SUBMITTED", "UNDER_REVIEW"].includes(r.status));
 
   return (
-    <SellerLayout>
+    <SellerLayout permissions={membership.permissions}>
       <div className="space-y-5 max-w-3xl">
         <Link href="/quotes" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" /> Quote history

@@ -32,7 +32,8 @@ export async function createTicket(_prev: State, formData: FormData): Promise<St
     );
 
     revalidatePath("/support");
-    return { ok: true, message: result.message ?? "Ticket submitted — we'll respond within 24 hours." };
+    // No response-time promise: the platform measures no support SLA.
+    return { ok: true, message: result.message ?? "Ticket submitted. Track its status below." };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Failed to submit ticket." };
   }

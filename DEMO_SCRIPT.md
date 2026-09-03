@@ -22,9 +22,12 @@ pnpm dev                # starts all three apps via turbo
 | Portal             | URL                     | Login                              |
 |--------------------|-------------------------|------------------------------------|
 | Customer Storefront| http://localhost:13100  | seller/customer test accounts      |
-| Seller Central     | http://localhost:13101  | seller@avenick.test / Password123!  |
-| Admin Console      | http://localhost:13102  | admin@avenick.test / Password123!   |
+| Seller Central     | http://localhost:13101  | seller@avenick.test                |
+| Admin Console      | http://localhost:13102  | admin@avenick.test                 |
 
+> Passwords are not published. `pnpm db:seed` prints the generated password once,
+> or uses `SEED_PASSWORD` if you set it. Keep it out of docs and screen shares.
+>
 > The Customer Storefront has an in-app **Demo Role switcher** (top bar:
 > Guest / B2C Customer / B2B Buyer) so you can demo buyer journeys without
 > re-logging.

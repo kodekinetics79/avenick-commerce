@@ -1,36 +1,54 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { db } from "@avenick/database";
-import { formatCurrency } from "@avenick/utils";
-import { ArrowLeft, Search, Boxes, AlertTriangle, RefreshCw, TrendingDown, SlidersHorizontal } from "lucide-react";
+import { ArrowLeft, Search, Boxes, AlertTriangle, TrendingDown, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
+import { AdjustStock } from "./adjust-stock";
 
 export const metadata = { title: "Stock Manager" };
 
-const WAREHOUSE_FILTER = [
-  { value: "",      label: "All Warehouses" },
-  { value: "wh1",   label: "Dubai Main" },
-  { value: "wh2",   label: "Riyadh Hub" },
-  { value: "wh3",   label: "Abu Dhabi" },
-];
-
+// Filters that exist in the data model. Aging needs a last-movement or
+// received-at timestamp that no row carries, so it is not offered.
 const STOCK_FILTER = [
-  { value: "",       label: "All Stock" },
-  { value: "low",    label: "Low Stock" },
-  { value: "out",    label: "Out of Stock" },
-  { value: "aging",  label: "Aging (60+ days)" },
-];
+  { value: "",    label: "All Stock" },
+  { value: "low", label: "Low Stock" },
+  { value: "out", label: "Out of Stock" },
+] as const;
+type StockFilter = (typeof STOCK_FILTER)[number]["value"];
+
+const PAGE_SIZE = 100;
+
+function stockHref(filter: string, search: string): string {
+  const params = new URLSearchParams();
+  if (filter) params.set("filter", filter);
+  if (search) params.set("search", search);
+  const query = params.toString();
+  return query ? `/warehouse/stock?${query}` : "/warehouse/stock";
+}
 
 export default async function StockPage({ searchParams }: { searchParams: { filter?: string; search?: string } }) {
   await requireAdminSession();
 
+  const activeFilter: StockFilter = STOCK_FILTER.some((f) => f.value === searchParams.filter) ? (searchParams.filter as StockFilter) : "";
+  const search = (searchParams.search ?? "").trim().slice(0, 100);
+  const textMatch = search ? { contains: search, mode: "insensitive" as const } : undefined;
+
+  const where = {
+    product: textMatch
+      ? { deletedAt: null, OR: [{ sku: textMatch }, { nameEn: textMatch }, { nameAr: textMatch }, { category: { nameEn: textMatch } }] }
+      : { deletedAt: null },
+  };
+
+  // SKU and unit totals come from the database over the whole match; the
+  // low/out split needs reservedQty against qty, which only the loaded rows
+  // can answer, so those two are scoped and labelled as such when truncated.
+  const [matchingSKUs, unitAggregate] = await Promise.all([
+    db.inventoryStock.count({ where }),
+    db.inventoryStock.aggregate({ where, _sum: { qty: true } }),
+  ]);
   const stocks = await db.inventoryStock.findMany({
-    where: {
-      product: { deletedAt: null },
-      ...(searchParams.filter === "low"  ? { qty: { gt: 0 } } : {}),
-      ...(searchParams.filter === "out"  ? { qty: { lte: 0 } } : {}),
-    },
-    take: 100,
+    where,
+    take: PAGE_SIZE,
     orderBy: { qty: "asc" },
     include: {
       product: {
@@ -54,21 +72,24 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
     isLow: s.qty - s.reservedQty > 0 && s.qty - s.reservedQty <= s.reorderPoint,
   }));
 
-  const filtered = searchParams.filter === "low" ? mapped.filter(s => s.isLow)
-    : searchParams.filter === "out" ? mapped.filter(s => s.isOut)
+  // Low/out depend on reservedQty, which no where-clause can compare against
+  // another column, so the split is finished in memory on the fetched page.
+  const filtered = activeFilter === "low" ? mapped.filter(s => s.isLow)
+    : activeFilter === "out" ? mapped.filter(s => s.isOut)
     : mapped;
 
-  const totalSKUs   = mapped.length;
+  const totalSKUs   = matchingSKUs;
+  const totalUnits  = unitAggregate._sum.qty ?? 0;
   const lowCount    = mapped.filter(s => s.isLow).length;
   const outCount    = mapped.filter(s => s.isOut).length;
-  const totalUnits  = mapped.reduce((s, i) => s + i.qty, 0);
-
-  const activeFilter = searchParams.filter ?? "";
+  const truncated   = matchingSKUs > stocks.length;
+  const scopeNote   = truncated ? ` (of the ${stocks.length} lowest-stock loaded)` : "";
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Header */}
+        {/* Header. No "Sync": nothing feeds this ledger from outside, and no
+            "Reorder": there is no purchase-order primitive to raise one. */}
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-2 mb-1">
@@ -79,25 +100,17 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
               <span className="text-sm font-medium">Stock Manager</span>
             </div>
             <h1 className="text-2xl font-bold">Stock Manager</h1>
-            <p className="text-sm text-muted-foreground">Real-time inventory across all warehouses</p>
-          </div>
-          <div className="flex gap-2">
-            <button type="button" className="flex items-center gap-1.5 text-sm border border-border bg-card text-muted-foreground hover:bg-muted/30 px-3 py-2 rounded-xl font-medium transition-colors">
-              <RefreshCw className="h-3.5 w-3.5" /> Sync
-            </button>
-            <button type="button" className="flex items-center gap-1.5 text-sm bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-xl font-semibold transition-colors">
-              <Boxes className="h-3.5 w-3.5" /> Adjust Stock
-            </button>
+            <p className="text-sm text-muted-foreground">On-hand and reserved units per location, as recorded in the inventory ledger</p>
           </div>
         </div>
 
-        {/* Stats */}
+        {/* Stats — SKUs and units over every matching row; low/out over the loaded rows */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Total SKUs",    value: totalSKUs,  color: "text-foreground", bg: "bg-card border-border" },
-            { label: "Total Units",   value: totalUnits.toLocaleString(), color: "text-primary", bg: "bg-primary/10 border-primary/20" },
-            { label: "Low Stock",     value: lowCount,   color: lowCount > 0 ? "text-amber-700" : "text-muted-foreground",  bg: lowCount > 0 ? "bg-amber-500/10 border-amber-500/20" : "bg-card border-border" },
-            { label: "Out of Stock",  value: outCount,   color: outCount > 0 ? "text-red-700" : "text-muted-foreground",    bg: outCount > 0 ? "bg-red-500/10 border-red-500/20" : "bg-card border-border" },
+            { label: "SKUs", value: totalSKUs.toLocaleString(),  color: "text-foreground", bg: "bg-card border-border" },
+            { label: "Units on hand",  value: totalUnits.toLocaleString(), color: "text-primary", bg: "bg-primary/10 border-primary/20" },
+            { label: `Low Stock${scopeNote}`,     value: lowCount,   color: lowCount > 0 ? "text-amber-700" : "text-muted-foreground",  bg: lowCount > 0 ? "bg-amber-500/10 border-amber-500/20" : "bg-card border-border" },
+            { label: `Out of Stock${scopeNote}`,  value: outCount,   color: outCount > 0 ? "text-red-700" : "text-muted-foreground",    bg: outCount > 0 ? "bg-red-500/10 border-red-500/20" : "bg-card border-border" },
           ].map(({ label, value, color, bg }) => (
             <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
               <p className={`text-2xl font-bold ${color}`}>{value}</p>
@@ -107,30 +120,33 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
         </div>
 
         {/* Alerts */}
-        {outCount > 0 && (
+        {outCount > 0 && activeFilter !== "out" && (
           <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
-              <p className="font-semibold text-red-800 text-sm">{outCount} SKU{outCount !== 1 ? "s" : ""} out of stock — listings may be suppressed</p>
+              <p className="font-semibold text-red-800 text-sm">{outCount} SKU{outCount !== 1 ? "s" : ""} with nothing available to sell{scopeNote}</p>
             </div>
-            <Link href="/warehouse/stock?filter=out" className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 font-medium transition-colors">View →</Link>
+            <Link href={stockHref("out", search)} className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg hover:bg-red-700 font-medium transition-colors">View →</Link>
           </div>
         )}
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Search */}
-          <div className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 flex-1">
+          <form method="get" action="/warehouse/stock" role="search" className="flex items-center gap-2 bg-card border border-border rounded-xl px-3 py-2 flex-1">
+            {activeFilter && <input type="hidden" name="filter" value={activeFilter} />}
             <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-            <input type="text" placeholder="Search by SKU, product name, or category..."
-              className="flex-1 text-sm text-muted-foreground placeholder:text-muted-foreground outline-none bg-transparent"
-              defaultValue={searchParams.search ?? ""} />
-          </div>
+            <input type="search" name="search" placeholder="Search by SKU, product name, or category…"
+              className="flex-1 text-sm placeholder:text-muted-foreground outline-none bg-transparent"
+              defaultValue={search} maxLength={100} aria-label="Search stock" />
+            <button type="submit" className="text-xs text-primary font-medium hover:underline">Search</button>
+            {search && <Link href={stockHref(activeFilter, "")} className="text-xs text-muted-foreground hover:underline">Clear</Link>}
+          </form>
           {/* Stock filter */}
           <div className="flex gap-1.5 overflow-x-auto">
             <SlidersHorizontal className="h-4 w-4 text-muted-foreground shrink-0 self-center" />
             {STOCK_FILTER.map(({ value, label }) => (
-              <Link key={value} href={value ? `/warehouse/stock?filter=${value}` : "/warehouse/stock"}
+              <Link key={value} href={stockHref(value, search)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${activeFilter === value ? "bg-primary text-primary-foreground" : "bg-card border border-border text-muted-foreground hover:bg-muted"}`}>
                 {label}
                 {value === "low"  && lowCount  > 0 && <span className="ms-1 text-amber-400 font-bold">{lowCount}</span>}
@@ -156,9 +172,10 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
                   <tr><td colSpan={11} className="px-4 py-16 text-center">
                     <Boxes className="h-10 w-10 mx-auto text-slate-200 mb-3" />
                     <p className="font-semibold text-muted-foreground">No stock records found</p>
+                    {search && <p className="text-xs text-muted-foreground mt-1">Nothing matches “{search}”</p>}
                   </td></tr>
                 ) : filtered.map((s) => (
-                  <tr key={s.id} className={`hover:bg-muted/30 transition-colors ${s.isOut ? "bg-red-500/5" : s.isLow ? "bg-amber-500/5" : ""}`}>
+                  <tr key={s.id} className={`hover:bg-muted/30 transition-colors align-top ${s.isOut ? "bg-red-500/5" : s.isLow ? "bg-amber-500/5" : ""}`}>
                     <td className="px-4 py-3 font-mono text-xs font-semibold text-muted-foreground">{s.product?.sku ?? "—"}</td>
                     <td className="px-4 py-3">
                       <p className="font-medium text-sm line-clamp-1">{s.product?.nameEn ?? "—"}</p>
@@ -185,12 +202,7 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
                         : <span className="text-xs font-semibold text-green-600">OK</span>}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex gap-1.5">
-                        <button type="button" className="text-xs text-primary hover:underline font-medium">Adjust</button>
-                        {(s.isLow || s.isOut) && (
-                          <button type="button" className="text-xs bg-amber-500 text-white px-2 py-0.5 rounded-lg hover:bg-amber-600 font-medium transition-colors">Reorder</button>
-                        )}
-                      </div>
+                      <AdjustStock stockId={s.id} qty={s.qty} reservedQty={s.reservedQty} />
                     </td>
                   </tr>
                 ))}
@@ -199,8 +211,7 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
           </div>
           {filtered.length > 0 && (
             <div className="px-4 py-3 border-t border-border bg-muted flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">{filtered.length} SKU{filtered.length !== 1 ? "s" : ""}</p>
-              <button type="button" className="text-xs text-primary hover:underline font-medium">Export CSV →</button>
+              <p className="text-xs text-muted-foreground">{filtered.length} SKU{filtered.length !== 1 ? "s" : ""}{truncated ? ` shown of the ${stocks.length} lowest-stock loaded (${matchingSKUs.toLocaleString()} match)` : ""}</p>
             </div>
           )}
         </div>

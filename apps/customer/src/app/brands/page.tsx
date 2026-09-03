@@ -2,61 +2,78 @@ import Link from "next/link";
 import { Building2, ArrowRight } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { fetchBackendJson } from "@/lib/backend";
-import { getLocale, getTranslations } from "next-intl/server";
+import { platformName } from "@avenick/utils/portal-config";
+import { SELLER_REGISTER_URL } from "@/lib/portal-urls";
 
-export async function generateMetadata() {
-  const t = await getTranslations("brandsContent");
-  return { title: t("title"), description: t("description") };
-}
+export const metadata = { title: "Brands" };
 // Live catalog data — must not prerender at build time (no DB on build machines).
 export const dynamic = "force-dynamic";
 
+const COUNTRY_LABEL: Record<string, string> = { AE: "UAE", SA: "Saudi Arabia", QA: "Qatar", KW: "Kuwait", OM: "Oman", BH: "Bahrain" };
+
 export default async function BrandsPage() {
-  const [t, locale] = await Promise.all([getTranslations("brandsContent"), getLocale()]);
-  const regionNames = new Intl.DisplayNames([locale], { type: "region" });
   const brands = await fetchBackendJson<any[]>("/api/brands");
 
   return (
     <MainLayout>
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">{t("title")}</h1>
-          <p className="text-muted-foreground">{t("description")}</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Shop by brand</h1>
+          <p className="text-muted-foreground">Browse products from GCC suppliers and global brands.</p>
         </div>
 
         {brands.length === 0 ? (
           <div className="rounded-2xl border border-border bg-card p-12 text-center">
             <Building2 className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-            <p className="font-semibold">{t("emptyTitle")}</p>
-            <p className="text-sm text-muted-foreground mt-1">{t("emptyDescription")}</p>
+            <p className="font-semibold">No brands yet</p>
+            <p className="text-sm text-muted-foreground mt-1">Brands will appear here as sellers list products.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {brands.map((brand) => {
-              const displayName = locale === "ar" && brand.nameAr ? brand.nameAr : brand.nameEn;
-              return (
+            {brands.map((brand) => (
               <Link
                 key={brand.id}
                 href={`/products?brand=${brand.slug}`}
                 className="group flex flex-col items-center gap-3 p-5 bg-card rounded-2xl border border-border hover:border-primary/40 hover:shadow-elevated hover:-translate-y-0.5 transition-all text-center"
               >
                 <div className="h-14 w-14 rounded-2xl flex items-center justify-center font-black text-lg text-white bg-gradient-to-br from-primary-500 to-accent-600 group-hover:scale-110 transition-transform shadow-glow-sm">
-                  {displayName.charAt(0)}
+                  {brand.nameEn.charAt(0)}
                 </div>
                 <div>
-                  <p className="font-semibold text-sm">{displayName}</p>
-                  <p className="text-xs text-muted-foreground">{t("productCount", { count: brand._count.products })}</p>
-                  {brand.country && <p className="text-xs text-muted-foreground">{regionNames.of(brand.country) ?? brand.country}</p>}
+                  <p className="font-semibold text-sm">{brand.nameEn}</p>
+                  <p className="text-xs text-muted-foreground">{brand._count.products} product{brand._count.products !== 1 ? "s" : ""}</p>
+                  {brand.country && <p className="text-xs text-muted-foreground">{COUNTRY_LABEL[brand.country] ?? brand.country}</p>}
                 </div>
                 <span className="text-xs text-primary flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {t("browse")} <ArrowRight className="h-3 w-3 rtl:rotate-180" />
+                  Browse <ArrowRight className="h-3 w-3" />
                 </span>
               </Link>
-              );
-            })}
+            ))}
           </div>
         )}
 
+        {/*
+          Seller CTA. Seller sign-up lives in the seller portal; this app's
+          /register is buyer registration, which is where this button used to
+          send suppliers. Without a configured seller-portal origin there is no
+          correct target, so the whole card is omitted rather than linked to a
+          guess. The old copy also promised "thousands of B2B buyers" — a
+          number nothing measures — so it now says only what the button does.
+        */}
+        {SELLER_REGISTER_URL && (
+          <div className="mt-12 bg-primary/10 border border-primary/30 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Building2 className="h-8 w-8 text-primary shrink-0" />
+              <div>
+                <p className="font-semibold">Are you a brand or distributor?</p>
+                <p className="text-sm text-muted-foreground">Apply to sell on {platformName()}. Applications are reviewed before a storefront goes live.</p>
+              </div>
+            </div>
+            <a href={SELLER_REGISTER_URL} className="inline-flex items-center gap-1.5 h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98] shrink-0 whitespace-nowrap">
+              Become a seller <ArrowRight className="h-4 w-4" />
+            </a>
+          </div>
+        )}
       </div>
     </MainLayout>
   );

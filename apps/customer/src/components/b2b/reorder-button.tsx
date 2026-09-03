@@ -3,32 +3,37 @@
 import { useRouter } from "next/navigation";
 import { RotateCcw } from "lucide-react";
 import { useCartStore } from "@/stores/cart";
+import { canonicalRequisitionCartLines } from "@/lib/requisition-reprice";
 
 type Item = {
-  productId: string | null;
+  productId: string;
   sku: string;
   nameEn: string;
   qty: number;
-  unitPrice: number | null;
-  sellerId: string | null;
 };
 
 export function ReorderButton({ items }: { items: Item[] }) {
   const addItem = useCartStore((s) => s.addItem);
   const router = useRouter();
 
-  function reorder() {
-    let added = 0;
-    for (const it of items) {
-      if (it.productId && it.sellerId && it.unitPrice != null) {
-        addItem({ productId: it.productId, nameEn: it.nameEn, nameAr: it.nameEn, sku: it.sku, qty: it.qty, unitPrice: it.unitPrice, sellerId: it.sellerId, currency: "AED" });
-        added++;
-      }
+  async function reorder() {
+    const response = await fetch("/api/b2b/requisition-lists/reprice", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ items: items.map(({ productId, qty }) => ({ productId, quantity: qty })) }),
+    });
+    const body = await response.json();
+    if (!response.ok || !body.success || !Array.isArray(body.data?.lines)) {
+      alert(body.error ?? "Unable to reprice requisition");
+      return;
     }
-    if (added > 0) router.push("/cart");
+    let lines;
+    try { lines = canonicalRequisitionCartLines(items.length, body.data); }
+    catch (error) { alert(error instanceof Error ? error.message : "Requisition pricing response was incomplete"); return; }
+    for (const line of lines) addItem(line);
+    router.push("/cart");
   }
 
-  const reorderable = items.some((i) => i.productId && i.sellerId && i.unitPrice != null);
+  const reorderable = items.length > 0;
 
   return (
     <button
