@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { Scale, Users, CreditCard, ShoppingBag, ShieldAlert, Award, HelpCircle } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
+import { Eyebrow, PageHeader, Surface } from "@avenick/ui";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
 
 export const metadata = {
@@ -17,7 +17,6 @@ interface LegalSection {
   titleAr: string;
   contentEn: React.ReactNode;
   contentAr: React.ReactNode;
-  icon: typeof Scale;
 }
 
 /**
@@ -30,17 +29,16 @@ function buildSections(legalEmail: string | null): LegalSection[] {
   // the resolver so a renamed deployment does not bind users to the old name.
   const name = platformName();
   const emailLink = legalEmail ? (
-    <a href={`mailto:${legalEmail}`} className="text-primary hover:underline font-semibold">{legalEmail}</a>
+    <a href={`mailto:${legalEmail}`} className="u-focus rounded-nested font-medium text-primary-ink hover:underline">{legalEmail}</a>
   ) : null;
   const supportLink = (ar: boolean) => (
-    <Link href="/support" className="text-primary hover:underline font-semibold">{ar ? "بوابة الدعم الفني" : "support portal"}</Link>
+    <Link href="/support" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">{ar ? "بوابة الدعم الفني" : "support portal"}</Link>
   );
   return [
   {
     id: "terms",
     titleEn: "1. Acceptance of Terms",
     titleAr: "١. قبول الشروط والأحكام",
-    icon: Scale,
     contentEn: (
       <>
         <p>By registering for, accessing, or using the {name} B2B/B2C trading platform, you agree to be bound by these Terms of Service. These terms constitute a legally binding agreement between you (and your company, if registering as a business entity) and {name}.</p>
@@ -58,7 +56,6 @@ function buildSections(legalEmail: string | null): LegalSection[] {
     id: "accounts",
     titleEn: "2. Registration & Account Roles",
     titleAr: "٢. التسجيل وأدوار الحسابات",
-    icon: Users,
     contentEn: (
       <>
         <p>To access the B2B portal, businesses must submit a valid Commercial Registration (CR) and VAT certificate. You represent that all details provided are accurate and authorize {name} to conduct KYC checks.</p>
@@ -76,7 +73,6 @@ function buildSections(legalEmail: string | null): LegalSection[] {
     id: "credit",
     titleEn: "3. B2B Credit & Payment Terms",
     titleAr: "٣. الائتمان التجاري وشروط الدفع",
-    icon: CreditCard,
     contentEn: (
       <>
         <p>A company account may carry a credit limit and payment terms recorded by {name}. Only terms already approved and shown on the active company account apply. There is currently no self-service application for credit lines or Net terms, and no automated periodic review of credit limits.</p>
@@ -94,7 +90,6 @@ function buildSections(legalEmail: string | null): LegalSection[] {
     id: "procurement",
     titleEn: "4. Procurement & RFQ Rules",
     titleAr: "٤. قواعد المشتريات وطلبات عرض الأسعار",
-    icon: ShoppingBag,
     contentEn: (
       <>
         <p>When you submit a Request for Quotation (RFQ), it is recorded and may be assigned to a supplier. {name} does not guarantee that an RFQ is distributed to multiple suppliers or that a quote will be returned. Quotations received from suppliers are binding offers valid until the expiration date specified on the quote.</p>
@@ -112,7 +107,6 @@ function buildSections(legalEmail: string | null): LegalSection[] {
     id: "disputes",
     titleEn: "5. Buyer Protection & Disputes",
     titleAr: "٥. حماية المشتري والنزاعات",
-    icon: ShieldAlert,
     contentEn: (
       <>
         <p>{name} does not currently provide an escrow service. Bank-transfer orders remain unpaid until finance reconciliation; online card payment methods remain unavailable until outbound payment initiation and settlement controls are certified.</p>
@@ -130,7 +124,6 @@ function buildSections(legalEmail: string | null): LegalSection[] {
     id: "governing-law",
     titleEn: "6. Governing Law",
     titleAr: "٦. القانون الحاكم والولاية القضائية",
-    icon: Award,
     contentEn: (
       <>
         <p>The governing law and dispute forum must be stated in the executed customer agreement for the deployed tenant. This demo does not assign a jurisdiction by default. Contact the legal desk before relying on these terms for a live transaction.</p>
@@ -146,7 +139,6 @@ function buildSections(legalEmail: string | null): LegalSection[] {
     id: "questions",
     titleEn: "7. Contact Legal Team",
     titleAr: "٧. الاتصال بالقسم القانوني",
-    icon: HelpCircle,
     contentEn: (
       <>
         <p>If you have any questions or require clarification regarding these terms, {emailLink ? <>contact our legal desk at {emailLink} or </> : null}open a ticket in our {supportLink(false)}.</p>
@@ -169,73 +161,69 @@ export default async function TermsPage() {
 
   return (
     <MainLayout>
-      <div className="relative overflow-hidden min-h-screen bg-background text-foreground py-10 lg:py-16">
-        {/* Decorative Grid and Glow */}
-        <div className="absolute inset-0 bg-grid opacity-30" />
-        <div className="absolute top-20 end-1/4 h-80 w-80 rounded-full bg-primary/10 blur-[120px]" />
-        <div className="absolute bottom-20 start-1/4 h-80 w-80 rounded-full bg-accent/10 blur-[120px]" />
+      <div className="mx-auto max-w-6xl px-4 py-block">
+        <PageHeader
+          eyebrow={isAr ? "الشؤون القانونية" : "Legal"}
+          title={isAr ? "شروط الخدمة" : "Terms of Service"}
+          description={
+            isAr
+              ? "يرجى قراءة شروط الخدمة بعناية قبل استخدام المنصة."
+              : `Please read these terms carefully before using the ${platformName()} platform.`
+          }
+          // No "last updated" date: nothing records when this text changed, so a
+          // typed date would be a claim the platform cannot back. Saying that
+          // outright is better than an empty corner where a date should be.
+          dateline={
+            isAr
+              ? "لا يسجل النظام تاريخ آخر تعديل لهذا النص، فلا يُعرض تاريخ"
+              : "No revision date is shown because none is recorded"
+          }
+          linkComponent={Link}
+        />
 
-        <div className="relative max-w-6xl mx-auto px-4">
-          {/* Header */}
-          <div className="mb-10 text-center max-w-2xl mx-auto">
-            <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight mb-3">
-              {isAr ? "شروط الخدمة" : "Terms of Service"}
-            </h1>
-            {/* No "last updated" date: nothing records when this text changed,
-                so a typed date would be a claim the platform cannot back. */}
-            <p className="text-muted-foreground text-sm">
-              {isAr
-                ? "يرجى قراءة شروط الخدمة بعناية قبل استخدام المنصة."
-                : `Please read these terms carefully before using the ${platformName()} platform.`}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-10 items-start">
-            {/* Sidebar Sticky TOC */}
-            <aside className="hidden lg:sticky lg:top-24 h-max bg-card border border-border rounded-2xl p-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">
-                {isAr ? "جدول المحتويات" : "Table of Contents"}
-              </p>
-              <nav className="flex flex-col gap-2">
+        <div className="grid grid-cols-1 items-start gap-block lg:grid-cols-[240px_minmax(0,1fr)]">
+          {/* The sidebar carried `hidden lg:sticky` and no `lg:block`, so it was
+              hidden at every breakpoint and the table of contents never appeared
+              on any screen. */}
+          <aside className="hidden lg:block">
+            <div className="lg:sticky lg:top-24">
+              <Eyebrow as="h2">{isAr ? "جدول المحتويات" : "Table of Contents"}</Eyebrow>
+              <nav
+                aria-label={isAr ? "جدول المحتويات" : "Table of contents"}
+                className="mt-3 flex flex-col"
+              >
                 {SECTIONS.map((sec) => (
                   <a
                     key={sec.id}
                     href={`#${sec.id}`}
-                    className="text-sm text-muted-foreground hover:text-primary hover:font-medium transition-colors"
+                    // border-s, not border-l: the marker sits at the reading
+                    // start in both directions. Hover changes colour rather than
+                    // weight — animating font-weight reflows the whole list.
+                    className="u-focus u-ui rounded-e-nested border-s-2 border-hairline py-1.5 ps-3 text-ink-3 transition-colors duration-press ease-standard hover:border-border-strong hover:text-ink-1"
                   >
                     {isAr ? sec.titleAr : sec.titleEn}
                   </a>
                 ))}
               </nav>
-            </aside>
-
-            {/* Content Body */}
-            <div className="space-y-6">
-              {SECTIONS.map((sec) => {
-                const SecIcon = sec.icon;
-                return (
-                  <section
-                    key={sec.id}
-                    id={sec.id}
-                    className="scroll-mt-24 bg-card border border-border rounded-2xl p-6 lg:p-8 hover:shadow-card transition-shadow"
-                  >
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary shrink-0">
-                        <SecIcon className="h-5 w-5" />
-                      </span>
-                      <h2 className="text-lg lg:text-xl font-bold tracking-tight">
-                        {isAr ? sec.titleAr : sec.titleEn}
-                      </h2>
-                    </div>
-                    <div className="text-muted-foreground text-sm lg:text-base leading-relaxed space-y-4">
-                      {isAr ? sec.contentAr : sec.contentEn}
-                    </div>
-                  </section>
-                );
-              })}
             </div>
-          </div>
+          </aside>
 
+          {/* One document, ruled into sections — not seven independently
+              bordered cards, each with its own shadow and its own icon tile. */}
+          <Surface rung={2} className="overflow-hidden">
+            {SECTIONS.map((sec, i) => (
+              <section
+                key={sec.id}
+                id={sec.id}
+                className={`scroll-mt-24 p-6 lg:p-8 ${i > 0 ? "border-t border-hairline" : ""}`}
+              >
+                <h2 className="u-h3 text-ink-1">{isAr ? sec.titleAr : sec.titleEn}</h2>
+                <div className="u-body mt-3 max-w-prose space-y-4 text-ink-2 [&_strong]:font-semibold [&_strong]:text-ink-1">
+                  {isAr ? sec.contentAr : sec.contentEn}
+                </div>
+              </section>
+            ))}
+          </Surface>
         </div>
       </div>
     </MainLayout>

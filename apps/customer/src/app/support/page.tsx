@@ -1,25 +1,50 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { MessageSquare, Plus, Clock, CheckCircle2, Activity, Lock, Mail, HelpCircle, Shield } from "lucide-react";
+import { MessageSquare, Clock, CheckCircle2, Activity, ChevronDown, Mail, LogIn } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { auth } from "@/lib/auth-instance";
 import { ValidatedForm } from "@/components/b2b/validated-form";
 import { createTicket } from "./actions";
 import { cookieHeaderFromStore, fetchBackendJsonWithCookies } from "@/lib/backend";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
+import {
+  Button,
+  Dateline,
+  EmptyState,
+  Eyebrow,
+  Input,
+  PageHeader,
+  StatusPill,
+  Surface,
+  Textarea,
+  type PillTone,
+} from "@avenick/ui";
 
 export const metadata = { title: `Support & Help Center — ${platformName()}` };
 
 export const dynamic = "force-dynamic";
 
-const STATUS: Record<string, { label: string; cls: string; icon: typeof Clock }> = {
-  OPEN: { label: "Open", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400", icon: Clock },
-  IN_PROGRESS: { label: "In progress", cls: "bg-primary/15 text-primary", icon: Activity },
-  RESOLVED: { label: "Resolved", cls: "bg-success/15 text-success", icon: CheckCircle2 },
-  CLOSED: { label: "Closed", cls: "bg-secondary text-muted-foreground", icon: CheckCircle2 },
+const STATUS: Record<string, { label: string; tone: PillTone; icon: typeof Clock }> = {
+  OPEN: { label: "Open", tone: "warning", icon: Clock },
+  IN_PROGRESS: { label: "In progress", tone: "accent", icon: Activity },
+  RESOLVED: { label: "Resolved", tone: "success", icon: CheckCircle2 },
+  CLOSED: { label: "Closed", tone: "neutral", icon: CheckCircle2 },
 };
 
 const CATEGORIES = ["ORDER", "DELIVERY", "PAYMENT", "PRODUCT", "ACCOUNT", "OTHER"];
+
+/**
+ * The recessed rung-1 control recipe, shared with the register and returns
+ * forms. It wants to be a packages/ui primitive; that is a cross-track request.
+ *
+ * The focus ring comes from the .u-focus utility rather than a hand-written
+ * shadow-[...] value. A page may not spell out a box-shadow of its own: five
+ * rungs and one ring exist, and the first hand-rolled shadow in a page is what
+ * lets a sixth appear.
+ */
+const CONTROL_CLASS =
+  "u-focus w-full border border-input bg-surface-1 px-3 text-ui text-ink-1 outline-none " +
+  "transition-[border-color,box-shadow] duration-press ease-standard";
 
 // The brand name is read from the resolver so a renamed deployment does not
 // keep answering "what is <old name>?" in its own help centre.
@@ -70,194 +95,208 @@ export default async function SupportPage() {
 
   return (
     <MainLayout>
-      <div className="relative overflow-hidden min-h-screen bg-background text-foreground py-10 lg:py-16">
-        {/* Glowing visual accents */}
-        <div className="absolute inset-0 bg-grid opacity-30" />
-        <div className="absolute top-20 start-1/4 h-80 w-80 rounded-full bg-primary/10 blur-[120px]" />
-        <div className="absolute bottom-20 end-1/4 h-80 w-80 rounded-full bg-accent/10 blur-[120px]" />
+      <div className="mx-auto max-w-6xl px-4 py-block">
+        <PageHeader
+          eyebrow={isAr ? "مركز المساعدة والدعم" : "Help centre"}
+          title={isAr ? "كيف يمكننا مساعدتك؟" : "How can we help?"}
+          description={
+            isAr
+              ? "ابحث عن إجابات للأسئلة الشائعة أو افتح تذكرة دعم وتابع حالتها."
+              : "Read the answers to the common questions, or open a support ticket and follow its status."
+          }
+          linkComponent={Link}
+        />
 
-        <div className="relative max-w-6xl mx-auto px-4">
-          
-          {/* Hero Header */}
-          <div className="mb-12 text-center max-w-2xl mx-auto">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-primary/20 bg-primary/5 text-xs font-semibold text-primary mb-3">
-              <HelpCircle className="h-3.5 w-3.5" />
-              {isAr ? "مركز المساعدة والدعم" : "Help Center & Support"}
-            </span>
-            <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight mb-3">
-              {isAr ? "كيف يمكننا مساعدتك اليوم؟" : "How can we help you today?"}
-            </h1>
-            <p className="text-muted-foreground text-sm lg:text-base">
-              {isAr 
-                ? "ابحث عن إجابات سريعة للأسئلة الشائعة أو تواصل مع مسؤولي الدعم الفني مباشرة." 
-                : "Find answers to common questions or open a support ticket."}
-            </p>
-          </div>
+        <div className="grid grid-cols-1 items-start gap-block lg:grid-cols-[minmax(0,1fr)_380px]">
+          {/* ── Answers ───────────────────────────────────────────────────── */}
+          <section className="space-y-stack">
+            <Eyebrow as="h2">{isAr ? "الأسئلة الشائعة" : "Frequently asked"}</Eyebrow>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8 items-start">
-            
-            {/* Left Column: FAQs & Contact Info */}
-            <div className="space-y-8">
-              
-              {/* Contact Information Cards — no response-time promise: the
-                  platform measures no support SLA, so none is stated. */}
-              {supportEmail && (
-                <div className="bg-card/40 backdrop-blur-md border border-border/80 rounded-2xl p-6">
-                  <h2 className="text-lg font-bold tracking-tight mb-4 flex items-center gap-2">
-                    <Mail className="h-5 w-5 text-primary" />
-                    {isAr ? "قنوات الاتصال المباشر" : "Direct Contact Channels"}
-                  </h2>
-                  <div className="grid gap-4">
-                    <div className="bg-secondary/30 rounded-xl p-4 border border-border/40 hover:border-primary/20 transition-all">
-                      <Mail className="h-5 w-5 text-primary mb-2" />
-                      <p className="text-xs text-muted-foreground mb-1">{isAr ? "البريد الإلكتروني" : "Email us"}</p>
-                      <a href={`mailto:${supportEmail}`} className="font-semibold text-sm text-primary hover:underline break-all">{supportEmail}</a>
+            {/* One panel divided by hairlines, and each question is a real
+                <details> disclosure — four answers open at once was four walls of
+                text to scroll past to reach the one you wanted. No JavaScript is
+                involved, so it works before hydration and with scripting off. */}
+            <Surface rung={2} className="overflow-hidden">
+              {FAQS.map((faq, idx) => (
+                <details
+                  key={idx}
+                  className={`${idx > 0 ? "border-t border-hairline" : ""} [&[open]_[data-disclosure-mark]]:rotate-180`}
+                >
+                  <summary className="u-focus flex cursor-pointer list-none items-center justify-between gap-3 p-4 transition-colors duration-press ease-standard hover:bg-ink-1/[0.03] [&::-webkit-details-marker]:hidden">
+                    <span className="u-ui font-medium text-ink-1">{isAr ? faq.qAr : faq.qEn}</span>
+                    {/* Marked rather than selected as "any svg in an open
+                        details", so an icon inside an answer can never be
+                        rotated by the disclosure. */}
+                    <ChevronDown
+                      data-disclosure-mark
+                      className="h-4 w-4 shrink-0 text-ink-3 transition-transform duration-press ease-standard"
+                      aria-hidden="true"
+                    />
+                  </summary>
+                  <p className="u-ui max-w-prose px-4 pb-4 text-ink-2">{isAr ? faq.aAr : faq.aEn}</p>
+                </details>
+              ))}
+            </Surface>
+
+            {/* No response-time promise anywhere on this page: the platform
+                measures no support SLA, so none is stated. */}
+            {supportEmail && (
+              <Surface rung={2} className="p-5">
+                <Eyebrow>{isAr ? "البريد الإلكتروني" : "Email"}</Eyebrow>
+                <p className="mt-1.5 flex items-center gap-2">
+                  <Mail className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
+                  <a
+                    href={`mailto:${supportEmail}`}
+                    className="u-focus u-ui rounded-nested break-all font-medium text-primary-ink hover:underline"
+                  >
+                    {supportEmail}
+                  </a>
+                </p>
+                <Dateline className="mt-2">
+                  {isAr
+                    ? "لا يقيس النظام مدة الرد، لذا لا يُذكر أي وعد بذلك"
+                    : "No response time is stated because none is measured"}
+                </Dateline>
+              </Surface>
+            )}
+          </section>
+
+          {/* ── Tickets ───────────────────────────────────────────────────── */}
+          <section className="space-y-stack">
+            {userId ? (
+              <>
+                <Surface rung={2} className="p-5">
+                  <Eyebrow as="h2">{isAr ? "إنشاء تذكرة دعم" : "Open a ticket"}</Eyebrow>
+
+                  <ValidatedForm action={createTicket} className="mt-4 space-y-3">
+                    {/* Every control had a placeholder and no label, so a screen
+                        reader announced an unnamed edit field and the hint
+                        vanished the moment anyone typed. */}
+                    <Input
+                      id="ticket-subject"
+                      name="subject"
+                      label={isAr ? "الموضوع" : "Subject"}
+                      required
+                    />
+                    <div>
+                      <label htmlFor="ticket-category" className="u-ui mb-1.5 block font-medium text-ink-1">
+                        {isAr ? "التصنيف" : "Category"}
+                      </label>
+                      <select
+                        id="ticket-category"
+                        name="category"
+                        data-rung={1}
+                        className={CONTROL_CLASS}
+                        style={{ height: "var(--control-h-md)" }}
+                      >
+                        {CATEGORIES.map((c) => (
+                          <option key={c} value={c}>
+                            {c.charAt(0) + c.slice(1).toLowerCase()}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* FAQs Section */}
-              <div className="space-y-4">
-                <h2 className="text-lg font-bold tracking-tight flex items-center gap-2">
-                  <HelpCircle className="h-5 w-5 text-primary" />
-                  {isAr ? "الأسئلة الأكثر شيوعاً" : "Frequently Asked Questions"}
-                </h2>
-                <div className="space-y-4">
-                  {FAQS.map((faq, idx) => (
-                    <div key={idx} className="bg-card border border-border rounded-2xl p-5 hover:border-primary/20 transition-all">
-                      <h3 className="font-bold text-sm lg:text-base text-foreground mb-2 flex items-start gap-2">
-                        <span className="text-primary font-mono font-bold">Q.</span>
-                        {isAr ? faq.qAr : faq.qEn}
-                      </h3>
-                      <p className="text-muted-foreground text-xs lg:text-sm leading-relaxed ps-5">
-                        {isAr ? faq.aAr : faq.aEn}
-                      </p>
+                    <Input
+                      id="ticket-order-ref"
+                      name="orderRef"
+                      label={isAr ? "رقم مرجع الطلب" : "Order reference"}
+                      hint={isAr ? "اختياري" : "Optional."}
+                    />
+                    <div>
+                      <label htmlFor="ticket-description" className="u-ui mb-1.5 block font-medium text-ink-1">
+                        {isAr ? "تفاصيل المشكلة" : "What happened"}
+                      </label>
+                      <Textarea
+                        id="ticket-description"
+                        name="description"
+                        required
+                        rows={4}
+                        placeholder={isAr ? "اشرح المشكلة بالتفصيل…" : "Describe your issue…"}
+                      />
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <Button type="submit" className="w-full">
+                      {isAr ? "إرسال التذكرة" : "Submit ticket"}
+                    </Button>
+                  </ValidatedForm>
+                </Surface>
 
-            </div>
-
-            {/* Right Column: Support Tickets */}
-            <div className="space-y-6">
-              
-              {userId ? (
-                /* Authenticated User: Ticket Creation & List */
-                <div className="space-y-6">
-                  {/* Create Ticket */}
-                  <div className="bg-card border border-border rounded-2xl p-5 shadow-card">
-                    <div className="flex items-center gap-2 text-sm font-semibold mb-4 text-foreground">
-                      <Plus className="h-4 w-4 text-primary" />
-                      {isAr ? "إنشاء تذكرة دعم جديدة" : "Open a support ticket"}
-                    </div>
-                    
-                    <ValidatedForm action={createTicket} className="space-y-3">
-                      <div className="space-y-3">
-                        <input 
-                          name="subject" 
-                          required 
-                          placeholder={isAr ? "الموضوع" : "Subject"} 
-                          className="w-full h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" 
-                        />
-                        <select 
-                          name="category" 
-                          aria-label="Category" 
-                          className="w-full h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border focus:outline-none focus:ring-2 focus:ring-ring"
-                        >
-                          {CATEGORIES.map((c) => (
-                            <option key={c} value={c}>
-                              {c.charAt(0) + c.slice(1).toLowerCase()}
-                            </option>
-                          ))}
-                        </select>
-                        <input 
-                          name="orderRef" 
-                          placeholder={isAr ? "رقم مرجع الطلب (اختياري)" : "Order reference (optional)"} 
-                          className="w-full h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" 
-                        />
-                        <textarea 
-                          name="description" 
-                          required 
-                          rows={4} 
-                          placeholder={isAr ? "اشرح المشكلة بالتفصيل..." : "Describe your issue…"} 
-                          className="w-full px-3 py-2.5 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none" 
-                        />
-                        <button 
-                          type="submit" 
-                          className="w-full h-10 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]"
-                        >
-                          {isAr ? "إرسال التذكرة" : "Submit Ticket"}
-                        </button>
-                      </div>
-                    </ValidatedForm>
-                  </div>
-
-                  {/* My Tickets List */}
-                  <div>
-                    <h2 className="font-semibold text-muted-foreground text-xs uppercase tracking-wider mb-3">
-                      {isAr ? "تذاكر الدعم الخاصة بي" : "My tickets"}
-                    </h2>
+                <div>
+                  <Eyebrow as="h2" className="mb-2">
+                    {isAr ? "تذاكري" : "My tickets"}
+                  </Eyebrow>
+                  <Surface rung={2} className="overflow-hidden">
                     {tickets.length === 0 ? (
-                      <div className="rounded-2xl border border-border bg-card text-center py-8 text-muted-foreground">
-                        <MessageSquare className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
-                        <p className="text-xs">{isAr ? "لا توجد تذاكر حالية" : "No tickets yet."}</p>
-                      </div>
+                      <EmptyState
+                        eyebrow={isAr ? "لا يوجد سجل" : "Nothing recorded"}
+                        headline={
+                          isAr
+                            ? "لا توجد تذاكر دعم على هذا الحساب."
+                            : "No support tickets on this account."
+                        }
+                        body={
+                          isAr
+                            ? "ستظهر التذاكر هنا فور إرسالها."
+                            : "A ticket appears here as soon as it is submitted."
+                        }
+                        icon={<MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />}
+                      />
                     ) : (
-                      <div className="space-y-3">
+                      <ul>
                         {tickets.map((t) => {
-                          const st = STATUS[t.status] ?? STATUS.OPEN!;
+                          const st = STATUS[t.status] ?? STATUS.OPEN;
                           return (
-                            <div key={t.id} className="rounded-2xl border border-border bg-card p-4 hover:border-primary/30 transition-colors">
+                            <li key={t.id} className="border-t border-hairline p-4 first:border-t-0">
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-[10px] font-mono text-primary font-semibold">{t.ticketNumber}</span>
-                                    <span className="text-[9px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full">{t.category}</span>
-                                  </div>
-                                  <p className="font-medium text-xs lg:text-sm truncate text-foreground">{t.subject}</p>
-                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{t.description}</p>
-                                  <p className="text-[10px] text-muted-foreground mt-1.5">{isAr ? "تم الإنشاء في" : "Opened"} {fmt(t.createdAt)}</p>
+                                  <p className="u-mono u-meta text-ink-2">{t.ticketNumber}</p>
+                                  <p className="u-ui mt-0.5 truncate font-medium text-ink-1">{t.subject}</p>
                                 </div>
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${st.cls}`}>
-                                  <st.icon className="h-3 w-3" /> {st.label}
-                                </span>
+                                <StatusPill tone={st.tone} className="shrink-0">
+                                  <st.icon className="h-3 w-3" aria-hidden="true" /> {st.label}
+                                </StatusPill>
                               </div>
-                            </div>
+                              <p className="u-meta mt-1.5 line-clamp-2 text-ink-2">{t.description}</p>
+                              <p className="u-meta mt-1.5 text-ink-3">
+                                {t.category} · {isAr ? "تم الإنشاء في" : "opened"} {fmt(t.createdAt)}
+                              </p>
+                            </li>
                           );
                         })}
-                      </div>
+                      </ul>
                     )}
-                  </div>
+                  </Surface>
                 </div>
-              ) : (
-                /* Unauthenticated User: Lock & Login Card */
-                <div className="rounded-2xl border border-border bg-card/60 backdrop-blur-md p-6 text-center shadow-card flex flex-col items-center">
-                  <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center mb-4">
-                    <Lock className="h-6 w-6 text-muted-foreground/50" />
-                  </div>
-                  <h3 className="font-bold text-base text-foreground mb-2">
-                    {isAr ? "تقديم تذكرة دعم فني" : "Submit a support ticket"}
-                  </h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed mb-6 max-w-sm">
-                    {isAr 
-                      ? "هل تحتاج لمساعدة مخصصة بشأن طلب أو حساب؟ يرجى تسجيل الدخول لتقديم تذكرة وتتبعها." 
-                      : "Need personalized help with an order or account? Sign in to open a support ticket and track its progress."}
-                  </p>
-                  <Link
-                    href="/login?callbackUrl=/support"
-                    className="w-full inline-flex items-center justify-center h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]"
-                  >
-                    {isAr ? "تسجيل الدخول" : "Sign In"}
-                  </Link>
-                </div>
-              )}
-
-            </div>
-
-          </div>
-
+              </>
+            ) : (
+              <Surface rung={2}>
+                <EmptyState
+                  eyebrow={isAr ? "يلزم تسجيل الدخول" : "Sign in required"}
+                  headline={
+                    isAr
+                      ? "ترتبط تذاكر الدعم بالحساب الذي فتحها."
+                      : "A support ticket belongs to the account that opened it."
+                  }
+                  // A SupportTicket row has a subject, a category, a
+                  // description and a status. There is no reply, message or
+                  // response column in schema.prisma and none is rendered
+                  // below, so this may not offer to show replies.
+                  body={
+                    isAr
+                      ? "سجّل الدخول لفتح تذكرة ومتابعة الحالة المسجلة عليها."
+                      : "Sign in to open a ticket and follow the status recorded against it."
+                  }
+                  action={
+                    <Button variant="primary" size="sm" asChild>
+                      <Link href="/login?callbackUrl=/support">
+                        <LogIn className="h-3.5 w-3.5" aria-hidden="true" />
+                        {isAr ? "تسجيل الدخول" : "Sign in"}
+                      </Link>
+                    </Button>
+                  }
+                />
+              </Surface>
+            )}
+          </section>
         </div>
       </div>
     </MainLayout>

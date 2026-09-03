@@ -12,7 +12,10 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
       */}
       <a
         href="#main-content"
-        className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-3 focus:start-3 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-white focus:shadow-elevated"
+        // text-white was a raw colour with no dark-mode counterpart; the pair is
+        // now a token pair, and the shadow is a named rung rather than the
+        // deprecated `shadow-elevated` alias.
+        className="u-ui sr-only focus:not-sr-only focus:absolute focus:top-3 focus:start-3 focus:z-layer focus:rounded-nested focus:bg-primary focus:px-4 focus:py-2 focus:font-medium focus:text-primary-foreground focus:shadow-elev-4"
       >
         Skip to content / تخطي إلى المحتوى
       </a>

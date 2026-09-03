@@ -3,6 +3,7 @@ import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { db } from "@avenick/database";
 import { Tag, FolderTree, CornerDownRight } from "lucide-react";
+import { EmptyState, Eyebrow, PageHeader, StatusPill, Surface } from "@avenick/ui";
 import { CategoryForm, type CategoryOption } from "./category-form";
 
 export const metadata = { title: "Categories" };
@@ -49,65 +50,104 @@ export default async function CategoriesPage() {
   }
   const topLevel = byParent.get(null) ?? [];
 
-  const renderRow = (c: CategoryRow, depth: number, seen: Set<string>): ReactNode => {
-    if (seen.has(c.id)) return null;
-    seen.add(c.id);
-    const children = byParent.get(c.id) ?? [];
+  /**
+   * Flattened depth-first before rendering, because the rule BETWEEN rows is a
+   * property of the list and not of a nesting wrapper. Rendered as nested divs,
+   * `last:border-b-0` matched every row that happened to be the last child of
+   * its own wrapper — which is every leaf, which in a flat tree is every row —
+   * and the hairlines vanished. One `seen` set for the whole walk also stops a
+   * malformed parent chain from recursing forever.
+   */
+  const walk = (nodes: CategoryRow[], depth: number, seen: Set<string>, out: Array<{ category: CategoryRow; depth: number }>) => {
+    for (const node of nodes) {
+      if (seen.has(node.id)) continue;
+      seen.add(node.id);
+      out.push({ category: node, depth });
+      walk(byParent.get(node.id) ?? [], depth + 1, seen, out);
+    }
+    return out;
+  };
+  const reached = new Set<string>();
+  const rows = walk(topLevel, 0, reached, []);
+  // A category whose parent is not in this read — a broken or cycled parentId —
+  // is never reached by the walk, so it would silently vanish from a page whose
+  // header claims to show the whole tree. It is appended at the root instead: a
+  // console that quietly drops a record is worse than one that shows an odd one.
+  for (const category of categories) {
+    if (!reached.has(category.id)) rows.push({ category, depth: 0 });
+  }
+
+  const renderRow = ({ category: c, depth }: { category: CategoryRow; depth: number }): ReactNode => {
     return (
-      <div key={c.id}>
-        {/* flex-wrap so the edit form, when opened, takes a full line under the row */}
-        <div className={`flex flex-wrap items-center gap-4 px-5 py-3.5 hover:bg-secondary/40 transition-colors ${depth > 0 ? "bg-secondary/20" : ""}`}>
-          <div className="flex items-center gap-3 min-w-0" style={{ paddingInlineStart: `${depth * 1.5}rem` }}>
-            <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-              {depth > 0 ? <CornerDownRight className="h-4 w-4 text-primary" /> : <Tag className="h-4 w-4 text-primary" />}
-            </div>
-            <div className="min-w-0">
-              <p className="font-medium text-sm flex items-center gap-2">
-                <span className="truncate">{c.nameEn}</span>
-                {!c.isActive && <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-muted text-muted-foreground">Inactive</span>}
-              </p>
-              <p className="text-xs text-muted-foreground" dir="rtl">{c.nameAr}</p>
-              <p className="text-[11px] text-muted-foreground font-mono">/{c.slug}</p>
-            </div>
+      <div
+        key={c.id}
+        /* flex-wrap so the edit form, when opened, takes a full line under the row.
+           Depth is carried by the indent and the turn mark alone: the old version
+           also tinted every child row, which made a three-level tree read as three
+           different kinds of object rather than one list at three depths. */
+        className="u-ledger-row flex flex-wrap items-center gap-4 border-b border-b-hairline px-4 py-3 last:border-b-0"
+      >
+        <div className="flex min-w-0 items-start gap-2" style={{ paddingInlineStart: `${depth * 1.5}rem` }}>
+          {depth > 0 ? (
+            // A direction-implying glyph, so it flips in Arabic.
+            <CornerDownRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-3 rtl:-scale-x-100" aria-hidden="true" />
+          ) : (
+            <Tag className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-3" aria-hidden="true" />
+          )}
+          <div className="min-w-0">
+            <p className="u-ui flex items-center gap-2 font-medium text-ink-1">
+              <span className="truncate">{c.nameEn}</span>
+              {!c.isActive && <StatusPill tone="neutral">Inactive</StatusPill>}
+            </p>
+            <p className="u-meta text-ink-2" dir="rtl">{c.nameAr}</p>
+            {/* A slug is a URL segment the storefront keeps forever: an identifier. */}
+            <p className="u-meta u-mono text-ink-3">/{c.slug}</p>
           </div>
-          <div className="ms-auto flex items-center gap-6 text-xs text-muted-foreground shrink-0">
-            <span>{c._count.children} subcategories</span>
-            <span className="font-semibold text-foreground">{c._count.products} products</span>
-          </div>
-          <CategoryForm mode="edit" category={c} options={options} />
         </div>
-        {children.map((child) => renderRow(child, depth + 1, seen))}
+        <dl className="ms-auto flex shrink-0 items-start gap-6">
+          <div>
+            <dt><Eyebrow>Subcategories</Eyebrow></dt>
+            <dd className="u-ui tnum text-ink-2">{c._count.children}</dd>
+          </div>
+          <div>
+            <dt><Eyebrow>Products</Eyebrow></dt>
+            <dd className="u-ui tnum text-ink-1">{c._count.products}</dd>
+          </div>
+        </dl>
+        <CategoryForm mode="edit" category={c} options={options} />
       </div>
     );
   };
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Categories</h1>
-            <p className="text-sm text-muted-foreground">
-              {topLevel.length} top-level {topLevel.length === 1 ? "category" : "categories"}, {categories.length} in total
-            </p>
-          </div>
-          <div className="w-full max-w-2xl flex justify-end">
-            <CategoryForm mode="create" options={options} />
-          </div>
+      <div className="space-y-block">
+        <PageHeader
+          eyebrow="Catalogue structure"
+          title="Categories"
+          description={`${topLevel.length} top-level ${topLevel.length === 1 ? "category" : "categories"}, ${categories.length} in total.`}
+          dateline="The whole tree, ordered by sort order then English name · a slug is the storefront URL and does not change on its own"
+        />
+
+        {/* The create form expands to a full line when it opens, so it lives on
+            its own row rather than inside the header's action slot. */}
+        <div className="flex flex-wrap justify-end">
+          <CategoryForm mode="create" options={options} />
         </div>
 
         {categories.length === 0 ? (
-          <div className="bg-card rounded-2xl border border-border shadow-card p-16 text-center">
-            <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-4">
-              <FolderTree className="h-7 w-7 text-muted-foreground" />
-            </div>
-            <p className="font-semibold">No categories yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Create your first category to organize the catalog.</p>
-          </div>
+          <Surface rung={1}>
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline="No categories have been created yet."
+              body="The storefront navigation and every product listing are organised by this tree, so it is the first thing to build."
+              icon={<FolderTree className="h-3.5 w-3.5" aria-hidden="true" />}
+            />
+          </Surface>
         ) : (
-          <div className="bg-card rounded-2xl border border-border shadow-card overflow-hidden divide-y divide-border">
-            {topLevel.map((c) => renderRow(c, 0, new Set()))}
-          </div>
+          <Surface rung={1} className="overflow-hidden">
+            {rows.map(renderRow)}
+          </Surface>
         )}
       </div>
     </AdminLayout>

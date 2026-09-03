@@ -3,20 +3,25 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { db, ReturnStatus } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
 import { ReturnActions } from "../disputes/return-actions";
-import { RotateCcw, Clock, CheckCircle, XCircle, Truck, PackageCheck, Banknote } from "lucide-react";
+import { RotateCcw, Clock, CheckCircle, XCircle, Truck, PackageCheck, Banknote, CornerDownRight } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+import {
+  PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Num, Button, type PillTone,
+} from "@avenick/ui";
+import { CountStat } from "@/app/finance/money-figures";
+import { FilterTabs } from "@/app/finance/console-chrome";
 
 export const metadata = { title: "Returns" };
 export const dynamic = "force-dynamic";
 
-const STATUS: Record<ReturnStatus, { label: string; cls: string; icon: typeof Clock }> = {
-  REQUESTED:  { label: "Awaiting decision", cls: "bg-amber-500/15 text-amber-700 dark:text-amber-400", icon: Clock },
-  APPROVED:   { label: "Approved",          cls: "bg-primary/15 text-primary",                          icon: CheckCircle },
-  IN_TRANSIT: { label: "In transit",        cls: "bg-purple-500/15 text-purple-700 dark:text-purple-400", icon: Truck },
-  RECEIVED:   { label: "Received",          cls: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-400",     icon: PackageCheck },
-  REFUNDED:   { label: "Refunded",          cls: "bg-green-500/15 text-green-700 dark:text-green-400",  icon: Banknote },
-  REJECTED:   { label: "Rejected",          cls: "bg-red-500/15 text-red-700 dark:text-red-400",        icon: XCircle },
+const STATUS: Record<ReturnStatus, { label: string; tone: PillTone; icon: typeof Clock }> = {
+  REQUESTED:  { label: "Awaiting decision", tone: "warning", icon: Clock },
+  APPROVED:   { label: "Approved",          tone: "accent",  icon: CheckCircle },
+  IN_TRANSIT: { label: "In transit",        tone: "neutral", icon: Truck },
+  RECEIVED:   { label: "Received",          tone: "neutral", icon: PackageCheck },
+  REFUNDED:   { label: "Refunded",          tone: "success", icon: Banknote },
+  REJECTED:   { label: "Rejected",          tone: "danger",  icon: XCircle },
 };
 
 const PAGE_SIZE = 100;
@@ -82,131 +87,219 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Returns &amp; Refunds</h1>
-          <p className="text-sm text-muted-foreground">
-            Buyer return requests across every seller. Approvals, rejections and refunds are audit-logged.
-          </p>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          eyebrow="Money out"
+          title="Returns & refunds"
+          description="Buyer return requests across every seller. Approvals, rejections and refunds are audit-logged."
+          dateline={`Newest first · latest ${PAGE_SIZE} shown · refund amounts in the currency of the order`}
+        />
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Awaiting decision", value: awaiting, color: awaiting > 0 ? "text-amber-700 dark:text-amber-400" : "text-foreground", bg: awaiting > 0 ? "bg-amber-500/10 border-amber-500/20" : "bg-card border-border" },
-            { label: "In progress", value: inProgress, color: "text-foreground", bg: "bg-card border-border" },
-            { label: refundValueLabel, value: refundValue, color: "text-green-700 dark:text-green-400", bg: "bg-card border-border" },
-            { label: "Total requests", value: totalRequests, color: "text-foreground", bg: "bg-card border-border" },
-          ].map((s) => (
-            <div key={s.label} className={`rounded-2xl border p-4 ${s.bg}`}>
-              <p className={`text-xl font-bold ${s.color}`}>{s.value}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
-            </div>
-          ))}
-        </div>
+        <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
+          <CountStat
+            label="Awaiting decision"
+            value={awaiting}
+            rank="section"
+            tone={awaiting > 0 ? "warning" : "default"}
+          />
+          <CountStat label="In progress" value={inProgress} note="approved, in transit or received" />
+          {/* One currency: the real total. Several: a count, because adding AED
+              to KWD and calling the result money would be a fiction. */}
+          <CountStat
+            label={refundValueLabel}
+            value={refundValue}
+            dateline={
+              refundedCurrencies.length > 1
+                ? "Refunds were taken in more than one currency, so a total cannot be stated"
+                : undefined
+            }
+          />
+          <CountStat label="Total requests" value={totalRequests} />
+        </CellGrid>
 
-        <div className="flex gap-1 bg-card border border-border rounded-xl p-1 w-fit max-w-full overflow-x-auto">
-          {tabs.map((t) => (
-            <Link
-              key={t.value ?? "all"}
-              href={t.value ? `/returns?status=${t.value}` : "/returns"}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${status === t.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
-            >
-              {t.label} <span className="opacity-70">({t.count})</span>
-            </Link>
-          ))}
-        </div>
+        <FilterTabs
+          label="Filter returns by status"
+          tabs={tabs.map((t) => ({
+            href: t.value ? `/returns?status=${t.value}` : "/returns",
+            label: t.label,
+            count: t.count,
+            active: status === t.value,
+          }))}
+        />
 
-        <div className="bg-card rounded-2xl border border-border shadow-card overflow-hidden">
-          {returns.length === 0 ? (
-            <div className="p-12 text-center">
-              <RotateCcw className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
-              <p className="font-semibold">{status ? "No returns match this filter" : "No return requests yet"}</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {status
-                  ? "Try another status tab."
-                  : "Buyer return requests appear here as soon as one is opened against a delivered order."}
-              </p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-secondary/50 border-b border-border">
-                  <tr>{["Return #", "Order", "Buyer", "Seller", "Items", "Reason", "Amount", "Status", "Requested", "Actions"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
-                  ))}</tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {returns.map((r) => {
-                    const sc = STATUS[r.status];
-                    const StatusIcon = sc.icon;
-                    const buyer = r.order.company?.nameEn ?? `${r.order.user.firstName} ${r.order.user.lastName}`.trim();
-                    const [firstItem, ...otherItems] = r.items;
-                    const itemTitle = r.items.map((i) => `${i.orderItem.nameEn} × ${i.quantity}`).join("\n");
-                    return (
-                      <tr key={r.id} className={`hover:bg-secondary/40 transition-colors ${r.status === ReturnStatus.REQUESTED ? "bg-amber-500/5" : ""}`}>
-                        <td className="px-4 py-3 font-mono text-xs font-semibold whitespace-nowrap">{r.returnNumber}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <Link href={`/orders/${r.order.id}`} className="font-mono text-xs text-primary hover:underline">{r.order.orderNumber}</Link>
-                        </td>
-                        <td className="px-4 py-3 max-w-[180px]">
-                          <p className="font-medium truncate" title={buyer}>{buyer}</p>
-                          <p className="text-xs text-muted-foreground truncate">{r.order.user.email}</p>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground max-w-[160px] truncate" title={r.seller.businessNameEn}>{r.seller.businessNameEn}</td>
-                        <td className="px-4 py-3 max-w-[200px]">
-                          {firstItem ? (
-                            <>
-                              <p className="truncate" title={itemTitle}>{firstItem.orderItem.nameEn} × {firstItem.quantity}</p>
-                              {otherItems.length > 0 && (
-                                <p className="text-xs text-muted-foreground">+{otherItems.length} more line{otherItems.length !== 1 ? "s" : ""}</p>
-                              )}
-                            </>
-                          ) : (
-                            // Legacy/admin-opened returns predate line selection; there is
-                            // nothing itemised to show and nothing to infer.
-                            <span className="text-xs text-muted-foreground">Not itemised</span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground max-w-[220px]">
-                          <p className="truncate" title={r.reason}>{r.reason}</p>
-                          {r.resolution && <p className="text-xs text-muted-foreground/80 truncate" title={r.resolution}>↳ {r.resolution}</p>}
-                        </td>
-                        <td className="px-4 py-3 font-bold text-green-700 dark:text-green-400 whitespace-nowrap">
-                          {r.refundAmount
-                            ? formatCurrency(Number(r.refundAmount), r.order.currency)
-                            : <span className="font-normal text-muted-foreground" title="No authorised refund amount is recorded on this request.">Not set</span>}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${sc.cls}`}>
-                            <StatusIcon className="h-3 w-3" /> {sc.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{format(r.createdAt, "MMM d, yyyy")}</td>
-                        <td className="px-4 py-3">
-                          <ReturnActions
-                            returnId={r.id}
-                            status={r.status}
-                            orderTotal={Number(r.refundAmount ?? r.order.total)}
-                          />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {returns.length > 0 && (
-            <div className="px-4 py-3 border-t border-border bg-secondary/30 flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">
-                Showing {returns.length} of {status ? countFor([status]) : totalRequests} return{(status ? countFor([status]) : totalRequests) !== 1 ? "s" : ""}
-                {status ? ` with status ${STATUS[status].label.toLowerCase()}` : ""}
-              </p>
-              <p className="text-xs text-muted-foreground">Newest first, latest {PAGE_SIZE} shown</p>
-            </div>
-          )}
-        </div>
+        <LedgerTable
+          rows={returns}
+          getRowKey={(r) => r.id}
+          stickyHead
+          dateline="Buyer-opened requests, as recorded · refund amounts in the currency of the order, no conversion applied"
+          rowProps={(r) => ({
+            // The rows that need a human decision are the reason this page exists.
+            // Hover deepens the same hue; the generic row hover is a plain
+            // background-color and would otherwise wipe this wash on contact.
+            className: r.status === ReturnStatus.REQUESTED ? "bg-warning-soft hover:bg-warning/10" : undefined,
+          })}
+          columns={[
+            {
+              key: "returnNumber",
+              label: "Return #",
+              render: (r) => <span className="u-mono whitespace-nowrap text-meta font-medium text-ink-1">{r.returnNumber}</span>,
+            },
+            {
+              key: "order",
+              label: "Order",
+              render: (r) => (
+                <Link
+                  href={`/orders/${r.order.id}`}
+                  className="u-focus u-mono whitespace-nowrap rounded-nested text-meta text-primary-ink hover:underline"
+                >
+                  {r.order.orderNumber}
+                </Link>
+              ),
+            },
+            {
+              key: "buyer",
+              label: "Buyer",
+              render: (r) => {
+                const buyer = r.order.company?.nameEn ?? `${r.order.user.firstName} ${r.order.user.lastName}`.trim();
+                return (
+                  <div className="max-w-[180px] py-1">
+                    <p className="truncate font-medium text-ink-1" title={buyer}>{buyer}</p>
+                    <p className="u-meta truncate text-ink-3">{r.order.user.email}</p>
+                  </div>
+                );
+              },
+            },
+            {
+              key: "seller",
+              label: "Seller",
+              hideOnMobile: true,
+              render: (r) => (
+                <span className="block max-w-[160px] truncate text-ink-2" title={r.seller.businessNameEn}>
+                  {r.seller.businessNameEn}
+                </span>
+              ),
+            },
+            {
+              key: "items",
+              label: "Items",
+              hideOnMobile: true,
+              render: (r) => {
+                const [firstItem, ...otherItems] = r.items;
+                const itemTitle = r.items.map((i) => `${i.orderItem.nameEn} × ${i.quantity}`).join("\n");
+                if (!firstItem) {
+                  // Legacy/admin-opened returns predate line selection; there is
+                  // nothing itemised to show and nothing to infer.
+                  return <span className="u-meta text-ink-3">Not itemised</span>;
+                }
+                return (
+                  <div className="max-w-[200px] py-1">
+                    <p className="truncate text-ink-1" title={itemTitle}>{firstItem.orderItem.nameEn} × {firstItem.quantity}</p>
+                    {otherItems.length > 0 && (
+                      <p className="u-meta text-ink-3">+{otherItems.length} more line{otherItems.length !== 1 ? "s" : ""}</p>
+                    )}
+                  </div>
+                );
+              },
+            },
+            {
+              key: "reason",
+              label: "Reason",
+              render: (r) => (
+                <div className="max-w-[220px] py-1">
+                  <p className="truncate text-ink-2" title={r.reason}>{r.reason}</p>
+                  {r.resolution && (
+                    // The resolution hangs off the reason. A "↳" glyph is not
+                    // mirrored by the bidi algorithm, so in Arabic it pointed
+                    // back the way the text had come; an icon flips with the
+                    // direction and the relationship survives.
+                    <p className="u-meta flex items-center gap-1 truncate text-ink-3" title={r.resolution}>
+                      <CornerDownRight className="h-3 w-3 shrink-0 rtl:-scale-x-100" aria-hidden="true" />
+                      <span className="truncate">{r.resolution}</span>
+                    </p>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: "refundAmount",
+              label: "Amount",
+              numeric: true,
+              render: (r) =>
+                r.refundAmount ? (
+                  <Num value={formatCurrency(Number(r.refundAmount), r.order.currency)} className="whitespace-nowrap" />
+                ) : (
+                  <span className="u-meta text-ink-3" title="No authorised refund amount is recorded on this request.">
+                    Not set
+                  </span>
+                ),
+            },
+            {
+              key: "status",
+              label: "Status",
+              render: (r) => {
+                const sc = STATUS[r.status];
+                const StatusIcon = sc.icon;
+                return (
+                  <StatusPill tone={sc.tone} className="whitespace-nowrap">
+                    <StatusIcon className="h-3 w-3" aria-hidden="true" /> {sc.label}
+                  </StatusPill>
+                );
+              },
+            },
+            {
+              key: "createdAt",
+              label: "Requested",
+              hideOnMobile: true,
+              render: (r) => <span className="whitespace-nowrap text-ink-2">{format(r.createdAt, "MMM d, yyyy")}</span>,
+            },
+            {
+              key: "actions",
+              label: "Actions",
+              align: "end",
+              render: (r) => (
+                <div className="flex justify-end py-1">
+                  <ReturnActions
+                    returnId={r.id}
+                    status={r.status}
+                    orderTotal={Number(r.refundAmount ?? r.order.total)}
+                  />
+                </div>
+              ),
+            },
+          ]}
+          empty={
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline={status ? "No return is in that state." : "No buyer has opened a return."}
+              body={
+                status
+                  ? "Clear the status filter to see every return on record."
+                  : "A request appears here as soon as one is opened against a delivered order."
+              }
+              icon={<RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />}
+              action={
+                status ? (
+                  <Button variant="secondary" size="sm" asChild>
+                    <Link href="/returns">Show every return</Link>
+                  </Button>
+                ) : undefined
+              }
+            />
+          }
+          footer={
+            returns.length > 0 ? (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  Showing <span className="fig text-ink-2">{returns.length}</span> of{" "}
+                  <span className="fig text-ink-2">{status ? countFor([status]) : totalRequests}</span> return
+                  {(status ? countFor([status]) : totalRequests) !== 1 ? "s" : ""}
+                  {status ? ` with status ${STATUS[status].label.toLowerCase()}` : ""}
+                </span>
+                <span>Newest first, latest {PAGE_SIZE} shown</span>
+              </div>
+            ) : undefined
+          }
+        />
       </div>
     </AdminLayout>
   );

@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { db } from "@avenick/database";
+import { PageHeader } from "@avenick/ui";
 import { browserDirectUploadsEnabled } from "@avenick/utils/browser-upload-policy";
 import { requireSellerPermission } from "@/lib/auth";
 import { sellerHasPermission } from "@/lib/seller-permissions";
@@ -94,14 +96,14 @@ export default async function NewProductPage() {
 
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
-      <div className="space-y-5">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Add product</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            A new listing is saved as a draft or submitted for review. It is not shown to buyers until a {platformName()}
-            approver activates it, and whether it appears on the public storefront is a separate admin decision.
-          </p>
-        </div>
+      <div className="space-y-4">
+        <PageHeader
+          eyebrow="Catalog"
+          title="Add product"
+          linkComponent={Link}
+          breadcrumbs={[{ label: "Products", href: "/products" }, { label: "Add product" }]}
+          description={`A new listing is saved as a draft or submitted for review. It is not shown to buyers until a ${platformName()} approver activates it, and whether it appears on the public storefront is a separate admin decision.`}
+        />
 
         <ProductForm
           mode="create"

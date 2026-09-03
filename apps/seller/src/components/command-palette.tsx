@@ -7,6 +7,8 @@ import {
   FileQuestion, DollarSign, FileText, CreditCard, FolderOpen, CheckSquare,
   MessageSquare, Settings, Search, CornerDownLeft, BarChart3, Plus, Sparkles,
 } from "lucide-react";
+import { cn } from "@avenick/utils";
+import { Eyebrow, Surface } from "@avenick/ui";
 import { sellerNavigationAllows } from "@/lib/seller-permissions";
 
 type Item = { label: string; href: string; icon: React.ElementType; keywords?: string; group: string; permissions?: string[]; allPermissions?: string[] };
@@ -39,17 +41,25 @@ export function CommandPalette({ permissions = [] }: { permissions?: readonly st
   const [q, setQ] = React.useState("");
   const [active, setActive] = React.useState(0);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const listId = React.useId();
+  // The element that had focus when the palette opened, so it can be given back.
+  const restoreRef = React.useRef<HTMLElement | null>(null);
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        // Never open UNDER an open <Layer>. A layer is a real focus trap, so the
+        // palette would take the focus, the trap would immediately take it back,
+        // and the user would be typing into a box they cannot see.
+        if (document.querySelector("[data-layer]")) return;
         e.preventDefault();
         setOpen((o) => !o);
       } else if (e.key === "Escape") {
         setOpen(false);
       }
     };
-    const onOpen = () => setOpen(true);
+    const onOpen = () => { if (!document.querySelector("[data-layer]")) setOpen(true); };
     window.addEventListener("keydown", onKey);
     window.addEventListener("open-command-palette", onOpen);
     return () => {
@@ -59,11 +69,70 @@ export function CommandPalette({ permissions = [] }: { permissions?: readonly st
   }, []);
 
   React.useEffect(() => {
-    if (open) {
-      setQ("");
-      setActive(0);
-      setTimeout(() => inputRef.current?.focus(), 10);
-    }
+    if (!open) return;
+    setQ("");
+    setActive(0);
+    // Remember where focus came from and lock the page behind the palette. A
+    // dialog that leaves the document scrolling underneath it, and drops focus
+    // on the body when it closes, is a dialog only for people using a mouse.
+    restoreRef.current = document.activeElement as HTMLElement | null;
+
+    /**
+     * Lock the elements that actually scroll.
+     *
+     * Locking document.body alone was a no-op in every one of these portals: the
+     * shells are `h-screen overflow-hidden` and the scrolling box is the <main>
+     * inside them, which is why the page went on scrolling behind the palette
+     * under the wheel. The shell marks that box with data-scroll-container; body
+     * stays in the list for any surface that does scroll the document.
+     */
+    const locked: Array<[HTMLElement, string]> = [
+      document.body,
+      ...Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-container]")),
+    ].map((el) => [el, el.style.overflow]);
+    locked.forEach(([el]) => { el.style.overflow = "hidden"; });
+
+    const focusTimer = setTimeout(() => inputRef.current?.focus(), 10);
+    return () => {
+      clearTimeout(focusTimer);
+      locked.forEach(([el, previous]) => { el.style.overflow = previous; });
+      restoreRef.current?.focus?.();
+    };
+  }, [open]);
+
+  /**
+   * The focus trap.
+   *
+   * This element already declares role="dialog" aria-modal="true", which tells a
+   * screen reader the rest of the page is inert — but it is only a promise. Tab
+   * walked straight off the last result and into the sidebar links behind the
+   * scrim, so a keyboard user ended up driving a page they could not see while
+   * assistive technology insisted it was hidden. A dialog that claims to be modal
+   * has to hold the focus it claims.
+   */
+  React.useEffect(() => {
+    if (!open) return;
+    const onTab = (event: KeyboardEvent) => {
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((el) => el.offsetParent !== null);
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const current = document.activeElement;
+      if (event.shiftKey && (current === first || !dialogRef.current.contains(current))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && current === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onTab);
+    return () => document.removeEventListener("keydown", onTab);
   }, [open]);
 
   const filtered = React.useMemo(() => {
@@ -93,28 +162,44 @@ export function CommandPalette({ permissions = [] }: { permissions?: readonly st
   let idx = -1;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[12vh] px-4" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setOpen(false)} />
-      <div className="relative w-full max-w-xl rounded-2xl border border-border bg-popover text-popover-foreground shadow-elevated overflow-hidden animate-fade-up">
-        <div className="flex items-center gap-2 px-4 border-b border-border">
-          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+    <div
+      ref={dialogRef}
+      className="fixed inset-0 z-layer flex items-start justify-center px-4 pt-[12vh]"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Search pages and actions"
+    >
+      {/* The system scrim: hue-matched, blurred and darkened by one token pair,
+          rather than a raw rgba black that has no dark-mode counterpart. */}
+      <div aria-hidden="true" className="u-layer-scrim" onClick={() => setOpen(false)} />
+      {/* Rung 5 — the palette is the frontmost layer in the product while it is
+          open, and rung 5 is the only other place glass is permitted. */}
+      <Surface rung={5} glass className="relative z-[51] w-full max-w-xl animate-fade-up overflow-hidden">
+        <div className="flex items-center gap-2 border-b border-hairline px-4">
+          <Search className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
           <input
             ref={inputRef}
             value={q}
             onChange={(e) => { setQ(e.target.value); setActive(0); }}
             onKeyDown={onInputKey}
             placeholder="Search pages and actions…"
-            className="flex-1 h-12 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            aria-label="Search pages and actions"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls={listId}
+            aria-activedescendant={filtered[active] ? `${listId}-${active}` : undefined}
+            aria-autocomplete="list"
+            className="u-body h-12 flex-1 bg-transparent text-ink-1 outline-none placeholder:text-ink-3"
           />
-          <kbd className="hidden sm:inline text-[10px] font-mono text-muted-foreground border border-border rounded px-1.5 py-0.5">ESC</kbd>
+          <kbd className="u-mono hidden rounded-sm border border-border px-1.5 py-0.5 text-micro text-ink-3 sm:inline">ESC</kbd>
         </div>
-        <div className="max-h-[50vh] overflow-y-auto p-2 scrollbar-hide">
+        <div id={listId} role="listbox" aria-label="Results" className="max-h-[50vh] overflow-y-auto p-2 scrollbar-thin">
           {filtered.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">No results for “{q}”.</p>
+            <p className="u-provenance py-8 text-center text-ui text-ink-2">Nothing matches “{q}”.</p>
           ) : (
             groups.map((g) => (
-              <div key={g} className="mb-1">
-                <p className="px-2 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">{g}</p>
+              <div key={g} role="group" aria-label={g} className="mb-1">
+                <Eyebrow className="px-2 py-1">{g}</Eyebrow>
                 {filtered.filter((i) => i.group === g).map((item) => {
                   idx++;
                   const isActive = idx === active;
@@ -122,14 +207,32 @@ export function CommandPalette({ permissions = [] }: { permissions?: readonly st
                   return (
                     <button
                       key={item.label}
+                      id={`${listId}-${myIdx}`}
+                      role="option"
+                      aria-selected={isActive}
                       type="button"
                       onMouseEnter={() => setActive(myIdx)}
                       onClick={() => go(item)}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm transition-colors ${isActive ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`}
+                      className={cn(
+                        "u-ui relative flex w-full items-center gap-2.5 rounded-nested px-3 py-2",
+                        "transition-colors duration-press ease-standard",
+                        isActive ? "bg-ink-1/[0.06] font-medium text-ink-1" : "text-ink-2 hover:bg-ink-1/[0.04] hover:text-ink-1",
+                      )}
                     >
-                      <item.icon className="h-4 w-4 shrink-0" />
+                      {/* The same drawn brass rule that marks the current page in
+                          the sidebar — one active-indicator gesture, used
+                          everywhere, is what makes the two feel designed rather
+                          than assembled. It is also brass's one permitted use
+                          outside a tier mark. */}
+                      <span
+                        aria-hidden="true"
+                        className="u-drawn absolute inset-y-1 start-0"
+                        data-orientation="vertical"
+                        data-on={isActive ? "true" : "false"}
+                      />
+                      <item.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                       <span className="flex-1 text-start">{item.label}</span>
-                      {isActive && <CornerDownLeft className="h-3.5 w-3.5 opacity-70" />}
+                      {isActive && <CornerDownLeft className="h-3.5 w-3.5 text-ink-3 rtl:-scale-x-100" aria-hidden="true" />}
                     </button>
                   );
                 })}
@@ -137,11 +240,14 @@ export function CommandPalette({ permissions = [] }: { permissions?: readonly st
             ))
           )}
         </div>
-        <div className="flex items-center justify-between px-4 py-2 border-t border-border text-[11px] text-muted-foreground">
-          <span className="flex items-center gap-2"><kbd className="font-mono border border-border rounded px-1">↑↓</kbd> navigate <kbd className="font-mono border border-border rounded px-1">↵</kbd> open</span>
-          <span className="flex items-center gap-1"><Sparkles className="h-3 w-3 text-primary" /> Avenick command palette</span>
+        {/* The footer used to end with a "Avenick command palette" signature: a
+            hardcoded platform name carrying no information. The keyboard contract
+            is the only thing here a reader can act on. */}
+        <div className="flex items-center gap-2 border-t border-hairline px-4 py-2 text-meta text-ink-3">
+          <kbd className="u-mono rounded-sm border border-border px-1">↑↓</kbd> navigate
+          <kbd className="u-mono ms-2 rounded-sm border border-border px-1">↵</kbd> open
         </div>
-      </div>
+      </Surface>
     </div>
   );
 }

@@ -1,9 +1,24 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, FileText, CheckCircle, XCircle, Clock, Store, MessageSquare } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Store, MessageSquare } from "lucide-react";
+import {
+  Button,
+  Dateline,
+  EmptyState,
+  Eyebrow,
+  FieldWell,
+  LedgerTable,
+  Num,
+  PageHeader,
+  StatusPill,
+  Surface,
+  TierMark,
+} from "@avenick/ui";
 import { B2BShell } from "@/components/b2b/b2b-shell";
+import { Money } from "@/components/b2b/money";
+import { RFQ_STATUS } from "@/components/b2b/rfq-status";
 import type { RFQStatus } from "@avenick/database";
-import { formatCurrency, RECORD_ID } from "@avenick/utils";
+import { RECORD_ID } from "@avenick/utils";
 import { platformName } from "@avenick/utils/portal-config";
 import { fetchB2BJson } from "@/lib/b2b";
 import { acceptRFQQuote, rejectRFQQuote } from "../actions";
@@ -11,18 +26,6 @@ import { format } from "date-fns";
 
 export const metadata = { title: "RFQ Detail" };
 export const dynamic = "force-dynamic";
-
-const STATUS_CONFIG: Record<RFQStatus, { label: string; color: string }> = {
-  DRAFT: { label: "Draft", color: "bg-slate-100 text-muted-foreground" },
-  SUBMITTED: { label: "Submitted", color: "bg-blue-100 text-primary" },
-  UNDER_REVIEW: { label: "Under Review", color: "bg-purple-100 text-purple-700" },
-  QUOTED: { label: "Quote Received", color: "bg-amber-100 text-amber-700" },
-  NEGOTIATING: { label: "Negotiating", color: "bg-orange-100 text-orange-700" },
-  ACCEPTED: { label: "Accepted", color: "bg-green-100 text-green-700" },
-  REJECTED: { label: "Rejected", color: "bg-red-100 text-red-700" },
-  EXPIRED: { label: "Expired", color: "bg-slate-100 text-muted-foreground" },
-  CANCELLED: { label: "Cancelled", color: "bg-slate-100 text-muted-foreground" },
-};
 
 /**
  * Who wrote a thread message, in the buyer's terms. The stored value is the
@@ -41,6 +44,21 @@ function senderLabel(senderType: string, supplierName: string | null): string {
     default: return "Participant";
   }
 }
+
+/**
+ * Seller tiers, as stored. STANDARD is deliberately absent from the brass set:
+ * brass has a hard ≤2% viewport budget and exactly three permitted uses, and a
+ * gold award mark on every supplier — including one carrying the baseline tier —
+ * is what turns a mark of distinction into wallpaper. A standard supplier's tier
+ * is still stated; it is just stated in ink rather than in brass.
+ */
+const TIER_LABEL: Record<string, string> = {
+  STANDARD: "Standard supplier",
+  VERIFIED: "Verified",
+  GOLD: "Gold",
+  PLATINUM: "Platinum",
+};
+const BRASS_TIERS = new Set(["VERIFIED", "GOLD", "PLATINUM"]);
 
 export default async function RFQDetailPage({ params }: { params: { id: string } }) {
   type RFQDetail = {
@@ -85,147 +103,195 @@ export default async function RFQDetailPage({ params }: { params: { id: string }
     redirect("/b2b/register");
   }
 
-  const cfg = STATUS_CONFIG[rfq.status];
+  const cfg = RFQ_STATUS[rfq.status];
   const quoted = rfq.status === "QUOTED" || rfq.status === "NEGOTIATING";
   const quotedTotal = rfq.totalQuoted ? Number(rfq.totalQuoted) : null;
 
   return (
     <B2BShell>
-      <div className="bg-slate-50 min-h-screen">
-        <div className="max-w-3xl mx-auto px-4 py-8 space-y-5">
-          <Link href="/b2b/quotes" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Back to Quotes
-          </Link>
+      {/* The page used to paint its own slate ground and its own centred column
+          inside the portal shell, which meant an RFQ looked like a different
+          product from the list it was opened from. It is now one measure of
+          reading width on the portal's own ground. */}
+      <div className="max-w-3xl space-y-block">
+        <PageHeader
+          breadcrumbs={[{ label: "Quotes", href: "/b2b/quotes" }, { label: rfq.rfqNumber }]}
+          eyebrow="Request for quotation"
+          title={rfq.rfqNumber}
+          dateline={
+            rfq.requiredBy
+              ? `Raised ${format(new Date(rfq.createdAt), "MMM d, yyyy")} · required by ${format(new Date(rfq.requiredBy), "MMM d, yyyy")}`
+              : `Raised ${format(new Date(rfq.createdAt), "MMM d, yyyy")} · no required-by date set`
+          }
+          actions={<StatusPill tone={cfg.tone}>{cfg.label}</StatusPill>}
+          linkComponent={Link}
+        />
 
-          <div className="bg-white rounded-2xl border border-border p-6 space-y-5">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h1 className="text-xl font-bold">{rfq.rfqNumber}</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Created {format(new Date(rfq.createdAt), "MMM d, yyyy")}
-                  {rfq.requiredBy && <> · required by {format(new Date(rfq.requiredBy), "MMM d, yyyy")}</>}
-                </p>
-              </div>
-              <span className={`text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${cfg.color}`}>{cfg.label}</span>
-            </div>
+        {rfq.notes && (
+          <FieldWell padded>
+            <Eyebrow className="mb-1">Request notes</Eyebrow>
+            <p className="u-body whitespace-pre-line text-ink-1">{rfq.notes}</p>
+          </FieldWell>
+        )}
 
-            {rfq.notes && (
-              <div className="rounded-xl bg-slate-50 border border-border p-3 text-sm text-muted-foreground">{rfq.notes}</div>
-            )}
-
-            {rfq.seller && (
-              <div className="flex items-center gap-3 rounded-xl border border-border p-3">
-                <span className="h-9 w-9 rounded-lg bg-orange-50 flex items-center justify-center">
-                  <Store className="h-4 w-4 text-orange-600" />
-                </span>
-                <div>
-                  <p className="text-sm font-medium">{rfq.seller.businessNameEn}</p>
-                  <p className="text-xs text-muted-foreground">Quoting supplier · {rfq.seller.tier}</p>
-                </div>
-              </div>
-            )}
-
-            <div>
-              <h2 className="text-sm font-semibold mb-2">Line items</h2>
-              <div className="border border-border rounded-xl overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-slate-50 border-b border-border">
-                    <tr>
-                      {["Item", "Qty", "Unit quote", "Line total"].map((h) => (
-                        <th key={h} className="px-3 py-2 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {rfq.items.map((item) => (
-                      <tr key={item.id}>
-                        <td className="px-3 py-2.5">
-                          <p className="font-medium">{item.nameEn}</p>
-                          {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
-                        </td>
-                        <td className="px-3 py-2.5 text-muted-foreground">{item.quantity}</td>
-                        <td className="px-3 py-2.5">
-                          {item.unitQuoted ? formatCurrency(Number(item.unitQuoted), rfq.currency as never) : <span className="text-muted-foreground">Pending</span>}
-                        </td>
-                        <td className="px-3 py-2.5 font-semibold">
-                          {item.unitQuoted ? formatCurrency(Number(item.unitQuoted) * item.quantity, rfq.currency as never) : "—"}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  {quotedTotal !== null && (
-                    <tfoot className="bg-slate-50 border-t border-border">
-                      <tr>
-                        <td colSpan={3} className="px-3 py-2.5 text-end font-semibold">Quoted total</td>
-                        <td className="px-3 py-2.5 font-bold">{formatCurrency(quotedTotal, rfq.currency as never)}</td>
-                      </tr>
-                    </tfoot>
+        <Surface rung={2} className="flex items-center gap-3 p-4">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-nested bg-neutral-soft text-ink-2">
+            <Store className="h-4 w-4" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            {rfq.seller ? (
+              <>
+                <p className="u-ui font-medium text-ink-1">{rfq.seller.businessNameEn}</p>
+                <p className="u-meta flex flex-wrap items-center gap-2 text-ink-3">
+                  Quoting supplier
+                  {/* The tier is the one the seller record actually carries —
+                      brass marks a fact, it never decorates, and it only marks a
+                      tier that is a distinction. The raw enum never reaches the
+                      page: an unmapped value reads as its own label, not as
+                      PLATINUM_PLUS. */}
+                  {BRASS_TIERS.has(rfq.seller.tier) ? (
+                    <TierMark tier={rfq.seller.tier} label={TIER_LABEL[rfq.seller.tier] ?? rfq.seller.tier} />
+                  ) : (
+                    <span>· {TIER_LABEL[rfq.seller.tier] ?? rfq.seller.tier}</span>
                   )}
-                </table>
-              </div>
-            </div>
-
-            {quoted && (
-              <div className="space-y-2 pt-2 border-t border-border">
-                <div className="flex items-center gap-2">
-                  <form action={acceptRFQQuote.bind(null, rfq.id, rfq.quoteVersion)}>
-                    <button type="submit" className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
-                      <CheckCircle className="h-4 w-4" /> Accept quote
-                    </button>
-                  </form>
-                  <form action={rejectRFQQuote.bind(null, rfq.id, rfq.quoteVersion)}>
-                    <button type="submit" className="inline-flex items-center gap-1.5 border border-red-200 text-red-600 hover:bg-red-50 text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
-                      <XCircle className="h-4 w-4" /> Decline
-                    </button>
-                  </form>
-                </div>
-                <p className="text-xs leading-5 text-muted-foreground">
-                  Accepting records your acceptance of the supplier&apos;s quoted price and closes this RFQ. It does not
-                  message the supplier and does not create an order &mdash; confirm with them directly, then{" "}
-                  <Link href="/b2b/purchase-orders/new" className="text-primary hover:underline">raise a purchase order</Link>{" "}
-                  separately. Purchase-order lines are re-priced from the catalog, so the quoted total above is not
-                  carried across for you.
                 </p>
-              </div>
-            )}
-
-            {!quoted && rfq.status === "SUBMITTED" && (
-              <div className="flex items-center gap-2 rounded-xl bg-blue-50 border border-blue-200 p-3 text-sm text-primary">
-                <Clock className="h-4 w-4 shrink-0" />
-                Waiting for supplier quotes — no alert is sent when pricing arrives, so check this page for updates.
-              </div>
-            )}
-
-            {rfq.messages.length > 0 && (
-              <div>
-                <h2 className="text-sm font-semibold mb-2 inline-flex items-center gap-1.5">
-                  <MessageSquare className="h-4 w-4" /> Messages
-                </h2>
-                {typeof rfq.messageTotal === "number" && rfq.messageTotal > rfq.messages.length && (
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Showing the latest {rfq.messages.length} of {rfq.messageTotal} messages
-                  </p>
-                )}
-                <ul className="space-y-2">
-                  {rfq.messages.map((m) => (
-                    <li key={m.id} className="rounded-xl border border-border p-3 text-sm">
-                      <p className="text-xs text-muted-foreground mb-1">
-                        {senderLabel(m.senderType, rfq.seller?.businessNameEn ?? null)} · {format(new Date(m.createdAt), "MMM d, HH:mm")}
-                      </p>
-                      {m.body}
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              </>
+            ) : (
+              <>
+                <p className="u-ui font-medium text-ink-1">No supplier assigned yet</p>
+                <p className="u-meta text-ink-3">An RFQ carries at most one supplier, assigned after it is submitted.</p>
+              </>
             )}
           </div>
+        </Surface>
 
-          <div className="text-center">
-            <Link href="/b2b/rfq/new" className="text-sm text-primary hover:underline inline-flex items-center gap-1">
-              <FileText className="h-3.5 w-3.5" /> Create another RFQ
-            </Link>
-          </div>
-        </div>
+        <LedgerTable
+          title="Line items"
+          dateline={`Quantities as requested · unit prices as quoted by the supplier, in ${rfq.currency}`}
+          rows={rfq.items}
+          getRowKey={(item) => item.id}
+          columns={[
+            {
+              key: "nameEn",
+              label: "Item",
+              render: (item) => (
+                <div className="py-1">
+                  <p className="font-medium text-ink-1">{item.nameEn}</p>
+                  {item.notes && <p className="u-meta text-ink-2">{item.notes}</p>}
+                </div>
+              ),
+            },
+            {
+              key: "quantity",
+              label: "Qty",
+              numeric: true,
+              render: (item) => <Num value={item.quantity} />,
+            },
+            {
+              key: "unitQuoted",
+              label: "Unit quote",
+              numeric: true,
+              render: (item) =>
+                item.unitQuoted ? (
+                  <Money amount={Number(item.unitQuoted)} currency={rfq.currency} />
+                ) : (
+                  <span className="u-meta text-ink-3">Not priced</span>
+                ),
+            },
+            {
+              key: "lineTotal",
+              label: "Line total",
+              numeric: true,
+              render: (item) =>
+                item.unitQuoted ? (
+                  <Money amount={Number(item.unitQuoted) * item.quantity} currency={rfq.currency} />
+                ) : (
+                  <span className="u-meta text-ink-3">—</span>
+                ),
+            },
+          ]}
+          footer={
+            quotedTotal !== null ? (
+              <span className="flex items-center justify-between gap-3">
+                <Eyebrow as="span">Quoted total</Eyebrow>
+                <Money amount={quotedTotal} currency={rfq.currency} rank="section" />
+              </span>
+            ) : (
+              <span>The supplier has not priced this request yet, so there is no quoted total.</span>
+            )
+          }
+          empty={
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline="This request has no line items."
+              body="An RFQ needs at least one item and quantity for a supplier to price."
+            />
+          }
+        />
+
+        {quoted && (
+          /* The decision. A recessed well, because it is the terms you are
+             deciding on, carrying the one raised commit action. The paragraph
+             under it is not fine print: it is the difference between "accepted"
+             and "ordered", and it stays exactly as written. */
+          <FieldWell padded>
+            <Eyebrow className="mb-3">Your decision</Eyebrow>
+            <div className="flex flex-wrap items-center gap-2">
+              <form action={acceptRFQQuote.bind(null, rfq.id, rfq.quoteVersion)}>
+                <Button type="submit" variant="primary" size="md">
+                  <CheckCircle className="h-4 w-4" aria-hidden="true" /> Accept quote
+                </Button>
+              </form>
+              <form action={rejectRFQQuote.bind(null, rfq.id, rfq.quoteVersion)}>
+                <Button type="submit" variant="ghost" size="md" className="text-danger-ink hover:bg-danger-soft hover:text-danger-ink">
+                  <XCircle className="h-4 w-4" aria-hidden="true" /> Decline
+                </Button>
+              </form>
+            </div>
+            <p className="u-meta mt-3 max-w-prose text-ink-2">
+              Accepting records your acceptance of the supplier&apos;s quoted price and closes this RFQ. It does not
+              message the supplier and does not create an order &mdash; confirm with them directly, then{" "}
+              <Link href="/b2b/purchase-orders/new" className="u-focus rounded-nested text-primary-ink hover:underline">
+                raise a purchase order
+              </Link>{" "}
+              separately. Purchase-order lines are re-priced from the catalog, so the quoted total above is not
+              carried across for you.
+            </p>
+          </FieldWell>
+        )}
+
+        {!quoted && rfq.status === "SUBMITTED" && (
+          <Surface rung={1} tone="accent" className="flex items-start gap-2 p-3">
+            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-accent-ink" aria-hidden="true" />
+            <p className="u-ui text-ink-1">
+              Waiting for supplier quotes — no alert is sent when pricing arrives, so check this page for updates.
+            </p>
+          </Surface>
+        )}
+
+        {rfq.messages.length > 0 && (
+          <Surface rung={2} className="p-5">
+            <h2 className="u-h3 inline-flex items-center gap-1.5 text-ink-1">
+              <MessageSquare className="h-4 w-4 text-ink-3" aria-hidden="true" /> Messages
+            </h2>
+            {typeof rfq.messageTotal === "number" && rfq.messageTotal > rfq.messages.length && (
+              <Dateline className="mt-0.5">
+                Showing the latest {rfq.messages.length} of {rfq.messageTotal} messages
+              </Dateline>
+            )}
+            <ul className="mt-4 space-y-2">
+              {rfq.messages.map((m) => (
+                <li key={m.id} className="border-s-2 border-hairline ps-3">
+                  <Eyebrow className="mb-0.5">
+                    {senderLabel(m.senderType, rfq.seller?.businessNameEn ?? null)} ·{" "}
+                    {format(new Date(m.createdAt), "MMM d, HH:mm")}
+                  </Eyebrow>
+                  <p className="u-body text-ink-1">{m.body}</p>
+                </li>
+              ))}
+            </ul>
+          </Surface>
+        )}
       </div>
     </B2BShell>
   );

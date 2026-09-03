@@ -3,19 +3,33 @@ import { db, ProductStatus } from "@avenick/database";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import Image from "next/image";
 import Link from "next/link";
+import {
+  Button,
+  EmptyState,
+  FieldWell,
+  LedgerTable,
+  Meter,
+  NavItem,
+  PageHeader,
+  StatusPill,
+  type PillTone,
+} from "@avenick/ui";
 import { ProductControls } from "./product-controls";
+
+export const metadata = { title: "Products" };
 
 /** Queues an operator works, in the order they are worked. */
 const STATUS_TABS: ProductStatus[] = ["PENDING_REVIEW", "ACTIVE", "INACTIVE", "SUPPRESSED", "REJECTED"];
 
-const STATUS_CHIP: Record<ProductStatus, string> = {
-  ACTIVE: "bg-green-500/10 text-green-700 dark:text-green-400",
-  PENDING_REVIEW: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
-  INACTIVE: "bg-muted text-muted-foreground",
-  DRAFT: "bg-muted text-muted-foreground",
-  SUPPRESSED: "bg-red-500/10 text-red-700 dark:text-red-400",
-  SUSPENDED: "bg-red-500/10 text-red-700 dark:text-red-400",
-  REJECTED: "bg-red-500/10 text-red-700 dark:text-red-400",
+/** Enum → tone. Four semantic states, which is all an operator distinguishes. */
+const STATUS_TONE: Record<ProductStatus, PillTone> = {
+  ACTIVE: "success",
+  PENDING_REVIEW: "warning",
+  INACTIVE: "neutral",
+  DRAFT: "neutral",
+  SUPPRESSED: "danger",
+  SUSPENDED: "danger",
+  REJECTED: "danger",
 };
 
 const PAGE_SIZE = 50;
@@ -48,85 +62,152 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
     },
   });
 
+  const statusLabel = status.replace(/_/g, " ").toLowerCase();
+
   return (
     <AdminLayout pendingCount={pendingCount}>
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">Products ({totalInStatus.toLocaleString()})</h1>
-            {totalInStatus > products.length && (
-              <p className="text-xs text-muted-foreground">Showing the newest {products.length} of {totalInStatus.toLocaleString()} in this status</p>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {STATUS_TABS.map((s) => (
-              <Link key={s} href={`/products?status=${s}`} className={`text-xs px-3 py-1.5 rounded-lg border ${status === s ? "bg-primary text-white border-primary" : "border-border hover:bg-muted"}`}>
-                {s.replace(/_/g, " ")}
-              </Link>
-            ))}
-          </div>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          eyebrow="Catalogue"
+          title="Products"
+          description={
+            totalInStatus === 1
+              ? `1 listing is ${statusLabel}.`
+              : `${totalInStatus.toLocaleString()} listings are ${statusLabel}.`
+          }
+          // The table is a page of the queue, not the queue. Saying which page
+          // is the difference between a count and a claim about the catalogue.
+          dateline={
+            totalInStatus > products.length
+              ? `Newest ${products.length} of ${totalInStatus.toLocaleString()} in this status · every decision is written against the listing's state at the moment of the click`
+              : "Newest first · every decision is written against the listing's state at the moment of the click"
+          }
+        />
 
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted border-b border-border">
-                <tr>
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Product</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Seller</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Category</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Health</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Status</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {products.map((p) => {
-                  const suppression = Array.isArray(p.issues) ? p.issues[0] : undefined;
-                  return (
-                    <tr key={p.id} className="hover:bg-muted/20 align-top">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          {p.images[0] ? <Image src={p.images[0].url} alt="" width={32} height={32} className="rounded object-cover shrink-0" /> : <div className="w-8 h-8 bg-muted rounded shrink-0" />}
-                          <div>
-                            <p className="font-medium text-sm">{p.nameEn}</p>
-                            <p className="text-xs text-muted-foreground font-mono">{p.sku}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <Link href={`/sellers/${p.seller.id}`} className="text-primary hover:underline">{p.seller.businessNameEn}</Link>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground">{p.category.nameEn}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <div className="flex gap-0.5 w-12 h-1.5">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <div key={i} className={`flex-1 rounded-full ${i < Math.round(p.listingHealth / 20) ? (p.listingHealth >= 80 ? "bg-green-500" : p.listingHealth >= 60 ? "bg-yellow-500" : "bg-red-500") : "bg-muted"}`} />
-                            ))}
-                          </div>
-                          <span className="text-xs">{p.listingHealth}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CHIP[p.status]}`}>{p.status.replace(/_/g, " ")}</span>
-                        {suppression && (
-                          <p className="mt-1 max-w-xs text-[11px] text-muted-foreground" title={suppression.message}>
-                            Reason: {suppression.message}
-                          </p>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <ProductControls productId={p.id} status={p.status} restoreTarget={p.status === "SUPPRESSED" ? (p.publishedAt ? "ACTIVE" : "DRAFT") : undefined} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            {products.length === 0 && <div className="text-center py-12 text-muted-foreground">No products in this status.</div>}
-          </div>
-        </div>
+        {/* Recessed strip, raised current item: the same gesture as the sidebar,
+            so a queue selector reads as "where you are" rather than as a chip. */}
+        <FieldWell as="nav" aria-label="Filter listings by status" className="flex flex-wrap gap-1 p-1">
+          {STATUS_TABS.map((tab) => (
+            <NavItem
+              key={tab}
+              href={`/products?status=${tab}`}
+              label={tab.replace(/_/g, " ")}
+              orientation="horizontal"
+              active={status === tab}
+              linkComponent={Link}
+            />
+          ))}
+        </FieldWell>
+
+        <LedgerTable
+          rows={products}
+          getRowKey={(p) => p.id}
+          stickyHead
+          columns={[
+            {
+              key: "product",
+              label: "Listing",
+              render: (p) => (
+                <div className="flex items-center gap-2.5">
+                  {p.images[0] ? (
+                    <Image src={p.images[0].url} alt="" width={32} height={32} className="shrink-0 rounded-nested object-cover" />
+                  ) : (
+                    // Not a broken image and not an icon tile: a recessed blank
+                    // that says "no primary image filed" by being empty.
+                    <span className="h-8 w-8 shrink-0 rounded-nested bg-surface-1 shadow-elev-1" aria-hidden="true" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="font-medium text-ink-1">{p.nameEn}</p>
+                    {/* Mono is for identifiers. A SKU is one. */}
+                    <p className="u-meta u-mono text-ink-3">{p.sku}</p>
+                  </div>
+                </div>
+              ),
+            },
+            {
+              key: "seller",
+              label: "Seller",
+              render: (p) => (
+                <Link href={`/sellers/${p.seller.id}`} className="u-focus rounded-nested text-primary-ink hover:underline">
+                  {p.seller.businessNameEn}
+                </Link>
+              ),
+            },
+            {
+              key: "category",
+              label: "Category",
+              hideOnMobile: true,
+              render: (p) => <span className="u-meta text-ink-2">{p.category.nameEn}</span>,
+            },
+            {
+              key: "health",
+              label: "Listing health",
+              hideOnMobile: true,
+              width: "128px",
+              render: (p) => (
+                // One element scaled on X, not five divs carrying three raw
+                // hues. Tone is binary — the score is the reading, and colour is
+                // reserved for the one case an operator has to act on.
+                <div className="flex items-center gap-2">
+                  <Meter
+                    value={p.listingHealth}
+                    tone={p.listingHealth < 60 ? "danger" : "neutral"}
+                    size="sm"
+                    label={`Listing health for ${p.nameEn}`}
+                    className="w-14"
+                  />
+                  <span className="u-meta tnum text-ink-2">{p.listingHealth}</span>
+                </div>
+              ),
+            },
+            {
+              key: "status",
+              label: "Status",
+              render: (p) => {
+                const suppression = Array.isArray(p.issues) ? p.issues[0] : undefined;
+                return (
+                  <div className="space-y-1">
+                    <StatusPill tone={STATUS_TONE[p.status] ?? "neutral"}>{p.status.replace(/_/g, " ")}</StatusPill>
+                    {suppression && (
+                      <p className="u-meta max-w-[32ch] text-ink-2" title={suppression.message}>
+                        <span className="text-ink-3">Reason: </span>
+                        {suppression.message}
+                      </p>
+                    )}
+                  </div>
+                );
+              },
+            },
+            {
+              key: "actions",
+              label: "Decision",
+              align: "end",
+              render: (p) => (
+                <div className="flex justify-end">
+                  <ProductControls
+                    productId={p.id}
+                    status={p.status}
+                    restoreTarget={p.status === "SUPPRESSED" ? (p.publishedAt ? "ACTIVE" : "DRAFT") : undefined}
+                  />
+                </div>
+              ),
+            },
+          ]}
+          empty={
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline={`No listing is currently ${statusLabel}.`}
+              body="Listings move between these queues as sellers publish them and as the platform decides on them."
+              action={
+                status === "PENDING_REVIEW" ? undefined : (
+                  <Button variant="secondary" size="sm" asChild>
+                    <Link href="/products?status=PENDING_REVIEW">Open the review queue</Link>
+                  </Button>
+                )
+              }
+            />
+          }
+        />
       </div>
     </AdminLayout>
   );

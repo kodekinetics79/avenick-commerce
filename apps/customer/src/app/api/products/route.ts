@@ -59,6 +59,10 @@ export async function GET(req: NextRequest) {
       publiclyDiscoverable: wantsB2B ? undefined : true,
       b2b: wantsB2B ? true : undefined,
       inStock: searchParams.get("inStock") === "true",
+      // Bounded like every other free-text parameter here: a brand slug is a
+      // short identifier, and an unbounded one becomes a query the index
+      // cannot serve.
+      brandSlug: searchParams.get("brand")?.slice(0, 120) || undefined,
       sort: searchParams.get("sort") === "name_asc" ? "name_asc" : "newest",
     });
 

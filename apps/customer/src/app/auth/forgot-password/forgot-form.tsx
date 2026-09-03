@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { Input, Button } from "@avenick/ui";
+import { AuthNotice, FormErrorSlot } from "../auth-shell";
 
 /**
  * Posts to /api/auth/password-reset/request and shows the one sentence that
@@ -41,30 +42,29 @@ export function ForgotForm({ expiresIn }: { expiresIn: string }) {
 
   if (done) {
     return (
-      <div className="flex items-start gap-2 rounded-xl bg-green-50 border border-green-200 p-4 text-sm text-green-800" role="status">
-        <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
-        <p>If an account exists for that address, we have sent a reset link. It expires in {expiresIn}.</p>
-      </div>
+      <AuthNotice icon={<CheckCircle2 className="h-4 w-4" />}>
+        If an account exists for that address, we have sent a reset link. It expires in {expiresIn}.
+      </AuthNotice>
     );
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4" aria-label="Request a password reset / إعادة تعيين كلمة المرور">
-      <div>
-        <label htmlFor="forgot-email" className="block text-sm font-medium mb-1.5">Email / البريد الإلكتروني</label>
-        <Input
-          id="forgot-email"
-          name="email"
-          type="email"
-          autoComplete="username"
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
-      </div>
-      {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-      <Button type="submit" className="w-full" loading={loading}>Send reset link</Button>
+      <Input
+        id="forgot-email"
+        name="email"
+        type="email"
+        label="Email / البريد الإلكتروني"
+        autoComplete="username"
+        placeholder="you@example.com"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        required
+      />
+      <FormErrorSlot message={error} />
+      <Button type="submit" className="w-full" loading={loading}>
+        Send reset link
+      </Button>
     </form>
   );
 }

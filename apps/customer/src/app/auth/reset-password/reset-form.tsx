@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { RegisterConsumerSchema } from "@avenick/types/schemas";
 import { Input, Button } from "@avenick/ui";
+import { AuthNotice, FormErrorSlot } from "../auth-shell";
 
 /**
  * The client-side check uses registration's own password rule so the message
@@ -15,24 +16,39 @@ const PasswordRule = RegisterConsumerSchema.shape.password;
 
 type Portal = "customer" | "seller";
 
+/**
+ * Both fields carry a permanent hint line, which is what reserves the space an
+ * inline error will later occupy. A validation message therefore appears in
+ * place instead of pushing the submit button down the page, and it appears
+ * against the field it is about rather than as one anonymous line at the bottom
+ * of the form. The validation itself is unchanged: same rule, same order, same
+ * request.
+ */
+const PASSWORD_HINT = "At least 8 characters, with an uppercase letter and a number.";
+const CONFIRM_HINT = "Type the same password again.";
+
 export function ResetForm({ token, sellerSignInUrl }: { token: string; sellerSignInUrl: string | null }) {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [confirmError, setConfirmError] = useState("");
+  const [formError, setFormError] = useState("");
   const [tokenDead, setTokenDead] = useState(false);
   const [portal, setPortal] = useState<Portal | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
+    setFormError("");
+    setPasswordError("");
+    setConfirmError("");
     const rule = PasswordRule.safeParse(password);
     if (!rule.success) {
-      setError(rule.error.issues[0]?.message ?? "Choose a stronger password.");
+      setPasswordError(rule.error.issues[0]?.message ?? "Choose a stronger password.");
       return;
     }
     if (password !== confirm) {
-      setError("Passwords do not match.");
+      setConfirmError("Passwords do not match.");
       return;
     }
     setLoading(true);
@@ -48,10 +64,10 @@ export function ResetForm({ token, sellerSignInUrl }: { token: string; sellerSig
       } else if (data.code === "invalid-token") {
         setTokenDead(true);
       } else {
-        setError(data.error ?? "Something went wrong. Please try again.");
+        setFormError(data.error ?? "Something went wrong. Please try again.");
       }
     } catch {
-      setError("Something went wrong. Please try again.");
+      setFormError("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -59,11 +75,10 @@ export function ResetForm({ token, sellerSignInUrl }: { token: string; sellerSig
 
   if (portal) {
     return (
-      <div className="space-y-4" role="status">
-        <div className="flex items-start gap-2 rounded-xl bg-green-50 border border-green-200 p-4 text-sm text-green-800">
-          <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
-          <p>Your password has been updated. Sign in with your new password.</p>
-        </div>
+      <div className="space-y-4">
+        <AuthNotice icon={<CheckCircle2 className="h-4 w-4" />}>
+          Your password has been updated. Sign in with your new password.
+        </AuthNotice>
         {portal === "customer" && (
           <Button asChild className="w-full">
             <Link href="/login">Sign in</Link>
@@ -77,7 +92,7 @@ export function ResetForm({ token, sellerSignInUrl }: { token: string; sellerSig
         {/* The seller portal's address is not known to this deployment, so
             there is nothing honest to link to; say where to go instead. */}
         {portal === "seller" && !sellerSignInUrl && (
-          <p className="text-sm text-muted-foreground text-center">Sign in to the seller portal</p>
+          <p className="u-ui text-center text-ink-2">Sign in to the seller portal</p>
         )}
       </div>
     );
@@ -85,45 +100,60 @@ export function ResetForm({ token, sellerSignInUrl }: { token: string; sellerSig
 
   if (tokenDead) {
     return (
-      <div className="space-y-3" role="alert">
-        <p className="text-sm text-danger">This reset link is invalid, has expired, or has already been used.</p>
-        <p className="text-sm text-muted-foreground">
-          <Link href="/auth/forgot-password" className="text-primary font-medium hover:underline">Request a new reset link</Link>
+      <div className="space-y-3">
+        <p className="u-ui text-danger-ink" role="alert">
+          This reset link is invalid, has expired, or has already been used.
+        </p>
+        <p className="u-meta text-ink-3">
+          <Link
+            href="/auth/forgot-password"
+            className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+          >
+            Request a new reset link
+          </Link>
         </p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4" aria-label="Choose a new password / كلمة مرور جديدة">
-      <div>
-        <label htmlFor="reset-password" className="block text-sm font-medium mb-1.5">New password / كلمة المرور الجديدة</label>
-        <Input
-          id="reset-password"
-          name="password"
-          type="password"
-          autoComplete="new-password"
-          placeholder="At least 8 characters, an uppercase letter and a number"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
-      </div>
-      <div>
-        <label htmlFor="reset-confirm" className="block text-sm font-medium mb-1.5">Confirm password / تأكيد كلمة المرور</label>
-        <Input
-          id="reset-confirm"
-          name="confirm"
-          type="password"
-          autoComplete="new-password"
-          placeholder="••••••••"
-          value={confirm}
-          onChange={(e) => setConfirm(e.target.value)}
-          required
-        />
-      </div>
-      {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-      <Button type="submit" className="w-full" loading={loading}>Update password</Button>
+    <form onSubmit={handleSubmit} className="space-y-3" aria-label="Choose a new password / كلمة مرور جديدة">
+      <Input
+        id="reset-password"
+        name="password"
+        type="password"
+        label="New password / كلمة المرور الجديدة"
+        autoComplete="new-password"
+        placeholder="••••••••"
+        hint={PASSWORD_HINT}
+        error={passwordError || undefined}
+        value={password}
+        onChange={(e) => {
+          setPassword(e.target.value);
+          if (passwordError) setPasswordError("");
+        }}
+        required
+      />
+      <Input
+        id="reset-confirm"
+        name="confirm"
+        type="password"
+        label="Confirm password / تأكيد كلمة المرور"
+        autoComplete="new-password"
+        placeholder="••••••••"
+        hint={CONFIRM_HINT}
+        error={confirmError || undefined}
+        value={confirm}
+        onChange={(e) => {
+          setConfirm(e.target.value);
+          if (confirmError) setConfirmError("");
+        }}
+        required
+      />
+      <FormErrorSlot message={formError} />
+      <Button type="submit" className="w-full" loading={loading}>
+        Update password
+      </Button>
     </form>
   );
 }

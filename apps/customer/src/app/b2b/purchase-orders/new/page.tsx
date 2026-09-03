@@ -1,8 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Building2, CheckCircle2, ShoppingCart } from "lucide-react";
+import Link from "next/link";
+import { Building2, CheckCircle2, ShoppingCart } from "lucide-react";
+import {
+  Button,
+  Dateline,
+  EmptyState,
+  Eyebrow,
+  Field,
+  Num,
+  PageHeader,
+  StatusPill,
+  Surface,
+  Textarea,
+} from "@avenick/ui";
 import { B2BShell } from "@/components/b2b/b2b-shell";
+import { Money } from "@/components/b2b/money";
+import { TextField } from "@/components/b2b/controls";
 import { useCartStore } from "@/stores/cart";
 import { formatCurrency, type SupportedCurrency } from "@avenick/utils";
 import { storefrontProductHref } from "@/lib/product-card-commerce";
@@ -93,97 +108,217 @@ export default function NewPurchaseOrderPage() {
 
   if (created) {
     return (
-      <B2BShell title="Purchase Order Created">
-        <div className="mx-auto max-w-xl rounded-2xl border border-border bg-card p-8 text-center">
-          <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-success" />
-          <h2 className="text-xl font-bold">{created.poNumber}</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Server-priced total: {formatCurrency(Number(created.total), created.currency)} · Status: {created.status.replaceAll("_", " ")}
-          </p>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Product lines, price tiers and VAT rules were snapshotted for approval. Stock and commercial terms will be checked again before placement.
-          </p>
-          <a href="/b2b/purchase-orders" className="mt-6 inline-flex h-10 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground">
-            Return to purchase orders
-          </a>
+      <B2BShell>
+        <div className="max-w-xl space-y-block">
+          <div>
+            <Eyebrow className="mb-1 flex items-center gap-1.5 text-success-ink">
+              <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> Created
+            </Eyebrow>
+            <h1 className="u-h1 u-mono text-ink-1">{created.poNumber}</h1>
+            <Dateline className="mt-1.5">
+              Product lines, price tiers and VAT rules were snapshotted for approval · stock and commercial terms are
+              checked again before placement
+            </Dateline>
+          </div>
+
+          <Surface rung={1} className="p-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <Eyebrow>Server-priced total</Eyebrow>
+                <div className="mt-1.5">
+                  <Money amount={Number(created.total)} currency={created.currency} rank="section" />
+                </div>
+              </div>
+              <StatusPill tone="warning">{created.status.replaceAll("_", " ").toLowerCase()}</StatusPill>
+            </div>
+          </Surface>
+
+          <Button asChild variant="primary">
+            <Link href="/b2b/purchase-orders">Return to purchase orders</Link>
+          </Button>
         </div>
       </B2BShell>
     );
   }
 
   return (
-    <B2BShell title="Create Purchase Order" description="Build the approval request from actual catalog lines; pricing is resolved by the server.">
-      <div className="mb-4">
-        <a href="/b2b/purchase-orders" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" /> Purchase orders</a>
-      </div>
+    <B2BShell>
+      <PageHeader
+        breadcrumbs={[{ label: "Purchase Orders", href: "/b2b/purchase-orders" }, { label: "New" }]}
+        eyebrow="Purchase order"
+        title="Create a purchase order"
+        description="Built from the catalog lines already in your cart. Pricing is resolved by the server."
+        linkComponent={Link}
+      />
 
       {contextError ? (
-        <div className="rounded-2xl border border-danger/30 bg-danger/5 p-6 text-sm text-danger">{contextError}</div>
+        <Surface rung={2} tone="danger" role="alert" className="p-6">
+          <p className="u-ui text-ink-1">{contextError}</p>
+        </Surface>
       ) : !context ? (
-        <div className="rounded-2xl border border-border bg-card p-6 text-sm text-muted-foreground">Loading company purchasing context…</div>
+        <Surface rung={1} className="p-6">
+          <p className="u-ui text-ink-2">Loading company purchasing context…</p>
+        </Surface>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-          <section className="rounded-2xl border border-border bg-card overflow-hidden">
-            <div className="flex items-center justify-between border-b border-border p-5">
-              <div><h2 className="font-semibold">Catalog lines</h2><p className="text-xs text-muted-foreground mt-1">Seller, price and eligibility are re-derived from the product record when submitted.</p></div>
-              <span className="text-xs text-muted-foreground">{items.length} line{items.length === 1 ? "" : "s"}</span>
+        <div className="grid gap-4 lg:grid-cols-[1fr_340px]">
+          <Surface rung={2} as="section" className="overflow-hidden">
+            <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
+              <div>
+                <h2 className="u-h3 text-ink-1">Catalog lines</h2>
+                <Dateline className="mt-0.5">
+                  Seller, price and eligibility are re-derived from the product record when submitted
+                </Dateline>
+              </div>
+              <span className="u-meta shrink-0 text-ink-3">
+                {items.length} line{items.length === 1 ? "" : "s"}
+              </span>
             </div>
             {items.length === 0 ? (
-              <div className="p-10 text-center">
-                <ShoppingCart className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
-                <p className="font-semibold">Your cart has no products</p>
-                <p className="mt-1 text-sm text-muted-foreground">Add B2B-enabled products before raising a PO.</p>
-                <a href="/products?b2b=true" className="mt-4 inline-block text-sm font-semibold text-primary hover:underline">Browse B2B catalog</a>
-              </div>
+              <EmptyState
+                eyebrow="Cart empty"
+                headline="There are no products in your cart to raise a PO from."
+                body="A purchase order is built from real catalog lines, so the cart has to hold at least one B2B-enabled product first."
+                action={
+                  <Button asChild variant="secondary" size="sm">
+                    <Link href="/products?b2b=true">
+                      <ShoppingCart className="h-4 w-4" aria-hidden="true" /> Browse the B2B catalogue
+                    </Link>
+                  </Button>
+                }
+              />
             ) : (
-              <div className="divide-y divide-border">
+              <ul className="border-t border-hairline">
                 {items.map((item) => (
-                  <div key={item.id} className="grid grid-cols-[1fr_auto] gap-4 p-4">
+                  <li
+                    key={item.id}
+                    className="grid grid-cols-[1fr_auto] gap-4 border-b border-hairline p-4 last:border-b-0"
+                  >
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-sm">{item.nameEn}</p>
-                      <p className="mt-1 font-mono text-xs text-muted-foreground">{item.sku}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Displayed cart price: {formatCartCurrency(item.unitPrice, item.currency)}</p>
+                      <p className="u-ui truncate font-medium text-ink-1">{item.nameEn}</p>
+                      <p className="u-mono u-meta mt-0.5 text-ink-3">{item.sku}</p>
+                      <p className="u-meta mt-1 text-ink-2">
+                        Displayed cart price: {formatCartCurrency(item.unitPrice, item.currency)}
+                      </p>
                     </div>
-                    <div className="text-right">
-                      <span className="text-sm font-medium">Qty {item.qty}</span>
-                      <a href={item.slug ? storefrontProductHref(item.slug, { currency: item.currency, b2b: true, variantId: item.variantId, quantity: item.qty }) : "/products?b2b=true"} className="text-xs text-primary hover:underline">Change selection</a>
-                      <button type="button" onClick={() => removeItem(item.id)} className="mt-2 block ml-auto text-xs text-muted-foreground hover:text-danger">Remove</button>
+                    {/* text-end and ms-auto, never text-right and ml-auto: both
+                        of those pinned this column to the left edge in Arabic. */}
+                    <div className="flex flex-col items-end gap-1 text-end">
+                      <Num value={`× ${item.qty}`} />
+                      <a
+                        href={item.slug ? storefrontProductHref(item.slug, { currency: item.currency, b2b: true, variantId: item.variantId, quantity: item.qty }) : "/products?b2b=true"}
+                        className="u-focus u-meta rounded-nested text-primary-ink hover:underline"
+                      >
+                        Change selection
+                      </a>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => removeItem(item.id)}
+                        className="ms-auto hover:text-danger-ink"
+                      >
+                        Remove
+                      </Button>
                     </div>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             )}
-          </section>
+          </Surface>
 
           <aside className="space-y-4">
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <div className="mb-4 flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /><h2 className="font-semibold">{context.companyName}</h2></div>
-              <dl className="space-y-2 text-sm">
-                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Company currency</dt><dd className="font-mono">{context.currency}</dd></div>
-                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Role</dt><dd>{context.memberRole.replaceAll("_", " ")}</dd></div>
-                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Spend limit</dt><dd>{context.spendLimit == null ? "Policy based" : formatCurrency(context.spendLimit, context.currency)}</dd></div>
-                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Payment terms</dt><dd>{context.paymentTermsDays} days</dd></div>
+            {/* Recessed: the company's purchasing terms are the context every
+                figure on this page is read against, not something you act on. */}
+            <Surface rung={1} className="p-5">
+              <div className="mb-4 flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-ink-3" aria-hidden="true" />
+                <h2 className="u-h3 truncate text-ink-1">{context.companyName}</h2>
+              </div>
+              <dl className="space-y-2">
+                <div className="flex justify-between gap-3">
+                  <dt className="u-ui text-ink-2">Company currency</dt>
+                  <dd className="u-mono u-ui text-ink-1">{context.currency}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="u-ui text-ink-2">Role</dt>
+                  <dd className="u-ui text-ink-1">{context.memberRole.replaceAll("_", " ").toLowerCase()}</dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="u-ui text-ink-2">Spend limit</dt>
+                  <dd className="u-ui text-ink-1">
+                    {context.spendLimit == null ? "Policy based" : formatCurrency(context.spendLimit, context.currency)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="u-ui text-ink-2">Payment terms</dt>
+                  <dd className="u-ui text-ink-1">
+                    {context.paymentTermsDays === 0 ? "Due on issue" : `NET ${context.paymentTermsDays}`}
+                  </dd>
+                </div>
               </dl>
-            </div>
+            </Surface>
 
-            <div className="rounded-2xl border border-border bg-card p-5 space-y-3">
-              <label className="block text-xs font-semibold">Required by<input value={requiredDate} onChange={(event) => setRequiredDate(event.target.value)} type="date" className="mt-1 h-10 w-full rounded-xl border border-input bg-background px-3 text-sm font-normal" /></label>
-              <label className="block text-xs font-semibold">Buyer notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} maxLength={2000} className="mt-1 min-h-24 w-full rounded-xl border border-input bg-background p-3 text-sm font-normal" placeholder="Delivery instructions, project reference, internal cost center…" /></label>
-            </div>
+            <Surface rung={2} className="p-5">
+              {/* Both labels used to wrap their control with no htmlFor, so
+                  clicking the label did nothing and neither field had an
+                  accessible name. */}
+              <Field label="Required by" htmlFor="po-required-date">
+                <TextField
+                  id="po-required-date"
+                  value={requiredDate}
+                  onChange={(event) => setRequiredDate(event.target.value)}
+                  type="date"
+                />
+              </Field>
+              <Field label="Buyer notes" htmlFor="po-notes">
+                <Textarea
+                  id="po-notes"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  maxLength={2000}
+                  placeholder="Delivery instructions, project reference, internal cost center…"
+                />
+              </Field>
+            </Surface>
 
-            <div className="rounded-2xl border border-border bg-card p-5">
+            <Surface rung={2} className="p-5">
               {allInCompanyCurrency ? (
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground">Cart estimate</span><span className="font-mono font-semibold">{formatCurrency(displayEstimate, context.currency)}</span></div>
+                <div className="flex items-baseline justify-between gap-3">
+                  <Eyebrow>Cart estimate</Eyebrow>
+                  <Money amount={displayEstimate} currency={context.currency} />
+                </div>
               ) : (
-                <p className="text-xs text-amber-600">Some cart display prices use another currency. No conversion is guessed; the server will resolve the company-currency B2B price.</p>
+                <p className="u-meta text-warning-ink">
+                  Some cart display prices use another currency. No conversion is guessed; the server will resolve the
+                  company-currency B2B price.
+                </p>
               )}
-              <p className="mt-3 text-xs text-muted-foreground">The authoritative PO total is calculated from current B2B price tiers and VAT. No amount from this browser is accepted as the commercial total.</p>
-              {error && <p className="mt-3 rounded-lg bg-danger/10 p-2 text-xs text-danger">{error}</p>}
-              {!allB2B && items.length > 0 && <p className="mt-3 text-xs text-danger">Remove B2C or legacy unknown-channel lines before creating a governed purchase order.</p>}
-              <button type="button" disabled={items.length === 0 || !allB2B || submitting} onClick={submit} className="mt-4 h-11 w-full rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground disabled:opacity-50">
+              <Dateline className="mt-3">
+                The authoritative PO total is calculated from current B2B price tiers and VAT · no amount from this
+                browser is accepted as the commercial total
+              </Dateline>
+              {error && (
+                <p role="alert" className="u-meta mt-3 rounded-nested bg-danger-soft p-2 text-danger-ink">
+                  {error}
+                </p>
+              )}
+              {!allB2B && items.length > 0 && (
+                <p className="u-meta mt-3 text-danger-ink">
+                  Remove B2C or legacy unknown-channel lines before creating a governed purchase order.
+                </p>
+              )}
+              <Button
+                type="button"
+                variant="primary"
+                size="lg"
+                className="mt-4 w-full"
+                disabled={items.length === 0 || !allB2B}
+                loading={submitting}
+                onClick={submit}
+              >
                 {submitting ? "Creating…" : "Create purchase order"}
-              </button>
-            </div>
+              </Button>
+            </Surface>
           </aside>
         </div>
       )}

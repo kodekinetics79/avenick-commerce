@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { AlertCircle, CheckCircle2, Send } from "lucide-react";
-import { Textarea } from "@avenick/ui";
+import { Button, Surface, Textarea } from "@avenick/ui";
 import { createReturnRequest, type ReturnActionState } from "./actions";
 
 const RETURN_REASONS = [
@@ -14,6 +14,21 @@ const RETURN_REASONS = [
   "Missing parts / accessories",
   "Other",
 ];
+
+/**
+ * A native <select> dressed as the system's recessed rung-1 control, so it sits
+ * at the same depth and height as the Textarea beside it. See the same recipe in
+ * the register and support forms; it wants to become a packages/ui primitive.
+ *
+ * The focus ring is the .u-focus utility rather than a hand-written shadow-[...]
+ * value: a page may not spell out a box-shadow of its own, or the five-rung
+ * ladder quietly grows a sixth step.
+ */
+const CONTROL_CLASS =
+  "u-focus w-full border border-input bg-surface-1 px-3 text-ui text-ink-1 outline-none " +
+  "transition-[border-color,box-shadow] duration-press ease-standard";
+
+const LABEL_CLASS = "u-ui mb-1.5 block font-medium text-ink-1";
 
 interface OrderOption {
   id: string;
@@ -42,24 +57,26 @@ export function ReturnForm({ orders }: { orders: OrderOption[] }) {
 
   if (state.ok) {
     return (
-      <div className="flex items-start gap-2 rounded-xl bg-green-50 border border-green-200 p-4 text-sm text-green-800">
-        <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
-        <p>{state.message}</p>
-      </div>
+      <Surface rung={1} tone="success" role="status" className="flex items-start gap-2.5 p-4">
+        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success-ink" aria-hidden="true" />
+        <p className="u-ui text-success-ink">{state.message}</p>
+      </Surface>
     );
   }
 
   return (
     <form action={handle} className="space-y-4">
       <div>
-        <label htmlFor="return-order" className="block text-sm font-medium mb-1">Order</label>
+        <label htmlFor="return-order" className={LABEL_CLASS}>Order</label>
         <select
           id="return-order"
           name="orderId"
+          data-rung={1}
           required
           value={orderId}
           onChange={(event) => setOrderId(event.target.value)}
-          className="w-full h-10 px-3 text-sm border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+          className={CONTROL_CLASS}
+          style={{ height: "var(--control-h-md)" }}
         >
           <option value="">Select a delivered order…</option>
           {orders.map((o) => (
@@ -71,33 +88,58 @@ export function ReturnForm({ orders }: { orders: OrderOption[] }) {
       </div>
 
       {selectedOrder && (
-        <fieldset className="space-y-2">
-          <legend className="block text-sm font-medium mb-1">Items and quantities</legend>
-          {selectedOrder.items.map((item) => (
-            <label key={item.id} className="grid grid-cols-[auto_1fr_5rem] items-center gap-3 rounded-xl border border-border p-3">
-              <input type="checkbox" name="orderItemId" value={item.id} />
-              <span className="text-sm">{item.nameEn}</span>
-              <input
-                type="number"
-                name={`quantity:${item.id}`}
-                min={1}
-                max={item.quantity}
-                defaultValue={1}
-                className="h-9 rounded-lg border border-border px-2 text-sm"
-                aria-label={`Return quantity for ${item.nameEn}`}
-              />
-            </label>
-          ))}
+        <fieldset>
+          <legend className={LABEL_CLASS}>Items and quantities</legend>
+          {/* One panel with hairline rules between rows, rather than one bordered
+              box per item. */}
+          <Surface rung={2} className="overflow-hidden">
+            {selectedOrder.items.map((item, i) => (
+              <div
+                key={item.id}
+                className={`flex items-center gap-3 p-3 ${i > 0 ? "border-t border-hairline" : ""}`}
+              >
+                {/* The row used to be one <label> wrapping BOTH the checkbox and
+                    the quantity field, so clicking into the quantity toggled the
+                    checkbox. The label now covers only what it labels. */}
+                <input
+                  type="checkbox"
+                  id={`return-item-${item.id}`}
+                  name="orderItemId"
+                  value={item.id}
+                  className="u-focus h-4 w-4 shrink-0 rounded-sm accent-primary"
+                />
+                <label htmlFor={`return-item-${item.id}`} className="u-ui min-w-0 flex-1 text-ink-1">
+                  {item.nameEn}
+                </label>
+                <input
+                  type="number"
+                  name={`quantity:${item.id}`}
+                  data-rung={1}
+                  min={1}
+                  max={item.quantity}
+                  defaultValue={1}
+                  className={`${CONTROL_CLASS} w-20 shrink-0 text-end`}
+                  style={{ height: "var(--control-h-sm)" }}
+                  aria-label={`Return quantity for ${item.nameEn}`}
+                />
+              </div>
+            ))}
+          </Surface>
+          <p className="u-meta mt-1.5 text-ink-3">
+            Tick each item you are returning. The quantity may not exceed what was ordered.
+          </p>
         </fieldset>
       )}
 
       <div>
-        <label htmlFor="return-reason" className="block text-sm font-medium mb-1">Reason</label>
+        <label htmlFor="return-reason" className={LABEL_CLASS}>Reason</label>
         <select
           id="return-reason"
           name="reason"
+          data-rung={1}
           required
-          className="w-full h-10 px-3 text-sm border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+          className={CONTROL_CLASS}
+          style={{ height: "var(--control-h-md)" }}
         >
           <option value="">Select a reason…</option>
           {RETURN_REASONS.map((r) => (
@@ -107,23 +149,36 @@ export function ReturnForm({ orders }: { orders: OrderOption[] }) {
       </div>
 
       <div>
-        <label htmlFor="return-notes" className="block text-sm font-medium mb-1">Details (optional)</label>
-        <Textarea id="return-notes" name="notes" rows={3} placeholder="Tell us more — which items, what happened, photos to follow…" />
+        <label htmlFor="return-notes" className={LABEL_CLASS}>Details</label>
+        <Textarea
+          id="return-notes"
+          name="notes"
+          rows={3}
+          placeholder="Which items, what happened, photos to follow…"
+        />
+        <p className="u-meta mt-1 text-ink-3">Optional.</p>
       </div>
 
-      {state.error && (
-        <p className="flex items-center gap-1.5 text-sm text-red-600">
-          <AlertCircle className="h-4 w-4 shrink-0" /> {state.error}
-        </p>
-      )}
+      {/* The slot is always present, so a rejected submission never shoves the
+          submit button out from under the pointer. */}
+      <div role="alert" className="min-h-[1.5rem]">
+        {state.error && (
+          <p className="u-meta flex items-center gap-1.5 text-danger-ink">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> {state.error}
+          </p>
+        )}
+      </div>
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="inline-flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors disabled:opacity-50"
-      >
-        <Send className="h-4 w-4" /> {pending ? "Submitting…" : "Submit return request"}
-      </button>
+      <Button type="submit" loading={pending}>
+        {pending ? (
+          "Submitting…"
+        ) : (
+          <>
+            <Send className="h-4 w-4" aria-hidden="true" />
+            Submit return request
+          </>
+        )}
+      </Button>
     </form>
   );
 }

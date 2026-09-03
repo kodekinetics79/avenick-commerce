@@ -2,6 +2,9 @@ import {
   computeSellerPerformanceScore,
   db,
   getSellerDashboard,
+  MIN_ORDER_ITEMS_FOR_SCORE,
+  MIN_RFQS_FOR_SCORE,
+  PERFORMANCE_WINDOW_DAYS,
   SELLER_RFQ_INBOX_WHERE,
   UNASSIGNED_RFQ_OPEN_STATUSES,
 } from "@avenick/database";
@@ -12,8 +15,24 @@ import { format } from "date-fns";
 import Link from "next/link";
 import { requireSellerPermission } from "@/lib/auth";
 import {
-  ShoppingCart, DollarSign, Package, AlertTriangle, FileCheck, MessageSquare,
-  TrendingUp, Activity, Zap, Clock, CheckCircle, XCircle, Star
+  Button,
+  CellGrid,
+  Dateline,
+  EmptyState,
+  Eyebrow,
+  LedgerTable,
+  Meter,
+  Num,
+  PageHeader,
+  SectionHeader,
+  Stat,
+  StatusPill,
+  Surface,
+  type PillTone,
+} from "@avenick/ui";
+import {
+  Activity, AlertTriangle, Clock, CreditCard, FileCheck,
+  MessageSquare, Package, ShoppingCart, Wallet, Zap,
 } from "lucide-react";
 
 export default async function DashboardPage() {
@@ -45,153 +64,304 @@ export default async function DashboardPage() {
     computeSellerPerformanceScore(seller.id),
   ]);
 
-  const stats = [
-    { label: "Today's Orders", labelAr: "طلبات اليوم", value: dash.todayOrderCount, icon: ShoppingCart, color: "bg-blue-500", urgent: false },
-    { label: "Month Revenue", labelAr: "إيرادات الشهر", value: formatCurrency(Number(dash.monthRevenue), "AED"), icon: DollarSign, color: "bg-green-500", urgent: false },
-    { label: "Active Listings", labelAr: "قوائم نشطة", value: dash.activeListings, icon: Package, color: "bg-purple-500", urgent: false },
-    { label: "Pending Payout", labelAr: "مستحق", value: formatCurrency(Number(dash.pendingPayoutAmount), "AED"), icon: DollarSign, color: "bg-orange-500", urgent: false },
-    { label: "Pending Orders", labelAr: "طلبات معلقة", value: dash.pendingOrders, icon: Clock, color: "bg-yellow-500", urgent: dash.pendingOrders > 0 },
-    { label: "Product Issues", labelAr: "مشاكل المنتجات", value: dash.issueCount, icon: AlertTriangle, color: "bg-red-500", urgent: dash.issueCount > 0, href: "/issues" },
-    { label: "Compliance Issues", labelAr: "وثائق معلقة", value: dash.pendingCompliance, icon: FileCheck, color: "bg-amber-500", urgent: dash.pendingCompliance > 0, href: "/compliance" },
-    { label: "Low Stock Items", labelAr: "مخزون منخفض", value: dash.lowStockItems, icon: Zap, color: "bg-red-400", urgent: dash.lowStockItems > 0, href: "/inventory" },
-    { label: "Unread Messages", labelAr: "رسائل غير مقروءة", value: dash.unreadMessages, icon: MessageSquare, color: "bg-cyan-500", urgent: dash.unreadMessages > 0, href: "/messages" },
-    { label: "Open RFQs", labelAr: "طلبات عروض مفتوحة", value: openRfqCount, icon: Activity, color: "bg-indigo-500", urgent: false, href: "/messages" },
+  // getSellerDashboard sums order-line totals and pending payouts across every
+  // currency the seller trades in, and this page used to print both of them as
+  // "AED". A cross-currency sum labelled with one currency is a figure that
+  // exists in no ledger — the same defect /analytics fixed by computing in the
+  // seller's most-used currency. Neither sum can be attributed to a currency
+  // here without changing what the service returns, so the figure is shown
+  // without a currency code and the dateline beneath it says exactly why.
+  const amount = (value: number) =>
+    new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+
+  // Everything the seller can clear themselves. A count of zero carries no
+  // information, so a cleared item leaves the panel rather than sitting there as
+  // a zero tile; when all three are clear the panel is replaced by one line that
+  // names precisely what was checked.
+  const attention = [
+    {
+      key: "issues",
+      label: "Product issues",
+      value: dash.issueCount,
+      href: "/issues",
+      icon: AlertTriangle,
+      chip: "danger" as const,
+      note: "Unresolved listing issues that may affect your sales.",
+    },
+    {
+      key: "stock",
+      label: "Below reorder point",
+      value: dash.lowStockItems,
+      href: "/inventory",
+      icon: Zap,
+      chip: "warning" as const,
+      note: "Stock rows at or under the reorder point you set.",
+    },
+    {
+      key: "expiring",
+      label: "Documents expiring",
+      value: expiringDocs,
+      href: "/documents",
+      icon: FileCheck,
+      chip: "warning" as const,
+      // The count above is every document row carrying an expiry date inside the
+      // window, whatever its review status — so the note says "on file" and does
+      // not claim they are all approved.
+      note: "Documents on file whose expiry date falls in the next 30 days.",
+    },
+  ].filter((item) => item.value > 0);
+
+  // A CellGrid is one panel divided by hairlines: the panel itself paints the
+  // divider colour and each cell paints over it, so a partially-filled row shows
+  // its empty track as a bare rectangle of divider colour rather than as a cell.
+  // The column count therefore has to DIVIDE the cell count at every breakpoint,
+  // not just at the widest one — three items in a two-column row is the case
+  // that leaves a hole.
+  const attentionCols = (attention.length >= 3 ? 3 : attention.length === 2 ? 2 : 1) as 1 | 2 | 3;
+
+  // The system's :focus-visible ring is an OUTWARD two-stop box-shadow, and a
+  // CellGrid cell fills its grid track inside an overflow-hidden panel — so on
+  // these cells the ring is clipped away to nothing and a keyboard user sees no
+  // focus at all. An outline at a negative offset draws the same --ring token
+  // INSIDE the cell, where nothing can clip it. It is additive: wherever the
+  // box-shadow ring is not clipped, both are drawn on the same 2px band.
+  const CELL_FOCUS =
+    "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring";
+
+  // Work that is queued rather than wrong. "Documents in review" belongs here
+  // and not in the panel above: a filed document is waiting on the platform, not
+  // on the seller, and listing it under "Action required" asked the supplier to
+  // do something they cannot do.
+  const workload = [
+    // Lines, not orders: getSellerDashboard counts orderItem rows, so a basket
+    // holding three of this seller's lines is three here. Naming it "orders"
+    // overstated the figure by however many lines a single basket held — the
+    // same defect that made "Today's Orders" wrong.
+    { key: "orders", label: "Order lines to fulfil", value: dash.pendingOrders, href: "/orders", icon: Clock, note: "Your order lines still in PROCESSING." },
+    { key: "rfqs", label: "Open RFQs", value: openRfqCount, href: "/messages", icon: Activity, note: "Awaiting a quote — the first seller to quote is assigned." },
+    { key: "messages", label: "Unread messages", value: dash.unreadMessages, href: "/messages", icon: MessageSquare, note: "Buyer threads you have not opened." },
+    { key: "compliance", label: "Documents in review", value: dash.pendingCompliance, href: "/compliance", icon: FileCheck, note: "Filed and waiting on platform review." },
   ];
 
-  // Score bands are presentation only: they colour a number the service produced.
-  const score = performance?.score ?? null;
-  const scoreBar = score === null ? "bg-muted" : score >= 80 ? "bg-green-500" : score >= 60 ? "bg-yellow-500" : "bg-red-500";
-  const scoreText = score === null ? "text-muted-foreground" : score >= 80 ? "text-green-600" : score >= 60 ? "text-yellow-600" : "text-red-600";
+  // Enum → label mapping only. The tone says what the status IS; it never
+  // implies a judgement the order data does not carry.
+  const orderStatusTone = (status: string): PillTone =>
+    status === "DELIVERED" ? "success" : status === "CANCELLED" ? "danger" : status === "PROCESSING" ? "primary" : "neutral";
 
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={dash.issueCount} unreadMessages={dash.unreadMessages} performance={performance} permissions={membership.permissions}>
-      <div className="space-y-6">
+      <div className="space-y-block">
+        <PageHeader
+          className="mb-0"
+          eyebrow="Seller overview"
+          title={seller.businessNameAr ?? seller.businessNameEn}
+          description={seller.businessNameEn}
+        />
+
         <OnboardingChecklist seller={seller} />
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">{seller.businessNameAr ?? seller.businessNameEn}</h1>
-            <p className="text-sm text-muted-foreground">{seller.businessNameEn}</p>
-          </div>
-          <div className="text-end">
-            <p className="text-xs text-muted-foreground mb-1">Performance score</p>
-            {score === null ? (
-              <p className="text-sm font-medium text-muted-foreground">Not enough data yet</p>
-            ) : (
-              <div className="flex items-center gap-2">
-                <div className="flex gap-0.5 w-24 h-2">
-                  {Array.from({ length: 10 }).map((_, i) => (
-                    <div key={i} className={`flex-1 rounded-full ${i < Math.floor(score / 10) ? scoreBar : "bg-muted"}`} />
-                  ))}
-                </div>
-                <span className={`text-sm font-bold ${scoreText}`}>{score}/100</span>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Action alerts */}
-        {(dash.issueCount > 0 || dash.pendingCompliance > 0 || dash.lowStockItems > 0) && (
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4">
-            <h3 className="font-semibold text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" />
-              Action Required — إجراء مطلوب
-            </h3>
-            <div className="space-y-1">
-              {dash.issueCount > 0 && <Link href="/issues" className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300"><XCircle className="h-3.5 w-3.5 shrink-0" />{dash.issueCount} product{dash.issueCount !== 1 ? "s" : ""} have issues that may affect your sales</Link>}
-              {dash.pendingCompliance > 0 && <Link href="/compliance" className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300"><XCircle className="h-3.5 w-3.5 shrink-0" />{dash.pendingCompliance} compliance document{dash.pendingCompliance !== 1 ? "s" : ""} pending review</Link>}
-              {dash.lowStockItems > 0 && <Link href="/inventory" className="flex items-center gap-2 text-sm text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300"><XCircle className="h-3.5 w-3.5 shrink-0" />{dash.lowStockItems} product{dash.lowStockItems !== 1 ? "s" : ""} below reorder point</Link>}
-            </div>
-          </div>
-        )}
-
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          {stats.map((stat) => (
-            <div key={stat.label} className={`bg-card rounded-2xl border ${stat.urgent ? "border-red-500/20 bg-red-500/10" : "border-border"} p-4`}>
-              <div className="flex items-center justify-between mb-2">
-                <div className={`h-8 w-8 rounded-lg ${stat.color} flex items-center justify-center`}>
-                  <stat.icon className="h-4 w-4 text-white" />
-                </div>
-                {stat.urgent && <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />}
-              </div>
-              <p className="text-xl font-bold">{stat.value}</p>
-              <p className="text-xs text-muted-foreground">{stat.label}</p>
-              {stat.href && <Link href={stat.href} className="text-xs text-primary hover:underline mt-1 block">View →</Link>}
-            </div>
-          ))}
-        </div>
-
-        {/* Additional widgets row */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Expiring documents widget */}
-          <div className={`bg-card rounded-2xl border p-4 ${expiringDocs > 0 ? "border-amber-500/30 bg-amber-500/5" : "border-border"}`}>
-            <div className="flex items-center gap-2 mb-2">
-              <FileCheck className="h-4 w-4 text-amber-500" />
-              <p className="text-sm font-semibold">Expiring documents</p>
-            </div>
-            <p className={`text-2xl font-bold font-mono ${expiringDocs > 0 ? "text-amber-600 dark:text-amber-400" : "text-success"}`}>{expiringDocs}</p>
-            <p className="text-xs text-muted-foreground mt-1">{expiringDocs > 0 ? "Renew within 30 days" : "All documents valid"}</p>
-            <Link href="/documents" className="text-xs text-primary hover:underline mt-2 block">Manage →</Link>
-          </div>
-
-          {/* Open RFQs widget — unassigned requests any seller may quote */}
-          <div className={`bg-card rounded-2xl border p-4 ${openRfqCount > 0 ? "border-primary/30 bg-primary/5" : "border-border"}`}>
-            <div className="flex items-center gap-2 mb-2">
-              <Activity className="h-4 w-4 text-primary" />
-              <p className="text-sm font-semibold">Open RFQs</p>
-            </div>
-            <p className="text-2xl font-bold font-mono text-primary">{openRfqCount}</p>
-            <p className="text-xs text-muted-foreground mt-1">Awaiting a quote — first seller to quote is assigned</p>
-            {openRfqCount > 0 && <Link href="/messages" className="text-xs text-primary hover:underline mt-2 block">Quote →</Link>}
-          </div>
-
-          {/* Performance score widget — the same computed score as the header and sidebar */}
-          <div className="bg-card rounded-2xl border border-border p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Star className="h-4 w-4 text-amber-400" />
-              <p className="text-sm font-semibold">Performance score</p>
-            </div>
-            {performance === null ? (
-              <>
-                <p className="text-lg font-semibold text-muted-foreground">Not enough data yet</p>
-                <p className="text-xs text-muted-foreground mt-1">Ship a few paid orders or quote a few RFQs and a score will appear here.</p>
-              </>
-            ) : (
-              <>
-                <p className={`text-2xl font-bold font-mono ${scoreText}`}>{performance.score}/100</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {performance.components.filter((component) => component.share !== null).map((component) => component.label).join(", ")} · orders from the last {performance.windowDays} days
-                </p>
-              </>
-            )}
-            <Link href="/performance" className="text-xs text-primary hover:underline mt-2 block">View details →</Link>
-          </div>
-        </div>
-
-        {/* Recent orders */}
-        {dash.recentOrders.length > 0 && (
-          <div className="bg-card rounded-2xl border border-border overflow-hidden">
-            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-              <h2 className="font-semibold">Recent Orders — الطلبات الأخيرة</h2>
-              <Link href="/orders" className="text-sm text-primary hover:underline">View all</Link>
-            </div>
-            <div className="divide-y divide-border">
-              {dash.recentOrders.map((order) => (
-                <Link key={order.id} href={`/orders/${order.id}`} className="flex items-center justify-between px-6 py-3 hover:bg-muted/30 transition-colors">
-                  <div>
-                    <p className="font-medium text-sm">{order.orderNumber}</p>
-                    <p className="text-xs text-muted-foreground">{format(new Date(order.createdAt), "MMM d, yyyy")} · {order.type}</p>
-                  </div>
-                  <div className="text-end">
-                    <p className="font-semibold text-sm">{formatCurrency(Number(order.total), order.currency)}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${order.status === "DELIVERED" ? "bg-green-500/10 text-green-600 dark:text-green-400" : order.status === "PROCESSING" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>{order.status}</span>
-                  </div>
-                </Link>
+        {/* What the seller can clear themselves, or an explicit statement that
+            there is nothing — an empty surface has to read as deliberate. */}
+        {attention.length > 0 ? (
+          <section aria-label="Action required">
+            <SectionHeader
+              icon={AlertTriangle}
+              title="Action Required — إجراء مطلوب"
+              description="Each of these is yours to clear."
+            />
+            <CellGrid cols={{ base: 1, sm: attentionCols, lg: attentionCols }}>
+              {attention.map((item) => (
+                <Stat
+                  key={item.key}
+                  label={item.label}
+                  value={item.value}
+                  rank="section"
+                  chip={item.chip}
+                  icon={item.icon}
+                  note={item.note}
+                  href={item.href}
+                  linkComponent={Link}
+                  className={CELL_FOCUS}
+                />
               ))}
-            </div>
-          </div>
+            </CellGrid>
+          </section>
+        ) : (
+          <Surface rung={1} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-4">
+            <StatusPill tone="success" dot>
+              Nothing needs attention
+            </StatusPill>
+            <Dateline className="min-w-0">
+              No unresolved listing issue, no stock at its reorder point, and no document expiring in the next 30 days.
+            </Dateline>
+          </Surface>
         )}
+
+        {/* Trading. One panel divided by hairlines, not four floating tiles, and
+            the month's revenue carries section rank because it is the figure the
+            other three qualify. */}
+        <section aria-label="Trading">
+          <SectionHeader
+            title="Trading"
+            dateline="Revenue and payout totals are summed as recorded · currencies are not converted"
+          />
+          <CellGrid cols={{ base: 2, lg: 4 }}>
+            <Stat label="Revenue this month" value={amount(Number(dash.monthRevenue))} rank="section" icon={Wallet} note="Paid order lines placed since the 1st." />
+            {/* Relabelled from "Today's Orders": the figure counts order LINES,
+                paid or not, so calling it orders overstated it by however many
+                lines a single basket held. */}
+            <Stat label="Order lines today" value={dash.todayOrderCount} icon={ShoppingCart} note="Your lines on orders placed since midnight, paid or not." />
+            <Stat label="Pending payout" value={amount(Number(dash.pendingPayoutAmount))} icon={CreditCard} note="Payouts recorded and not yet settled." href="/payouts" linkComponent={Link} className={CELL_FOCUS} />
+            <Stat label="Active listings" value={dash.activeListings} icon={Package} note="Products live in the catalogue." href="/products" linkComponent={Link} className={CELL_FOCUS} />
+          </CellGrid>
+        </section>
+
+        {/* Work that is queued rather than wrong. */}
+        <section aria-label="In your queue">
+          {/* The unread-message and RFQ figures ARE counted by their
+              destination's own predicate, but the fulfilment figure counts order
+              LINES while /orders lists orders — so the panel states what each
+              cell counts underneath it rather than making one guarantee for all
+              four that only two of them keep. */}
+          <SectionHeader title="In your queue" description="Each figure says underneath it exactly what it counts, and links to the page that holds those rows." />
+          <CellGrid cols={{ base: 2, lg: 4 }}>
+            {workload.map((item) => (
+              <Stat
+                key={item.key}
+                label={item.label}
+                value={item.value}
+                icon={item.icon}
+                note={item.note}
+                href={item.href}
+                linkComponent={Link}
+                className={CELL_FOCUS}
+              />
+            ))}
+          </CellGrid>
+        </section>
+
+        {/* Performance score — the same computed score as the sidebar and
+            /performance, and null when there is too little activity to state one. */}
+        <Surface rung={2} className="p-5">
+          <SectionHeader
+            title="Performance score"
+            dateline={
+              performance
+                ? `Orders from the last ${performance.windowDays} days; listings and documents as they stand now`
+                : undefined
+            }
+            action={
+              <Button variant="link" size="sm" asChild>
+                <Link href="/performance">View details</Link>
+              </Button>
+            }
+          />
+          {performance === null ? (
+            <EmptyState
+              eyebrow="Not enough data"
+              headline="No performance score yet."
+              body={`A score needs at least ${MIN_ORDER_ITEMS_FOR_SCORE} paid order lines or ${MIN_RFQS_FOR_SCORE} quoted RFQs in the last ${PERFORMANCE_WINDOW_DAYS} days. Until then any number here would be scoring you on almost nothing.`}
+            />
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                <Num value={performance.score} unit="/100" rank="section" />
+                {/* Recessed track, raised fill: the reading is carried by depth
+                    rather than by a red/amber/green a supplier sees sixty times a
+                    day, and the number itself is right beside it. */}
+                <Meter
+                  className="min-w-[12rem] flex-1"
+                  value={performance.score}
+                  tone="accent"
+                  size="lg"
+                  label={`Performance score: ${performance.score} out of 100`}
+                />
+              </div>
+              <div className="mt-5 grid gap-x-6 gap-y-4 sm:grid-cols-3">
+                {performance.components.map((component, index) => (
+                  <div key={component.key}>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <Eyebrow className="truncate">{component.label}</Eyebrow>
+                      <span className="fig u-meta shrink-0 text-ink-1">
+                        {component.share === null ? "—" : `${Math.round(component.share * 100)}%`}
+                      </span>
+                    </div>
+                    <Meter
+                      className="mt-1.5"
+                      value={component.share ?? 0}
+                      max={1}
+                      tone="accent"
+                      index={index}
+                      label={`${component.label}: ${component.share === null ? "no data in this window" : `${component.good} of ${component.total}`}`}
+                    />
+                    <p className="u-meta mt-1 text-ink-3">
+                      {component.share === null ? "No data in this window" : `${component.good} of ${component.total}`}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </Surface>
+
+        {/* Recent orders. This used to disappear entirely when there were none,
+            which left a new seller staring at a page with a hole in it. */}
+        <LedgerTable
+          title="Recent Orders — الطلبات الأخيرة"
+          dateline="The ten most recent orders containing your lines · each total is your share of that order, in the order's own currency"
+          toolbar={
+            <Button variant="link" size="sm" asChild>
+              <Link href="/orders">View all orders</Link>
+            </Button>
+          }
+          rows={dash.recentOrders}
+          getRowKey={(order) => order.id}
+          columns={[
+            {
+              key: "orderNumber",
+              label: "Order",
+              render: (order) => (
+                <Link
+                  href={`/orders/${order.id}`}
+                  className="u-mono u-focus rounded-nested text-primary-ink hover:underline"
+                >
+                  {order.orderNumber}
+                </Link>
+              ),
+            },
+            {
+              key: "createdAt",
+              label: "Placed",
+              hideOnMobile: true,
+              render: (order) => format(new Date(order.createdAt), "MMM d, yyyy"),
+            },
+            { key: "type", label: "Channel", hideOnMobile: true },
+            {
+              key: "total",
+              label: "Your share",
+              numeric: true,
+              render: (order) => formatCurrency(Number(order.total), order.currency),
+            },
+            {
+              key: "status",
+              label: "Status",
+              align: "end",
+              render: (order) => <StatusPill tone={orderStatusTone(order.status)}>{order.status}</StatusPill>,
+            },
+          ]}
+          empty={
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline="No buyer has ordered from you yet."
+              body="An order appears here the moment one of your lines is bought, whichever channel it comes through."
+              action={
+                <Button variant="secondary" size="sm" asChild>
+                  <Link href="/products">Review your listings</Link>
+                </Button>
+              }
+            />
+          }
+        />
       </div>
     </SellerLayout>
   );

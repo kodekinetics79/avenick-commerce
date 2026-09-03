@@ -2,8 +2,12 @@ import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { db } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
-import { Coins, Layers, Percent, TrendingUp, Store } from "lucide-react";
+import { Coins, Layers, Store } from "lucide-react";
 import { format } from "date-fns";
+import {
+  PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Surface, Num, Eyebrow, Dateline,
+} from "@avenick/ui";
+import { CountStat } from "@/app/finance/money-figures";
 
 export const metadata = { title: "Pricing & Commission" };
 export const dynamic = "force-dynamic";
@@ -61,100 +65,92 @@ export default async function PricingPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Pricing &amp; Commission</h1>
-          <p className="text-muted-foreground text-sm">
-            Live price tiers, per-seller commission rates, and the price-change audit trail.
-          </p>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          eyebrow="Commerce"
+          title="Pricing & commission"
+          description="Live price tiers, per-seller commission rates, and the price-change audit trail."
+          dateline="Tier prices are shown in the currency each price row was set in · no conversion applied"
+        />
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Active B2C prices", value: b2cCount, icon: Coins, color: "text-green-600", bg: "bg-green-50 border-green-200" },
-            { label: "Active B2B prices", value: b2bCount, icon: Layers, color: "text-primary", bg: "bg-blue-50 border-blue-200" },
-            { label: "Avg commission rate", value: `${avgCommission}%`, icon: Percent, color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
-            { label: "Volume-tiered products", value: tieredProducts.length, icon: TrendingUp, color: "text-purple-600", bg: "bg-purple-50 border-purple-200" },
-          ].map((s) => {
-            const Icon = s.icon;
-            return (
-              <div key={s.label} className={`rounded-2xl border p-4 ${s.bg}`}>
-                <Icon className={`h-4 w-4 ${s.color} mb-2`} />
-                <p className="text-xl font-bold">{s.value}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
-              </div>
-            );
-          })}
-        </div>
+        <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
+          <CountStat label="Active B2C prices" value={b2cCount} />
+          <CountStat label="Active B2B prices" value={b2bCount} />
+          <CountStat
+            label="Avg commission rate"
+            value={`${avgCommission}%`}
+            rank="section"
+            dateline={`Unweighted mean across ${sellers.length} active seller${sellers.length === 1 ? "" : "s"}`}
+          />
+          <CountStat
+            label="Volume-tiered products"
+            value={tieredProducts.length}
+            dateline="Of the 10 loaded below, not the whole catalogue"
+          />
+        </CellGrid>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Commission rates */}
-          <div className="bg-white rounded-2xl border border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border">
-              <h2 className="font-semibold">Commission rates by seller</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b border-border">
-                  <tr>
-                    {["Seller", "Tier", "Rate", "Products", "Commissions"].map((h) => (
-                      <th key={h} className="px-4 py-2.5 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {sellers.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-10 text-center">
-                        <Store className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                        <p className="text-sm text-muted-foreground">No active sellers.</p>
-                      </td>
-                    </tr>
-                  )}
-                  {sellers.map((s) => (
-                    <tr key={s.id}>
-                      <td className="px-4 py-3 font-medium">{s.businessNameEn}</td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-100 text-muted-foreground">{s.tier}</span>
-                      </td>
-                      <td className="px-4 py-3 font-semibold">{Number(s.commissionRate)}%</td>
-                      <td className="px-4 py-3 text-muted-foreground">{s._count.products}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{s._count.commissions}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <LedgerTable
+            title="Commission rates by seller"
+            dateline="Active sellers, highest rate first"
+            rows={sellers}
+            getRowKey={(s) => s.id}
+            density="compact"
+            columns={[
+              { key: "seller", label: "Seller", render: (s) => <span className="font-medium text-ink-1">{s.businessNameEn}</span> },
+              { key: "tier", label: "Tier", render: (s) => <StatusPill tone="neutral">{s.tier}</StatusPill> },
+              { key: "rate", label: "Rate", numeric: true, render: (s) => <Num value={`${Number(s.commissionRate)}%`} /> },
+              { key: "products", label: "Products", numeric: true, render: (s) => <span className="text-ink-3">{s._count.products}</span> },
+              { key: "commissions", label: "Commissions", numeric: true, render: (s) => <span className="text-ink-3">{s._count.commissions}</span> },
+            ]}
+            empty={
+              <EmptyState
+                eyebrow="Nothing recorded"
+                headline="No seller is active."
+                body="A seller appears here once their account is approved and active."
+                icon={<Store className="h-3.5 w-3.5" aria-hidden="true" />}
+              />
+            }
+          />
 
           {/* Price change audit */}
-          <div className="bg-white rounded-2xl border border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border">
-              <h2 className="font-semibold">Recent price changes (audit trail)</h2>
+          <Surface className="overflow-hidden">
+            <div className="border-b-2 border-border-strong px-5 py-3">
+              <h2 className="u-h3 text-ink-1">Recent price changes</h2>
+              <Dateline className="mt-0.5">The audit trail, newest first · latest 10 entries</Dateline>
             </div>
             {recentPriceChanges.length === 0 ? (
-              <div className="px-4 py-10 text-center">
-                <Coins className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                <p className="text-sm text-muted-foreground">
-                  No price changes recorded yet. Seller price edits appear here with before/after values.
-                </p>
-              </div>
+              <EmptyState
+                eyebrow="Nothing recorded"
+                headline="No price change has been recorded."
+                body="A seller's price edit appears here with its before and after values."
+                icon={<Coins className="h-3.5 w-3.5" aria-hidden="true" />}
+              />
             ) : (
-              <ul className="divide-y divide-border">
+              <ul>
                 {recentPriceChanges.map((c) => {
                   const before = (c.before ?? {}) as Record<string, unknown>;
                   const after = (c.after ?? {}) as Record<string, unknown>;
                   return (
-                    <li key={c.id} className="px-5 py-3">
-                      <p className="text-sm">
+                    <li key={c.id} className="border-b border-hairline px-5 py-3 last:border-b-0">
+                      <p className="u-ui text-ink-1">
                         <span className="font-medium">{c.actor ? `${c.actor.firstName} ${c.actor.lastName}` : "System"}</span>
-                        <span className="text-muted-foreground"> changed a price on </span>
-                        <span className="font-mono text-xs">{c.entityId}</span>
+                        <span className="text-ink-2"> changed a price on </span>
+                        <span className="u-mono text-meta">{c.entityId}</span>
                       </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {before["price"] !== undefined && after["price"] !== undefined
-                          ? `${before["price"]} → ${after["price"]} · `
-                          : ""}
+                      <p className="u-meta mt-0.5 text-ink-3">
+                        {before["price"] !== undefined && after["price"] !== undefined ? (
+                          // dir="ltr" on the pair, not on the page: prices stay
+                          // in Western digits in both locales, and the arrow
+                          // between them is not mirrored by the bidi algorithm,
+                          // so in Arabic the before/after pair would otherwise
+                          // read in the wrong order.
+                          <span dir="ltr" className="fig inline-block text-ink-2">
+                            {String(before["price"])} → {String(after["price"])}
+                          </span>
+                        ) : null}
+                        {before["price"] !== undefined && after["price"] !== undefined ? " · " : ""}
                         {format(c.createdAt, "MMM d, yyyy HH:mm")}
                       </p>
                     </li>
@@ -162,56 +158,55 @@ export default async function PricingPage() {
                 })}
               </ul>
             )}
-          </div>
+          </Surface>
         </div>
 
         {/* Volume tiers */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border">
-            <h2 className="font-semibold">Volume-tiered pricing</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Products offering quantity breaks (B2B bulk tiers)</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
-                <tr>
-                  {["Product", "Seller", "Tiers"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
+        <LedgerTable
+          title="Volume-tiered pricing"
+          dateline="Products offering quantity breaks (B2B bulk tiers) · latest 10 loaded"
+          rows={tieredProducts}
+          getRowKey={(p) => p.id}
+          columns={[
+            {
+              key: "product",
+              label: "Product",
+              render: (p) => (
+                <div className="min-w-0 py-1">
+                  <p className="truncate font-medium text-ink-1">{p.nameEn}</p>
+                  <p className="u-mono u-meta text-ink-3">{p.sku}</p>
+                </div>
+              ),
+            },
+            { key: "seller", label: "Seller", render: (p) => <span className="text-ink-2">{p.seller.businessNameEn}</span> },
+            {
+              key: "tiers",
+              label: "Tiers",
+              render: (p) => (
+                <div className="flex flex-wrap gap-1.5 py-1">
+                  {p.prices.map((t, i) => (
+                    <span key={i} className="u-meta inline-flex items-center gap-1 rounded-nested bg-neutral-soft px-2 py-0.5 text-ink-2 ring-1 ring-neutral-rule">
+                      <Eyebrow as="span">{t.type}</Eyebrow>
+                      <span className="fig">
+                        {t.minQty}
+                        {t.maxQty ? `–${t.maxQty}` : "+"}
+                      </span>
+                      <span className="fig font-medium text-ink-1">{formatCurrency(Number(t.price), t.currency as never)}</span>
+                    </span>
                   ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {tieredProducts.length === 0 && (
-                  <tr>
-                    <td colSpan={3} className="px-4 py-10 text-center">
-                      <Layers className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                      <p className="text-sm text-muted-foreground">No products with volume tiers yet.</p>
-                    </td>
-                  </tr>
-                )}
-                {tieredProducts.map((p) => (
-                  <tr key={p.id}>
-                    <td className="px-4 py-3">
-                      <p className="font-medium">{p.nameEn}</p>
-                      <p className="text-xs text-muted-foreground font-mono">{p.sku}</p>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{p.seller.businessNameEn}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1.5">
-                        {p.prices.map((t, i) => (
-                          <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-muted-foreground">
-                            {t.type} {t.minQty}
-                            {t.maxQty ? `–${t.maxQty}` : "+"}: {formatCurrency(Number(t.price), t.currency as never)}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                </div>
+              ),
+            },
+          ]}
+          empty={
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline="No product offers a volume tier."
+              body="A product appears here once a seller sets a price row with a minimum quantity above one."
+              icon={<Layers className="h-3.5 w-3.5" aria-hidden="true" />}
+            />
+          }
+        />
       </div>
     </AdminLayout>
   );

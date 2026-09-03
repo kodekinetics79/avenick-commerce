@@ -35,10 +35,14 @@
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.17",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   },
   "peerDependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
+  },
+  "scripts": {
+    "test": "vitest run"
   }
 }

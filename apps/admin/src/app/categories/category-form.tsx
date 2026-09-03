@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useId, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Pencil, X } from "lucide-react";
-import { Button, Input } from "@avenick/ui";
+import { AlertTriangle, Plus, Pencil, X } from "lucide-react";
+import { Button, Dateline, Field, Input, Surface } from "@avenick/ui";
 import { slugify } from "@avenick/utils";
 import { createCategoryAction, updateCategoryAction } from "./actions";
 
@@ -93,6 +93,10 @@ export function CategoryForm({ mode, category, options, defaultParentId = null }
   const [isActive, setIsActive] = useState(category?.isActive ?? true);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
+  // The active-checkbox message is a plain reserved line rather than a <Field>,
+  // because Field puts its label above the control and a checkbox's label sits
+  // beside it. It still has to be announced with the control, so it carries an id.
+  const activeMessageId = useId();
 
   const parentChoices = useMemo(() => {
     const excluded = category ? subtree(options, category.id) : new Set<string>();
@@ -144,22 +148,32 @@ export function CategoryForm({ mode, category, options, defaultParentId = null }
   if (!open) {
     return mode === "create" ? (
       <Button type="button" size="sm" onClick={() => setOpen(true)}>
-        <Plus className="h-3.5 w-3.5" /> {defaultParentId ? "Add subcategory" : "New Category"}
+        <Plus className="h-3.5 w-3.5" aria-hidden="true" /> {defaultParentId ? "Add subcategory" : "New Category"}
       </Button>
     ) : (
-      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1 text-primary hover:underline font-medium">
-        <Pencil className="h-3 w-3" /> Edit
-      </button>
+      <Button type="button" variant="link" size="xs" onClick={() => setOpen(true)}>
+        <Pencil className="h-3 w-3" aria-hidden="true" />
+        Edit<span className="sr-only"> {category?.nameEn ?? "category"}</span>
+      </Button>
     );
   }
 
   return (
-    <form onSubmit={submit} className="basis-full w-full rounded-xl border border-border bg-background p-4 space-y-3" aria-label={mode === "edit" ? `Edit ${category?.nameEn ?? "category"}` : "New category"}>
+    // Rung 2: the edit panel is an object standing on the list's recessed well,
+    // and the fields inside it are the recessed things. Raised = actionable,
+    // recessed = input, and a form gets to show both at once.
+    <Surface
+      rung={2}
+      as="form"
+      onSubmit={submit}
+      className="w-full basis-full space-y-3 p-4"
+      aria-label={mode === "edit" ? `Edit ${category?.nameEn ?? "category"}` : "New category"}
+    >
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold">{mode === "edit" ? "Edit category" : defaultParentId ? "New subcategory" : "New category"}</p>
-        <button type="button" onClick={close} aria-label="Close" className="text-muted-foreground hover:text-foreground">
-          <X className="h-4 w-4" />
-        </button>
+        <p className="u-h3 text-ink-1">{mode === "edit" ? "Edit category" : defaultParentId ? "New subcategory" : "New category"}</p>
+        <Button type="button" variant="ghost" size="icon" onClick={close} aria-label="Close">
+          <X className="h-4 w-4" aria-hidden="true" />
+        </Button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Input label="Name (English)" value={nameEn} onChange={(event) => onNameEn(event.target.value)} error={errors.nameEn} required maxLength={120} disabled={pending} />
@@ -178,38 +192,67 @@ export function CategoryForm({ mode, category, options, defaultParentId = null }
           disabled={pending}
         />
         <Input label="Sort order" type="number" inputMode="numeric" min={0} step={1} value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} error={errors.sortOrder} disabled={pending} />
-        <div className="w-full">
-          <label className="mb-1.5 block text-sm font-medium text-foreground" htmlFor={`parent-${category?.id ?? "new"}`}>
-            Parent category
-          </label>
+        <Field
+          label="Parent category"
+          htmlFor={`parent-${category?.id ?? "new"}`}
+          error={errors.parentId}
+          hint="A category cannot be moved under itself or its own descendants."
+        >
+          {/* A native select, kept deliberately: it is the one control on this
+              form that has to work with a hardware keyboard, a screen reader and
+              a phone's own picker. It carries data-rung so it takes the system's
+              recessed surface rather than a hand-written box. */}
           <select
             id={`parent-${category?.id ?? "new"}`}
+            data-rung={1}
+            aria-invalid={errors.parentId ? true : undefined}
             value={parentId}
             onChange={(event) => setParentId(event.target.value)}
             disabled={pending}
-            className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="u-focus w-full border border-input bg-surface-1 px-3 text-ui text-ink-1 outline-none transition-[border-color,box-shadow] duration-press ease-standard disabled:cursor-not-allowed disabled:opacity-50"
+            style={{ height: "var(--control-h-md)" }}
           >
             <option value="">Top level</option>
             {parentChoices.map((option) => (
               <option key={option.id} value={option.id}>
-                {`${"  ".repeat(option.depth)}${option.nameEn}`}
+                {`${"  ".repeat(option.depth)}${option.nameEn}`}
               </option>
             ))}
           </select>
-          {errors.parentId && <p className="mt-1 text-xs text-destructive">{errors.parentId}</p>}
-        </div>
+        </Field>
         <div className="flex flex-col justify-end">
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isActive} onChange={(event) => setIsActive(event.target.checked)} disabled={pending} className="h-4 w-4 rounded border-input" />
+          <label className="u-ui inline-flex items-center gap-2 text-ink-1">
+            <input
+              type="checkbox"
+              checked={isActive}
+              onChange={(event) => setIsActive(event.target.checked)}
+              disabled={pending}
+              aria-invalid={errors.isActive ? true : undefined}
+              aria-describedby={activeMessageId}
+              className="u-focus h-4 w-4 rounded-sm border-input accent-primary"
+            />
             Active (shown in storefront navigation)
           </label>
-          {errors.isActive && <p className="mt-1 text-xs text-destructive">{errors.isActive}</p>}
+          {/* The line is reserved either way, so an error never shifts the
+              buttons beneath it up or down the page. It is wired to the control
+              through aria-describedby so the refusal is announced with the
+              checkbox rather than sitting beside it unread. */}
+          <p id={activeMessageId} className="u-meta mt-1 min-h-[18px] text-danger-ink">{errors.isActive ?? ""}</p>
         </div>
       </div>
       {formError && (
-        <p role="alert" className="text-xs text-destructive">
-          {formError}
-        </p>
+        // A save that did not happen is not fine print, and it is the same class
+        // of event as a refused decision elsewhere in this console: nothing was
+        // written and nothing was reloaded. It is given the same shape.
+        <Surface rung={2} tone="danger" role="alert" className="border-s-4 border-s-danger p-3">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger-ink" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="u-ui text-ink-1">{formError}</p>
+              <Dateline>Nothing was saved · this form still holds everything you typed</Dateline>
+            </div>
+          </div>
+        </Surface>
       )}
       <div className="flex items-center gap-2 justify-end">
         <Button type="button" variant="ghost" size="sm" onClick={close} disabled={pending}>
@@ -219,6 +262,6 @@ export function CategoryForm({ mode, category, options, defaultParentId = null }
           {mode === "edit" ? "Save changes" : "Create category"}
         </Button>
       </div>
-    </form>
+    </Surface>
   );
 }

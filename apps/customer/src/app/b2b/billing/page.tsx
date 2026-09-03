@@ -1,10 +1,21 @@
 import { B2BShell } from "@/components/b2b/b2b-shell";
+import { Money } from "@/components/b2b/money";
+import {
+  Dateline,
+  EmptyState,
+  Eyebrow,
+  LedgerTable,
+  Meter,
+  StatusPill,
+  Surface,
+  type PillTone,
+} from "@avenick/ui";
 import { formatCurrency, type SupportedCurrency } from "@avenick/utils";
 import { db, Prisma, type Currency } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
 import { platformName } from "@avenick/utils/portal-config";
-import { Download, FileText, CreditCard, CheckCircle2, Clock, AlertTriangle, Building2 } from "lucide-react";
+import { Download, CreditCard, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
 
 export const metadata = { title: `Billing & Invoices — ${platformName()} for Business` };
 
@@ -25,11 +36,13 @@ export default async function BillingPage() {
   if (!ctx) {
     return (
       <B2BShell title="Billing & Invoices">
-        <div className="rounded-2xl border border-border bg-card p-10 text-center">
-          <Building2 className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-          <p className="font-semibold">No company account</p>
-          <p className="text-sm text-muted-foreground mt-1">Sign in with a company account to view billing.</p>
-        </div>
+        <Surface rung={2}>
+          <EmptyState
+            eyebrow="No company context"
+            headline="This session is not attached to a company account."
+            body="Credit terms, exposure and tax invoices belong to a company. Sign in with a company account to see them."
+          />
+        </Surface>
       </B2BShell>
     );
   }
@@ -75,6 +88,9 @@ export default async function BillingPage() {
     .map(([currency, entry]) => ({ currency, ...entry }))
     .sort((a, b) => a.currency.localeCompare(b.currency));
   const hasOutstanding = exposure.length > 0;
+  // Named so the aging table's generated bucket columns can be typed; the
+  // columns are built with .map() over BUCKETS, which loses row inference.
+  type ExposureRow = (typeof exposure)[number];
 
   // Company.creditLimit is a bare Decimal with no currency column, so the limit
   // itself does not say what it is denominated in. It is read as the company's
@@ -93,150 +109,219 @@ export default async function BillingPage() {
 
   return (
     <B2BShell
+      eyebrow="Money"
       title="Billing & Invoices"
       description={`Credit terms, balance and tax invoices for ${ctx.company.nameEn}.`}
     >
       {/* No statement export exists yet; a "Download statement" button that did nothing has been removed. */}
-      {/* Credit + outstanding */}
-      <div className="grid lg:grid-cols-3 gap-4 mb-6">
-        <div className="lg:col-span-2 rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-accent/5 p-5">
-          <div className="flex items-center gap-2 text-sm font-semibold mb-4"><CreditCard className="h-4 w-4 text-primary" /> Credit line · NET {terms}</div>
+      {/* Credit + outstanding.
+
+          The credit panel is RECESSED: a credit line is context for every other
+          figure on the page, not something you act on. What used to be here was
+          an indigo→verdigris gradient card whose utilisation bar was a second
+          gradient — two gradients saying one percentage. */}
+      <div className="grid lg:grid-cols-3 gap-4 mb-block">
+        <Surface rung={1} className="lg:col-span-2 p-5">
+          <Eyebrow className="mb-4 flex items-center gap-2">
+            <CreditCard className="h-3.5 w-3.5" aria-hidden="true" /> Credit line · NET {terms}
+          </Eyebrow>
           {creditLimit === null ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="u-body text-ink-2">
               No credit limit is set for {ctx.company.nameEn}. Contact your account manager to arrange one.
             </p>
           ) : (
             <>
               <div className="grid grid-cols-3 gap-4 mb-4">
-                <div><p className="text-xs text-muted-foreground">Limit</p><p className="text-xl font-bold font-mono">{money(creditLimit, limitCurrency)}</p></div>
-                <div><p className="text-xs text-muted-foreground">Outstanding in {limitCurrency}</p><p className="text-xl font-bold font-mono">{money(limitExposure, limitCurrency)}</p></div>
-                <div><p className="text-xs text-muted-foreground">Available</p><p className="text-xl font-bold font-mono text-success">{money(available ?? ZERO, limitCurrency)}</p></div>
+                <div>
+                  <Eyebrow>Limit</Eyebrow>
+                  <div className="mt-1"><Money amount={Number(creditLimit)} currency={limitCurrency} rank="section" /></div>
+                </div>
+                <div>
+                  <Eyebrow>Outstanding in {limitCurrency}</Eyebrow>
+                  <div className="mt-1"><Money amount={Number(limitExposure)} currency={limitCurrency} rank="section" /></div>
+                </div>
+                <div>
+                  <Eyebrow>Available</Eyebrow>
+                  <div className="mt-1"><Money amount={Number(available ?? ZERO)} currency={limitCurrency} rank="section" /></div>
+                </div>
               </div>
-              <div className="h-2 rounded-full bg-secondary overflow-hidden">
-                <div className="h-full rounded-full bg-gradient-to-r from-primary-500 to-accent-500" style={{ width: `${usedPct}%` }} />
-              </div>
-              <p className="text-xs text-muted-foreground mt-1.5">{usedPct}% of credit utilized</p>
-              <p className="text-[11px] text-muted-foreground mt-3">
+              {/* One element, scaled on X from the inline start — correct in
+                  Arabic by construction, and the percentage beside it does not
+                  move. Tone reports how close the line is to being spent. */}
+              <Meter
+                value={usedPct}
+                tone={usedPct >= 90 ? "danger" : usedPct >= 70 ? "warning" : "primary"}
+                label={`${usedPct}% of the ${limitCurrency} credit limit drawn`}
+              />
+              <p className="u-meta mt-1.5 text-ink-2">{usedPct}% of credit utilized</p>
+              <Dateline className="mt-3">
                 The credit limit is recorded without a currency and is read here as {limitCurrency}, your company&apos;s
                 jurisdiction currency. Only {limitCurrency} invoices are drawn against it.
-              </p>
+              </Dateline>
               {uncoveredExposure.length > 0 && (
-                <p className="text-[11px] text-amber-700 dark:text-amber-400 mt-2">
-                  Not included above: {uncoveredExposure.map((e) => money(e.outstanding, e.currency)).join(" · ")} outstanding
-                  in other currencies. These cannot be measured against a {limitCurrency} limit — the platform holds no
-                  exchange rates — so they are shown separately rather than converted.
-                </p>
+                <Surface rung={2} tone="warning" className="mt-3 flex items-start gap-2 p-3">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-ink" aria-hidden="true" />
+                  <p className="u-meta text-ink-1">
+                    Not included above: {uncoveredExposure.map((e) => money(e.outstanding, e.currency)).join(" · ")} outstanding
+                    in other currencies. These cannot be measured against a {limitCurrency} limit — the platform holds no
+                    exchange rates — so they are shown separately rather than converted.
+                  </p>
+                </Surface>
               )}
             </>
           )}
-        </div>
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <p className="text-xs text-muted-foreground">Outstanding balance</p>
+        </Surface>
+        <Surface rung={2} className="p-5">
+          <Eyebrow>Outstanding balance</Eyebrow>
           {!hasOutstanding ? (
-            <p className="text-3xl font-bold font-mono tracking-tight mt-1">—</p>
+            <p className="u-body mt-2 text-ink-2">Nothing outstanding.</p>
           ) : (
-            exposure.map((e) => (
-              <p key={e.currency} className="text-2xl font-bold font-mono tracking-tight mt-1">
-                {money(e.outstanding, e.currency)}
-              </p>
-            ))
+            <div className="mt-2 flex flex-col gap-1">
+              {exposure.map((e) => (
+                <Money key={e.currency} amount={Number(e.outstanding)} currency={e.currency} rank="section" />
+              ))}
+            </div>
           )}
+          <Dateline className="mt-2">Unpaid tax invoices, one line per currency · no conversion applied</Dateline>
           {/* Online settlement is not connected; invoices are settled by bank transfer per the order's payment method. */}
           {hasOutstanding && (
-            <p className="mt-4 text-xs text-muted-foreground">Settle outstanding invoices by bank transfer against the invoice number. Online payment is not available.</p>
+            <p className="u-meta mt-4 text-ink-2">
+              Settle outstanding invoices by bank transfer against the invoice number. Online payment is not available.
+            </p>
           )}
-        </div>
+        </Surface>
       </div>
 
-      {/* Aging — one row per currency, never a blended column total. */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden mb-6">
-        <div className="px-5 py-3 border-b border-border flex items-center gap-2 text-sm font-semibold">
-          <Clock className="h-4 w-4 text-muted-foreground" /> Aging by currency
-        </div>
-        {!hasOutstanding ? (
-          <p className="px-5 py-8 text-center text-sm text-muted-foreground">Nothing outstanding.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-secondary/50 border-b border-border">
-                <tr>
-                  {["Currency", ...BUCKETS].map((h) => (
-                    <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {exposure.map((e) => (
-                  <tr key={e.currency}>
-                    <td className="px-4 py-3 font-semibold">{e.currency}</td>
-                    {BUCKETS.map((bucket, i) => {
-                      const amount = e.aging.get(bucket);
-                      const cls = ["text-success", "text-foreground", "text-amber-600 dark:text-amber-400", "text-danger"][i];
-                      return (
-                        <td key={bucket} className={`px-4 py-3 font-mono whitespace-nowrap ${amount ? cls : "text-muted-foreground"}`}>
-                          {amount ? money(amount, e.currency) : "—"}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {/* Aging — one row per currency, never a blended column total. The bucket
+          columns carry their own ink so the eye lands on the oldest debt first;
+          the amber pair that used to be written out per theme is now one token
+          with a real dark value. */}
+      <LedgerTable
+        className="mb-block"
+        title="Aging by currency"
+        dateline="Unpaid invoice totals bucketed by days past their NET date · currencies are never added together"
+        rows={exposure}
+        getRowKey={(e) => e.currency}
+        columns={[
+          {
+            key: "currency",
+            label: "Currency",
+            render: (e) => <span className="u-mono font-medium text-ink-1">{e.currency}</span>,
+          },
+          ...BUCKETS.map((bucket, i) => ({
+            key: bucket,
+            label: bucket,
+            numeric: true,
+            render: (e: ExposureRow) => {
+              const amount = e.aging.get(bucket);
+              if (!amount) return <span className="u-meta text-ink-3">—</span>;
+              const ink = ["text-success-ink", "text-ink-1", "text-warning-ink", "text-danger-ink"][i];
+              return <Money amount={Number(amount)} currency={e.currency} className={ink} />;
+            },
+          })),
+        ]}
+        empty={
+          <EmptyState
+            eyebrow="Nothing outstanding"
+            headline="Every tax invoice issued to this company is settled."
+            body="Unpaid invoices are bucketed here by how far past their NET date they are."
+          />
+        }
+      />
 
       {/* Invoices */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        <div className="px-5 py-3 border-b border-border flex items-center gap-2 text-sm font-semibold"><FileText className="h-4 w-4 text-muted-foreground" /> Tax invoices</div>
-        {rows.length === 0 ? (
-          <div className="p-10 text-center">
-            <FileText className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-            <p className="font-semibold">No invoices yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Tax invoices are not generated automatically yet. Request one from your account contact.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-secondary/50 border-b border-border">
-                <tr>
-                  {["Invoice #", "PO", "Issued", "Due", "Amount", "VAT", "Status", ""].map((h) => (
-                    <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {rows.map(({ inv, due, paid, overdue, currency }) => {
-                  const st = paid
-                    ? { label: "Paid", cls: "bg-success/15 text-success", icon: CheckCircle2 }
-                    : overdue
-                    ? { label: "Overdue", cls: "bg-danger/15 text-danger", icon: AlertTriangle }
-                    : { label: "Due", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400", icon: Clock };
-                  return (
-                    <tr key={inv.id} className="hover:bg-secondary/40 transition-colors">
-                      <td className="px-4 py-3 font-mono text-xs font-semibold text-primary whitespace-nowrap">{inv.invoiceNo}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground whitespace-nowrap">{inv.order.purchaseOrder?.poNumber ?? "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap">{fmt(inv.issuedAt)}</td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs whitespace-nowrap">{fmt(due)}</td>
-                      <td className="px-4 py-3 font-mono font-semibold whitespace-nowrap">{money(inv.totalAmount.sub(inv.vatAmount), currency)}</td>
-                      <td className="px-4 py-3 font-mono text-muted-foreground whitespace-nowrap">{money(inv.vatAmount, currency)}</td>
-                      <td className="px-4 py-3"><span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${st.cls}`}><st.icon className="h-3 w-3" /> {st.label}</span></td>
-                      <td className="px-4 py-3 text-end">
-                        {/* A download only where a file was stored on the invoice; the button that did nothing is gone. */}
-                        {inv.fileUrl ? (
-                          <a href={inv.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline" aria-label="Download invoice"><Download className="h-3.5 w-3.5" /> PDF</a>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">No file</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <LedgerTable
+        title="Tax invoices"
+        dateline="Every invoice issued against this company's orders, newest first · amounts exclude VAT, which is its own column"
+        rows={rows}
+        getRowKey={({ inv }) => inv.id}
+        stickyHead
+        columns={[
+          {
+            key: "invoiceNo",
+            label: "Invoice #",
+            render: ({ inv }) => <span className="u-mono font-medium text-primary-ink">{inv.invoiceNo}</span>,
+          },
+          {
+            key: "po",
+            label: "PO",
+            hideOnMobile: true,
+            render: ({ inv }) => (
+              <span className="u-mono u-meta text-ink-3">{inv.order.purchaseOrder?.poNumber ?? "No PO"}</span>
+            ),
+          },
+          {
+            key: "issued",
+            label: "Issued",
+            hideOnMobile: true,
+            render: ({ inv }) => <span className="u-meta whitespace-nowrap text-ink-2">{fmt(inv.issuedAt)}</span>,
+          },
+          {
+            key: "due",
+            label: "Due",
+            render: ({ due }) => <span className="u-meta whitespace-nowrap text-ink-2">{fmt(due)}</span>,
+          },
+          {
+            key: "amount",
+            label: "Amount",
+            numeric: true,
+            render: ({ inv, currency }) => (
+              <Money amount={Number(inv.totalAmount.sub(inv.vatAmount))} currency={currency} />
+            ),
+          },
+          {
+            key: "vat",
+            label: "VAT",
+            numeric: true,
+            render: ({ inv, currency }) => (
+              <Money amount={Number(inv.vatAmount)} currency={currency} className="text-ink-2" />
+            ),
+          },
+          {
+            key: "status",
+            label: "Status",
+            render: ({ paid, overdue }) => {
+              const st: { label: string; tone: PillTone; icon: typeof Clock } = paid
+                ? { label: "Paid", tone: "success", icon: CheckCircle2 }
+                : overdue
+                  ? { label: "Overdue", tone: "danger", icon: AlertTriangle }
+                  : { label: "Due", tone: "warning", icon: Clock };
+              return (
+                <StatusPill tone={st.tone} className="whitespace-nowrap">
+                  <st.icon className="h-3 w-3" aria-hidden="true" /> {st.label}
+                </StatusPill>
+              );
+            },
+          },
+          {
+            key: "file",
+            label: "File",
+            align: "end",
+            render: ({ inv }) =>
+              /* A download only where a file was stored on the invoice; the button that did nothing is gone. */
+              inv.fileUrl ? (
+                <a
+                  href={inv.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="u-focus u-meta inline-flex items-center gap-1 rounded-nested font-medium text-primary-ink hover:underline"
+                  aria-label={`Download invoice ${inv.invoiceNo} as PDF`}
+                >
+                  <Download className="h-3.5 w-3.5" aria-hidden="true" /> PDF
+                </a>
+              ) : (
+                <span className="u-meta text-ink-3">No file</span>
+              ),
+          },
+        ]}
+        empty={
+          <EmptyState
+            eyebrow="Nothing recorded"
+            headline="No tax invoice has been issued to this company."
+            body="Tax invoices are not generated automatically. Request one from your account contact and it will appear here."
+          />
+        }
+      />
     </B2BShell>
   );
 }

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { Shield, Eye, ShieldAlert, Key, HelpCircle, FileLock } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
+import { Eyebrow, PageHeader, Surface } from "@avenick/ui";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
 
 export const metadata = {
@@ -17,7 +17,6 @@ interface LegalSection {
   titleAr: string;
   contentEn: React.ReactNode;
   contentAr: React.ReactNode;
-  icon: typeof Shield;
 }
 
 /**
@@ -29,17 +28,16 @@ interface LegalSection {
 function buildSections(privacyEmail: string | null): LegalSection[] {
   const name = platformName();
   const emailLink = privacyEmail ? (
-    <a href={`mailto:${privacyEmail}`} className="text-primary hover:underline font-semibold">{privacyEmail}</a>
+    <a href={`mailto:${privacyEmail}`} className="u-focus rounded-nested font-medium text-primary-ink hover:underline">{privacyEmail}</a>
   ) : null;
   const supportLink = (ar: boolean) => (
-    <Link href="/support" className="text-primary hover:underline font-semibold">{ar ? "بوابة الدعم الفني" : "support portal"}</Link>
+    <Link href="/support" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">{ar ? "بوابة الدعم الفني" : "support portal"}</Link>
   );
   return [
   {
     id: "intro",
     titleEn: "1. Introduction",
     titleAr: "١. مقدمة",
-    icon: Shield,
     contentEn: (
       <>
         <p>Welcome to {name}. We are committed to protecting your personal and business data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website, use our B2B procurement platform, or purchase products from us.</p>
@@ -57,7 +55,6 @@ function buildSections(privacyEmail: string | null): LegalSection[] {
     id: "data-collection",
     titleEn: "2. Information We Collect",
     titleAr: "٢. المعلومات التي نجمعها",
-    icon: Eye,
     contentEn: (
       <>
         <p>We collect information that you provide directly to us when creating an account, placing an order, or submitting a Request for Quotation (RFQ). This includes:</p>
@@ -83,7 +80,6 @@ function buildSections(privacyEmail: string | null): LegalSection[] {
     id: "data-use",
     titleEn: "3. How We Use Your Information",
     titleAr: "٣. كيفية استخدام معلوماتكم",
-    icon: Key,
     contentEn: (
       <>
         <p>We process your data to deliver a secure, efficient B2B/B2C trading environment. Specifically, we use it to:</p>
@@ -111,7 +107,6 @@ function buildSections(privacyEmail: string | null): LegalSection[] {
     id: "gcc-compliance",
     titleEn: "4. Privacy Laws & Compliance",
     titleAr: "٤. قوانين الخصوصية والامتثال لها",
-    icon: ShieldAlert,
     contentEn: (
       <>
         <p>We apply data-security controls and assess legal obligations according to the customer, processing, and hosting jurisdictions that actually apply:</p>
@@ -137,7 +132,6 @@ function buildSections(privacyEmail: string | null): LegalSection[] {
     id: "user-rights",
     titleEn: "5. Your Data Rights",
     titleAr: "٥. حقوق البيانات الخاصة بكم",
-    icon: FileLock,
     contentEn: (
       <>
         <p>Under local GCC privacy laws, you possess legal rights regarding your information. You have the right to request access, rectification, restriction of processing, or erasure of your personal data stored on our servers.</p>
@@ -155,7 +149,6 @@ function buildSections(privacyEmail: string | null): LegalSection[] {
     id: "support",
     titleEn: "6. Questions & Support",
     titleAr: "٦. الأسئلة والدعم الفني",
-    icon: HelpCircle,
     contentEn: (
       <>
         <p>If you have any questions about this Privacy Policy or how your data is treated, {emailLink ? <>email {emailLink} or </> : null}open a ticket in our {supportLink(false)}.</p>
@@ -178,73 +171,69 @@ export default async function PrivacyPage() {
 
   return (
     <MainLayout>
-      <div className="relative overflow-hidden min-h-screen bg-background text-foreground py-10 lg:py-16">
-        {/* Subtle glowing accents */}
-        <div className="absolute inset-0 bg-grid opacity-30" />
-        <div className="absolute top-20 start-1/4 h-80 w-80 rounded-full bg-primary/10 blur-[120px]" />
-        <div className="absolute bottom-20 end-1/4 h-80 w-80 rounded-full bg-accent/10 blur-[120px]" />
+      <div className="mx-auto max-w-6xl px-4 py-block">
+        <PageHeader
+          eyebrow={isAr ? "الشؤون القانونية" : "Legal"}
+          title={isAr ? "سياسة الخصوصية" : "Privacy Policy"}
+          description={
+            isAr
+              ? "تعرف على كيفية حماية بياناتك الشخصية والتجارية بموجب اللوائح الخليجية."
+              : "How your personal and business data is handled under GCC guidelines."
+          }
+          // No "last updated" date: nothing records when this text changed, so a
+          // typed date would be a claim the platform cannot back. Saying that
+          // outright is better than an empty corner where a date should be.
+          dateline={
+            isAr
+              ? "لا يسجل النظام تاريخ آخر تعديل لهذا النص، فلا يُعرض تاريخ"
+              : "No revision date is shown because none is recorded"
+          }
+          linkComponent={Link}
+        />
 
-        <div className="relative max-w-6xl mx-auto px-4">
-          {/* Header */}
-          <div className="mb-10 text-center max-w-2xl mx-auto">
-            <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight mb-3">
-              {isAr ? "سياسة الخصوصية" : "Privacy Policy"}
-            </h1>
-            {/* No "last updated" date: nothing records when this text changed,
-                so a typed date would be a claim the platform cannot back. */}
-            <p className="text-muted-foreground text-sm">
-              {isAr
-                ? "تعرف على كيفية حماية بياناتك الشخصية والتجارية بموجب اللوائح الخليجية."
-                : "Learn how we protect your personal and business data under GCC guidelines."}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-10 items-start">
-            {/* Sidebar Sticky TOC */}
-            <aside className="hidden lg:sticky lg:top-24 h-max bg-card border border-border rounded-2xl p-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-4">
-                {isAr ? "جدول المحتويات" : "Table of Contents"}
-              </p>
-              <nav className="flex flex-col gap-2">
+        <div className="grid grid-cols-1 items-start gap-block lg:grid-cols-[240px_minmax(0,1fr)]">
+          {/* The sidebar carried `hidden lg:sticky` and no `lg:block`, so it was
+              hidden at every breakpoint and the table of contents never appeared
+              on any screen. */}
+          <aside className="hidden lg:block">
+            <div className="lg:sticky lg:top-24">
+              <Eyebrow as="h2">{isAr ? "جدول المحتويات" : "Table of Contents"}</Eyebrow>
+              <nav
+                aria-label={isAr ? "جدول المحتويات" : "Table of contents"}
+                className="mt-3 flex flex-col"
+              >
                 {SECTIONS.map((sec) => (
                   <a
                     key={sec.id}
                     href={`#${sec.id}`}
-                    className="text-sm text-muted-foreground hover:text-primary hover:font-medium transition-colors"
+                    // border-s, not border-l: the marker sits at the reading
+                    // start in both directions. Hover changes colour rather than
+                    // weight — animating font-weight reflows the whole list.
+                    className="u-focus u-ui rounded-e-nested border-s-2 border-hairline py-1.5 ps-3 text-ink-3 transition-colors duration-press ease-standard hover:border-border-strong hover:text-ink-1"
                   >
                     {isAr ? sec.titleAr : sec.titleEn}
                   </a>
                 ))}
               </nav>
-            </aside>
-
-            {/* Content Body */}
-            <div className="space-y-6">
-              {SECTIONS.map((sec) => {
-                const SecIcon = sec.icon;
-                return (
-                  <section
-                    key={sec.id}
-                    id={sec.id}
-                    className="scroll-mt-24 bg-card border border-border rounded-2xl p-6 lg:p-8 hover:shadow-card transition-shadow"
-                  >
-                    <div className="flex items-center gap-3 mb-4">
-                      <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary shrink-0">
-                        <SecIcon className="h-5 w-5" />
-                      </span>
-                      <h2 className="text-lg lg:text-xl font-bold tracking-tight">
-                        {isAr ? sec.titleAr : sec.titleEn}
-                      </h2>
-                    </div>
-                    <div className="text-muted-foreground text-sm lg:text-base leading-relaxed space-y-4">
-                      {isAr ? sec.contentAr : sec.contentEn}
-                    </div>
-                  </section>
-                );
-              })}
             </div>
-          </div>
+          </aside>
 
+          {/* One document, ruled into sections — not six independently bordered
+              cards, each with its own shadow and its own icon tile. */}
+          <Surface rung={2} className="overflow-hidden">
+            {SECTIONS.map((sec, i) => (
+              <section
+                key={sec.id}
+                id={sec.id}
+                className={`scroll-mt-24 p-6 lg:p-8 ${i > 0 ? "border-t border-hairline" : ""}`}
+              >
+                <h2 className="u-h3 text-ink-1">{isAr ? sec.titleAr : sec.titleEn}</h2>
+                <div className="u-body mt-3 max-w-prose space-y-4 text-ink-2 [&_strong]:font-semibold [&_strong]:text-ink-1">
+                  {isAr ? sec.contentAr : sec.contentEn}
+                </div>
+              </section>
+            ))}
+          </Surface>
         </div>
       </div>
     </MainLayout>

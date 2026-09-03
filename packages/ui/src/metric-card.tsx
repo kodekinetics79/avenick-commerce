@@ -1,24 +1,56 @@
 "use client";
 
 import * as React from "react";
-import { TrendingUp, TrendingDown } from "lucide-react";
 import { cn } from "@avenick/utils";
+import { Stat, type StatChip } from "./stat";
 
+/**
+ * MetricCard — kept at its original API so the dozens of existing call sites do
+ * not break, but it is now a rung-2 Surface wrapping <Stat>.
+ *
+ * Three defects it used to ship into all three portals:
+ *   · `text-slate-800` hardcoded on the value, which is near-invisible on a dark
+ *     ground;
+ *   · `ml-auto` on the trend — a physical property inside a shared primitive, so
+ *     every Arabic metric card had its trend on the wrong side;
+ *   · `animate-pulse` on the urgent dot. That is not a loading indicator, and a
+ *     pulsing dot beside a number a supplier reads sixty times a day is fatigue,
+ *     not urgency. It is now a static filled ring plus the word.
+ *
+ * `iconColor` is accepted and IGNORED on purpose. It was how ten raw hues
+ * (bg-blue-500, bg-green-500, bg-purple-500 …) got into the seller dashboard —
+ * ten colours carrying zero information. Pass `chip` instead: four semantic
+ * states, neutral by default.
+ *
+ * New work should use <Stat> inside a <CellGrid>, which is what stops ten metrics
+ * being ten independently bordered floating boxes.
+ */
 export interface MetricCardProps {
   label: string;
   value: string | number;
-  /** Optional: "+12%" or "-3 units" shown as a trend indicator */
+  /** Optional: "+12%" or "-3 units" shown as a trend indicator. */
   trend?: string;
-  /** true = green upward arrow, false = red downward arrow */
+  /** true = upward arrow in success ink, false = downward in danger ink. */
   trendUp?: boolean;
-  /** Sub-label shown below the value */
+  /** Sub-label shown below the value. */
   sub?: string;
-  /** Lucide icon component */
+  /** Lucide icon component. */
   icon?: React.ElementType;
-  /** Tailwind color classes for the icon container, e.g. "bg-blue-100 text-blue-600" */
+  /**
+   * @deprecated Ignored. Semantic state is `chip`; decorative hue is not a thing
+   * this system has. Retained only so existing call sites still type-check.
+   */
   iconColor?: string;
-  /** When true, applies amber warning styling */
+  /** When true, applies the warning tone. */
   urgent?: boolean;
+  /** Semantic state of the icon chip: neutral | success | warning | danger. */
+  chip?: StatChip;
+  /** Rank of the figure. A metric that matters should say so with size. */
+  rank?: "inline" | "section" | "hero";
+  /** Provenance — what this counts and over what window. */
+  dateline?: string;
+  /** Shown when there is genuinely no prior figure to compare against. */
+  deltaWithheld?: string;
   className?: string;
 }
 
@@ -28,43 +60,39 @@ export function MetricCard({
   trend,
   trendUp,
   sub,
-  icon: Icon,
-  iconColor = "bg-slate-100 text-slate-500",
+  icon,
   urgent = false,
+  chip,
+  rank = "inline",
+  dateline,
+  deltaWithheld,
   className,
 }: MetricCardProps) {
   return (
     <div
-      className={cn(
-        "bg-card rounded-2xl border shadow-card p-4 transition-shadow hover:shadow-elevated",
-        urgent ? "border-warning-border bg-warning-soft" : "border-border",
-        className,
-      )}
+      data-rung={2}
+      data-tone={urgent ? "warning" : undefined}
+      className={cn("border border-border p-4", className)}
     >
-      <div className="flex items-center justify-between mb-2">
-        {Icon && (
-          <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", iconColor)}>
-            <Icon className="h-4 w-4" />
-          </div>
-        )}
-        {trend && (
-          <span
-            className={cn(
-              "text-xs font-semibold flex items-center gap-0.5 ml-auto",
-              trendUp ? "text-success" : "text-destructive",
-            )}
-          >
-            {trendUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {trend}
-          </span>
-        )}
-        {urgent && !trend && (
-          <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse ml-auto" />
-        )}
-      </div>
-      <p className="text-xl font-bold text-slate-800">{value}</p>
-      <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-      {sub && <p className="text-xs text-muted-foreground/70">{sub}</p>}
+      <Stat
+        label={label}
+        value={value}
+        rank={rank}
+        icon={icon}
+        chip={chip ?? (urgent ? "warning" : undefined)}
+        note={sub}
+        dateline={dateline}
+        deltaWithheld={deltaWithheld}
+        delta={
+          trend
+            ? {
+                value: trend,
+                direction: trendUp === undefined ? "flat" : trendUp ? "up" : "down",
+                tone: trendUp === undefined ? "neutral" : trendUp ? "success" : "danger",
+              }
+            : undefined
+        }
+      />
     </div>
   );
 }

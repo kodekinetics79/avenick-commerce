@@ -5,6 +5,18 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@avenick/utils";
 
+/**
+ * Dialog — the Radix-composed API, kept intact for existing call sites.
+ *
+ * It now wears the Layer material: a scrim that blurs and darkens together, a
+ * rung-5 panel that arrives on Z from behind rather than sliding, and the light
+ * seam on its top edge. The `animate-in`/`fade-in-0`/`zoom-in-95` classes it
+ * used before came from tailwindcss-animate, which is not in this project's
+ * plugin list — so the old dialog had no animation at all, it just appeared.
+ *
+ * For NEW work prefer <Layer>: one component covers the modal, the drawer and
+ * the bottom sheet, and its `side` is logical so it is correct in Arabic.
+ */
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
@@ -16,10 +28,9 @@ const DialogOverlay = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
-    className={cn(
-      "fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
-      className,
-    )}
+    // hsl(var(--scrim)) rather than bg-black/60: a hue-matched scrim over a warm
+    // page does not read as soot, and it has a distinct dark-mode value.
+    className={cn("u-layer-scrim", className)}
     {...props}
   />
 ));
@@ -33,15 +44,21 @@ const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      data-side="center"
+      data-rung={5}
+      data-glass="true"
+      data-layer=""
+      // start-1/2, not left-1/2: the centring translate has to mirror in Arabic
+      // or the panel lands off-centre.
       className={cn(
-        "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border border-border bg-background p-6 shadow-xl duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
+        "u-layer-panel start-1/2 top-1/2 grid w-[calc(100vw-2rem)] max-w-lg gap-4 rounded-lg p-6",
         className,
       )}
       {...props}
     >
       {children}
-      <DialogClose className="absolute end-4 top-4 rounded-xl opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-        <X className="h-4 w-4" />
+      <DialogClose className="u-focus absolute end-4 top-4 grid h-8 w-8 place-items-center rounded-nested text-ink-3 transition-colors duration-press ease-standard hover:bg-ink-1/5 hover:text-ink-1 disabled:pointer-events-none">
+        <X className="h-4 w-4" aria-hidden="true" />
         <span className="sr-only">Close</span>
       </DialogClose>
     </DialogPrimitive.Content>
@@ -55,7 +72,7 @@ const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
 DialogHeader.displayName = "DialogHeader";
 
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2", className)} {...props} />
+  <div className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)} {...props} />
 );
 DialogFooter.displayName = "DialogFooter";
 
@@ -65,7 +82,7 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("text-lg font-bold leading-none tracking-tight", className)}
+    className={cn("u-h3 text-ink-1", className)}
     {...props}
   />
 ));
@@ -77,7 +94,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
+    className={cn("u-ui text-ink-2", className)}
     {...props}
   />
 ));

@@ -3,13 +3,15 @@
 import * as React from "react";
 import Link from "next/link";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { AIInsightCard } from "@avenick/ui";
+import {
+  Button, CellGrid, Dateline, Divider, EmptyState, Eyebrow, FieldWell,
+  LedgerTable, Meter, Num, SectionHeader, Stat, StatusPill, Surface, TierMark,
+  type StatDelta,
+} from "@avenick/ui";
 import type { ExecutiveKpis } from "@avenick/database";
 import {
-  TrendingUp, Building2, Users, Store, ShoppingCart, Coins, Scale, Truck,
-  Boxes, FileQuestion, ArrowRight, Brain, Plus, UserPlus, Megaphone,
-  AlertTriangle, ChevronRight, Star, TrendingDown, PieChart, Tag,
-  ArrowUpRight, ArrowDownRight, Sparkles,
+  TrendingUp, TrendingDown, Building2, Users, Store, ShoppingCart, Coins, Truck,
+  Boxes, FileQuestion, ArrowRight, Circle, Plus, UserPlus, Megaphone, Tag,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -50,34 +52,21 @@ export interface DashboardViewProps {
 }
 
 /* ── Reusable bits ─────────────────────────────────────── */
-/**
- * A month-over-month delta. Direction comes from the sign of the number, never
- * from a hard-coded "up" flag: the previous version painted every KPI green
- * with an up arrow regardless of the value. The title says what was compared:
- * the running month against the previous whole month, which also holds for
- * the cards whose headline figure is an all-time total.
- */
-function Trend({ percent }: { percent: number }) {
-  const up = percent >= 0;
-  return (
-    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${up ? "text-success" : "text-danger"}`} title="This month so far against the previous whole month">
-      {up ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
-      {up ? "+" : ""}{percent}%
-    </span>
-  );
-}
 
 /**
- * Takes the badge's place when the service reports null: nothing was recorded
- * in the previous month, so there is no delta to state. An empty corner would
- * let the reader assume "flat"; saying what was withheld costs one line.
+ * A month-over-month delta, in the shape <Stat> renders it. Direction comes from
+ * the sign of the number, never from a hard-coded "up" flag: an earlier version
+ * painted every KPI green with an up arrow regardless of the value. A measured
+ * 0 is a flat month and reads as one — neither green nor red.
+ *
+ * The window being compared is stated once, as the panel's dateline, rather than
+ * hidden in a title attribute on each badge where no keyboard or screen-reader
+ * user would ever reach it.
  */
-function TrendWithheld() {
-  return (
-    <span className="text-[11px] text-muted-foreground" title="Not measured: nothing was recorded in the previous month to compare against">
-      No prior-month figure
-    </span>
-  );
+function trendOf(percent: number): StatDelta {
+  if (percent === 0) return { value: "0%", direction: "flat", tone: "neutral" };
+  const up = percent > 0;
+  return { value: `${up ? "+" : ""}${percent}%`, direction: up ? "up" : "down", tone: up ? "success" : "danger" };
 }
 
 /**
@@ -89,37 +78,15 @@ function amount(n: number): string {
   return n.toLocaleString("en", { maximumFractionDigits: 0 });
 }
 
-function Bars({ ratio, gradient = true }: { ratio: number; gradient?: boolean }) {
-  const filled = Math.max(1, Math.round(ratio * 20));
-  return (
-    <div className="flex gap-0.5 h-2">
-      {Array.from({ length: 20 }).map((_, i) => (
-        <div
-          key={i}
-          className={`flex-1 rounded-full ${i < filled ? (gradient ? "bg-gradient-to-r from-primary-500 to-accent-500" : "bg-primary") : "bg-secondary"}`}
-        />
-      ))}
-    </div>
-  );
-}
-
-function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={`rounded-2xl border border-border bg-card shadow-card ${className}`}>{children}</div>;
-}
-
-function PanelHead({ title, sub, icon: Icon, action }: { title: string; sub?: string; icon: React.ElementType; action?: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-      <div className="flex items-center gap-2.5 min-w-0">
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-secondary text-muted-foreground"><Icon className="h-4 w-4" /></span>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold truncate">{title}</p>
-          {sub && <p className="text-xs text-muted-foreground truncate">{sub}</p>}
-        </div>
-      </div>
-      {action}
-    </div>
-  );
+/** A signal on the attention ledger: one live count and where to go about it. */
+interface Signal {
+  key: string;
+  label: string;
+  note?: string;
+  value: number;
+  href: string;
+  /** "warning" and "danger" are the two states that need a person. */
+  tone: "danger" | "warning" | "neutral";
 }
 
 export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, activeSuppliers, pendingCount }: DashboardViewProps) {
@@ -129,31 +96,52 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
   // month to compare against, or a figure it never compares at all — and the
   // card says so instead of showing a badge. A 0 that does arrive is a
   // measured flat month and is shown as one.
-  const heroKpis: { label: string; value: string; icon: React.ElementType; trend: number | null; hero?: boolean }[] = [
-    { label: "Gross merchandise value (this month)", value: amount(gmvMonth), icon: TrendingUp, trend: k.gmvTrend, hero: true },
+  const revenueKpis: { label: string; value: string; icon: React.ElementType; trend: number | null; rank: "hero" | "section" }[] = [
+    // Labels are short enough to survive the micro-caps step without being
+    // truncated: losing "· this month" would turn a monthly figure into an
+    // unqualified one, which is exactly the kind of quiet untruth this codebase
+    // spent a hardening programme removing.
+    { label: "GMV · this month", value: amount(gmvMonth), icon: TrendingUp, trend: k.gmvTrend, rank: "hero" },
     // The service computes the B2B/B2C split and commission over all paid
     // orders, not the current month, so the labels say so; each trend is that
     // channel's own month-over-month movement.
-    { label: "B2B revenue (all time)", value: amount(k.b2bRevenue), icon: Building2, trend: k.b2bTrend },
-    { label: "B2C revenue (all time)", value: amount(k.b2cRevenue), icon: ShoppingCart, trend: k.b2cTrend },
-    { label: "Commission (all time)", value: amount(k.commission), icon: Coins, trend: k.commissionTrend },
+    { label: "B2B revenue · all time", value: amount(k.b2bRevenue), icon: Building2, trend: k.b2bTrend, rank: "section" },
+    { label: "B2C revenue · all time", value: amount(k.b2cRevenue), icon: ShoppingCart, trend: k.b2cTrend, rank: "section" },
+    { label: "Commission · all time", value: amount(k.commission), icon: Coins, trend: k.commissionTrend, rank: "section" },
   ];
 
-  const statKpis = [
+  const countKpis: { label: string; value: string | number; unit?: string; icon: React.ElementType }[] = [
     { label: "Active companies", value: activeCompanies || k.activeCompanies, icon: Building2 },
     { label: "B2C customers", value: k.activeCustomers.toLocaleString(), icon: Users },
     { label: "Active suppliers", value: activeSuppliers || k.activeSuppliers, icon: Store },
-    { label: "RFQ conversion", value: `${k.rfqConversion}%`, icon: FileQuestion },
-    { label: "Fulfillment rate", value: `${k.fulfillmentRate}%`, icon: TrendingUp },
-    { label: "Warehouse use", value: `${k.warehouseUtilization}%`, icon: Boxes },
+    { label: "RFQ conversion", value: k.rfqConversion, unit: "%", icon: FileQuestion },
+    { label: "Fulfillment rate", value: k.fulfillmentRate, unit: "%", icon: TrendingUp },
+    { label: "Warehouse use", value: k.warehouseUtilization, unit: "%", icon: Boxes },
   ];
 
-  const alerts = [
-    { label: "Open disputes", value: k.openDisputes, sub: "awaiting resolution", icon: Scale, href: "/disputes" },
+  // One ledger for everything that might need a person, instead of the three
+  // separate shapes this page used to render the same signals in. The service's
+  // severity is "warn" or "ok" and nothing else — the previous version tested
+  // for "danger", which never arrives, so every healthy row was painted amber.
+  const signals: Signal[] = [
+    ...exec.operationalHealth.map<Signal>((item) => ({
+      key: item.label,
+      label: item.label,
+      value: item.value,
+      href: item.href,
+      tone: item.severity === "warn" ? "warning" : "neutral",
+    })),
     // The service counts paid orders still CONFIRMED/PROCESSING past its own
     // age threshold; no SLA is published, so none is claimed here.
-    { label: "Delayed orders", value: k.delayedOrders, sub: "paid, still awaiting shipment", icon: AlertTriangle, href: "/orders?status=PROCESSING" },
-  ].filter((a) => a.value > 0);
+    { key: "delayed", label: "Delayed orders", note: "paid, still awaiting shipment", value: k.delayedOrders, href: "/orders?status=PROCESSING", tone: "danger" as const },
+    { key: "disputes", label: "Open disputes", note: "awaiting resolution", value: k.openDisputes, href: "/disputes", tone: "danger" as const },
+  ]
+    // A danger signal at zero is not a signal; a health row at zero still is,
+    // because "0 open tickets" is a reading an operator came here to take.
+    .filter((s) => s.tone !== "danger" || s.value > 0)
+    .sort((a, b) => Number(b.tone !== "neutral") - Number(a.tone !== "neutral"));
+
+  const flagged = signals.filter((s) => s.tone !== "neutral").length;
 
   const revTotal = exec.revenueSplit.b2b + exec.revenueSplit.b2c;
   const b2bPct = revTotal > 0 ? Math.round((exec.revenueSplit.b2b / revTotal) * 100) : 0;
@@ -163,263 +151,400 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
 
   return (
     <AdminLayout pendingCount={pendingCount}>
-      {/* Hero band */}
-      <div className="relative overflow-hidden rounded-3xl border border-border bg-card mb-8">
-        <div className="absolute inset-0 bg-grid opacity-50" />
-        <div className="absolute -top-16 end-10 h-56 w-56 rounded-full bg-primary/15 blur-[100px]" />
-        <div className="relative px-6 py-7 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-          <div>
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" /> Database-backed marketplace overview
-            </span>
-            <h1 className="mt-2 text-3xl font-extrabold tracking-tight">Executive Command Center</h1>
-            <p className="mt-1.5 text-sm text-muted-foreground max-w-xl">
-              Database-backed marketplace performance across B2B and B2C — revenue, suppliers, fulfillment, and rule-based actions.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {QUICK_ACTIONS.map(({ label, icon: Icon, href }) => (
-              <Link key={label} href={href} className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-border bg-background text-sm font-medium hover:bg-secondary transition-colors">
-                <Icon className="h-3.5 w-3.5" /> {label}
-              </Link>
-            ))}
-            <Link href="/ai-insights" className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">
-              <Brain className="h-3.5 w-3.5" /> AI Insights
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-8">
-        {/* Hero KPIs */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {heroKpis.map((kpi) => (
-            <div
-              key={kpi.label}
-              className={`relative overflow-hidden rounded-2xl border p-5 transition-all hover:-translate-y-0.5 ${
-                kpi.hero
-                  ? "border-primary/30 bg-gradient-to-br from-primary/10 to-accent/5 shadow-glow-sm"
-                  : "border-border bg-card hover:border-primary/30"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span className={`grid h-9 w-9 place-items-center rounded-xl ${kpi.hero ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}>
-                  <kpi.icon className="h-4 w-4" />
-                </span>
-                {kpi.trend !== null ? <Trend percent={kpi.trend} /> : <TrendWithheld />}
-              </div>
-              <p className="mt-4 text-2xl font-bold font-mono tracking-tight">{kpi.value}</p>
-              <p className="text-xs text-muted-foreground mt-1">{kpi.label}</p>
+      {/* Sections are separated by --space-section (32px in admin) while the
+          grids inside them use 16px, so the page has a real rhythm: a section
+          break reads as bigger than a card break. space-y-block would have made
+          both 16px, which is a stack of undifferentiated slabs. */}
+      <div className="space-y-section">
+        {/* The command band is RECESSED, because it is context: it names the
+            screen and states what the figures below are. The buttons on it stay
+            raised, because they are the actions. That is the whole elevation law
+            in one component — and it is why the blur-[100px] orb and the grid
+            overlay that used to sit here are gone: neither carried information. */}
+        <FieldWell className="p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="min-w-0">
+              <Eyebrow>Platform operations</Eyebrow>
+              <h1 className="u-h1 mt-1 text-ink-1">Executive Command Center</h1>
+              <p className="u-body mt-1.5 max-w-prose text-ink-2">
+                Marketplace performance across B2B and B2C — revenue, suppliers, fulfillment, and rule-based actions.
+              </p>
+              <Dateline className="mt-2">
+                Every figure on this page is read from the platform database at request time.
+              </Dateline>
             </div>
-          ))}
-        </div>
-        <p className="-mt-5 text-[11px] text-muted-foreground">
-          Amounts are paid order totals summed as recorded in each order&apos;s own currency; no conversion between currencies is applied.
-        </p>
-
-        {/* Stat strip + alerts */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          {statKpis.map((kpi) => (
-            <div key={kpi.label} className="rounded-2xl border border-border bg-card p-4 hover:border-primary/30 transition-colors">
-              <div className="flex items-center gap-2 text-muted-foreground mb-2.5">
-                <kpi.icon className="h-4 w-4" />
-                <span className="text-[11px] truncate">{kpi.label}</span>
-              </div>
-              <p className="text-xl font-bold font-mono tracking-tight">{kpi.value}</p>
-            </div>
-          ))}
-        </div>
-
-        {alerts.length > 0 && (
-          <div className="grid sm:grid-cols-2 gap-3">
-            {alerts.map((a) => (
-              <Link key={a.label} href={a.href} className="flex items-center justify-between rounded-2xl border border-danger/30 bg-danger/5 p-4 hover:bg-danger/10 transition-colors">
-                <div className="flex items-center gap-3">
-                  <span className="grid h-10 w-10 place-items-center rounded-xl bg-danger/15 text-danger"><a.icon className="h-5 w-5" /></span>
-                  <div>
-                    <p className="font-semibold text-sm">{a.value} {a.label.toLowerCase()}</p>
-                    <p className="text-xs text-muted-foreground">{a.sub}</p>
-                  </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-            ))}
-          </div>
-        )}
-
-        {/* Rule-based recommendations + operational health */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <section className="lg:col-span-2">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <h2 className="text-base font-semibold">Operational recommendations</h2>
-              </div>
-              <Link href="/ai-insights" className="text-sm text-primary hover:underline font-medium flex items-center gap-1">AI status <ArrowRight className="h-3 w-3" /></Link>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {exec.aiRecommendations.map((rec) => (
-                <AIInsightCard
-                  key={rec.title}
-                  icon={ICON_MAP[rec.icon] ?? Brain}
-                  iconStyle={rec.iconStyle}
-                  title={rec.title}
-                  description={rec.description}
-                  confidence={rec.confidence}
-                  tag={rec.tag}
-                  tagStyle={rec.tagStyle}
-                  actionLabel={rec.actionLabel}
-                  actionHref={rec.actionHref}
-                />
+            <div className="flex flex-wrap items-center gap-2">
+              {QUICK_ACTIONS.map(({ label, icon: Icon, href }) => (
+                <Button key={label} variant="secondary" size="sm" asChild>
+                  <Link href={href}>
+                    <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {label}
+                  </Link>
+                </Button>
               ))}
             </div>
-          </section>
+          </div>
+        </FieldWell>
 
-          <section>
-            <h2 className="text-base font-semibold mb-4">Operational health</h2>
-            <Panel className="overflow-hidden divide-y divide-border">
-              {exec.operationalHealth.map((item) => {
-                const danger = item.severity === "danger";
+        {/* What is wrong right now, first — before the money. A console exists to
+            be acted on, and this is the only block on the page that is a queue. */}
+        <section aria-label="Operational signals">
+          <SectionHeader
+            title="Operational signals"
+            description={
+              flagged > 0
+                ? `${flagged} of ${signals.length} ${flagged === 1 ? "needs" : "need"} attention.`
+                : `${signals.length} tracked, none currently flagged.`
+            }
+            dateline="Live counts of seller applications, support tickets, stock lines and unfulfilled paid orders."
+          />
+          <LedgerTable
+            rows={signals}
+            getRowKey={(s) => s.key}
+            density="compact"
+            columns={[
+              {
+                key: "label",
+                label: "Signal",
+                render: (s) => (
+                  <>
+                    <Link
+                      href={s.href}
+                      className="u-focus rounded-nested font-medium text-ink-1 underline-offset-4 hover:underline"
+                    >
+                      {s.label}
+                    </Link>
+                    {s.note && <span className="u-meta ms-1.5 text-ink-3">{s.note}</span>}
+                  </>
+                ),
+              },
+              { key: "value", label: "Count", numeric: true, width: "96px" },
+              {
+                key: "tone",
+                label: "State",
+                align: "end",
+                width: "128px",
+                render: (s) => (
+                  <StatusPill tone={s.tone} dot={s.tone !== "neutral"}>
+                    {s.tone === "neutral" ? "Clear" : "Needs attention"}
+                  </StatusPill>
+                ),
+              },
+            ]}
+            empty={
+              <EmptyState
+                eyebrow="Nothing flagged"
+                headline="No operational signal is currently being tracked."
+                body="Seller applications, support tickets, stock lines and unfulfilled paid orders appear here as soon as the platform records any."
+              />
+            }
+          />
+        </section>
+
+        {/* Rule-derived actions. The old cards carried a "Confidence 100%" meter
+            on every row — a confidence score for a deterministic count, which is
+            exactly the sort of claim this codebase spent a hardening programme
+            removing. The provenance line below says what these actually are. */}
+        <section aria-label="Recommended actions">
+          <SectionHeader
+            title="Recommended actions"
+            dateline="Derived by fixed rules from the live counts above. No model is involved and nothing here is a prediction."
+            action={
+              <Link href="/ai-insights" className="u-focus u-ui rounded-nested text-primary-ink underline-offset-4 hover:underline">
+                AI status
+              </Link>
+            }
+          />
+          {exec.aiRecommendations.length === 0 ? (
+            <Surface rung={2}>
+              <EmptyState
+                eyebrow="No rule triggered"
+                headline="Nothing needs routing right now."
+                body="A recommendation appears here when seller applications, unfulfilled paid orders, low stock lines or unassigned RFQs cross their thresholds."
+              />
+            </Surface>
+          ) : (
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {exec.aiRecommendations.map((rec) => {
+                // A plain mark, not a brain: the service only ever emits the six
+                // names above, and a fallback that implied a model would contradict
+                // the provenance line directly beneath this heading.
+                const Icon = ICON_MAP[rec.icon] ?? Circle;
                 return (
-                  <Link key={item.label} href={item.href} className="flex items-center justify-between px-4 py-3.5 hover:bg-secondary transition-colors">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className={`h-2 w-2 rounded-full shrink-0 ${danger ? "bg-danger" : "bg-warning"}`} />
-                      <span className="text-sm truncate">{item.label}</span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={`text-sm font-bold font-mono ${danger ? "text-danger" : "text-warning"}`}>{item.value}</span>
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                    </div>
+                  // The whole card is the link. Raised = actionable, so it sits
+                  // at rung 2 and crosses to 3 on hover; nothing is nested inside
+                  // the anchor that would itself be interactive, which is what
+                  // keeps a single tab stop per recommendation.
+                  <Link key={rec.title} href={rec.actionHref} className="u-focus block rounded-lg no-underline">
+                    <Surface rung={2} interactive className="flex h-full items-start gap-3 p-4">
+                      <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-nested bg-neutral-soft text-ink-3">
+                        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-center gap-2">
+                          <span className="u-ui font-medium text-ink-1">{rec.title}</span>
+                          {/* The tag names a domain, not a severity, so it is
+                              neutral — the four raw hues it used to carry
+                              (amber / blue / red / purple) said nothing. */}
+                          {rec.tag && <StatusPill>{rec.tag}</StatusPill>}
+                        </span>
+                        <span className="u-meta mt-1 block text-ink-2">{rec.description}</span>
+                        <span className="u-meta mt-2 inline-flex items-center gap-1 font-medium text-primary-ink">
+                          {rec.actionLabel}
+                          {/* A direction-implying icon must flip in Arabic. */}
+                          <ArrowRight className="h-3 w-3 rtl:rotate-180" aria-hidden="true" />
+                        </span>
+                      </span>
+                    </Surface>
                   </Link>
                 );
               })}
-            </Panel>
-            {pendingCount > 0 && (
-              <Link href="/sellers/pending" className="mt-3 flex items-center justify-between rounded-2xl border border-warning/30 bg-warning/5 p-4 hover:bg-warning/10 transition-colors">
-                <div>
-                  <p className="font-semibold text-sm">{pendingCount} supplier{pendingCount !== 1 ? "s" : ""} awaiting review</p>
-                  <p className="text-xs text-muted-foreground">Approve or reject pending applications</p>
+            </div>
+          )}
+        </section>
+
+        {/* The money. One panel divided by hairlines, not four floating cards,
+            with the month's GMV promoted to hero rank so the grid has an
+            unmistakable first reading. */}
+        <section aria-label="Recorded revenue">
+          <SectionHeader title="Recorded revenue" />
+          <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
+            {revenueKpis.map((kpi) => (
+              <Stat
+                key={kpi.label}
+                label={kpi.label}
+                value={kpi.value}
+                rank={kpi.rank}
+                icon={kpi.icon}
+                delta={kpi.trend !== null ? trendOf(kpi.trend) : undefined}
+                // Nothing was recorded in the previous month, so there is no
+                // delta to state. An empty corner would let the reader assume
+                // "flat"; saying what was withheld costs one line.
+                deltaWithheld={kpi.trend === null ? "No prior-month figure" : undefined}
+              />
+            ))}
+          </CellGrid>
+          <Dateline className="mt-2">
+            Paid order totals summed as recorded in each order&apos;s own currency; no conversion between currencies is
+            applied. Deltas compare this month so far against the previous whole month.
+          </Dateline>
+        </section>
+
+        {/* Point-in-time counts, at inline rank so they read as subordinate to
+            the revenue panel above rather than competing with it. */}
+        <section aria-label="Platform counts">
+          <SectionHeader title="Platform counts" />
+          <CellGrid cols={{ base: 2, sm: 3, lg: 6 }} density="compact">
+            {countKpis.map((kpi) => (
+              <Stat key={kpi.label} label={kpi.label} value={kpi.value} unit={kpi.unit} icon={kpi.icon} />
+            ))}
+          </CellGrid>
+          <Dateline className="mt-2">Point-in-time counts and ratios; no prior period is compared.</Dateline>
+        </section>
+
+        {/* Flow. Thirty divs of hand-rolled segment bars, each carrying a raw
+            bg-green-500 / bg-amber-500 / bg-purple-500, are now one <Meter> per
+            reading: a recessed track with a raised fill, scaled on X from the
+            inline start so it is correct in Arabic without a mirrored rule. */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <Surface rung={2} className="p-4">
+            <SectionHeader title="Revenue split" description="B2B against B2C, as recorded" />
+            <Num value={amount(revTotal)} rank="section" />
+            <Eyebrow className="mt-0.5">Total recorded</Eyebrow>
+            <div className="mt-4 space-y-3">
+              <div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="u-ui text-ink-2">B2B</span>
+                  <span className="fig u-ui text-ink-1">{amount(exec.revenueSplit.b2b)} · {b2bPct}%</span>
                 </div>
-                <ArrowRight className="h-4 w-4 text-warning" />
+                <Meter className="mt-1.5" value={exec.revenueSplit.b2b} max={Math.max(1, revTotal)} tone="accent" label="B2B share of recorded revenue" />
+              </div>
+              <div>
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="u-ui text-ink-2">B2C</span>
+                  <span className="fig u-ui text-ink-1">{amount(exec.revenueSplit.b2c)} · {revTotal > 0 ? 100 - b2bPct : 0}%</span>
+                </div>
+                <Meter className="mt-1.5" value={exec.revenueSplit.b2c} max={Math.max(1, revTotal)} tone="accent" index={1} label="B2C share of recorded revenue" />
+              </div>
+            </div>
+          </Surface>
+
+          <Surface rung={2} className="p-4">
+            <SectionHeader
+              title="RFQ funnel"
+              description="Submitted through accepted"
+              action={
+                <Link href="/rfqs" className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline">
+                  View
+                </Link>
+              }
+            />
+            <div className="space-y-2.5">
+              {exec.rfqFunnel.map((s, i) => (
+                <div key={s.stage}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="u-meta text-ink-2">{s.stage}</span>
+                    <span className="fig u-meta text-ink-1">{s.count}</span>
+                  </div>
+                  <Meter className="mt-1" value={s.count} max={rfqMax} tone="accent" size="sm" index={i} label={`${s.stage}: ${s.count}`} />
+                </div>
+              ))}
+            </div>
+          </Surface>
+
+          <Surface rung={2} className="p-4">
+            <SectionHeader
+              title="Order lifecycle"
+              description="Active pipeline"
+              action={
+                <Link href="/orders" className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline">
+                  View
+                </Link>
+              }
+            />
+            <div className="space-y-2.5">
+              {exec.orderLifecycle.map((s, i) => (
+                <div key={s.stage}>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="u-meta text-ink-2">{s.stage}</span>
+                    <span className="fig u-meta text-ink-1">{s.count}</span>
+                  </div>
+                  <Meter className="mt-1" value={s.count} max={lifeMax} tone="accent" size="sm" index={i} label={`${s.stage}: ${s.count}`} />
+                </div>
+              ))}
+            </div>
+          </Surface>
+        </div>
+
+        {/* Three ledgers. Each one now has to declare an empty state, which is
+            what the hand-rolled divide-y lists could silently skip. */}
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <LedgerTable
+            title="Top categories"
+            dateline="By share of recorded GMV"
+            rows={exec.topCategories}
+            getRowKey={(c) => c.name}
+            density="compact"
+            columns={[
+              {
+                key: "name",
+                label: "Category",
+                render: (c) => (
+                  <>
+                    <span className="block truncate text-ink-1">{c.name}</span>
+                    <Meter className="mt-1" value={c.share} max={catMax} tone="accent" size="sm" label={`${c.name}: ${c.share}% of recorded GMV`} />
+                  </>
+                ),
+              },
+              { key: "share", label: "Share", numeric: true, width: "64px", render: (c) => `${c.share}%` },
+              { key: "gmv", label: "GMV", numeric: true, render: (c) => amount(c.gmv) },
+            ]}
+            empty={
+              <EmptyState
+                eyebrow="Nothing recorded"
+                headline="No category has recorded GMV yet."
+                body="A category appears here once a paid order contains a product in it."
+                icon={<Tag className="h-3.5 w-3.5" aria-hidden="true" />}
+              />
+            }
+          />
+
+          <LedgerTable
+            title="Top suppliers"
+            dateline="By recorded GMV, as stored"
+            toolbar={
+              <Link href="/sellers" className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline">
+                All suppliers
               </Link>
-            )}
-          </section>
+            }
+            rows={exec.topSuppliers}
+            getRowKey={(s) => s.name}
+            density="compact"
+            columns={[
+              {
+                key: "name",
+                label: "Supplier",
+                render: (s) => (
+                  <>
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <span className="truncate text-ink-1">{s.name}</span>
+                      {/* Tier is brass, and brass is scarce: only the tiers that
+                          mean something get a mark. STANDARD is the default and
+                          says nothing, so it earns none. */}
+                      {s.tier && s.tier !== "STANDARD" && <TierMark tier={s.tier} className="shrink-0" />}
+                    </span>
+                    <span className="u-meta block text-ink-3">
+                      {/* The service returns 0 when a supplier has no reviews; 0 is not a rating. */}
+                      {s.rating > 0 ? `Rated ${s.rating}` : "No reviews"}
+                    </span>
+                  </>
+                ),
+              },
+              { key: "orders", label: "Orders", numeric: true, width: "72px" },
+              { key: "gmv", label: "GMV", numeric: true, render: (s) => amount(s.gmv) },
+            ]}
+            empty={
+              <EmptyState
+                eyebrow="Nothing recorded"
+                headline="No supplier has recorded GMV yet."
+                body="A supplier appears here once one of their orders is paid."
+                icon={<Store className="h-3.5 w-3.5" aria-hidden="true" />}
+              />
+            }
+          />
+
+          <LedgerTable
+            title="Top customers"
+            dateline="By recorded spend, as stored"
+            toolbar={
+              <Link href="/crm" className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline">
+                CRM
+              </Link>
+            }
+            rows={topCustomers.slice(0, 5)}
+            getRowKey={(c) => c.id}
+            density="compact"
+            columns={[
+              {
+                key: "name",
+                label: "Customer",
+                render: (c) => (
+                  <>
+                    <span className="block truncate text-ink-1">{c.name}</span>
+                    <span className="u-meta block text-ink-3">{c.totalOrders} orders</span>
+                  </>
+                ),
+              },
+              {
+                key: "type",
+                label: "Type",
+                align: "end",
+                width: "72px",
+                render: (c) => <StatusPill tone={c.type === "B2B" ? "accent" : "neutral"}>{c.type}</StatusPill>,
+              },
+              { key: "totalSpent", label: "Spend", numeric: true, render: (c) => amount(c.totalSpent) },
+            ]}
+            empty={
+              <EmptyState
+                eyebrow="Nothing recorded"
+                headline="No customer has recorded spend yet."
+                body="A customer appears here once one of their orders is paid."
+                icon={<Users className="h-3.5 w-3.5" aria-hidden="true" />}
+              />
+            }
+          />
         </div>
 
-        {/* Charts bento */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Panel className="p-5">
-            <PanelHead title="Revenue split" sub="B2B vs B2C" icon={PieChart} />
-            <div className="p-0 pt-5">
-              <div className="flex items-end gap-2 mb-4">
-                <p className="text-3xl font-bold font-mono tracking-tight">{amount(revTotal)}</p>
-                <p className="text-xs text-muted-foreground mb-1.5">total, as recorded</p>
-              </div>
-              <div className="flex gap-0.5 h-3 mb-4 rounded-full overflow-hidden">
-                {Array.from({ length: 20 }).map((_, i) => (
-                  <div key={i} className={`flex-1 ${i < Math.round((b2bPct / 100) * 20) ? "bg-primary" : "bg-accent"}`} />
-                ))}
-              </div>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-primary" /> B2B</span>
-                  <span className="font-semibold font-mono">{amount(exec.revenueSplit.b2b)} · {b2bPct}%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-accent" /> B2C</span>
-                  <span className="font-semibold font-mono">{amount(exec.revenueSplit.b2c)} · {revTotal > 0 ? 100 - b2bPct : 0}%</span>
-                </div>
-              </div>
-            </div>
-          </Panel>
-
-          <Panel className="p-5">
-            <PanelHead title="RFQ funnel" sub="Created → accepted" icon={FileQuestion} action={<Link href="/rfqs" className="text-xs text-primary hover:underline font-medium">View</Link>} />
-            <div className="space-y-3 pt-5">
-              {exec.rfqFunnel.map((s) => (
-                <div key={s.stage}>
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="text-muted-foreground">{s.stage}</span>
-                    <span className="font-semibold font-mono">{s.count}</span>
-                  </div>
-                  <Bars ratio={s.count / rfqMax} />
-                </div>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel className="p-5">
-            <PanelHead title="Order lifecycle" sub="Active pipeline" icon={ShoppingCart} action={<Link href="/orders" className="text-xs text-primary hover:underline font-medium">View</Link>} />
-            <div className="space-y-3 pt-5">
-              {exec.orderLifecycle.map((s) => (
-                <div key={s.stage}>
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="text-muted-foreground">{s.stage}</span>
-                    <span className="font-semibold font-mono">{s.count}</span>
-                  </div>
-                  <Bars ratio={s.count / lifeMax} />
-                </div>
-              ))}
-            </div>
-          </Panel>
-        </div>
-
-        {/* Tables bento */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <Panel className="overflow-hidden">
-            <PanelHead title="Top categories" icon={Tag} />
-            <div className="p-5 space-y-3.5">
-              {exec.topCategories.map((c) => (
-                <div key={c.name}>
-                  <div className="flex items-center justify-between text-sm mb-1.5">
-                    <span className="font-medium">{c.name}</span>
-                    <span className="text-muted-foreground text-xs font-mono">{amount(c.gmv)}</span>
-                  </div>
-                  <Bars ratio={c.share / catMax} />
-                </div>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel className="overflow-hidden">
-            <PanelHead title="Top suppliers" icon={Store} action={<Link href="/sellers" className="text-xs text-primary hover:underline font-medium">All</Link>} />
-            <div className="divide-y divide-border">
-              {exec.topSuppliers.map((s, i) => (
-                <div key={s.name} className="flex items-center justify-between px-5 py-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="grid place-items-center h-6 w-6 rounded-lg bg-secondary text-xs font-bold text-muted-foreground shrink-0">{i + 1}</span>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{s.name}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        {/* The service returns 0 when a supplier has no reviews; 0 is not a rating. */}
-                        {s.rating > 0 ? <><Star className="h-3 w-3 text-amber-400 fill-current" /> {s.rating}</> : "No reviews"} · {s.orders} orders
-                      </p>
-                    </div>
-                  </div>
-                  <span className="text-sm font-semibold font-mono shrink-0">{amount(s.gmv)}</span>
-                </div>
-              ))}
-            </div>
-          </Panel>
-
-          <Panel className="overflow-hidden">
-            <PanelHead title="Top customers" icon={Users} action={<Link href="/crm" className="text-xs text-primary hover:underline font-medium">CRM</Link>} />
-            <div className="divide-y divide-border">
-              {topCustomers.slice(0, 5).map((c) => (
-                <div key={c.id} className="flex items-center justify-between px-5 py-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{c.name}</p>
-                    <p className="text-xs text-muted-foreground">{c.totalOrders} orders</p>
-                  </div>
-                  <div className="text-end shrink-0">
-                    <p className="text-sm font-semibold font-mono">{amount(c.totalSpent)}</p>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${c.type === "B2B" ? "bg-accent/15 text-accent" : "bg-primary/15 text-primary"}`}>{c.type}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Panel>
-        </div>
+        {/* The one rule on the page that is not a table's own: it closes the
+            console the way a printed report closes, rather than the content
+            simply stopping. */}
+        <Divider tone="hairline" />
+        {/* <Dateline>, not a hand-written .u-provenance paragraph: the
+            provenance voice has a component, and a page that reimplements it
+            locally is where a second dialect starts. */}
+        <Dateline className="pb-2">
+          Figures are read from the platform database when this page is requested. Nothing on this screen is cached,
+          estimated or projected.
+        </Dateline>
       </div>
     </AdminLayout>
   );
