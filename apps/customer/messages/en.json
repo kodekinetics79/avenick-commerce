@@ -218,6 +218,12 @@
     "catOffice": "Office supplies",
     "catSafety": "Safety & PPE",
     "catHospitality": "Hospitality",
-    "catBuilding": "Building materials"
+    "catBuilding": "Building materials",
+    "shopByCategory": "Shop by category",
+    "allProducts": "All products",
+    "browseAllProducts": "Browse all products",
+    "emptyEyebrow": "Nothing published",
+    "emptyHeadline": "The catalogue has no published listings to show yet.",
+    "emptyBody": "A product appears here once a seller publishes it and it is discoverable in this storefront."
   }
 }

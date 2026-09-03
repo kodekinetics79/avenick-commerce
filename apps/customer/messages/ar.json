@@ -218,6 +218,12 @@
     "catOffice": "لوازم المكاتب",
     "catSafety": "السلامة ومعدات الوقاية الشخصية",
     "catHospitality": "الضيافة",
-    "catBuilding": "مواد البناء"
+    "catBuilding": "مواد البناء",
+    "shopByCategory": "تصفح حسب الفئة",
+    "allProducts": "كل المنتجات",
+    "browseAllProducts": "تصفح كل المنتجات",
+    "emptyEyebrow": "لا توجد منتجات منشورة",
+    "emptyHeadline": "لا توجد منتجات منشورة في الكتالوج بعد.",
+    "emptyBody": "يظهر المنتج هنا بمجرد نشره من قبل البائع وإتاحته للعرض في المتجر."
   }
 }

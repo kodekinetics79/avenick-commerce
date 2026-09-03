@@ -27,6 +27,8 @@ export default async function HomePage() {
   const cookieStore = await cookies();
   const locale = (cookieStore.get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
   const t = await getTranslations("home");
+  // "View all" is shared with the rest of the storefront, so it lives in common.
+  const tc = await getTranslations("common");
   // The category strip comes from the catalog, not from a list typed into this
   // page: a typed list kept advertising categories with nothing to sell.
   const [products, categories] = await Promise.all([getFeaturedProducts(), getPublicCategories()]);
@@ -119,14 +121,14 @@ export default async function HomePage() {
           plain link to all products rather than a decorative strip. */}
       <section className="mx-auto max-w-7xl px-4 pt-block">
         <div className="mb-3 flex items-baseline justify-between gap-4">
-          <Eyebrow as="h2">Shop by category</Eyebrow>
-          <ViewAllLink href="/products" label="All products" />
+          <Eyebrow as="h2">{t("shopByCategory")}</Eyebrow>
+          <ViewAllLink href="/products" label={t("allProducts")} />
         </div>
         {/* A <nav>, not a <div>. This strip is the storefront's primary category
             navigation — the brief's "reads as navigation rather than decoration"
             has to be true in the accessibility tree as well as on screen, and
             /deals already wraps its identical chip row in a labelled nav. */}
-        <nav aria-label="Shop by category" className="-mx-4 flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-2">
+        <nav aria-label={t("shopByCategory")} className="-mx-4 flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-2">
           {categories.length === 0 ? (
             <Surface rung={2} interactive className="shrink-0">
               <Link
@@ -134,7 +136,7 @@ export default async function HomePage() {
                 className="u-focus flex items-center gap-2.5 rounded-[inherit] px-4 py-3"
               >
                 <PackageSearch className="h-4 w-4 text-ink-3" aria-hidden="true" />
-                <span className="u-ui font-medium text-ink-1">Browse all products</span>
+                <span className="u-ui font-medium text-ink-1">{t("browseAllProducts")}</span>
               </Link>
             </Surface>
           ) : (
@@ -166,7 +168,7 @@ export default async function HomePage() {
 
       {/* ─── Catalog products ─────────────────────────────── */}
       {/* No badge: "HOT" asserts demand ranking the catalog does not compute. */}
-      <Section title={t("bestSellers")} subtitle={t("bestSellersSub")} href="/products">
+      <Section title={t("bestSellers")} subtitle={t("bestSellersSub")} href="/products" viewAllLabel={tc("viewAll")}>
         {productSections.catalog.length === 0 ? (
           // getFeaturedProducts swallows a failed fetch and returns [], and a
           // brand-new catalogue returns [] legitimately. Either way this section
@@ -174,13 +176,13 @@ export default async function HomePage() {
           // nothing at all, which reads as a grid that failed to paint. Law E:
           // an empty surface has to say what is empty and why.
           <EmptyState
-            eyebrow="Nothing published"
-            headline="The catalogue has no published listings to show yet."
-            body="A product appears here once a seller publishes it and it is discoverable in this storefront."
+            eyebrow={t("emptyEyebrow")}
+            headline={t("emptyHeadline")}
+            body={t("emptyBody")}
             icon={<PackageSearch className="h-3.5 w-3.5" aria-hidden="true" />}
             action={
               <Button variant="secondary" size="sm" asChild>
-                <Link href="/products">Browse all products</Link>
+                <Link href="/products">{t("browseAllProducts")}</Link>
               </Button>
             }
           />
@@ -224,7 +226,7 @@ export default async function HomePage() {
           section is dropped entirely when the feed holds nothing the catalog
           strip above did not already show. */}
       {productSections.more.length > 0 && (
-        <Section title={t("featuredProducts")} subtitle={t("featuredProductsSub")} href="/products">
+        <Section title={t("featuredProducts")} subtitle={t("featuredProductsSub")} href="/products" viewAllLabel={tc("viewAll")}>
           <ProductGrid columns={5}>
             {productSections.more.map((p, i) => (
               <Reveal key={p.id} index={i} className="h-full">
@@ -281,7 +283,7 @@ function ViewAllLink({ href, label }: { href: string; label: string }) {
   );
 }
 
-function Section({ title, subtitle, href, children }: { title: string; subtitle?: string; href: string; children: React.ReactNode }) {
+function Section({ title, subtitle, href, viewAllLabel, children }: { title: string; subtitle?: string; href: string; viewAllLabel: string; children: React.ReactNode }) {
   return (
     <section className="mx-auto max-w-7xl px-4 py-block">
       <div className="mb-5 flex items-end justify-between gap-4 border-b-2 border-border-strong pb-3">
@@ -289,7 +291,7 @@ function Section({ title, subtitle, href, children }: { title: string; subtitle?
           <h2 className="u-h2 text-ink-1">{title}</h2>
           {subtitle && <p className="u-meta mt-0.5 text-ink-2">{subtitle}</p>}
         </div>
-        <ViewAllLink href={href} label="View all" />
+        <ViewAllLink href={href} label={viewAllLabel} />
       </div>
       {children}
     </section>
