@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
-import { MessageSquare, Clock, CheckCircle2, Activity, ChevronDown, Mail, LogIn } from "lucide-react";
+import { MessageSquare, Clock, CheckCircle2, Activity, ChevronDown, Mail, LogIn, LifeBuoy } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { auth } from "@/lib/auth-instance";
 import { ValidatedForm } from "@/components/b2b/validated-form";
@@ -19,32 +19,78 @@ import {
   Textarea,
   type PillTone,
 } from "@avenick/ui";
+import { IDENTITY_LABEL_CLASS, IdentitySelect } from "../auth/identity-controls";
+import { LOCALE_COOKIE, toIdentityLocale } from "../auth/identity-copy";
 
-export const metadata = { title: `Support & Help Center — ${platformName()}` };
+/**
+ * The tab title is a user-visible string like any other, and it was the last
+ * English literal on this route: an Arabic reader's
+ * browser tab read "Support & Help Center" above a fully Arabic page. `metadata` is a static
+ * export and cannot read a cookie, so it becomes `generateMetadata` — the same
+ * accessor every other string on this track already uses. The route was already
+ * dynamic (force-dynamic), so this adds no rendering cost.
+ */
+export async function generateMetadata() {
+  const isAr = toIdentityLocale((await cookies()).get(LOCALE_COOKIE)?.value) === "ar";
+  return {
+    title: `${isAr ? "مركز المساعدة والدعم" : "Help centre"} — ${platformName()}`,
+  };
+}
 
 export const dynamic = "force-dynamic";
 
-const STATUS: Record<string, { label: string; tone: PillTone; icon: typeof Clock }> = {
-  OPEN: { label: "Open", tone: "warning", icon: Clock },
-  IN_PROGRESS: { label: "In progress", tone: "accent", icon: Activity },
-  RESOLVED: { label: "Resolved", tone: "success", icon: CheckCircle2 },
-  CLOSED: { label: "Closed", tone: "neutral", icon: CheckCircle2 },
+/**
+ * THE KEY IS THE STORED VALUE — `SupportTicket.status` — and it never
+ * localises; only the label does. A localised status written back to the column
+ * would be a data defect wearing a translation.
+ *
+ * The label used to be baked into this map as one English string, so an Arabic
+ * reader watched their own ticket sit at "In progress" beside six Arabic lines.
+ * That is the half-translated tell: it says the Arabic build is a setting rather
+ * than a design.
+ */
+const STATUS: Record<string, { tone: PillTone; icon: typeof Clock }> = {
+  OPEN: { tone: "warning", icon: Clock },
+  IN_PROGRESS: { tone: "accent", icon: Activity },
+  RESOLVED: { tone: "success", icon: CheckCircle2 },
+  CLOSED: { tone: "neutral", icon: CheckCircle2 },
+};
+
+const STATUS_LABELS: Record<"en" | "ar", Record<string, string>> = {
+  en: { OPEN: "Open", IN_PROGRESS: "In progress", RESOLVED: "Resolved", CLOSED: "Closed" },
+  ar: { OPEN: "مفتوحة", IN_PROGRESS: "قيد المعالجة", RESOLVED: "تمت المعالجة", CLOSED: "مغلقة" },
 };
 
 const CATEGORIES = ["ORDER", "DELIVERY", "PAYMENT", "PRODUCT", "ACCOUNT", "OTHER"];
 
+/** Display only. The KEY is what SupportTicket.category stores. */
+const CATEGORY_LABELS: Record<"en" | "ar", Record<string, string>> = {
+  en: {
+    ORDER: "Order",
+    DELIVERY: "Delivery",
+    PAYMENT: "Payment",
+    PRODUCT: "Product",
+    ACCOUNT: "Account",
+    OTHER: "Other",
+  },
+  ar: {
+    ORDER: "طلب",
+    DELIVERY: "توصيل",
+    PAYMENT: "دفع",
+    PRODUCT: "منتج",
+    ACCOUNT: "حساب",
+    OTHER: "أخرى",
+  },
+};
+
 /**
- * The recessed rung-1 control recipe, shared with the register and returns
- * forms. It wants to be a packages/ui primitive; that is a cross-track request.
- *
- * The focus ring comes from the .u-focus utility rather than a hand-written
- * shadow-[...] value. A page may not spell out a box-shadow of its own: five
- * rungs and one ring exist, and the first hand-rolled shadow in a page is what
- * lets a sixth appear.
+ * The category as a person reads it, in both the picker and the ticket row.
+ * The row used to print the raw enum — "ORDER" — which is an English database
+ * value shown to an Arabic reader, and shouted at an English one.
  */
-const CONTROL_CLASS =
-  "u-focus w-full border border-input bg-surface-1 px-3 text-ui text-ink-1 outline-none " +
-  "transition-[border-color,box-shadow] duration-press ease-standard";
+function categoryLabel(value: string, locale: "en" | "ar"): string {
+  return CATEGORY_LABELS[locale][value] ?? value;
+}
 
 // The brand name is read from the resolver so a renamed deployment does not
 // keep answering "what is <old name>?" in its own help centre.
@@ -77,11 +123,24 @@ const FAQS = [
 
 // Tickets arrive through the JSON API, so createdAt is an ISO string, not a
 // Date; formatting it without parsing threw for every user who had a ticket.
-const fmt = (d: string | Date) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+//
+// ONE NUMERAL SYSTEM, WESTERN, IN BOTH LOCALES — DESIGN_SYSTEM.md §2.3.
+// `ar-AE-u-nu-latn` is what pins it: without the extension the Arabic build
+// prints Arabic-Indic digits here and Western digits in every figure beside it.
+// The locale was hardcoded to "en-US", so an Arabic reader's own ticket was
+// dated in English on an otherwise Arabic page.
+const fmt = (d: string | Date, locale: "en" | "ar") =>
+  new Date(d).toLocaleDateString(locale === "ar" ? "ar-AE-u-nu-latn" : "en-GB", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 
 export default async function SupportPage() {
   const cookieStore = await cookies();
-  const locale = cookieStore.get("AVENICK_LOCALE")?.value ?? "en";
+  // The same accessor every other page on this track uses, so the support page
+  // and the account pages can never disagree about which language they are in.
+  const locale = toIdentityLocale(cookieStore.get(LOCALE_COOKIE)?.value);
   const isAr = locale === "ar";
   const session = await auth();
   const userId = session?.user?.id as string | undefined;
@@ -122,7 +181,7 @@ export default async function SupportPage() {
                   key={idx}
                   className={`${idx > 0 ? "border-t border-hairline" : ""} [&[open]_[data-disclosure-mark]]:rotate-180`}
                 >
-                  <summary className="u-focus flex cursor-pointer list-none items-center justify-between gap-3 p-4 transition-colors duration-press ease-standard hover:bg-ink-1/[0.03] [&::-webkit-details-marker]:hidden">
+                  <summary className="u-focus u-state-wash flex cursor-pointer list-none items-center justify-between gap-3 p-4 [&::-webkit-details-marker]:hidden">
                     <span className="u-ui font-medium text-ink-1">{isAr ? faq.qAr : faq.qEn}</span>
                     {/* Marked rather than selected as "any svg in an open
                         details", so an icon inside an answer can never be
@@ -133,7 +192,7 @@ export default async function SupportPage() {
                       aria-hidden="true"
                     />
                   </summary>
-                  <p className="u-ui max-w-prose px-4 pb-4 text-ink-2">{isAr ? faq.aAr : faq.aEn}</p>
+                  <p className="u-body max-w-prose px-4 pb-4 text-ink-2">{isAr ? faq.aAr : faq.aEn}</p>
                 </details>
               ))}
             </Surface>
@@ -178,24 +237,20 @@ export default async function SupportPage() {
                       label={isAr ? "الموضوع" : "Subject"}
                       required
                     />
-                    <div>
-                      <label htmlFor="ticket-category" className="u-ui mb-1.5 block font-medium text-ink-1">
-                        {isAr ? "التصنيف" : "Category"}
-                      </label>
-                      <select
-                        id="ticket-category"
-                        name="category"
-                        data-rung={1}
-                        className={CONTROL_CLASS}
-                        style={{ height: "var(--control-h-md)" }}
-                      >
-                        {CATEGORIES.map((c) => (
-                          <option key={c} value={c}>
-                            {c.charAt(0) + c.slice(1).toLowerCase()}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <IdentitySelect
+                      id="ticket-category"
+                      name="category"
+                      label={isAr ? "التصنيف" : "Category"}
+                    >
+                      {/* The VALUE is the stored SupportTicket.category and never
+                          localises; only the label does. A localised value in a
+                          column is a data defect that looks like a translation. */}
+                      {CATEGORIES.map((c) => (
+                        <option key={c} value={c}>
+                          {categoryLabel(c, locale)}
+                        </option>
+                      ))}
+                    </IdentitySelect>
                     <Input
                       id="ticket-order-ref"
                       name="orderRef"
@@ -203,7 +258,7 @@ export default async function SupportPage() {
                       hint={isAr ? "اختياري" : "Optional."}
                     />
                     <div>
-                      <label htmlFor="ticket-description" className="u-ui mb-1.5 block font-medium text-ink-1">
+                      <label htmlFor="ticket-description" className={IDENTITY_LABEL_CLASS}>
                         {isAr ? "تفاصيل المشكلة" : "What happened"}
                       </label>
                       <Textarea
@@ -248,16 +303,23 @@ export default async function SupportPage() {
                             <li key={t.id} className="border-t border-hairline p-4 first:border-t-0">
                               <div className="flex items-start justify-between gap-3">
                                 <div className="min-w-0">
-                                  <p className="u-mono u-meta text-ink-2">{t.ticketNumber}</p>
+                                  {/* dir="ltr" on every mono reference, as the orders and returns
+                                      rows already do: a reference is a reference in both
+                                      languages, and leaving it to inherit the paragraph
+                                      direction is how a hyphenated ticket number comes out
+                                      reordered under the bidi algorithm. */}
+                                  <p className="u-mono u-meta text-ink-2" dir="ltr">{t.ticketNumber}</p>
                                   <p className="u-ui mt-0.5 truncate font-medium text-ink-1">{t.subject}</p>
                                 </div>
                                 <StatusPill tone={st.tone} className="shrink-0">
-                                  <st.icon className="h-3 w-3" aria-hidden="true" /> {st.label}
+                                  <st.icon className="h-3 w-3" aria-hidden="true" />{" "}
+                                  {STATUS_LABELS[locale][t.status] ?? t.status}
                                 </StatusPill>
                               </div>
-                              <p className="u-meta mt-1.5 line-clamp-2 text-ink-2">{t.description}</p>
+                              <p className="u-body mt-1.5 line-clamp-2 text-ink-2">{t.description}</p>
                               <p className="u-meta mt-1.5 text-ink-3">
-                                {t.category} · {isAr ? "تم الإنشاء في" : "opened"} {fmt(t.createdAt)}
+                                {categoryLabel(t.category, locale)} ·{" "}
+                                {isAr ? "تم الإنشاء في" : "opened"} {fmt(t.createdAt, locale)}
                               </p>
                             </li>
                           );
@@ -268,33 +330,40 @@ export default async function SupportPage() {
                 </div>
               </>
             ) : (
-              <Surface rung={2}>
-                <EmptyState
-                  eyebrow={isAr ? "يلزم تسجيل الدخول" : "Sign in required"}
-                  headline={
-                    isAr
-                      ? "ترتبط تذاكر الدعم بالحساب الذي فتحها."
-                      : "A support ticket belongs to the account that opened it."
-                  }
-                  // A SupportTicket row has a subject, a category, a
-                  // description and a status. There is no reply, message or
-                  // response column in schema.prisma and none is rendered
-                  // below, so this may not offer to show replies.
-                  body={
-                    isAr
-                      ? "سجّل الدخول لفتح تذكرة ومتابعة الحالة المسجلة عليها."
-                      : "Sign in to open a ticket and follow the status recorded against it."
-                  }
-                  action={
-                    <Button variant="primary" size="sm" asChild>
-                      <Link href="/login?callbackUrl=/support">
-                        <LogIn className="h-3.5 w-3.5" aria-hidden="true" />
-                        {isAr ? "تسجيل الدخول" : "Sign in"}
-                      </Link>
-                    </Button>
-                  }
-                />
-              </Surface>
+              // THE CERTIFICATE. With no session this IS the whole column, so it
+              // is composed rather than apologised for: brass hairline across
+              // the top edge, ledger ruling behind, a cropped glyph bleeding off
+              // the outer corner (inset-inline-end, so it crops from the correct
+              // corner in Arabic), and exactly one real action.
+              <EmptyState
+                variant="certificate"
+                glyph={<LifeBuoy />}
+                eyebrow={isAr ? "يلزم تسجيل الدخول" : "Sign in required"}
+                headline={
+                  isAr
+                    ? "ترتبط تذاكر الدعم بالحساب الذي فتحها."
+                    : "A support ticket belongs to the account that opened it."
+                }
+                // A SupportTicket row has a subject, a category, a description
+                // and a status. There is no reply, message or response column in
+                // schema.prisma and none is rendered below, so this may not
+                // offer to show replies.
+                body={
+                  isAr
+                    ? "سجّل الدخول لفتح تذكرة ومتابعة الحالة المسجّلة عليها."
+                    : "Sign in to open a ticket and follow the status recorded against it."
+                }
+                action={
+                  <Button variant="primary" asChild>
+                    <Link href="/login?callbackUrl=/support">
+                      {/* Directional glyph — mirrors, and by -scale-x rather than rotate so it
+                        does not also turn upside down. */}
+                      <LogIn className="h-3.5 w-3.5 rtl:-scale-x-100" aria-hidden="true" />
+                      {isAr ? "تسجيل الدخول" : "Sign in"}
+                    </Link>
+                  </Button>
+                }
+              />
             )}
           </section>
         </div>

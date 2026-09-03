@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { B2BShell } from "@/components/b2b/b2b-shell";
 import { Money } from "@/components/b2b/money";
 import { SelectField, TextField } from "@/components/b2b/controls";
@@ -15,33 +16,43 @@ import {
 } from "@avenick/ui";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
+import { getB2BT, b2bMetadata } from "@/components/b2b/i18n";
+import type { B2BKey } from "@/components/b2b/messages";
+import { toneRule } from "@/components/b2b/rules";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
-import { platformName } from "@avenick/utils/portal-config";
 import { inviteMember, setMemberActive } from "./actions";
 import { ValidatedForm } from "@/components/b2b/validated-form";
-import { Shield, ShoppingBag, CheckSquare, UserPlus } from "lucide-react";
+import { Shield, ShoppingBag, CheckSquare, UserPlus, Users } from "lucide-react";
 
-export const metadata = { title: `Team & Roles — ${platformName()} for Business` };
+export async function generateMetadata() {
+  return b2bMetadata("team.title");
+}
 
-const ROLES: Record<string, { label: string; tone: PillTone; icon: typeof Shield; desc: string }> = {
-  COMPANY_ADMIN: { label: "Admin", tone: "accent", icon: Shield, desc: "Full access — manage team, billing, approvals & ordering." },
-  COMPANY_APPROVER: { label: "Approver", tone: "warning", icon: CheckSquare, desc: "Reviews and approves orders above buyers' spend limits." },
-  COMPANY_BUYER: { label: "Buyer", tone: "primary", icon: ShoppingBag, desc: "Creates RFQs and orders within an assigned spend limit." },
+const ROLES: Record<string, { labelKey: B2BKey; descKey: B2BKey; tone: PillTone; icon: typeof Shield }> = {
+  COMPANY_ADMIN: { labelKey: "team.role.admin", descKey: "team.role.admin.desc", tone: "accent", icon: Shield },
+  COMPANY_APPROVER: { labelKey: "team.role.approver", descKey: "team.role.approver.desc", tone: "warning", icon: CheckSquare },
+  COMPANY_BUYER: { labelKey: "team.role.buyer", descKey: "team.role.buyer.desc", tone: "primary", icon: ShoppingBag },
 };
 
 export default async function B2BTeamPage() {
+  const t = await getB2BT();
   const ctx = await getB2BContext();
 
   if (!ctx) {
     return (
-      <B2BShell title="Team & Roles">
-        <Surface rung={2}>
-          <EmptyState
-            eyebrow="No company context"
-            headline="This session is not attached to a company account."
-            body="Team membership and spend limits belong to a company. Sign in with a company account to manage them."
-          />
-        </Surface>
+      <B2BShell title={t("team.title")}>
+        <EmptyState
+          variant="certificate"
+          glyph={<Users />}
+          eyebrow={t("common.noCompany.eyebrow")}
+          headline={t("common.noCompany.headline")}
+          body={t("common.noCompany.body")}
+          action={
+            <Button asChild variant="primary">
+              <Link href="/b2b/register">{t("common.noCompany.action")}</Link>
+            </Button>
+          }
+        />
       </B2BShell>
     );
   }
@@ -58,20 +69,21 @@ export default async function B2BTeamPage() {
 
   return (
     <B2BShell
-      eyebrow="Administration"
-      title="Team & Roles"
-      description={`Manage who can buy on behalf of ${ctx.company.nameEn}.`}
+      workspace={ctx.company.nameEn}
+      eyebrow={t("team.eyebrow")}
+      title={t("team.title")}
+      description={t("team.description", { company: ctx.company.nameEn })}
     >
       <div className="space-y-block">
         {/* Role legend. One panel divided by hairlines: three roles, three
             tones, and no fourth colour invented to fill a slot. */}
         <CellGrid cols={{ base: 1, sm: 3 }}>
           {Object.values(ROLES).map((r) => (
-            <div key={r.label}>
+            <div key={r.labelKey}>
               <StatusPill tone={r.tone}>
-                <r.icon className="h-3.5 w-3.5" aria-hidden="true" /> {r.label}
+                <r.icon className="h-3.5 w-3.5" aria-hidden="true" /> {t(r.labelKey)}
               </StatusPill>
-              <p className="u-meta mt-2 text-ink-2">{r.desc}</p>
+              <p className="u-meta mt-2 text-ink-2">{t(r.descKey)}</p>
             </div>
           ))}
         </CellGrid>
@@ -83,44 +95,52 @@ export default async function B2BTeamPage() {
         {isAdmin && (
           <ValidatedForm action={inviteMember} rung={1} className="p-5">
             <Eyebrow className="mb-4 flex items-center gap-1.5">
-              <UserPlus className="h-3.5 w-3.5" aria-hidden="true" /> Invite a member
+              <UserPlus className="h-3.5 w-3.5" aria-hidden="true" /> {t("team.invite")}
             </Eyebrow>
             <div className="grid items-start gap-x-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Full name" htmlFor="invite-name" required>
+              <Field label={t("team.invite.name")} htmlFor="invite-name" required>
                 <TextField id="invite-name" name="name" required autoComplete="name" />
               </Field>
-              <Field label="Work email" htmlFor="invite-email" required>
+              <Field label={t("team.invite.email")} htmlFor="invite-email" required>
                 <TextField id="invite-email" name="email" type="email" required autoComplete="email" />
               </Field>
-              <Field label="Role" htmlFor="invite-role">
+              <Field label={t("team.invite.role")} htmlFor="invite-role">
                 <SelectField id="invite-role" name="role" defaultValue="COMPANY_BUYER">
-                  <option value="COMPANY_BUYER">Buyer</option>
-                  <option value="COMPANY_APPROVER">Approver</option>
-                  <option value="COMPANY_ADMIN">Admin</option>
+                  <option value="COMPANY_BUYER">{t("team.role.buyer")}</option>
+                  <option value="COMPANY_APPROVER">{t("team.role.approver")}</option>
+                  <option value="COMPANY_ADMIN">{t("team.role.admin")}</option>
                 </SelectField>
               </Field>
-              <Field label={`Spend limit (${currency})`} htmlFor="invite-spend-limit" hint="Blank means unlimited.">
+              <Field
+                label={t("team.invite.spendLimit", { currency })}
+                htmlFor="invite-spend-limit"
+                hint={t("team.invite.spendLimit.hint")}
+              >
                 <TextField id="invite-spend-limit" name="spendLimit" type="number" min="0" />
               </Field>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <Dateline>
-                Department is optional · an invited member joins with a pending status until they set a password
-              </Dateline>
-              <Button type="submit" variant="primary">Send invite</Button>
+              <Dateline>{t("team.invite.basis")}</Dateline>
+              <Button type="submit" variant="primary">{t("team.invite.submit")}</Button>
             </div>
           </ValidatedForm>
         )}
 
         <LedgerTable
-          title="Members"
-          dateline={`Spend limits are recorded without a currency and read as ${currency}, your company's jurisdiction currency`}
+          title={t("team.members")}
+          dateline={t("team.members.basis", { currency })}
           rows={members}
           getRowKey={(m) => m.id}
+          // Whose access is live. The pill says it in words at the end of the
+          // row; the rule says it at the start, where the eye enters — the same
+          // three pixels as every other queue in the buyer suite.
+          rowProps={(m) => ({
+            className: toneRule(m.isActive && m.user.status !== "SUSPENDED" ? "success" : "neutral"),
+          })}
           columns={[
             {
               key: "member",
-              label: "Member",
+              label: t("team.col.member"),
               render: (m) => {
                 const name = `${m.user.firstName} ${m.user.lastName}`.trim();
                 return (
@@ -134,7 +154,7 @@ export default async function B2BTeamPage() {
                     <div className="min-w-0">
                       <p className="font-medium text-ink-1">
                         {name}
-                        {m.userId === ctx.userId && <span className="u-meta ms-1.5 text-ink-3">(you)</span>}
+                        {m.userId === ctx.userId && <span className="u-meta ms-1.5 text-ink-3">{t("common.you")}</span>}
                       </p>
                       <p className="u-meta truncate text-ink-3">{m.user.email}</p>
                     </div>
@@ -144,54 +164,62 @@ export default async function B2BTeamPage() {
             },
             {
               key: "role",
-              label: "Role",
+              label: t("team.col.role"),
               render: (m) => {
                 const role = ROLES[m.role] ?? ROLES.COMPANY_BUYER!;
                 return (
                   <StatusPill tone={role.tone} className="whitespace-nowrap">
-                    <role.icon className="h-3 w-3" aria-hidden="true" /> {role.label}
+                    <role.icon className="h-3 w-3" aria-hidden="true" /> {t(role.labelKey)}
                   </StatusPill>
                 );
               },
             },
             {
               key: "department",
-              label: "Department",
+              label: t("common.department"),
               hideOnMobile: true,
-              render: (m) => <span className="text-ink-2">{m.department ?? "Unassigned"}</span>,
+              render: (m) => (
+                <span className={m.department ? "text-ink-2" : "u-meta text-ink-3"}>
+                  {m.department ?? t("common.unassigned")}
+                </span>
+              ),
             },
             {
               key: "spendLimit",
-              label: "Spend limit",
+              label: t("team.col.spendLimit"),
               numeric: true,
               render: (m) =>
                 m.spendLimit ? (
                   <Money amount={Number(m.spendLimit)} currency={currency} />
                 ) : (
-                  <span className="u-meta text-ink-3">Unlimited</span>
+                  <span className="u-meta text-ink-3">{t("common.unlimited")}</span>
                 ),
             },
             {
               key: "status",
-              label: "Status",
+              label: t("common.status"),
               render: (m) => {
                 const active = m.isActive && m.user.status !== "SUSPENDED";
                 return (
                   <StatusPill tone={active ? "success" : "neutral"} dot>
-                    {m.user.status === "PENDING" ? "Invited" : active ? "Active" : "Suspended"}
+                    {m.user.status === "PENDING"
+                      ? t("team.status.invited")
+                      : active
+                        ? t("team.status.active")
+                        : t("team.status.suspended")}
                   </StatusPill>
                 );
               },
             },
             {
               key: "actions",
-              label: "Access",
+              label: t("team.col.access"),
               align: "end",
               render: (m) => {
                 const active = m.isActive && m.user.status !== "SUSPENDED";
                 // The permission gate is unchanged: only an admin sees this,
                 // and never against their own membership.
-                if (!isAdmin || m.userId === ctx.userId) return <span className="u-meta text-ink-3">—</span>;
+                if (!isAdmin || m.userId === ctx.userId) return <span className="u-meta text-ink-3">{t("common.none")}</span>;
                 return (
                   <form action={setMemberActive.bind(null, m.id, !active)} className="flex justify-end">
                     <Button
@@ -200,7 +228,7 @@ export default async function B2BTeamPage() {
                       size="xs"
                       className={active ? "hover:text-danger-ink" : "text-primary-ink"}
                     >
-                      {active ? "Suspend" : "Reactivate"}
+                      {active ? t("team.suspend") : t("team.reactivate")}
                     </Button>
                   </form>
                 );
@@ -209,9 +237,14 @@ export default async function B2BTeamPage() {
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline="This company has no members yet."
-              body="Invite a colleague above; they join with a pending status until they set a password."
+              eyebrow={t("team.empty.eyebrow")}
+              headline={t("team.empty.headline")}
+              body={t("team.empty.body")}
+              action={
+                <Button asChild variant="secondary" size="sm">
+                  <Link href="/b2b/approval-policies">{t("team.empty.action")}</Link>
+                </Button>
+              }
             />
           }
         />

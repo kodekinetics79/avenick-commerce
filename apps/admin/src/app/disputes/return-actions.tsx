@@ -1,23 +1,65 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle, XCircle, Banknote, Loader2 } from "lucide-react";
+import { CheckCircle, XCircle, Banknote } from "lucide-react";
+import { Button, Input, Surface, Textarea } from "@avenick/ui";
+import { DecisionNoticeInline } from "@/app/approvals/decision-notice";
 
 interface Props {
   returnId: string;
+  returnNumber: string;
   status: string;
+  /** The most a refund may be, already resolved by the caller. */
   orderTotal: number;
+  /** The order's own currency, so the amount field is never an unlabelled number. */
+  currency: string;
 }
 
-export function ReturnActions({ returnId, status, orderTotal }: Props) {
+type Mode = "approve" | "reject" | "refund";
+
+/**
+ * Approve, reject or record a refund against a return request.
+ *
+ * Round one drove all three through `window.prompt` — including the refund,
+ * where an operator typed a MONEY AMOUNT and a bank reference into two
+ * consecutive native dialogs. A native prompt cannot show the currency, cannot
+ * show the maximum, cannot show which return is being refunded, cannot be
+ * validated as you type, cannot be recovered from if the second dialog is
+ * cancelled after the first was filled, and is unstyleable and unlocalisable.
+ * On a financial action that is not a shortcut, it is a hazard.
+ *
+ * So each decision opens an inline, recessed panel on the row: it names the
+ * return, states the consequence, shows the ceiling on the refund, and keeps
+ * both fields on screen together. PRESENTATION ONLY — the same PATCH, the same
+ * body, the same guards, the same response handling. The server re-validates
+ * every one of these; nothing here is the authority on any of it.
+ */
+export function ReturnActions({ returnId, returnNumber, status, orderTotal, currency }: Props) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode | null>(null);
+  const [resolution, setResolution] = useState("");
+  const [amount, setAmount] = useState(orderTotal.toFixed(2));
+  const [reference, setReference] = useState("");
+  // A refusal about what was TYPED belongs on the field. A refusal from the
+  // platform belongs in the compare-and-swap notice, because when that one
+  // appears nothing was written.
+  const [fieldError, setFieldError] = useState<{ on: "amount" | "reference" | "resolution"; message: string } | null>(null);
+  const [refusal, setRefusal] = useState<string | null>(null);
 
-  async function transition(nextStatus: string, opts?: { resolution?: string; refundAmount?: number; refundReference?: string }) {
+  function close() {
+    setMode(null);
+    setFieldError(null);
+    setRefusal(null);
+  }
+
+  async function transition(
+    nextStatus: string,
+    opts?: { resolution?: string; refundAmount?: number; refundReference?: string },
+  ) {
     setPending(true);
-    setError(null);
+    setRefusal(null);
     try {
       const res = await fetch(`/api/admin/returns/${returnId}/status`, {
         method: "PATCH",
@@ -26,79 +68,159 @@ export function ReturnActions({ returnId, status, orderTotal }: Props) {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setError(json.error ?? "Failed to update return");
+        setRefusal(json.error ?? "Failed to update return");
         return;
       }
+      close();
       router.refresh();
     } catch {
-      setError("Network error — please retry");
+      setRefusal("The platform could not be reached, so nothing was written. Retry when the connection is back.");
     } finally {
       setPending(false);
     }
   }
 
-  function approve() {
-    const resolution = window.prompt("Approve this return?\n\nResolution note (optional):");
-    if (resolution === null) return;
-    void transition("APPROVED", { resolution: resolution.trim() || undefined });
-  }
-
-  function reject() {
-    const resolution = window.prompt("Reject this return?\n\nReason (shared with the buyer):");
-    if (resolution === null) return;
-    if (!resolution.trim()) {
-      setError("A rejection reason is required");
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    setFieldError(null);
+    if (mode === "approve") {
+      void transition("APPROVED", { resolution: resolution.trim() || undefined });
       return;
     }
-    void transition("REJECTED", { resolution: resolution.trim() });
-  }
-
-  function refund() {
-    const input = window.prompt(
-      `Record a refund only after the gateway/bank refund succeeds.\n\nRefund amount (max ${orderTotal.toFixed(2)}):`,
-      orderTotal.toFixed(2),
-    );
-    if (input === null) return;
-    const amount = Number(input);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setError("Enter a valid refund amount");
+    if (mode === "reject") {
+      const trimmed = resolution.trim();
+      if (!trimmed) {
+        setFieldError({ on: "resolution", message: "A reason is required — the buyer is shown it." });
+        return;
+      }
+      void transition("REJECTED", { resolution: trimmed });
       return;
     }
-    const reference = window.prompt("Gateway/bank refund reference (required):");
-    if (reference === null) return;
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value <= 0) {
+      setFieldError({ on: "amount", message: "Enter a refund amount greater than zero." });
+      return;
+    }
+    if (value > orderTotal) {
+      setFieldError({ on: "amount", message: `The refund cannot exceed ${orderTotal.toFixed(2)} ${currency}.` });
+      return;
+    }
     if (reference.trim().length < 3) {
-      setError("Enter the gateway or bank refund reference after the refund succeeds");
+      setFieldError({ on: "reference", message: "Enter the gateway or bank reference the refund was issued under." });
       return;
     }
-    void transition("REFUNDED", { refundAmount: amount, refundReference: reference.trim() });
+    void transition("REFUNDED", { refundAmount: value, refundReference: reference.trim() });
   }
 
-  const btn = "inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-50";
-  const spinner = pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null;
+  if (mode) {
+    return (
+      <div className="flex flex-col items-end gap-2">
+        <Surface rung={1} as="form" onSubmit={submit} aria-label={`${mode} return ${returnNumber}`} className="w-full max-w-sm space-y-2 p-3 text-start">
+          {mode === "refund" ? (
+            <>
+              {/* The warning is stated ONCE, at the top of the panel, in body ink
+                  rather than as fine print: recording a refund the bank has not
+                  actually issued is the one mistake this control can cause. */}
+              <p className="u-meta text-ink-1">
+                Record a refund against <span className="u-mono">{returnNumber}</span> only after the gateway or bank
+                refund has succeeded. This writes the platform&apos;s record of money already returned; it does not move
+                any.
+              </p>
+              <Input
+                autoFocus
+                label={`Refund amount (${currency})`}
+                inputMode="decimal"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                disabled={pending}
+                hint={`At most ${orderTotal.toFixed(2)} ${currency}.`}
+                error={fieldError?.on === "amount" ? fieldError.message : undefined}
+              />
+              <Input
+                label="Gateway or bank reference"
+                value={reference}
+                onChange={(event) => setReference(event.target.value)}
+                placeholder="The reference the refund was issued under"
+                disabled={pending}
+                error={fieldError?.on === "reference" ? fieldError.message : undefined}
+              />
+            </>
+          ) : (
+            <>
+              <p className="u-meta text-ink-1">
+                {mode === "approve" ? (
+                  <>Approve return <span className="u-mono">{returnNumber}</span>? The buyer is told to send the goods back.</>
+                ) : (
+                  <>Reject return <span className="u-mono">{returnNumber}</span>? The reason below is shown to the buyer.</>
+                )}
+              </p>
+              <div>
+                <label htmlFor={`resolution-${returnId}`} className="u-ui mb-1.5 block font-medium text-ink-1">
+                  {mode === "approve" ? "Resolution note (optional)" : "Reason the buyer will see"}
+                </label>
+                <Textarea
+                  id={`resolution-${returnId}`}
+                  autoFocus
+                  value={resolution}
+                  onChange={(event) => setResolution(event.target.value)}
+                  maxLength={1000}
+                  disabled={pending}
+                  aria-describedby={fieldError?.on === "resolution" ? `resolution-${returnId}-msg` : undefined}
+                  aria-invalid={fieldError?.on === "resolution" ? true : undefined}
+                  className="min-h-[72px]"
+                />
+                {fieldError?.on === "resolution" && (
+                  <p id={`resolution-${returnId}-msg`} className="u-meta mt-1 text-danger-ink">
+                    {fieldError.message}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+          <div className="flex items-center justify-end gap-1.5">
+            <Button type="button" variant="ghost" size="xs" disabled={pending} onClick={close}>
+              Cancel
+            </Button>
+            <Button type="submit" variant={mode === "reject" ? "danger" : "secondary"} size="xs" loading={pending}>
+              {mode === "approve" ? "Confirm approval" : mode === "reject" ? "Confirm rejection" : "Record the refund"}
+            </Button>
+          </div>
+        </Surface>
+        {refusal && <DecisionNoticeInline message={refusal} className="w-full max-w-sm" />}
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-col items-end gap-2">
+      <div className="flex flex-wrap items-center justify-end gap-1.5">
         {status === "REQUESTED" && (
           <>
-            <button type="button" onClick={approve} disabled={pending} className={`${btn} border-green-200 text-green-700 hover:bg-green-50`}>
-              {spinner ?? <CheckCircle className="h-3.5 w-3.5" />} Approve
-            </button>
-            <button type="button" onClick={reject} disabled={pending} className={`${btn} border-red-200 text-red-600 hover:bg-red-50`}>
-              {spinner ?? <XCircle className="h-3.5 w-3.5" />} Reject
-            </button>
+            <Button type="button" variant="secondary" size="xs" className="text-success-ink" onClick={() => setMode("approve")}>
+              <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" /> Approve
+              <span className="sr-only"> return {returnNumber}</span>
+            </Button>
+            <Button type="button" variant="ghost" size="xs" className="hover:text-danger-ink" onClick={() => setMode("reject")}>
+              <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> Reject
+              <span className="sr-only"> return {returnNumber}</span>
+            </Button>
           </>
         )}
-        {["APPROVED", "RECEIVED"].includes(status) && (
-          <button type="button" onClick={refund} disabled={pending} className={`${btn} border-blue-200 text-primary hover:bg-blue-50`}>
-            {spinner ?? <Banknote className="h-3.5 w-3.5" />} Refund
-          </button>
+        {(status === "APPROVED" || status === "RECEIVED") && (
+          <Button type="button" variant="secondary" size="xs" onClick={() => setMode("refund")}>
+            <Banknote className="h-3.5 w-3.5" aria-hidden="true" /> Record refund
+            <span className="sr-only"> for return {returnNumber}</span>
+          </Button>
         )}
-        {["REJECTED", "REFUNDED", "IN_TRANSIT"].includes(status) && (
-          <span className="text-xs text-muted-foreground">—</span>
+        {(status === "REJECTED" || status === "REFUNDED" || status === "IN_TRANSIT") && (
+          // Not an em dash. A closed return has no decision left to take, and
+          // saying so is a fact; a dash is a shrug that reads as a bug.
+          <span className="u-meta text-ink-3">
+            {status === "IN_TRANSIT" ? "Awaiting the goods" : "Settled"}
+          </span>
         )}
       </div>
-      {error && <span className="text-[11px] text-red-600">{error}</span>}
+      {refusal && <DecisionNoticeInline message={refusal} className="w-full max-w-sm" />}
     </div>
   );
 }

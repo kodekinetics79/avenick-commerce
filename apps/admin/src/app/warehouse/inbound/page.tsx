@@ -8,7 +8,7 @@ import {
   PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Num, type PillTone,
 } from "@avenick/ui";
 import { CountStat } from "@/app/finance/money-figures";
-import { Pager } from "@/app/finance/console-chrome";
+import { Pager } from "@/components/console/chrome";
 
 export const metadata = { title: "Inbound Receiving" };
 export const dynamic = "force-dynamic";

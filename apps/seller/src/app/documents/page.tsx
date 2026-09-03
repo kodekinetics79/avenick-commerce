@@ -22,6 +22,7 @@ import {
   Stat,
   StatusPill,
   Surface,
+  TierMark,
   type PillTone,
 } from "@avenick/ui";
 import { AlertTriangle, Upload, CheckCircle, Clock, XCircle, FileText, Calendar, RefreshCw, Eye, Info } from "lucide-react";
@@ -101,7 +102,23 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
   const raw = await db.sellerDocument.findMany({
     where: { sellerId: seller.id },
     orderBy: { uploadedAt: "desc" },
-    select: { id: true, type: true, status: true, fileName: true, expiryDate: true, rejectionReason: true, uploadedAt: true },
+    // reviewedAt is selected for ONE reason: it is the citation the verification
+    // seal below is welded to. The seal throws in development without a `basis`
+    // string, and the basis has to name the document that was reviewed AND when
+    // — "Trade licence reviewed 14 Feb 2026" — because a brass mark reading
+    // "Verified" with no reviewed row behind it is a fabricated trust signal
+    // rendered in CSS. Same where clause, same scope, same reader: one more
+    // scalar off a row this page already reads.
+    select: {
+      id: true,
+      type: true,
+      status: true,
+      fileName: true,
+      expiryDate: true,
+      rejectionReason: true,
+      uploadedAt: true,
+      reviewedAt: true,
+    },
   });
   const documents = raw.map((d) => ({
     id: d.id,
@@ -112,6 +129,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
     expiryDate: d.expiryDate,
     rejectionReason: d.rejectionReason,
     uploadedAt: d.uploadedAt,
+    reviewedAt: d.reviewedAt,
   }));
 
   // Expiry only matters on a document that is (or was) valid: a rejected or
@@ -123,6 +141,22 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
   // "expiring" is a warning about a valid document, not a different bucket.
   const validDocs = documents.filter((d) => d.status === "APPROVED");
   const underReview = documents.filter((d) => d.status === "PENDING_REVIEW");
+
+  /**
+   * THE SEAL'S BASIS, and the seal does not exist without it.
+   *
+   * The single most recently reviewed document that is APPROVED right now AND
+   * carries a real reviewedAt. Every one of those three conditions is load
+   * bearing: an approval with a null reviewedAt cannot be dated, so it cites
+   * nothing and gets no mark; an EXPIRED row was approved once and is not
+   * approved now; and taking the most recent keeps this to ONE seal, which is
+   * the per-viewport budget. If nothing qualifies, `sealBasis` is null and the
+   * mark is not rendered at all — the surface says what is true instead.
+   */
+  const sealSource = validDocs
+    .filter((d): d is typeof d & { reviewedAt: Date } => d.reviewedAt !== null)
+    .sort((a, b) => b.reviewedAt.getTime() - a.reviewedAt.getTime())[0] ?? null;
+  const sealBasis = sealSource ? `${sealSource.typeLabel} reviewed ${fmtDate(sealSource.reviewedAt)}` : null;
 
   // Deep link: /documents?upload=TRADE_LICENSE opens the form preset to that
   // type; any other value opens it unpreset. The value is only ever matched
@@ -180,6 +214,63 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
 
           {/* Uploader — the form, or the honest disabled state when storage is not configured. */}
           <UploadDocumentPanel />
+
+          {/* ══ COMPLIANCE STANDING ══
+              The one place in the seller portal that holds the fact the seal must
+              cite, so it is the one place the seal belongs — and there is exactly
+              one of it, which is the per-viewport budget. On hover or keyboard
+              focus a single arc of brass light travels once around the mark's 1px
+              border and stops. It is the most beautiful gesture in the product,
+              and it is welded to a SellerDocument row that is APPROVED right now
+              and carries a real reviewedAt.
+
+              When no row qualifies there is no mark, no greyed-out mark and no
+              "pending verification" placeholder — the plate states what the
+              records actually say. A trust signal that appears before the fact it
+              claims is the one unsurvivable failure in this product.
+
+              The ruling sits on an inner element rather than on the plate: the
+              shoulder and the ruling are both drawn by a ::before, and an element
+              has only one, so `rim` and [data-rule-ground] on the same node lose
+              the shoulder silently. */}
+          <Surface rung={2} rim className="overflow-hidden">
+            <div data-rule-ground="" className="p-5 [&>*]:relative">
+              <Eyebrow>Compliance standing</Eyebrow>
+              {sealBasis ? (
+                <>
+                  <div className="mt-2">
+                    <TierMark verified basis={sealBasis} verifiedLabel="Reviewed" showBasis />
+                  </div>
+                  <p className="u-body mt-2 max-w-desc text-ink-2">
+                    {validDocs.length} document{validDocs.length === 1 ? "" : "s"} on this account {validDocs.length === 1 ? "is" : "are"}{" "}
+                    approved and in date.
+                    {underReview.length > 0 &&
+                      ` ${underReview.length} more ${underReview.length === 1 ? "is" : "are"} with the review team.`}
+                  </p>
+                  <Dateline className="mt-1">
+                    The mark cites the most recently reviewed approval on file. It is drawn from that row and disappears
+                    with it.
+                  </Dateline>
+                </>
+              ) : (
+                <>
+                  {/* The provenance voice, because this is a statement of fact about
+                      the records rather than a status. */}
+                  <p className="u-provenance mt-2 max-w-desc text-h2 text-ink-1">
+                    {documents.length === 0
+                      ? "Nothing has been filed against this account yet."
+                      : underReview.length > 0
+                        ? "Nothing is approved yet — your filings are with the review team."
+                        : "No filing on this account is currently approved and in date."}
+                  </p>
+                  <Dateline className="mt-2">
+                    No verification mark is shown, because there is no reviewed approval to cite. One appears here as soon
+                    as the platform approves a document and records when it did.
+                  </Dateline>
+                </>
+              )}
+            </div>
+          </Surface>
 
           {/* One panel divided by hairlines. Four separately tinted boxes in
               four hues said nothing the four labels did not already say. */}

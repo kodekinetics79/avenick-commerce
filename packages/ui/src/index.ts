@@ -16,6 +16,21 @@ export * from "./surface";
 export * from "./ambient-field";
 export * from "./divider";
 export * from "./specular-surface";
+export * from "./environment-flags";
+
+/* ── SIJILL: composition ─────────────────────────────────────────────────────
+   The hero, the frame and the plate. <ImageFrame> is the one every product image
+   in all three portals goes through — card, PDP gallery, cart line, wishlist,
+   RFQ line, order line, seller listing table, admin thumbnail. Consistency of
+   scale, margin and plate treatment ACROSS a grid is the measured lever in
+   premium commerce, not effects, and it is entirely truthful: it is framing,
+   not fiction. */
+export * from "./image-frame";
+export * from "./hero-stage";
+export * from "./display-plate";
+export * from "./edge-fade";
+export * from "./light-grid";
+export * from "./scroll-progress";
 
 /* ── Type & truth ───────────────────────────────────────────────────────── */
 export * from "./eyebrow";
@@ -37,6 +52,10 @@ export * from "./data-table";
 export * from "./timeline";
 export * from "./currency-display";
 export * from "./hijri-date";
+export * from "./price-stack";
+export * from "./quantity-ladder";
+export * from "./availability-dot";
+export * from "./facet-rail";
 
 /* ── Layers & chrome ────────────────────────────────────────────────────── */
 export * from "./layer";

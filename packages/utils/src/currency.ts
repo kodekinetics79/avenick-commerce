@@ -17,6 +17,33 @@ const CURRENCY_CONFIG: Record<SupportedCurrency, CurrencyConfig> = {
   USD: { symbol: "USD", symbolAr: "دولار", locale: "en-US", decimals: 2 },
 };
 
+/**
+ * Arabic amounts are formatted with WESTERN digits, on purpose.
+ *
+ * Each currency carries its own CLDR locale, and CLDR disagrees with itself
+ * about numerals across the Gulf: ar-AE defaults to latn while ar-SA, ar-QA,
+ * ar-KW, ar-BH and ar-OM default to arab. Left alone, an Arabic cart holding
+ * an AED line and a SAR line prints
+ *
+ *     1,234.50  د.إ        and        ١٬٢٣٤٫٥٠ ر.س
+ *
+ * in the same column — two numeral systems, which no amount of tabular-figure
+ * work can align, and which reads as a bug to any reader. Pinning the numbering
+ * system makes every amount on a page agree.
+ *
+ * latn rather than arab because that is what Gulf commerce shows: the regional
+ * marketplaces this product competes with render Arabic interfaces with Western
+ * digits, and prices are the one place a reader cross-checks against an invoice.
+ * The `-u-nu-` extension keeps the locale's own grouping and decimal separators,
+ * so this changes the digits and nothing else.
+ */
+const ARABIC_NUMBERING = "-u-nu-latn";
+
+/** Locale actually handed to Intl, with the numbering system pinned. */
+function numberLocale(locale: "ar" | "en", currencyLocale: string): string {
+  return locale === "ar" ? `${currencyLocale}${ARABIC_NUMBERING}` : "en-US";
+}
+
 /** VAT rates by country code */
 export const VAT_RATES: Record<string, number> = {
   AE: 5,
@@ -49,12 +76,12 @@ export function formatCurrency(
   // instead: unstyled, but true, and never a different currency's symbol.
   if (!config) {
     return locale === "ar"
-      ? `${new Intl.NumberFormat("ar-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)} ${currency}`
+      ? `${new Intl.NumberFormat(numberLocale("ar", "ar-AE"), { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)} ${currency}`
       : `${currency} ${new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)}`;
   }
   const symbol = locale === "ar" ? config.symbolAr : config.symbol;
 
-  const formatted = new Intl.NumberFormat(locale === "ar" ? config.locale : "en-US", {
+  const formatted = new Intl.NumberFormat(numberLocale(locale, config.locale), {
     minimumFractionDigits: config.decimals,
     maximumFractionDigits: config.decimals,
   }).format(amount);

@@ -7,7 +7,7 @@ import {
   PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Surface, Num, Button,
 } from "@avenick/ui";
 import { CountStat } from "@/app/finance/money-figures";
-import { FilterTabs, CONTROL } from "@/app/finance/console-chrome";
+import { FilterTabs, CONTROL } from "@/components/console/chrome";
 import { AdjustStock } from "./adjust-stock";
 
 export const metadata = { title: "Stock Manager" };

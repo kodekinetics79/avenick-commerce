@@ -4,6 +4,7 @@ import { useState, useEffect, useId, type ReactNode } from "react";
 import { useParams } from "next/navigation";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { CheckCircle2, XCircle, FileText } from "lucide-react";
+import { format } from "date-fns";
 import { isRecordId } from "@avenick/utils";
 import Link from "next/link";
 import {
@@ -259,6 +260,32 @@ export default function SellerDetailPage() {
   const tier = String(s.tier);
   const pendingDocs = docs.filter((doc) => String((doc as Record<string, unknown>).status) === "PENDING_REVIEW").length;
 
+  /**
+   * THE SEAL'S CITATION, and the reason the seal is allowed to exist at all.
+   *
+   * <TierMark verified> throws in development without a `basis`, because a brass
+   * arc travelling around a badge that says "Verified" with no reviewed document
+   * behind it is a fabricated trust signal rendered in CSS. So the basis is
+   * computed here from the rows the API already returned: the most recently
+   * REVIEWED document that was APPROVED, with a real reviewedAt on it. If no
+   * such row exists there is no mark — not a greyed one, not a pending one.
+   *
+   * This is the console's copy of the same object the storefront shows a buyer,
+   * fed from the same column an administrator on this screen wrote.
+   */
+  const verificationBasis = (() => {
+    const reviewed = docs
+      .filter((doc) => {
+        const d = doc as Record<string, unknown>;
+        return String(d.status) === "APPROVED" && Boolean(d.reviewedAt);
+      })
+      .map((doc) => doc as Record<string, unknown>)
+      .sort((a, b) => new Date(String(b.reviewedAt)).getTime() - new Date(String(a.reviewedAt)).getTime())[0];
+    if (!reviewed) return null;
+    const kind = String(reviewed.type).replace(/_/g, " ").toLowerCase();
+    return `${kind.charAt(0).toUpperCase()}${kind.slice(1)} reviewed ${format(new Date(String(reviewed.reviewedAt)), "d MMM yyyy")}`;
+  })();
+
   return (
     <AdminLayout>
       <div className="space-y-block">
@@ -319,6 +346,18 @@ export default function SellerDetailPage() {
               </>
             ) : (
               <p className="u-ui text-ink-2">No reviews yet</p>
+            )}
+          </Fact>
+          {/* The single seal on this page. One animated seal per viewport is the
+              budget, and this is where the evidence for it lives. */}
+          <Fact label="Verification">
+            {verificationBasis ? (
+              <TierMark verified basis={verificationBasis} showBasis verifiedLabel="Document verified" />
+            ) : (
+              // Not a greyed-out mark and not "pending": no approved document
+              // carries a review date, so there is nothing to verify against and
+              // the honest thing is to say which fact is missing.
+              <p className="u-ui text-ink-2">No approved document carries a review date</p>
             )}
           </Fact>
           <Fact label="Performance score">

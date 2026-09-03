@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ZodIssue } from "zod";
 import { Building2, UserRound } from "lucide-react";
-import { Input, Button, Textarea } from "@avenick/ui";
+import { Button, Divider, Eyebrow, Field, Input, Textarea } from "@avenick/ui";
 import { COUNTRY_VALUES, LANGUAGE_VALUES, RegisterSellerSchema } from "@avenick/types/schemas";
 import { getCountryName } from "@avenick/utils";
 
@@ -75,10 +75,31 @@ type RegisterResponse =
   | { success: true; status: string }
   | { success: false; error?: string; field?: string; fieldErrors?: Record<string, string> };
 
-const SELECT_CLASS =
-  "flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-const LABEL_CLASS = "mb-1.5 block text-sm font-medium text-foreground";
-const FIELD_ERROR_CLASS = "mt-1 text-xs text-destructive";
+/**
+ * The native <select> kept its element — it is a controlled input read back by
+ * `fetch`, and swapping in a Radix listbox would be a behaviour change for a
+ * styling problem — but its class list is now the same recessed rung-1 control
+ * <Input> and <Textarea> paint, drawn from tokens.
+ *
+ * What it replaced: `h-10 rounded-xl border-input bg-background text-sm
+ * focus-visible:ring-2` — a fixed 40px height that ignores --control-h-md, a
+ * fixed 12px radius that ignores --radius, and a single-stop focus ring, so the
+ * one control on this form that was not a primitive was also the one control
+ * that looked like a different product.
+ *
+ * data-rung={1} is the system's own contract and is what makes it recessed; it
+ * also re-declares --ring-offset-surface so the two-stop focus ring's inner stop
+ * matches the ground it is drawn on.
+ */
+const SELECT_CLASS = [
+  "w-full border border-input bg-surface-1 px-3 text-ui text-ink-1",
+  "outline-none focus-visible:shadow-[var(--elev-1),0_0_0_2px_hsl(var(--ring-offset-surface)),0_0_0_4px_hsl(var(--ring))]",
+  "transition-[border-color,box-shadow] duration-press ease-standard",
+  "disabled:cursor-not-allowed disabled:opacity-50",
+].join(" ");
+// [data-rung] already paints the radius from --radius, so the control cannot
+// drift from the portal's own shape token the way a hardcoded rounded-xl did.
+const SELECT_STYLE = { height: "var(--control-h-md)" } as const;
 
 /**
  * The same schema the route enforces, run before the request so a typo is
@@ -178,9 +199,18 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6" aria-label="Seller application" noValidate>
+      {/* Two numbered movements, each headed by the brass rule the whole product
+          uses to say "you are here". A long application form read as one
+          undifferentiated scroll; the rule and the step number make it a
+          sequence without changing a single field or a single validation. */}
       <fieldset className="space-y-3.5">
-        <legend className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
-          <Building2 className="h-4 w-4 text-primary" /> Your business
+        <legend className="mb-3 w-full">
+          <Divider drawn on className="w-10" />
+          <span className="mt-3 flex items-center gap-2">
+            <Building2 className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
+            <Eyebrow as="span">Step 1 of 2</Eyebrow>
+          </span>
+          <span className="u-h3 mt-0.5 block text-ink-1">Your business</span>
         </legend>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
@@ -223,14 +253,15 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div>
-            <label htmlFor="reg-type" className={LABEL_CLASS}>{FIELD_LABELS.type}</label>
+          <Field label={FIELD_LABELS.type} htmlFor="reg-type" error={fieldErrors.type} required>
             <select
               id="reg-type"
               name="type"
+              data-rung={1}
               value={form.type}
               onChange={(e) => set("type", e.target.value)}
               className={SELECT_CLASS}
+              style={SELECT_STYLE}
               required
             >
               <option value="" disabled>Select type</option>
@@ -238,16 +269,16 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
-            {fieldErrors.type && <p className={FIELD_ERROR_CLASS}>{fieldErrors.type}</p>}
-          </div>
-          <div>
-            <label htmlFor="reg-country" className={LABEL_CLASS}>{FIELD_LABELS.country}</label>
+          </Field>
+          <Field label={FIELD_LABELS.country} htmlFor="reg-country" error={fieldErrors.country} required>
             <select
               id="reg-country"
               name="country"
+              data-rung={1}
               value={form.country}
               onChange={(e) => set("country", e.target.value)}
               className={SELECT_CLASS}
+              style={SELECT_STYLE}
               required
             >
               <option value="" disabled>Select country</option>
@@ -255,8 +286,7 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
                 <option key={code} value={code}>{getCountryName(code)}</option>
               ))}
             </select>
-            {fieldErrors.country && <p className={FIELD_ERROR_CLASS}>{fieldErrors.country}</p>}
-          </div>
+          </Field>
           <Input
             id="reg-city"
             name="city"
@@ -268,8 +298,11 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
             required
           />
         </div>
-        <div>
-          <label htmlFor="reg-description" className={LABEL_CLASS}>{FIELD_LABELS.description} (optional)</label>
+        <Field
+          label={`${FIELD_LABELS.description} (optional)`}
+          htmlFor="reg-description"
+          error={fieldErrors.description}
+        >
           <Textarea
             id="reg-description"
             name="description"
@@ -278,17 +311,21 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
             onChange={(e) => set("description", e.target.value)}
             maxLength={1000}
           />
-          {fieldErrors.description && <p className={FIELD_ERROR_CLASS}>{fieldErrors.description}</p>}
-        </div>
+        </Field>
       </fieldset>
 
       <fieldset className="space-y-3.5">
-        <legend className="flex items-center gap-2 text-sm font-semibold text-foreground mb-3">
-          <UserRound className="h-4 w-4 text-primary" /> Account owner
+        <legend className="mb-3 w-full">
+          <Divider drawn on className="w-10" />
+          <span className="mt-3 flex items-center gap-2">
+            <UserRound className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
+            <Eyebrow as="span">Step 2 of 2</Eyebrow>
+          </span>
+          <span className="u-h3 mt-0.5 block text-ink-1">Account owner</span>
+          <span className="u-meta mt-0.5 block max-w-desc text-ink-2">
+            This person signs in to Seller Central and can invite staff later.
+          </span>
         </legend>
-        <p className="text-xs text-muted-foreground -mt-2">
-          This person signs in to Seller Central and can invite staff later.
-        </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             id="reg-first-name"
@@ -349,26 +386,26 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
             error={fieldErrors.password}
             required
           />
-          <div>
-            <label htmlFor="reg-language" className={LABEL_CLASS}>{FIELD_LABELS.language}</label>
+          <Field label={FIELD_LABELS.language} htmlFor="reg-language" error={fieldErrors.language}>
             <select
               id="reg-language"
               name="language"
+              data-rung={1}
               value={form.language}
               onChange={(e) => set("language", e.target.value)}
               className={SELECT_CLASS}
+              style={SELECT_STYLE}
             >
               {LANGUAGE_VALUES.map((code) => (
                 <option key={code} value={code}>{LANGUAGE_LABELS[code]}</option>
               ))}
             </select>
-            {fieldErrors.language && <p className={FIELD_ERROR_CLASS}>{fieldErrors.language}</p>}
-          </div>
+          </Field>
         </div>
       </fieldset>
 
       <div>
-        <label htmlFor="reg-accept-terms" className="flex items-start gap-2.5 text-sm text-foreground">
+        <label htmlFor="reg-accept-terms" className="u-ui flex items-start gap-2.5 text-ink-1">
           <input
             id="reg-accept-terms"
             name="acceptTerms"
@@ -378,12 +415,17 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
               setAcceptTerms(e.target.checked);
               clearFieldError("acceptTerms");
             }}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-border accent-[hsl(var(--primary))]"
+            className="u-focus mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border accent-primary"
           />
           <span>
             I have read and accept the{" "}
             {termsUrl ? (
-              <a href={termsUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+              <a
+                href={termsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+              >
                 terms of service
               </a>
             ) : (
@@ -392,11 +434,13 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
             .
           </span>
         </label>
-        {fieldErrors.acceptTerms && <p className={FIELD_ERROR_CLASS}>{fieldErrors.acceptTerms}</p>}
+        {fieldErrors.acceptTerms && (
+          <p className="u-meta mt-1 text-danger-ink">{fieldErrors.acceptTerms}</p>
+        )}
       </div>
 
       {error && (
-        <p className="text-danger text-sm" role="alert">
+        <p className="u-ui text-danger-ink" role="alert">
           {error}
         </p>
       )}

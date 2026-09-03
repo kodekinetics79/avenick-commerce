@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CheckSquare, Clock, CheckCircle, XCircle, FileText } from "lucide-react";
+import { CheckSquare, Clock, CheckCircle, XCircle, FileText, ShieldCheck } from "lucide-react";
 import {
   Button,
   CellGrid,
@@ -13,12 +13,15 @@ import {
 } from "@avenick/ui";
 import { B2BShell } from "@/components/b2b/b2b-shell";
 import { Money } from "@/components/b2b/money";
+import { getB2B, b2bMetadata } from "@/components/b2b/i18n";
+import { toneRule } from "@/components/b2b/rules";
 import { fetchB2BJson } from "@/lib/b2b";
 import { approvePO, rejectPO } from "../purchase-orders/actions";
-import { format, formatDistanceToNow } from "date-fns";
-import { POActionBanner } from "@/components/b2b/po-action-banner";
+import { ActionBanner } from "@/components/b2b/action-banner";
 
-export const metadata = { title: "Approvals" };
+export async function generateMetadata() {
+  return b2bMetadata("approvals.title");
+}
 export const dynamic = "force-dynamic";
 
 export default async function ApprovalsPage({ searchParams }: { searchParams?: { poDone?: string; poError?: string } }) {
@@ -47,6 +50,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams?: {
     redirect("/b2b/register");
   }
 
+  const { t, f } = await getB2B();
   const isApprover = data.isApprover;
   const pending = data.purchaseOrders
     .filter((po) => po.status === "PENDING_APPROVAL")
@@ -63,7 +67,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams?: {
   const requesters = data.requesters;
   const nameOf = (id: string) => {
     const u = requesters.find((r) => r.id === id);
-    return u ? `${u.firstName} ${u.lastName}` : "Unknown";
+    return u ? `${u.firstName} ${u.lastName}` : t("common.unknown");
   };
 
   const approvedCount = decided.filter((d) => ["APPROVED", "ORDERED"].includes(d.status)).length;
@@ -71,22 +75,22 @@ export default async function ApprovalsPage({ searchParams }: { searchParams?: {
 
   return (
     <B2BShell
-      eyebrow="Working"
-      title="Approvals"
-      description="Purchase orders routed to approvers by your company's approval policies."
+      eyebrow={t("approvals.eyebrow")}
+      title={t("approvals.title")}
+      description={t("approvals.description")}
       // /api/b2b/purchase-orders returns the 100 most recent POs. Every count
       // and every row on this page is drawn from that window, so the window is
       // stated rather than left for the reader to assume it is the whole book.
-      dateline="Drawn from the 100 most recent purchase orders raised by this company"
+      dateline={t("approvals.basis")}
     >
       <div className="space-y-block">
-        <POActionBanner done={searchParams?.poDone} error={searchParams?.poError} />
+        <ActionBanner done={searchParams?.poDone} error={searchParams?.poError} />
 
         {/* One panel, hairline-divided. The four amber/green/red/white boxes
             this replaces used colour to say what the label already said. */}
         <CellGrid cols={{ base: 2, lg: 4 }}>
           <Stat
-            label="Awaiting approval"
+            label={t("approvals.stat.awaiting")}
             value={pending.length}
             rank="section"
             chip={pending.length > 0 ? "warning" : "neutral"}
@@ -96,63 +100,66 @@ export default async function ApprovalsPage({ searchParams }: { searchParams?: {
               nothing happened is a good thing, so it stays neutral until there
               is something to report. */}
           <Stat
-            label="Approved"
+            label={t("approvals.stat.approved")}
             value={approvedCount}
             chip={approvedCount > 0 ? "success" : "neutral"}
             icon={CheckCircle}
           />
-          <Stat label="Rejected" value={rejectedCount} chip={rejectedCount > 0 ? "danger" : "neutral"} icon={XCircle} />
-          <Stat label="Active policies" value={policies.length} icon={CheckSquare} />
+          <Stat
+            label={t("approvals.stat.rejected")}
+            value={rejectedCount}
+            chip={rejectedCount > 0 ? "danger" : "neutral"}
+            icon={XCircle}
+          />
+          <Stat label={t("approvals.stat.policies")} value={policies.length} icon={CheckSquare} />
         </CellGrid>
         {/* The two decided counts are drawn from the ten most recent decisions
             this page loads, not from the company's whole history. Say so. */}
-        <Dateline>Approved and rejected counts cover the ten most recent decisions shown below</Dateline>
+        <Dateline>{t("approvals.stat.basis")}</Dateline>
 
         {!isApprover && (
           <Surface rung={1} tone="accent" className="flex items-start gap-2 p-3">
             <Clock className="mt-0.5 h-4 w-4 shrink-0 text-accent-ink" aria-hidden="true" />
-            <p className="u-ui text-ink-1">
-              You can view the approval queue; approving or rejecting requires an approver or admin role.
-            </p>
+            <p className="u-ui text-ink-1">{t("approvals.notApprover")}</p>
           </Surface>
         )}
 
         <LedgerTable
-          title="Pending approval"
+          title={t("approvals.pending.title")}
           rows={pending}
           getRowKey={(po) => po.id}
-          dateline="Oldest request first · each total in the currency the PO was raised in"
+          dateline={t("approvals.pending.basis")}
+          // Every row in this table is held, so every row carries the held rule.
+          rowProps={() => ({ className: toneRule("warning") })}
           columns={[
             {
               key: "poNumber",
-              label: "Purchase order",
+              label: t("approvals.col.po"),
               render: (po) => (
                 <div className="min-w-0 py-2">
                   <p className="u-mono font-medium text-ink-1">{po.poNumber}</p>
                   <p className="u-meta text-ink-2">
-                    {po.notes ?? "No note"} · requested by {nameOf(po.requesterId)}
+                    {po.notes ?? t("approvals.noNote")} · {t("approvals.requestedBy", { name: nameOf(po.requesterId) })}
                   </p>
                 </div>
               ),
             },
             {
               key: "createdAt",
-              label: "Waiting",
+              label: t("approvals.col.waiting"),
               render: (po) => (
-                <span className="u-meta whitespace-nowrap text-ink-2">
-                  {formatDistanceToNow(new Date(po.createdAt), { addSuffix: true })}
-                </span>
+                <span className="u-meta whitespace-nowrap text-ink-2">{f.relative(po.createdAt)}</span>
               ),
             },
             {
               key: "total",
-              label: "Total",
+              label: t("common.total"),
               numeric: true,
               render: (po) => <Money amount={Number(po.total)} currency={po.currency} />,
             },
             {
               key: "actions",
-              label: "Decision",
+              label: t("approvals.col.decision"),
               align: "end",
               render: (po) =>
                 isApprover ? (
@@ -161,50 +168,65 @@ export default async function ApprovalsPage({ searchParams }: { searchParams?: {
                         controls they submit through have been restyled. */}
                     <form action={approvePO.bind(null, po.id)}>
                       <Button type="submit" variant="primary" size="sm">
-                        <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" /> Approve
+                        <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" /> {t("common.approve")}
                       </Button>
                     </form>
                     <form action={rejectPO.bind(null, po.id)}>
                       <Button type="submit" variant="ghost" size="sm" className="text-danger-ink hover:bg-danger-soft hover:text-danger-ink">
-                        <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> Reject
+                        <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> {t("common.reject")}
                       </Button>
                     </form>
                   </div>
                 ) : (
-                  <span className="u-meta text-ink-3">Approver only</span>
+                  <span className="u-meta text-ink-3">{t("approvals.approverOnly")}</span>
                 ),
             },
           ]}
+          // THE CERTIFICATE, and there is exactly one per page. This is the
+          // page's subject: an approver who opens the queue and finds it clear
+          // has been told the most important thing on the screen, so it is the
+          // composed plate rather than a centred grey line. Every other empty
+          // region in the suite gets the default blank WITH a real action —
+          // three composed plates down one page stop reading as composition.
           empty={
             <EmptyState
-              eyebrow="Queue clear"
-              headline="No purchase order is waiting for a decision."
-              body="A PO appears here once its value crosses one of your company's approval thresholds."
+              variant="certificate"
+              glyph={<ShieldCheck />}
+              eyebrow={t("approvals.pending.empty.eyebrow")}
+              headline={t("approvals.pending.empty.headline")}
+              body={t("approvals.pending.empty.body")}
+              action={
+                <Button asChild variant="secondary">
+                  <Link href="/b2b/approval-policies">{t("approvals.pending.empty.action")}</Link>
+                </Button>
+              }
             />
           }
         />
 
         <LedgerTable
-          title="Recent decisions"
+          title={t("approvals.decided.title")}
+          dateline={t("approvals.decided.basis")}
           rows={decided}
           getRowKey={(po) => po.id}
           density="compact"
+          rowProps={(po) => ({ className: toneRule(po.status === "REJECTED" ? "danger" : "success") })}
           toolbar={
             <Button asChild variant="link" size="sm">
               <Link href="/b2b/purchase-orders">
-                <FileText className="h-3 w-3" aria-hidden="true" /> All purchase orders
+                <FileText className="h-3 w-3" aria-hidden="true" /> {t("approvals.allPos")}
               </Link>
             </Button>
           }
           columns={[
             {
               key: "poNumber",
-              label: "Purchase order",
+              label: t("approvals.col.po"),
               render: (po) => (
                 <div className="min-w-0">
                   <p className="u-mono font-medium text-ink-1">{po.poNumber}</p>
                   <p className="u-meta truncate text-ink-2">
-                    {nameOf(po.requesterId)} · {format(new Date(po.updatedAt), "MMM d, yyyy")}
+                    {nameOf(po.requesterId)} · {f.date(po.updatedAt)}
                     {po.rejectionReason ? ` · ${po.rejectionReason}` : ""}
                   </p>
                 </div>
@@ -212,26 +234,35 @@ export default async function ApprovalsPage({ searchParams }: { searchParams?: {
             },
             {
               key: "total",
-              label: "Total",
+              label: t("common.total"),
               numeric: true,
               render: (po) => <Money amount={Number(po.total)} currency={po.currency} />,
             },
             {
               key: "status",
-              label: "Outcome",
+              label: t("approvals.col.outcome"),
               align: "end",
               render: (po) => (
-                <StatusPill tone={po.status === "REJECTED" ? "danger" : "success"}>
-                  {po.status === "ORDERED" ? "Approved · Ordered" : po.status.charAt(0) + po.status.slice(1).toLowerCase()}
+                <StatusPill tone={po.status === "REJECTED" ? "danger" : "success"} className="whitespace-nowrap">
+                  {po.status === "ORDERED"
+                    ? t("approvals.outcome.orderedLabel")
+                    : po.status === "REJECTED"
+                      ? t("po.status.rejected")
+                      : t("po.status.approved")}
                 </StatusPill>
               ),
             },
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline="No purchase order has been approved or rejected yet."
-              body="Decisions taken on this page are listed here, most recent first."
+              eyebrow={t("approvals.decided.empty.eyebrow")}
+              headline={t("approvals.decided.empty.headline")}
+              body={t("approvals.decided.empty.body")}
+              action={
+                <Button asChild variant="secondary" size="sm">
+                  <Link href="/b2b/purchase-orders">{t("approvals.decided.empty.action")}</Link>
+                </Button>
+              }
             />
           }
         />

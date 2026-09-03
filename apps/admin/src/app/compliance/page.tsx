@@ -4,7 +4,7 @@ import { db } from "@avenick/database";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { format, addDays, isAfter } from "date-fns";
 import Link from "next/link";
-import { FileText } from "lucide-react";
+import { FileText, FileCheck } from "lucide-react";
 import { Button, EmptyState, LedgerTable, PageHeader, StatusPill, type PillTone } from "@avenick/ui";
 
 export const metadata = { title: "Compliance" };
@@ -152,9 +152,16 @@ export default async function AdminCompliancePage() {
           ]}
           empty={
             <EmptyState
+              variant="certificate"
+              glyph={<FileCheck />}
               eyebrow="Nothing awaiting review"
               headline="No compliance document is waiting on an administrator."
-              body="Documents appear here as soon as a supplier files one."
+              body="A filing appears here the moment a supplier submits one, and leaves it as soon as somebody approves, rejects or lets it expire. Everything already decided is in the register below."
+              action={
+                <Button variant="secondary" size="sm" asChild>
+                  <Link href="/sellers/pending">Review supplier applications</Link>
+                </Button>
+              }
             />
           }
         />

@@ -1,103 +1,207 @@
+import Link from "next/link";
 import { requireSellerPermission } from "@/lib/auth";
 import { db } from "@avenick/database";
+import { format } from "date-fns";
 import { SellerLayout } from "@/components/layout/seller-layout";
-import { LifeBuoy, Clock, CheckCircle, AlertCircle, CircleOff } from "lucide-react";
+import { cn } from "@avenick/utils";
+import {
+  Button,
+  CellGrid,
+  Dateline,
+  EmptyState,
+  Eyebrow,
+  PageHeader,
+  Stat,
+  StatusPill,
+  Surface,
+  type PillTone,
+} from "@avenick/ui";
+import { AlertCircle, CheckCircle, CircleOff, Clock, LifeBuoy } from "lucide-react";
 
-export const metadata = { title: "Support Tickets" };
+export const metadata = { title: "Support tickets" };
 
-const STATUS_CONFIG: Record<string, { icon: typeof Clock; color: string; bg: string }> = {
-  OPEN:        { icon: AlertCircle, color: "text-amber-600 dark:text-amber-400",  bg: "bg-amber-500/10 border-amber-500/20" },
-  IN_PROGRESS: { icon: Clock,       color: "text-primary",                       bg: "bg-primary/10 border-primary/20" },
-  RESOLVED:    { icon: CheckCircle, color: "text-green-600 dark:text-green-400", bg: "bg-green-500/10 border-green-500/20" },
-  CLOSED:      { icon: CheckCircle, color: "text-muted-foreground",              bg: "bg-muted border-border" },
+/**
+ * Status → tone, never status → hue. The four semantic tones have real values in
+ * both themes; the `bg-amber-500/10` / `bg-green-500/10` / `bg-muted` washes this
+ * page used to carry are raw palette values tuned for neither.
+ *
+ * `rule` is the 3px inline-start rule — the same always-present, colour-only
+ * signal the RFQ inbox and the listing-issue list use, so a supplier reads
+ * "waiting on someone" the same way on all three surfaces.
+ */
+const STATUS: Record<string, { label: string; tone: PillTone; icon: typeof Clock; rule: string; open: boolean }> = {
+  OPEN:        { label: "Open",        tone: "warning", icon: AlertCircle, rule: "border-warning",       open: true },
+  IN_PROGRESS: { label: "In progress", tone: "primary", icon: Clock,       rule: "border-primary",       open: true },
+  RESOLVED:    { label: "Resolved",    tone: "success", icon: CheckCircle, rule: "border-transparent",   open: false },
+  CLOSED:      { label: "Closed",      tone: "neutral", icon: CheckCircle, rule: "border-transparent",   open: false },
 };
+
+const statusView = (status: string) =>
+  STATUS[status] ?? {
+    label: status.replace(/_/g, " ").toLowerCase(),
+    tone: "neutral" as PillTone,
+    icon: Clock,
+    rule: "border-transparent",
+    open: false,
+  };
+
+/**
+ * Priority is the stored SupportPriority enum, spelled exactly — LOW, NORMAL,
+ * HIGH, URGENT. It is stated, never graded and never coloured: the platform
+ * publishes no response-time commitment, so drawing "URGENT" in red would imply
+ * a promise nothing behind it supports.
+ */
+const PRIORITY_LABEL: Record<string, string> = {
+  LOW: "Low priority",
+  NORMAL: "Normal priority",
+  HIGH: "High priority",
+  URGENT: "Urgent priority",
+};
+
+const TICKET_LIMIT = 50;
 
 export default async function TicketsPage() {
   const { seller, membership } = await requireSellerPermission("support.view");
 
-  const tickets = await db.supportTicket.findMany({
-    where: { userId: seller.userId },
-    orderBy: { createdAt: "desc" },
-    take: 50,
-  });
+  const [tickets, total] = await Promise.all([
+    db.supportTicket.findMany({
+      where: { userId: seller.userId },
+      orderBy: { createdAt: "desc" },
+      take: TICKET_LIMIT,
+    }),
+    db.supportTicket.count({ where: { userId: seller.userId } }),
+  ]);
 
-  const openCount = tickets.filter((t) => t.status === "OPEN" || t.status === "IN_PROGRESS").length;
+  const openTickets = tickets.filter((ticket) => statusView(ticket.status).open);
+  const settledTickets = tickets.filter((ticket) => !statusView(ticket.status).open);
+  const capped = total > tickets.length;
+
+  const groups = [
+    { key: "open", title: "Waiting on the platform", rows: openTickets, note: "Open and in-progress tickets you have raised." },
+    { key: "settled", title: "Resolved and closed", rows: settledTickets, note: "Tickets the platform has finished with." },
+  ].filter((group) => group.rows.length > 0);
 
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-              <LifeBuoy className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">Support Tickets</h1>
-              <p className="text-sm text-muted-foreground">Manage your support requests and get help</p>
-            </div>
-          </div>
-          <span className="flex items-center gap-2 rounded-xl border border-border bg-muted px-4 py-2 text-sm font-semibold text-muted-foreground">
-            <CircleOff className="h-4 w-4" /> Ticket creation unavailable
-          </span>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          className="mb-0"
+          eyebrow="Support"
+          title="Support tickets"
+          description="Every support ticket recorded against your account, most recent first."
+          dateline={
+            capped
+              ? `The ${tickets.length} most recent of ${total} tickets on this account · counts describe the rows listed here`
+              : "Read from your own support records · a ticket appears here as soon as it exists"
+          }
+          actions={
+            // The disabled-control problem, solved by not rendering a control.
+            // Ticket creation is not connected, so this states the fact once
+            // rather than showing a button that cannot do anything.
+            <StatusPill tone="neutral">
+              <CircleOff className="h-3 w-3" aria-hidden="true" /> Ticket creation unavailable
+            </StatusPill>
+          }
+        />
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-card rounded-2xl border border-border p-4 text-center">
-            <p className="text-2xl font-bold">{tickets.length}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Total Tickets</p>
-          </div>
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-center">
-            <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">{openCount}</p>
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Open</p>
-          </div>
-          <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-4 text-center">
-            <p className="text-2xl font-bold text-green-600 dark:text-green-400">{tickets.filter((t) => t.status === "RESOLVED").length}</p>
-            <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">Resolved</p>
-          </div>
-          <div className="bg-card rounded-2xl border border-border p-4 text-center">
-            <p className="text-2xl font-bold">{tickets.filter((t) => t.status === "CLOSED").length}</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Closed</p>
-          </div>
-        </div>
+        {/* Open leads at section rank. A row of four identically-weighted counts
+            is exactly why nothing on a console page could be subordinate to
+            anything — the number a supplier came for is the one still waiting. */}
+        <CellGrid cols={{ base: 2, lg: 4 }}>
+          <Stat
+            label="Waiting on the platform"
+            value={openTickets.length}
+            rank="section"
+            icon={AlertCircle}
+            chip={openTickets.length > 0 ? "warning" : "neutral"}
+            note="Open or in progress."
+          />
+          <Stat
+            label="Resolved"
+            value={tickets.filter((t) => t.status === "RESOLVED").length}
+            icon={CheckCircle}
+            note="Answered and marked resolved."
+          />
+          <Stat
+            label="Closed"
+            value={tickets.filter((t) => t.status === "CLOSED").length}
+            icon={CheckCircle}
+            note="Closed without a further reply."
+          />
+          <Stat label="Listed here" value={tickets.length} icon={LifeBuoy} note="Rows shown on this page." />
+        </CellGrid>
 
-        {/* Ticket list */}
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          {tickets.length === 0 ? (
-            <div className="px-5 py-16 text-center">
-              <LifeBuoy className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
-              <p className="font-semibold text-muted-foreground">No support tickets yet</p>
-              <p className="text-sm text-muted-foreground mt-1">Ticket creation is disabled until submissions are persisted and auditable.</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {tickets.map((ticket) => {
-                const cfg = STATUS_CONFIG[ticket.status] ?? STATUS_CONFIG.OPEN;
-                const StatusIcon = cfg.icon;
-                return (
-                  <div key={ticket.id} className="flex items-start gap-4 px-5 py-4 hover:bg-muted/30 transition-colors">
-                    <div className={`h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 ${cfg.bg}`}>
-                      <StatusIcon className={`h-4 w-4 ${cfg.color}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <p className="font-semibold text-sm truncate">{ticket.subject}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${cfg.bg} ${cfg.color}`}>
-                          {ticket.status.replace(/_/g, " ")}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground line-clamp-1">{ticket.description ?? "No description"}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Priority: <span className="font-medium">{ticket.priority}</span>
-                        {ticket.createdAt && ` · Created ${new Date(ticket.createdAt).toLocaleDateString()}`}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        {tickets.length === 0 ? (
+          <EmptyState
+            variant="certificate"
+            glyph={<LifeBuoy />}
+            eyebrow="Nothing recorded"
+            headline="No support ticket has been raised on this account."
+            body="Ticket creation is deliberately not connected here: a form that cannot persist and audit what it submits is a promise, not a feature. Existing tickets appear on this page the moment the platform records one."
+            action={
+              <Button variant="secondary" size="sm" asChild>
+                <Link href="/support/contact">How to reach the platform</Link>
+              </Button>
+            }
+          />
+        ) : (
+          <div className="space-y-block">
+            {groups.map((group) => (
+              <section key={group.key} aria-label={group.title} className="space-y-2">
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <Eyebrow as="h2">
+                    {group.title} — {group.rows.length}
+                  </Eyebrow>
+                  <Dateline className="min-w-0">{group.note}</Dateline>
+                </div>
+
+                <Surface rung={1} className="overflow-hidden">
+                  <ul className="divide-y divide-hairline">
+                    {group.rows.map((ticket) => {
+                      const view = statusView(ticket.status);
+                      const StatusIcon = view.icon;
+                      return (
+                        <li
+                          key={ticket.id}
+                          // Always 3px, only the colour changes, so a resolved
+                          // row and an open one cannot differ in width.
+                          className={cn("border-s-[3px] px-4 py-3", view.rule)}
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
+                            <div className="min-w-0 flex-1">
+                              {/* Mono for the reference, which is exactly what
+                                  mono is reserved for. It is also the string the
+                                  platform will ask for. */}
+                              <span className="u-mono u-micro text-ink-3">{ticket.ticketNumber}</span>
+                              <p className="u-ui font-medium text-ink-1">{ticket.subject}</p>
+                            </div>
+                            <StatusPill tone={view.tone} className="shrink-0">
+                              <StatusIcon className="h-3 w-3" aria-hidden="true" />
+                              {view.label}
+                            </StatusPill>
+                          </div>
+                          {ticket.description && (
+                            <p className="u-meta mt-1 line-clamp-2 max-w-prose text-ink-2">{ticket.description}</p>
+                          )}
+                          <Dateline className="mt-1.5">
+                            {PRIORITY_LABEL[ticket.priority] ?? ticket.priority.toLowerCase()} · raised{" "}
+                            {/* The portal's own date shape, not a raw ISO
+                                string: every other date a supplier reads here is
+                                "3 Sep 2026", and toISOString additionally renders
+                                in UTC, so a ticket raised late in a Gulf evening
+                                printed the previous day. */}
+                            {format(ticket.createdAt, "d MMM yyyy")}
+                            {ticket.orderRef ? ` · order ${ticket.orderRef}` : ""}
+                          </Dateline>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </Surface>
+              </section>
+            ))}
+          </div>
+        )}
       </div>
     </SellerLayout>
   );

@@ -1,15 +1,21 @@
 import * as React from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { FieldWell } from "@avenick/ui";
+import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
+import { Button, FieldWell, Input } from "@avenick/ui";
 import { cn } from "@avenick/utils";
 
 /**
- * The two pieces of chrome every ledger screen in this console repeats: the
- * status filter row and the pager. They were hand-written on nine screens with
- * five different idioms — `bg-primary text-white`, `bg-purple-600 text-white`,
- * a pill group, a segmented control — so the same control taught the operator a
- * different lesson on each page.
+ * The chrome every register screen in this console repeats: the status filter
+ * row, the search row, the pager, the control shell and the href builder. They
+ * were hand-written on more than a dozen screens with five different idioms —
+ * `bg-primary text-white`, `bg-purple-600 text-white`, a pill group, a segmented
+ * control — so the same control taught the operator a different lesson on each
+ * page.
+ *
+ * It used to live at `app/finance/console-chrome.tsx` and be imported by eleven
+ * screens in seven other sections. Shared console chrome addressed through
+ * another section's route folder is how a second copy gets written by the next
+ * person who does not find it.
  *
  * The admin posture allows no primary fill (colour here is state, never
  * decoration), so the current filter is marked the way the active nav item is:
@@ -133,3 +139,95 @@ export const CONTROL =
 /** The same control at table-cell scale. */
 export const CONTROL_SM =
   "u-focus h-control-sm w-full border border-input px-2 text-meta text-ink-1 placeholder:text-ink-3 disabled:cursor-not-allowed disabled:opacity-50";
+
+/**
+ * The search row every register screen repeats. It was hand-written on five
+ * pages as a bare `<input>` with a decorative magnifier absolutely positioned
+ * over it, no accessible name, no submit control and no way back — a pointer
+ * user who typed a query and did not guess that Enter submits it simply got
+ * nothing, and once a query was applied the only route back to the full
+ * register was editing the URL.
+ *
+ * So it is a real `role="search"` landmark with a named field, a visible submit,
+ * and — once a query is applied — a control that clears it. The other filters
+ * currently in force ride along as hidden inputs, because a GET form replaces
+ * the whole query string and dropping them would silently widen the result set
+ * the operator is looking at.
+ */
+export function ConsoleSearch({
+  action,
+  label,
+  placeholder,
+  defaultValue,
+  preserve,
+  clearHref,
+  className,
+}: {
+  /** The page's own path, e.g. "/companies". */
+  action: string;
+  /** The field's accessible name, e.g. "Search companies". */
+  label: string;
+  placeholder: string;
+  defaultValue?: string;
+  /** Filters in force that must survive the submit. Empty values are dropped. */
+  preserve?: Record<string, string | undefined>;
+  /** Where "Clear" goes. Only rendered when a query is applied. */
+  clearHref?: string;
+  className?: string;
+}) {
+  const applied = Boolean(defaultValue);
+  return (
+    <form
+      method="get"
+      action={action}
+      role="search"
+      aria-label={label}
+      className={cn("flex flex-wrap items-center gap-2", className)}
+    >
+      {Object.entries(preserve ?? {}).map(([name, value]) =>
+        value ? <input key={name} type="hidden" name={name} value={value} /> : null,
+      )}
+      <div className="w-full max-w-xs">
+        <Input
+          type="search"
+          name="search"
+          aria-label={label}
+          defaultValue={defaultValue ?? ""}
+          placeholder={placeholder}
+          startIcon={<Search className="h-3.5 w-3.5" aria-hidden="true" />}
+        />
+      </div>
+      <Button type="submit" variant="secondary" size="sm">
+        Search
+      </Button>
+      {applied && clearHref && (
+        <Button variant="ghost" size="sm" asChild>
+          <Link href={clearHref}>
+            <X className="h-3.5 w-3.5" aria-hidden="true" /> Clear
+          </Link>
+        </Button>
+      )}
+    </form>
+  );
+}
+
+/**
+ * Build a href for this screen with some query parameters replaced.
+ *
+ * Every register screen wrote its own copy of this and each one differed in
+ * which parameters it reset — several of them kept `page` while changing the
+ * filter, which lands the operator on page 7 of a four-page result. `page` is
+ * always dropped here, because changing what is being listed always means
+ * starting at the beginning of it.
+ */
+export function queryHref(
+  path: string,
+  current: Record<string, string | undefined>,
+  next: Record<string, string | undefined>,
+): string {
+  const merged: Record<string, string | undefined> = { ...current, page: undefined, ...next };
+  const qs = new URLSearchParams(
+    Object.entries(merged).filter((entry): entry is [string, string] => Boolean(entry[1])),
+  ).toString();
+  return qs ? `${path}?${qs}` : path;
+}

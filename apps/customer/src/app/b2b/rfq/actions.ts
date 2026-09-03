@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { RECORD_ID } from "@avenick/utils";
 import { fetchB2BJson, type B2BActionState } from "@/lib/b2b";
+import { actionT } from "@/components/b2b/action-i18n";
 import { z } from "zod";
 
 const RFQItemSchema = z.object({
@@ -19,17 +20,21 @@ const CreateRFQSchema = z.object({
 });
 
 export async function submitRFQ(_prev: B2BActionState, formData: FormData): Promise<B2BActionState> {
+  const t = actionT();
   let payload: z.infer<typeof CreateRFQSchema>;
   try {
     payload = CreateRFQSchema.parse(JSON.parse(String(formData.get("payload") ?? "{}")));
   } catch (e) {
-    const message = e instanceof z.ZodError ? e.issues[0]?.message : "Invalid RFQ payload";
-    return { error: message ?? "Invalid RFQ payload" };
+    // Zod's own issue message names the offending field and is more actionable
+    // than anything written here; the translated line is the fallback for a
+    // malformed payload that has no field to name.
+    const message = e instanceof z.ZodError ? e.issues[0]?.message : undefined;
+    return { error: message ?? t("act.rfq.invalid") };
   }
 
   const requiredBy = payload.requiredBy ? new Date(payload.requiredBy) : undefined;
   if (requiredBy && Number.isNaN(requiredBy.getTime())) {
-    return { error: "Enter a valid required-by date" };
+    return { error: t("act.rfq.dateInvalid") };
   }
 
   let rfq: { id: string };
@@ -44,7 +49,7 @@ export async function submitRFQ(_prev: B2BActionState, formData: FormData): Prom
       }),
     });
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Unable to create RFQ." };
+    return { error: error instanceof Error && error.message ? error.message : t("act.rfq.failed") };
   }
 
   revalidatePath("/b2b/quotes");

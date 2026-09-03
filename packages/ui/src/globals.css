@@ -20,7 +20,38 @@
    packages/ui/DESIGN_SYSTEM.md
    ========================================================================== */
 
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,wght@1,400&display=swap");
+/* Inter is requested with its OPTICAL SIZE axis live. The previous request
+   pulled four static cuts, which is why the display steps read as a body face
+   that had been scaled up rather than a face drawn for the size: opsz is
+   literally the difference between Inter and Inter Display, in one file.
+   `opsz,wght@14..32,400..700` returns variable faces (a bogus axis 404s), so
+   four files become one per subset and .u-hero can set "opsz" 32.
+
+   The two Arabic display faces — Noto Kufi Arabic and Noto Naskh Arabic — are
+   NOT here. A stylesheet cannot be conditional, and the English build must not
+   pay for them; each root layout emits a <link rel="stylesheet"> for them gated
+   on locale === "ar". See DESIGN_SYSTEM.md §2.4. */
+@import url("https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,wght@1,400&display=swap");
+
+/* ────────────────────────────────────────────────────────────────────────────
+   0. REGISTERED PROPERTIES.
+   CSS cannot interpolate a custom property it has not been told the type of —
+   an unregistered one is a string, and a "transition" on it snaps at the
+   midpoint. These three are the only ones the system animates, and each is
+   registered here at the top level because @property is not valid inside a
+   media query or a selector.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/* The seal's travelling arc. An <angle> is the one thing a conic-gradient's
+   `from` accepts and the one thing CSS refuses to interpolate unregistered. */
+@property --seal-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+
+/* The sticky bar's glass fill and padding, both driven by a scroll timeline.
+   --glass-alpha inherits because every [data-glass] surface in the product
+   reads it from :root; it is registered rather than moved so that existing
+   behaviour is unchanged and only the bar's own animation gains interpolation. */
+@property --glass-alpha { syntax: "<number>"; initial-value: 0.86; inherits: true; }
+@property --chrome-pad  { syntax: "<length>"; initial-value: 14px;  inherits: true; }
 
 /* ────────────────────────────────────────────────────────────────────────────
    1. TOKENS — LIGHT. Warm paper (hue 36), cool ink.
@@ -42,7 +73,13 @@
   /* ═══ INK ═══ */
   --ink-1: 224 22% 11%;   /* body + headings */
   --ink-2: 222 12% 33%;   /* secondary sentences */
-  --ink-3: 220 10% 46%;   /* labels + metadata ONLY — never a sentence */
+  /* --ink-3 was 220 10% 46%: 4.63:1 on surface-0 and 4.06:1 the moment any tint
+     sat behind it, i.e. ~3% of headroom and a guaranteed fail the instant the
+     ambient field became visible. It is every label, table caption and metadata
+     line in three portals, so it is the one contrast value with no slack.
+     Now 5.59:1 plain, 5.34:1 on surface-1, and 4.70:1 against the worst overlap
+     of the three field lobes at either extreme of the drift cycle. */
+  --ink-3: 220 11% 41%;   /* labels + metadata ONLY — never a sentence */
   --ink-inv: 36 20% 97.5%;
 
   /* ═══ LINES ═══
@@ -52,11 +89,32 @@
   --border:        34 12% 85%;
   --border-strong: 32 10% 72%;
 
-  /* ═══ PHYSICS ═══ */
-  --rim: 0 0% 100%;          /* specular highlight colour, both themes */
-  --rim-2: .72;              /* alpha at rung 2 */
-  --rim-3: .88;              /*         rung 3 */
-  --rim-4: 1;                /*         rung 4/5 */
+  /* ═══ PHYSICS — THE FOUR-PART LIGHT MODEL ═══
+     Round one had one part where a physical slab under an overhead source has
+     four. Adding the missing three is pure box-shadow plus one masked conic
+     ring, at essentially zero runtime cost, and it is the single highest
+     perceived-quality-per-risk change in the system. All four ship to all three
+     portals unconditionally.
+
+       1. HIGHLIGHT      the 1px top seam where the source hits the edge
+       2. FRESNEL        the shoulder: the highlight fading AROUND the perimeter,
+                         drawn by the masked conic ring on [data-rim]::before
+       3. COUNTER-FRESNEL the dark underside seam, opposite the source
+       4. CONTACT        the tight, near-opaque shadow where the slab meets the
+                         ground — the part that makes it sit rather than float
+
+     Every value keeps ZERO horizontal offset. One overhead light is what makes
+     the whole system byte-identical in Arabic; the conic ring below is
+     symmetric about the vertical axis for the same reason. */
+  --rim: 0 0% 100%;          /* 1. specular highlight colour, both themes */
+  --rim-2: .72;              /*    alpha at rung 2 */
+  --rim-3: .88;              /*          rung 3 */
+  --rim-4: 1;                /*          rung 4/5 */
+  --rim-shoulder-2: .34;     /* 2. fresnel peak alpha at rung 2 */
+  --rim-shoulder-3: .48;     /*          rung 3 */
+  --rim-shoulder-4: .62;     /*          rung 4/5 */
+  --fresnel-under: 226 32% 12%;  --fresnel-alpha: .055;   /* 3 */
+  --contact: 226 40% 10%;        --contact-alpha: .05;    /* 4 */
   --shadow: 226 32% 12%;     /* hue-matched, NOT black. Black reads as soot. */
 
   /* ═══ ELEVATION ═══
@@ -72,15 +130,24 @@
   --elev-2: inset 0 1px 0 hsl(var(--rim) / var(--rim-2)),
             0 1px 1px hsl(var(--shadow) / .045),
             0 2px 5px -2px hsl(var(--shadow) / .055);
-  --elev-3: inset 0 1px 0 hsl(var(--rim) / var(--rim-3)),
-            0 1px 1px hsl(var(--shadow) / .04),
+  /* Rungs 0, 1 and 2 are unchanged: rung 2 is content, and content does not need
+     an underside. Rungs 3, 4 and 5 gain parts 3 and 4 inside their existing
+     stacks, which is why a raised object now reads as a slab rather than as a
+     rectangle with a shadow under it. */
+  --elev-3: inset 0  1px 0 hsl(var(--rim) / var(--rim-3)),
+            inset 0 -1px 0 hsl(var(--fresnel-under) / var(--fresnel-alpha)),
+            0 1px 1px hsl(var(--contact) / var(--contact-alpha)),
             0 4px 8px -2px hsl(var(--shadow) / .06),
             0 12px 22px -8px hsl(var(--shadow) / .09);
-  --elev-4: inset 0 1px 0 hsl(var(--rim) / var(--rim-4)),
+  --elev-4: inset 0  1px 0 hsl(var(--rim) / var(--rim-4)),
+            inset 0 -1px 0 hsl(var(--fresnel-under) / var(--fresnel-alpha)),
+            0 1px 1px hsl(var(--contact) / var(--contact-alpha)),
             0 2px 4px -1px hsl(var(--shadow) / .06),
             0 12px 24px -6px hsl(var(--shadow) / .13),
             0 32px 48px -20px hsl(var(--shadow) / .16);
-  --elev-5: inset 0 1px 0 hsl(var(--rim) / var(--rim-4)),
+  --elev-5: inset 0  1px 0 hsl(var(--rim) / var(--rim-4)),
+            inset 0 -1px 0 hsl(var(--fresnel-under) / var(--fresnel-alpha)),
+            0 1px 1px hsl(var(--contact) / var(--contact-alpha)),
             0 4px 8px -2px hsl(var(--shadow) / .08),
             0 24px 48px -12px hsl(var(--shadow) / .20),
             0 48px 88px -28px hsl(var(--shadow) / .30);
@@ -99,6 +166,19 @@
   --sat-glass: 1.60;   /* without saturate(), blurred colour goes grey and dirty */
   --sat-modal: 1.75;
   --scrim: 226 32% 12%;  --scrim-alpha: .42;
+
+  /* DISPLAY GLASS — the second material. Customer portal only, one per route,
+     and it carries NO body text: headings ≥24px and figures ≥20px only, because
+     its alpha is low enough that a 13px label's contrast would depend on
+     wherever the field happened to have drifted. Anything body-sized inside it
+     sits on its own opaque <FieldWell>. <Surface> throws on both misuses. */
+  --display-bg: 36 22% 99%;  --display-alpha: .58;
+  --blur-display: 34px;
+  --sat-display: 1.34;
+
+  /* The sticky bar's resting padding. Registered above so a scroll timeline can
+     interpolate it; a plain custom property would snap. */
+  --chrome-pad: 14px;
 
   /* ═══ BRAND ═══ */
   --primary:            248 62% 52%;
@@ -128,36 +208,138 @@
   --neutral-soft:  36 14% 93%;  --neutral-rule:  34 12% 85%;
   --neutral-ink: var(--ink-2);
 
-  /* ═══ AMBIENT FIELD — the only gradient in the system ═══ */
-  --field-a: 248 66% 58%;   --field-a-alpha: .055;
-  --field-b: 184 64% 44%;   --field-b-alpha: .040;
-  --field-noise: .014;      /* without noise, wide low-alpha gradients band on 8-bit panels */
+  /* ═══ THE RULED FIELD — the ambient ground, and the product's identity ═══
+     Still the only ambient gradient in the system, and still mounted exactly
+     once per root layout. Round one's version measured .055/.040 on a white
+     ground, which is below perceptual threshold — it was invisible, which is
+     half of why the product read as a flat document.
+
+     THREE hues, never four: overlapping lobes past three mix to brown rather
+     than glow. Indigo is the brand, verdigris is trade, brass is the register.
+
+     EVERY ALPHA HERE IS A CEILING, not a preference. They are derived from the
+     composited contrast at the WORST overlap of all three lobes, in both
+     themes, at BOTH extremes of the drift keyframes — a measurement taken from
+     a stationary screenshot at t=0 is meaningless for a field that moves. At
+     these values light --ink-3 holds 4.70:1 and light --brass-ink 4.53:1; dark
+     --ink-3 holds 5.27:1 and dark --ink-2 6.53:1. Raise one because the hero
+     looked thin on your monitor and every label in three portals fails, in a
+     state that only appears seventeen seconds into a thirty-four second cycle. */
+  --field-a: 248 66% 58%;   --field-a-alpha: .075;   /* indigo — brand */
+  --field-b: 184 64% 44%;   --field-b-alpha: .052;   /* verdigris — trade */
+  --field-c:  36 56% 42%;   --field-c-alpha: .026;   /* brass — the register */
+  /* The ruling: horizontal hairlines at exactly one body line-height, masked so
+     they dissolve long before they reach a word. Measured delta against the
+     ground is 1.07:1 — felt, never read. Horizontal by construction, therefore
+     byte-identical in Arabic. */
+  --field-rule: var(--ink-1);  --field-rule-alpha: .035;
+  --field-noise: .022;      /* without noise, wide low-alpha gradients band on 8-bit panels */
+  --field-blur: 64px;
   --field-intensity: 1;
+
+  /* Grain. `stitchTiles` removes the visible 160px seam the old declaration
+     had; `feColorMatrix saturate 0` is mandatory, because raw fractalNoise is
+     CHROMATIC and puts faint red-green speckle over a warm paper ground, which
+     reads as a dirty screen rather than as texture. numOctaves stays at 3 —
+     above it there is no visible gain and a real cost. */
+  --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+
+  /* ═══ STATE LAYERS ═══
+     One pair of percentages replaces roughly forty hand-tuned hover/press
+     tokens that had drifted apart. color-mix in oklab is what makes it work:
+     because oklab lightness is perceptually uniform, 8% produces the same
+     perceived shift at indigo, verdigris, brass and grey — the thing that never
+     worked in HSL, where 8% at a dark hue is invisible and 8% at a light one is
+     a jump. --state-mix inverts in dark mode, one line, and every hover in
+     three portals starts lightening instead of darkening. */
+  --state-hover: 8%;
+  --state-press: 16%;
+  --state-mix: var(--ink-1);
+
+  /* ═══ IMAGERY ═══
+     The highest-ROI decision in the system and it is not an effect, it is
+     framing. Seller photography arrives at every crop, tone and product-in-frame
+     ratio; `cover` on a square crops the valve off a fitting and the label off a
+     drum, and a grid of that reads as a scraped feed no amount of lighting
+     fixes. See <ImageFrame>. */
+  --img-ratio-card: 4 / 5;   /* portrait reads as considered; square as a thumbnail sheet */
+  --img-ratio-hero: 3 / 2;
+  --img-inset: 9%;           /* the product never touches its own frame */
+  --img-plate: var(--surface-1);
+
+  /* ═══ EDGES ═══ */
+  --edge: 32px;              /* the symmetric inline mask on any horizontal rail */
 
   /* ═══ FOCUS ═══ */
   --ring: var(--primary);
   --ring-width: 2px;
   --ring-offset-surface: var(--surface-2);
 
-  /* ═══ TYPE ═══ */
+  /* ═══ TYPE ═══
+     Three Latin registers, and — as of this round — three ARABIC ones. Round one
+     gave Arabic a single face doing all three jobs, and worse: --font-provenance
+     was Source Serif 4, which has ZERO Arabic coverage, so every <Dateline> and
+     every <EmptyState> lead silently fell back to Plex Arabic in the AR build.
+     The English page had a human voice and the Arabic page had none. That is the
+     textbook definition of translated-looking, and it was invisible to an
+     English reviewer.
+
+     The pairing rule, and it is the load-bearing decision: match across
+     EQUIVALENT SCRIPT REGISTERS, never by mood. Latin neo-grotesque ↔ Arabic
+     Kufi (both constructed, architectural, official). Latin serif ↔ Arabic Naskh
+     (both authored, high-contrast, traditional). Pair across a register boundary
+     and the English page reads as a magazine while the Arabic page reads as an
+     airport sign, and neither reads as the same company.
+
+     Kufi for display is the register argument, not a preference: Kufi is the
+     script of official inscription, of the stamp and of the seal. For a trade
+     REGISTER it is the correct register. */
   --font-sans:       "Inter";
+  --font-display:    "Inter";               /* opsz does the display work — no second Latin family */
   --font-sans-ar:    "IBM Plex Sans Arabic";
-  --font-provenance: "Source Serif 4";   /* Dateline + EmptyState lead ONLY */
-  --font-mono:       "IBM Plex Mono";    /* SKUs, order refs, tracking IDs. NOT money. */
+  --font-display-ar: "Noto Kufi Arabic";    /* loaded by the root layout when locale === "ar" */
+  --font-provenance: "Source Serif 4";      /* Dateline + EmptyState lead ONLY */
+  --font-mono:       "IBM Plex Mono";       /* SKUs, order refs, tracking IDs. NOT money. */
 
   --fs-micro:  11px;  --lh-micro: 16px;  --tr-micro:  .06em;
   --fs-meta:   12px;  --lh-meta:  18px;  --tr-meta:   0;
   --fs-ui:     13px;  --lh-ui:    20px;  --tr-ui:     0;
   --fs-body:   15px;  --lh-body:  24px;  --tr-body:   0;
-  --fs-lead:   17px;  --lh-lead:  27px;  --tr-lead:   0;
-  --fs-h3:     20px;  --lh-h3:    28px;  --tr-h3:    -.008em;
-  --fs-h2:     26px;  --lh-h2:    32px;  --tr-h2:    -.014em;
-  --fs-h1:     34px;  --lh-h1:    40px;  --tr-h1:    -.018em;
+  /* h1/h2/h3 and the lead become fluid. A fixed 34px h1 is enormous on a 390px
+     phone and timid on a 27-inch monitor; every clamp below is computed for a
+     390 → 1440 viewport range rather than eyeballed. */
+  --fs-lead:   clamp(16px, .930rem + .29vw, 19px);   --lh-lead: 1.58;  --tr-lead: -.004em;
+  --fs-h3:     clamp(19px, 1.118rem + .29vw, 22px);  --lh-h3:   1.32;  --tr-h3:   -.009em;
+  --fs-h2:     clamp(24px, 1.314rem + .76vw, 32px);  --lh-h2:   1.14;  --tr-h2:   -.016em;
+  --fs-h1:     clamp(30px, 1.550rem + 1.33vw, 44px); --lh-h1:   1.08;  --tr-h1:   -.022em;
   --fs-display: clamp(34px, 2rem + 2.2vw, 52px);
   --lh-display: 1.05;  --tr-display: -.026em;
 
-  /* Figures — the 3× rank ratio between a metric and its label lives here. */
+  /* THE HERO RUNG — the range the system did not have.
+     Round one set the whole product within one order of magnitude of itself:
+     52px display against 15px body is a 3.5× ratio, and a system with no range
+     is not restrained, it has no dynamics. 92px against 15px is 6.1×. "Impressive"
+     is almost entirely a scale problem, not a decoration problem.
+
+     WHY 680 IS PERMITTED WHERE ROUND ONE BANNED 700: the ban existed to protect
+     typographic COLOUR. A static 700 at 92px has the stroke-to-counter ratio of
+     a 16px label and reads as a UI element somebody zoomed. At "opsz" 32, weight
+     680 at 92px has approximately the stroke-to-counter ratio that 600 has at
+     opsz 14 and 26px — the same typographic colour. The optical-size axis is
+     what makes the exemption principled rather than a relaxation. 680 exists on
+     exactly one class, .u-hero. Everywhere else the ceiling is still 600, and
+     800/900 still do not exist.
+
+     Seller and admin override --fs-hero back down to --fs-h1, which makes the
+     rung structurally unavailable there rather than merely discouraged. */
+  --fs-hero: clamp(40px, 1.293rem + 4.95vw, 92px);   /* 40px @390 → 92px @1440 */
+  --lh-hero: 0.98;  --tr-hero: -.034em;  --fw-hero: 680;
+
+  /* Figures — the 3× rank ratio between a metric and its label lives here.
+     fig-card is new: 20px is a dashboard stat size, not a shopfront price, and
+     a price is the first thing a shopper's eye lands on. */
   --fs-fig-inline:  20px;  --lh-fig-inline:  28px;  --fw-fig-inline: 500;
+  --fs-fig-card:    22px;  --lh-fig-card:    26px;  --fw-fig-card:   600;
   --fs-fig-section: 30px;  --lh-fig-section: 34px;  --fw-fig-section: 600;
   --fs-fig-hero:    46px;  --lh-fig-hero:    48px;  --fw-fig-hero:   700;
   --tr-fig: -.02em;
@@ -166,12 +348,38 @@
   --measure-prose: 68ch;
   --measure-desc:  60ch;
 
-  /* ═══ MOTION ═══ */
+  /* ═══ MOTION ═══
+     Assignment, not taste: entering and exiting → --ease-out. Moving or morphing
+     on screen → --ease-in-out. Hover and colour → plain `ease`. Progress and
+     marquee → `linear`. NEVER ease-in on UI: it starts slow at the exact moment
+     the user is watching, and ease-out at 200ms feels faster than ease-in at
+     200ms.
+
+     ASYMMETRY IS THE RULE, NOT AN OPTION. Exits are faster than entrances and
+     they overlap: old content leaves in ~150ms so it stops competing, new
+     content arrives over ~210ms delayed behind it so it can be read. A
+     symmetric 300/300 crossfade is the single most reliable tell of a system
+     that was configured rather than designed. */
   --ease-out:      cubic-bezier(.22, 1, .36, 1);
-  --ease-standard: cubic-bezier(.32, .72, 0, 1);
-  --ease-in-out:   cubic-bezier(.65, 0, .35, 1);
+  --ease-standard: cubic-bezier(.32, .72, 0, 1);   /* this IS the iOS drawer curve */
+  --ease-drawer:   var(--ease-standard);           /* alias, so the purpose is legible */
+  --ease-in-out:   cubic-bezier(.77, 0, .175, 1);  /* strengthened from (.65,0,.35,1) */
   --ease-exit:     cubic-bezier(.4, 0, 1, 1);
-  --ease-spring:   cubic-bezier(.34, 1.4, .5, 1);
+  /* Renamed from --ease-spring, which it never was: a cubic-bezier with a
+     control point past 1 is an overshoot, not a spring. Button press-and-release
+     only. The old name is aliased below so nothing breaks. */
+  --ease-overshoot: cubic-bezier(.34, 1.4, .5, 1);
+  /* The system's ONE real spring, sampled at 44 points from bounce ≈ .15 /
+     visualDuration ≈ .5s. It has exactly one job: the commit badge CONTAINER
+     pulse. A GCC trade platform that bounces reads as a consumer app cosplaying
+     as infrastructure, so springs are the wrong default here and that is a
+     feature. Cap the system at one. */
+  --ease-spring: linear(
+    0, .0021, .0083, .0187, .0332 8%, .0724, .1226, .1826 18%, .2513, .3275 26%,
+    .41, .4977, .5891 38%, .683, .7778 46%, .8232, .8672, .9089 54%,
+    .9474, .9819 62%, 1.0117, 1.0364 70%, 1.0466, 1.0479, 1.0435 78%,
+    1.0345, 1.0234 84%, 1.0119, 1.0018 90%, .9962, .9945, .9954 96%, .9977, 1
+  );
   --dur-1: 90ms; --dur-2: 140ms; --dur-3: 220ms; --dur-4: 320ms; --dur-5: 480ms;
   --stagger: 40ms;
   --motion-scale: 1;
@@ -226,16 +434,25 @@
    Never copy a light-mode shadow stack into this block.
    ──────────────────────────────────────────────────────────────────────────── */
 .dark {
-  --surface-0:      232 16%  6%;
+  /* The ladder is WIDER than round one's. Range between the darkest ground and
+     the brightest object is where dark-mode expense comes from, and a 10-point
+     L span across five rungs is not a ladder, it is a gradient nobody can see.
+     surface-0 6% → 4% and surface-3 14% → 15% takes the span to 13 points.
+     Nothing else in the ramp moves. */
+  --surface-0:      232 18%  4%;
   --surface-1:      232 14%  8.5%;
   --surface-2:      232 13% 11%;
-  --surface-3:      232 12% 14%;
+  --surface-3:      232 12% 15%;
   --surface-float:  232 14% 16%;
   --surface-sunken: 232 18%  4.5%;
 
   --ink-1:  40 14% 94%;    /* warm off-white — pure white halates on ink */
   --ink-2: 228 10% 72%;
-  --ink-3: 226  9% 58%;
+  /* Was 226 9% 58%, which measured 4.09:1 on dark glass over the brightest
+     point of the field — a fail, and the field is about to become visible.
+     Now 7.72:1 on the new surface-0, 6.77:1 on surface-2, 5.94:1 on dark glass
+     over the brightest field point and 5.27:1 at the worst lobe overlap. */
+  --ink-3: 226 10% 65%;
   --ink-inv: 232 16% 6%;
 
   --hairline:      232 12% 15%;
@@ -244,6 +461,13 @@
 
   --rim: 0 0% 100%;
   --rim-2: .05;  --rim-3: .075;  --rim-4: .10;
+  --rim-shoulder-2: .045; --rim-shoulder-3: .07; --rim-shoulder-4: .10;
+  /* In dark the counter-fresnel is the strongest of the four parts: with almost
+     no light to catch, the underside seam is what separates one near-black slab
+     from another. Pure black rather than the hue-matched value, because at .34
+     a tinted underside reads as a colour cast. */
+  --fresnel-under: 0 0% 0%;  --fresnel-alpha: .34;
+  --contact: 232 60% 1%;     --contact-alpha: .45;
   --shadow: 232 60% 2%;
 
   --elev-0: none;
@@ -252,13 +476,19 @@
   --elev-2: inset 0 1px 0 hsl(var(--rim) / var(--rim-2)),
             0 1px 2px hsl(var(--shadow) / .50),
             0 3px 8px -3px hsl(var(--shadow) / .55);
-  --elev-3: inset 0 1px 0 hsl(var(--rim) / var(--rim-3)),
+  --elev-3: inset 0  1px 0 hsl(var(--rim) / var(--rim-3)),
+            inset 0 -1px 0 hsl(var(--fresnel-under) / var(--fresnel-alpha)),
+            0 1px 1px hsl(var(--contact) / var(--contact-alpha)),
             0 2px 4px hsl(var(--shadow) / .55),
             0 10px 24px -6px hsl(var(--shadow) / .65);
-  --elev-4: inset 0 1px 0 hsl(var(--rim) / var(--rim-4)),
+  --elev-4: inset 0  1px 0 hsl(var(--rim) / var(--rim-4)),
+            inset 0 -1px 0 hsl(var(--fresnel-under) / var(--fresnel-alpha)),
+            0 1px 1px hsl(var(--contact) / var(--contact-alpha)),
             0 4px 8px -2px hsl(var(--shadow) / .60),
             0 18px 36px -10px hsl(var(--shadow) / .72);
-  --elev-5: inset 0 1px 0 hsl(var(--rim) / .12),
+  --elev-5: inset 0  1px 0 hsl(var(--rim) / .12),
+            inset 0 -1px 0 hsl(var(--fresnel-under) / var(--fresnel-alpha)),
+            0 1px 1px hsl(var(--contact) / var(--contact-alpha)),
             0 8px 16px -4px hsl(var(--shadow) / .65),
             0 40px 80px -24px hsl(var(--shadow) / .85);
 
@@ -266,6 +496,14 @@
   --glass-border:   0  0% 100%; --glass-border-alpha: .08;
   --modal-alpha: .96;
   --scrim: 232 60% 2%;          --scrim-alpha: .62;
+  /* Above roughly 1.4, a blurred DARK backdrop goes neon: saturate multiplies
+     chroma, and there is very little luminance left to hold it down. 1.60 was
+     tuned on the light theme and copied. */
+  --sat-glass: 1.30;
+  --sat-modal: 1.35;
+  --display-bg: 232 18% 18%;  --display-alpha: .46;
+  --blur-display: 30px;
+  --sat-display: 1.10;
 
   --primary:            250 84% 72%;
   --primary-foreground: 248 40% 10%;
@@ -289,9 +527,20 @@
   --danger-foreground: 2 60% 8%;
   --neutral-soft: 232 12% 15%;  --neutral-rule: 232 12% 20%;
 
-  --field-a-alpha: .14;
-  --field-b-alpha: .09;
-  --field-noise: .020;
+  /* Dark tolerates far more field before contrast bites, and needs it: an
+     unlit near-black ground is the flattest surface in the product. */
+  --field-a-alpha: .16;
+  --field-b-alpha: .11;
+  --field-c-alpha: .07;
+  /* The ruling inverts to the rim colour — ink-coloured rules are invisible on
+     a dark ground, and a rule you cannot see is a rule you should not pay for. */
+  --field-rule: var(--rim);  --field-rule-alpha: .045;
+  /* Dark bands worst of the two themes: .020 under-dithers and the lobes ring. */
+  --field-noise: .034;
+
+  /* One line, and every hover in three portals inverts from darkening to
+     lightening. This is what the forty hand-tuned dark state tokens were for. */
+  --state-mix: var(--ink-inv);
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -301,13 +550,32 @@
    portal is already correct before its root layout gains the attribute; the
    type half stays here so the RTL block below can still win.
    ──────────────────────────────────────────────────────────────────────────── */
+/* THE PRINCIPLE, and the one sentence that decides every borderline case:
+   the storefront and the console share every OBJECT and differ only in
+   INTENSITY, RATIO and DENSITY. A supplier reading a settlement and an operator
+   approving a payout are not audiences for spatial UI; a buyer choosing between
+   two suppliers is. The dials below encode that judgement and the dev-time
+   throws in <Surface> and <TierMark> enforce it.
+
+   The fastest way to break this system is for somebody to turn the field up so
+   it is visible on admin too. The effect dies behind tables and forms, and this
+   product has two entire portals that ARE tables and forms. */
 [data-portal="seller"] {
   --radius: 10px; --radius-sm: 6px; --radius-lg: 14px;
   --row-h: 36px; --control-h-sm: 28px; --control-h-md: 34px; --control-h-lg: 42px;
   --space-block: 24px; --space-section: 40px;
+  /* The field is a whisper here, but the drift still runs: a whisper that moves
+     reads as a room, a whisper that is frozen reads as a rendering bug. */
   --field-intensity: .30;
-  --motion-scale: .8;
+  --motion-scale: .85;
+  --rim-shoulder-2: .26; --rim-shoulder-3: .38; --rim-shoulder-4: .48;
+  /* Inventory, not merchandising. A supplier is checking that the right photo is
+     attached to the right SKU, not being sold to. */
+  --img-ratio-card: 1 / 1;  --img-inset: 5%;
   --fs-fig-hero: 38px; --lh-fig-hero: 42px;
+  /* The hero rung is structurally unavailable outside the storefront. */
+  --fs-hero: var(--fs-h1); --lh-hero: var(--lh-h1);
+  --tr-hero: var(--tr-h1); --fw-hero: var(--fw-head);
 }
 
 [data-portal="admin"] {
@@ -315,11 +583,27 @@
   --row-h: 32px; --control-h-sm: 26px; --control-h-md: 32px; --control-h-lg: 40px;
   --space-block: 16px; --space-section: 32px;
   --field-intensity: .15;
-  --motion-scale: .7;
+  /* .70 → .65: the commit wash at 260ms is slightly long for a queue an
+     operator works through for an hour at a time. */
+  --motion-scale: .65;
+  /* Admin's shoulders are the strongest of the three despite being the calmest
+     portal: at 32px row height a console needs its objects separated by
+     material, because it has no space to separate them with. */
+  --rim-shoulder-2: .22; --rim-shoulder-3: .30; --rim-shoulder-4: .38;
+  /* 32–40px thumbnails. No frame at all — a plate around a 32px image is a box
+     around a box. */
+  --img-ratio-card: 1 / 1;  --img-inset: 0;
   --fs-body: 14px; --lh-body: 21px;
   --fs-fig-hero: 34px; --lh-fig-hero: 38px;
   --fs-fig-section: 26px; --lh-fig-section: 32px;
+  --fs-hero: var(--fs-h1); --lh-hero: var(--lh-h1);
+  --tr-hero: var(--tr-h1); --fw-hero: var(--fw-head);
 }
+
+/* A scroll timeline must not be able to reintroduce the staged reveals a
+   console deliberately does not have. <RevealRoot> is already not mounted in
+   admin; this is the belt to that pair of braces. */
+[data-portal="admin"] [data-reveal] { animation: none !important; }
 
 /* ────────────────────────────────────────────────────────────────────────────
    4. RTL — token-level, so that no component ever hand-patches Arabic.
@@ -330,13 +614,64 @@
 [dir="rtl"] {
   --dir: -1;
   --origin-inline-start: right;
+
+  /* NEVER TRACK ARABIC. Zeroed at token level so no component can reintroduce
+     it by hand: Arabic is a connected script and tracking of either sign breaks
+     the joins between letterforms — worse in Kufi than in Naskh. */
   --tr-micro: 0; --tr-h3: 0; --tr-h2: 0; --tr-h1: 0;
-  --tr-display: 0; --tr-fig: 0;
+  --tr-display: 0; --tr-hero: 0; --tr-fig: 0; --tr-lead: 0;
+
+  /* THE PROVENANCE VOICE, RESTORED. Source Serif 4 has zero Arabic coverage, so
+     round one's Dateline and EmptyState lead fell back silently to Plex Arabic
+     in the AR build — the two places the system deliberately puts its most human
+     voice, and Arabic had neither. Naskh IS Arabic's authored register. This one
+     line is the cheapest high-impact change in the whole direction. */
+  --font-provenance: "Noto Naskh Arabic";
+
+  /* THE ARABIC SCALE — its own ramp, not Latin plus 7%. Plex Arabic runs
+     optically smaller than Inter at the same pixel size, and Naskh needs
+     vertical room for its diacritics, so both the sizes and the leading differ. */
   --fs-body: 16px;   --lh-body: 26px;
   --fs-ui: 14px;     --lh-ui: 22px;
   --fs-meta: 12.5px; --lh-meta: 20px;
   --fs-micro: 11.5px;--lh-micro: 18px;
-  --lh-h1: 44px; --lh-h2: 36px; --lh-h3: 31px; --lh-display: 1.16;
+  --fs-h3: 21px;     --lh-h3: 31px;
+  --fs-h2: clamp(26px, 1.439rem + 0.76vw, 34px);  --lh-h2: 1.32;
+  --fs-h1: clamp(32px, 1.652rem + 1.43vw, 47px);  --lh-h1: 1.26;
+  --fs-display: clamp(34px, 1.9rem + 2.8vw, 66px); --lh-display: 1.30;
+  --fs-fig-card: 22px; --lh-fig-card: 30px;
+
+  /* THE CONSTRAINT THAT SETS BOTH HERO NUMBERS, and the single value in this
+     file most likely to be "corrected" by somebody who does not read Arabic:
+
+         Latin   92px × 0.98 = 90.2px per line
+         Arabic  76px × 1.20 = 91.2px per line
+
+     THE TWO LANGUAGES OCCUPY THE SAME VERTICAL BAND. Arabic is not capped out of
+     timidity and not inflated out of guilt; the two scales are solved together
+     so one hero composition holds in both languages and the CTA sits at the same
+     fold on a 1366px laptop either way. Set Arabic to 92 at lh 1.20 and each
+     line becomes 110px, the headline block grows 22%, and the CTA drops below
+     the fold on the laptops that are a large share of Gulf desktop traffic. Set
+     it to 92 at Latin's 0.98 and Naskh ascenders collide with the line above. */
+  --fs-hero: clamp(38px, 1.493rem + 3.62vw, 76px);
+  --lh-hero: 1.20;
+  --fw-hero: 600;   /* Plex Arabic and Noto Kufi are STATIC on Google Fonts —
+                       680 does not exist and asking for it gets a synthetic smear. */
+}
+
+/* NEVER SYNTHESISE. Fail loudly rather than smear a weight or slant the face
+   does not have. Arabic has no italic; obliquing a face to fake one is the mark
+   of a product that did not look. Round one already got this right for
+   .u-provenance; it is generalised here. */
+[dir="rtl"] { font-synthesis: none; }
+[dir="rtl"] :is(em, i, cite) { font-style: normal; font-weight: 500; }
+
+/* MIXED-SCRIPT SIZE. A Latin brand name inside an Arabic title renders roughly
+   15% optically smaller — the single clearest tell that nobody looked at the
+   Arabic build. from-font matches the fallback's x-height to the primary's. */
+@supports (font-size-adjust: from-font) {
+  [dir="rtl"] :is(h1, h2, h3, p, .u-body, .u-lead) { font-size-adjust: from-font; }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -358,6 +693,9 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+  /* Lets Inter's opsz axis track the rendered size automatically, which is what
+     makes the display steps read as drawn rather than scaled. Costs nothing. */
+  font-optical-sizing: auto;
 }
 
 [dir="rtl"] body {
@@ -370,6 +708,23 @@ h1, h2, h3, h4, h5, h6 { font-weight: var(--fw-head); }
 h1 { font-size: var(--fs-h1); line-height: var(--lh-h1); letter-spacing: var(--tr-h1); }
 h2 { font-size: var(--fs-h2); line-height: var(--lh-h2); letter-spacing: var(--tr-h2); }
 h3 { font-size: var(--fs-h3); line-height: var(--lh-h3); letter-spacing: var(--tr-h3); }
+
+/* Two free wins, both Baseline, both zero cost.
+   `balance` removes the single-word last line, which is the loudest amateur
+   tell in a large headline. `pretty` removes the orphan in prose.
+   Under RTL, balance produces odd breaks on a connected script, so headings get
+   `pretty` there instead — see the .u-hero override below. */
+h1, h2 { text-wrap: balance; }
+p, .u-lead, .u-body { text-wrap: pretty; }
+[dir="rtl"] :is(h1, h2) { text-wrap: pretty; }
+
+/* text-box-trim aligns a headline's OPTICAL top edge with the box it sits in and
+   retires the hand-tuned negative margins that break at the next breakpoint.
+   Firefox ignores it and you get a pixel or two of extra leading — the most
+   graceful degradation in CSS.
+   LATIN ONLY, and this is not a preference: `cap alphabetic` describes Latin
+   metrics, and trimming an Arabic line to them clips the ascenders on ا and ل. */
+:where([dir="ltr"]) :is(.u-hero, h1, h2) { text-box: trim-both cap alphabetic; }
 
 ::selection { background: hsl(var(--primary) / .22); }
 
@@ -449,16 +804,100 @@ h3 { font-size: var(--fs-h3); line-height: var(--lh-h3); letter-spacing: var(--t
 [data-lift]:hover  { transform: translateY(var(--lift-y)); }
 [data-lift]:active { transform: translateY(var(--press-y)); }
 
+/*
+ * PART 2 OF THE LIGHT MODEL — the fresnel shoulder.
+ *
+ * This is the one part box-shadow cannot draw, because a shoulder must fade
+ * AROUND the perimeter rather than sit on one edge. A conic gradient on a
+ * ::before, clipped to a 1px band by the padding-box/border-box mask-composite
+ * trick, does it in eight declarations and zero JavaScript.
+ *
+ * Because the light is directly overhead the gradient is SYMMETRIC about the
+ * vertical axis: the 0deg and 360deg stops are equal, and 68deg mirrors 292deg.
+ * That symmetry is why it is byte-identical in Arabic and needs no --dir
+ * anywhere. Do not make it asymmetric to "add interest"; that silently breaks
+ * the one invariant the whole system's RTL correctness rests on.
+ *
+ * Exposed as `rim` on <Surface>, defaulting ON at rungs 3–5 and OFF at 0–2.
+ */
+[data-rim] { position: relative; }
+[data-rim]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from 0deg at 50% 50%,
+    hsl(var(--rim) / var(--rim-shoulder-3))                       0deg,
+    hsl(var(--rim) / calc(var(--rim-shoulder-3) * .38))          68deg,
+    hsl(var(--rim) / calc(var(--rim-shoulder-3) * .07))         172deg,
+    hsl(var(--rim) / calc(var(--rim-shoulder-3) * .07))         188deg,
+    hsl(var(--rim) / calc(var(--rim-shoulder-3) * .38))         292deg,
+    hsl(var(--rim) / var(--rim-shoulder-3))                     360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+}
+[data-rim][data-rung="2"]::before { --rim-shoulder-3: var(--rim-shoulder-2); }
+[data-rim][data-rung="4"]::before,
+[data-rim][data-rung="5"]::before { --rim-shoulder-3: var(--rim-shoulder-4); }
+/* Without mask-composite there is no way to cut a hole in the middle, so the
+   fallback is a flat inset ring at half strength — a weaker shoulder, never a
+   filled rectangle over the card's own content. */
+@supports not (mask-composite: exclude) {
+  [data-rim]::before {
+    background: none;
+    box-shadow: inset 0 0 0 1px hsl(var(--rim) / calc(var(--rim-shoulder-3) * .5));
+  }
+}
+
+
 /* ────────────────────────────────────────────────────────────────────────────
    7. GLASS — rungs 4 and 5 only, and never nested.
    Budget: ≤3 blurred surfaces per viewport on customer, ≤2 on seller/admin.
    ──────────────────────────────────────────────────────────────────────────── */
+/*
+ * CHROME GLASS. Bars, dropdowns, drawers, modals — surfaces that CARRY TEXT, so
+ * their contrast has to be deterministic rather than a bet on what happens to
+ * scroll underneath. That is why --glass-alpha is high and why the floor, not
+ * prefers-reduced-transparency, is the accessibility story.
+ */
 [data-glass="true"] {
   background-color: hsl(var(--glass-bg) / var(--glass-alpha));
   backdrop-filter: blur(var(--blur-float)) saturate(var(--sat-glass));
   -webkit-backdrop-filter: blur(var(--blur-float)) saturate(var(--sat-glass));
   border: 1px solid hsl(var(--glass-border) / var(--glass-border-alpha));
+  /* The counter-fresnel, so glass gets the same four-part light as every other
+     raised object rather than being the one material with a top edge and no
+     underside. */
+  box-shadow: inset 0 -1px 0 hsl(var(--fresnel-under) / var(--fresnel-alpha));
+  /* LIVE DEFECT FIX. Without this, the two-stop focus ring inside a glass bar
+     paints the INHERITED page rung as its inner stop — a visibly mismatched
+     halo around every focused control on glass. The ring's inner stop has to be
+     the ground it is actually drawn on. */
+  --ring-offset-surface: var(--glass-bg);
 }
+
+/*
+ * DISPLAY GLASS — the second material, and the one that carries no text.
+ * Customer portal only, at most one per route. It is thinner, blurrier and more
+ * saturated than chrome glass, which is exactly why it may only hold headings
+ * ≥24px and figures ≥20px: at .58 alpha a 13px label's contrast depends on
+ * where the field happened to have drifted, and that is not a contrast story,
+ * it is a coin toss. Anything body-sized inside sits on its own <FieldWell>.
+ * <Surface> throws in development on both misuses.
+ */
+[data-glass="display"] {
+  background-color: hsl(var(--display-bg) / var(--display-alpha));
+  backdrop-filter: blur(var(--blur-display)) saturate(var(--sat-display));
+  -webkit-backdrop-filter: blur(var(--blur-display)) saturate(var(--sat-display));
+  border: 1px solid hsl(var(--glass-border) / var(--glass-border-alpha));
+  box-shadow: inset 0 -1px 0 hsl(var(--fresnel-under) / var(--fresnel-alpha));
+  --ring-offset-surface: var(--display-bg);
+}
+
 [data-glass="true"][data-rung="5"] {
   background-color: hsl(var(--glass-bg) / var(--modal-alpha));
   backdrop-filter: blur(var(--blur-modal)) saturate(var(--sat-modal));
@@ -468,17 +907,28 @@ h3 { font-size: var(--fs-h3); line-height: var(--lh-h3); letter-spacing: var(--t
 /* Law 8's mandatory fallback. Note the fallback IMPROVES contrast — it is an
    opaque surface, not a transparent one. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  [data-glass="true"], .glass, .glass-strong {
+  [data-glass="true"], [data-glass="display"], .glass, .glass-strong {
     background-color: hsl(var(--glass-bg)) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
 }
 
+/* Honour the preference where it exists — but it is NOT Baseline, so it cannot
+   be the accessibility story. The alpha floor above is. Both materials go fully
+   opaque at the float rung, which IMPROVES contrast rather than degrading it. */
+@media (prefers-reduced-transparency: reduce) {
+  [data-glass="true"], [data-glass="display"], .glass, .glass-strong {
+    background-color: hsl(var(--surface-float));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
 /* A glass surface never contains another one. Belt and braces for the dev-time
    throw in <Surface>: if one slips through in a page we do not own, the inner
    one silently degrades to an opaque plate rather than compounding the blur. */
-[data-glass="true"] [data-glass="true"] {
+:is([data-glass="true"], [data-glass="display"]) :is([data-glass="true"], [data-glass="display"]) {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   background-color: hsl(var(--surface-2));
@@ -549,6 +999,14 @@ h3 { font-size: var(--fs-h3); line-height: var(--lh-h3); letter-spacing: var(--t
 /* The pointer specular. A plain radial gradient at ≤9% rim alpha — no blend
    modes anywhere in this system, because they force an isolated stacking
    context and behave differently per theme in ways nobody tests. */
+/* The pointer specular. Round one's version was correct in mechanism and tuned
+   into invisibility: one 380px radial at .09 rim alpha over a card that is
+   already 100% white. You cannot add white to white, so the LIGHT build is now
+   two coupled layers built as a warm LIFT rather than a white add — a tight
+   core and a wide warm wash — and the dark build lifts toward the brand hue.
+   Still plain alpha compositing: no blend modes anywhere in this system,
+   because blend forces an isolated stacking context and inverts meaning between
+   themes in ways nobody tests. */
 [data-specular] { position: relative; overflow: hidden; }
 [data-specular]::before {
   content: "";
@@ -558,45 +1016,171 @@ h3 { font-size: var(--fs-h3); line-height: var(--lh-h3); letter-spacing: var(--t
   pointer-events: none;
   opacity: 0;
   z-index: 0;
-  background: radial-gradient(
-    380px circle at var(--mx, 50%) var(--my, 0%),
-    hsl(var(--rim) / .09),
-    transparent 62%
-  );
+  background:
+    radial-gradient(220px circle at var(--mx, 50%) var(--my, 0%) in oklab,
+      hsl(var(--rim) / .34), transparent 58%),
+    radial-gradient(560px circle at var(--mx, 50%) var(--my, 0%) in oklab,
+      hsl(36 30% 99% / .55), transparent 66%);
   transition: opacity var(--t-hover) var(--ease-standard);
 }
 .dark [data-specular]::before {
-  background: radial-gradient(
-    380px circle at var(--mx, 50%) var(--my, 0%),
-    hsl(var(--rim) / .06),
-    transparent 62%
-  );
+  background:
+    radial-gradient(200px circle at var(--mx, 50%) var(--my, 0%) in oklab,
+      hsl(var(--rim) / .10), transparent 55%),
+    radial-gradient(520px circle at var(--mx, 50%) var(--my, 0%) in oklab,
+      hsl(var(--primary) / .07), transparent 68%);
 }
-[data-specular]:hover::before { opacity: 1; }
-[data-specular] > * { position: relative; z-index: 1; }
-
-/* The ambient field. The single permitted gradient in the product. It spans
-   more than the viewport and carries noise, because a wide low-alpha gradient
-   without noise bands into visible rings on an 8-bit display — and a gradient
-   with a discernible edge is a 2019 SaaS orb. */
-.u-field {
-  position: fixed;
-  inset: -10vh -10vw;
-  z-index: -1;
-  pointer-events: none;
-  background-image:
-    radial-gradient(140% 120% at 15% -10%,
-      hsl(var(--field-a) / calc(var(--field-a-alpha) * var(--field-intensity))), transparent 60%),
-    radial-gradient(140% 120% at 85% 20%,
-      hsl(var(--field-b) / calc(var(--field-b-alpha) * var(--field-intensity))), transparent 55%);
-}
-.u-field::after {
+/* The border glow: a 260px brass ring, deliberately TIGHTER than the fill — at
+   the same radius the two layers read as one blur rather than as an edge inside
+   a wash. Brass because this is the codebase's own rule-and-verification hue,
+   and because indigo here would compete with the primary CTA. */
+[data-specular]::after {
   content: "";
   position: absolute;
   inset: 0;
-  opacity: var(--field-noise);
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 0;
+  padding: 1px;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 0%) in oklab,
+    hsl(var(--brass) / .55), transparent 62%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+          mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  transition: opacity var(--t-hover) var(--ease-standard);
 }
+.dark [data-specular]::after {
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 0%) in oklab,
+    hsl(var(--brass) / .8), transparent 62%);
+}
+@media (hover: hover) and (pointer: fine) {
+  [data-specular]:hover::before,
+  [data-specular]:hover::after { opacity: 1; }
+}
+[data-specular] > * { position: relative; z-index: 1; }
+
+/* ═══ THE RULED GROUND — the ambient field, and the product's identity ═══
+ *
+ * The single permitted ambient gradient in the product, still mounted exactly
+ * ONCE per root layout by <AmbientField>. Two stacked fields double the alpha
+ * on that page only, which produces exactly the visible-orb failure the single
+ * field exists to avoid and silently breaks every contrast ceiling the alphas
+ * were derived from. One field. Intensity varies by portal token.
+ *
+ * What is new, and what nothing else on the web looks like: the lobes sit under
+ * a masked REPEATING HAIRLINE at exactly --lh-body, so the whole page rests on
+ * faint ledger ruling that dissolves before it reaches any content. It costs one
+ * repeating-linear-gradient, the rules are horizontal so it is byte-identical in
+ * Arabic, and it says the one true thing about this product: this is a register,
+ * not a shop.
+ *
+ * THE DRIFT IS ON A PRE-PAINTED LAYER'S TRANSFORM. Never on background-position
+ * and never on gradient stops, both of which repaint the whole layer every
+ * frame. 34s and 47s are coprime, so the two lobes never visibly re-sync — that
+ * is what stops it reading as a loop.
+ */
+.u-field {
+  position: fixed;
+  inset: -18vh -18vw;   /* with blur(64px), no lobe edge can ever enter the viewport */
+  z-index: -1;
+  pointer-events: none;
+  overflow: hidden;
+  /* Paint/layout/style isolation. Deliberately NOT `contain: strict`: that adds
+     size containment, and a fixed element whose size comes from its insets is
+     one refactor away from collapsing to nothing if those insets ever move to a
+     class. The three we actually need are named explicitly. */
+  contain: layout style paint;
+  background-color: hsl(var(--surface-0));
+}
+
+.u-field__lobe {
+  position: absolute;
+  inset: 0;
+  filter: blur(var(--field-blur));
+  will-change: transform;
+}
+/* Three hues, three jobs, and never a fourth: overlapping lobes past three mix
+   to brown rather than glow. `in oklab` is free quality — sRGB interpolation
+   passes indigo → verdigris through a muddy grey midpoint and oklab does not,
+   at ~87% support with a silent sRGB fallback that is exactly what ships today. */
+.u-field__lobe--a {
+  background-image:
+    radial-gradient(38% 44% at 16% 24% in oklab,
+      hsl(var(--field-a) / calc(var(--field-a-alpha) * var(--field-intensity))) 0%, transparent 68%),
+    radial-gradient(44% 50% at 84% 16% in oklab,
+      hsl(var(--field-b) / calc(var(--field-b-alpha) * var(--field-intensity))) 0%, transparent 66%);
+}
+.u-field__lobe--b {
+  background-image:
+    radial-gradient(46% 42% at 62% 88% in oklab,
+      hsl(var(--field-c) / calc(var(--field-c-alpha) * var(--field-intensity))) 0%, transparent 70%);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .u-field__lobe--a { animation: field-drift-a 34s var(--ease-in-out) infinite alternate; }
+  .u-field__lobe--b { animation: field-drift-b 47s var(--ease-in-out) infinite alternate; }
+}
+@keyframes field-drift-a {
+  from { transform: translate3d(-2.4%, -1.6%, 0) scale(1.05); }
+  to   { transform: translate3d( 2.6%,  1.8%, 0) scale(1.11); }
+}
+@keyframes field-drift-b {
+  from { transform: translate3d( 2.2%,  1.4%, 0) scale(1.08); }
+  to   { transform: translate3d(-2.8%, -1.2%, 0) scale(1.03); }
+}
+
+/* THE RULING. On the parent and UNBLURRED — the lobes' blur would eat it — and
+   under the grain. Masked with a radial so it fades out well above the fold:
+   rules that survive into the content area turn every paragraph into ruled-paper
+   homework and measurably reduce legibility. Horizontal only, at exactly one
+   body line-height. Never a dot grid, never a cross-hatch: those are 2019 SaaS
+   and say nothing about a register. */
+.u-field::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(to bottom,
+    hsl(var(--field-rule) / var(--field-rule-alpha)) 0 1px,
+    transparent 1px var(--lh-body));
+  -webkit-mask-image: radial-gradient(118% 86% at 50% 0%, #000 30%, transparent 76%);
+          mask-image: radial-gradient(118% 86% at 50% 0%, #000 30%, transparent 76%);
+}
+
+/* GRAIN. A tiled background-image, never `filter: url(#noise)` on a live
+   element — that is per-pixel and per-frame and is the version that tanks a
+   mid-range Android in Riyadh. Never inside a [data-glass] subtree either,
+   where it becomes part of what the backdrop samples. */
+.u-field::after,
+[data-grain]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: var(--noise);
+  background-size: 160px 160px;
+  opacity: var(--field-noise);
+}
+[data-grain] { position: relative; }
+/* Grain reads denser on a retina panel, where each CSS pixel is four device
+   pixels of noise. */
+@media (min-resolution: 2dppx) {
+  .u-field::after,
+  [data-grain]::after { opacity: calc(var(--field-noise) * .7); }
+}
+
+/* Save-Data and the (non-Baseline) data preference both drop the moving parts
+   and the grain layer. Law 7 names Save-Data specifically, and no shipping
+   browser exposes it as a media query — <EnvironmentFlags> stamps the attribute. */
+@media (prefers-reduced-data: reduce) {
+  .u-field__lobe { animation: none; }
+  .u-field::after, [data-grain]::after { display: none; }
+}
+[data-save-data] .u-field__lobe { animation: none; }
+[data-save-data] .u-field::after,
+[data-save-data] [data-grain]::after { display: none; }
+[data-save-data] { --motion-scale: .5; }
 
 /* The row commit. In a 40-row queue the real usability problem is not knowing
    which row you just acted on. Presentation only — it reports a state that has
@@ -744,18 +1328,25 @@ h3 { font-size: var(--fs-h3); line-height: var(--lh-h3); letter-spacing: var(--t
   background-color: hsl(var(--surface-1));
   border-radius: var(--radius-sm);
 }
+/* LIVE DEFECT FIXED HERE: the sweep was translateX(-100%) → translateX(100%)
+   over a linear-gradient(90deg, …). Both are PHYSICALLY left-to-right, so in
+   Arabic the light swept against the reading direction — the exact class of bug
+   this round will otherwise keep producing, because mask-image and
+   linear-gradient take physical directions and do not mirror. Two mechanisms,
+   both mandatory for every new gradient and mask in the system: multiply the
+   ANGLE by --dir, or make the mask SYMMETRIC by construction. */
 .skeleton::after {
   content: "";
   position: absolute;
   inset: 0;
-  transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, hsl(var(--rim) / .35), transparent);
+  transform: translateX(calc(-100% * var(--dir)));
+  background: linear-gradient(calc(90deg * var(--dir)), transparent, hsl(var(--rim) / .35), transparent);
   animation: skeleton-shimmer 1.6s infinite;
 }
 .dark .skeleton::after {
-  background: linear-gradient(90deg, transparent, hsl(var(--rim) / .07), transparent);
+  background: linear-gradient(calc(90deg * var(--dir)), transparent, hsl(var(--rim) / .07), transparent);
 }
-@keyframes skeleton-shimmer { 100% { transform: translateX(100%); } }
+@keyframes skeleton-shimmer { 100% { transform: translateX(calc(100% * var(--dir))); } }
 
 /* Ledger row hover. No zebra striping and no vertical column rules — a hairline
    between rows only. */
@@ -764,6 +1355,551 @@ h3 { font-size: var(--fs-h3); line-height: var(--lh-h3); letter-spacing: var(--t
 }
 .u-ledger-row:hover { background-color: hsl(var(--ink-1) / .03); }
 .dark .u-ledger-row:hover { background-color: hsl(var(--rim) / .04); }
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+   9b. SIJILL — the signature surfaces.
+
+   GOVERNING RULE, and the only thing that stops a dozen agents producing a
+   dozen dialects: every technique in this direction is a TOKEN plus a `.u-*`
+   utility HERE plus, at most, one primitive. Never a page-local <style> block,
+   never a hex in a component, never a page that becomes "use client" to get an
+   animation. Each utility below carries its VIEWPORT BUDGET in its comment, and
+   the budgets are the only thing that stops the second half of a round undoing
+   the first half.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/* ═══ THE REGISTER — the home hero ═══
+   A 12-column asymmetric editorial grid: seven columns of copy against four
+   holding one REAL object, dropped so the specimen's foot meets the CTA row's
+   baseline. `grid-column` is a logical property, so the entire composition
+   mirrors in Arabic with zero extra CSS.
+   BUDGET: one per site. Not one per page — one per site. */
+.u-hero-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: clamp(24px, 4vw, 56px);
+  align-items: end;
+}
+.u-hero-copy,
+.u-hero-specimen { grid-column: 1 / span 12; }
+@media (min-width: 1024px) {
+  .u-hero-copy     { grid-column: 1 / span 7; }
+  .u-hero-specimen { grid-column: 9 / span 4; align-self: end; }
+}
+
+/* THE STAGE — bounded 3D. "3D" here means Z-POSITION, never rotation: tilt is
+   banned outright and that refusal is not reopened. Past ~6° on a 320px card,
+   horizontal type acquires colour fringing (subpixel antialiasing does not
+   survive a Z-rotation) and the cast shadow stops agreeing with the one
+   overhead light, which is the invariant the whole system's RTL correctness
+   rests on.
+
+   The scale corrections are exact: (p − z) / p at perspective 900.
+     back  −260px → 1160/900 = 1.289
+     mid   −110px → 1010/900 = 1.122
+
+   THREE PLANES MAXIMUM — four is where a mid-range Android starts dropping
+   frames, because each plane is a full-width composited layer. NEVER put
+   `perspective` on the scroll container: Chrome's canonical compositor parallax
+   does, and it changes document scroll height, fights the sticky bar, flattens
+   on iOS, and needs a fixed-position element on Edge. The bounded version gets
+   90% of the effect with none of that.
+   BUDGET: one stage per site, three planes. */
+.u-stage {
+  position: relative;
+  perspective: 900px;
+  perspective-origin: 50% 42%;
+  transform-style: preserve-3d;
+  contain: paint;
+  min-block-size: clamp(420px, 52vw, 560px);
+}
+/* The FRONT plane stays in normal flow and carries every word, price and
+   control. Only the decorative planes are taken out of flow, so the stage's
+   height is content-driven, `contain: paint` can never clip a headline, and if
+   no animation ever runs the composition is simply a grid. */
+.u-plane { position: absolute; inset: 0; transform-origin: 50% 50%; pointer-events: none; }
+.u-plane[data-z="front"] { position: relative; transform: none; pointer-events: auto; }
+.u-plane[data-z="mid"]   { transform: translateZ(-110px) scale(1.122); }
+.u-plane[data-z="back"]  { transform: translateZ(-260px) scale(1.289); }
+
+/* The drift uses the INDEPENDENT `translate` property, never folded into
+   `transform` — a `transform` keyframe would overwrite the plane's own
+   translateZ assignment and flatten the stage. Real bug, easily missed. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .u-plane[data-z="back"] {
+      animation: plane-drift linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+    }
+  }
+}
+@keyframes plane-drift { from { translate: 0 -22px; } to { translate: 0 22px; } }
+[data-save-data] .u-plane[data-z="back"],
+[data-save-data] .u-plane[data-z="mid"] { display: none; }
+
+/* ═══ THE FRAME — <ImageFrame> ═══
+   The highest-ROI change in the direction, and it is not an effect. Twenty-four
+   products photographed by twenty-four different suppliers read as one curated
+   shelf because every one is contained, inset, and lit by the same overhead
+   source onto the same tinted plate with the same shadow pooled under it.
+
+   object-fit: CONTAIN is the non-negotiable. `cover` crops the valve off a
+   fitting and the label off a drum. It looks tidy in a mockup with three
+   curated photos and broken with four hundred real supplier uploads, and it is
+   the single largest cheapness generator currently shipping.
+
+   THE CAST FLOOR — the radial pooled at 50% 93% — is what stops a cut-out
+   packshot looking like it is hovering. On hover the product lifts off that
+   floor while THE FLOOR STAYS PUT: a 200-byte version of real depth, one
+   composited transform, and the reason the card feels physical rather than
+   styled. Scale ceiling is 1.035; 10% is an expensive repaint across 24 cards
+   and it crops the product out of its own photograph.
+   BUDGET: unlimited — this is the frame every product image uses in all three
+   portals. Its ratio and inset are portal tokens. */
+.u-imgframe {
+  position: relative;
+  aspect-ratio: var(--img-ratio-card);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background-color: hsl(var(--img-plate));
+  background-image:
+    radial-gradient(58% 10% at 50% 93% in oklab, hsl(var(--shadow) / .11), transparent 72%),
+    radial-gradient(120% 90% at 50% -20% in oklab, hsl(var(--rim) / .55), transparent 62%);
+  border-block-end: 1px solid hsl(var(--hairline));
+}
+.dark .u-imgframe {
+  background-image:
+    radial-gradient(58% 10% at 50% 93% in oklab, hsl(0 0% 0% / .38), transparent 72%),
+    radial-gradient(120% 90% at 50% -20% in oklab, hsl(var(--rim) / .045), transparent 62%);
+}
+.u-imgframe[data-ratio="hero"] { aspect-ratio: var(--img-ratio-hero); }
+.u-imgframe img {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: contain;
+  padding: var(--img-inset);
+  transition: transform var(--t-layer) var(--ease-out);
+}
+@media (hover: hover) and (pointer: fine) {
+  .group:hover .u-imgframe img,
+  .u-frame-host:hover .u-imgframe img { transform: scale(1.035) translateY(-1.5%); }
+}
+/* Out of stock is NOT a full-card scrim: that makes the unavailable product the
+   loudest thing in the grid. The image desaturates and the availability dot
+   carries the fact in words beside it. */
+.u-imgframe[data-state="out"] img { filter: grayscale(.55) opacity(.72); }
+/* The absence of an image is a DESIGNED state, not a fallback: the same frame,
+   the same plate, the same floor, so a grid with mixed presence and absence has
+   no ragged baseline. */
+.u-imgframe__void {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  color: hsl(var(--ink-3));
+}
+
+/* ═══ THE SEAL — verification that is actually verified ═══
+   A single arc of brass light travels once around the mark's 1px border, on
+   hover or keyboard focus only, and stops. It is the most beautiful gesture in
+   the product and it is welded to a row in SellerDocument: <TierMark verified>
+   throws in development without a `basis` string, so a seal with no cited
+   document does not render at all.
+
+   ITERATION COUNT IS ONE. Never infinite. Eight supplier cards each spinning a
+   conic border forever is eight continuously-invalidated paints, it drains a
+   phone, and it reads as a crypto landing page.
+   BUDGET: one animated seal per viewport. */
+.u-seal {
+  --seal-plate: var(--surface-2);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  padding-inline: 8px;
+  padding-block: 2px;
+  /* The padding-box / border-box double background is the only way to paint a
+     gradient into a border. A single travelling ARC — 0deg to 62deg to 148deg,
+     then nothing for 212deg — never a full ring: a ring is a loading spinner. */
+  background:
+    linear-gradient(hsl(var(--seal-plate)), hsl(var(--seal-plate))) padding-box,
+    conic-gradient(from var(--seal-angle),
+      hsl(var(--brass) / 0)     0deg,
+      hsl(var(--brass) / .85)  62deg,
+      hsl(var(--brass) / 0)   148deg,
+      hsl(var(--brass) / 0)   360deg) border-box;
+}
+@keyframes seal-turn { to { --seal-angle: 360deg; } }
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .u-seal:hover,
+  .u-seal:focus-visible { animation: seal-turn 2.6s linear 1; }
+}
+/* Without conic-gradient there is no arc, so the mark falls back to the plain
+   brass hairline it would otherwise have had. Nothing is lost but the travel. */
+@supports not (background: conic-gradient(from 0deg, red, blue)) {
+  .u-seal { background: hsl(var(--seal-plate)); border-color: hsl(var(--brass) / .5); }
+}
+
+/* ═══ THE CERTIFICATE — the empty state as the designed object ═══
+   The surface the owner is actually looking at, and the one this product can
+   never fill with fiction. So it is composed rather than apologised for: left
+   aligned, large, a brass hairline across the top edge, ruled ground behind, and
+   a cropped glyph bleeding off the OUTER corner — inset-inline-end, which is
+   what makes it crop from the correct corner in both directions. Cropping is
+   what makes it read as composition rather than as a sad centred icon.
+   No illustration of a person. No "Oops!". No invented count, ETA or
+   "popular searches".
+   BUDGET: one per empty region; never two side by side. */
+.u-empty {
+  position: relative;
+  display: grid;
+  gap: var(--space-stack);
+  align-content: center;
+  justify-items: start;
+  min-block-size: clamp(280px, 34vw, 420px);
+  padding-inline: clamp(24px, 6vw, 72px);
+  padding-block: clamp(24px, 5vw, 56px);
+  border-radius: var(--radius-lg);
+  background-color: hsl(var(--surface-1));
+  box-shadow: var(--elev-1);
+  overflow: hidden;
+}
+.u-empty[data-scale="hero"] { min-block-size: clamp(360px, 46vw, 560px); }
+.u-empty > * { position: relative; z-index: 1; }
+.u-empty__glyph {
+  position: absolute;
+  z-index: 0;
+  inset-block-start: -10%;
+  inset-inline-end: -6%;
+  inline-size: 44%;
+  aspect-ratio: 1;
+  color: hsl(var(--ink-1) / .05);
+  pointer-events: none;
+}
+.u-empty__glyph > svg { inline-size: 100%; block-size: 100%; stroke-width: .6; }
+
+/* The ruled ground, reusable on any composed plate. Same gesture as the field's
+   ruling — same line-height, same alpha, same dissolve — because one ruling used
+   everywhere is what makes it identity rather than decoration.
+   BUDGET: with grain, at most three ruled/grained elements per viewport, and
+   never on a scroller or a table. */
+[data-rule-ground] { position: relative; }
+[data-rule-ground]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(to bottom,
+    hsl(var(--field-rule) / var(--field-rule-alpha)) 0 1px,
+    transparent 1px var(--lh-body));
+  -webkit-mask-image: radial-gradient(120% 100% at 50% 0%, #000 20%, transparent 78%);
+          mask-image: radial-gradient(120% 100% at 50% 0%, #000 20%, transparent 78%);
+}
+
+/* ═══ THE DISPLAY PLATE — the generated object ═══
+   Abstract but PHYSICAL, and honest because it claims nothing: it is the
+   surface for a hero slot the catalogue has no photograph for. The conic origin
+   is mirrored by --dir, which gives it a hand-placed asymmetry that is correct
+   in both directions — a fixed `at 22% 12%` would pass English review and put
+   the light source on the wrong shoulder in Arabic.
+   BUDGET: one per route, customer only. */
+.u-plate {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background-color: hsl(var(--surface-2));
+  background-image:
+    conic-gradient(from calc(210deg * var(--dir))
+      at calc(50% + (28% * var(--dir))) 12% in oklab,
+      hsl(var(--field-a) / .16), hsl(var(--field-b) / .13),
+      hsl(var(--field-c) / .10), hsl(var(--field-a) / .16)),
+    radial-gradient(120% 90% at 50% -18% in oklab, hsl(var(--rim) / .5), transparent 62%);
+  box-shadow: var(--elev-3);
+}
+.dark .u-plate {
+  background-image:
+    conic-gradient(from calc(210deg * var(--dir))
+      at calc(50% + (28% * var(--dir))) 12% in oklab,
+      hsl(var(--field-a) / .30), hsl(var(--field-b) / .22),
+      hsl(var(--field-c) / .16), hsl(var(--field-a) / .30)),
+    radial-gradient(120% 90% at 50% -18% in oklab, hsl(var(--rim) / .05), transparent 62%);
+}
+
+/* ═══ THE LADDER — the quantity-break micro-table ═══
+   Dense, numeric, tabular and completely true. Nothing on a consumer storefront
+   looks like this, which is the point: a Gulf procurement manager reads it as
+   software built for him. Brass marks the band the buyer's quantity falls in,
+   because "the tier you are in" is literally a tier mark — one of brass's three
+   legal uses.
+   The inline-start rule is ALWAYS 3px and always present; only its colour
+   changes, exactly as .u-commit does, so marking a band cannot reflow the tile.
+   BUDGET: three bands on a tile and never a scrollbar; all bands on the PDP. */
+.qty-ladder {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+}
+.qty-ladder th {
+  text-align: start;
+  font-weight: var(--fw-ui);
+  color: hsl(var(--ink-3));
+  padding-block: 2px;
+  padding-inline: 8px;
+}
+.qty-ladder th:last-child { text-align: end; }
+.qty-ladder td { padding-block: 3px; padding-inline: 8px; color: hsl(var(--ink-2)); }
+.qty-ladder td:last-child {
+  text-align: end;
+  color: hsl(var(--ink-1));
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+.qty-ladder tbody tr {
+  border-inline-start: 3px solid transparent;
+  transition: border-inline-start-color var(--t-press) var(--ease-standard),
+              background-color var(--t-press) var(--ease-standard);
+}
+.qty-ladder tbody tr[data-active="true"] {
+  border-inline-start-color: hsl(var(--brass));
+  background-color: hsl(var(--surface-1));
+}
+
+/* ═══ AVAILABILITY ═══
+   6px dot with a 3px ring at ~15% alpha — the ring is what makes a 6px dot read
+   as a lamp rather than a full stop. Colour is NEVER the only channel: the
+   component pairs it with a text label, always. One stock language in three
+   portals is the cheapest possible coherence. */
+.u-dot {
+  display: inline-block;
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: var(--radius-pill);
+  background-color: hsl(var(--dot-tone, var(--ink-3)));
+  box-shadow: 0 0 0 3px hsl(var(--dot-tone, var(--ink-3)) / .15);
+}
+
+/* ═══ EDGES AND RAILS ═══
+   The mask is SYMMETRIC on purpose, which makes it direction-agnostic:
+   mask-image has no logical equivalent, and a one-sided `to right` fade passes
+   English review and ships broken in Arabic.
+   CAVEAT to document: a masked element gets its own composited layer and cannot
+   reliably be the backdrop root for a child's backdrop-filter. Do not mask a
+   glass surface — mask the thing next to it. */
+.u-edge-fade-inline {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--edge),
+                                      #000 calc(100% - var(--edge)), transparent 100%);
+          mask-image: linear-gradient(to right, transparent 0, #000 var(--edge),
+                                      #000 calc(100% - var(--edge)), transparent 100%);
+}
+.u-rail {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(180px, 22%);
+  gap: var(--space-stack);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  /* PROXIMITY, never mandatory: mandatory snapping fights a trackpad flick and
+     is the reason so many web carousels feel like they are arguing with you. */
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 16px;
+}
+.u-rail > * { scroll-snap-align: start; }
+
+/* ═══ THE FACET RAIL ═══
+   <details>/<summary>, so open and close need no client component at all. The
+   chevron is drawn from two rotated borders — no icon, nothing to mirror, and
+   it rotates about its own centre so it is direction-agnostic. */
+.u-facet > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  padding-block: 8px;
+}
+.u-facet > summary::-webkit-details-marker { display: none; }
+.u-facet__chev {
+  inline-size: 7px;
+  block-size: 7px;
+  border-inline-end: 1.5px solid hsl(var(--ink-3));
+  border-block-end: 1.5px solid hsl(var(--ink-3));
+  transform: rotate(45deg);
+  transition: transform var(--t-press) var(--ease-standard);
+  flex: none;
+}
+.u-facet[open] > summary .u-facet__chev { transform: rotate(-135deg); }
+
+/* ═══ THE CHROME THAT SETTLES ═══
+   Zero JS, zero scroll listener. Across the first 96px the bar continuously
+   gains weight: the glass fill deepens, the padding tightens, and a cast shadow
+   fades up beneath it.
+
+   NEVER animate the backdrop-filter blur RADIUS — recompositing a blur every
+   frame is the classic mid-range-Android killer. Blur is static; only the alpha
+   behind it moves. The shadow arrives by cross-fading the opacity of an ::after
+   that STATICALLY carries the rung, because animating box-shadow repaints the
+   whole element.
+
+   Start alpha is .55, not 0: the nav text must clear 4.5:1 against the WORST
+   frame of the animation, not the resting state. */
+.u-chrome {
+  position: relative;
+  --glass-alpha: .55;
+  padding-block: var(--chrome-pad);
+  transition: background-color var(--t-panel) var(--ease-standard);
+}
+/* The IntersectionObserver fallback for browsers with no scroll timeline. With
+   JS off, no attribute is ever set and the bar is simply always glass at .55. */
+.u-chrome[data-at-top="false"] { --glass-alpha: .92; --chrome-pad: 10px; }
+.u-chrome::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  opacity: 0;
+  box-shadow: var(--elev-3);
+  transition: opacity var(--t-panel) var(--ease-standard);
+}
+.u-chrome[data-at-top="false"]::after { opacity: 1; }
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .u-chrome {
+      animation: chrome-settle linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0 96px;
+    }
+    .u-chrome::after {
+      animation: chrome-shadow linear both;
+      animation-timeline: scroll(root block);
+      animation-range: 0 96px;
+    }
+  }
+}
+/* animation-fill-mode is `both` above for a reason: without it, a bar already
+   past the range at load sits at intermediate progress forever. */
+@keyframes chrome-settle {
+  from { --glass-alpha: .55; --chrome-pad: 18px; }
+  to   { --glass-alpha: .92; --chrome-pad: 10px; }
+}
+@keyframes chrome-shadow { from { opacity: 0; } to { opacity: 1; } }
+
+/* The brass reading progress hairline. Same rule as the active nav, the seal,
+   the empty state's top edge and the ladder's active band — ONE gesture in
+   different postures is what makes a system read as designed rather than
+   assembled. transform-origin is the inline-start token, so it draws from the
+   right in Arabic for free. With no scroll-timeline support it stays at
+   scaleX(0), i.e. invisible, which is the correct degradation for decoration. */
+.u-scroll-progress {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline: 0;
+  block-size: 2px;
+  z-index: 40;
+  pointer-events: none;
+  background-color: hsl(var(--brass));
+  transform: scaleX(0);
+  transform-origin: var(--origin-inline-start);
+}
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .u-scroll-progress {
+      animation: scroll-progress linear both;
+      animation-timeline: scroll(root block);
+    }
+  }
+}
+@keyframes scroll-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* ═══ THE COMMIT — press, badge, label ═══
+   Phase 1 (0–160ms, before any network): the button travels on Y. NEVER scale a
+   button; scaling blurs its label.
+   Phase 2 (160–480ms): the badge CONTAINER springs. THE DIGIT IS NEVER
+   ANIMATED — it is swapped instantly at the midpoint. On a trade platform an
+   animated number is a number you cannot trust, and every intermediate frame of
+   a ticking figure displays a financial value that is false.
+   THE ROLLBACK IS PART OF THE GESTURE, not an afterthought: if the server
+   rejects, the badge decrements with the identical pulse tinted --danger. An
+   optimistic UI with no designed rollback shows a phantom cart line, which is a
+   truth violation delivered by motion. */
+@keyframes badge-pulse {
+  0%   { transform: scale(1); animation-timing-function: var(--ease-out); }
+  38%  { transform: scale(1.18); animation-timing-function: var(--ease-spring); }
+  100% { transform: scale(1); }
+}
+.u-badge-pulse[data-pulse="on"] { animation: badge-pulse 320ms 1; }
+.u-badge-pulse[data-tone="danger"] { color: hsl(var(--danger-ink)); }
+
+/* The label wipe. A clip-path edge travels from the inline start, so no frame of
+   the label is ever half-transparent and unreadable — which is exactly what a
+   cross-fade between two strings produces. The confirmed layer sits underneath
+   at FULL opacity the whole time. inset() takes physical edges and has no
+   logical form, so the two directions are written out; that is the mandatory
+   second mechanism for any physical-direction value in this system. */
+.u-wipe { display: inline-grid; }
+.u-wipe > * { grid-area: 1 / 1; }
+.u-wipe__from { transition: clip-path 200ms var(--ease-in-out); clip-path: inset(0 0 0 0); }
+.u-wipe[data-state="on"] .u-wipe__from { clip-path: inset(0 0 0 100%); }
+[dir="rtl"] .u-wipe[data-state="on"] .u-wipe__from { clip-path: inset(0 100% 0 0); }
+
+/* ═══ STATE LAYERS ═══
+   Retires roughly forty hand-tuned hover/press tokens that had drifted apart.
+   --state-base is whatever hue the control already is; the mix inverts by theme
+   in one line. Use .u-state on a surface you own, .u-state-wash on one you do
+   not (a table row, a nav item) so the row keeps whatever is behind it. */
+.u-state { transition: background-color var(--t-hover) ease; }
+@media (hover: hover) and (pointer: fine) {
+  .u-state:hover {
+    background-color: color-mix(in oklab, hsl(var(--state-base, var(--primary))),
+                                hsl(var(--state-mix)) var(--state-hover));
+  }
+}
+.u-state:active {
+  background-color: color-mix(in oklab, hsl(var(--state-base, var(--primary))),
+                              hsl(var(--state-mix)) var(--state-press));
+}
+.u-state-wash { transition: background-color var(--t-hover) ease; }
+@media (hover: hover) and (pointer: fine) {
+  .u-state-wash:hover {
+    background-color: color-mix(in oklab, hsl(var(--state-base, var(--ink-1))) 8%, transparent);
+  }
+}
+.u-state-wash:active {
+  background-color: color-mix(in oklab, hsl(var(--state-base, var(--ink-1))) 14%, transparent);
+}
+
+/* ═══ POPOVER ENTRY ═══
+   @starting-style, with its asymmetric support story stated plainly: entry
+   transitions work everywhere current, but Safari still lacks `overlay` with
+   allow-discrete, so popover and dialog EXIT animations snap there — and given
+   Gulf iOS share that is the majority browser. So design every popover such
+   that its exit carries no meaning. Layers keep the Radix data-state keyframes,
+   which handle exit correctly.
+   Scale from the TRIGGER's origin, never the viewport centre: a popover that
+   arrives from nowhere is the cheapest fix in the product. Never scale(0);
+   0.94–0.97 is the entire permitted band. */
+.u-pop {
+  transform-origin: var(--origin-inline-start) top;
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out);
+}
+@supports (transition-behavior: allow-discrete) {
+  @media (prefers-reduced-motion: no-preference) {
+    @starting-style {
+      .u-pop {
+        opacity: 0;
+        transform: translate(calc(-8px * var(--dir)), 10px) scale(.965);
+      }
+    }
+  }
+}
 
 /* ────────────────────────────────────────────────────────────────────────────
    10. TYPE UTILITIES — the scale as classes, so a surface team never writes a
@@ -778,6 +1914,49 @@ h3 { font-size: var(--fs-h3); line-height: var(--lh-h3); letter-spacing: var(--t
 .u-h2    { font-size: var(--fs-h2);    line-height: var(--lh-h2);   letter-spacing: var(--tr-h2);   font-weight: var(--fw-head); }
 .u-h1    { font-size: var(--fs-h1);    line-height: var(--lh-h1);   letter-spacing: var(--tr-h1);   font-weight: var(--fw-head); }
 .u-display { font-size: var(--fs-display); line-height: var(--lh-display); letter-spacing: var(--tr-display); font-weight: var(--fw-head); }
+.u-fig-card { font-size: var(--fs-fig-card); line-height: var(--lh-fig-card); letter-spacing: var(--tr-fig); font-weight: var(--fw-fig-card); }
+
+/* THE HERO RUNG. One class, one weight exemption, one portal.
+   HIERARCHY IS SEVEN LEVERS, NOT TWO: size, weight, tracking, colour, family,
+   case and space-before. Round one built rank from size and colour alone, which
+   is why the page reads as an even grey field. The rule for every implementer
+   is three levers minimum between adjacent ranks, and the levers must DIFFER
+   between rank pairs — hero→h2 by size + weight + tracking + opsz, h2→body by
+   size + colour + space, body→meta by size + colour + case. If two adjacent
+   ranks differ only in size, they are the same rank and one should be deleted.
+   THE ACCEPTANCE TEST: blur the page until no word is legible. If you can still
+   tell which block is the headline, which is a section and which is metadata,
+   the levers are engaged. */
+.u-hero {
+  font-family: var(--font-display), Inter, system-ui, sans-serif;
+  font-size: var(--fs-hero);
+  line-height: var(--lh-hero);
+  letter-spacing: var(--tr-hero);
+  font-weight: var(--fw-hero);
+  font-variation-settings: "opsz" 32;
+  text-wrap: balance;
+  /* Tracking is applied to every glyph INCLUDING the space, so at 92px the
+     -0.034em display tracking cut the word space from ~26px to 15px. Between a
+     full stop and a following capital that reads as no space at all — the
+     rendered hero said "clarity.Buy with confidence."
+
+     0.10em rather than the 0.034em that merely cancels the tracking: measured
+     in the browser at the hero's own size, cancelling tracking returns the gap
+     to 18px, and it takes 0.10em to reach the ~24px that reads as a real word
+     space beside a 92px capital. The value is em-relative, so it holds at every
+     step of the clamp. */
+  word-spacing: 0.10em;
+}
+/* Kufi for the Arabic display register, and `pretty` rather than `balance`:
+   balance produces odd breaks on a connected script. font-variation-settings is
+   reset because Noto Kufi is static on Google Fonts and has no opsz axis —
+   asking for one it does not have is a synthesis request, and this build sets
+   font-synthesis: none precisely so that fails loudly rather than smearing. */
+[dir="rtl"] .u-hero {
+  font-family: var(--font-display-ar), "Noto Kufi Arabic", system-ui, sans-serif;
+  font-variation-settings: normal;
+  text-wrap: pretty;
+}
 
 /* Arabic has no case, so uppercase is a no-op that signals nobody looked, and
    0.06em tracking actively pulls the letterforms apart. An Arabic eyebrow earns
@@ -795,8 +1974,14 @@ h3 { font-size: var(--fs-h3); line-height: var(--lh-h3); letter-spacing: var(--t
   line-height: var(--lh-meta);
   color: hsl(var(--ink-3));
 }
+/* The Arabic provenance voice is now Noto Naskh Arabic — Arabic's own authored
+   register — rather than a silent fallback to the body face. Still upright:
+   Arabic has no italic, and obliquing a face to fake one is the mark of a
+   product that did not look. --font-provenance is swapped at token level in the
+   RTL block, so this rule only has to undo the slant. */
 [dir="rtl"] .u-provenance {
-  font-family: var(--font-sans-ar), "IBM Plex Sans Arabic", system-ui, sans-serif;
+  font-family: var(--font-provenance), "Noto Naskh Arabic",
+               var(--font-sans-ar), "IBM Plex Sans Arabic", system-ui, sans-serif;
   font-style: normal;
 }
 
@@ -885,20 +2070,60 @@ h3 { font-size: var(--fs-h3); line-height: var(--lh-h3); letter-spacing: var(--t
    happen; they simply arrive instantly.
    ──────────────────────────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
+  /*
+   * REMOVE MOVEMENT. KEEP OPACITY AND COLOUR.
+   *
+   * Round one's block was `transition-duration: 1ms !important` on the universal
+   * selector, which also killed every colour, background and opacity transition
+   * in the product. A motion-sensitive user got a build with NO hover feedback
+   * of any kind — a worse product than the one the query was protecting them
+   * from — and the !important meant every fade written afterwards was dead on
+   * arrival for that audience. Roughly one user in twenty gets this path. It is
+   * a DESIGNED STATE, not a degradation, and the instinct to widen the wildcard
+   * when adding a dozen new animations is exactly backwards.
+   *
+   * Durations stay at 1ms rather than 0 because transitionend must still fire or
+   * the queue-drain unmount hangs forever. That observation is round one's and
+   * it is a sharp one.
+   */
   *, *::before, *::after {
     animation-duration: 1ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 1ms !important;
     scroll-behavior: auto !important;
   }
   html { scroll-behavior: auto; }
   :root {
+    --motion-scale: 0;
     --lift-y: 0px;
     --press-y: 0px;
     --stagger: 0ms;
     --blur-scrim: 0px;
   }
   [data-lift], [data-reveal], [data-layer] { transform: none !important; }
-  [data-specular]::before { opacity: 0 !important; }
+  [data-specular]::before,
+  [data-specular]::after { opacity: 0 !important; }
+  .u-field__lobe { animation: none !important; will-change: auto; }
+  .u-plane[data-z="back"] { animation: none !important; translate: none !important; }
+  .u-chrome, .u-chrome::after, .u-scroll-progress { animation: none !important; }
+  .u-imgframe img { transform: none !important; }
   .skeleton::after { animation: none; opacity: .5; }
+  /* Each of these has a DESIGNED still state rather than merely `animation:
+     none`. The seal's arc parks at 62deg — still legible as a mark, which is the
+     whole point of it. */
+  .u-seal { --seal-angle: 62deg; animation: none !important; opacity: .6; }
+
+  /* Give back the fades that carry MEANING. These are deliberately !important:
+     they have to beat the wildcard above, and each one is a state change a user
+     needs to perceive — not a decoration. */
+  [data-reveal] {
+    transition: opacity 200ms var(--ease-out) !important;
+    transform: none !important;
+  }
+  .u-commit {
+    transition: border-inline-start-color 200ms var(--ease-out),
+                background-color 200ms var(--ease-out) !important;
+  }
+  a, button, [role="button"], .u-ledger-row, .u-state, .u-state-wash, .qty-ladder tbody tr {
+    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease !important;
+  }
 }

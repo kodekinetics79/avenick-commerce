@@ -173,8 +173,18 @@ export function CommandPalette({ permissions = [] }: { permissions?: readonly st
           rather than a raw rgba black that has no dark-mode counterpart. */}
       <div aria-hidden="true" className="u-layer-scrim" onClick={() => setOpen(false)} />
       {/* Rung 5 — the palette is the frontmost layer in the product while it is
-          open, and rung 5 is the only other place glass is permitted. */}
-      <Surface rung={5} glass className="relative z-[51] w-full max-w-xl animate-fade-up overflow-hidden">
+          open, and rung 5 is the only other place glass is permitted.
+
+          NO ENTRY ANIMATION, deliberately, and this is a rule rather than an
+          omission. Motion is ranked by FREQUENCY, not by surface: anything a
+          supplier reaches a hundred times a day — a command palette, a quantity
+          stepper, an admin queue keystroke — gets zero animation, because at that
+          frequency an entrance is not delight, it is a 320ms tax charged a
+          hundred times. Raycast has no open or close animation at all, on
+          purpose. It carried `animate-fade-up`, which is exactly the instinct the
+          rule exists to stop: the palette is the most fun thing on the page to
+          animate and the most wrong. */}
+      <Surface rung={5} glass className="relative z-[51] w-full max-w-xl overflow-hidden">
         <div className="flex items-center gap-2 border-b border-hairline px-4">
           <Search className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
           <input

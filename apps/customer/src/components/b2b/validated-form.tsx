@@ -45,18 +45,49 @@ export function ValidatedForm({
       className={rung !== undefined && rung > 0 ? `border border-border ${className ?? ""}` : className}
     >
       {children}
-      {/* role="status" so the outcome of a submit is announced rather than only
-          appearing; -ink rather than the fill hue, which measures about 4:1 at
-          this size on a light ground. */}
+      {/*
+        The outcome, in the system's own COMMIT gesture rather than as a coloured
+        line of text.
+
+        `.u-commit` is the 3px inline-start rule that marks an acted-on row in a
+        queue: always present, always 3px, only its colour changes, with a soft
+        wash scaled in from the inline start beneath it. Using it here means a
+        buyer who has just invited a colleague sees the same mark on the form's
+        answer that they see on a row in the approvals queue, rather than
+        learning a second visual language for the same event. `.u-pop` is the
+        entry, and it is CSS `@starting-style`: no JavaScript, nothing to
+        interrupt, and nothing that delays the message being readable.
+
+        role="alert" / role="status" so the outcome of a submit is ANNOUNCED
+        rather than only appearing. The ink is the -ink token, not the fill hue,
+        which measures about 4:1 at this size on a light ground.
+
+        The message itself is not translated here: it is the SERVER's own reason
+        — a validation message naming the field, or the API's own refusal — and
+        replacing it with a generic translated line would throw away the only
+        actionable part of it.
+      */}
       {state.error && (
-        <p role="alert" className="u-ui mt-3 flex items-center gap-1.5 text-danger-ink">
-          <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" /> {state.error}
-        </p>
+        <div
+          role="alert"
+          data-rung={2}
+          data-commit="failed"
+          className="u-commit u-pop mt-3 flex items-start gap-2 overflow-hidden border-s-[3px] border border-border p-3"
+        >
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger-ink" aria-hidden="true" />
+          <p className="u-ui text-ink-1">{state.error}</p>
+        </div>
       )}
       {state.ok && state.message && (
-        <p role="status" className="u-ui mt-3 flex items-center gap-1.5 text-success-ink">
-          <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" /> {state.message}
-        </p>
+        <div
+          role="status"
+          data-rung={2}
+          data-commit="committed"
+          className="u-commit u-pop mt-3 flex items-start gap-2 overflow-hidden border-s-[3px] border border-border p-3"
+        >
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success-ink" aria-hidden="true" />
+          <p className="u-ui text-ink-1">{state.message}</p>
+        </div>
       )}
     </form>
   );

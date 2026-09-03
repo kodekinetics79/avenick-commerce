@@ -92,9 +92,10 @@ export function MegaMenu({ id, href, label, menuLabel, active = false, columns }
         gap and the menu closed before the pointer could reach it — the panel was
         effectively unreachable with a mouse.
 
-        It is also mounted only while open, which is what lets the entry
-        animation run on every open. Toggling `hidden` on a permanently mounted
-        node plays `animate-fade-up` once, at page load, behind display:none.
+        It is also mounted only while open, which is what lets `.u-pop`'s
+        @starting-style entry run on every open — a starting style only applies
+        to an element being inserted, so a permanently mounted node toggled with
+        `hidden` would animate once, at page load, behind display:none.
       */}
       {open && (
         <div
@@ -109,7 +110,7 @@ export function MegaMenu({ id, href, label, menuLabel, active = false, columns }
               : "w-[min(30rem,calc(100vw-2rem))]",
           )}
         >
-          <Surface rung={4} id={id} className="w-full animate-fade-up p-5">
+          <Surface rung={4} id={id} className="u-pop w-full p-5">
             <div className={cn("grid gap-x-8 gap-y-5", wide ? "grid-cols-2 xl:grid-cols-3" : "grid-cols-2")}>
               {columns.map((column) => (
                 <div key={column.title}>

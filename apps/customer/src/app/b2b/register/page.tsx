@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { NextRequest } from "next/server";
 import { clientIpFrom } from "@avenick/auth";
@@ -18,10 +18,21 @@ import {
 import { db } from "@avenick/database";
 import type { CompanySize, Country, Industry, Language } from "@avenick/database";
 import { COMPANY_SIZE_VALUES, INDUSTRY_VALUES, LANGUAGE_VALUES } from "@avenick/types";
-import { Button, CellGrid, Dateline, Eyebrow, Surface, type SurfaceTone } from "@avenick/ui";
+import {
+  Button,
+  CellGrid,
+  Dateline,
+  DisplayPlate,
+  Eyebrow,
+  Reveal,
+  Surface,
+  type SurfaceTone,
+} from "@avenick/ui";
 import { SelectField, TextField } from "@/components/b2b/controls";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ValidatedForm } from "@/components/b2b/validated-form";
+import { getB2B, b2bMetadata } from "@/components/b2b/i18n";
+import { b2bT, type B2BKey, type B2BT } from "@/components/b2b/messages";
 import { auth, signOut } from "@/lib/auth-instance";
 import { isDurableB2BMember } from "@/lib/b2b-access";
 import type { B2BActionState } from "@/lib/b2b";
@@ -30,17 +41,19 @@ import { SUPPORTED_COUNTRIES } from "@/lib/market-context";
 import { platformName } from "@avenick/utils/portal-config";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: `Register your business — ${platformName()} for Business` };
+export async function generateMetadata() {
+  return b2bMetadata("meta.register");
+}
 
 // Each line describes a capability the portal implements, in the terms the
 // product actually uses. No "exclusive discounts" and no Net-30/60/90: payment
 // terms are whatever is recorded on an approved company account, and there is
 // no self-service credit application (see the Terms of Service).
-const FEATURES = [
-  { icon: TrendingUp, title: "B2B Pricing", desc: "Quantity-based B2B prices where suppliers publish them" },
-  { icon: FileText, title: "Purchase Orders", desc: "Create and manage POs with approval workflows" },
-  { icon: Users, title: "Team Management", desc: "Add buyers with role-based spend limits" },
-  { icon: ShieldCheck, title: "Payment Terms", desc: "Terms approved for your company are applied at checkout" },
+const FEATURES: Array<{ icon: typeof TrendingUp; titleKey: B2BKey; descKey: B2BKey }> = [
+  { icon: TrendingUp, titleKey: "register.feature.pricing", descKey: "register.feature.pricing.desc" },
+  { icon: FileText, titleKey: "register.feature.po", descKey: "register.feature.po.desc" },
+  { icon: Users, titleKey: "register.feature.team", descKey: "register.feature.team.desc" },
+  { icon: ShieldCheck, titleKey: "register.feature.terms", descKey: "register.feature.terms.desc" },
 ];
 
 /*
@@ -51,34 +64,48 @@ const FEATURES = [
  * form — the same drift that made four of the old form's industries unstorable
  * and six of the database's industries unreachable. The values themselves come
  * from @avenick/types, which is checked against the same Prisma enums.
+ *
+ * The labels are message KEYS now. An applicant reading an Arabic page and
+ * choosing from an English industry list is the clearest possible statement
+ * that the Arabic build is a setting rather than a design.
  */
-const INDUSTRY_LABELS: Record<Industry, string> = {
-  INDUSTRIAL_SUPPLIES: "Industrial supplies",
-  ELECTRONICS: "Electronics",
-  OFFICE_SUPPLIES: "Office supplies",
-  SAFETY_PPE: "Safety & PPE",
-  FOOD_HOSPITALITY: "Food & hospitality",
-  BUILDING_MATERIALS: "Building materials",
-  HEALTHCARE: "Healthcare",
-  RETAIL: "Retail",
-  MANUFACTURING: "Manufacturing",
-  TECHNOLOGY: "Technology",
-  OTHER: "Other",
+const INDUSTRY_LABELS: Record<Industry, B2BKey> = {
+  INDUSTRIAL_SUPPLIES: "register.industry.INDUSTRIAL_SUPPLIES",
+  ELECTRONICS: "register.industry.ELECTRONICS",
+  OFFICE_SUPPLIES: "register.industry.OFFICE_SUPPLIES",
+  SAFETY_PPE: "register.industry.SAFETY_PPE",
+  FOOD_HOSPITALITY: "register.industry.FOOD_HOSPITALITY",
+  BUILDING_MATERIALS: "register.industry.BUILDING_MATERIALS",
+  HEALTHCARE: "register.industry.HEALTHCARE",
+  RETAIL: "register.industry.RETAIL",
+  MANUFACTURING: "register.industry.MANUFACTURING",
+  TECHNOLOGY: "register.industry.TECHNOLOGY",
+  OTHER: "register.industry.OTHER",
 };
 
 // Headcount bands are the conventional reading of these buckets, shown so the
 // choice means something at the point of entry. Only the enum value is stored.
-const COMPANY_SIZE_LABELS: Record<CompanySize, string> = {
-  MICRO: "Micro — 1–9 employees",
-  SMALL: "Small — 10–49 employees",
-  MEDIUM: "Medium — 50–249 employees",
-  LARGE: "Large — 250–999 employees",
-  ENTERPRISE: "Enterprise — 1,000+ employees",
+const COMPANY_SIZE_LABELS: Record<CompanySize, B2BKey> = {
+  MICRO: "register.size.MICRO",
+  SMALL: "register.size.SMALL",
+  MEDIUM: "register.size.MEDIUM",
+  LARGE: "register.size.LARGE",
+  ENTERPRISE: "register.size.ENTERPRISE",
 };
 
-const LANGUAGE_LABELS: Record<Language, string> = {
-  AR: "العربية — Arabic",
-  EN: "English",
+const LANGUAGE_LABELS: Record<Language, B2BKey> = {
+  AR: "register.language.AR",
+  EN: "register.language.EN",
+};
+
+/** The Arabic names of the markets this platform sells in, where one exists. */
+const COUNTRY_LABELS: Record<string, B2BKey> = {
+  AE: "sites.country.AE",
+  SA: "sites.country.SA",
+  QA: "sites.country.QA",
+  KW: "sites.country.KW",
+  OM: "sites.country.OM",
+  BH: "sites.country.BH",
 };
 
 // The markets Avenick sells in. The annotation makes a code that is not a Prisma
@@ -101,6 +128,13 @@ type RegisterResponse = {
  */
 async function registerBusinessAction(_prev: B2BActionState, formData: FormData): Promise<B2BActionState> {
   "use server";
+
+  // The locale is read from the same cookie next-intl's request config reads,
+  // rather than through next-intl itself: a Server Action runs outside the page
+  // render, and the three sentences below are the ones an applicant sees at the
+  // exact moment something has gone wrong — the worst possible place for the one
+  // line on an Arabic page that is not in Arabic.
+  const t: B2BT = b2bT(cookies().get("AVENICK_LOCALE")?.value);
 
   const value = (key: string) => String(formData.get(key) ?? "").trim();
   const payload = {
@@ -138,7 +172,7 @@ async function registerBusinessAction(_prev: B2BActionState, formData: FormData)
   // backendUrl() hands back the bare path when it cannot resolve an origin.
   // Say so rather than letting fetch fail with something unreadable.
   if (!URL.canParse(url)) {
-    return { error: "Registration is temporarily unavailable: the application origin could not be resolved." };
+    return { error: t("register.error.origin") };
   }
 
   // The handler is invoked in-process rather than over HTTP.
@@ -171,12 +205,12 @@ async function registerBusinessAction(_prev: B2BActionState, formData: FormData)
     );
     json = (await res.json().catch(() => null)) as RegisterResponse | null;
   } catch {
-    return { error: "Could not reach the registration service. Please try again in a moment." };
+    return { error: t("register.error.unreachable") };
   }
 
   if (!res.ok || json?.success !== true) {
     // The endpoint names the field and the reason; show that, not a stand-in.
-    return { error: json?.error ?? `Registration failed (HTTP ${res.status}). Please try again.` };
+    return { error: json?.error ?? t("register.error.http", { status: res.status }) };
   }
 
   // The confirmation screen describes a company awaiting verification. If the
@@ -187,7 +221,7 @@ async function registerBusinessAction(_prev: B2BActionState, formData: FormData)
   }
   return {
     ok: true,
-    message: `Business account created (company status: ${json.data?.companyStatus ?? "unreported"}). Sign in to continue.`,
+    message: t("register.created", { status: json.data?.companyStatus ?? t("register.created.unreported") }),
   };
 }
 
@@ -248,6 +282,7 @@ export default async function B2BRegisterPage({
 }: {
   searchParams: { submitted?: string };
 }) {
+  const { t, f, locale } = await getB2B();
   const session = await auth();
   const userId = session?.user?.id;
 
@@ -289,37 +324,28 @@ export default async function B2BRegisterPage({
       <MainLayout>
         <div className="max-w-2xl mx-auto px-4 py-16 space-y-4">
           {pending ? (
-            <Notice icon={Clock} tone="warning" title={`${company.nameEn} is awaiting verification`}>
+            <Notice icon={Clock} tone="warning" title={t("register.pending.title", { company: company.nameEn })}>
               <p>
-                The company account was created on{" "}
-                {company.createdAt.toISOString().slice(0, 10)} and is in review. {platformName()} checks the
-                commercial registration before B2B pricing, purchase orders, credit terms and team
-                accounts are switched on, so the business workspace stays closed until then.
+                {t("register.pending.body", {
+                  date: f.date(company.createdAt),
+                  platform: platformName(),
+                })}
               </p>
-              <p>
-                There is nothing further to submit here, and you do not need to register again — this
-                page opens the workspace as soon as the company is approved.
-              </p>
+              <p>{t("register.pending.body2")}</p>
             </Notice>
           ) : suspended ? (
-            <Notice icon={AlertCircle} tone="warning" title={`${company.nameEn} is not active`}>
-              <p>
-                This company account is currently {company.deletedAt ? "closed" : "suspended"}, so the
-                B2B workspace is unavailable. Personal shopping is unaffected.
-              </p>
+            <Notice icon={AlertCircle} tone="warning" title={t("register.suspended.title", { company: company.nameEn })}>
+              <p>{company.deletedAt ? t("register.suspended.closed") : t("register.suspended.body")}</p>
             </Notice>
           ) : (
-            <Notice icon={AlertCircle} tone="warning" title={`Your access to ${company.nameEn} is inactive`}>
-              <p>
-                The company is active, but your membership is not — a company administrator can
-                re-enable it, or restore your buyer role if it was changed.
-              </p>
+            <Notice icon={AlertCircle} tone="warning" title={t("register.inactive.title", { company: company.nameEn })}>
+              <p>{t("register.inactive.body")}</p>
             </Notice>
           )}
 
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="secondary"><Link href="/products">Browse the catalogue</Link></Button>
-            <Button asChild variant="ghost"><Link href="/support">Ask support about this account</Link></Button>
+            <Button asChild variant="secondary"><Link href="/products">{t("common.browseCatalogue")}</Link></Button>
+            <Button asChild variant="ghost"><Link href="/support">{t("register.support")}</Link></Button>
           </div>
         </div>
       </MainLayout>
@@ -330,62 +356,107 @@ export default async function B2BRegisterPage({
     return (
       <MainLayout>
         <div className="max-w-2xl mx-auto px-4 py-16 space-y-4">
-          <Notice icon={CheckCircle2} tone="success" title="Registration submitted">
-            <p>
-              The company and its administrator account have been created. New company accounts are
-              reviewed before B2B pricing, purchase orders and credit terms are enabled.
-            </p>
-            <p>Sign in to see the current verification status of your company.</p>
+          <Notice icon={CheckCircle2} tone="success" title={t("register.submitted.title")}>
+            <p>{t("register.submitted.body")}</p>
+            <p>{t("register.submitted.body2")}</p>
           </Notice>
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="primary"><Link href="/login">Sign in</Link></Button>
-            <Button asChild variant="secondary"><Link href="/products">Browse the catalogue</Link></Button>
+            <Button asChild variant="primary"><Link href="/login">{t("register.signIn")}</Link></Button>
+            <Button asChild variant="secondary"><Link href="/products">{t("common.browseCatalogue")}</Link></Button>
           </div>
         </div>
       </MainLayout>
     );
   }
 
+  // The second language's line. On the English page it is Arabic and on the
+  // Arabic page it is English, and each carries its own lang/dir so the run is
+  // shaped by the right face and laid out in the right direction inside a page
+  // set in the other. Two languages of equal standing, stated by the layout
+  // rather than claimed in a footer.
+  const secondLang = locale === "ar" ? "en" : "ar";
+  const secondDir = locale === "ar" ? "ltr" : "rtl";
+
   return (
     <MainLayout>
-      <div className="max-w-5xl mx-auto px-4 py-section">
-        {/* Hero. Display rank at weight 600 rather than 36px bold: the size does
-            the shouting, so the weight does not have to. */}
-        <div className="mb-block max-w-prose">
-          <Eyebrow className="mb-3 flex items-center gap-1.5">
-            <Building2 className="h-3.5 w-3.5" aria-hidden="true" /> B2B marketplace
-          </Eyebrow>
-          <h1 className="u-display text-ink-1">Grow your business with {platformName()}</h1>
-          {/* lang and dir are set so the Arabic line is shaped by the Arabic
-              face and laid out right-to-left even inside an English page. */}
-          <p lang="ar" dir="rtl" className="u-h2 mt-2 font-normal text-ink-2">
-            طوّر أعمالك مع {platformName()}
-          </p>
-          <p className="u-lead mt-4 text-ink-2">
-            Source from GCC suppliers with B2B pricing, purchase orders, and approval workflows built in.
-          </p>
+      <div className="max-w-6xl mx-auto px-4 py-section">
+        {/* ══ THE OPENING ═══════════════════════════════════════════════════
+            A 12-column asymmetric composition rather than a stack: seven
+            columns of type against four holding one composed object, both
+            dropping to full width below 1024px.
+
+            `grid-column` is LOGICAL, so the whole composition mirrors in Arabic
+            with no second rule — the type takes the right seven columns and the
+            plate the left four, and nothing in this file knows about it.
+
+            The plate is <DisplayPlate>: the system's generated object, built
+            from the product's own hues with the ledger ruling and the grain
+            behind it. It claims nothing — there is no stock photograph of a
+            warehouse here, and no customer count — and the sentence on it is
+            three facts the database actually enforces. */}
+        <div className="mb-block grid grid-cols-1 items-end gap-x-10 gap-y-8 lg:grid-cols-12">
+          <div className="lg:col-span-7">
+            <Eyebrow className="mb-3 flex items-center gap-1.5">
+              <Building2 className="h-3.5 w-3.5" aria-hidden="true" /> {t("register.eyebrow")}
+            </Eyebrow>
+            <h1 className="u-hero text-ink-1">{t("register.title", { platform: platformName() })}</h1>
+            <p lang={secondLang} dir={secondDir} className="u-h2 mt-3 font-normal text-ink-3">
+              {/* `titleAlt`, not `titleAr`: in the AR catalogue this key holds
+                  the ENGLISH line, which is exactly what the composition above
+                  asks for and exactly what a name ending in "Ar" invites the
+                  next reader to "correct". */}
+              {t("register.titleAlt", { platform: platformName() })}
+            </p>
+            <p className="u-lead mt-5 max-w-prose text-ink-2">{t("register.lead")}</p>
+            <div className="mt-6 flex flex-wrap gap-2">
+              <Button asChild variant="primary" size="lg">
+                <Link href="#register">{t("register.submit")}</Link>
+              </Button>
+              <Button asChild variant="secondary" size="lg">
+                <Link href="/products?b2b=true">{t("common.browseCatalogue")}</Link>
+              </Button>
+            </div>
+          </div>
+
+          <DisplayPlate className="grid min-h-[260px] content-end p-6 lg:col-span-5 lg:min-h-[340px]">
+            {/* relative z-[1]: the plate's ruling is a positioned ::before at
+                z-index 0 and its grain is a positioned ::after, and an in-flow
+                child paints BELOW both. Every plate that carries content has to
+                lift it, exactly as `.u-empty > *` does. */}
+            <div className="relative z-[1]">
+              {/* ink-1, not the brass tone. The plate's own conic runs to .16
+                  alpha — twice the ambient field's — and brass-ink's measured
+                  headroom is computed against the FIELD. An 11px micro-caps run
+                  is small text and needs 4.5:1, so it is set in the ink with the
+                  most headroom rather than in the hue with the least. */}
+              <Eyebrow className="text-ink-1">{t("register.plate.eyebrow")}</Eyebrow>
+              {/* Display-scale type only. Nothing body-sized sits on the plate:
+                  its tint is a gradient, and a 13px label's contrast would
+                  depend on where in that gradient it happened to land. */}
+              <p className="u-h2 mt-2 text-ink-1">{t("register.plate.line")}</p>
+            </div>
+          </DisplayPlate>
         </div>
 
         {/* Features. One panel divided by hairlines: four capabilities, one
             object, rather than four cards floating at the same weight as the
-            registration form itself. */}
+            registration form itself. The stagger is the page's only one, it is
+            capped at four, and every cell is readable at t=0 — with JavaScript
+            off the reveal never runs and the panel is simply there. */}
         <CellGrid cols={{ base: 1, sm: 2, lg: 4 }} className="mb-block">
-          {FEATURES.map((f) => (
-            <div key={f.title}>
-              <f.icon className="mb-2 h-5 w-5 text-ink-3" aria-hidden="true" />
-              <h2 className="u-ui font-medium text-ink-1">{f.title}</h2>
-              <p className="u-meta mt-1 text-ink-2">{f.desc}</p>
-            </div>
+          {FEATURES.map((feature, index) => (
+            <Reveal key={feature.titleKey} index={index}>
+              <feature.icon className="mb-2 h-5 w-5 text-ink-3" aria-hidden="true" />
+              <h2 className="u-ui font-medium text-ink-1">{t(feature.titleKey)}</h2>
+              <p className="u-meta mt-1 text-ink-2">{t(feature.descKey)}</p>
+            </Reveal>
           ))}
         </CellGrid>
 
         {userId ? (
           <div className="mb-6">
-            <Notice icon={AlertCircle} tone="accent" title="You are signed in to a personal account">
-              <p>
-                Registering a business creates a new company and a new administrator login, so it needs
-                an email address that is not already in use. Sign out first to continue.
-              </p>
+            <Notice icon={AlertCircle} tone="accent" title={t("register.signedIn.title")}>
+              <p>{t("register.signedIn.body")}</p>
               <form
                 action={async () => {
                   "use server";
@@ -393,7 +464,7 @@ export default async function B2BRegisterPage({
                 }}
               >
                 <Button type="submit" variant="secondary" size="sm" className="mt-1">
-                  Sign out
+                  {t("register.signOut")}
                 </Button>
               </form>
             </Notice>
@@ -401,106 +472,108 @@ export default async function B2BRegisterPage({
         ) : null}
 
         {/* Registration */}
-        <Surface rung={2} id="register" className="p-6">
-          <div className="mb-5 border-b border-border-strong pb-4">
-            <h2 className="u-h2 text-ink-1">Create a business account</h2>
-            <p className="u-body mt-1 max-w-prose text-ink-2">
-              You become the company administrator. Every field marked optional can be added later from
-              the company profile.
+        <Surface rung={2} id="register" className="overflow-hidden">
+          <div className="u-drawn w-14" data-on="true" aria-hidden="true" />
+          <div className="p-6">
+            <div className="mb-5 border-b border-border-strong pb-4">
+              <h2 className="u-h2 text-ink-1">{t("register.form.title")}</h2>
+              <p className="u-body mt-1 max-w-prose text-ink-2">{t("register.form.body")}</p>
+            </div>
+
+            <ValidatedForm action={registerBusinessAction} className="space-y-block">
+              <section>
+                <Eyebrow className="mb-3 flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5" aria-hidden="true" /> {t("register.section.company")}
+                </Eyebrow>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label={t("register.field.nameEn")}>
+                    <TextField name="companyNameEn" required minLength={2} maxLength={100} autoComplete="organization" />
+                  </Field>
+                  <Field label={t("register.field.nameAr")}>
+                    <TextField name="companyNameAr" minLength={2} maxLength={100} lang="ar" dir="rtl" placeholder={t("register.field.nameAr.placeholder")} />
+                  </Field>
+                  <Field label={t("register.field.cr")}>
+                    <TextField name="crNumber" required minLength={5} maxLength={30} />
+                  </Field>
+                  <Field label={t("register.field.vat")} hint={t("register.field.vat.hint")}>
+                    <TextField name="vatNumber" maxLength={30} />
+                  </Field>
+                  <Field label={t("register.field.industry")}>
+                    <SelectField name="industry" required defaultValue="">
+                      <option value="" disabled>{t("register.field.industry.select")}</option>
+                      {INDUSTRY_VALUES.map((v) => (
+                        <option key={v} value={v}>{t(INDUSTRY_LABELS[v])}</option>
+                      ))}
+                    </SelectField>
+                  </Field>
+                  <Field label={t("register.field.size")}>
+                    <SelectField name="companySize" required defaultValue="">
+                      <option value="" disabled>{t("register.field.size.select")}</option>
+                      {COMPANY_SIZE_VALUES.map((v) => (
+                        <option key={v} value={v}>{t(COMPANY_SIZE_LABELS[v])}</option>
+                      ))}
+                    </SelectField>
+                  </Field>
+                  <Field label={t("register.field.country")}>
+                    <SelectField name="country" required defaultValue="">
+                      <option value="" disabled>{t("register.field.country.select")}</option>
+                      {COUNTRY_OPTIONS.map(([code, name]) => (
+                        <option key={code} value={code}>
+                          {COUNTRY_LABELS[code] ? t(COUNTRY_LABELS[code]!) : name}
+                        </option>
+                      ))}
+                    </SelectField>
+                  </Field>
+                  <Field label={t("register.field.city")}>
+                    <TextField name="city" required minLength={2} maxLength={50} autoComplete="address-level2" />
+                  </Field>
+                </div>
+              </section>
+
+              <section>
+                <Eyebrow className="mb-3 flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5" aria-hidden="true" /> {t("register.section.admin")}
+                </Eyebrow>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field label={t("register.field.firstName")}>
+                    <TextField name="firstName" required minLength={2} maxLength={50} autoComplete="given-name" />
+                  </Field>
+                  <Field label={t("register.field.lastName")}>
+                    <TextField name="lastName" required minLength={2} maxLength={50} autoComplete="family-name" />
+                  </Field>
+                  <Field label={t("register.field.email")}>
+                    <TextField type="email" name="email" required autoComplete="email" />
+                  </Field>
+                  <Field label={t("register.field.phone")} hint={t("register.field.phone.hint")}>
+                    <TextField type="tel" name="phone" pattern="\+[1-9][0-9]{7,14}" autoComplete="tel" />
+                  </Field>
+                  <Field label={t("register.field.password")} hint={t("register.field.password.hint")}>
+                    <TextField type="password" name="password" required minLength={8} autoComplete="new-password" />
+                  </Field>
+                  <Field label={t("register.field.language")}>
+                    <SelectField name="language" defaultValue={locale === "ar" ? "AR" : "EN"}>
+                      {LANGUAGE_VALUES.map((v) => (
+                        <option key={v} value={v}>{t(LANGUAGE_LABELS[v])}</option>
+                      ))}
+                    </SelectField>
+                  </Field>
+                </div>
+              </section>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <Button type="submit" variant="primary">{t("register.submit")}</Button>
+                <Dateline className="flex items-center gap-1.5">
+                  <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                  {t("register.submit.basis")}
+                </Dateline>
+              </div>
+            </ValidatedForm>
+
+            <p className="u-ui mt-5 text-ink-2">
+              {t("register.haveAccount")}{" "}
+              <Link href="/login" className="u-focus rounded-nested text-primary-ink hover:underline">{t("register.signIn")}</Link>
             </p>
           </div>
-
-          <ValidatedForm action={registerBusinessAction} className="space-y-block">
-            <section>
-              <Eyebrow className="mb-3 flex items-center gap-1.5">
-                <Building2 className="h-3.5 w-3.5" aria-hidden="true" /> Company
-              </Eyebrow>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Company name (English)">
-                  <TextField name="companyNameEn" required minLength={2} maxLength={100} autoComplete="organization" placeholder="Gulf Industrial Trading LLC" />
-                </Field>
-                <Field label="Company name (Arabic) — optional">
-                  <TextField name="companyNameAr" minLength={2} maxLength={100} lang="ar" dir="rtl" placeholder="اسم الشركة بالعربي" />
-                </Field>
-                <Field label="Commercial registration number">
-                  <TextField name="crNumber" required minLength={5} maxLength={30} placeholder="CN-1234567" />
-                </Field>
-                <Field label="VAT number — optional" hint="Add it now to have tax invoices issued against it.">
-                  <TextField name="vatNumber" maxLength={30} placeholder="100123456700003" />
-                </Field>
-                <Field label="Industry">
-                  <SelectField name="industry" required defaultValue="">
-                    <option value="" disabled>Select an industry</option>
-                    {INDUSTRY_VALUES.map((v) => (
-                      <option key={v} value={v}>{INDUSTRY_LABELS[v]}</option>
-                    ))}
-                  </SelectField>
-                </Field>
-                <Field label="Company size">
-                  <SelectField name="companySize" required defaultValue="">
-                    <option value="" disabled>Select a company size</option>
-                    {COMPANY_SIZE_VALUES.map((v) => (
-                      <option key={v} value={v}>{COMPANY_SIZE_LABELS[v]}</option>
-                    ))}
-                  </SelectField>
-                </Field>
-                <Field label="Country">
-                  <SelectField name="country" required defaultValue="">
-                    <option value="" disabled>Select a country</option>
-                    {COUNTRY_OPTIONS.map(([code, name]) => (
-                      <option key={code} value={code}>{name}</option>
-                    ))}
-                  </SelectField>
-                </Field>
-                <Field label="City">
-                  <TextField name="city" required minLength={2} maxLength={50} autoComplete="address-level2" placeholder="Dubai" />
-                </Field>
-              </div>
-            </section>
-
-            <section>
-              <Eyebrow className="mb-3 flex items-center gap-1.5">
-                <Users className="h-3.5 w-3.5" aria-hidden="true" /> Company administrator
-              </Eyebrow>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="First name">
-                  <TextField name="firstName" required minLength={2} maxLength={50} autoComplete="given-name" />
-                </Field>
-                <Field label="Last name">
-                  <TextField name="lastName" required minLength={2} maxLength={50} autoComplete="family-name" />
-                </Field>
-                <Field label="Work email">
-                  <TextField type="email" name="email" required autoComplete="email" placeholder="you@company.com" />
-                </Field>
-                <Field label="Phone — optional" hint="International format, e.g. +9715xxxxxxx.">
-                  <TextField type="tel" name="phone" pattern="\+[1-9][0-9]{7,14}" autoComplete="tel" placeholder="+9715xxxxxxx" />
-                </Field>
-                <Field label="Password" hint="At least 8 characters, with one uppercase letter and one number.">
-                  <TextField type="password" name="password" required minLength={8} autoComplete="new-password" />
-                </Field>
-                <Field label="Preferred language">
-                  <SelectField name="language" defaultValue="EN">
-                    {LANGUAGE_VALUES.map((v) => (
-                      <option key={v} value={v}>{LANGUAGE_LABELS[v]}</option>
-                    ))}
-                  </SelectField>
-                </Field>
-              </div>
-            </section>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <Button type="submit" variant="primary">Create business account</Button>
-              <Dateline className="flex items-center gap-1.5">
-                <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                Accounts are reviewed before B2B pricing and credit terms are enabled
-              </Dateline>
-            </div>
-          </ValidatedForm>
-
-          <p className="u-ui mt-5 text-ink-2">
-            Already have an account?{" "}
-            <Link href="/login" className="u-focus rounded-nested text-primary-ink hover:underline">Sign in</Link>
-          </p>
         </Surface>
       </div>
     </MainLayout>

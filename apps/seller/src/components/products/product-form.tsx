@@ -29,6 +29,7 @@ import {
   Divider,
   Eyebrow,
   FieldWell,
+  ImageFrame,
   Input,
   Surface,
   Textarea,
@@ -1101,13 +1102,22 @@ export function ProductForm({
           <ul className="flex flex-wrap gap-3">
             {values.images.map((image, index) => (
               <li key={image.id ?? image.url} className="relative w-24">
-                {/* Plain <img>: uploaded objects live on the storage host, which
-                    is not in next.config's image remotePatterns allowlist. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                {/* THE FRAME, and this is the single most important place in the
+                    portal for it: this preview is the supplier's own photograph,
+                    and it is exactly what a buyer will see on the storefront. It
+                    used `object-cover`, so the one screen where a supplier checks
+                    their photo was also the one screen showing it cropped —
+                    approving an image here whose valve or label the shopper never
+                    sees. <ImageFrame> contains it, insets it off its own edge, and
+                    lights it on the same plate the storefront card uses, so what
+                    is approved here is what ships. It renders a plain <img> for
+                    the same reason this cell already did: uploaded objects live on
+                    the storage host, which is not in next.config's image
+                    remotePatterns allowlist. */}
+                <ImageFrame
                   src={image.url}
                   alt={image.altEn ?? values.nameEn}
-                  className="h-24 w-24 rounded-nested border border-border object-cover"
+                  className="h-24 w-24 rounded-nested border border-border"
                 />
                 {index === 0 && (
                   // An opaque plate, never text straight onto a photograph: the

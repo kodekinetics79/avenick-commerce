@@ -10,7 +10,7 @@ import {
   Num, Eyebrow, Dateline, Button, type PillTone,
 } from "@avenick/ui";
 import { MoneyStat } from "@/app/finance/money-figures";
-import { FilterTabs, Pager, CONTROL, CONTROL_SM } from "@/app/finance/console-chrome";
+import { FilterTabs, Pager, CONTROL, CONTROL_SM } from "@/components/console/chrome";
 import { confirmBankTransfer } from "./actions";
 
 export const metadata = { title: "Payments" };

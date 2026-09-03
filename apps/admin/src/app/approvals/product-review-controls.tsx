@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, XCircle } from "lucide-react";
+import { CheckCircle2, RefreshCw, XCircle } from "lucide-react";
 import { Button, Input, Surface } from "@avenick/ui";
 import { approvePendingProduct, rejectPendingProduct } from "./actions";
 import { DecisionNoticeInline } from "./decision-notice";
@@ -173,7 +173,17 @@ export function ProductReviewControls({ productId, onOutcome }: Props) {
           </Button>
         </div>
       )}
-      {refusal && <DecisionNoticeInline message={refusal} className="w-full max-w-sm" />}
+      {refusal && (
+        <DecisionNoticeInline
+          message={refusal}
+          className="w-full max-w-sm"
+          action={
+            <Button type="button" variant="ghost" size="xs" onClick={() => router.refresh()}>
+              <RefreshCw className="h-3 w-3" aria-hidden="true" /> Re-read this row
+            </Button>
+          }
+        />
+      )}
     </div>
   );
 }

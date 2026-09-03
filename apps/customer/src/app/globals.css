@@ -23,6 +23,18 @@
 }
 
 /* The customer portal is the system's baseline posture (--radius: 14px,
-   --row-h: 44px, --field-intensity: 1, --motion-scale: 1), so there is no
-   posture override here. It is also the only portal where --ease-spring and the
-   staged reveals are permitted, and the only one that ships Arabic. */
+   --row-h: 44px, --field-intensity: 1, --motion-scale: 1, --img-ratio-card: 4/5,
+   --img-inset: 9%, --rim-shoulder-3: .48), so there is no posture override here.
+
+   It is also the ONLY portal that gets the SIJILL storefront vocabulary, and the
+   list is closed: the .u-hero rung and --fs-hero, <HeroStage> and its depth
+   planes, display glass, the ambient field at full intensity, the animated seal,
+   <DisplayPlate>, <LightGrid> and <Rail>. Seller and admin resolve --fs-hero
+   back to --fs-h1 and <Surface> throws on glass="display" outside this portal,
+   so those are structurally unavailable rather than merely discouraged.
+
+   Everything else crosses all three unconditionally — the four-part light model,
+   <ImageFrame>, <AvailabilityDot>, <PriceStack>, the Certificate empty state,
+   the focus ring, the brass rule, <LedgerTable>, <Layer>, the corrected
+   reduced-motion contract and the RTL shimmer fix. The storefront and the
+   console share every OBJECT and differ only in INTENSITY, RATIO and DENSITY. */

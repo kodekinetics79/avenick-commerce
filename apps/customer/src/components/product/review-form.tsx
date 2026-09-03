@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Star } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button, Input, Textarea, FieldWell, Eyebrow, Dateline } from "@avenick/ui";
 
 /** Mirrors the API route's zod bounds; the server is still the authority. */
@@ -27,6 +28,7 @@ export type SubmittedReview = {
  * loaded, and the message from the server is shown as-is.
  */
 export function ReviewForm({ slug, onSubmitted }: { slug: string; onSubmitted: (review: SubmittedReview) => void }) {
+  const t = useTranslations("pdp.form");
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
   const [title, setTitle] = useState("");
@@ -81,12 +83,12 @@ export function ReviewForm({ slug, onSubmitted }: { slug: string; onSubmitted: (
       });
       const payload = await res.json().catch(() => null);
       if (!res.ok || !payload?.success) {
-        setError(payload?.error ?? "Could not submit your review. Please try again.");
+        setError(payload?.error ?? t("failed"));
         return;
       }
       onSubmitted(payload.data as SubmittedReview);
     } catch {
-      setError("Could not submit your review. Please try again.");
+      setError(t("failed"));
     } finally {
       setSubmitting(false);
     }
@@ -100,18 +102,18 @@ export function ReviewForm({ slug, onSubmitted }: { slug: string; onSubmitted: (
     // a hairline — the exact flatness the elevation ladder exists to fix. Law A
     // also puts this on the right rung on its own terms: a block of inputs is
     // recessed, and the controls inside keep their own edge and inset shadow.
-    <FieldWell as="form" onSubmit={submit} className="space-y-4 p-4" aria-label="Write a review">
+    <FieldWell as="form" onSubmit={submit} className="space-y-4 p-4" aria-label={t("aria")}>
       <div>
-        <Eyebrow>Your review</Eyebrow>
-        <h3 className="mt-0.5 u-h3 text-ink-1">Write a review</h3>
+        <Eyebrow>{t("eyebrow")}</Eyebrow>
+        <h3 className="mt-0.5 u-h3 text-ink-1">{t("heading")}</h3>
         {/* Why this form is being offered at all, in the provenance voice: the
             eligibility endpoint proved a delivered order, which is exactly what
             the Verified badge on the stored review will mean. */}
-        <Dateline className="mt-1">You received this product, so your review will carry the Verified badge</Dateline>
+        <Dateline className="mt-1">{t("basis")}</Dateline>
       </div>
 
       <div>
-        <p id="review-rating-label" className="u-ui mb-1.5 font-medium text-ink-1">Rating</p>
+        <p id="review-rating-label" className="u-ui mb-1.5 font-medium text-ink-1">{t("rating")}</p>
         <div className="flex items-center gap-2">
           <div
             ref={ratingGroup}
@@ -127,7 +129,7 @@ export function ReviewForm({ slug, onSubmitted }: { slug: string; onSubmitted: (
                 type="button"
                 role="radio"
                 aria-checked={rating === value}
-                aria-label={`${value} star${value === 1 ? "" : "s"}`}
+                aria-label={t("star", { count: value })}
                 // One tab stop for the group: the arrow keys move within it.
                 tabIndex={value === (rating || 1) ? 0 : -1}
                 onClick={() => setRating(value)}
@@ -148,43 +150,43 @@ export function ReviewForm({ slug, onSubmitted }: { slug: string; onSubmitted: (
           {/* Outside the radiogroup on purpose: a group whose children are all
               role="radio" is what lets a screen reader announce "2 of 5"; a
               stray span inside it breaks that count. */}
-          {rating > 0 && <span className="fig u-ui text-ink-2">{rating}/5</span>}
+          {rating > 0 && <span className="fig u-ui text-ink-2">{t("ratingValue", { value: rating })}</span>}
         </div>
       </div>
 
       <Input
-        label="Title (optional)"
+        label={t("titleField")}
         value={title}
         maxLength={TITLE_MAX}
         onChange={(e) => setTitle(e.target.value)}
-        placeholder="Sum it up in a line"
+        placeholder={t("titlePlaceholder")}
       />
 
       <div>
-        <label htmlFor="review-body" className="mb-1.5 block u-ui font-medium text-ink-1">Review (optional)</label>
+        <label htmlFor="review-body" className="mb-1.5 block u-ui font-medium text-ink-1">{t("bodyField")}</label>
         <Textarea
           id="review-body"
           value={body}
           maxLength={BODY_MAX}
           rows={4}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="What was it like to order, receive and use?"
+          placeholder={t("bodyPlaceholder")}
           aria-invalid={bodyTooShort}
           aria-describedby="review-body-hint"
         />
         {/* The line's height is reserved either way, so tripping the minimum
             never pushes the submit button down the page under the pointer. */}
         <p id="review-body-hint" className={`mt-1 min-h-[18px] u-meta ${bodyTooShort ? "text-danger-ink" : "text-ink-3"}`}>
-          {bodyTooShort ? `At least ${BODY_MIN} characters, or leave it empty.` : `${trimmedBody.length}/${BODY_MAX}`}
+          {bodyTooShort ? t("bodyTooShort", { min: BODY_MIN }) : t("counter", { count: trimmedBody.length, max: BODY_MAX })}
         </p>
       </div>
 
       {error && <p className="u-ui text-danger-ink" role="alert">{error}</p>}
 
       <div className="flex items-center justify-between gap-3">
-        {rating === 0 ? <span className="u-meta text-ink-2">Pick a star rating to continue.</span> : <span />}
+        {rating === 0 ? <span className="u-meta text-ink-2">{t("pickRating")}</span> : <span />}
         <Button type="submit" variant="primary" loading={submitting} disabled={!canSubmit}>
-          {submitting ? "Submitting…" : "Submit review"}
+          {submitting ? t("submitting") : t("submit")}
         </Button>
       </div>
     </FieldWell>

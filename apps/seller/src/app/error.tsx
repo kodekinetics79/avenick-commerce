@@ -2,11 +2,23 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
-import { RefreshCw, LayoutDashboard, AlertTriangle } from "lucide-react";
+import { AlertTriangle, LayoutDashboard, RefreshCw } from "lucide-react";
+import { Button, Dateline, Divider, EmptyState, Eyebrow } from "@avenick/ui";
 
 /**
  * Route-segment error boundary for Seller Central. Keeps an uncaught render
- * error from becoming a white screen while a client is testing the portal.
+ * error from becoming a white screen while a supplier is working.
+ *
+ * The old version led with a 56px amber→orange gradient tile carrying
+ * `shadow-elevated`, and put the digest — the one thing a supplier can actually
+ * give the platform to find what happened — in 11px grey at 70% opacity below
+ * the fold of the block. The digest is now a first-class line in the provenance
+ * voice, in mono, which is exactly what mono is reserved for.
+ *
+ * Two actions rather than one, because the recovery and the exit are different
+ * intentions: "try again" re-renders the segment, "dashboard" leaves it. The
+ * certificate's contract is one action, so the retry — the primary one — is the
+ * certificate's, and the way out sits beneath it.
  */
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -14,34 +26,41 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
   }, [error]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background text-foreground px-4">
-      <div className="max-w-lg w-full text-center space-y-6 py-12">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-elevated">
-          <AlertTriangle className="h-7 w-7" />
-        </span>
-        <div className="space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Something went wrong</h1>
-          <p className="text-muted-foreground text-sm sm:text-base max-w-md mx-auto leading-relaxed">
-            This screen hit an unexpected error. Try again, or head back to your dashboard.
-          </p>
-          {error.digest ? <p className="text-[11px] text-muted-foreground/70 font-mono pt-1">ref: {error.digest}</p> : null}
-        </div>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <button
-            onClick={reset}
-            className="inline-flex items-center gap-2 h-11 px-6 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/95 transition-all shadow-glow-sm"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Try again
-          </button>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 h-11 px-6 rounded-xl bg-card border border-border text-sm font-semibold hover:border-primary/40 transition-all"
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            Dashboard
+    <div className="mx-auto w-full max-w-3xl px-4 py-16">
+      <Divider drawn on className="w-12" />
+      <Eyebrow className="mt-4">Seller Central</Eyebrow>
+
+      <EmptyState
+        className="mt-4"
+        variant="certificate"
+        glyph={<AlertTriangle />}
+        eyebrow="Unexpected error"
+        headline="This screen hit an error and could not finish rendering."
+        // No claim about what did or did not happen to the seller's data: this
+        // boundary catches a RENDER failure and knows nothing about the request
+        // behind it, so saying "nothing was saved" would be a guess presented as
+        // a fact.
+        body="Nothing on this page was submitted by the failure itself. Try the screen again, or leave it and come back from your dashboard."
+        action={
+          <Button variant="primary" size="sm" onClick={reset}>
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Try again
+          </Button>
+        }
+      />
+
+      <div className="mt-4 flex flex-wrap items-center gap-4">
+        <Button variant="secondary" size="sm" asChild>
+          <Link href="/dashboard">
+            <LayoutDashboard className="h-3.5 w-3.5" aria-hidden="true" /> Back to your dashboard
           </Link>
-        </div>
+        </Button>
+        {/* The reference the platform can search on. Mono, because it is an
+            identifier — the one category of string mono exists for. */}
+        {error.digest && (
+          <Dateline className="min-w-0">
+            Reference <span className="u-mono text-ink-2">{error.digest}</span> — quote this if you report it.
+          </Dateline>
+        )}
       </div>
     </div>
   );

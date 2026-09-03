@@ -202,7 +202,13 @@ export function CommandPalette({ groups, open, onOpenChange }: Props) {
   return (
     <div className="fixed inset-0 z-layer flex items-start justify-center px-4 pt-[12vh]">
       {/* The overlay is the element that actually receives a click outside the dialog. */}
-      <div className="u-layer-scrim" data-state="open" aria-hidden="true" onMouseDown={close} />
+      {/* No data-state: the scrim is drawn, not faded in. §8 of the design
+          system ranks motion by FREQUENCY, not by surface, and a jump-to-page
+          palette is the single most-used control in this console. The instinct
+          of every implementer is to animate it because it is the most fun thing
+          on the page to animate; it is also the most wrong. Raycast has no
+          open/close animation at all, deliberately. */}
+      <div className="u-layer-scrim" aria-hidden="true" onMouseDown={close} />
       <Surface
         ref={dialogRef}
         rung={5}
@@ -216,7 +222,11 @@ export function CommandPalette({ groups, open, onOpenChange }: Props) {
         // z-index 50, so a panel left at z-index auto paints UNDERNEATH its own
         // scrim — dimmed, blurred, and with every click on a result swallowed by
         // the scrim's dismiss handler instead of navigating.
-        className="animate-fade-up relative z-[51] w-full max-w-lg overflow-hidden"
+        // No animate-fade-up. See the scrim above: this panel is present on the
+        // frame the operator pressed the key on, and 320ms of travel on a
+        // control opened a hundred times a day is 32 seconds a day of waiting
+        // for a fade.
+        className="relative z-[51] w-full max-w-lg overflow-hidden"
       >
         {/* The query row is recessed: it is an input, and in this system that is
             what rung 1 means. */}

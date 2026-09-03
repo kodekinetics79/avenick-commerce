@@ -9,7 +9,7 @@ import {
   PageHeader, CellGrid, LedgerTable, EmptyState, Surface, Num, Dateline,
 } from "@avenick/ui";
 import { CountStat, MoneyStat } from "@/app/finance/money-figures";
-import { Pager } from "@/app/finance/console-chrome";
+import { Pager } from "@/components/console/chrome";
 
 export const metadata = { title: "VAT Summary" };
 export const dynamic = "force-dynamic";

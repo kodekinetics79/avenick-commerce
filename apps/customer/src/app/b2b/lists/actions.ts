@@ -4,17 +4,19 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@avenick/database";
 import { getB2BContext, type B2BActionState } from "@/lib/b2b";
+import { actionT } from "@/components/b2b/action-i18n";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
 
 export async function createList(_prev: B2BActionState, formData: FormData): Promise<B2BActionState> {
+  const t = actionT();
   const ctx = await getB2BContext();
-  if (!ctx) return { error: "Sign in with a company account to create lists." };
+  if (!ctx) return { error: t("act.list.noCompany") };
   const name = String(formData.get("name") ?? "").trim();
-  if (!name) return { error: "Give the list a name." };
+  if (!name) return { error: t("act.list.needName") };
 
   await db.requisitionList.create({ data: { companyId: ctx.companyId, ownerId: ctx.userId, name } });
   revalidatePath("/b2b/lists");
-  return { ok: true, message: `List “${name}” created.` };
+  return { ok: true, message: t("act.list.created", { name }) };
 }
 
 export async function deleteList(id: string) {
@@ -73,11 +75,13 @@ export async function addItem(listId: string, formData: FormData) {
     // purchase-order actions do: this action is bound to a plain form and so
     // has no return channel, and dropping the line in silence would be
     // indistinguishable from having added it.
-    redirect(
-      `/b2b/lists?listError=${encodeURIComponent(
-        `${sku} is no longer available for B2B ordering, so it was not added to the list.`,
-      )}`,
-    );
+    // A CODE plus the one value it names, never a finished sentence. Both come
+    // back off the query string, which anyone can write, and <ActionBanner>
+    // will only render an outcome it recognises — a link that paints arbitrary
+    // prose inside this product's own receipt is a phishing surface wearing the
+    // platform's chrome. The sentence is chosen at render time, in the reader's
+    // language, exactly as the governed purchase-order actions do it.
+    redirect(`/b2b/lists?listError=listUnavailable&listArg=${encodeURIComponent(sku)}`);
   }
 
   await db.requisitionListItem.create({
@@ -96,11 +100,9 @@ export async function addItem(listId: string, formData: FormData) {
   // query string untouched would keep a previous attempt's error banner over a
   // line that did save — the same wrong answer in the other direction.
   redirect(
-    `/b2b/lists?listDone=${encodeURIComponent(
-      product
-        ? `${product.nameEn} added to the list.`
-        : `${sku} is not in the catalog — added as a free-text line.`,
-    )}`,
+    product
+      ? `/b2b/lists?listDone=listAdded&listArg=${encodeURIComponent(product.nameEn)}`
+      : `/b2b/lists?listDone=listFreeText&listArg=${encodeURIComponent(sku)}`,
   );
 }
 

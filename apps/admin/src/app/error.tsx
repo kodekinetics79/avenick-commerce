@@ -3,10 +3,16 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { RefreshCw, LayoutDashboard, AlertTriangle } from "lucide-react";
+import { Button, Dateline, EmptyState } from "@avenick/ui";
 
 /**
- * Route-segment error boundary for the Admin console. Prevents an uncaught
- * render error from surfacing as a white screen / stack trace during testing.
+ * Route-segment error boundary for the admin console. It prevents an uncaught
+ * render error from surfacing as a white screen or a stack trace.
+ *
+ * It is the Certificate plate rather than a centred apology with a gradient
+ * badge on it: a failure surface is still a surface the operator is looking at,
+ * and the digest is the one genuinely useful fact on it — so it is set in mono,
+ * as an identifier, and stated as what support will ask for.
  */
 export default function Error({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
@@ -14,34 +20,38 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
   }, [error]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background text-foreground px-4">
-      <div className="max-w-lg w-full text-center space-y-6 py-12">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-elevated">
-          <AlertTriangle className="h-7 w-7" />
-        </span>
-        <div className="space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Something went wrong</h1>
-          <p className="text-muted-foreground text-sm sm:text-base max-w-md mx-auto leading-relaxed">
-            This screen hit an unexpected error. Try again, or return to the dashboard.
-          </p>
-          {error.digest ? <p className="text-[11px] text-muted-foreground/70 font-mono pt-1">ref: {error.digest}</p> : null}
-        </div>
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <button
-            onClick={reset}
-            className="inline-flex items-center gap-2 h-11 px-6 rounded-xl bg-primary text-white text-sm font-semibold hover:bg-primary/95 transition-all shadow-glow-sm"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Try again
-          </button>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center gap-2 h-11 px-6 rounded-xl bg-card border border-border text-sm font-semibold hover:border-primary/40 transition-all"
-          >
-            <LayoutDashboard className="h-4 w-4" />
-            Dashboard
-          </Link>
-        </div>
+    <div className="flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="w-full max-w-2xl space-y-3">
+        <EmptyState
+          variant="certificate"
+          glyph={<AlertTriangle />}
+          eyebrow="Not rendered"
+          headline="This screen hit an error and stopped before it finished drawing."
+          // NOT "nothing was written". A render boundary knows the screen
+          // failed to draw; it does not know what a request that reached the
+          // platform before it did. Telling an operator their decision was not
+          // recorded when it may have been is the kind of quiet untruth this
+          // codebase spent a hardening programme removing — so the copy says
+          // only what is knowable, and points at the register that does know.
+          body="This is a rendering failure, so nothing on the screen behind it can be read as the record. Retrying re-runs the screen against the platform's current state; the audit trail is the authority on what was actually recorded."
+          action={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" onClick={reset} size="sm">
+                <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Try again
+              </Button>
+              <Button variant="secondary" size="sm" asChild>
+                <Link href="/dashboard">
+                  <LayoutDashboard className="h-3.5 w-3.5" aria-hidden="true" /> Command center
+                </Link>
+              </Button>
+            </div>
+          }
+        />
+        {error.digest && (
+          <Dateline>
+            Reference <span className="u-mono">{error.digest}</span> · quote it to platform operations
+          </Dateline>
+        )}
       </div>
     </div>
   );

@@ -39,6 +39,78 @@
     --space-block: 16px;
     --space-section: 32px;
     --field-intensity: 0.15;
-    --motion-scale: 0.7;
+    /* 0.70 → 0.65: the commit wash at 260ms is slightly long for a queue an
+       operator works through for an hour at a time. */
+    --motion-scale: 0.65;
+    /* Admin's shoulders are the STRONGEST of the three despite it being the
+       calmest portal: at a 32px row height a console has to separate its objects
+       with material, because it has no space to separate them with. */
+    --rim-shoulder-2: 0.22;
+    --rim-shoulder-3: 0.30;
+    --rim-shoulder-4: 0.38;
+    /* 32–40px thumbnails, and no frame at all: a plate around a 32px image is a
+       box around a box. */
+    --img-ratio-card: 1 / 1;
+    --img-inset: 0;
+  }
+}
+
+/* ── The settling chrome, bound to the pane that actually scrolls ──────────────
+   DELIBERATELY OUTSIDE @layer base. The system stylesheet writes `.u-chrome`
+   unlayered, and unlayered CSS out-ranks every @layer, so an override tucked
+   inside `base` would lose to the rule it is trying to correct.
+
+   The system's chrome settle and progress hairline both read
+   `scroll(root block)`. That is right for a document, and wrong for this shell:
+   the console is `h-screen overflow-hidden` with a fixed rail and a single
+   scrolling pane, so the ROOT SCROLLER NEVER ADVANCES HERE and the settle would
+   sit at frame zero forever. It would look correct in every review — the bar
+   renders, the glass is there — and simply never do the one thing it is for.
+
+   So the pane names a timeline and the chrome consumes it. `timeline-scope` goes
+   on the nearest common ancestor of every participant — the console shell — and
+   it has to: a named scroll timeline is otherwise visible only inside the
+   subtree of the element that declares it, and BOTH consumers sit outside that
+   subtree. The header is <main>'s sibling, and the rail's wordmark plate is the
+   sibling of the whole pane.
+
+   Still zero JS, still one opacity interpolation on the compositor, still gated
+   on prefers-reduced-motion by the system rule this only re-points. Where named
+   timelines are unsupported the base @supports never matches, no animation runs,
+   and the bar is simply always glass at the .55 floor — which is the alpha the
+   nav text is measured against in the first place. */
+[data-console-pane] {
+  timeline-scope: --console-pane;
+}
+[data-console-scroller] {
+  scroll-timeline: --console-pane block;
+}
+@supports (animation-timeline: --console-pane) {
+  @media (prefers-reduced-motion: no-preference) {
+    [data-console-chrome],
+    [data-console-chrome]::after {
+      animation-timeline: --console-pane;
+    }
+  }
+}
+
+/* The rail's wordmark plate settles WITH the header, off the same timeline and
+   the same keyframe, so the console's whole top edge condenses as one movement
+   rather than as two rules drifting apart by a few pixels. Two elements moving
+   in a stated relationship is the difference between a transition and
+   choreography, and it costs one extra selector.
+
+   Only the padding half of `chrome-settle` does anything here: this plate is
+   opaque, so the --glass-alpha the keyframe also carries is simply unread. */
+[data-console-brow] {
+  padding-block: var(--chrome-pad);
+}
+@supports (animation-timeline: --console-pane) {
+  @media (prefers-reduced-motion: no-preference) {
+    [data-console-brow] {
+      animation: chrome-settle linear both;
+      animation-timeline: --console-pane;
+      animation-range: 0 96px;
+    }
   }
 }

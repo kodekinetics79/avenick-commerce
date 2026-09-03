@@ -16,7 +16,9 @@
     "viewAll": "عرض الكل",
     "learnMore": "معرفة المزيد",
     "freeDelivery": "يتم تأكيد شروط التسليم أثناء معالجة الطلب",
-    "searchPlaceholder": "ابحث في السوق"
+    "searchPlaceholder": "ابحث في السوق",
+    "skipToContent": "تخطي إلى المحتوى",
+    "metaDescription": "سوق خليجي للشراء للأعمال وللأفراد: ابحث في كتالوج المورّدين، اطلب مباشرة، أو قدّم طلب عرض سعر لاحتياجات الكميات."
   },
   "nav": {
     "home": "الرئيسية",
@@ -35,7 +37,31 @@
     "signOut": "تسجيل الخروج",
     "trackOrder": "تتبع الطلبات",
     "getQuote": "اطلب عرض سعر",
-    "myAccount": "حسابي"
+    "myAccount": "حسابي",
+    "primaryNav": "التنقل الرئيسي",
+    "submenu": "قائمة فرعية",
+    "submenuOf": "قائمة {label} الفرعية",
+    "cartWithCount": "{count, plural, zero {السلة} one {السلة، منتج واحد} two {السلة، منتجان} few {السلة، {n} منتجات} many {السلة، {n} منتجاً} other {السلة، {n} منتج}}",
+    "accountMenu": "قائمة الحساب",
+    "openMenu": "فتح القائمة",
+    "menu": "القائمة",
+    "closeMenu": "إغلاق القائمة",
+    "wishlist": "قائمة الرغبات",
+    "catalogue": "الكتالوج",
+    "ordersAndSaved": "الطلبات والمحفوظات",
+    "sourcing": "التوريد",
+    "ordering": "الشراء",
+    "company": "الشركة",
+    "quotes": "عروض الأسعار",
+    "lists": "القوائم المحفوظة",
+    "purchaseOrders": "أوامر الشراء",
+    "approvals": "الموافقات",
+    "approvalPolicies": "سياسات الموافقة",
+    "companyProfile": "ملف الشركة",
+    "team": "الفريق",
+    "deliveryAddresses": "عناوين التسليم",
+    "billing": "الفوترة",
+    "spendAnalytics": "تحليلات الإنفاق"
   },
   "auth": {
     "welcomeBack": "مرحباً بعودتك",
@@ -78,7 +104,10 @@
     "selectOptions": "اختر الخيارات",
     "requestAvailability": "اطلب توفر المنتج",
     "noReviews": "لا توجد تقييمات بعد",
-    "availabilityUnconfirmed": "لم يتم تأكيد التوفر"
+    "availabilityUnconfirmed": "لم يتم تأكيد التوفر",
+    "inStock": "متوفر",
+    "priceFrom": "ابتداءً من",
+    "vatExcl": "غير شامل ضريبة القيمة المضافة {rate}%"
   },
   "cart": {
     "title": "سلتك",
@@ -219,11 +248,316 @@
     "catSafety": "السلامة ومعدات الوقاية الشخصية",
     "catHospitality": "الضيافة",
     "catBuilding": "مواد البناء",
-    "shopByCategory": "تصفح حسب الفئة",
+    "heroProvenance": "{count, plural, zero {لا توجد فئات مدرجة} one {فئة واحدة مدرجة حالياً} two {فئتان مدرجتان حالياً} few {{n} فئات مدرجة حالياً} many {{n} فئة مدرجة حالياً} other {{n} فئة مدرجة حالياً}}",
+    "specimenEyebrow": "من الكتالوج",
+    "specimenView": "عرض {name}",
+    "specimenEmptyEyebrow": "لا يوجد منشور",
+    "specimenEmptyHeadline": "لم ينشر أي مورّد منتجاً في هذا المتجر بعد.",
+    "specimenEmptyBody": "يظهر المنتج هنا فور نشره. وحتى ذلك الحين، اكتب ما تحتاجه ليرد عليك المورّدون بعروض أسعار.",
+    "categoriesEyebrow": "الكتالوج",
+    "categoriesTitle": "تسوق حسب الفئة",
+    "categoriesCount": "{count, plural, zero {لا توجد فئات} one {فئة واحدة} two {فئتان} few {{n} فئات} many {{n} فئة} other {{n} فئة}}",
     "allProducts": "كل المنتجات",
+    "browseAll": "تصفح كل المنتجات",
+    "railPrev": "تمرير الفئات إلى الخلف",
+    "railNext": "تمرير الفئات إلى الأمام",
+    "catalogEyebrow": "الكتالوج",
+    "catalogEmptyEyebrow": "لا يوجد منشور",
+    "catalogEmptyHeadline": "لا يعرض أي مورّد منتجاً في هذا المتجر بعد.",
+    "catalogEmptyBody": "تظهر المنتجات هنا بعد أن ينشرها المورّد وتصبح قابلة للاكتشاف. وحتى ذلك الحين يصل طلب عرض السعر إلى المورّدين مباشرة.",
+    "propsEyebrow": "كيف تعمل المنصة",
+    "propsTitle": "ما يحدث بين تحديد الحاجة وتسلّم الطلب",
+    "b2bEyebrow": "التوريد للأعمال",
+    "shopByCategory": "تصفح حسب الفئة",
     "browseAllProducts": "تصفح كل المنتجات",
     "emptyEyebrow": "لا توجد منتجات منشورة",
     "emptyHeadline": "لا توجد منتجات منشورة في الكتالوج بعد.",
     "emptyBody": "يظهر المنتج هنا بمجرد نشره من قبل البائع وإتاحته للعرض في المتجر."
+  },
+  "footer": {
+    "helpTitle": "تحتاج مساعدة؟",
+    "helpBody": "أسئلة الطلبات يجيب عنها مركز المساعدة، وأسعار الكميات تمر عبر طلب عرض سعر.",
+    "helpCenter": "مركز المساعدة",
+    "requestQuote": "اطلب عرض سعر",
+    "tagline": "للأعمال أولاً، وللأفراد أيضاً. منصة مبنية للتوريد الصناعي والمشتريات الحديثة.",
+    "supportEmailAria": "بريد الدعم: {address}",
+    "shop": "المتجر",
+    "allProducts": "كل المنتجات",
+    "brands": "العلامات التجارية",
+    "wishlist": "قائمة الرغبات",
+    "trackOrder": "تتبع الطلبات",
+    "forBusiness": "للأعمال",
+    "b2bPortal": "بوابة الأعمال",
+    "quotes": "عروض الأسعار",
+    "becomeSeller": "كن مورّداً",
+    "returns": "المرتجعات",
+    "company": "الشركة",
+    "support": "الدعم",
+    "status": "حالة النظام",
+    "myAccount": "حسابي",
+    "signIn": "تسجيل الدخول",
+    "legal": "الشؤون القانونية",
+    "privacy": "الخصوصية",
+    "terms": "الشروط",
+    "cookies": "ملفات تعريف الارتباط",
+    "rights": "© {year} {brand}. جميع الحقوق محفوظة."
+  },
+  "pdp": {
+    "breadcrumbLabel": "مسار التنقل",
+    "home": "الرئيسية",
+    "allProducts": "المنتجات",
+    "gallery": {
+      "label": "صور المنتج",
+      "select": "عرض الصورة {index} من {total}",
+      "position": "الصورة {index} من {total}",
+      "empty": "لم تُرفع أي صورة لهذا المنتج"
+    },
+    "availability": {
+      "IN_STOCK": "متوفر",
+      "OUT_OF_STOCK": "غير متوفر",
+      "UNCONFIRMED": "لم يتم تأكيد التوفر"
+    },
+    "sku": "رمز الصنف",
+    "origin": "بلد المنشأ",
+    "businessOrders": "متاح لطلبات الشركات",
+    "wishlistAdd": "إضافة إلى قائمة الرغبات",
+    "wishlistRemove": "إزالة من قائمة الرغبات",
+    "variantLabel": "الخيار",
+    "variantOutOfStock": "غير متوفر",
+    "price": {
+      "eyebrow": "سعر الوحدة",
+      "eyebrowAtQty": "سعر الوحدة عند {qty, plural, one {وحدة واحدة} two {وحدتين} few {# وحدات} many {# وحدة} other {# وحدة}}",
+      "inclVat": "شامل ضريبة القيمة المضافة",
+      "exclVat": "غير شامل ضريبة القيمة المضافة",
+      "secondaryIncl": "{amount} شامل الضريبة",
+      "secondaryExcl": "{amount} غير شامل الضريبة",
+      "vatRow": "ضريبة القيمة المضافة {rate}% لكل وحدة",
+      "quantityRow": "الكمية",
+      "unitsValue": "{qty, plural, one {وحدة واحدة} two {وحدتان} few {# وحدات} many {# وحدة} other {# وحدة}}",
+      "totalRow": "الإجمالي شامل الضريبة",
+      "basis": "السعر المنشور لهذا الاختيار عند هذه الكمية · يُعاد التحقق من السعر والضريبة والتوفر عند إرسال الطلب",
+      "none": "لا يوجد سعر منشور ينطبق على هذا الاختيار وهذه الكمية.",
+      "noneBasis": "تُنشر الأسعار لكل عملة ولكل نطاق كمية، ولا يغطي أي نطاق منشور هذا الاختيار"
+    },
+    "ladder": {
+      "title": "أسعار الكميات",
+      "caption": "سعر الوحدة حسب نطاق الكمية، كما نشره المورّد",
+      "qtyHeader": "الكمية",
+      "priceHeader": "لكل وحدة",
+      "band": "{from}–{to}",
+      "bandOpen": "{from}+",
+      "moq": "الحد الأدنى للطلب {qty, plural, one {وحدة واحدة} two {وحدتان} few {# وحدات} many {# وحدة} other {# وحدة}}",
+      "nextOffer": "{more, plural, one {وحدة إضافية واحدة} two {وحدتان إضافيتان} few {# وحدات إضافية} many {# وحدة إضافية} other {# وحدة إضافية}} تصل بالسعر إلى {price} للوحدة",
+      "nextOfferAction": "ضبط الكمية على {qty, plural, one {وحدة واحدة} two {وحدتين} few {# وحدات} many {# وحدة} other {# وحدة}}"
+    },
+    "buy": {
+      "quantityGroup": "الكمية",
+      "decrease": "إنقاص الكمية",
+      "increase": "زيادة الكمية",
+      "addToCart": "أضف إلى السلة",
+      "added": "تمت الإضافة إلى السلة",
+      "addedShort": "تمت الإضافة",
+      "announce": "{qty, plural, one {وحدة واحدة} two {وحدتان} few {# وحدات} many {# وحدة} other {# وحدة}} أُضيفت إلى سلتك",
+      "moqNote": "الحد الأدنى للطلب {qty, plural, one {وحدة واحدة} two {وحدتان} few {# وحدات} many {# وحدة} other {# وحدة}}. لا يمكن أن تقل الكمية عن ذلك.",
+      "availableNote": "{qty, plural, one {وحدة واحدة متاحة} two {وحدتان متاحتان} few {# وحدات متاحة} many {# وحدة متاحة} other {# وحدة متاحة}} لهذا الاختيار",
+      "requestAvailability": "اطلب توفر المنتج"
+    },
+    "assurance": {
+      "priceChecked": "يُتحقق من السعر عند الطلب",
+      "delivery": "تُؤكَّد شروط التسليم عند الطلب",
+      "returns": "الإرجاع والاسترداد"
+    },
+    "seller": {
+      "eyebrow": "يُباع بواسطة",
+      "location": "{city}، {country}",
+      "requestQuote": "اطلب عرض سعر",
+      "ratingBasis": "متوسط {count, plural, one {مراجعة واحدة} two {مراجعتان} few {# مراجعات} many {# مراجعة} other {# مراجعة}} لهذا المورّد",
+      "tier": {
+        "STANDARD": "قياسي",
+        "VERIFIED": "موثّق",
+        "GOLD": "ذهبي",
+        "PLATINUM": "بلاتيني"
+      }
+    },
+    "sections": {
+      "label": "أقسام المنتج",
+      "description": "الوصف",
+      "specs": "المواصفات",
+      "reviews": "التقييمات",
+      "shipping": "الشحن والإرجاع"
+    },
+    "description": {
+      "none": "لم يُنشر وصف لهذا المنتج"
+    },
+    "specs": {
+      "basisProduct": "كما هو مسجَّل على هذا المنتج",
+      "basisVariant": "كما هو مسجَّل على هذا المنتج والخيار المحدد",
+      "sku": "رمز الصنف",
+      "brand": "العلامة التجارية",
+      "origin": "بلد المنشأ",
+      "weight": "الوزن",
+      "weightValue": "{value} كجم",
+      "moq": "الحد الأدنى للطلب",
+      "consumerOrders": "طلبات الأفراد",
+      "businessOrders": "طلبات الشركات",
+      "available": "متاحة",
+      "unavailable": "غير متاحة",
+      "unrecorded": "غير مسجَّل على هذا المنتج: {fields}"
+    },
+    "reviews": {
+      "title": "التقييمات",
+      "outOf": "{value} من 5",
+      "ofFive": "من 5",
+      "averageAria": "التقييم {value} من 5. اقرأ {count, plural, one {مراجعة واحدة} two {مراجعتين} few {# مراجعات} many {# مراجعة} other {# مراجعة}}.",
+      "count": "{count, plural, one {مراجعة واحدة} two {مراجعتان} few {# مراجعات} many {# مراجعة} other {# مراجعة}}",
+      "countRecent": "{count, plural, one {مراجعة حديثة واحدة} two {مراجعتان حديثتان} few {# مراجعات حديثة} many {# مراجعة حديثة} other {# مراجعة حديثة}}",
+      "averagedOver": "متوسط {count, plural, one {مراجعة واحدة} two {مراجعتين} few {# مراجعات} many {# مراجعة} other {# مراجعة}}",
+      "averagedOverRecent": "متوسط أحدث {shown} مراجعة من أصل {total}",
+      "distributionLabel": "توزيع التقييمات عبر المراجعات المعروضة",
+      "starsRow": "{stars} من 5",
+      "starsRowAria": "{count, plural, one {مراجعة واحدة} two {مراجعتان} few {# مراجعات} many {# مراجعة} other {# مراجعة}} بتقييم {stars} من 5",
+      "verified": "موثّقة",
+      "author": "مشترٍ",
+      "authorYou": "أنت",
+      "emptyEyebrow": "لا توجد مراجعات مسجَّلة",
+      "emptyHeadline": "لم يراجع أحد هذا المنتج بعد.",
+      "emptyBody": "لا يكتب المراجعة هنا إلا مشترٍ سُلِّم إليه طلب يحتوي هذا المنتج، لذلك لا تظهر أي مراجعة حتى يحدث ذلك.",
+      "emptyAction": "سجّل الدخول للمراجعة",
+      "signIn": "سجّل الدخول",
+      "signInPrompt": "لمراجعة هذا المنتج. المراجعة متاحة للمشترين الذين استلموه.",
+      "notPurchased": "لا يمكن مراجعة هذا المنتج إلا لمن استلمه.",
+      "alreadyReviewed": "لقد راجعت هذا المنتج بالفعل.",
+      "unknown": "تعذر التحقق حالياً مما إذا كان بإمكانك مراجعة هذا المنتج."
+    },
+    "form": {
+      "eyebrow": "مراجعتك",
+      "heading": "اكتب مراجعة",
+      "basis": "لقد استلمت هذا المنتج، لذا ستحمل مراجعتك شارة التوثيق",
+      "rating": "التقييم",
+      "star": "{count, plural, one {نجمة واحدة} two {نجمتان} few {# نجوم} many {# نجمة} other {# نجمة}}",
+      "ratingValue": "{value}/5",
+      "aria": "اكتب مراجعة",
+      "titleField": "العنوان (اختياري)",
+      "titlePlaceholder": "لخّصها في سطر",
+      "bodyField": "المراجعة (اختياري)",
+      "bodyPlaceholder": "كيف كانت تجربة الطلب والاستلام والاستخدام؟",
+      "bodyTooShort": "{min} حرفاً على الأقل، أو اتركها فارغة.",
+      "counter": "{count}/{max}",
+      "pickRating": "اختر تقييماً بالنجوم للمتابعة.",
+      "submit": "إرسال المراجعة",
+      "submitting": "جارٍ الإرسال…",
+      "failed": "تعذر إرسال مراجعتك. حاول مرة أخرى."
+    },
+    "shipping": {
+      "delivery": "التسليم",
+      "deliveryBody": "تُؤكَّد شروط التسليم المتاحة أثناء معالجة الطلب.",
+      "protection": "حماية الطلب",
+      "protectionBody": "يُعاد التحقق من السعر والضريبة والتوفر عند إرسال الطلب.",
+      "returns": "سياسة الإرجاع",
+      "returnsBody": "تُؤكَّد أحقية الإرجاع وأي مدة منطبقة وفق سياسة الإرجاع المنشورة عند طلب الإرجاع.",
+      "business": "طلبات الشركات",
+      "businessBody": "تُسعَّر الكميات الكبيرة من النطاقات التي نشرها المورّد. أما الشروط خارج تلك النطاقات فيُتفق عليها في عرض سعر."
+    }
+  },
+  "catalogue": {
+    "eyebrow": "الكتالوج",
+    "title": {
+      "all": "كل المنتجات",
+      "category": "{category}",
+      "search": "نتائج البحث عن ”{query}“"
+    },
+    "productsCount": "{count, plural, =0 {لا توجد منتجات} one {منتج واحد} two {منتجان} few {# منتجات} many {# منتجًا} other {# منتج}}",
+    "forQuery": "عن ”{query}“",
+    "showingAll": "تُعرض جميع المنتجات المنشورة.",
+    "showingPage": "عرض {shown} من {total} · صفحة {page} من {pages}",
+    "loadingProducts": "جارٍ تحميل المنتجات",
+    "sort": "الترتيب",
+    "filters": {
+      "label": "عوامل التصفية",
+      "categories": "الفئات",
+      "availability": "التوفر",
+      "inStockOnly": "المتوفر فقط",
+      "anyAvailability": "أي حالة توفر",
+      "allProducts": "كل المنتجات",
+      "applied": "عوامل التصفية المطبقة",
+      "remove": "إزالة عامل التصفية: {label}",
+      "clear": "مسح الكل"
+    },
+    "pagination": {
+      "label": "التنقل بين الصفحات",
+      "next": "التالي",
+      "previous": "السابق",
+      "page": "صفحة {page}"
+    },
+    "empty": {
+      "eyebrow": "لا توجد منتجات منشورة",
+      "category": {
+        "headline": "لا توجد منتجات منشورة في هذه الفئة بعد.",
+        "body": "يظهر المنتج هنا بمجرد نشره من قبل البائع وإتاحته للعرض في المتجر."
+      },
+      "filters": {
+        "headline": "لا توجد منتجات تطابق عوامل التصفية هذه.",
+        "body": "أزل أحد عوامل التصفية لتوسيع البحث — قد يحتوي الكتالوج على ما تبحث عنه."
+      },
+      "browseAll": "تصفح كل المنتجات",
+      "requestQuote": "اطلب عرض سعر"
+    },
+    "refused": {
+      "eyebrow": "لم يُنفَّذ البحث",
+      "headline": "”{query}“ أقصر من الحد الأدنى البالغ {min} أحرف للبحث في الأسماء.",
+      "body": "لم يتم البحث في أسماء المنتجات أو أوصافها إطلاقًا، لذا لا يعني هذا شيئًا عن محتويات الكتالوج. أرقام القطع ورموز SKU ورموز العلامات التجارية تعمل بأي طول."
+    },
+    "search": {
+      "eyebrow": "البحث",
+      "prompt": "أدخل كلمة في الأعلى للبحث في الكتالوج.",
+      "titleEmpty": "ابحث في الكتالوج",
+      "titleResults": "نتائج البحث عن ”{query}“",
+      "productsFound": "{count, plural, =0 {لم يُعثر على منتجات} one {عُثر على منتج واحد} two {عُثر على منتجين} few {عُثر على # منتجات} many {عُثر على # منتجًا} other {عُثر على # منتج}}",
+      "ranked": "مرتبة حسب مدى مطابقة كل نتيجة لكلمة البحث.",
+      "rankedTruncated": "مرتبة حسب مدى مطابقة كل نتيجة لكلمة البحث · تُعرض أول {shown}.",
+      "moreNotShown": "{count, plural, one {نتيجة إضافية واحدة غير معروضة} two {نتيجتان إضافيتان غير معروضتين} few {# نتائج إضافية غير معروضة} other {# نتيجة إضافية غير معروضة}} هنا ({formatted} إجمالًا).",
+      "seeAll": "عرض كل النتائج",
+      "browseByCategory": "تصفح حسب الفئة",
+      "noMatch": {
+        "eyebrow": "لا توجد نتائج",
+        "headline": "لا يوجد في الكتالوج ما يطابق ”{query}“.",
+        "body": "جرّب كلمة أقصر أو تهجئة مختلفة، أو تصفح حسب الفئة.",
+        "identifierBody": "لا يطابق ”{query}“ أي رقم قطعة أو رمز SKU أو رمز علامة تجارية. تم البحث في الأسماء والأوصاف أيضًا."
+      },
+      "noCategories": {
+        "eyebrow": "لا يوجد ما يمكن تصفحه",
+        "headline": "لا توجد فئة تحتوي على منتج منشور بعد.",
+        "body": "تظهر الفئة هنا بمجرد نشر بائع لمنتج فيها."
+      }
+    },
+    "category": {
+      "eyebrow": "الفئة",
+      "showingAll": "تُعرض جميع المنتجات المنشورة في هذه الفئة.",
+      "showingFirst": "تُعرض أول {shown} من {total} منتجًا في هذه الفئة.",
+      "moreNotShown": "{count, plural, one {منتج إضافي واحد غير معروض} two {منتجان إضافيان غير معروضين} few {# منتجات إضافية غير معروضة} other {# منتجًا إضافيًا غير معروض}} هنا ({formatted} إجمالًا).",
+      "seeFull": "عرض الفئة كاملة",
+      "empty": {
+        "headline": "لا توجد منتجات منشورة في {category} بعد.",
+        "body": "يظهر المنتج هنا بمجرد نشره من قبل البائع وإتاحته للعرض في المتجر."
+      }
+    },
+    "viewProduct": "عرض {name}",
+    "skuLabel": "رمز المنتج",
+    "from": "ابتداءً من",
+    "vatExcl": "غير شامل ضريبة القيمة المضافة {rate}%",
+    "seeOptions": "عرض الخيارات",
+    "minOrder": "{count, plural, one {الحد الأدنى للطلب وحدة واحدة} two {الحد الأدنى للطلب وحدتان} few {الحد الأدنى للطلب # وحدات} other {الحد الأدنى للطلب # وحدة}}",
+    "b2bMark": "أعمال",
+    "wishlistAdd": "أضف {name} إلى قائمة الرغبات",
+    "wishlistRemove": "أزل {name} من قائمة الرغبات",
+    "added": "تمت الإضافة",
+    "addedAnnouncement": "تمت إضافة {name} إلى السلة",
+    "sortLabel": "ترتيب المنتجات",
+    "ladder": {
+      "caption": "السعر حسب الكمية",
+      "qty": "الكمية",
+      "unit": "سعر الوحدة",
+      "more": "{count, plural, one {نطاق سعر إضافي واحد} two {نطاقا سعر إضافيان} few {# نطاقات سعر إضافية} other {# نطاق سعر إضافي}} في صفحة المنتج"
+    }
   }
 }

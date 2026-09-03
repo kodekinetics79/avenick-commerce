@@ -14,6 +14,8 @@ import {
   Textarea,
 } from "@avenick/ui";
 import { SelectField, TextField } from "@/components/b2b/controls";
+import { useB2BT } from "@/components/b2b/use-b2b-t";
+import type { B2BKey } from "@/components/b2b/messages";
 import { submitRFQ } from "../actions";
 
 type Priority = "NORMAL" | "URGENT" | "CRITICAL";
@@ -37,17 +39,35 @@ export interface RFQCategoryOption {
  * Nothing routes or times an RFQ by priority, so the descriptions describe
  * what the buyer is telling the supplier — not a response window.
  */
-const PRIORITY_CONFIG: Record<Priority, { label: string; rule: string; desc: string }> = {
-  NORMAL:   { label: "Normal",   rule: "border-b-border-strong", desc: "Routine purchase" },
-  URGENT:   { label: "Urgent",   rule: "border-b-warning",       desc: "Needed soon — flagged to the supplier" },
-  CRITICAL: { label: "Critical", rule: "border-b-danger",        desc: "Blocking — flagged to the supplier" },
+const PRIORITY_CONFIG: Record<Priority, { labelKey: B2BKey; descKey: B2BKey; rule: string }> = {
+  NORMAL:   { labelKey: "newRfq.priority.normal",   descKey: "newRfq.priority.normal.desc",   rule: "border-b-border-strong" },
+  URGENT:   { labelKey: "newRfq.priority.urgent",   descKey: "newRfq.priority.urgent.desc",   rule: "border-b-warning" },
+  CRITICAL: { labelKey: "newRfq.priority.critical", descKey: "newRfq.priority.critical.desc", rule: "border-b-danger" },
 };
 
 /** The order the options are presented and arrowed through, least to most urgent. */
 const PRIORITY_KEYS: Priority[] = ["NORMAL", "URGENT", "CRITICAL"];
 
-/** Units the RFQ form offers. Free text is not accepted by the API. */
-const UNITS = ["pcs", "boxes", "kg", "liters", "sets", "meters", "bags", "pallets"];
+/**
+ * The units the RFQ form offers.
+ *
+ * The VALUE is the English token and stays one: it is written into the line's
+ * note ("Target: 12 AED/pcs") and read by the supplier alongside the rest of the
+ * note, and a unit that changes with the buyer's interface language is a unit
+ * the supplier cannot rely on. Only the LABEL is localised — eight English words
+ * in a dropdown on an Arabic page is the same defect as an English column
+ * heading, and it was the last one on this form.
+ */
+const UNITS: Array<{ value: string; labelKey: B2BKey }> = [
+  { value: "pcs", labelKey: "newRfq.unit.pcs" },
+  { value: "boxes", labelKey: "newRfq.unit.boxes" },
+  { value: "kg", labelKey: "newRfq.unit.kg" },
+  { value: "liters", labelKey: "newRfq.unit.liters" },
+  { value: "sets", labelKey: "newRfq.unit.sets" },
+  { value: "meters", labelKey: "newRfq.unit.meters" },
+  { value: "bags", labelKey: "newRfq.unit.bags" },
+  { value: "pallets", labelKey: "newRfq.unit.pallets" },
+];
 
 export function NewRFQForm({
   categories,
@@ -58,6 +78,7 @@ export function NewRFQForm({
   /** The buyer's company currency, or null when the viewer has no company context. */
   currency: string | null;
 }) {
+  const t = useB2BT();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,7 +139,7 @@ export function NewRFQForm({
 
     const validItems = items.filter((i) => i.description.trim() && Number(i.quantity) > 0);
     if (validItems.length === 0) {
-      setError("Add at least one item with a description and quantity.");
+      setError(t("newRfq.error.noItems"));
       return;
     }
 
@@ -163,51 +184,48 @@ export function NewRFQForm({
       if (err && typeof err === "object" && "digest" in err && String((err as { digest?: string }).digest).includes("NEXT_REDIRECT")) {
         throw err;
       }
-      setError("Couldn't submit the RFQ — please retry.");
+      setError(t("newRfq.error.failed"));
     } finally {
       setLoading(false);
     }
   }
 
   if (submitted) {
+    const steps: B2BKey[] = ["newRfq.done.step1", "newRfq.done.step2", "newRfq.done.step3", "newRfq.done.step4"];
     return (
       <B2BShell>
         <div className="max-w-xl space-y-block">
           <div>
             <Eyebrow className="mb-1 flex items-center gap-1.5 text-success-ink">
-              <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" /> Recorded
+              <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" /> {t("newRfq.done.eyebrow")}
             </Eyebrow>
-            <h1 className="u-h1 text-ink-1">Your request for quotation has been recorded.</h1>
-            <Dateline className="mt-1.5">
-              Response times are not guaranteed and no reminder is sent · track it from your quotes list
-            </Dateline>
+            <h1 className="u-h1 text-ink-1">{t("newRfq.done.title")}</h1>
+            <Dateline className="mt-1.5">{t("newRfq.done.basis")}</Dateline>
           </div>
 
           {/* Steps describe the implemented single-supplier RFQ flow. Automatic
               distribution to matching suppliers and side-by-side comparison are
               not implemented — an RFQ carries at most one supplier. */}
-          <Surface rung={1} className="p-5">
-            <Eyebrow className="mb-3">What happens next</Eyebrow>
-            <ol className="space-y-2">
-              {[
-                "RFQ recorded against your company",
-                "A supplier is assigned to the request",
-                "You review the quote when it is submitted",
-                "Accepting the quote closes the RFQ; the order is raised separately",
-              ].map((step, i) => (
-                <li key={step} className="u-ui flex items-start gap-2.5 text-ink-1">
-                  <span className="u-meta mt-px grid h-5 w-5 shrink-0 place-items-center rounded-pill bg-neutral-soft font-medium text-ink-2">
-                    {i + 1}
-                  </span>
-                  {step}
-                </li>
-              ))}
-            </ol>
+          <Surface rung={1} className="overflow-hidden">
+            <div className="u-drawn w-14" data-on="true" aria-hidden="true" />
+            <div className="p-5">
+              <Eyebrow className="mb-3">{t("newRfq.done.next")}</Eyebrow>
+              <ol className="space-y-2">
+                {steps.map((step, i) => (
+                  <li key={step} className="u-ui flex items-start gap-2.5 text-ink-1">
+                    <span className="u-meta mt-px grid h-5 w-5 shrink-0 place-items-center rounded-pill bg-neutral-soft font-medium text-ink-2">
+                      {i + 1}
+                    </span>
+                    {t(step)}
+                  </li>
+                ))}
+              </ol>
+            </div>
           </Surface>
 
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="primary"><Link href="/b2b/quotes">View quotes</Link></Button>
-            <Button asChild variant="ghost"><Link href="/b2b">Back to overview</Link></Button>
+            <Button asChild variant="primary"><Link href="/b2b/quotes">{t("newRfq.done.viewQuotes")}</Link></Button>
+            <Button asChild variant="ghost"><Link href="/b2b">{t("newRfq.done.backToOverview")}</Link></Button>
           </div>
         </div>
       </B2BShell>
@@ -218,49 +236,49 @@ export function NewRFQForm({
     <B2BShell>
       <div className="max-w-3xl">
         <PageHeader
-          breadcrumbs={[{ label: "Overview", href: "/b2b" }, { label: "New RFQ" }]}
-          eyebrow="Request for quotation"
-          title="Create a request for quotation"
-          description="Describe what you need and in what quantity. A supplier prices it; nothing is committed by sending it."
+          breadcrumbs={[{ label: t("newRfq.breadcrumbOverview"), href: "/b2b" }, { label: t("newRfq.breadcrumb") }]}
+          eyebrow={t("newRfq.eyebrow")}
+          title={t("newRfq.title")}
+          description={t("newRfq.description")}
           linkComponent={Link}
         />
 
         <form onSubmit={handleSubmit} className="space-y-block">
           {/* Header info */}
           <Surface rung={2} className="p-5">
-            <h2 className="u-h3 mb-4 text-ink-1">The request</h2>
+            <h2 className="u-h3 mb-4 text-ink-1">{t("newRfq.section.request")}</h2>
             <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
-              <Field label="Subject" htmlFor="rfq-title" required className="sm:col-span-2">
+              <Field label={t("newRfq.field.subject")} htmlFor="rfq-title" required className="sm:col-span-2">
                 <TextField
                   id="rfq-title"
                   name="title"
-                  placeholder="e.g. Safety equipment for a construction site"
+                  placeholder={t("newRfq.field.subject.placeholder")}
                   required
                 />
               </Field>
               {/* Options are the catalog's own categories. When none loaded,
                   the buyer types one — the category is free text in the RFQ
                   notes either way, so no list is invented here. */}
-              <Field label="Category" htmlFor="rfq-category" required>
+              <Field label={t("newRfq.field.category")} htmlFor="rfq-category" required>
                 {categories.length > 0 ? (
                   <SelectField id="rfq-category" name="category" required defaultValue="">
-                    <option value="" disabled>Select a category</option>
+                    <option value="" disabled>{t("newRfq.field.category.select")}</option>
                     {categories.map((c) => <option key={c.slug} value={c.label}>{c.label}</option>)}
-                    <option value="Other">Other</option>
+                    <option value="Other">{t("newRfq.field.category.other")}</option>
                   </SelectField>
                 ) : (
-                  <TextField id="rfq-category" name="category" placeholder="e.g. Safety & PPE" required />
+                  <TextField id="rfq-category" name="category" placeholder={t("newRfq.field.category.placeholder")} required />
                 )}
               </Field>
-              <Field label="Required by" htmlFor="rfq-required-by" required>
+              <Field label={t("newRfq.field.requiredBy")} htmlFor="rfq-required-by" required>
                 <TextField id="rfq-required-by" name="requiredBy" type="date" required />
               </Field>
               <Field
-                label="Delivery city"
+                label={t("newRfq.field.city")}
                 htmlFor="rfq-city"
-                hint="Optional — helps the supplier quote freight."
+                hint={t("newRfq.field.city.hint")}
               >
-                <TextField id="rfq-city" name="city" placeholder="City, country" />
+                <TextField id="rfq-city" name="city" placeholder={t("newRfq.field.city.placeholder")} />
               </Field>
               {/* No "Preferred supplier" field: the RFQ API accepts none, so an
                   input here would silently discard what the buyer typed. */}
@@ -271,13 +289,11 @@ export function NewRFQForm({
               underrule; the unselected ones are flat. Depth says "chosen"
               before colour does. */}
           <Surface rung={2} className="p-5">
-            <h2 className="u-h3 mb-1 text-ink-1">Priority</h2>
-            <Dateline className="mb-3">
-              Recorded in the request notes for the supplier to read · nothing routes or times an RFQ by priority
-            </Dateline>
+            <h2 className="u-h3 mb-1 text-ink-1">{t("newRfq.priority")}</h2>
+            <Dateline className="mb-3">{t("newRfq.priority.basis")}</Dateline>
             <div
               role="radiogroup"
-              aria-label="Priority"
+              aria-label={t("newRfq.priority")}
               className="grid grid-cols-1 gap-2 sm:grid-cols-3"
             >
               {PRIORITY_KEYS.map((key) => {
@@ -311,8 +327,8 @@ export function NewRFQForm({
                     onClick={() => setPriority(key)}
                     className={`border border-border p-3 text-start outline-none ${selected ? `border-b-2 ${cfg.rule}` : ""}`}
                   >
-                    <p className="u-ui font-medium text-ink-1">{cfg.label}</p>
-                    <p className="u-meta mt-0.5 text-ink-2">{cfg.desc}</p>
+                    <p className="u-ui font-medium text-ink-1">{t(cfg.labelKey)}</p>
+                    <p className="u-meta mt-0.5 text-ink-2">{t(cfg.descKey)}</p>
                   </button>
                 );
               })}
@@ -322,23 +338,23 @@ export function NewRFQForm({
           {/* Line items */}
           <Surface rung={2} className="p-5">
             <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="u-h3 text-ink-1">Line items</h2>
+              <h2 className="u-h3 text-ink-1">{t("newRfq.items")}</h2>
               <Button type="button" variant="secondary" size="sm" onClick={addItem}>
-                <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Add item
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" /> {t("newRfq.items.add")}
               </Button>
             </div>
             <div className="space-y-3">
               {items.map((item, idx) => (
                 <fieldset key={item.id} className="border-s-2 border-hairline ps-4">
-                  <legend className="sr-only">Item {idx + 1}</legend>
+                  <legend className="sr-only">{t("newRfq.item", { n: idx + 1 })}</legend>
                   <div className="mb-2 flex items-center justify-between">
-                    <Eyebrow as="span">Item {idx + 1}</Eyebrow>
+                    <Eyebrow as="span">{t("newRfq.item", { n: idx + 1 })}</Eyebrow>
                     {items.length > 1 && (
                       <Button
                         type="button"
                         variant="ghost"
                         size="xs"
-                        aria-label={`Remove item ${idx + 1}`}
+                        aria-label={t("newRfq.item.remove", { n: idx + 1 })}
                         onClick={() => removeItem(item.id)}
                         className="hover:text-danger-ink"
                       >
@@ -347,16 +363,16 @@ export function NewRFQForm({
                     )}
                   </div>
                   <div className="grid grid-cols-1 gap-x-3 sm:grid-cols-2">
-                    <Field label="Description" htmlFor={`item-${item.id}-description`} required className="sm:col-span-2">
+                    <Field label={t("newRfq.field.description")} htmlFor={`item-${item.id}-description`} required className="sm:col-span-2">
                       <TextField
                         id={`item-${item.id}-description`}
                         value={item.description}
                         onChange={(e) => updateItem(item.id, "description", e.target.value)}
-                        placeholder="e.g. Safety Helmet EN397, Hard Shell, Various Sizes"
+                        placeholder={t("newRfq.field.description.placeholder")}
                         required
                       />
                     </Field>
-                    <Field label="Quantity" htmlFor={`item-${item.id}-quantity`} required>
+                    <Field label={t("newRfq.field.quantity")} htmlFor={`item-${item.id}-quantity`} required>
                       <TextField
                         id={`item-${item.id}-quantity`}
                         type="number"
@@ -367,19 +383,19 @@ export function NewRFQForm({
                         required
                       />
                     </Field>
-                    <Field label="Unit" htmlFor={`item-${item.id}-unit`}>
+                    <Field label={t("newRfq.field.unit")} htmlFor={`item-${item.id}-unit`}>
                       <SelectField
                         id={`item-${item.id}-unit`}
                         value={item.unit}
                         onChange={(e) => updateItem(item.id, "unit", e.target.value)}
                       >
-                        {UNITS.map((u) => <option key={u}>{u}</option>)}
+                        {UNITS.map((u) => <option key={u.value} value={u.value}>{t(u.labelKey)}</option>)}
                       </SelectField>
                     </Field>
                     <Field
-                      label={`Target unit price${currency ? ` (${currency})` : ""}`}
+                      label={currency ? t("newRfq.field.targetIn", { currency }) : t("newRfq.field.target")}
                       htmlFor={`item-${item.id}-target`}
-                      hint={currency ? undefined : "No company currency is set, so a target is recorded per unit only."}
+                      hint={currency ? undefined : t("newRfq.field.target.hint")}
                     >
                       <TextField
                         id={`item-${item.id}-target`}
@@ -391,12 +407,12 @@ export function NewRFQForm({
                         step="0.01"
                       />
                     </Field>
-                    <Field label="Specifications" htmlFor={`item-${item.id}-specs`}>
+                    <Field label={t("newRfq.field.specs")} htmlFor={`item-${item.id}-specs`}>
                       <TextField
                         id={`item-${item.id}-specs`}
                         value={item.specs}
                         onChange={(e) => updateItem(item.id, "specs", e.target.value)}
-                        placeholder="Brand, certifications, colour…"
+                        placeholder={t("newRfq.field.specs.placeholder")}
                       />
                     </Field>
                   </div>
@@ -408,26 +424,24 @@ export function NewRFQForm({
           {/* Additional notes — no attachment control: RFQs carry no documents,
               and a "coming soon" button is a promise, not a feature. */}
           <Surface rung={2} className="p-5">
-            <Field label="Additional notes" htmlFor="rfq-notes">
+            <Field label={t("newRfq.field.notes")} htmlFor="rfq-notes">
               <Textarea
                 id="rfq-notes"
                 name="notes"
-                placeholder="Any special delivery requirements, packaging instructions, compliance certifications (e.g. SASO, Halal), payment preference, etc."
+                placeholder={t("newRfq.field.notes.placeholder")}
                 rows={3}
               />
             </Field>
           </Surface>
 
-          <Dateline>
-            Recorded against your company and tracked in your quotes list · no review or response time is guaranteed
-          </Dateline>
+          <Dateline>{t("newRfq.basis")}</Dateline>
 
           {error && (
             <Surface
               rung={2}
-              tone="danger"
               role="alert"
-              className="flex items-start gap-2 p-3"
+              data-commit="failed"
+              className="u-commit u-pop flex items-start gap-2 overflow-hidden border-s-[3px] p-3"
             >
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger-ink" aria-hidden="true" />
               <p className="u-ui text-ink-1">{error}</p>
@@ -435,8 +449,10 @@ export function NewRFQForm({
           )}
 
           <Button type="submit" variant="primary" size="lg" className="w-full" loading={loading}>
-            <Send className="h-4 w-4" aria-hidden="true" />
-            Submit RFQ
+            {/* rtl:-scale-x-100 — a paper plane points at the inline END, and
+                in Arabic that is the left edge. */}
+            <Send className="h-4 w-4 rtl:-scale-x-100" aria-hidden="true" />
+            {t("newRfq.submit")}
           </Button>
         </form>
       </div>

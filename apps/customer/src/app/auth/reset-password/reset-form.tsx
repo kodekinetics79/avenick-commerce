@@ -6,6 +6,7 @@ import { CheckCircle2 } from "lucide-react";
 import { RegisterConsumerSchema } from "@avenick/types/schemas";
 import { Input, Button } from "@avenick/ui";
 import { AuthNotice, FormErrorSlot } from "../auth-shell";
+import { identityCopy, type IdentityLocale } from "../identity-copy";
 
 /**
  * The client-side check uses registration's own password rule so the message
@@ -24,10 +25,16 @@ type Portal = "customer" | "seller";
  * of the form. The validation itself is unchanged: same rule, same order, same
  * request.
  */
-const PASSWORD_HINT = "At least 8 characters, with an uppercase letter and a number.";
-const CONFIRM_HINT = "Type the same password again.";
-
-export function ResetForm({ token, sellerSignInUrl }: { token: string; sellerSignInUrl: string | null }) {
+export function ResetForm({
+  locale,
+  token,
+  sellerSignInUrl,
+}: {
+  locale: IdentityLocale;
+  token: string;
+  sellerSignInUrl: string | null;
+}) {
+  const t = identityCopy(locale).reset;
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,11 +51,18 @@ export function ResetForm({ token, sellerSignInUrl }: { token: string; sellerSig
     setConfirmError("");
     const rule = PasswordRule.safeParse(password);
     if (!rule.success) {
-      setPasswordError(rule.error.issues[0]?.message ?? "Choose a stronger password.");
+      // The English build shows the schema's own message, so what a person reads
+      // before submitting is exactly what the redeem route would send back. The
+      // Arabic build cannot: that message is an English string, and an English
+      // sentence appearing inside an Arabic form is the half-translated tell
+      // this round exists to remove. So Arabic gets the same RULE, stated in
+      // Arabic — the same fact, not a different one. The route re-validates
+      // either way; this branch has never been the gate.
+      setPasswordError(locale === "ar" ? t.weak : (rule.error.issues[0]?.message ?? t.weak));
       return;
     }
     if (password !== confirm) {
-      setConfirmError("Passwords do not match.");
+      setConfirmError(t.mismatch);
       return;
     }
     setLoading(true);
@@ -64,10 +78,10 @@ export function ResetForm({ token, sellerSignInUrl }: { token: string; sellerSig
       } else if (data.code === "invalid-token") {
         setTokenDead(true);
       } else {
-        setFormError(data.error ?? "Something went wrong. Please try again.");
+        setFormError(data.error ?? t.genericError);
       }
     } catch {
-      setFormError("Something went wrong. Please try again.");
+      setFormError(t.genericError);
     } finally {
       setLoading(false);
     }
@@ -76,23 +90,21 @@ export function ResetForm({ token, sellerSignInUrl }: { token: string; sellerSig
   if (portal) {
     return (
       <div className="space-y-4">
-        <AuthNotice icon={<CheckCircle2 className="h-4 w-4" />}>
-          Your password has been updated. Sign in with your new password.
-        </AuthNotice>
+        <AuthNotice icon={<CheckCircle2 className="h-4 w-4" />}>{t.done}</AuthNotice>
         {portal === "customer" && (
-          <Button asChild className="w-full">
-            <Link href="/login">Sign in</Link>
+          <Button asChild size="lg" className="w-full">
+            <Link href="/login">{t.signIn}</Link>
           </Button>
         )}
         {portal === "seller" && sellerSignInUrl && (
-          <Button asChild className="w-full">
-            <a href={sellerSignInUrl}>Sign in to the seller portal</a>
+          <Button asChild size="lg" className="w-full">
+            <a href={sellerSignInUrl}>{t.signInSeller}</a>
           </Button>
         )}
         {/* The seller portal's address is not known to this deployment, so
             there is nothing honest to link to; say where to go instead. */}
         {portal === "seller" && !sellerSignInUrl && (
-          <p className="u-ui text-center text-ink-2">Sign in to the seller portal</p>
+          <p className="u-body text-center text-ink-2">{t.signInSeller}</p>
         )}
       </div>
     );
@@ -101,15 +113,15 @@ export function ResetForm({ token, sellerSignInUrl }: { token: string; sellerSig
   if (tokenDead) {
     return (
       <div className="space-y-3">
-        <p className="u-ui text-danger-ink" role="alert">
-          This reset link is invalid, has expired, or has already been used.
+        <p className="u-body text-danger-ink" role="alert">
+          {t.usedToken}
         </p>
         <p className="u-meta text-ink-3">
           <Link
             href="/auth/forgot-password"
             className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
           >
-            Request a new reset link
+            {t.requestNew}
           </Link>
         </p>
       </div>
@@ -117,15 +129,15 @@ export function ResetForm({ token, sellerSignInUrl }: { token: string; sellerSig
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3" aria-label="Choose a new password / كلمة مرور جديدة">
+    <form onSubmit={handleSubmit} className="space-y-3" aria-label={t.formLabel}>
       <Input
         id="reset-password"
         name="password"
         type="password"
-        label="New password / كلمة المرور الجديدة"
+        label={t.password}
         autoComplete="new-password"
         placeholder="••••••••"
-        hint={PASSWORD_HINT}
+        hint={t.passwordHint}
         error={passwordError || undefined}
         value={password}
         onChange={(e) => {
@@ -138,10 +150,10 @@ export function ResetForm({ token, sellerSignInUrl }: { token: string; sellerSig
         id="reset-confirm"
         name="confirm"
         type="password"
-        label="Confirm password / تأكيد كلمة المرور"
+        label={t.confirm}
         autoComplete="new-password"
         placeholder="••••••••"
-        hint={CONFIRM_HINT}
+        hint={t.confirmHint}
         error={confirmError || undefined}
         value={confirm}
         onChange={(e) => {
@@ -151,8 +163,8 @@ export function ResetForm({ token, sellerSignInUrl }: { token: string; sellerSig
         required
       />
       <FormErrorSlot message={formError} />
-      <Button type="submit" className="w-full" loading={loading}>
-        Update password
+      <Button type="submit" size="lg" className="w-full" loading={loading}>
+        {t.submit}
       </Button>
     </form>
   );

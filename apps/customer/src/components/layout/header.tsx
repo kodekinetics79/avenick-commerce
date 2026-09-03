@@ -25,7 +25,7 @@ import {
 import { Button, Divider, Eyebrow, NavItem, StickyGlassBar, Surface, ThemeToggle } from "@avenick/ui";
 import { useCartStore } from "@/stores/cart";
 import { useSession, signOut } from "next-auth/react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { useDisclosure } from "./disclosure";
 import { LocaleToggle } from "./locale-toggle";
 import { MegaMenu, type MegaMenuColumn } from "./mega-menu";
@@ -43,40 +43,16 @@ import { MobileNav, type MobileNavItem } from "./mobile-nav";
  */
 
 /*
- * Copy that has no message key yet.
+ * There is no bilingual literal map in this file any more.
  *
- * The storefront ships Arabic, so an English-only mega-menu would be a law-3
- * failure dressed as a feature. Everything with a key in messages/{en,ar}.json
- * goes through next-intl below; these are the strings that have no key, carried
- * in both scripts until they can be moved into the message catalogues (this
- * file's track does not own apps/customer/messages/**).
+ * It used to carry ~22 strings in both scripts, in code, because the track that
+ * wrote this header did not own apps/customer/messages/**. Every one of them now
+ * has a key under `nav`, so the mega-menu column titles, the sheet's controls and
+ * every aria-label come out of the message tree like everything else. A page
+ * where two labels come from the catalogue and one is hardcoded eventually
+ * renders half-translated in front of an Arabic buyer, which says the Arabic
+ * build is a setting rather than a design.
  */
-type Bilingual = { en: string; ar: string };
-
-const TEXT = {
-  primaryNav: { en: "Primary navigation", ar: "التنقل الرئيسي" },
-  submenu: { en: "submenu", ar: "قائمة فرعية" },
-  accountMenu: { en: "Account menu", ar: "قائمة الحساب" },
-  openMenu: { en: "Open menu", ar: "فتح القائمة" },
-  menu: { en: "Menu", ar: "القائمة" },
-  closeMenu: { en: "Close menu", ar: "إغلاق القائمة" },
-  wishlist: { en: "Wishlist", ar: "قائمة الرغبات" },
-  catalogue: { en: "Catalogue", ar: "الكتالوج" },
-  ordersAndSaved: { en: "Orders & saved", ar: "الطلبات والمحفوظات" },
-  sourcing: { en: "Sourcing", ar: "التوريد" },
-  ordering: { en: "Ordering", ar: "الشراء" },
-  company: { en: "Company", ar: "الشركة" },
-  quotes: { en: "Quotes", ar: "عروض الأسعار" },
-  lists: { en: "Saved lists", ar: "القوائم المحفوظة" },
-  purchaseOrders: { en: "Purchase orders", ar: "أوامر الشراء" },
-  approvals: { en: "Approvals", ar: "الموافقات" },
-  approvalPolicies: { en: "Approval policies", ar: "سياسات الموافقة" },
-  companyProfile: { en: "Company profile", ar: "ملف الشركة" },
-  team: { en: "Team", ar: "الفريق" },
-  deliveryAddresses: { en: "Delivery addresses", ar: "عناوين التسليم" },
-  billing: { en: "Billing", ar: "الفوترة" },
-  spendAnalytics: { en: "Spend analytics", ar: "تحليلات الإنفاق" },
-} satisfies Record<string, Bilingual>;
 
 interface NavEntry {
   href: string;
@@ -102,7 +78,6 @@ const NAV: NavEntry[] = [
 export function Header() {
   const t = useTranslations("nav");
   const tc = useTranslations("common");
-  const locale = useLocale();
   const pathname = usePathname();
   const { data: session } = useSession();
   const storeCount = useCartStore((s) => s.itemCount());
@@ -115,11 +90,6 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const account = useDisclosure("header-account-menu");
 
-  const say = React.useCallback(
-    (key: keyof typeof TEXT) => (locale === "ar" ? TEXT[key].ar : TEXT[key].en),
-    [locale],
-  );
-
   // Active is computed from the real route, never guessed. "/" would otherwise
   // prefix-match every page in the app.
   const isActive = React.useCallback(
@@ -131,17 +101,17 @@ export function Header() {
 
   const SHOP_COLUMNS: MegaMenuColumn[] = [
     {
-      title: say("catalogue"),
+      title: t("catalogue"),
       links: [
         { href: "/products", label: t("products") },
         { href: "/brands", label: t("brands") },
       ],
     },
     {
-      title: say("ordersAndSaved"),
+      title: t("ordersAndSaved"),
       links: [
         { href: "/account/orders", label: t("trackOrder") },
-        { href: "/wishlist", label: say("wishlist") },
+        { href: "/wishlist", label: t("wishlist") },
         { href: "/cart", label: t("cart") },
       ],
     },
@@ -155,30 +125,30 @@ export function Header() {
    */
   const BUSINESS_COLUMNS: MegaMenuColumn[] = [
     {
-      title: say("sourcing"),
+      title: t("sourcing"),
       links: [
         { href: "/b2b/rfq/new", label: t("getQuote") },
-        { href: "/b2b/quotes", label: say("quotes") },
-        { href: "/b2b/lists", label: say("lists") },
+        { href: "/b2b/quotes", label: t("quotes") },
+        { href: "/b2b/lists", label: t("lists") },
       ],
     },
     {
-      title: say("ordering"),
+      title: t("ordering"),
       links: [
-        { href: "/b2b/purchase-orders", label: say("purchaseOrders") },
-        { href: "/b2b/approvals", label: say("approvals") },
-        { href: "/b2b/approval-policies", label: say("approvalPolicies") },
+        { href: "/b2b/purchase-orders", label: t("purchaseOrders") },
+        { href: "/b2b/approvals", label: t("approvals") },
+        { href: "/b2b/approval-policies", label: t("approvalPolicies") },
       ],
     },
     {
-      title: say("company"),
+      title: t("company"),
       links: [
         { href: "/b2b", label: t("dashboard") },
-        { href: "/b2b/company", label: say("companyProfile") },
-        { href: "/b2b/team", label: say("team") },
-        { href: "/b2b/addresses", label: say("deliveryAddresses") },
-        { href: "/b2b/billing", label: say("billing") },
-        { href: "/b2b/analytics", label: say("spendAnalytics") },
+        { href: "/b2b/company", label: t("companyProfile") },
+        { href: "/b2b/team", label: t("team") },
+        { href: "/b2b/addresses", label: t("deliveryAddresses") },
+        { href: "/b2b/billing", label: t("billing") },
+        { href: "/b2b/analytics", label: t("spendAnalytics") },
       ],
     },
   ];
@@ -192,7 +162,7 @@ export function Header() {
   const mobileAccountItems: MobileNavItem[] = [
     { href: "/account", label: t("myAccount"), icon: User },
     { href: "/account/orders", label: t("orders"), icon: FileText },
-    { href: "/wishlist", label: say("wishlist"), icon: Heart },
+    { href: "/wishlist", label: t("wishlist"), icon: Heart },
     { href: "/cart", label: t("cart"), icon: ShoppingCart },
   ];
 
@@ -279,32 +249,34 @@ export function Header() {
       </div>
 
       {/*
-        The bar crosses from flush (rung 0) to rung-4 glass the moment it sticks,
-        driven by an IntersectionObserver on a 1px sentinel inside the primitive.
-        With JS off it is simply always frosted — nothing is ever unreadable
-        because an effect did not run. This is the ONE blurred surface in the
-        storefront chrome; the mega-menu and the account panel below are opaque
-        rung-4 plates precisely because they carry body text.
-      */}
-      <StickyGlassBar
-        as="header"
-        /*
-          The system's --glass-alpha (.74) is tuned for a panel that floats over
-          the app's own surfaces. This bar floats over PRODUCT IMAGERY, which in
-          dark mode is usually near-white: at .74 the plate composites to roughly
-          L 36% and text-ink-2 on it measures about 3.1:1, and in light mode over
-          dark imagery ink-2 lands around 4.0:1. Both fail. At .90 the same pair
-          measures 5.4:1 dark and 6.3:1 light, and the blur and saturation still
-          carry the material read. Law 5 does not let a contrast ratio depend on
-          what happens to be scrolled underneath.
+        THE CHROME THAT SETTLES. The bar no longer snaps between two states at a
+        threshold: across the first 96px of scroll it continuously gains weight —
+        the glass fill deepens from .55 to .92, the vertical padding tightens
+        from 18px to 10px, and a cast shadow fades up beneath it. Zero JS and
+        zero scroll listeners; it is a CSS scroll-driven animation on the
+        compositor. The blur RADIUS never animates, only the alpha behind it.
 
-          Scoped to the glass state so the flush-at-top crossover is untouched,
-          and it is the surface token itself — --glass-bg and --surface-float are
-          the same triple in both themes — so nothing here is a colour.
-        */
-        className="[&[data-glass=true]]:bg-surface-float/90"
-      >
-        <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2.5 sm:gap-3">
+        THE VERTICAL PADDING IS DELIBERATELY NOT A UTILITY HERE. `.u-chrome` sets
+        `padding-block: var(--chrome-pad)` and that is the half of the settle that
+        moves; a `py-*` class on this row out-ranks it and the bar would tighten
+        by nothing at all. Horizontal padding only.
+
+        THE .90 ALPHA PIN THIS BAR USED TO CARRY IS GONE. It existed because the
+        round-one bar was glass at EVERY scroll position, so its contrast had to
+        hold over whatever imagery happened to be underneath. The settle removes
+        that case: the low-alpha frames only exist in the first 96px of scroll,
+        when almost nothing has passed under the bar yet, and the floor is now
+        .55 precisely because the foundation derived it from the WORST frame of
+        the animation rather than the resting state. Re-measure it here if a
+        full-bleed gallery is ever put directly under this bar.
+
+        This is the ONE blurred surface in the storefront chrome; the mega-menu
+        and the account panel below are opaque rung-4 plates precisely because
+        they carry body text. With JS off, before hydration, or with no
+        scroll-timeline support, the bar is simply always glass.
+      */}
+      <StickyGlassBar as="header">
+        <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 sm:gap-3">
           <Link
             href="/"
             aria-label={brand}
@@ -327,7 +299,7 @@ export function Header() {
             <span className="u-h3 hidden text-ink-1 sm:inline">{brand}</span>
           </Link>
 
-          <nav aria-label={say("primaryNav")} className="hidden items-center gap-0.5 lg:flex">
+          <nav aria-label={t("primaryNav")} className="hidden items-center gap-0.5 lg:flex">
             {NAV.map((entry) => {
               const label = t(entry.labelKey);
               const active = isActive(entry.href);
@@ -338,7 +310,7 @@ export function Header() {
                     id={`header-menu-${entry.menu}`}
                     href={entry.href}
                     label={label}
-                    menuLabel={`${label} ${say("submenu")}`}
+                    menuLabel={t("submenuOf", { label })}
                     active={active}
                     columns={entry.menu === "shop" ? SHOP_COLUMNS : BUSINESS_COLUMNS}
                   />
@@ -371,7 +343,7 @@ export function Header() {
 
             <Link
               href="/wishlist"
-              aria-label={say("wishlist")}
+              aria-label={t("wishlist")}
               // Held back to xl: between lg and xl the bar is already carrying a
               // nav, a search field and the quote action, and the wishlist is
               // one tap away in the Shop panel either way.
@@ -382,7 +354,11 @@ export function Header() {
 
             <Link
               href="/cart"
-              aria-label={itemCount > 0 ? `${t("cart")} (${itemCount})` : t("cart")}
+              aria-label={
+                itemCount > 0
+                  ? t("cartWithCount", { count: itemCount, n: String(itemCount) })
+                  : t("cart")
+              }
               className="u-focus relative grid h-control-md w-control-md place-items-center rounded-nested text-ink-2 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1"
             >
               <ShoppingCart aria-hidden="true" className="h-[1.15rem] w-[1.15rem]" />
@@ -406,7 +382,7 @@ export function Header() {
             <div className="relative hidden lg:block" {...account.rootProps}>
               <button
                 {...account.triggerProps}
-                aria-label={say("accountMenu")}
+                aria-label={t("accountMenu")}
                 className="u-focus flex h-control-md items-center gap-1 rounded-nested px-2 text-ink-2 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1"
               >
                 <User aria-hidden="true" className="h-[1.15rem] w-[1.15rem]" />
@@ -418,14 +394,17 @@ export function Header() {
                   )}
                 />
               </button>
-              {/* Mounted only while open. A permanently mounted panel toggled
-                  with `hidden` runs animate-fade-up once, at page load, behind
-                  display:none — so every subsequent open was a hard pop. */}
+              {/* Mounted only while open: `.u-pop`'s @starting-style entry only
+                  applies to an element being INSERTED, so a permanently mounted
+                  panel toggled with `hidden` animates once, at page load, behind
+                  display:none — and every subsequent open is a hard pop. The
+                  panel also scales from the trigger's own origin rather than
+                  from nowhere, which is the cheapest fix in the product. */}
               {account.open && (
               <Surface
                 rung={4}
                 id="header-account-menu"
-                className="absolute end-0 top-full z-layer mt-3 w-56 animate-fade-up p-1.5"
+                className="u-pop absolute end-0 top-full z-layer mt-3 w-56 p-1.5"
               >
                 {session?.user && (
                   <>
@@ -484,7 +463,7 @@ export function Header() {
               // what actually happens to a screen-reader user.
               aria-haspopup="dialog"
               aria-expanded={mobileOpen}
-              aria-label={say("openMenu")}
+              aria-label={t("openMenu")}
               className="u-focus grid h-control-md w-control-md place-items-center rounded-nested text-ink-2 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1 lg:hidden"
             >
               <Menu aria-hidden="true" className="h-5 w-5" />
@@ -497,12 +476,12 @@ export function Header() {
       <MobileNav
         open={mobileOpen}
         onOpenChange={setMobileOpen}
-        title={say("menu")}
+        title={t("menu")}
         // <Layer>'s close control defaults to the literal "Close". The storefront
         // ships Arabic, so the one control that dismisses the sheet cannot be the
         // one string in it that stays English.
-        closeLabel={say("closeMenu")}
-        navLabel={say("primaryNav")}
+        closeLabel={t("closeMenu")}
+        navLabel={t("primaryNav")}
         accountLabel={t("myAccount")}
         items={mobileItems}
         accountItems={mobileAccountItems}
