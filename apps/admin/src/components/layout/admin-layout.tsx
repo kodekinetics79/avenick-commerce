@@ -264,8 +264,13 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
   // of the document.
   React.useEffect(() => {
     if (!mobileOpen) return;
+    // Captured on the way in. A ref read inside a cleanup runs at UNMOUNT, by
+    // which time mobileTriggerRef.current may already be null — focus would
+    // then go nowhere and the reader would be dropped at the top of the
+    // document, which is the exact failure this effect exists to prevent.
+    const trigger = mobileTriggerRef.current;
     mobileNavRef.current?.querySelector<HTMLElement>("a, button")?.focus();
-    return () => mobileTriggerRef.current?.focus();
+    return () => trigger?.focus();
   }, [mobileOpen]);
 
   /**
