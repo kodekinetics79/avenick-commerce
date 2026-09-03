@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { db } from "@avenick/database";
 import { cn } from "@avenick/utils";
 import { Button, Dateline, Eyebrow, Meter, Num, Surface } from "@avenick/ui";
@@ -22,6 +23,7 @@ export async function OnboardingChecklist({
 }: {
   seller: ProfileFields & { id: string; bankDetails: unknown };
 }) {
+  const t = await getTranslations("sellerShell.onboarding");
   const [productCount, docCount, orderCount] = await Promise.all([
     // deletedAt: null, matching /onboarding's identical count. Without it a
     // seller whose only product had been deleted was told this step was done —
@@ -38,42 +40,53 @@ export async function OnboardingChecklist({
 
   const steps = [
     {
-      label: "Complete business profile",
-      cta: "Complete profile",
+      key: "profile",
+      label: t("steps.profile.label"),
+      cta: t("steps.profile.cta"),
       done: missingProfile.length === 0,
       href: "/settings",
       // The counted rows, named. A step that says "done" without saying what it
       // read is the kind of claim this codebase spent a hardening programme
-      // removing.
-      detail: missingProfile.length === 0 ? "Arabic name, description and logo on file." : `Still missing: ${missingProfile.join(", ")}.`,
+      // removing. The field names interpolated into steps.profile.missing come
+      // from missingProfileFields() in ../app/onboarding/readiness, which still
+      // returns them in English: they need to become keys at that source before
+      // this line can be fully Arabic.
+      detail:
+        missingProfile.length === 0
+          ? t("steps.profile.done")
+          : t("steps.profile.missing", { fields: missingProfile.join(", ") }),
     },
     {
-      label: "Add your first product",
-      cta: "Add a product",
+      key: "product",
+      label: t("steps.product.label"),
+      cta: t("steps.product.cta"),
       done: productCount > 0,
       href: "/products",
-      detail: `${productCount} product${productCount === 1 ? "" : "s"} in your catalogue.`,
+      detail: t("steps.product.detail", { count: productCount, n: String(productCount) }),
     },
     {
-      label: "Upload compliance documents",
-      cta: "Upload documents",
+      key: "documents",
+      label: t("steps.documents.label"),
+      cta: t("steps.documents.cta"),
       done: docCount > 0,
       href: "/documents",
-      detail: docCount > 0 ? `${docCount} document${docCount === 1 ? "" : "s"} filed. Each is reviewed before it counts as approved.` : "Nothing filed yet.",
+      detail: docCount > 0 ? t("steps.documents.filed", { count: docCount, n: String(docCount) }) : t("steps.documents.none"),
     },
     {
-      label: "Set up payout details",
-      cta: "Add payout details",
+      key: "payout",
+      label: t("steps.payout.label"),
+      cta: t("steps.payout.cta"),
       done: payoutReady,
       href: "/settings",
-      detail: payoutReady ? "Bank details are recorded for settlement." : "No bank details recorded, so payouts cannot be settled.",
+      detail: payoutReady ? t("steps.payout.done") : t("steps.payout.missing"),
     },
     {
-      label: "Make your first sale",
-      cta: "Review your listings",
+      key: "sale",
+      label: t("steps.sale.label"),
+      cta: t("steps.sale.cta"),
       done: orderCount > 0,
       href: "/orders",
-      detail: orderCount > 0 ? `${orderCount} order line${orderCount === 1 ? "" : "s"} received.` : "No buyer has ordered from you yet.",
+      detail: orderCount > 0 ? t("steps.sale.received", { count: orderCount, n: String(orderCount) }) : t("steps.sale.none"),
     },
   ];
 
@@ -89,8 +102,8 @@ export async function OnboardingChecklist({
     <Surface rung={1} className="p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <Eyebrow>Store setup</Eyebrow>
-          <h2 className="u-h3 mt-0.5 text-ink-1">Get your store live</h2>
+          <Eyebrow>{t("eyebrow")}</Eyebrow>
+          <h2 className="u-h3 mt-0.5 text-ink-1">{t("title")}</h2>
         </div>
         {next && (
           <Button variant="primary" size="sm" asChild>
@@ -110,16 +123,16 @@ export async function OnboardingChecklist({
           value={done}
           max={steps.length}
           tone="accent"
-          label={`Store setup: ${done} of ${steps.length} steps complete`}
+          label={t("meterLabel", { done: String(done), total: String(steps.length) })}
         />
       </div>
       <Dateline className="mt-1.5">
-        {done} of {steps.length} steps complete · each one read from your own rows
+        {t("dateline", { done: String(done), total: String(steps.length) })}
       </Dateline>
 
       <ul className="mt-4 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
         {steps.map((step) => (
-          <li key={step.label}>
+          <li key={step.key}>
             <Link
               href={step.href}
               className="u-focus flex items-start gap-2 rounded-nested py-1.5 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.03]"

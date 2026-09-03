@@ -15,6 +15,7 @@ import { cn } from "@avenick/utils";
 import { platformName } from "@avenick/utils/portal-config";
 import { Eyebrow, NavItem, StatusPill, Surface, ThemeToggle } from "@avenick/ui";
 import { signOut, useSession } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { CommandPalette, type PaletteGroup } from "@/components/command-palette";
 
 /**
@@ -30,132 +31,142 @@ import { CommandPalette, type PaletteGroup } from "@/components/command-palette"
  * hides the two that matter. The command palette, which is a lookup surface
  * rather than chrome, shows all three states with the registry's own sentence.
  *
+ * `noteKey` names that sentence under `adminShell.availability.notes`; the
+ * sentence itself lives in the message catalogue so an operator working in
+ * Arabic reads the same disclosure, not a silently dropped one.
+ *
  * Keep this in step with the registry when a screen's contract changes.
  */
 export type ScreenAvailability = "simulated" | "unavailable" | "read_only";
 
-export const NON_OPERATIONAL: Record<string, { state: ScreenAvailability; note: string }> = {
-  "/ai-insights": { state: "unavailable", note: "No certified AI pipeline is configured." },
-  "/automation": { state: "simulated", note: "Static example automation rules; no execution engine." },
-  "/deals": { state: "simulated", note: "Static example deals; use Campaigns for live promotions." },
-  "/pricing": { state: "read_only", note: "Pricing and commission audit view." },
-  "/quotes": { state: "simulated", note: "Static example quotes; not an operational register." },
-  "/approvals": { state: "read_only", note: "Buyer companies make the decisions." },
-  "/performance": { state: "read_only", note: "Database-derived seller performance reporting." },
-  "/orders": { state: "read_only", note: "Sellers own fulfilment transitions." },
-  "/shipments": { state: "simulated", note: "Static example shipments; seller registers hold live records." },
-  "/returns": { state: "simulated", note: "Static example returns; not the governed register." },
-  "/warehouse": { state: "read_only", note: "Warehouse summary." },
-  "/crm": { state: "read_only", note: "Account activity; no external CRM synchronisation." },
-  "/segments": { state: "read_only", note: "Database-derived customer segmentation." },
-  "/retention": { state: "read_only", note: "Database-derived retention reporting." },
-  "/finance": { state: "read_only", note: "Control-plane summary and links." },
-  "/payments": { state: "read_only", note: "Payment ledger; bank-transfer verification is unavailable." },
-  "/vat": { state: "read_only", note: "Tax ledger; statutory document delivery is unavailable." },
-  "/disputes": { state: "read_only", note: "Dispute register; external case management is unavailable." },
-  "/sla": { state: "read_only", note: "SLA view; no external paging integration." },
-  "/integrations": { state: "read_only", note: "Configuration and health visibility only." },
-  "/audit": { state: "read_only", note: "Audit register; external retention is not activated." },
-  "/settings": { state: "read_only", note: "Environment capability and tax configuration visibility." },
+export const NON_OPERATIONAL: Record<string, { state: ScreenAvailability; noteKey: string }> = {
+  "/ai-insights": { state: "unavailable", noteKey: "aiInsights" },
+  "/automation": { state: "simulated", noteKey: "automation" },
+  "/deals": { state: "simulated", noteKey: "deals" },
+  "/pricing": { state: "read_only", noteKey: "pricing" },
+  "/quotes": { state: "simulated", noteKey: "quotes" },
+  "/approvals": { state: "read_only", noteKey: "approvals" },
+  "/performance": { state: "read_only", noteKey: "performance" },
+  "/orders": { state: "read_only", noteKey: "orders" },
+  "/shipments": { state: "simulated", noteKey: "shipments" },
+  "/returns": { state: "simulated", noteKey: "returns" },
+  "/warehouse": { state: "read_only", noteKey: "warehouse" },
+  "/crm": { state: "read_only", noteKey: "crm" },
+  "/segments": { state: "read_only", noteKey: "segments" },
+  "/retention": { state: "read_only", noteKey: "retention" },
+  "/finance": { state: "read_only", noteKey: "finance" },
+  "/payments": { state: "read_only", noteKey: "payments" },
+  "/vat": { state: "read_only", noteKey: "vat" },
+  "/disputes": { state: "read_only", noteKey: "disputes" },
+  "/sla": { state: "read_only", noteKey: "sla" },
+  "/integrations": { state: "read_only", noteKey: "integrations" },
+  "/audit": { state: "read_only", noteKey: "audit" },
+  "/settings": { state: "read_only", noteKey: "settings" },
 };
 
 /**
  * This file is a registered navigation source in
  * ops/release/frontend-availability.json — every href below must have an
  * availability contract there, and CI fails the build otherwise.
+ *
+ * Every group and entry carries a stable `key`, not a display string: the key is
+ * what names the message, what identifies a folded group in localStorage and
+ * what builds the disclosure ids, so none of that changes when the operator
+ * switches to Arabic. The label an operator reads is looked up at render.
  */
 const NAV_GROUPS = [
   {
-    label: "Command Center",
+    key: "commandCenter",
     items: [
-      { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-      { href: "/ai-insights", icon: Brain, label: "AI Insights" },
-      { href: "/automation", icon: Zap, label: "Automation" },
+      { href: "/dashboard", icon: LayoutDashboard, key: "dashboard" },
+      { href: "/ai-insights", icon: Brain, key: "aiInsights" },
+      { href: "/automation", icon: Zap, key: "automation" },
     ],
   },
   {
-    label: "Commerce",
+    key: "commerce",
     items: [
-      { href: "/products", icon: Package, label: "Products" },
-      { href: "/catalog-import", icon: FileUp, label: "Catalog Import" },
-      { href: "/categories", icon: Tag, label: "Categories" },
-      { href: "/brands", icon: Award, label: "Brands" },
-      { href: "/deals", icon: Percent, label: "Deals" },
-      { href: "/pricing", icon: Coins, label: "Pricing & Commission" },
+      { href: "/products", icon: Package, key: "products" },
+      { href: "/catalog-import", icon: FileUp, key: "catalogImport" },
+      { href: "/categories", icon: Tag, key: "categories" },
+      { href: "/brands", icon: Award, key: "brands" },
+      { href: "/deals", icon: Percent, key: "deals" },
+      { href: "/pricing", icon: Coins, key: "pricing" },
     ],
   },
   {
-    label: "B2B Trade",
+    key: "b2bTrade",
     items: [
-      { href: "/companies", icon: Building2, label: "Companies" },
-      { href: "/rfqs", icon: FileQuestion, label: "RFQs" },
-      { href: "/quotes", icon: Quote, label: "Quotes" },
-      { href: "/approvals", icon: CheckSquare, label: "Approvals" },
+      { href: "/companies", icon: Building2, key: "companies" },
+      { href: "/rfqs", icon: FileQuestion, key: "rfqs" },
+      { href: "/quotes", icon: Quote, key: "quotes" },
+      { href: "/approvals", icon: CheckSquare, key: "approvals" },
     ],
   },
   {
-    label: "Supplier Network",
+    key: "supplierNetwork",
     items: [
-      { href: "/sellers", icon: Store, label: "All Suppliers" },
-      { href: "/sellers/pending", icon: Clock, label: "Pending", badge: "pending" },
-      { href: "/compliance", icon: FileCheck, label: "Documents" },
-      { href: "/performance", icon: TrendingUp, label: "Performance" },
+      { href: "/sellers", icon: Store, key: "allSuppliers" },
+      { href: "/sellers/pending", icon: Clock, key: "pending", badge: "pending" },
+      { href: "/compliance", icon: FileCheck, key: "documents" },
+      { href: "/performance", icon: TrendingUp, key: "performance" },
     ],
   },
   {
-    label: "Orders",
+    key: "orders",
     items: [
-      { href: "/orders", icon: ShoppingCart, label: "All Orders" },
-      { href: "/shipments", icon: Ship, label: "Shipments" },
-      { href: "/returns", icon: RotateCcw, label: "Returns" },
-      { href: "/warehouse/pickpack?tab=dispatch", icon: Send, label: "Dispatch" },
+      { href: "/orders", icon: ShoppingCart, key: "allOrders" },
+      { href: "/shipments", icon: Ship, key: "shipments" },
+      { href: "/returns", icon: RotateCcw, key: "returns" },
+      { href: "/warehouse/pickpack?tab=dispatch", icon: Send, key: "dispatch" },
     ],
   },
   {
-    label: "Warehouse",
+    key: "warehouse",
     items: [
-      { href: "/warehouse", icon: Warehouse, label: "Overview" },
-      { href: "/warehouse/inbound", icon: ArrowDownToLine, label: "Inbound" },
-      { href: "/warehouse/stock", icon: Boxes, label: "Stock" },
-      { href: "/warehouse/pickpack", icon: PackageCheck, label: "Pick/Pack" },
+      { href: "/warehouse", icon: Warehouse, key: "warehouseOverview" },
+      { href: "/warehouse/inbound", icon: ArrowDownToLine, key: "inbound" },
+      { href: "/warehouse/stock", icon: Boxes, key: "stock" },
+      { href: "/warehouse/pickpack", icon: PackageCheck, key: "pickPack" },
     ],
   },
   {
-    label: "CRM",
+    key: "crm",
     items: [
-      { href: "/crm", icon: Users, label: "Accounts" },
-      { href: "/campaigns", icon: Megaphone, label: "Campaigns" },
-      { href: "/segments", icon: PieChart, label: "Segments" },
-      { href: "/retention", icon: Heart, label: "Retention" },
+      { href: "/crm", icon: Users, key: "accounts" },
+      { href: "/campaigns", icon: Megaphone, key: "campaigns" },
+      { href: "/segments", icon: PieChart, key: "segments" },
+      { href: "/retention", icon: Heart, key: "retention" },
     ],
   },
   {
-    label: "Finance",
+    key: "finance",
     items: [
-      { href: "/finance", icon: DollarSign, label: "Invoices" },
-      { href: "/payments", icon: CreditCard, label: "Payments" },
-      { href: "/settlements", icon: Receipt, label: "Settlements" },
-      { href: "/vat", icon: FileSpreadsheet, label: "VAT" },
+      { href: "/finance", icon: DollarSign, key: "invoices" },
+      { href: "/payments", icon: CreditCard, key: "payments" },
+      { href: "/settlements", icon: Receipt, key: "settlements" },
+      { href: "/vat", icon: FileSpreadsheet, key: "vat" },
     ],
   },
   {
-    label: "Support",
+    key: "support",
     items: [
-      { href: "/support", icon: LifeBuoy, label: "Tickets" },
-      { href: "/disputes", icon: Scale, label: "Disputes" },
-      { href: "/sla", icon: Gauge, label: "SLA Monitor" },
+      { href: "/support", icon: LifeBuoy, key: "tickets" },
+      { href: "/disputes", icon: Scale, key: "disputes" },
+      { href: "/sla", icon: Gauge, key: "slaMonitor" },
     ],
   },
   {
-    label: "Settings",
+    key: "settings",
     items: [
-      { href: "/users", icon: UserCog, label: "Users" },
-      { href: "/integrations", icon: Plug, label: "Integrations" },
-      { href: "/audit", icon: ScrollText, label: "Audit Trail" },
-      { href: "/settings", icon: Settings, label: "Settings" },
+      { href: "/users", icon: UserCog, key: "users" },
+      { href: "/integrations", icon: Plug, key: "integrations" },
+      { href: "/audit", icon: ScrollText, key: "auditTrail" },
+      { href: "/settings", icon: Settings, key: "settings" },
     ],
   },
 ];
+
 
 /** Initial for the avatar: first letter of the real name, else of the email. */
 function avatarInitial(name: string | null | undefined, email: string | null | undefined): string {
@@ -202,6 +213,7 @@ const COLLAPSED_KEY = "admin-sidebar-collapsed";
 const FOLDED_GROUPS_KEY = "admin-sidebar-folded-groups";
 
 export function AdminLayout({ children, pendingCount = 0 }: { children: React.ReactNode; pendingCount?: number }) {
+  const t = useTranslations("adminShell");
   const pathname = usePathname();
   const { data: session, status: sessionStatus } = useSession();
   const [collapsed, setCollapsed] = React.useState(false);
@@ -334,9 +346,13 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
     if (availability && availability.state !== "read_only") {
       return (
         <>
-          <span aria-hidden="true">{availability.state === "simulated" ? "Example" : "Not configured"}</span>
+          <span aria-hidden="true">
+            {availability.state === "simulated" ? t("nav.badge.example") : t("nav.badge.notConfigured")}
+          </span>
           <span className="sr-only">
-            {availability.state === "simulated" ? "shows example data" : "not configured"}
+            {availability.state === "simulated"
+              ? t("nav.badge.exampleDescription")
+              : t("nav.badge.notConfiguredDescription")}
           </span>
         </>
       );
@@ -390,30 +406,30 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
             style={{ minBlockSize: "var(--control-h-md)" }}
           >
             <p className="u-ui truncate font-medium text-ink-1">{platformName()}</p>
-            <Eyebrow as="span" className="shrink-0">Admin</Eyebrow>
+            <Eyebrow as="span" className="shrink-0">{t("nav.brandEyebrow")}</Eyebrow>
           </div>
         )}
       </div>
 
       <nav
         ref={onNavigate ? mobileNavRef : undefined}
-        aria-label="Console sections"
+        aria-label={t("nav.sections")}
         className="scrollbar-thin flex-1 overflow-y-auto px-2 py-3"
       >
         {NAV_GROUPS.map((group, groupIndex) => {
-          const groupId = `nav-${instance}-group-${group.label.replace(/\s+/g, "-").toLowerCase()}`;
-          const folded = !collapsed && foldedGroups.includes(group.label);
+          const groupId = `nav-${instance}-group-${group.key}`;
+          const folded = !collapsed && foldedGroups.includes(group.key);
           const foldedPending =
             folded && group.items.some((item) => item.badge === "pending") && pendingCount > 0;
 
           return (
-            <div key={group.label} className={cn(groupIndex > 0 && collapsed && "mt-2 border-t border-hairline pt-2")}>
+            <div key={group.key} className={cn(groupIndex > 0 && collapsed && "mt-2 border-t border-hairline pt-2")}>
               {!collapsed && (
                 // A real <button> with aria-expanded, not a clickable label: the
                 // fold has to be reachable and announceable from the keyboard.
                 <button
                   type="button"
-                  onClick={() => toggleGroup(group.label)}
+                  onClick={() => toggleGroup(group.key)}
                   aria-expanded={!folded}
                   aria-controls={groupId}
                   className={cn(
@@ -432,7 +448,7 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
                   {/* as="span": a <p> is flow content and a <button> may only
                       contain phrasing content, so the default element would be
                       invalid markup inside this control. */}
-                  <Eyebrow as="span" className="truncate">{group.label}</Eyebrow>
+                  <Eyebrow as="span" className="truncate">{t(`nav.groups.${group.key}`)}</Eyebrow>
                   {/* Folding a group must not swallow a count that needs action. */}
                   {foldedPending && (
                     <span className="u-meta ms-auto shrink-0 rounded-pill bg-neutral-soft px-1.5 font-medium text-warning-ink">
@@ -462,14 +478,23 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
                   // accessible name — the signal survives in both channels
                   // rather than disappearing the way it used to.
                   const pendingHere = item.badge === "pending" && pendingCount > 0;
+                  const itemLabel = t(`nav.items.${item.key}`);
                   return (
                     <NavItem
                       key={item.href}
                       href={item.href}
                       label={
                         collapsed && pendingHere
-                          ? `${item.label} — ${pendingCount} awaiting review`
-                          : item.label
+                          ? t("nav.pendingLabel", {
+                              label: itemLabel,
+                              count: pendingCount,
+                              // A bare number renders in the locale's own numeral
+                              // system inside an Arabic sentence; this product
+                              // uses Western digits everywhere, so it goes in as
+                              // a string and the count only selects the plural.
+                              value: String(pendingCount),
+                            })
+                          : itemLabel
                       }
                       icon={item.icon}
                       active={item.href === currentHref}
@@ -508,21 +533,31 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
           style={{ minHeight: "var(--control-h-md)" }}
         >
           <LogOut className="h-4 w-4 shrink-0" aria-hidden="true" />
-          {collapsed ? <span className="sr-only">Sign out</span> : <span>Sign out</span>}
+          {collapsed ? (
+            <span className="sr-only">{t("nav.signOut")}</span>
+          ) : (
+            <span>{t("nav.signOut")}</span>
+          )}
         </button>
       </div>
     </Surface>
   );
 
+  // The palette ranks a query against these labels, so it receives the TRANSLATED
+  // ones: an operator working in Arabic types Arabic. The availability sentence
+  // is looked up from the registry's own key for the same reason.
   const paletteGroups: PaletteGroup[] = NAV_GROUPS.map((group) => ({
-    label: group.label,
-    items: group.items.map((item) => ({
-      href: item.href,
-      label: item.label,
-      icon: item.icon,
-      availability: NON_OPERATIONAL[item.href]?.state,
-      availabilityNote: NON_OPERATIONAL[item.href]?.note,
-    })),
+    label: t(`nav.groups.${group.key}`),
+    items: group.items.map((item) => {
+      const availability = NON_OPERATIONAL[item.href];
+      return {
+        href: item.href,
+        label: t(`nav.items.${item.key}`),
+        icon: item.icon,
+        availability: availability?.state,
+        availabilityNote: availability ? t(`availability.notes.${availability.noteKey}`) : undefined,
+      };
+    }),
   }));
 
   return (
@@ -542,7 +577,7 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
         href="#admin-main"
         className="u-focus u-ui fixed -top-20 start-3 z-layer rounded-nested bg-surface-3 px-3 py-2 text-ink-1 shadow-elev-3 focus:top-3"
       >
-        Skip to page content
+        {t("nav.skipToContent")}
       </a>
 
       {/* Desktop sidebar. The width change is deliberately NOT transitioned:
@@ -561,7 +596,7 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
           className="fixed inset-0 z-layer flex lg:hidden"
           role="dialog"
           aria-modal="true"
-          aria-label="Console sections"
+          aria-label={t("nav.sections")}
         >
           <div className="w-60 shrink-0 shadow-elev-5">
             {renderSidebar("mobile", () => setMobileOpen(false))}
@@ -579,7 +614,7 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
             // correctly in either theme rather than being a fixed black wash.
             style={{ backgroundColor: "hsl(var(--scrim) / var(--scrim-alpha))" }}
             onClick={() => setMobileOpen(false)}
-            aria-label="Close navigation"
+            aria-label={t("nav.closeNavigation")}
           />
         </div>
       )}
@@ -621,7 +656,7 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
               className="u-focus rounded-nested p-1.5 text-ink-2 transition-colors duration-press ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1 lg:hidden"
               onClick={() => setMobileOpen(true)}
               aria-expanded={mobileOpen}
-              aria-label="Open navigation"
+              aria-label={t("nav.openNavigation")}
             >
               <PanelLeft className="h-5 w-5 rtl:-scale-x-100" aria-hidden="true" />
             </button>
@@ -630,7 +665,7 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
               className="u-focus hidden rounded-nested p-1.5 text-ink-2 transition-colors duration-press ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1 lg:flex"
               onClick={toggleCollapsed}
               aria-expanded={!collapsed}
-              aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+              aria-label={collapsed ? t("nav.expandNavigation") : t("nav.collapseNavigation")}
             >
               <PanelLeft className="h-5 w-5 rtl:-scale-x-100" aria-hidden="true" />
             </button>
@@ -650,7 +685,7 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
               aria-expanded={paletteOpen}
             >
               <Search className="h-3.5 w-3.5 shrink-0 text-ink-3" aria-hidden="true" />
-              <span className="u-ui min-w-0 flex-1 truncate text-ink-3">Jump to any page…</span>
+              <span className="u-ui min-w-0 flex-1 truncate text-ink-3">{t("nav.jumpToPage")}</span>
               {shortcutHint && (
                 <kbd className="u-micro rounded-nested border border-border px-1.5 py-0.5 text-ink-3">{shortcutHint}</kbd>
               )}
@@ -660,7 +695,7 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
           <div className="flex items-center gap-2">
             {/* Only a build that is not a production build gets a badge; a
                 production build must not claim to be anything else. */}
-            {process.env.NODE_ENV !== "production" && <StatusPill tone="warning">Dev build</StatusPill>}
+            {process.env.NODE_ENV !== "production" && <StatusPill tone="warning">{t("nav.devBuild")}</StatusPill>}
             <ThemeToggle />
             {/* The notification bell that used to sit here is deleted. It was a
                 button with no handler behind it, standing in for a notification
@@ -679,7 +714,7 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
                 onClick={() => setProfileOpen(v => !v)}
                 className="u-focus flex items-center gap-2 rounded-nested p-1.5 transition-colors duration-press ease-standard hover:bg-ink-1/[0.06]"
                 aria-expanded={profileOpen}
-                aria-label="Account menu"
+                aria-label={t("nav.accountMenu")}
               >
                 {/* Blank while the session is loading: a placeholder letter would be a made-up identity. */}
                 <span
@@ -711,7 +746,7 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
                     </div>
                   ) : (
                     <div className="mb-1 border-b border-hairline px-3 py-2.5">
-                      <p className="u-meta text-ink-3">Signed-in identity unavailable</p>
+                      <p className="u-meta text-ink-3">{t("nav.identityUnavailable")}</p>
                     </div>
                   )}
                   <Link
@@ -719,14 +754,14 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
                     onClick={() => setProfileOpen(false)}
                     className="u-focus u-ui block rounded-nested px-3 py-2 text-ink-1 transition-colors duration-press ease-standard hover:bg-ink-1/[0.06]"
                   >
-                    Settings
+                    {t("nav.items.settings")}
                   </Link>
                   <button
                     type="button"
                     onClick={() => signOut({ callbackUrl: "/login" })}
                     className="u-focus u-ui w-full rounded-nested px-3 py-2 text-start text-danger-ink transition-colors duration-press ease-standard hover:bg-danger-soft"
                   >
-                    Sign out
+                    {t("nav.signOut")}
                   </button>
                 </Surface>
               )}

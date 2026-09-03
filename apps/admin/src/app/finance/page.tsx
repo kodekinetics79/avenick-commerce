@@ -5,12 +5,16 @@ import { formatCurrency, type SupportedCurrency } from "@avenick/utils";
 import { TrendingUp, Clock, Receipt, CreditCard, FileSpreadsheet, ArrowRight, Percent, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import {
   PageHeader, CellGrid, Surface, Bar, Eyebrow, EmptyState, StatusPill, Button,
 } from "@avenick/ui";
 import { MoneyStat } from "./money-figures";
 
-export const metadata = { title: "Finance Overview" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminCommerce.finance");
+  return { title: t("meta.title") };
+}
 export const dynamic = "force-dynamic";
 
 const ZERO = new Prisma.Decimal(0);
@@ -40,6 +44,7 @@ const barWidth = (gmv: Prisma.Decimal, max: Prisma.Decimal) => {
 
 export default async function FinancePage() {
   await requireAdminSession();
+  const t = await getTranslations("adminCommerce.finance");
 
   const [overview, { commissions }] = await Promise.all([
     getFinanceOverview(),
@@ -52,10 +57,10 @@ export default async function FinancePage() {
   // Four positions. GMV leads at section rank because it is the figure the page
   // is about; the other three qualify it.
   const kpis = [
-    { label: "GMV (month)", rows: overview.gmvMonth, sub: `${inline(overview.gmvYear)} year to date`, icon: TrendingUp, lead: true },
-    { label: "Commission revenue (month)", rows: overview.commissionMonth, sub: `${inline(overview.commissionYear)} year to date`, icon: Percent, lead: false },
-    { label: "Pending payouts", rows: overview.pendingPayouts, sub: `${pendingPayoutCount} payout${pendingPayoutCount === 1 ? "" : "s"} awaiting settlement`, icon: Clock, lead: false },
-    { label: "Refunds in flight", rows: overview.refundsPending, sub: `${refundsPendingCount} open refund${refundsPendingCount === 1 ? "" : "s"}`, icon: RotateCcw, lead: false },
+    { key: "gmv", label: t("kpi.gmvMonth"), rows: overview.gmvMonth, sub: t("kpi.yearToDate", { amounts: inline(overview.gmvYear) }), icon: TrendingUp, lead: true },
+    { key: "commission", label: t("kpi.commissionMonth"), rows: overview.commissionMonth, sub: t("kpi.yearToDate", { amounts: inline(overview.commissionYear) }), icon: Percent, lead: false },
+    { key: "payouts", label: t("kpi.pendingPayouts"), rows: overview.pendingPayouts, sub: t("kpi.pendingPayoutsNote", { count: pendingPayoutCount, value: String(pendingPayoutCount) }), icon: Clock, lead: false },
+    { key: "refunds", label: t("kpi.refunds"), rows: overview.refundsPending, sub: t("kpi.refundsNote", { count: refundsPendingCount, value: String(refundsPendingCount) }), icon: RotateCcw, lead: false },
   ];
 
   // One chart series per currency, each with its own scale.
@@ -77,20 +82,20 @@ export default async function FinancePage() {
     <AdminLayout>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Finance"
-          title="Finance overview"
-          description="Live revenue, commissions, payouts and VAT from the order ledger."
-          dateline="Every figure in the currency it was billed in · the platform holds no exchange rates, so amounts are never combined"
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
+          dateline={t("dateline")}
           actions={
             <>
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/payments">
-                  <CreditCard className="h-3.5 w-3.5" aria-hidden="true" /> Payments
+                  <CreditCard className="h-3.5 w-3.5" aria-hidden="true" /> {t("actions.payments")}
                 </Link>
               </Button>
               <Button variant="secondary" size="sm" asChild>
                 <Link href="/settlements">
-                  <Receipt className="h-3.5 w-3.5" aria-hidden="true" /> Settlements
+                  <Receipt className="h-3.5 w-3.5" aria-hidden="true" /> {t("actions.settlements")}
                 </Link>
               </Button>
             </>
@@ -100,7 +105,7 @@ export default async function FinancePage() {
         <CellGrid cols={{ base: 1, sm: 2, lg: 4 }} density="compact">
           {kpis.map((k) => (
             <MoneyStat
-              key={k.label}
+              key={k.key}
               label={k.label}
               rank={k.lead ? "section" : "inline"}
               lines={k.rows.map((row) => ({ currency: row.currency, formatted: money(row.amount, row.currency) }))}
@@ -113,14 +118,14 @@ export default async function FinancePage() {
           {/* Monthly GMV bars, one block per currency */}
           <Surface className="flex flex-col p-5">
             <div className="mb-4 flex items-center justify-between gap-3 border-b-2 border-border-strong pb-2">
-              <h2 className="u-h3 text-ink-1">Paid GMV by month ({new Date().getFullYear()})</h2>
+              <h2 className="u-h3 text-ink-1">{t("chart.title", { year: String(new Date().getFullYear()) })}</h2>
               <FileSpreadsheet className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
             </div>
             {series.length === 0 ? (
               <EmptyState
-                eyebrow="Nothing recorded"
-                headline="No paid order has been placed this year."
-                body="A month appears here once an order in that month reaches paid."
+                eyebrow={t("emptyEyebrow")}
+                headline={t("chart.emptyHeadline")}
+                body={t("chart.emptyBody")}
               />
             ) : (
               <div className="space-y-5">
@@ -137,7 +142,7 @@ export default async function FinancePage() {
                             value={barWidth(m.gmv, s.max)}
                             max={100}
                             index={index}
-                            label={`${format(m.month, "MMMM")} paid GMV, ${money(m.gmv, s.currency)}`}
+                            label={t("chart.barLabel", { month: format(m.month, "MMMM"), amount: money(m.gmv, s.currency) })}
                             className="flex-1"
                           />
                           <span className="fig u-meta w-28 shrink-0 text-end text-ink-1">{money(m.gmv, s.currency)}</span>
@@ -149,11 +154,11 @@ export default async function FinancePage() {
               </div>
             )}
             <div className="mt-4 flex flex-wrap items-baseline gap-x-2 border-t border-hairline pt-3">
-              <Eyebrow>VAT collected, year to date</Eyebrow>
+              <Eyebrow>{t("chart.vatYtd")}</Eyebrow>
               <span className="fig u-ui text-ink-1">{inline(overview.vatCollectedYear)}</span>
               <Button variant="link" size="xs" asChild className="ms-auto">
                 <Link href="/vat">
-                  VAT summary <ArrowRight className="h-3 w-3 rtl:rotate-180" aria-hidden="true" />
+                  {t("chart.vatLink")} <ArrowRight className="h-3 w-3 rtl:rotate-180" aria-hidden="true" />
                 </Link>
               </Button>
             </div>
@@ -162,16 +167,20 @@ export default async function FinancePage() {
           {/* Recent commissions */}
           <Surface className="flex flex-col p-5">
             <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-border-strong pb-2">
-              <h2 className="u-h3 text-ink-1">Recent commissions</h2>
+              <h2 className="u-h3 text-ink-1">{t("commissions.title")}</h2>
               <span className="u-meta text-ink-2">
-                <span className="fig">{unsettledCommissionCount}</span> unsettled · {inline(overview.unsettledCommissions)}
+                {t.rich("commissions.unsettled", {
+                  count: String(unsettledCommissionCount),
+                  amounts: inline(overview.unsettledCommissions),
+                  n: (chunks) => <span className="fig">{chunks}</span>,
+                })}
               </span>
             </div>
             {commissions.length === 0 ? (
               <EmptyState
-                eyebrow="Nothing recorded"
-                headline="No commission has been accrued yet."
-                body="Commission accrues when an order containing a seller's items is paid."
+                eyebrow={t("emptyEyebrow")}
+                headline={t("commissions.emptyHeadline")}
+                body={t("commissions.emptyBody")}
               />
             ) : (
               <ul>
@@ -180,13 +189,17 @@ export default async function FinancePage() {
                     <div className="min-w-0">
                       <p className="u-ui truncate font-medium text-ink-1">{c.seller.businessNameEn}</p>
                       <p className="u-meta text-ink-3">
-                        <span className="u-mono">{c.order.orderNumber}</span> · {Number(c.rate)}% of {money(c.order.total, c.order.currency)}
+                        <span className="u-mono">{c.order.orderNumber}</span> ·{" "}
+                        {t("commissions.rate", {
+                          rate: String(Number(c.rate)),
+                          amount: money(c.order.total, c.order.currency),
+                        })}
                       </p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <span className="fig u-ui font-medium text-ink-1">{money(c.amount, c.currency)}</span>
                       <StatusPill tone={c.settledAt ? "success" : "warning"}>
-                        {c.settledAt ? `Settled ${format(c.settledAt, "MMM d")}` : "Unsettled"}
+                        {c.settledAt ? t("commissions.settled", { date: format(c.settledAt, "MMM d") }) : t("commissions.unsettledPill")}
                       </StatusPill>
                     </div>
                   </li>
@@ -200,9 +213,9 @@ export default async function FinancePage() {
             a thing you press. */}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[
-            { href: "/payments", label: "Payments ledger", desc: "Every gateway transaction with status and reference" },
-            { href: "/settlements", label: "Supplier settlements", desc: `${pendingPayoutCount} payout${pendingPayoutCount === 1 ? "" : "s"} awaiting processing` },
-            { href: "/vat", label: "VAT summary", desc: "Output VAT by month and currency" },
+            { href: "/payments", label: t("links.paymentsLabel"), desc: t("links.paymentsDesc") },
+            { href: "/settlements", label: t("links.settlementsLabel"), desc: t("links.settlementsDesc", { count: pendingPayoutCount, value: String(pendingPayoutCount) }) },
+            { href: "/vat", label: t("links.vatLabel"), desc: t("links.vatDesc") },
           ].map((l) => (
             <Link key={l.href} href={l.href} className="group u-focus block rounded-lg">
               <Surface interactive className="h-full p-4">

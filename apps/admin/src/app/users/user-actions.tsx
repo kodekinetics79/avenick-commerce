@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Ban, CheckCircle2 } from "lucide-react";
 import { Button, Surface } from "@avenick/ui";
+import { useTranslations } from "next-intl";
 import { DecisionNoticeInline } from "@/app/approvals/decision-notice";
 
 interface Props {
@@ -26,6 +27,7 @@ interface Props {
  * A refusal renders as the compare-and-swap notice.
  */
 export function UserStatusActions({ userId, name, status, isSelf }: Props) {
+  const t = useTranslations("adminShell.users.actions");
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -43,7 +45,7 @@ export function UserStatusActions({ userId, name, status, isSelf }: Props) {
 
   // The operator's own row carries a stated reason rather than a bare dash: a
   // missing control with no explanation reads as a bug.
-  if (isSelf) return <span className="u-meta text-ink-3">Your own account</span>;
+  if (isSelf) return <span className="u-meta text-ink-3">{t("ownAccount")}</span>;
 
   const suspending = status === "ACTIVE";
   const nextStatus = suspending ? "SUSPENDED" : "ACTIVE";
@@ -59,13 +61,13 @@ export function UserStatusActions({ userId, name, status, isSelf }: Props) {
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
-        setRefusal(json.error ?? "Failed to update status");
+        setRefusal(json.error ?? t("updateFailed"));
         return;
       }
       setConfirming(false);
       router.refresh();
     } catch {
-      setRefusal("The platform could not be reached, so nothing was written. Retry when the connection is back.");
+      setRefusal(t("networkFailure"));
     } finally {
       setPending(false);
     }
@@ -79,8 +81,8 @@ export function UserStatusActions({ userId, name, status, isSelf }: Props) {
             keyboard operator is dropped back to <body> halfway down a register
             and a screen reader announces nothing — strictly worse than the
             window.confirm this replaced, which at least focused itself. Focus
-            lands on the panel, not on "Confirm suspension": pre-focusing the
-            destructive step is how it gets taken by an Enter meant for the
+            lands on the panel, not on the confirmSuspension button: pre-focusing
+            the destructive step is how it gets taken by an Enter meant for the
             first click. */}
         <Surface
           rung={1}
@@ -95,23 +97,19 @@ export function UserStatusActions({ userId, name, status, isSelf }: Props) {
           className="w-full max-w-xs space-y-2 p-2.5 text-start outline-none"
         >
           <p id={promptId} className="u-meta text-ink-1">
-            {suspending ? (
-              <>
-                Suspend <span className="font-medium">{name}</span>? They will not be able to sign in until this is
-                reversed.
-              </>
-            ) : (
-              <>
-                Restore access for <span className="font-medium">{name}</span>? They can sign in again immediately.
-              </>
-            )}
+            {/* t.rich, so the person's name keeps the emphasis that makes the
+                confirmation name WHICH row the click landed on. */}
+            {t.rich(suspending ? "confirmSuspend" : "confirmRestore", {
+              name,
+              strong: (chunks) => <span className="font-medium">{chunks}</span>,
+            })}
           </p>
           <div className="flex items-center justify-end gap-1.5">
             <Button type="button" variant="ghost" size="xs" disabled={pending} onClick={() => setConfirming(false)}>
-              Cancel
+              {t("cancel")}
             </Button>
             <Button type="submit" variant={suspending ? "danger" : "secondary"} size="xs" loading={pending}>
-              {suspending ? "Confirm suspension" : "Confirm restore"}
+              {suspending ? t("confirmSuspension") : t("confirmRestoration")}
             </Button>
           </div>
         </Surface>
@@ -130,7 +128,7 @@ export function UserStatusActions({ userId, name, status, isSelf }: Props) {
         onClick={() => setConfirming(true)}
       >
         {suspending ? <Ban className="h-3.5 w-3.5" aria-hidden="true" /> : <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />}
-        {suspending ? "Suspend" : "Restore"}
+        {suspending ? t("suspend") : t("restore")}
         <span className="sr-only"> {name}</span>
       </Button>
       {refusal && <DecisionNoticeInline message={refusal} className="w-full max-w-xs" />}

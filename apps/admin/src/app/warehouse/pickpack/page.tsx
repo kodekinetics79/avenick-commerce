@@ -5,23 +5,29 @@ import { formatCurrency } from "@avenick/utils";
 import { Truck, PackageCheck, Clock } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import {
   PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Num, type PillTone,
 } from "@avenick/ui";
 import { CountStat } from "@/app/finance/money-figures";
 
-export const metadata = { title: "Pick & Pack" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminCommerce.pickpack");
+  return { title: t("meta.title") };
+}
 export const dynamic = "force-dynamic";
 
-const SHIPMENT_STATUS: Record<string, { label: string; tone: PillTone }> = {
-  PENDING: { label: "Pending pickup", tone: "warning" },
-  PICKED_UP: { label: "Picked up", tone: "neutral" },
-  IN_TRANSIT: { label: "In transit", tone: "neutral" },
-  OUT_FOR_DELIVERY: { label: "Out for delivery", tone: "neutral" },
+/** Tone per in-flight shipment status; labels come from `pickpack.shipmentStatus`. */
+const SHIPMENT_TONE: Record<string, PillTone> = {
+  PENDING: "warning",
+  PICKED_UP: "neutral",
+  IN_TRANSIT: "neutral",
+  OUT_FOR_DELIVERY: "neutral",
 };
 
 export default async function PickPackPage() {
   await requireAdminSession();
+  const t = await getTranslations("adminCommerce.pickpack");
 
   const { queue, shipments } = await getPickPackQueue();
 
@@ -30,33 +36,33 @@ export default async function PickPackPage() {
       <div className="space-y-block">
         <PageHeader
           linkComponent={Link}
-          breadcrumbs={[{ label: "Warehouse", href: "/warehouse" }, { label: "Pick & pack" }]}
-          eyebrow="Operations"
-          title="Pick & pack queue"
-          description="Paid orders awaiting fulfilment, oldest first, plus shipments in the carrier network."
-          dateline="Order values in the currency each order was billed in · no conversion applied"
+          breadcrumbs={[{ label: t("breadcrumbWarehouse"), href: "/warehouse" }, { label: t("breadcrumbSelf") }]}
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
+          dateline={t("dateline")}
         />
 
         <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
-          <CountStat label="Orders in queue" value={queue.length} rank="section" />
+          <CountStat label={t("stats.queue")} value={queue.length} rank="section" />
           <CountStat
-            label="Units to pick"
+            label={t("stats.units")}
             value={queue.reduce((s, o) => s + o.items.reduce((x, i) => x + i.quantity, 0), 0)}
           />
-          <CountStat label="Active shipments" value={shipments.length} />
+          <CountStat label={t("stats.shipments")} value={shipments.length} />
           <CountStat
-            label="Without shipment"
+            label={t("stats.withoutShipment")}
             value={queue.filter((o) => o.shipments.length === 0).length}
             tone={queue.filter((o) => o.shipments.length === 0).length > 0 ? "danger" : "default"}
-            note="paid, but nothing booked with a carrier"
+            note={t("stats.withoutShipmentNote")}
           />
         </CellGrid>
 
         {/* Fulfilment queue */}
         <LedgerTable
-          title="Awaiting fulfilment"
-          dateline="Paid orders that have not shipped, oldest first"
-          toolbar={<span className="u-meta text-ink-3">FIFO · oldest first</span>}
+          title={t("queue.title")}
+          dateline={t("queue.dateline")}
+          toolbar={<span className="u-meta text-ink-3">{t("queue.toolbar")}</span>}
           rows={queue}
           getRowKey={(o) => o.id}
           stickyHead
@@ -65,7 +71,7 @@ export default async function PickPackPage() {
           columns={[
             {
               key: "order",
-              label: "Order",
+              label: t("queue.columns.order"),
               render: (o) => (
                 <div className="py-1">
                   <Link
@@ -80,7 +86,7 @@ export default async function PickPackPage() {
             },
             {
               key: "age",
-              label: "Age",
+              label: t("queue.columns.age"),
               render: (o) => (
                 <span className="inline-flex items-center gap-1 whitespace-nowrap text-ink-2">
                   <Clock className="h-3.5 w-3.5 text-ink-3" aria-hidden="true" /> {formatDistanceToNow(o.createdAt)}
@@ -89,45 +95,45 @@ export default async function PickPackPage() {
             },
             {
               key: "customer",
-              label: "Customer",
+              label: t("queue.columns.customer"),
               hideOnMobile: true,
               render: (o) => <span className="text-ink-2">{o.user.firstName} {o.user.lastName}</span>,
             },
             {
               key: "items",
-              label: "Items",
+              label: t("queue.columns.items"),
               hideOnMobile: true,
               render: (o) => (
                 <p className="max-w-xs truncate text-ink-2">
                   {o.items.slice(0, 2).map((i) => `${i.quantity}× ${i.nameEn}`).join(", ")}
-                  {o.items.length > 2 ? ` +${o.items.length - 2} more` : ""}
+                  {o.items.length > 2 ? t("queue.moreItems", { count: String(o.items.length - 2) }) : ""}
                 </p>
               ),
             },
             {
               key: "value",
-              label: "Value",
+              label: t("queue.columns.value"),
               numeric: true,
               render: (o) => <Num value={formatCurrency(Number(o.total), o.currency as never)} className="whitespace-nowrap" />,
             },
             {
               key: "shipment",
-              label: "Shipment",
+              label: t("queue.columns.shipment"),
               render: (o) =>
                 o.shipments.length > 0 ? (
                   <StatusPill tone="success">
-                    {o.shipments.length} shipment{o.shipments.length === 1 ? "" : "s"}
+                    {t("queue.shipmentCount", { count: o.shipments.length, value: String(o.shipments.length) })}
                   </StatusPill>
                 ) : (
-                  <StatusPill tone="danger">Not shipped</StatusPill>
+                  <StatusPill tone="danger">{t("queue.notShipped")}</StatusPill>
                 ),
             },
           ]}
           empty={
             <EmptyState
-              eyebrow="Queue is clear"
-              headline="No paid order is awaiting fulfilment."
-              body="An order joins this queue as soon as its payment is confirmed and it has not yet shipped."
+              eyebrow={t("queue.emptyEyebrow")}
+              headline={t("queue.emptyHeadline")}
+              body={t("queue.emptyBody")}
               icon={<PackageCheck className="h-3.5 w-3.5" aria-hidden="true" />}
             />
           }
@@ -135,37 +141,43 @@ export default async function PickPackPage() {
 
         {/* Active shipments */}
         <LedgerTable
-          title="Active shipments"
-          dateline="Shipments currently in the carrier network"
+          title={t("shipments.title")}
+          dateline={t("shipments.dateline")}
           rows={shipments}
           getRowKey={(s) => s.id}
           stickyHead
           columns={[
-            { key: "shipmentNumber", label: "Shipment", render: (s) => <span className="u-mono text-meta font-medium text-ink-1">{s.shipmentNumber}</span> },
-            { key: "order", label: "Order", render: (s) => <span className="u-mono text-meta text-ink-2">{s.order.orderNumber}</span> },
-            { key: "seller", label: "Seller", render: (s) => <span className="text-ink-2">{s.seller.businessNameEn}</span> },
-            { key: "carrier", label: "Carrier", hideOnMobile: true, render: (s) => <span className="text-ink-2">{s.carrier ?? "—"}</span> },
-            { key: "tracking", label: "Tracking", hideOnMobile: true, render: (s) => <span className="u-mono text-meta text-ink-3">{s.trackingNumber ?? "—"}</span> },
+            { key: "shipmentNumber", label: t("shipments.columns.shipment"), render: (s) => <span className="u-mono text-meta font-medium text-ink-1">{s.shipmentNumber}</span> },
+            { key: "order", label: t("shipments.columns.order"), render: (s) => <span className="u-mono text-meta text-ink-2">{s.order.orderNumber}</span> },
+            { key: "seller", label: t("shipments.columns.seller"), render: (s) => <span className="text-ink-2">{s.seller.businessNameEn}</span> },
+            { key: "carrier", label: t("shipments.columns.carrier"), hideOnMobile: true, render: (s) => <span className="text-ink-2">{s.carrier ?? "—"}</span> },
+            { key: "tracking", label: t("shipments.columns.tracking"), hideOnMobile: true, render: (s) => <span className="u-mono text-meta text-ink-3">{s.trackingNumber ?? "—"}</span> },
             {
               key: "status",
-              label: "Status",
+              label: t("shipments.columns.status"),
               render: (s) => {
-                const cfg = SHIPMENT_STATUS[s.status] ?? { label: s.status, tone: "neutral" as PillTone };
-                return <StatusPill tone={cfg.tone} className="whitespace-nowrap">{cfg.label}</StatusPill>;
+                // A status this screen does not model is shown by its own code
+                // rather than under an invented label.
+                const tone = SHIPMENT_TONE[s.status];
+                return (
+                  <StatusPill tone={tone ?? "neutral"} className="whitespace-nowrap">
+                    {tone ? t(`shipmentStatus.${s.status}`) : s.status}
+                  </StatusPill>
+                );
               },
             },
             {
               key: "promisedBy",
-              label: "Promised",
+              label: t("shipments.columns.promised"),
               hideOnMobile: true,
               render: (s) => <span className="whitespace-nowrap text-ink-2">{s.promisedBy ? format(s.promisedBy, "MMM d, yyyy") : "—"}</span>,
             },
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing in transit"
-              headline="No shipment is currently in the carrier network."
-              body="A shipment appears here once fulfilment books one against an order."
+              eyebrow={t("shipments.emptyEyebrow")}
+              headline={t("shipments.emptyHeadline")}
+              body={t("shipments.emptyBody")}
               icon={<Truck className="h-3.5 w-3.5" aria-hidden="true" />}
             />
           }

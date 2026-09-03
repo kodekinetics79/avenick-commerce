@@ -2,13 +2,16 @@
 
 import * as React from "react";
 import { Sparkles, Copy, Check } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button, Dateline, Field, Layer, Surface, Textarea } from "@avenick/ui";
 import { useToast } from "@/components/toast";
 
 export function AiAssist({
   kind,
   seed = "",
-  label = "AI assist",
+  // No default in the signature: the fallback is a message-tree string and a
+  // translator only exists inside the component, so it is resolved below.
+  label: labelProp,
   title,
   buttonClass,
 }: {
@@ -18,6 +21,8 @@ export function AiAssist({
   title?: string;
   buttonClass?: string;
 }) {
+  const t = useTranslations("sellerShell.aiAssist");
+  const label = labelProp ?? t("triggerLabel");
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
   const [context, setContext] = React.useState(seed);
@@ -39,7 +44,9 @@ export function AiAssist({
       const r = await fetch("/api/ai/draft", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ kind, context }) });
       const d = await r.json();
       if (!r.ok || d.success === false) {
-        toast({ title: d.error ?? "Couldn't generate a draft", variant: "error" });
+        // d.error is the API's own sentence and is passed through as it arrives;
+        // only the fallback is ours to translate.
+        toast({ title: d.error ?? t("errorGenerate"), variant: "error" });
         setLoading(false);
         return;
       }
@@ -53,7 +60,7 @@ export function AiAssist({
         // into `result`: the panel rendered a blank plate with a Copy button
         // beside it and the footer went back to saying "Generate", so nothing on
         // screen said anything had happened. Say that nothing came back.
-        setUnavailable("The service returned an empty draft. Try again, or add more detail above.");
+        setUnavailable(t("emptyDraft"));
       } else {
         /**
          * When `ai` is false the API has NOT returned a template — it returns a
@@ -65,10 +72,10 @@ export function AiAssist({
          * reply to a buyer. There is no template. It is shown as the
          * unavailable state it actually is, with no Copy control on it.
          */
-        setUnavailable(text || "Drafting is unavailable right now.");
+        setUnavailable(text || t("unavailable"));
       }
     } catch {
-      toast({ title: "Couldn't generate a draft", variant: "error" });
+      toast({ title: t("errorGenerate"), variant: "error" });
     }
     setLoading(false);
   }
@@ -85,15 +92,15 @@ export function AiAssist({
     try {
       await navigator.clipboard.writeText(result);
       setCopied(true);
-      toast({ title: "Copied to clipboard", variant: "success" });
+      toast({ title: t("copiedToast"), variant: "success" });
       if (copyTimer.current) clearTimeout(copyTimer.current);
       copyTimer.current = setTimeout(() => setCopied(false), 1500);
     } catch {
-      toast({ title: "Couldn't copy the draft", description: "Select the text and copy it manually.", variant: "error" });
+      toast({ title: t("errorCopyTitle"), description: t("errorCopyBody"), variant: "error" });
     }
   }
 
-  const heading = title ?? (kind === "rfq" ? "Draft a quote reply" : "Write listing copy");
+  const heading = title ?? (kind === "rfq" ? t("headingRfq") : t("headingListing"));
 
   return (
     <>
@@ -118,32 +125,32 @@ export function AiAssist({
         open={open}
         onOpenChange={setOpen}
         title={heading}
-        description="A starting point written from the text you enter. Read it before you send it."
+        description={t("description")}
         size="lg"
         footer={
           <>
             <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
-              Close
+              {t("close")}
             </Button>
             <Button type="button" variant="primary" size="sm" onClick={generate} loading={loading}>
               {!loading && <Sparkles className="h-4 w-4" aria-hidden="true" />}
-              {result || unavailable ? "Regenerate" : "Generate"}
+              {result || unavailable ? t("regenerate") : t("generate")}
             </Button>
           </>
         }
       >
         <div className="space-y-3">
           <Field
-            label={kind === "rfq" ? "RFQ details / what to address" : "Product name & key specs"}
+            label={kind === "rfq" ? t("fieldRfq") : t("fieldListing")}
             htmlFor={fieldId}
-            hint="Only this text is sent. Nothing is read from your catalogue."
+            hint={t("hint")}
           >
             <Textarea
               id={fieldId}
               value={context}
               onChange={(e) => setContext(e.target.value)}
               rows={3}
-              placeholder={kind === "rfq" ? "e.g. Safety helmets EN397 × 200, needed in Dubai within 2 weeks" : "e.g. CNC bearing assortment, hardened steel, ISO 9001"}
+              placeholder={kind === "rfq" ? t("placeholderRfq") : t("placeholderListing")}
               className="resize-none"
             />
           </Field>
@@ -164,13 +171,11 @@ export function AiAssist({
               <p className="u-body whitespace-pre-wrap text-ink-1">{result}</p>
               {/* LAW E. What this text is, and what it is not, stated at the
                   point where somebody is about to send it to a buyer. */}
-              <Dateline className="mt-3">
-                Written from the text above · not checked against your catalogue, stock, prices or lead times
-              </Dateline>
+              <Dateline className="mt-3">{t("provenance")}</Dateline>
               <div className="mt-3 flex items-center gap-2 border-t border-hairline pt-3">
                 <Button type="button" variant="secondary" size="xs" onClick={copy}>
                   {copied ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : <Copy className="h-3.5 w-3.5" aria-hidden="true" />}
-                  {copied ? "Copied" : "Copy"}
+                  {copied ? t("copied") : t("copy")}
                 </Button>
               </div>
             </Surface>

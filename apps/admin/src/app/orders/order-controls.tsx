@@ -2,6 +2,7 @@
 
 import { useId, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Package, Truck, Navigation, CheckCircle, Ban, MessageSquare } from "lucide-react";
 import { Button, FieldWell, Surface } from "@avenick/ui";
 import { CONTROL, CONTROL_SM } from "@/components/console/chrome";
@@ -21,9 +22,11 @@ interface Props {
 
 interface Step {
   to: Target;
-  label: string;
-  /** The verb on the compact row control, where there is no room for the sentence. */
-  short: string;
+  /**
+   * `label` is the sentence on the detail control and `short` the verb on the
+   * compact row control, where there is no room for it; both are translated
+   * from `adminCommerce.orderControls.steps.<to>`.
+   */
   icon: typeof Package;
 }
 
@@ -38,13 +41,13 @@ interface Step {
  * so they are all the same control; the step is named on the button.
  */
 const NEXT_STEPS: Record<string, Step[]> = {
-  CONFIRMED: [{ to: "PROCESSING", label: "Mark as Processing", short: "Process", icon: Package }],
-  PROCESSING: [{ to: "SHIPPED", label: "Mark as Shipped", short: "Ship", icon: Truck }],
+  CONFIRMED: [{ to: "PROCESSING", icon: Package }],
+  PROCESSING: [{ to: "SHIPPED", icon: Truck }],
   SHIPPED: [
-    { to: "OUT_FOR_DELIVERY", label: "Out for Delivery", short: "Dispatch", icon: Navigation },
-    { to: "DELIVERED", label: "Mark as Delivered", short: "Deliver", icon: CheckCircle },
+    { to: "OUT_FOR_DELIVERY", icon: Navigation },
+    { to: "DELIVERED", icon: CheckCircle },
   ],
-  OUT_FOR_DELIVERY: [{ to: "DELIVERED", label: "Mark as Delivered", short: "Deliver", icon: CheckCircle }],
+  OUT_FOR_DELIVERY: [{ to: "DELIVERED", icon: CheckCircle }],
 };
 
 const CANCELLABLE = new Set(["PENDING_PAYMENT", "PAYMENT_CONFIRMED"]);
@@ -52,6 +55,7 @@ const CLOSED = new Set(["CANCELLED", "REFUNDED", "RETURNED", "DELIVERED"]);
 
 export function OrderControls({ orderId, status, paymentStatus, governed = false, variant }: Props) {
   const router = useRouter();
+  const t = useTranslations("adminCommerce.orderControls");
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<null | { kind: "advance"; step: Step } | { kind: "cancel" } | { kind: "note" }>(null);
   const [text, setText] = useState("");
@@ -65,8 +69,8 @@ export function OrderControls({ orderId, status, paymentStatus, governed = false
   const cancelBlockedReason = cancellable
     ? null
     : governed && CANCELLABLE.has(status) && unpaid
-      ? "This order was placed from a governed purchase order; nothing can return that purchase order to an orderable state, so it cannot be cancelled here."
-      : "Cancellation after payment is handled through Returns.";
+      ? t("cancelBlocked.governed")
+      : t("cancelBlocked.afterPayment");
 
   function run(work: () => Promise<{ ok: true; message?: string } | { ok: false; error: string }>) {
     setError(null);
@@ -77,7 +81,7 @@ export function OrderControls({ orderId, status, paymentStatus, governed = false
         setError(result.error);
         return;
       }
-      setNotice(result.message ?? "Done");
+      setNotice(result.message ?? t("done"));
       setPanel(null);
       setText("");
       router.refresh();
@@ -101,9 +105,9 @@ export function OrderControls({ orderId, status, paymentStatus, governed = false
           loading={pending}
           disabled={pending}
           onClick={() => advance(step)}
-          title={step.label}
+          title={t(`steps.${step.to}.label`)}
         >
-          {!pending && <Icon className="h-3 w-3" aria-hidden="true" />} {step.short}
+          {!pending && <Icon className="h-3 w-3" aria-hidden="true" />} {t(`steps.${step.to}.short`)}
         </Button>
         {error && (
           <span role="alert" className="u-meta text-end text-danger-ink">
@@ -128,7 +132,7 @@ export function OrderControls({ orderId, status, paymentStatus, governed = false
               disabled={pending}
               onClick={() => setPanel({ kind: "advance", step })}
             >
-              <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {step.label}
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {t(`steps.${step.to}.label`)}
             </Button>
           );
         })}
@@ -146,11 +150,11 @@ export function OrderControls({ orderId, status, paymentStatus, governed = false
             onClick={() => setPanel({ kind: "cancel" })}
             aria-describedby={cancelBlockedReason ? blockedId : undefined}
           >
-            <Ban className="h-3.5 w-3.5" aria-hidden="true" /> Cancel Order
+            <Ban className="h-3.5 w-3.5" aria-hidden="true" /> {t("cancelOrder")}
           </Button>
         )}
         <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setPanel({ kind: "note" })}>
-          <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" /> Add internal note
+          <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" /> {t("addNote")}
         </Button>
       </div>
       {!CLOSED.has(status) && cancelBlockedReason && (
@@ -167,7 +171,7 @@ export function OrderControls({ orderId, status, paymentStatus, governed = false
           }}
         >
           <label className="u-meta flex min-w-[16rem] flex-1 flex-col gap-1 text-ink-2">
-            Message shown to the customer (optional)
+            {t("messageLabel")}
             <input
               data-rung={1}
               value={text}
@@ -178,10 +182,10 @@ export function OrderControls({ orderId, status, paymentStatus, governed = false
             />
           </label>
           <Button type="submit" variant="secondary" size="sm" loading={pending} disabled={pending}>
-            Confirm: {panel.step.label}
+            {t("confirmStep", { step: t(`steps.${panel.step.to}.label`) })}
           </Button>
           <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setPanel(null)}>
-            Back
+            {t("back")}
           </Button>
         </FieldWell>
       )}
@@ -200,10 +204,10 @@ export function OrderControls({ orderId, status, paymentStatus, governed = false
           }}
         >
           <p className="u-meta w-full text-danger-ink">
-            Cancelling releases the order and tells the customer why. It cannot be undone here.
+            {t("cancelWarning")}
           </p>
           <label className="u-meta flex min-w-[16rem] flex-1 flex-col gap-1 text-ink-2">
-            Reason (shown to the customer)
+            {t("reasonLabel")}
             <input
               data-rung={1}
               autoFocus
@@ -216,10 +220,10 @@ export function OrderControls({ orderId, status, paymentStatus, governed = false
             />
           </label>
           <Button type="submit" variant="destructive" size="sm" loading={pending} disabled={pending}>
-            {!pending && <Ban className="h-3.5 w-3.5" aria-hidden="true" />} Confirm cancellation
+            {!pending && <Ban className="h-3.5 w-3.5" aria-hidden="true" />} {t("confirmCancellation")}
           </Button>
           <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setPanel(null)}>
-            Back
+            {t("back")}
           </Button>
         </Surface>
       )}
@@ -234,7 +238,7 @@ export function OrderControls({ orderId, status, paymentStatus, governed = false
           }}
         >
           <label className="u-meta flex min-w-[16rem] flex-1 flex-col gap-1 text-ink-2">
-            Internal note (staff only; the customer never sees it)
+            {t("noteLabel")}
             <textarea
               data-rung={1}
               autoFocus
@@ -248,10 +252,10 @@ export function OrderControls({ orderId, status, paymentStatus, governed = false
             />
           </label>
           <Button type="submit" variant="secondary" size="sm" loading={pending} disabled={pending}>
-            {!pending && <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />} Save note
+            {!pending && <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />} {t("saveNote")}
           </Button>
           <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setPanel(null)}>
-            Back
+            {t("back")}
           </Button>
         </FieldWell>
       )}

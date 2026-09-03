@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { AlertCircle, CheckCircle, Lock, Send } from "lucide-react";
 import { Button, Dateline, Field, Surface, Textarea } from "@avenick/ui";
 import { replyToThreadAction, type ReplyActionState } from "../actions";
@@ -17,6 +18,7 @@ interface ReplyFormProps {
 
 export function ReplyForm({ threadId, isOpen, hasRfq, maxLength }: ReplyFormProps) {
   const router = useRouter();
+  const t = useTranslations("sellerRelations");
   const [body, setBody] = React.useState("");
   const [state, setState] = React.useState<ReplyActionState>({});
   const [pending, startTransition] = React.useTransition();
@@ -29,7 +31,7 @@ export function ReplyForm({ threadId, isOpen, hasRfq, maxLength }: ReplyFormProp
     e.preventDefault();
     const clean = body.trim();
     if (!clean) {
-      setState({ error: "Write a reply before sending." });
+      setState({ error: t("reply.writeSomething") });
       return;
     }
     setState({});
@@ -50,7 +52,7 @@ export function ReplyForm({ threadId, isOpen, hasRfq, maxLength }: ReplyFormProp
         if (err && typeof err === "object" && "digest" in err && String((err as { digest?: string }).digest).includes("NEXT_REDIRECT")) {
           throw err;
         }
-        setState({ error: "Couldn't send the reply — please retry." });
+        setState({ error: t("reply.sendFailed") });
       }
     });
   }
@@ -60,17 +62,17 @@ export function ReplyForm({ threadId, isOpen, hasRfq, maxLength }: ReplyFormProp
       {!isOpen && (
         <Surface rung={1} className="flex items-start gap-2 px-3 py-2">
           <Lock className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
-          <p className="u-ui text-ink-2">This thread is closed. Replies are no longer accepted on it.</p>
+          <p className="u-ui text-ink-2">{t("reply.threadClosed")}</p>
         </Surface>
       )}
 
-      <Field label="Your reply" htmlFor={fieldId} hideLabel>
+      <Field label={t("reply.fieldLabel")} htmlFor={fieldId} hideLabel>
         <Textarea
           id={fieldId}
           name="body"
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder={isOpen ? "Write your reply to the buyer…" : "Thread closed"}
+          placeholder={isOpen ? t("reply.placeholder") : t("reply.placeholderClosed")}
           maxLength={maxLength}
           disabled={disabled}
           rows={4}
@@ -87,9 +89,7 @@ export function ReplyForm({ threadId, isOpen, hasRfq, maxLength }: ReplyFormProp
         <Surface role="status" rung={2} tone="success" className="flex items-start gap-2 px-3 py-2">
           <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success-ink" aria-hidden="true" />
           <p className="u-ui text-success-ink">
-            {state.buyerVisible
-              ? "Reply sent. The buyer will see it on their RFQ page."
-              : "Reply recorded. This thread has no RFQ, so the buyer cannot read it yet."}
+            {state.buyerVisible ? t("reply.sentVisible") : t("reply.recordedNotVisible")}
           </p>
         </Surface>
       )}
@@ -97,15 +97,15 @@ export function ReplyForm({ threadId, isOpen, hasRfq, maxLength }: ReplyFormProp
       <div className="flex flex-wrap items-center justify-between gap-3">
         {/* Who can actually read this reply is provenance, not fine print. */}
         <Dateline className="max-w-desc">
-          {hasRfq
-            ? "The buyer can read replies on their RFQ page."
-            : "The buyer can read replies on their RFQ page; general threads are not yet visible to buyers."}
+          {hasRfq ? t("reply.provenanceRfq") : t("reply.provenanceNoRfq")}
         </Dateline>
         <div className="flex items-center gap-3">
-          <span className={`u-meta fig ${remaining < 0 ? "text-danger-ink" : "text-ink-3"}`}>{remaining} left</span>
+          <span className={`u-meta fig ${remaining < 0 ? "text-danger-ink" : "text-ink-3"}`}>
+            {t("reply.charactersLeft", { n: String(remaining) })}
+          </span>
           <Button type="submit" size="sm" loading={pending} disabled={disabled || !body.trim()}>
             {!pending && <Send className="h-3.5 w-3.5" aria-hidden="true" />}
-            {pending ? "Sending…" : "Send reply"}
+            {pending ? t("reply.sending") : t("reply.send")}
           </Button>
         </div>
       </div>

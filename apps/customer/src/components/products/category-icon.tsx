@@ -39,7 +39,34 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
   Zap,
 };
 
-export function categoryIcon(iconName: string | null | undefined): LucideIcon {
-  if (!iconName) return Package;
-  return CATEGORY_ICONS[iconName] ?? Package;
+/**
+ * Ordered, so the fallback below is stable: index N always maps to the same
+ * icon for the same slug, on the server and the client and across deploys.
+ */
+const FALLBACK_ICONS: LucideIcon[] = [
+  Zap, Cpu, Wrench, Boxes, Factory, ShieldCheck, Truck, Briefcase, Building2, HardHat,
+];
+
+/**
+ * Pick a stable icon for a category that carries no iconName.
+ *
+ * Every category in the live catalogue has a null iconName, so the fallback was
+ * the ONLY branch taken — and it returned the same neutral box for all of them.
+ * Seven identical tiles in a row is what makes a populated catalogue read as an
+ * unfinished one. Deriving the icon from the slug gives the row variety without
+ * claiming anything: the icon is decoration, which is exactly why varying it is
+ * safe where varying a label would not be.
+ */
+function fallbackIcon(slug: string | null | undefined): LucideIcon {
+  if (!slug) return Package;
+  let hash = 0;
+  for (let index = 0; index < slug.length; index += 1) {
+    hash = (hash * 31 + slug.charCodeAt(index)) | 0;
+  }
+  return FALLBACK_ICONS[Math.abs(hash) % FALLBACK_ICONS.length] ?? Package;
+}
+
+export function categoryIcon(iconName: string | null | undefined, slug?: string | null): LucideIcon {
+  if (iconName && CATEGORY_ICONS[iconName]) return CATEGORY_ICONS[iconName]!;
+  return fallbackIcon(slug ?? iconName ?? null);
 }

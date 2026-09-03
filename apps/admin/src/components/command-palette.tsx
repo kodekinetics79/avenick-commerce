@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import { Search, CornerDownLeft } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@avenick/utils";
 import { EmptyState, Eyebrow, FieldWell, StatusPill, Surface } from "@avenick/ui";
 
@@ -36,12 +37,6 @@ interface Scored {
   item: PaletteItem;
   score: number;
 }
-
-const AVAILABILITY_LABEL: Record<PaletteAvailability, string> = {
-  simulated: "Example data",
-  unavailable: "Not configured",
-  read_only: "Read only",
-};
 
 /**
  * Rank a navigation entry against the query. Substring hits on the label win,
@@ -97,6 +92,7 @@ const FOCUSABLE = 'input, button:not([disabled]), [href], [tabindex]:not([tabind
  * validates every href against.
  */
 export function CommandPalette({ groups, open, onOpenChange }: Props) {
+  const t = useTranslations("adminShell.palette");
   const router = useRouter();
   const [query, setQuery] = React.useState("");
   const [active, setActive] = React.useState(0);
@@ -215,7 +211,7 @@ export function CommandPalette({ groups, open, onOpenChange }: Props) {
         glass
         role="dialog"
         aria-modal="true"
-        aria-label="Jump to a page"
+        aria-label={t("dialogLabel")}
         onKeyDown={onKeyDown}
         // z-[51] matches what .u-layer-panel carries in the system stylesheet,
         // and it is load-bearing rather than cosmetic: .u-layer-scrim is
@@ -237,14 +233,14 @@ export function CommandPalette({ groups, open, onOpenChange }: Props) {
             role="combobox"
             // A combobox needs a real accessible name. A placeholder is not one:
             // it disappears the moment a character is typed.
-            aria-label="Jump to a page"
+            aria-label={t("dialogLabel")}
             aria-expanded="true"
             aria-controls={listId}
             aria-autocomplete="list"
             aria-activedescendant={results[active] ? `${listId}-${active}` : undefined}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Jump to a page…"
+            placeholder={t("placeholder")}
             // u-focus, not a bare outline-none: this is the one text field in
             // the palette and it is inside the Tab cycle, so without a ring a
             // keyboard user shift-tabbing back into it has no indication of
@@ -258,10 +254,13 @@ export function CommandPalette({ groups, open, onOpenChange }: Props) {
         {/* The result count is announced without being drawn: a combobox that
             silently empties is the most common screen-reader failure here. */}
         <p className="sr-only" role="status" aria-live="polite">
-          {results.length} {results.length === 1 ? "page matches" : "pages match"}
+          {/* The count is passed twice: as a number so ICU can select the plural
+              form — Arabic has six — and as a string so the digits stay Western
+              inside the Arabic sentence. */}
+          {t("resultCount", { count: results.length, value: String(results.length) })}
         </p>
 
-        <ul ref={listRef} id={listId} role="listbox" aria-label="Pages" className="scrollbar-thin max-h-[50vh] overflow-y-auto py-1">
+        <ul ref={listRef} id={listId} role="listbox" aria-label={t("listLabel")} className="scrollbar-thin max-h-[50vh] overflow-y-auto py-1">
           {results.length === 0 && (
             // The system's own empty state rather than a local imitation of it,
             // so the palette's blank reads as the same designed object as an
@@ -270,9 +269,9 @@ export function CommandPalette({ groups, open, onOpenChange }: Props) {
             <li role="presentation">
               <EmptyState
                 className="px-6 py-10"
-                eyebrow="No match"
-                headline={`No page is named “${query.trim()}”.`}
-                body="This searches the console's own pages, not your data."
+                eyebrow={t("empty.eyebrow")}
+                headline={t("empty.headline", { query: query.trim() })}
+                body={t("empty.body")}
               />
             </li>
           )}
@@ -308,7 +307,7 @@ export function CommandPalette({ groups, open, onOpenChange }: Props) {
                   <span className="flex-1 truncate">{result.item.label}</span>
                   {availability && (
                     <StatusPill tone={availability === "unavailable" ? "danger" : availability === "simulated" ? "warning" : "neutral"}>
-                      {AVAILABILITY_LABEL[availability]}
+                      {t(`availability.${availability}`)}
                     </StatusPill>
                   )}
                   {query.trim() && <span className="u-meta shrink-0 truncate text-ink-3">{result.group}</span>}
@@ -324,7 +323,7 @@ export function CommandPalette({ groups, open, onOpenChange }: Props) {
             sentence — so the caveat arrives before the navigation, not after. */}
         <div className="flex items-center gap-3 border-t border-hairline px-4 py-2">
           <p className="u-meta min-w-0 flex-1 truncate text-ink-3">
-            {activeItem?.availabilityNote ?? "Navigates the console. It does not search your data."}
+            {activeItem?.availabilityNote ?? t("footerDefault")}
           </p>
           <span className="u-meta hidden shrink-0 items-center gap-1 text-ink-3 sm:flex" aria-hidden="true">
             <kbd className="rounded-nested border border-border px-1">↑</kbd>

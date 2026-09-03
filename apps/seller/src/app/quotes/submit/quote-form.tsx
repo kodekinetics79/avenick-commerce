@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { AlertCircle, Send } from "lucide-react";
 import {
   Button,
@@ -24,6 +25,7 @@ interface RFQItemView {
 }
 
 export function QuoteForm({ rfqId, items, currency }: { rfqId: string; items: RFQItemView[]; currency: string }) {
+  const t = useTranslations("sellerRelations");
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState("");
   const [state, setState] = useState<QuoteActionState>({});
@@ -51,7 +53,7 @@ export function QuoteForm({ rfqId, items, currency }: { rfqId: string; items: RF
       .map((item) => ({ itemId: item.id, unitQuoted: Number(prices[item.id]) }))
       .filter((q) => Number.isFinite(q.unitQuoted) && q.unitQuoted > 0);
     if (quoted.length !== items.length) {
-      setState({ error: "Enter a positive unit price for every line item." });
+      setState({ error: t("quoteForm.priceEveryLine") });
       return;
     }
 
@@ -66,7 +68,7 @@ export function QuoteForm({ rfqId, items, currency }: { rfqId: string; items: RF
       if (err && typeof err === "object" && "digest" in err && String((err as { digest?: string }).digest).includes("NEXT_REDIRECT")) {
         throw err;
       }
-      setState({ error: "Couldn't submit the quote — please retry." });
+      setState({ error: t("quoteForm.submitFailed") });
     } finally {
       setPending(false);
     }
@@ -80,7 +82,7 @@ export function QuoteForm({ rfqId, items, currency }: { rfqId: string; items: RF
         columns={[
           {
             key: "item",
-            label: "Item",
+            label: t("quoteForm.columns.item"),
             render: (item) => (
               <div className="min-w-0 py-1.5">
                 <p className="u-ui font-medium text-ink-1">{item.nameEn}</p>
@@ -88,10 +90,10 @@ export function QuoteForm({ rfqId, items, currency }: { rfqId: string; items: RF
               </div>
             ),
           },
-          { key: "quantity", label: "Qty", numeric: true, width: "80px" },
+          { key: "quantity", label: t("quoteForm.columns.quantity"), numeric: true, width: "80px" },
           {
             key: "unit",
-            label: `Unit price (${currency})`,
+            label: t("quoteForm.columns.unitPrice", { currency }),
             numeric: true,
             width: "170px",
             render: (item) => (
@@ -104,14 +106,14 @@ export function QuoteForm({ rfqId, items, currency }: { rfqId: string; items: RF
                 placeholder="0.00"
                 value={prices[item.id] ?? ""}
                 onChange={(e) => setPrices((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                aria-label={`Unit price for ${item.nameEn}`}
+                aria-label={t("quoteForm.unitPriceFor", { item: item.nameEn })}
                 className="text-end"
               />
             ),
           },
           {
             key: "line",
-            label: "Line total",
+            label: t("quoteForm.columns.lineTotal"),
             numeric: true,
             width: "140px",
             render: (item) => {
@@ -130,20 +132,20 @@ export function QuoteForm({ rfqId, items, currency }: { rfqId: string; items: RF
           // including this one, so a request that arrived with no lines reads as
           // a deliberate blank rather than as a table that failed to render.
           <EmptyState
-            eyebrow="Nothing to price"
-            headline="This request has no line items."
-            body="Nothing can be quoted until the buyer adds at least one line to it."
+            eyebrow={t("quoteForm.empty.eyebrow")}
+            headline={t("quoteForm.empty.headline")}
+            body={t("quoteForm.empty.body")}
           />
         }
       />
 
-      <Field label="Notes to the buyer (optional)" htmlFor="quote-notes">
+      <Field label={t("quoteForm.notesLabel")} htmlFor="quote-notes">
         <Textarea
           id="quote-notes"
           rows={3}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Lead time, delivery terms, validity period, payment terms…"
+          placeholder={t("quoteForm.notesPlaceholder")}
         />
       </Field>
 
@@ -164,7 +166,7 @@ export function QuoteForm({ rfqId, items, currency }: { rfqId: string; items: RF
           summary, raised button: the ladder does the separating. */}
       <Surface rung={2} className="flex flex-wrap items-end justify-between gap-4 p-4">
         <div className="min-w-0 flex-1">
-          <Eyebrow className="mb-1">Quote total</Eyebrow>
+          <Eyebrow className="mb-1">{t("quoteForm.quoteTotal")}</Eyebrow>
           <Num
             value={total > 0 ? total.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "—"}
             currency={total > 0 ? currency : undefined}
@@ -175,17 +177,17 @@ export function QuoteForm({ rfqId, items, currency }: { rfqId: string; items: RF
               value={pricedCount}
               max={items.length}
               tone={complete ? "success" : "neutral"}
-              label="Line items priced"
+              label={t("quoteForm.linesPricedMeter")}
             />
             <p className="u-meta mt-1 text-ink-3">
-              {pricedCount} of {items.length} line{items.length === 1 ? "" : "s"} priced
+              {t("quoteForm.linesPriced", { count: items.length, priced: String(pricedCount), n: String(items.length) })}
             </p>
           </div>
         </div>
 
         <Button type="submit" loading={pending}>
           {!pending && <Send className="h-4 w-4" aria-hidden="true" />}
-          {pending ? "Submitting…" : "Submit quote"}
+          {pending ? t("quoteForm.submitting") : t("quoteForm.submit")}
         </Button>
       </Surface>
     </form>

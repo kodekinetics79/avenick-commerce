@@ -570,7 +570,7 @@ function CategoryStrip({
  * listener of its own.
  */
 function CategoryTile({ category, locale }: { category: PublicCategory; locale: "en" | "ar" }) {
-  const Icon = categoryIcon(category.iconName);
+  const Icon = categoryIcon(category.iconName, category.slug);
   return (
     // `rim` is passed explicitly. Surface turns the fresnel shoulder on by
     // default at rungs 3-5 and off at the content rungs, and this tile is rung 2

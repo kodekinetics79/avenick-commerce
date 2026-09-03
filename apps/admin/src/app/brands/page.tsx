@@ -3,6 +3,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { db } from "@avenick/database";
 import Link from "next/link";
 import { Award, Search } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import {
   Button,
   CellGrid,
@@ -17,7 +18,10 @@ import {
   Surface,
 } from "@avenick/ui";
 
-export const metadata = { title: "Brands" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminReview");
+  return { title: t("meta.brands") };
+}
 export const dynamic = "force-dynamic";
 
 interface PageProps {
@@ -29,6 +33,7 @@ const SEARCH_ID = "brand-search";
 
 export default async function BrandsPage({ searchParams }: PageProps) {
   await requireAdminSession();
+  const t = await getTranslations("adminReview");
 
   const search = searchParams.search?.trim() || undefined;
   const brands = await db.brand.findMany({
@@ -49,16 +54,16 @@ export default async function BrandsPage({ searchParams }: PageProps) {
     <AdminLayout>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Catalogue"
-          title="Brands"
-          description={`${brands.length.toLocaleString()} brand${brands.length === 1 ? "" : "s"} · ${totalProducts.toLocaleString()} listings between them.`}
+          eyebrow={t("brands.eyebrow")}
+          title={t("brands.title")}
+          description={t("brands.description", {
+            count: brands.length,
+            brands: brands.length.toLocaleString("en-US"),
+            listings: totalProducts.toLocaleString("en-US"),
+          })}
           // The count is of live listings, not of every row ever written. Saying
           // which is the difference between a figure and a claim.
-          dateline={
-            search
-              ? `Brands whose English or Arabic name contains "${search}" · listing counts exclude deleted listings`
-              : "Every brand in the catalogue, A to Z · listing counts exclude deleted listings"
-          }
+          dateline={search ? t("brands.datelineSearch", { query: search }) : t("brands.dateline")}
         />
 
         {/* Recessed, because law A reads "recessed = context or input", and a
@@ -72,25 +77,25 @@ export default async function BrandsPage({ searchParams }: PageProps) {
                   message, so the line is given a true one rather than left as
                   dead space: it states exactly what the query matches on. */}
               <Field
-                label="Search brands"
+                label={t("brands.searchLabel")}
                 htmlFor={SEARCH_ID}
                 hideLabel
-                hint="Matches the English and Arabic name only."
+                hint={t("brands.searchHint")}
               >
                 <Input
                   id={SEARCH_ID}
                   type="search"
                   name="search"
                   defaultValue={search ?? ""}
-                  placeholder="Search brands by English or Arabic name"
+                  placeholder={t("brands.searchPlaceholder")}
                   startIcon={<Search className="h-4 w-4" aria-hidden="true" />}
                 />
               </Field>
             </div>
-            <Button type="submit" variant="secondary">Search</Button>
+            <Button type="submit" variant="secondary">{t("brands.search")}</Button>
             {search && (
               <Button variant="ghost" asChild>
-                <Link href="/brands">Clear</Link>
+                <Link href="/brands">{t("brands.clear")}</Link>
               </Button>
             )}
           </form>
@@ -99,18 +104,14 @@ export default async function BrandsPage({ searchParams }: PageProps) {
         {brands.length === 0 ? (
           <Surface rung={1}>
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline={search ? `No brand's name contains "${search}".` : "No brands are recorded in the catalogue."}
-              body={
-                search
-                  ? "Brands are matched on their English and Arabic names only."
-                  : "Brands are created as sellers list branded products; none has been created yet."
-              }
+              eyebrow={t("brands.empty.eyebrow")}
+              headline={search ? t("brands.empty.headlineSearch", { query: search }) : t("brands.empty.headline")}
+              body={search ? t("brands.empty.bodySearch") : t("brands.empty.body")}
               icon={<Award className="h-3.5 w-3.5" aria-hidden="true" />}
               action={
                 search ? (
                   <Button variant="secondary" size="sm" asChild>
-                    <Link href="/brands">Show every brand</Link>
+                    <Link href="/brands">{t("brands.empty.showAll")}</Link>
                   </Button>
                 ) : undefined
               }
@@ -125,11 +126,13 @@ export default async function BrandsPage({ searchParams }: PageProps) {
               <div key={b.id} className="min-w-0 space-y-1">
                 <div className="flex items-start justify-between gap-2">
                   <p className="u-ui truncate font-medium text-ink-1">{b.nameEn}</p>
-                  <StatusPill tone={b.isActive ? "success" : "neutral"}>{b.isActive ? "Active" : "Inactive"}</StatusPill>
+                  <StatusPill tone={b.isActive ? "success" : "neutral"}>
+                    {b.isActive ? t("brands.active") : t("brands.inactive")}
+                  </StatusPill>
                 </div>
                 {b.nameAr && <p className="u-meta truncate text-ink-2" dir="rtl">{b.nameAr}</p>}
                 <div className="pt-1">
-                  <Eyebrow>{b._count.products === 1 ? "Listing" : "Listings"}</Eyebrow>
+                  <Eyebrow>{t("brands.listings", { count: b._count.products })}</Eyebrow>
                   <Num value={b._count.products} />
                 </div>
                 {b.country && <p className="u-meta text-ink-3">{b.country}</p>}

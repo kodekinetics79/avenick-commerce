@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { platformName } from "@avenick/utils/portal-config";
 import {
   AlertCircle,
@@ -36,6 +37,9 @@ import {
 } from "@avenick/ui";
 import { useToast } from "@/components/toast";
 import { createProduct, updateProduct, type ProductFormState, type StatutoryVatRow } from "@/app/products/actions";
+// One status vocabulary for the whole catalog surface; it hands back a message
+// key rather than a word, because this module is shared with the list.
+import { statusMeta } from "@/components/products/status-meta";
 
 export type ProductFormOption = { value: string; label: string };
 
@@ -95,14 +99,13 @@ export interface ProductFormProps {
   stockIsSplit?: boolean;
 }
 
-const ORIGIN_OPTIONS: ProductFormOption[] = [
-  { value: "AE", label: "United Arab Emirates" },
-  { value: "SA", label: "Saudi Arabia" },
-  { value: "QA", label: "Qatar" },
-  { value: "KW", label: "Kuwait" },
-  { value: "OM", label: "Oman" },
-  { value: "BH", label: "Bahrain" },
-];
+/**
+ * The countries this form offers as an origin, as ISO codes. The code is what
+ * is stored and what the server validates; the country's NAME is a message
+ * (`form.origin.<code>`), resolved inside the component where a translator is
+ * in scope.
+ */
+const ORIGIN_CODES = ["AE", "SA", "QA", "KW", "OM", "BH"] as const;
 
 /**
  * The extensions and the ceiling the upload policy actually signs for a product
@@ -114,7 +117,8 @@ const ORIGIN_OPTIONS: ProductFormOption[] = [
 const IMAGE_POLICY = UPLOAD_POLICIES["product-image"];
 const IMAGE_ACCEPT = Object.keys(IMAGE_POLICY.mediaTypesByExtension).join(",");
 const IMAGE_MAX_BYTES = IMAGE_POLICY.maxBytes;
-const IMAGE_MAX_LABEL = `${Math.round(IMAGE_MAX_BYTES / (1024 * 1024))} MB`;
+/** The ceiling as a plain figure; the unit is part of the message, not of this. */
+const IMAGE_MAX_MB = String(Math.round(IMAGE_MAX_BYTES / (1024 * 1024)));
 const IMAGE_TYPE_LABEL = Object.keys(IMAGE_POLICY.mediaTypesByExtension)
   .map((extension) => extension.replace(".", "").toUpperCase())
   .filter((label, index, all) => all.indexOf(label) === index)
@@ -157,11 +161,11 @@ const CONTROL = [
  * refusal from the server can put the seller in front of the field it names.
  */
 const STEPS = [
-  { id: "details", label: "Details", errorKey: /^(sku|nameEn|nameAr|moq|categoryId|brandId|origin|tags)/ },
-  { id: "description", label: "Description", errorKey: /^description(En|Ar)/ },
-  { id: "commerce", label: "Channels & pricing", errorKey: /^(isB2CEnabled|isB2BEnabled|prices)/ },
-  { id: "stock", label: "Stock", errorKey: /^stockQty/ },
-  { id: "images", label: "Images", errorKey: /^images/ },
+  { id: "details", labelKey: "form.steps.details", errorKey: /^(sku|nameEn|nameAr|moq|categoryId|brandId|origin|tags)/ },
+  { id: "description", labelKey: "form.steps.description", errorKey: /^description(En|Ar)/ },
+  { id: "commerce", labelKey: "form.steps.commerce", errorKey: /^(isB2CEnabled|isB2BEnabled|prices)/ },
+  { id: "stock", labelKey: "form.steps.stock", errorKey: /^stockQty/ },
+  { id: "images", labelKey: "form.steps.images", errorKey: /^images/ },
 ] as const;
 
 type StepId = (typeof STEPS)[number]["id"];
@@ -204,7 +208,13 @@ export function ProductForm({
   stockIsSplit,
 }: ProductFormProps) {
   const router = useRouter();
+  const t = useTranslations("sellerCatalog");
   const { toast } = useToast();
+
+  const originOptions: ProductFormOption[] = ORIGIN_CODES.map((code) => ({
+    value: code,
+    label: t(`form.origin.${code}`),
+  }));
 
   const [values, setValues] = React.useState<ProductFormValues>(initial);
   const [state, setState] = React.useState<ProductFormState>({});
@@ -269,7 +279,7 @@ export function ProductForm({
     try {
       for (const file of Array.from(files).slice(0, IMAGE_MAX_COUNT - values.images.length)) {
         if (file.size > IMAGE_MAX_BYTES) {
-          setUploadNotice(`“${file.name}” is larger than ${IMAGE_MAX_LABEL} and was not uploaded.`);
+          setUploadNotice(t("form.images.tooLarge", { name: file.name, mb: IMAGE_MAX_MB }));
           continue;
         }
 
@@ -286,7 +296,7 @@ export function ProductForm({
             }),
           });
         } catch {
-          setUploadNotice("Couldn't reach the upload service. Save the listing now and add images later.");
+          setUploadNotice(t("form.images.unreachable"));
           return;
         }
 
@@ -295,9 +305,7 @@ export function ProductForm({
           | null;
 
         if (!grant.ok || body?.success === false || !body?.data) {
-          setUploadNotice(
-            body?.error ?? `Image upload is unavailable right now (HTTP ${grant.status}). You can save the listing without images.`,
-          );
+          setUploadNotice(body?.error ?? t("form.images.unavailable", { status: String(grant.status) }));
           return;
         }
 
@@ -305,13 +313,20 @@ export function ProductForm({
         if (typeof url !== "string" || typeof publicUrl !== "string") {
           // A grant this form cannot use is treated as no grant. Guessing a
           // readable URL would put a broken image into the catalog.
-          setUploadNotice("The upload service returned a response this form can't use. No image was attached.");
+          setUploadNotice(t("form.images.unusableGrant"));
           return;
         }
 
         const put = await fetch(url, { method: "PUT", body: file, headers: headers ?? undefined }).catch(() => null);
         if (!put || !put.ok) {
-          setUploadNotice(`Uploading "${file.name}" failed${put ? ` (HTTP ${put.status})` : ""}. No image was attached.`);
+          // The HTTP status is reported when there is one and silently absent
+          // when the request never reached a response at all — two different
+          // facts, so they get two messages rather than one with a hole in it.
+          setUploadNotice(
+            put
+              ? t("form.images.putFailedWithStatus", { name: file.name, status: String(put.status) })
+              : t("form.images.putFailed", { name: file.name }),
+          );
           return;
         }
 
@@ -352,24 +367,24 @@ export function ProductForm({
       });
       const body = await response.json().catch(() => null);
       if (!response.ok || body?.success === false) {
-        setAiNotice(body?.error ?? "Couldn't generate a draft.");
+        setAiNotice(body?.error ?? t("form.ai.couldNotGenerate"));
         return;
       }
       // `ai: false` means no model produced this text — the payload is a status
       // message, not copy. Offering it as a description would put a service
       // notice into the catalog, so it is shown as a notice and nothing more.
       if (body?.data?.ai === false) {
-        setAiNotice(body?.data?.text ?? "AI drafting is unavailable in this environment.");
+        setAiNotice(body?.data?.text ?? t("form.ai.unavailable"));
         return;
       }
       const text = String(body?.data?.text ?? "").trim();
       if (!text) {
-        setAiNotice("The AI service returned an empty draft.");
+        setAiNotice(t("form.ai.emptyDraft"));
         return;
       }
       setAiResult(text);
     } catch {
-      setAiNotice("Couldn't reach the AI service.");
+      setAiNotice(t("form.ai.unreachable"));
     } finally {
       setAiLoading(false);
     }
@@ -380,13 +395,13 @@ export function ProductForm({
     const localErrors: Record<string, string> = {};
 
     const moq = toInt(values.moq);
-    if (moq === null || moq < 1) localErrors["moq"] = "Enter a whole number of units, 1 or more.";
+    if (moq === null || moq < 1) localErrors["moq"] = t("form.errors.wholeUnitsMin1");
 
     const prices = values.prices.map((row, index) => {
       const minQty = toInt(row.minQty);
       const maxQty = row.maxQty.trim() === "" ? null : toInt(row.maxQty);
-      if (minQty === null || minQty < 1) localErrors[`prices.${index}.minQty`] = "Enter a whole number, 1 or more.";
-      if (row.maxQty.trim() !== "" && maxQty === null) localErrors[`prices.${index}.maxQty`] = "Enter a whole number, or leave it blank.";
+      if (minQty === null || minQty < 1) localErrors[`prices.${index}.minQty`] = t("form.errors.wholeNumberMin1");
+      if (row.maxQty.trim() !== "" && maxQty === null) localErrors[`prices.${index}.maxQty`] = t("form.errors.wholeNumberOrBlank");
       return { ...(row.id ? { id: row.id } : {}), type: row.type, currency: row.currency, price: row.price.trim(), minQty: minQty ?? 0, maxQty };
     });
 
@@ -399,7 +414,7 @@ export function ProductForm({
     const stockChanged = values.stockQty.trim() !== initial.stockQty.trim();
     if (canManageInventory && !stockIsSplit && stockChanged && values.stockQty.trim() !== "") {
       const parsed = toInt(values.stockQty);
-      if (parsed === null || parsed < 0) localErrors["stockQty"] = "Enter a whole number of units, 0 or more.";
+      if (parsed === null || parsed < 0) localErrors["stockQty"] = t("form.errors.wholeUnitsMin0");
       else stockQty = parsed;
       if (mode === "edit") {
         // What the page showed when it opened; the server refuses the save if
@@ -408,7 +423,7 @@ export function ProductForm({
           stockQtyAsLoaded = null;
         } else {
           const loaded = toInt(initial.stockQty);
-          if (loaded === null) localErrors["stockQty"] = "The stock figure this page loaded with is unreadable. Reload the page.";
+          if (loaded === null) localErrors["stockQty"] = t("form.errors.stockUnreadable");
           else stockQtyAsLoaded = loaded;
         }
       }
@@ -443,7 +458,7 @@ export function ProductForm({
   async function submit(intent: "SAVE" | "SAVE_DRAFT" | "SUBMIT_FOR_REVIEW") {
     const built = buildPayload();
     if ("localErrors" in built) {
-      setState({ error: "Please correct the highlighted fields.", fieldErrors: built.localErrors });
+      setState({ error: t("form.errors.correctHighlighted"), fieldErrors: built.localErrors });
       goToFirstError(built.localErrors);
       return;
     }
@@ -464,19 +479,19 @@ export function ProductForm({
       }
 
       toast({
-        title: mode === "create" ? "Product created" : "Product saved",
+        title: mode === "create" ? t("form.toast.created") : t("form.toast.saved"),
         description:
           intent === "SUBMIT_FOR_REVIEW"
-            ? `Sent to ${platformName()} for catalog review.`
+            ? t("form.toast.sentForReview", { platform: platformName() })
             : intent === "SAVE_DRAFT"
-              ? "Saved as a draft. It is not visible to buyers."
-              : "Saved. Its status is unchanged.",
+              ? t("form.toast.savedDraft")
+              : t("form.toast.statusUnchanged"),
         variant: "success",
       });
       router.push("/products");
       router.refresh();
     } catch (error) {
-      setState({ error: error instanceof Error ? error.message : "Couldn't save this product." });
+      setState({ error: error instanceof Error ? error.message : t("form.errors.couldNotSave") });
     } finally {
       setPending(null);
     }
@@ -486,6 +501,14 @@ export function ProductForm({
   // controls are hidden rather than shown as no-ops.
   const canChangeStatus = mode === "create" || ["DRAFT", "PENDING_REVIEW", "REJECTED"].includes(currentStatus ?? "");
   const busy = pending !== null;
+
+  // The state named inside the banner's sentence, which is not the same string
+  // as the pill's label: "This listing is in review" needs the in-sentence form.
+  // A status nobody has labelled yet still reads as itself rather than vanishing.
+  const currentStatusMeta = statusMeta(currentStatus ?? "");
+  const currentStatusWord = currentStatusMeta.labelKey
+    ? t(`form.state.${currentStatus}`)
+    : currentStatusMeta.fallbackLabel;
 
   // Server-side field errors that no input below renders (e.g. images.2.url or
   // tags.4). They are listed under the top-level error so "correct the
@@ -500,7 +523,7 @@ export function ProductForm({
         className="u-focus inline-flex items-center gap-1.5 rounded-nested text-ui text-ink-2 transition-colors duration-press ease-standard hover:text-ink-1"
       >
         {/* A direction-implying icon has to flip in Arabic. */}
-        <ArrowLeft className="h-4 w-4 rtl:rotate-180" aria-hidden="true" /> Back to products
+        <ArrowLeft className="h-4 w-4 rtl:rotate-180" aria-hidden="true" /> {t("form.backToProducts")}
       </Link>
 
       {/* Governance banner — states exactly what saving does and does not do.
@@ -510,29 +533,22 @@ export function ProductForm({
         <div className="space-y-1">
           {mode === "create" ? (
             <>
-              <p className="u-body font-medium text-ink-1">A new listing goes to review before buyers can see it.</p>
-              <p className="u-ui max-w-prose text-ink-2">
-                This form cannot set a listing to Active. Save it as a draft to keep working on it, or submit it for
-                review by a {platformName()} approver. Appearing on the public storefront is a further admin decision on top of
-                approval.
-              </p>
+              <p className="u-body font-medium text-ink-1">{t("form.banner.create.headline")}</p>
+              <p className="u-ui max-w-prose text-ink-2">{t("form.banner.create.body", { platform: platformName() })}</p>
             </>
           ) : canChangeStatus ? (
             <>
-              <p className="u-body font-medium text-ink-1">This listing is {(currentStatus ?? "").replace(/_/g, " ").toLowerCase()}.</p>
+              <p className="u-body font-medium text-ink-1">{t("form.banner.is", { state: currentStatusWord })}</p>
               <p className="u-ui max-w-prose text-ink-2">
                 {currentStatus === "PENDING_REVIEW"
-                  ? "Saving changes keeps it in the review queue. Withdrawing it to draft takes it out of the queue until you submit it again."
-                  : `Saving as a draft keeps it out of the storefront. Submitting for review sends it to a ${platformName()} approver; this form cannot set it to Active.`}
+                  ? t("form.banner.inReviewBody")
+                  : t("form.banner.draftableBody", { platform: platformName() })}
               </p>
             </>
           ) : (
             <>
-              <p className="u-body font-medium text-ink-1">This listing is {(currentStatus ?? "").replace(/_/g, " ").toLowerCase()} — changes take effect immediately.</p>
-              <p className="u-ui max-w-prose text-ink-2">
-                Saving here edits the listing in place and does not change its status. Use the bulk actions on the
-                products list to activate, deactivate or suppress it.
-              </p>
+              <p className="u-body font-medium text-ink-1">{t("form.banner.isImmediate", { state: currentStatusWord })}</p>
+              <p className="u-ui max-w-prose text-ink-2">{t("form.banner.immediateBody")}</p>
             </>
           )}
         </div>
@@ -561,7 +577,7 @@ export function ProductForm({
 
       {/* The rail. Every step stays reachable — this is a sequence the seller
           can read ahead in, never a wizard that locks the way back. */}
-      <nav aria-label="Product form steps">
+      <nav aria-label={t("form.steps.railLabel")}>
         <ol className="flex flex-wrap items-center gap-1.5">
           {STEPS.map((entry, index) => {
             const active = entry.id === step;
@@ -584,11 +600,11 @@ export function ProductForm({
                   ].join(" ")}
                 >
                   <span className="fig text-meta text-ink-3">{index + 1}</span>
-                  {entry.label}
+                  {t(entry.labelKey)}
                   {hasError && (
                     <>
                       <span aria-hidden="true" className="h-1.5 w-1.5 rounded-pill bg-danger" />
-                      <span className="sr-only">has a field to correct</span>
+                      <span className="sr-only">{t("form.steps.hasError")}</span>
                     </>
                   )}
                 </button>
@@ -600,28 +616,28 @@ export function ProductForm({
 
       {/* ── Basics ───────────────────────────────────────────────────────── */}
       <Surface hidden={step !== "details"} className="space-y-4 p-5">
-        <h2 className="u-h3 text-ink-1">Product details</h2>
+        <h2 className="u-h3 text-ink-1">{t("form.details.title")}</h2>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Input
-              label="Product name (English)"
+              label={t("form.details.nameEn")}
               value={values.nameEn}
               onChange={(event) => set("nameEn", event.target.value)}
-              placeholder="e.g. Hardened steel bearing assortment"
+              placeholder={t("form.details.nameEnPlaceholder")}
               error={fieldError("nameEn")}
               required
             />
           </div>
           <div>
             <Input
-              label="Product name (Arabic) — optional"
+              label={t("form.details.nameAr")}
               dir="rtl"
               value={values.nameAr}
               onChange={(event) => set("nameAr", event.target.value)}
-              placeholder="اتركه فارغًا إذا لم تتوفر ترجمة"
+              placeholder={t("form.details.arabicPlaceholder")}
               error={fieldError("nameAr")}
-              hint="Leave blank if you don't have a translation yet. We never copy the English name here — an untranslated listing is reported as an issue so it can be fixed properly."
+              hint={t("form.details.nameArHint")}
             />
           </div>
         </div>
@@ -629,18 +645,18 @@ export function ProductForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <Input
-              label="SKU"
+              label={t("form.details.sku")}
               value={values.sku}
               onChange={(event) => set("sku", event.target.value)}
-              placeholder="e.g. BRG-6204-2RS"
+              placeholder={t("form.details.skuPlaceholder")}
               error={fieldError("sku")}
-              hint="Unique across the marketplace. Letters, digits and . _ / -"
+              hint={t("form.details.skuHint")}
               required
             />
           </div>
           <div>
             <Input
-              label="Minimum order quantity"
+              label={t("form.details.moq")}
               type="number"
               min={1}
               step={1}
@@ -662,34 +678,34 @@ export function ProductForm({
               placeholder or the chosen value. */}
           <div role="group" aria-labelledby={categoryLabelId}>
             <span className={LABEL} id={categoryLabelId}>
-              Category
+              {t("form.details.category")}
             </span>
             <Combobox
               options={categories}
               value={values.categoryId}
               onValueChange={(value) => set("categoryId", value)}
-              placeholder="Choose a category"
-              searchPlaceholder="Search categories…"
-              emptyText="No matching category"
+              placeholder={t("form.details.categoryPlaceholder")}
+              searchPlaceholder={t("form.details.categorySearch")}
+              emptyText={t("form.details.categoryEmpty")}
             />
             {fieldError("categoryId") && <p className={FIELD_ERROR}>{fieldError("categoryId")}</p>}
           </div>
           <div role="group" aria-labelledby={brandLabelId}>
             <span className={LABEL} id={brandLabelId}>
-              Brand — optional
+              {t("form.details.brand")}
             </span>
             <Combobox
               options={brands}
               value={values.brandId}
               onValueChange={(value) => set("brandId", value)}
-              placeholder="Choose a brand, or none"
-              searchPlaceholder="Search brands…"
-              emptyText="No matching brand"
+              placeholder={t("form.details.brandPlaceholder")}
+              searchPlaceholder={t("form.details.brandSearch")}
+              emptyText={t("form.details.brandEmpty")}
             />
             {fieldError("brandId") && <p className={FIELD_ERROR}>{fieldError("brandId")}</p>}
           </div>
           <div>
-            <label className={LABEL} htmlFor="product-origin">Country of origin — optional</label>
+            <label className={LABEL} htmlFor="product-origin">{t("form.details.origin")}</label>
             <select
               id="product-origin"
               value={values.origin}
@@ -697,8 +713,8 @@ export function ProductForm({
               data-rung={1}
               className={CONTROL}
             >
-              <option value="">Not stated</option>
-              {ORIGIN_OPTIONS.map((option) => (
+              <option value="">{t("form.details.originNotStated")}</option>
+              {originOptions.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
@@ -708,11 +724,11 @@ export function ProductForm({
 
         <div>
           <Input
-            label="Tags — optional"
+            label={t("form.details.tags")}
             value={values.tags}
             onChange={(event) => set("tags", event.target.value)}
-            placeholder="bearings, iso-9001, industrial"
-            hint="Comma separated, up to 20."
+            placeholder={t("form.details.tagsPlaceholder")}
+            hint={t("form.details.tagsHint")}
           />
         </div>
       </Surface>
@@ -720,33 +736,33 @@ export function ProductForm({
       {/* ── Description + AI ─────────────────────────────────────────────── */}
       <Surface hidden={step !== "description"} className="space-y-4 p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="u-h3 text-ink-1">Description</h2>
+          <h2 className="u-h3 text-ink-1">{t("form.description.title")}</h2>
           {/* Secondary, not a gradient fill: drafting copy is an assist, and the
               page's single primary action is the one that saves the listing. */}
           <Button variant="secondary" size="sm" onClick={openAi} aria-expanded={aiOpen} aria-controls="ai-draft-panel">
-            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> Draft with AI
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> {t("form.description.draftWithAi")}
           </Button>
         </div>
 
         {aiOpen && (
           <FieldWell padded id="ai-draft-panel" className="space-y-3">
             <label className="u-meta block font-medium text-ink-2" htmlFor="ai-context">
-              Product name &amp; key specs to write from
+              {t("form.description.aiContextLabel")}
             </label>
             <Textarea
               id="ai-context"
               rows={2}
               value={aiContext}
               onChange={(event) => setAiContext(event.target.value)}
-              placeholder="e.g. CNC bearing assortment, hardened steel, ISO 9001"
+              placeholder={t("form.description.aiContextPlaceholder")}
             />
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="secondary" size="sm" onClick={generateDescription} loading={aiLoading}>
                 {!aiLoading && <Sparkles className="h-4 w-4" aria-hidden="true" />}
-                {aiResult ? "Regenerate" : "Generate"}
+                {aiResult ? t("form.description.regenerate") : t("form.description.generate")}
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setAiOpen(false)}>
-                Close
+                {t("form.description.close")}
               </Button>
             </div>
 
@@ -768,19 +784,19 @@ export function ProductForm({
                     size="sm"
                     onClick={() => { set("descriptionEn", aiResult); setAiOpen(false); }}
                   >
-                    Replace the English description
+                    {t("form.description.replaceEnglish")}
                   </Button>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => { set("descriptionEn", `${values.descriptionEn}\n\n${aiResult}`.trim()); setAiOpen(false); }}
                   >
-                    Append to it
+                    {t("form.description.appendToIt")}
                   </Button>
                 </div>
                 {/* LAW E: where this text came from is a fact about the text, so
                     it is set in the provenance voice rather than as fine print. */}
-                <Dateline>Machine-drafted from the context above · check the specs before you save.</Dateline>
+                <Dateline>{t("form.description.provenance")}</Dateline>
               </Surface>
             )}
           </FieldWell>
@@ -788,25 +804,25 @@ export function ProductForm({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className={LABEL} htmlFor="description-en">English description</label>
+            <label className={LABEL} htmlFor="description-en">{t("form.description.english")}</label>
             <Textarea
               id="description-en"
               rows={6}
               value={values.descriptionEn}
               onChange={(event) => set("descriptionEn", event.target.value)}
-              placeholder="Specs, materials, certifications, typical use cases…"
+              placeholder={t("form.description.englishPlaceholder")}
             />
             {fieldError("descriptionEn") && <p className={FIELD_ERROR}>{fieldError("descriptionEn")}</p>}
           </div>
           <div>
-            <label className={LABEL} htmlFor="description-ar">Arabic description — optional</label>
+            <label className={LABEL} htmlFor="description-ar">{t("form.description.arabic")}</label>
             <Textarea
               id="description-ar"
               dir="rtl"
               rows={6}
               value={values.descriptionAr}
               onChange={(event) => set("descriptionAr", event.target.value)}
-              placeholder="اتركه فارغًا إذا لم تتوفر ترجمة"
+              placeholder={t("form.details.arabicPlaceholder")}
             />
             {fieldError("descriptionAr") && <p className={FIELD_ERROR}>{fieldError("descriptionAr")}</p>}
           </div>
@@ -815,11 +831,8 @@ export function ProductForm({
 
       {/* ── Channels ─────────────────────────────────────────────────────── */}
       <Surface hidden={step !== "commerce"} className="space-y-4 p-5">
-        <h2 className="u-h3 text-ink-1">Sales channels</h2>
-        <p className="u-ui max-w-prose text-ink-2">
-          Which side of the marketplace this product is offered on. A price can only be added for a channel that is
-          switched on here.
-        </p>
+        <h2 className="u-h3 text-ink-1">{t("form.channels.title")}</h2>
+        <p className="u-ui max-w-prose text-ink-2">{t("form.channels.body")}</p>
         <div className="flex flex-wrap gap-3">
           <label className="inline-flex cursor-pointer items-center gap-2 text-ui text-ink-1">
             <input
@@ -828,7 +841,7 @@ export function ProductForm({
               onChange={(event) => set("isB2CEnabled", event.target.checked)}
               className="u-focus h-4 w-4 rounded-sm border-border accent-primary"
             />
-            Sell to consumers (B2C)
+            {t("form.channels.b2c")}
           </label>
           <label className="inline-flex cursor-pointer items-center gap-2 text-ui text-ink-1">
             <input
@@ -837,7 +850,7 @@ export function ProductForm({
               onChange={(event) => set("isB2BEnabled", event.target.checked)}
               className="u-focus h-4 w-4 rounded-sm border-border accent-primary"
             />
-            Sell to businesses (B2B)
+            {t("form.channels.b2b")}
           </label>
         </div>
         {fieldError("isB2BEnabled") && <p className={FIELD_ERROR}>{fieldError("isB2BEnabled")}</p>}
@@ -845,50 +858,41 @@ export function ProductForm({
 
       {/* ── Pricing ──────────────────────────────────────────────────────── */}
       <Surface hidden={step !== "commerce"} className="space-y-4 p-5">
-        <h2 className="u-h3 text-ink-1">Pricing</h2>
+        <h2 className="u-h3 text-ink-1">{t("form.pricing.title")}</h2>
 
         {!canManagePricing ? (
           <p className="flex items-start gap-2 text-ui text-ink-2">
             <Ban className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            {/* The capability is a code identifier, so it stays in the mono
+                face and untranslated inside the translated sentence. */}
             <span>
-              Your account does not have the <span className="u-mono text-meta text-ink-1">pricing.manage</span> capability,
-              so prices are not editable here and this save will leave them exactly as they are.
+              {t.rich("form.pricing.noCapability", {
+                code: (chunks) => <span className="u-mono text-meta text-ink-1">{chunks}</span>,
+              })}
             </span>
           </p>
         ) : vatTable.length === 0 ? (
           <p className="flex items-start gap-2 text-ui text-danger-ink">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-            No currency has a resolvable statutory VAT rate in this environment, so a price cannot be written that
-            checkout would accept. Pricing is unavailable until that is configured.
+            {t("form.pricing.noVatTable")}
           </p>
         ) : (
           <>
             <FieldWell padded className="space-y-1.5">
-              <Eyebrow>VAT is set by statute, not by you</Eyebrow>
-              <p className="u-ui max-w-prose text-ink-2">
-                Checkout refuses an order whose price row disagrees with the statutory rate for the delivery destination,
-                so the rate below is taken from the statutory table for the currency and saved with the price.
-              </p>
-              <p className="u-ui max-w-prose text-ink-2">
-                Currencies with no home VAT jurisdiction are not offered here, because no rate could be stored for them
-                truthfully.
-              </p>
-              <p className="u-ui max-w-prose text-ink-2">
-                Several rows in the same channel and currency are quantity tiers. Their ranges must not overlap: give each
-                lower tier a max quantity below the next tier&apos;s min quantity. Only one row may cover a single unit.
-              </p>
+              <Eyebrow>{t("form.pricing.vatEyebrow")}</Eyebrow>
+              <p className="u-ui max-w-prose text-ink-2">{t("form.pricing.vatBody")}</p>
+              <p className="u-ui max-w-prose text-ink-2">{t("form.pricing.vatNoJurisdiction")}</p>
+              <p className="u-ui max-w-prose text-ink-2">{t("form.pricing.vatTiers")}</p>
               {/* The table itself is the source being cited, so it is set in the
                   provenance voice rather than buried in the paragraph above. */}
               <Dateline className="pt-1">
-                Statutory table, as resolved for this environment ·{" "}
+                {t("form.pricing.statutoryTable")}{" "}
                 {vatTable.map((row) => `${row.currency} → ${row.rate}% (${row.country})`).join(" · ")}
               </Dateline>
             </FieldWell>
 
             {values.prices.length === 0 && (
-              <p className="u-ui text-ink-2">
-                No price yet. A listing needs at least one price before it can be submitted for review.
-              </p>
+              <p className="u-ui text-ink-2">{t("form.pricing.noPriceYet")}</p>
             )}
 
             <div className="space-y-3">
@@ -899,7 +903,7 @@ export function ProductForm({
                   <FieldWell key={row.id ?? `new-${index}`} padded className="space-y-3">
                     <div className="grid gap-3 sm:grid-cols-5">
                       <div>
-                        <label className={LABEL} htmlFor={`price-type-${index}`}>Channel</label>
+                        <label className={LABEL} htmlFor={`price-type-${index}`}>{t("form.pricing.channel")}</label>
                         <select
                           id={`price-type-${index}`}
                           value={row.type}
@@ -919,7 +923,7 @@ export function ProductForm({
                         {fieldError(`prices.${index}.type`) && <p className={FIELD_ERROR}>{fieldError(`prices.${index}.type`)}</p>}
                       </div>
                       <div>
-                        <label className={LABEL} htmlFor={`price-currency-${index}`}>Currency</label>
+                        <label className={LABEL} htmlFor={`price-currency-${index}`}>{t("form.pricing.currency")}</label>
                         <select
                           id={`price-currency-${index}`}
                           value={row.currency}
@@ -941,7 +945,7 @@ export function ProductForm({
                       </div>
                       <div>
                         <Input
-                          label="Unit price"
+                          label={t("form.pricing.unitPrice")}
                           inputMode="decimal"
                           value={row.price}
                           onChange={(event) => {
@@ -957,7 +961,7 @@ export function ProductForm({
                       </div>
                       <div>
                         <Input
-                          label="Min qty"
+                          label={t("form.pricing.minQty")}
                           type="number"
                           min={1}
                           step={1}
@@ -974,7 +978,7 @@ export function ProductForm({
                       </div>
                       <div>
                         <Input
-                          label="Max qty — optional"
+                          label={t("form.pricing.maxQty")}
                           type="number"
                           min={1}
                           step={1}
@@ -994,8 +998,11 @@ export function ProductForm({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <Dateline>
                         {statutory
-                          ? `VAT ${statutory.rate}% — the statutory rate in ${statutory.country}, saved with this price`
-                          : "VAT unavailable — no statutory rate resolves for this currency"}
+                          ? t("form.pricing.vatRow", {
+                              rate: String(statutory.rate),
+                              country: statutory.country,
+                            })
+                          : t("form.pricing.vatRowUnavailable")}
                       </Dateline>
                       <Button
                         variant="ghost"
@@ -1005,8 +1012,11 @@ export function ProductForm({
                           setValues((previous) => ({ ...previous, prices: previous.prices.filter((_, i) => i !== index) }))
                         }
                       >
-                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Remove
-                        <span className="sr-only"> the {row.type} price tier in {row.currency}</span>
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> {t("form.pricing.remove")}
+                        <span className="sr-only">
+                          {" "}
+                          {t("form.pricing.removeRow", { channel: row.type, currency: row.currency })}
+                        </span>
                       </Button>
                     </div>
 
@@ -1014,8 +1024,11 @@ export function ProductForm({
                       <p className="flex items-start gap-1.5 text-meta text-warning-ink">
                         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                         <span>
-                          This price is stored at {row.storedVatRate}% VAT but the statutory rate in {statutory.country} is{" "}
-                          {statutory.rate}%. Orders cannot be placed while those disagree — saving corrects it to {statutory.rate}%.
+                          {t("form.pricing.vatMismatch", {
+                            stored: String(row.storedVatRate),
+                            country: statutory.country,
+                            rate: String(statutory.rate),
+                          })}
                         </span>
                       </p>
                     )}
@@ -1032,7 +1045,7 @@ export function ProductForm({
                     size="sm"
                     onClick={() => setValues((previous) => ({ ...previous, prices: [...previous.prices, emptyPriceRow("B2C", defaultCurrency)] }))}
                   >
-                    <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Add B2C price
+                    <Plus className="h-3.5 w-3.5" aria-hidden="true" /> {t("form.pricing.addB2C")}
                   </Button>
                 )}
                 {values.isB2BEnabled && (
@@ -1041,7 +1054,7 @@ export function ProductForm({
                     size="sm"
                     onClick={() => setValues((previous) => ({ ...previous, prices: [...previous.prices, emptyPriceRow("B2B", defaultCurrency)] }))}
                   >
-                    <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Add B2B price
+                    <Plus className="h-3.5 w-3.5" aria-hidden="true" /> {t("form.pricing.addB2B")}
                   </Button>
                 )}
               </div>
@@ -1053,29 +1066,35 @@ export function ProductForm({
 
       {/* ── Stock ────────────────────────────────────────────────────────── */}
       <Surface hidden={step !== "stock"} className="space-y-4 p-5">
-        <h2 className="u-h3 text-ink-1">Stock</h2>
+        <h2 className="u-h3 text-ink-1">{t("form.stock.title")}</h2>
         {!canManageInventory ? (
           <p className="flex items-start gap-2 text-ui text-ink-2">
             <Ban className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span>
-              Your account does not have the <span className="u-mono text-meta text-ink-1">inventory.manage</span>
-              {" "}capability, so stock is not editable here and this save will leave it exactly as it is.
+              {t.rich("form.stock.noCapability", {
+                code: (chunks) => <span className="u-mono text-meta text-ink-1">{chunks}</span>,
+              })}
             </span>
           </p>
         ) : stockIsSplit ? (
           <p className="flex items-start gap-2 text-ui text-ink-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            {/* The link travels inside the sentence, because in Arabic it does
+                not sit where it does in English. */}
             <span>
-              Stock for this product is held in more than one location, so it cannot be set from a single field here. The
-              seller portal has no per-location stock adjustment yet; the{" "}
-              <Link href="/inventory" className="u-focus rounded-nested text-primary-ink hover:underline">Inventory</Link>{" "}
-              page shows the current figures but cannot change them.
+              {t.rich("form.stock.split", {
+                link: (chunks) => (
+                  <Link href="/inventory" className="u-focus rounded-nested text-primary-ink hover:underline">
+                    {chunks}
+                  </Link>
+                ),
+              })}
             </span>
           </p>
         ) : (
           <div className="max-w-xs">
             <Input
-              label={mode === "create" ? "Opening stock on hand" : "Stock on hand"}
+              label={mode === "create" ? t("form.stock.openingLabel") : t("form.stock.label")}
               type="number"
               min={0}
               step={1}
@@ -1084,10 +1103,10 @@ export function ProductForm({
               error={fieldError("stockQty")}
               hint={
                 typeof reservedQty === "number" && reservedQty > 0
-                  ? `${reservedQty} unit(s) are reserved by open orders — on-hand stock cannot be set below that.`
+                  ? t("form.stock.reservedHint", { count: reservedQty, n: String(reservedQty) })
                   : mode === "create"
-                    ? "Leave blank to record no opening stock."
-                    : "Only a changed figure is saved; leaving it as loaded leaves stock untouched."
+                    ? t("form.stock.openingHint")
+                    : t("form.stock.hint")
               }
             />
           </div>
@@ -1096,7 +1115,7 @@ export function ProductForm({
 
       {/* ── Images ───────────────────────────────────────────────────────── */}
       <Surface hidden={step !== "images"} className="space-y-4 p-5">
-        <h2 className="u-h3 text-ink-1">Images</h2>
+        <h2 className="u-h3 text-ink-1">{t("form.images.title")}</h2>
 
         {values.images.length > 0 && (
           <ul className="flex flex-wrap gap-3">
@@ -1123,14 +1142,14 @@ export function ProductForm({
                   // An opaque plate, never text straight onto a photograph: the
                   // contrast of a label on an unknown image is not testable.
                   <span className="u-micro absolute start-1 top-1 rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-ink-1">
-                    Primary
+                    {t("form.images.primary")}
                   </span>
                 )}
                 <button
                   type="button"
                   onClick={() => setValues((previous) => ({ ...previous, images: previous.images.filter((_, i) => i !== index) }))}
                   className="u-focus absolute -end-2 -top-2 grid h-6 w-6 place-items-center rounded-pill bg-danger text-danger-foreground shadow-elev-2"
-                  aria-label={`Remove image ${index + 1}`}
+                  aria-label={t("form.images.removeImage", { position: String(index + 1) })}
                 >
                   <Trash2 className="h-3 w-3" aria-hidden="true" />
                 </button>
@@ -1180,27 +1199,39 @@ export function ProductForm({
               )}
               <span className="u-body font-medium text-ink-1">
                 {uploading
-                  ? "Uploading…"
+                  ? t("form.images.uploading")
                   : values.images.length >= IMAGE_MAX_COUNT
-                    ? `This listing already has ${IMAGE_MAX_COUNT} images`
+                    ? t("form.images.atCeiling", { max: String(IMAGE_MAX_COUNT) })
                     : imageDragging
-                      ? "Drop the images to upload them"
-                      : "Drop images here, or choose files"}
+                      ? t("form.images.dropToUpload")
+                      : t("form.images.dropzoneIdle")}
               </span>
               <span className="u-meta text-ink-3">
-                {IMAGE_TYPE_LABEL}, up to {IMAGE_MAX_LABEL} each · {IMAGE_MAX_COUNT} images maximum
+                {/* The file extensions are format identifiers, so they are passed
+                    through the sentence rather than translated. */}
+                {t("form.images.policy", {
+                  types: IMAGE_TYPE_LABEL,
+                  mb: IMAGE_MAX_MB,
+                  max: String(IMAGE_MAX_COUNT),
+                })}
               </span>
             </button>
-            <Dateline>The first image is the one buyers see as the primary one.</Dateline>
+            <Dateline>{t("form.images.primaryNote")}</Dateline>
           </div>
         ) : (
           <p className="flex items-start gap-2 text-ui text-ink-2">
             <ImageOff className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            {/* A disclosure about what this environment cannot do, so it keeps
+                its whole shape — including where the seller goes to see the
+                issue it will raise. */}
             <span>
-              Image upload is unavailable in this environment — file storage is not configured, so no upload could be
-              stored. You can save this listing now; until an image is added it will carry a “missing images” issue on the{" "}
-              <Link href="/issues" className="u-focus rounded-nested text-primary-ink hover:underline">Fix Your Products</Link>{" "}
-              page.
+              {t.rich("form.images.uploadsDisabled", {
+                link: (chunks) => (
+                  <Link href="/issues" className="u-focus rounded-nested text-primary-ink hover:underline">
+                    {chunks}
+                  </Link>
+                ),
+              })}
             </span>
           </p>
         )}
@@ -1221,9 +1252,13 @@ export function ProductForm({
       <Surface rung={4} className="sticky bottom-4 z-sticky flex flex-wrap items-center gap-2 p-3">
         <div className="min-w-0">
           <Eyebrow>
-            Step <span className="fig">{stepIndex + 1}</span> of <span className="fig">{STEPS.length}</span>
+            {t.rich("form.bar.step", {
+              current: String(stepIndex + 1),
+              total: String(STEPS.length),
+              fig: (chunks) => <span className="fig">{chunks}</span>,
+            })}
           </Eyebrow>
-          <p className="u-ui text-ink-1">{STEPS[stepIndex]?.label}</p>
+          <p className="u-ui text-ink-1">{STEPS[stepIndex] ? t(STEPS[stepIndex].labelKey) : ""}</p>
         </div>
 
         <div className="flex items-center gap-1">
@@ -1234,7 +1269,7 @@ export function ProductForm({
             onClick={() => setStep(STEPS[Math.max(0, stepIndex - 1)].id)}
           >
             {/* Direction-implying icons flip in Arabic. */}
-            <ChevronLeft className="h-4 w-4 rtl:rotate-180" aria-hidden="true" /> Back
+            <ChevronLeft className="h-4 w-4 rtl:rotate-180" aria-hidden="true" /> {t("form.bar.back")}
           </Button>
           <Button
             variant="ghost"
@@ -1242,7 +1277,7 @@ export function ProductForm({
             disabled={stepIndex === STEPS.length - 1}
             onClick={() => setStep(STEPS[Math.min(STEPS.length - 1, stepIndex + 1)].id)}
           >
-            Next <ChevronRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+            {t("form.bar.next")} <ChevronRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
           </Button>
         </div>
 
@@ -1261,7 +1296,7 @@ export function ProductForm({
                     onClick={() => submit("SAVE_DRAFT")}
                   >
                     {pending !== "SAVE_DRAFT" && <Save className="h-4 w-4" aria-hidden="true" />}
-                    Withdraw to draft
+                    {t("form.bar.withdrawToDraft")}
                   </Button>
                   <Button
                     variant="primary"
@@ -1271,7 +1306,7 @@ export function ProductForm({
                     onClick={() => submit("SAVE")}
                   >
                     {pending !== "SAVE" && <Save className="h-4 w-4" aria-hidden="true" />}
-                    Save changes (stays in review)
+                    {t("form.bar.saveStaysInReview")}
                   </Button>
                 </>
               ) : (
@@ -1284,7 +1319,7 @@ export function ProductForm({
                     onClick={() => submit("SAVE_DRAFT")}
                   >
                     {pending !== "SAVE_DRAFT" && <Save className="h-4 w-4" aria-hidden="true" />}
-                    Save as draft
+                    {t("form.bar.saveAsDraft")}
                   </Button>
                   <Button
                     variant="primary"
@@ -1294,7 +1329,7 @@ export function ProductForm({
                     onClick={() => submit("SUBMIT_FOR_REVIEW")}
                   >
                     {pending !== "SUBMIT_FOR_REVIEW" && <Send className="h-4 w-4" aria-hidden="true" />}
-                    {currentStatus === "REJECTED" ? "Resubmit for review" : "Submit for review"}
+                    {currentStatus === "REJECTED" ? t("form.bar.resubmitForReview") : t("form.bar.submitForReview")}
                   </Button>
                 </>
               )}
@@ -1308,11 +1343,11 @@ export function ProductForm({
               onClick={() => submit("SAVE")}
             >
               {pending !== "SAVE" && <Save className="h-4 w-4" aria-hidden="true" />}
-              Save changes
+              {t("form.bar.saveChanges")}
             </Button>
           )}
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/products">Cancel</Link>
+            <Link href="/products">{t("form.bar.cancel")}</Link>
           </Button>
         </div>
       </Surface>

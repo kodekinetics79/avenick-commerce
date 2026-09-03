@@ -4,6 +4,7 @@ import { db, OrderStatus, OrderType } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { ShoppingCart, Package, Truck, CheckCircle, Clock, RotateCcw, ExternalLink } from "lucide-react";
 import {
   PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Num, Dateline, Button,
@@ -13,7 +14,10 @@ import { CountStat, MoneyStat } from "@/app/finance/money-figures";
 import { FilterTabs } from "@/components/console/chrome";
 import { OrderControls } from "./order-controls";
 
-export const metadata = { title: "Orders" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminCommerce.orders");
+  return { title: t("meta.title") };
+}
 
 /**
  * Status tone, not status colour. This map used to carry eight literal hues —
@@ -22,30 +26,34 @@ export const metadata = { title: "Orders" };
  * this column needs exactly one question answered: is this row fine, waiting on
  * someone, broken, or done. So: neutral in flight, warning waiting, danger
  * broken, success finished, accent for money that has landed.
+ *
+ * The label that goes with each tone is a translated string, keyed by the enum
+ * value under `adminCommerce.orders.status`; only the tone lives here.
  */
-const STATUS_CONFIG: Record<OrderStatus, { label: string; tone: PillTone }> = {
-  PENDING_PAYMENT:   { label: "Pending Payment",   tone: "warning" },
-  PAYMENT_CONFIRMED: { label: "Payment Confirmed", tone: "accent" },
-  CONFIRMED:         { label: "Confirmed",         tone: "accent" },
-  PROCESSING:        { label: "Processing",        tone: "neutral" },
-  SHIPPED:           { label: "Shipped",           tone: "neutral" },
-  OUT_FOR_DELIVERY:  { label: "Out for Delivery",  tone: "neutral" },
-  DELIVERED:         { label: "Delivered",         tone: "success" },
-  CANCELLED:         { label: "Cancelled",         tone: "danger" },
-  REFUNDED:          { label: "Refunded",          tone: "warning" },
-  RETURN_REQUESTED:  { label: "Return Requested",  tone: "warning" },
-  RETURNED:          { label: "Returned",          tone: "neutral" },
+const STATUS_TONE: Record<OrderStatus, PillTone> = {
+  PENDING_PAYMENT:   "warning",
+  PAYMENT_CONFIRMED: "accent",
+  CONFIRMED:         "accent",
+  PROCESSING:        "neutral",
+  SHIPPED:           "neutral",
+  OUT_FOR_DELIVERY:  "neutral",
+  DELIVERED:         "success",
+  CANCELLED:         "danger",
+  REFUNDED:          "warning",
+  RETURN_REQUESTED:  "warning",
+  RETURNED:          "neutral",
 };
 
-const FILTER_TABS: Array<{ value: OrderStatus | ""; label: string; icon: typeof ShoppingCart }> = [
-  { value: "",                 label: "All",              icon: ShoppingCart },
-  { value: "PENDING_PAYMENT",  label: "Pending Payment",  icon: Clock },
-  { value: "CONFIRMED",        label: "Confirmed",        icon: CheckCircle },
-  { value: "PROCESSING",       label: "Processing",       icon: Package },
-  { value: "SHIPPED",          label: "Shipped",          icon: Truck },
-  { value: "DELIVERED",        label: "Delivered",        icon: CheckCircle },
-  { value: "CANCELLED",        label: "Cancelled",        icon: Clock },
-  { value: "RETURN_REQUESTED", label: "Return Requested", icon: RotateCcw },
+/** Tab order and icon; the label comes from `orders.status` (or `orders.filters.all`). */
+const FILTER_TABS: Array<{ value: OrderStatus | ""; icon: typeof ShoppingCart }> = [
+  { value: "",                 icon: ShoppingCart },
+  { value: "PENDING_PAYMENT",  icon: Clock },
+  { value: "CONFIRMED",        icon: CheckCircle },
+  { value: "PROCESSING",       icon: Package },
+  { value: "SHIPPED",          icon: Truck },
+  { value: "DELIVERED",        icon: CheckCircle },
+  { value: "CANCELLED",        icon: Clock },
+  { value: "RETURN_REQUESTED", icon: RotateCcw },
 ];
 
 function isOrderStatus(value: unknown): value is OrderStatus {
@@ -59,6 +67,7 @@ const PAGE_SIZE = 100;
 
 export default async function AdminOrdersPage({ searchParams }: { searchParams: { status?: string; type?: string } }) {
   await requireAdminSession();
+  const t = await getTranslations("adminCommerce.orders");
 
   // Unknown filter values are stale links, not queries to run.
   const statusFilter = isOrderStatus(searchParams.status) ? searchParams.status : undefined;
@@ -94,54 +103,58 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
     .map(([currency, amount]) => ({ currency, formatted: formatCurrency(amount, currency) }));
   const b2bCount = orders.filter((o) => o.type === "B2B").length;
   const activeTab = statusFilter ?? "";
-  const scope = `the ${orders.length} row${orders.length === 1 ? "" : "s"} shown`;
+  // The count is passed as a string as well as a number: the number selects the
+  // plural form, the string keeps the digits Western inside Arabic text.
+  const scope = t("scope", { count: orders.length, value: String(orders.length) });
 
   return (
     <AdminLayout>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Orders"
-          title="All orders"
-          description="Every order across the B2C and B2B channels."
-          dateline={`Newest first · latest ${PAGE_SIZE} of the current filter`}
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
+          dateline={t("dateline", { count: String(PAGE_SIZE) })}
         />
 
         {/* Stats — scoped to the current filter; the GMV and B2B figures cover the rows shown.
             One hairline-divided panel rather than four floating boxes: these four
             figures describe one thing, so they are one object. */}
         <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
-          <CountStat label="Matching orders" value={matching} rank="section" />
+          <CountStat label={t("stats.matching")} value={matching} rank="section" />
           <MoneyStat
-            label="GMV of rows shown"
+            label={t("stats.gmv")}
             lines={gmvLines}
-            dateline={`Order totals for ${scope}, each in its own currency · no conversion applied`}
+            dateline={t("stats.gmvDateline", { scope })}
           />
-          <CountStat label="B2B among rows shown" value={b2bCount} note={`of ${scope}`} />
+          <CountStat label={t("stats.b2b")} value={b2bCount} note={t("stats.b2bNote", { scope })} />
           <CountStat
-            label="Return requested"
+            label={t("stats.returnRequested")}
             value={returnRequested}
             tone={returnRequested > 0 ? "warning" : "default"}
-            note={returnRequested > 0 ? "awaiting a decision" : "none open"}
+            note={returnRequested > 0 ? t("stats.returnAwaiting") : t("stats.returnNone")}
           />
         </CellGrid>
 
         <div className="flex flex-col gap-2 lg:flex-row lg:items-start">
           <FilterTabs
-            label="Filter orders by status"
+            label={t("filters.statusLabel")}
             className="min-w-0 flex-1 overflow-x-auto scrollbar-thin"
-            tabs={FILTER_TABS.map(({ value, label, icon }) => ({
+            tabs={FILTER_TABS.map(({ value, icon }) => ({
               href: value
                 ? `/orders?status=${value}${typeFilter ? `&type=${typeFilter}` : ""}`
                 : `/orders${typeFilter ? `?type=${typeFilter}` : ""}`,
-              label,
+              label: value ? t(`status.${value}`) : t("filters.all"),
               icon,
               active: activeTab === value,
             }))}
           />
           <FilterTabs
-            label="Filter orders by channel"
+            label={t("filters.channelLabel")}
             className="shrink-0"
-            tabs={([["", "All Types"], ["B2C", "B2C"], ["B2B", "B2B"]] as const).map(([v, l]) => ({
+            // B2C and B2B are channel codes, not prose: they read the same in
+            // both locales and are deliberately left untranslated.
+            tabs={([["", t("filters.allTypes")], ["B2C", "B2C"], ["B2B", "B2B"]] as const).map(([v, l]) => ({
               href: v
                 ? `/orders?type=${v}${statusFilter ? `&status=${statusFilter}` : ""}`
                 : `/orders${statusFilter ? `?status=${statusFilter}` : ""}`,
@@ -155,16 +168,16 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
           rows={orders}
           getRowKey={(order) => order.id}
           stickyHead
-          dateline="Order totals as recorded, each in the currency it was billed in · no conversion applied"
+          dateline={t("table.dateline")}
           columns={[
             {
               key: "orderNumber",
-              label: "Order #",
+              label: t("columns.orderNumber"),
               render: (order) => <span className="u-mono text-meta text-ink-2">{order.orderNumber}</span>,
             },
             {
               key: "customer",
-              label: "Customer",
+              label: t("columns.customer"),
               render: (order) => (
                 <div className="min-w-0 py-1">
                   <p className="truncate font-medium text-ink-1">
@@ -177,16 +190,16 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
             },
             {
               key: "createdAt",
-              label: "Date",
+              label: t("columns.date"),
               hideOnMobile: true,
               render: (order) => (
                 <span className="whitespace-nowrap text-ink-2">{format(order.createdAt, "MMM d, yyyy")}</span>
               ),
             },
-            { key: "items", label: "Items", numeric: true, render: (order) => order._count.items },
+            { key: "items", label: t("columns.items"), numeric: true, render: (order) => order._count.items },
             {
               key: "total",
-              label: "Total",
+              label: t("columns.total"),
               numeric: true,
               render: (order) => (
                 <Num value={formatCurrency(Number(order.total), order.currency)} className="whitespace-nowrap" />
@@ -194,28 +207,27 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
             },
             {
               key: "type",
-              label: "Channel",
+              label: t("columns.channel"),
               render: (order) => (
                 <StatusPill tone={order.type === "B2B" ? "accent" : "neutral"}>{order.type}</StatusPill>
               ),
             },
             {
               key: "status",
-              label: "Status",
-              render: (order) => {
-                const sc = STATUS_CONFIG[order.status];
-                return <StatusPill tone={sc.tone}>{sc.label}</StatusPill>;
-              },
+              label: t("columns.status"),
+              render: (order) => (
+                <StatusPill tone={STATUS_TONE[order.status]}>{t(`status.${order.status}`)}</StatusPill>
+              ),
             },
             {
               key: "action",
-              label: "Action",
+              label: t("columns.action"),
               align: "end",
               render: (order) => (
                 <div className="flex items-center justify-end gap-2">
                   <Button variant="link" size="xs" asChild>
                     <Link href={`/orders/${order.id}`}>
-                      <ExternalLink className="h-3 w-3" aria-hidden="true" /> View
+                      <ExternalLink className="h-3 w-3" aria-hidden="true" /> {t("view")}
                     </Link>
                   </Button>
                   <OrderControls orderId={order.id} status={order.status} paymentStatus={order.paymentStatus} variant="row" />
@@ -225,21 +237,17 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
+              eyebrow={t("empty.eyebrow")}
               headline={
                 statusFilter
-                  ? `No orders are currently ${STATUS_CONFIG[statusFilter].label.toLowerCase()}.`
-                  : "No orders have been placed yet."
+                  ? t("empty.headlineFiltered", { status: t(`status.${statusFilter}`).toLowerCase() })
+                  : t("empty.headline")
               }
-              body={
-                statusFilter
-                  ? "Clear the status filter to see every order in the ledger."
-                  : "An order appears here the moment a buyer completes checkout."
-              }
+              body={statusFilter ? t("empty.bodyFiltered") : t("empty.body")}
               action={
                 statusFilter ? (
                   <Button variant="secondary" size="sm" asChild>
-                    <Link href="/orders">Show all orders</Link>
+                    <Link href="/orders">{t("empty.action")}</Link>
                   </Button>
                 ) : undefined
               }
@@ -250,11 +258,17 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
             orders.length > 0 ? (
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Dateline>
-                  {`GMV of ${scope}: ${gmvLines.length === 0 ? "—" : gmvLines.map((line) => line.formatted).join(" · ")}`}
+                  {t("footer.gmv", {
+                    scope,
+                    amounts: gmvLines.length === 0 ? "—" : gmvLines.map((line) => line.formatted).join(" · "),
+                  })}
                 </Dateline>
                 <span>
-                  Showing latest <span className="fig text-ink-2">{orders.length}</span> of{" "}
-                  <span className="fig text-ink-2">{matching}</span>
+                  {t.rich("footer.showing", {
+                    shown: String(orders.length),
+                    total: String(matching),
+                    n: (chunks) => <span className="fig text-ink-2">{chunks}</span>,
+                  })}
                 </span>
               </div>
             ) : undefined

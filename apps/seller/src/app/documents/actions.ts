@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 import { RATE_LIMITS, checkRateLimit } from "@avenick/auth/rate-limit";
 import { SELLER_DOCUMENT_TYPES, recordSellerDocument, type DocumentType } from "@avenick/database";
@@ -20,22 +21,27 @@ const DOCUMENT_POLICY = UPLOAD_POLICIES["seller-document"];
  * the browser is the one reporting them: the key must be one the presigner
  * would have issued to THIS seller, the media type must be the one signed for
  * that key's extension, and the size must be within the ceiling.
+ *
+ * Built per call rather than at module scope so every refusal it can state is
+ * written in the caller's language; the shape and the rules are unchanged.
  */
-const RecordDocumentSchema = z.object({
-  type: z.enum(SELLER_DOCUMENT_TYPES as [DocumentType, ...DocumentType[]]),
-  fileKey: z.string().min(1).max(512),
-  fileName: z.string().trim().min(1, "A file name is required").max(255),
-  fileSize: z.number().int().positive(),
-  mimeType: z.string().trim().min(1).max(128),
-  /** Calendar date (YYYY-MM-DD) chosen by the seller; absent when the type has no expiry. */
-  expiryDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/, "Expiry date must be a calendar date")
-    .nullable()
-    .optional(),
-});
+function recordDocumentSchema(t: (key: string, values?: Record<string, string | number>) => string) {
+  return z.object({
+    type: z.enum(SELLER_DOCUMENT_TYPES as [DocumentType, ...DocumentType[]]),
+    fileKey: z.string().min(1).max(512),
+    fileName: z.string().trim().min(1, t("documentErrors.fileNameRequired")).max(255),
+    fileSize: z.number().int().positive(),
+    mimeType: z.string().trim().min(1).max(128),
+    /** Calendar date (YYYY-MM-DD) chosen by the seller; absent when the type has no expiry. */
+    expiryDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, t("documentErrors.expiryNotCalendarDate"))
+      .nullable()
+      .optional(),
+  });
+}
 
-export type RecordSellerDocumentInput = z.input<typeof RecordDocumentSchema>;
+export type RecordSellerDocumentInput = z.input<ReturnType<typeof recordDocumentSchema>>;
 
 export type RecordSellerDocumentState =
   | { ok: true; documentId: string; supersededCount: number }
@@ -59,16 +65,17 @@ export async function recordSellerDocumentAction(raw: unknown): Promise<RecordSe
   const { seller, userId } = await requireSellerPermission("documents.manage", {
     allowedSellerStatuses: ONBOARDING_SELLER_STATUSES,
   });
+  const t = await getTranslations("sellerRelations");
 
   // With no storage configured the key cannot exist, so nothing may be recorded
   // against it — the same fail-closed answer the presign route gives.
   if (!browserDirectUploadsEnabled()) {
-    return { ok: false, error: "Document uploads are not enabled in this environment, so nothing was recorded." };
+    return { ok: false, error: t("documentErrors.uploadsDisabled") };
   }
 
-  const parsed = RecordDocumentSchema.safeParse(raw);
+  const parsed = recordDocumentSchema(t).safeParse(raw);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "The upload details were not valid." };
+    return { ok: false, error: parsed.error.issues[0]?.message ?? t("documentErrors.invalidDetails") };
   }
   const input = parsed.data;
 
@@ -76,7 +83,7 @@ export async function recordSellerDocumentAction(raw: unknown): Promise<RecordSe
   // this seller and this purpose. A key under another seller's prefix, a
   // product-image key, or a hand-built path is refused before any write.
   if (!isKeyInUploadNamespace(input.fileKey, { kind: "seller", sellerId: seller.id }, "seller-document")) {
-    return { ok: false, error: "Only files uploaded through the Document Center can be recorded." };
+    return { ok: false, error: t("documentErrors.foreignKey") };
   }
 
   // The stored media type must be the one storage enforced for that extension;
@@ -84,10 +91,10 @@ export async function recordSellerDocumentAction(raw: unknown): Promise<RecordSe
   const expectedType = DOCUMENT_POLICY.mediaTypesByExtension[keyExtension(input.fileKey)];
   const declaredType = input.mimeType.split(";")[0]!.trim().toLowerCase();
   if (!expectedType || declaredType !== expectedType) {
-    return { ok: false, error: "The file type does not match the uploaded object." };
+    return { ok: false, error: t("documentErrors.typeMismatch") };
   }
   if (input.fileSize > DOCUMENT_POLICY.maxBytes) {
-    return { ok: false, error: "The reported file size exceeds the upload ceiling." };
+    return { ok: false, error: t("documentErrors.tooLarge") };
   }
 
   let expiryDate: Date | null = null;
@@ -95,16 +102,16 @@ export async function recordSellerDocumentAction(raw: unknown): Promise<RecordSe
     // A calendar date with no time zone is taken as UTC midnight; the Document
     // Center compares it to "now" the same way for every seller.
     expiryDate = new Date(`${input.expiryDate}T00:00:00.000Z`);
-    if (Number.isNaN(expiryDate.getTime())) return { ok: false, error: "Expiry date is not a valid date." };
+    if (Number.isNaN(expiryDate.getTime())) return { ok: false, error: t("documentErrors.expiryInvalid") };
     if (expiryDate.getTime() <= Date.now()) {
-      return { ok: false, error: "The expiry date must be in the future — an already-expired document cannot be filed." };
+      return { ok: false, error: t("documentErrors.expiryNotFuture") };
     }
   }
 
   // Per-seller budget: every record is one admin review item.
   const rl = await checkRateLimit(RATE_LIMITS.sellerDocumentUpload, seller.id);
   if (!rl.ok) {
-    return { ok: false, error: "Too many document uploads in the last hour. Please try again later." };
+    return { ok: false, error: t("documentErrors.rateLimited") };
   }
 
   try {
@@ -130,6 +137,6 @@ export async function recordSellerDocumentAction(raw: unknown): Promise<RecordSe
       return { ok: false, error: error.message };
     }
     log.error("seller document record failed", error, { scope: "documents.actions", sellerId: seller.id });
-    return { ok: false, error: "The document could not be recorded. The file was uploaded, but no record was created — please try again." };
+    return { ok: false, error: t("documentErrors.notRecorded") };
   }
 }

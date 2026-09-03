@@ -14,6 +14,7 @@ import {
   Settings, Menu, PanelLeftClose, PanelLeftOpen, ChevronDown, LogOut, Search, BarChart3, Info
 } from "lucide-react";
 import { signOut } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { cn } from "@avenick/utils";
 import {
   Divider, Eyebrow, Layer, Meter, NavItem, Num, Surface, ThemeToggle, TierMark,
@@ -40,64 +41,81 @@ function mirrored(Icon: React.ComponentType<IconProps>) {
 const SendRtl = mirrored(Send);
 const LogOutRtl = mirrored(LogOut);
 
-export const NAV_GROUPS = [
+/**
+ * The navigation is declared at module scope, where no translator exists, so an
+ * entry carries the KEY of its label rather than the label itself:
+ * `labelKey` resolves under sellerShell.nav.groups / sellerShell.nav.items in
+ * SellerLayout, which is the first place a hook may be called. Nothing here is a
+ * user-visible string — hrefs, icons and permissions are code.
+ */
+interface NavItemDef {
+  href: string;
+  icon: React.ElementType;
+  /** Key under sellerShell.nav.items. */
+  labelKey: string;
+  badge?: "issues" | "messages";
+  permissions: string[];
+}
+
+export const NAV_GROUPS: { labelKey: string; items: NavItemDef[] }[] = [
   {
-    label: "Overview",
+    labelKey: "overview",
     items: [
-      { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", permissions: ["dashboard.view"] },
-      { href: "/analytics", icon: BarChart3, label: "Analytics", permissions: ["analytics.view"] },
-      { href: "/performance", icon: TrendingUp, label: "Performance", permissions: ["analytics.view"] },
+      { href: "/dashboard", icon: LayoutDashboard, labelKey: "dashboard", permissions: ["dashboard.view"] },
+      { href: "/analytics", icon: BarChart3, labelKey: "analytics", permissions: ["analytics.view"] },
+      { href: "/performance", icon: TrendingUp, labelKey: "performance", permissions: ["analytics.view"] },
     ],
   },
   {
-    label: "Catalog",
+    labelKey: "catalog",
     items: [
-      { href: "/products", icon: Package, label: "Products", permissions: ["catalog.view", "catalog.manage"] },
-      { href: "/inventory", icon: Boxes, label: "Inventory", permissions: ["inventory.view", "inventory.manage"] },
-      // /issues renders "Fix Your Products" (listing issues) — it was never a bulk uploader.
-      { href: "/issues", icon: AlertTriangle, label: "Listing Issues", badge: "issues", permissions: ["catalog.view", "catalog.manage"] },
+      { href: "/products", icon: Package, labelKey: "products", permissions: ["catalog.view", "catalog.manage"] },
+      { href: "/inventory", icon: Boxes, labelKey: "inventory", permissions: ["inventory.view", "inventory.manage"] },
+      // /issues renders the listing-issue queue (nav.items.listingIssues) — it
+      // was never a bulk uploader.
+      { href: "/issues", icon: AlertTriangle, labelKey: "listingIssues", badge: "issues", permissions: ["catalog.view", "catalog.manage"] },
     ],
   },
   {
-    label: "Orders",
+    labelKey: "orders",
     items: [
-      { href: "/orders", icon: ShoppingCart, label: "Orders", permissions: ["orders.view", "orders.fulfill"] },
-      { href: "/shipments", icon: Truck, label: "Shipments", permissions: ["shipments.view", "shipments.manage"] },
-      { href: "/returns", icon: RotateCcw, label: "Returns", permissions: ["returns.view", "returns.manage"] },
+      { href: "/orders", icon: ShoppingCart, labelKey: "orders", permissions: ["orders.view", "orders.fulfill"] },
+      { href: "/shipments", icon: Truck, labelKey: "shipments", permissions: ["shipments.view", "shipments.manage"] },
+      { href: "/returns", icon: RotateCcw, labelKey: "returns", permissions: ["returns.view", "returns.manage"] },
     ],
   },
   {
-    label: "RFQ / Quotes",
+    labelKey: "rfq",
     items: [
-      // /messages is "Messages & RFQs": buyer threads and RFQs share one inbox.
-      { href: "/messages", icon: Inbox, label: "Inbox", badge: "messages", permissions: ["rfqs.view"] },
-      { href: "/quotes/submit", icon: SendRtl, label: "Submit Quote", permissions: ["quotes.submit"] },
-      { href: "/quotes", icon: Clock, label: "Quote History", permissions: ["rfqs.view"] },
+      // /messages is the shared inbox: buyer threads and RFQs live in one place.
+      { href: "/messages", icon: Inbox, labelKey: "inbox", badge: "messages", permissions: ["rfqs.view"] },
+      { href: "/quotes/submit", icon: SendRtl, labelKey: "submitQuote", permissions: ["quotes.submit"] },
+      { href: "/quotes", icon: Clock, labelKey: "quoteHistory", permissions: ["rfqs.view"] },
     ],
   },
   {
-    label: "Finance",
+    labelKey: "finance",
     items: [
-      { href: "/payouts", icon: DollarSign, label: "Payouts", permissions: ["finance.view"] },
-      { href: "/invoices", icon: FileText, label: "Invoices", permissions: ["finance.view"] },
-      { href: "/commission", icon: CreditCard, label: "Commission", permissions: ["finance.view"] },
+      { href: "/payouts", icon: DollarSign, labelKey: "payouts", permissions: ["finance.view"] },
+      { href: "/invoices", icon: FileText, labelKey: "invoices", permissions: ["finance.view"] },
+      { href: "/commission", icon: CreditCard, labelKey: "commission", permissions: ["finance.view"] },
     ],
   },
   {
-    label: "Documents",
+    labelKey: "documents",
     items: [
-      { href: "/documents", icon: FolderOpen, label: "Document Center", permissions: ["documents.view", "documents.manage"] },
+      { href: "/documents", icon: FolderOpen, labelKey: "documentCenter", permissions: ["documents.view", "documents.manage"] },
       // The onboarding page is the seller's own readiness checklist; nothing
       // else links to it, so removing this entry orphaned the route.
-      { href: "/onboarding", icon: CheckSquare, label: "Onboarding", permissions: ["documents.view", "documents.manage"] },
-      { href: "/compliance", icon: CheckSquare, label: "Compliance", permissions: ["documents.view", "documents.manage"] },
+      { href: "/onboarding", icon: CheckSquare, labelKey: "onboarding", permissions: ["documents.view", "documents.manage"] },
+      { href: "/compliance", icon: CheckSquare, labelKey: "compliance", permissions: ["documents.view", "documents.manage"] },
     ],
   },
   {
-    label: "Support",
+    labelKey: "support",
     items: [
-      { href: "/support/tickets", icon: LifeBuoy, label: "Tickets", permissions: ["support.view"] },
-      { href: "/support/contact", icon: MessageSquare, label: "Contact Admin", permissions: ["support.view"] },
+      { href: "/support/tickets", icon: LifeBuoy, labelKey: "tickets", permissions: ["support.view"] },
+      { href: "/support/contact", icon: MessageSquare, labelKey: "contactAdmin", permissions: ["support.view"] },
     ],
   },
 ];
@@ -166,6 +184,7 @@ function scoreTone(score: number): MeterTone {
  * keyboard focus.
  */
 function PerformancePill({ performance }: { performance: PerformanceView | null }) {
+  const t = useTranslations("sellerShell");
   const [open, setOpen] = React.useState(false);
   const panelId = React.useId();
   const triggerRef = React.useRef<HTMLButtonElement>(null);
@@ -205,8 +224,9 @@ function PerformancePill({ performance }: { performance: PerformanceView | null 
           href="/performance"
           className="u-focus block rounded-nested px-3 py-2 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.04]"
         >
-          <Eyebrow>Performance score</Eyebrow>
-          <span className="u-ui mt-0.5 block font-medium text-ink-1">Not enough data yet</span>
+          <Eyebrow>{t("score.title")}</Eyebrow>
+          {/* score.notEnoughData — the honest absence, not a zero. */}
+          <span className="u-ui mt-0.5 block font-medium text-ink-1">{t("score.notEnoughData")}</span>
         </Link>
       </div>
     );
@@ -219,22 +239,23 @@ function PerformancePill({ performance }: { performance: PerformanceView | null 
           href="/performance"
           className="u-focus min-w-0 flex-1 rounded-nested px-3 py-2 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.04]"
         >
-          <Eyebrow>Performance score</Eyebrow>
+          <Eyebrow>{t("score.title")}</Eyebrow>
           {/* The figure is a <Num>: tabular, at inline figure rank, and never the
-              thing that animates. "/ 100" is its unit, not part of the number. */}
+              thing that animates. "/ 100" is its unit, not part of the number —
+              and it carries no word, so it is notation rather than copy. */}
           <Num className="mt-0.5" value={performance.score} unit="/ 100" />
           <Meter
             className="mt-2"
             size="sm"
             value={performance.score}
             tone={scoreTone(performance.score)}
-            label={`Performance score: ${performance.score} out of 100`}
+            label={t("score.meterLabel", { score: String(performance.score) })}
           />
         </Link>
         <button
           ref={triggerRef}
           type="button"
-          aria-label="How the performance score is calculated"
+          aria-label={t("score.howCalculated")}
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => setOpen((v) => !v)}
@@ -261,7 +282,7 @@ function PerformancePill({ performance }: { performance: PerformanceView | null 
           {/* The provenance of the score, in the provenance voice. This is the
               basis and the window — the number is not credible without it. */}
           <p className="u-provenance text-meta text-ink-2">
-            Orders from the last {performance.windowDays} days; listings and documents as they stand now.
+            {t("score.provenance", { days: String(performance.windowDays) })}
           </p>
           <ul className="space-y-1">
             {performance.components.map((component) => (
@@ -271,18 +292,35 @@ function PerformancePill({ performance }: { performance: PerformanceView | null 
                   <span className="u-mono ms-1 text-micro">×{component.weight}</span>
                 </span>
                 <span className="u-meta u-mono shrink-0 text-ink-2">
-                  {component.share === null ? "no data" : `${component.good} of ${component.total}`}
+                  {component.share === null
+                    ? t("score.noData")
+                    : t("score.goodOfTotal", { good: String(component.good), total: String(component.total) })}
                 </span>
               </li>
             ))}
           </ul>
-          <p className="u-meta text-ink-3">
-            Weights are re-scaled across the components that have data, so a component with none is left out rather than counted as zero.
-          </p>
+          <p className="u-meta text-ink-3">{t("score.weightsNote")}</p>
         </Surface>
       )}
     </div>
   );
+}
+
+/**
+ * SellerTier is a stored enum, and <TierMark> prints its `tier` prop verbatim
+ * unless a `label` is supplied — so the brass pill in the rail and in the
+ * account menu read "PLATINUM" in the Arabic build. The storefront's supplier
+ * card documents this exact trap and this follows its contract: the labels are a
+ * caller-supplied enum→label map (sellerShell.tier, keyed by the stored value,
+ * with only the labels translated), and a tier the message tree does not name
+ * renders no pill at all rather than falling back to the enum.
+ */
+const TIER_KEYS = new Set(["STANDARD", "VERIFIED", "GOLD", "PLATINUM"]);
+
+function SellerTierMark({ tier, className }: { tier: string; className?: string }) {
+  const t = useTranslations("sellerShell.tier");
+  if (!TIER_KEYS.has(tier)) return null;
+  return <TierMark tier={tier} label={t(tier)} className={className} />;
 }
 
 /**
@@ -302,7 +340,9 @@ function SellerMark({ name, className }: { name: string; className?: string }) {
   );
 }
 
-type NavGroupView = { label: string; items: (typeof NAV_GROUPS)[number]["items"] };
+/** A nav entry with its label already resolved against the message tree. */
+type NavItemView = Omit<NavItemDef, "labelKey"> & { label: string };
+type NavGroupView = { label: string; items: NavItemView[] };
 
 /**
  * Which single nav entry the current route belongs to, resolved by the LONGEST
@@ -347,6 +387,7 @@ function SellerNav({
   issueCount: number;
   unreadMessages: number;
 }) {
+  const t = useTranslations("sellerShell");
   return (
     <>
       {groups.map((group, groupIndex) => (
@@ -371,7 +412,7 @@ function SellerNav({
                   href={item.href}
                   // Collapsed there is no visible text, so the count has to live
                   // in the accessible name or a screen-reader user loses it.
-                  label={collapsed && badgeCount > 0 ? `${item.label} (${shown})` : item.label}
+                  label={collapsed && badgeCount > 0 ? t("shell.navItemWithCount", { label: item.label, count: shown }) : item.label}
                   icon={item.icon}
                   active={isActive}
                   iconOnly={collapsed}
@@ -399,7 +440,11 @@ function SellerNav({
                 // icon rail, and the dot carries the count that the chip cannot —
                 // so the tooltip has to carry the count too, or the dot means
                 // nothing to the one reader who can see it and not the label.
-                <span key={item.href} className="relative block" title={badgeCount > 0 ? `${item.label} (${shown})` : item.label}>
+                <span
+                  key={item.href}
+                  className="relative block"
+                  title={badgeCount > 0 ? t("shell.navItemWithCount", { label: item.label, count: shown }) : item.label}
+                >
                   {navItem}
                   {badgeCount > 0 && (
                     <span
@@ -451,6 +496,7 @@ function SidebarBody({
   unreadMessages: number;
   canManageSettings: boolean;
 }) {
+  const t = useTranslations("sellerShell");
   const isRail = variant === "rail";
 
   const body = (
@@ -464,7 +510,7 @@ function SidebarBody({
           <div className="min-w-0">
             {sellerName && <p className="u-ui truncate font-medium text-ink-1">{sellerName}</p>}
             {/* Brass, in one of its three permitted uses in the whole product. */}
-            {tier && <TierMark tier={tier} className="mt-1 block" />}
+            {tier && <SellerTierMark tier={tier} className="mt-1 block" />}
           </div>
         )}
       </div>
@@ -473,7 +519,7 @@ function SidebarBody({
       {!collapsed && performance !== undefined && <PerformancePill performance={performance} />}
 
       <nav
-        aria-label="Seller Central sections"
+        aria-label={t("shell.navAriaLabel")}
         className={cn(
           "px-2 py-3",
           // scrollbar-thin, not scrollbar-hide: a nineteen-item nav that scrolls
@@ -492,10 +538,10 @@ function SidebarBody({
 
       <div className="shrink-0 space-y-0.5 border-t border-hairline p-2">
         {canManageSettings && (
-          <span className="block" title={collapsed ? "Settings" : undefined}>
+          <span className="block" title={collapsed ? t("shell.settings") : undefined}>
             <NavItem
               href="/settings"
-              label="Settings"
+              label={t("shell.settings")}
               icon={Settings}
               active={pathname === "/settings" || pathname.startsWith("/settings/")}
               iconOnly={collapsed}
@@ -506,8 +552,8 @@ function SidebarBody({
         <button
           type="button"
           onClick={() => signOut({ callbackUrl: "/login" })}
-          aria-label={collapsed ? "Sign out" : undefined}
-          title={collapsed ? "Sign out" : undefined}
+          aria-label={collapsed ? t("shell.signOut") : undefined}
+          title={collapsed ? t("shell.signOut") : undefined}
           className={cn(
             "u-ui u-focus flex w-full items-center gap-2.5 rounded-nested px-3 text-ink-2",
             "transition-colors duration-hover ease-standard hover:bg-ink-1/[0.04] hover:text-ink-1",
@@ -516,7 +562,7 @@ function SidebarBody({
           style={{ minHeight: "var(--control-h-md)" }}
         >
           <LogOutRtl className="h-4 w-4 shrink-0" aria-hidden="true" />
-          {!collapsed && <span>Sign out</span>}
+          {!collapsed && <span>{t("shell.signOut")}</span>}
         </button>
       </div>
     </>
@@ -544,6 +590,7 @@ export function SellerLayout({
   performance,
   permissions = [],
 }: SellerLayoutProps) {
+  const t = useTranslations("sellerShell");
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [collapsed, setCollapsed] = React.useState(false);
@@ -619,13 +666,19 @@ export function SellerLayout({
 
   // Permission filtering is unchanged: an item the membership cannot reach is
   // dropped, and a group left with no items is dropped with it rather than
-  // rendering a heading over nothing.
+  // rendering a heading over nothing. This is also where each entry's labelKey
+  // becomes a label — the first point in the tree where a translator exists.
   const groups: NavGroupView[] = React.useMemo(
     () =>
       NAV_GROUPS
-        .map((group) => ({ label: group.label, items: group.items.filter((item) => sellerNavigationAllows(permissions, item.permissions)) }))
+        .map((group) => ({
+          label: t(`nav.groups.${group.labelKey}`),
+          items: group.items
+            .filter((item) => sellerNavigationAllows(permissions, item.permissions))
+            .map(({ labelKey, ...item }) => ({ ...item, label: t(`nav.items.${labelKey}`) })),
+        }))
         .filter((group) => group.items.length > 0),
-    [permissions],
+    [permissions, t],
   );
 
   const activeHref = React.useMemo(() => resolveActiveHref(groups, pathname), [groups, pathname]);
@@ -644,9 +697,11 @@ export function SellerLayout({
         if (item) return { group: group.label, label: item.label };
       }
     }
-    if (pathname === "/settings" || pathname.startsWith("/settings/")) return { group: "Account", label: "Settings" };
+    if (pathname === "/settings" || pathname.startsWith("/settings/")) {
+      return { group: t("nav.groups.account"), label: t("shell.settings") };
+    }
     return null;
-  }, [groups, pathname, activeHref]);
+  }, [groups, pathname, activeHref, t]);
 
   return (
     <ToastProvider>
@@ -683,9 +738,9 @@ export function SellerLayout({
           onOpenChange={setSidebarOpen}
           side="start"
           size="sm"
-          title={sellerName ? `${sellerName} — navigation` : "Navigation"}
+          title={sellerName ? t("shell.drawerTitle", { name: sellerName }) : t("shell.drawerTitleFallback")}
           hideTitle
-          closeLabel="Close menu"
+          closeLabel={t("shell.closeMenu")}
           // Belt to the effect above's braces. This class hides the PANEL at lg,
           // but the scrim, the focus trap and the scroll lock are portalled
           // siblings that no media query reaches — the effect is what actually
@@ -732,7 +787,7 @@ export function SellerLayout({
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
-                aria-label="Open navigation menu"
+                aria-label={t("shell.openMenu")}
                 className="u-focus grid h-9 w-9 shrink-0 place-items-center rounded-nested text-ink-2 transition-colors duration-press ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1 lg:hidden"
               >
                 <Menu className="h-5 w-5" aria-hidden="true" />
@@ -740,7 +795,7 @@ export function SellerLayout({
               <button
                 type="button"
                 onClick={toggleCollapsed}
-                aria-label={collapsed ? "Expand navigation" : "Collapse navigation"}
+                aria-label={collapsed ? t("shell.expandNav") : t("shell.collapseNav")}
                 className="u-focus hidden h-9 w-9 shrink-0 place-items-center rounded-nested text-ink-2 transition-colors duration-press ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1 lg:grid"
               >
                 {/* A panel icon implies a side, so it mirrors in Arabic where the
@@ -773,7 +828,7 @@ export function SellerLayout({
                 style={{ height: "var(--control-h-md)" }}
               >
                 <Search className="h-3.5 w-3.5" aria-hidden="true" />
-                <span>Search…</span>
+                <span>{t("shell.search")}</span>
                 <kbd className="u-mono ms-3 rounded-sm border border-border px-1 text-micro">⌘K</kbd>
               </button>
             </div>
@@ -784,7 +839,11 @@ export function SellerLayout({
               <Link
                 href="/messages"
                 className="u-focus relative grid h-9 w-9 place-items-center rounded-nested text-ink-2 transition-colors duration-press ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1"
-                aria-label={unreadMessages > 0 ? `Messages (${unreadMessages > 9 ? "9+" : unreadMessages} unread)` : "Messages"}
+                aria-label={
+                  unreadMessages > 0
+                    ? t("shell.messagesUnread", { count: unreadMessages > 9 ? "9+" : String(unreadMessages) })
+                    : t("shell.messages")
+                }
               >
                 <MessageSquare className="h-5 w-5" aria-hidden="true" />
                 {unreadMessages > 0 && (
@@ -807,7 +866,7 @@ export function SellerLayout({
                   aria-haspopup="true"
                   aria-expanded={accountOpen}
                   aria-controls={accountMenuId}
-                  aria-label={sellerName ? `Account menu for ${sellerName}` : "Account menu"}
+                  aria-label={sellerName ? t("shell.accountMenuFor", { name: sellerName }) : t("shell.accountMenu")}
                   className="u-focus flex items-center gap-2 rounded-nested p-1.5 text-ink-2 transition-colors duration-press ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1"
                 >
                   {sellerName ? (
@@ -829,7 +888,7 @@ export function SellerLayout({
                     {(sellerName || tier) && (
                       <div className="border-b border-hairline px-3 pb-2.5 pt-2">
                         {sellerName && <p className="u-ui truncate font-medium text-ink-1">{sellerName}</p>}
-                        {tier && <TierMark tier={tier} className="mt-1 block" />}
+                        {tier && <SellerTierMark tier={tier} className="mt-1 block" />}
                       </div>
                     )}
                     <div className="pt-1">
@@ -837,20 +896,20 @@ export function SellerLayout({
                         href="/performance"
                         className="u-ui u-focus block rounded-nested px-3 py-2 text-ink-2 transition-colors duration-press ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1"
                       >
-                        Performance
+                        {t("shell.performance")}
                       </Link>
                       <Link
                         href="/settings"
                         className="u-ui u-focus block rounded-nested px-3 py-2 text-ink-2 transition-colors duration-press ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1"
                       >
-                        Settings
+                        {t("shell.settings")}
                       </Link>
                       <button
                         type="button"
                         onClick={() => signOut({ callbackUrl: "/login" })}
                         className="u-ui u-focus flex w-full items-center gap-2 rounded-nested px-3 py-2 text-start text-danger-ink transition-colors duration-press ease-standard hover:bg-danger-soft"
                       >
-                        <LogOutRtl className="h-3.5 w-3.5" aria-hidden="true" /> Sign out
+                        <LogOutRtl className="h-3.5 w-3.5" aria-hidden="true" /> {t("shell.signOut")}
                       </button>
                     </div>
                   </Surface>

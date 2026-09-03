@@ -1,7 +1,16 @@
+"use client";
+
+// Client, explicitly: the notice now reads its wording from the message
+// tree with useTranslations, so it can no longer be rendered from a server
+// component. Every consumer today is already inside a client boundary; the
+// directive states that requirement instead of leaving it to be discovered
+// by whoever imports it next.
 import type { ReactNode } from "react";
 import { AlertTriangle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Dateline, Eyebrow, StatusPill, Surface } from "@avenick/ui";
 import { cn } from "@avenick/utils";
+import { statusLabel } from "./status-labels";
 
 /**
  * The compare-and-swap refusal, as a designed element.
@@ -31,7 +40,7 @@ export interface DecisionNoticeProps {
   currentStatus?: string;
   /** What the reviewer can do next, e.g. a reload control. */
   action?: ReactNode;
-  /** Names the failure. Defaults to the compare-and-swap case. */
+  /** Names the failure. Defaults to the compare-and-swap case (notice.eyebrow). */
   eyebrow?: string;
   className?: string;
 }
@@ -40,9 +49,10 @@ export function DecisionNotice({
   message,
   currentStatus,
   action,
-  eyebrow = "Decision not recorded",
+  eyebrow,
   className,
 }: DecisionNoticeProps) {
+  const t = useTranslations("adminReview");
   return (
     <Surface
       rung={2}
@@ -59,17 +69,17 @@ export function DecisionNotice({
       <div className="flex items-start gap-2.5">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-ink" aria-hidden="true" />
         <div className="min-w-0 space-y-1.5">
-          <Eyebrow className="text-warning-ink">{eyebrow}</Eyebrow>
+          <Eyebrow className="text-warning-ink">{eyebrow ?? t("notice.eyebrow")}</Eyebrow>
           <p className="u-ui text-ink-1">{message}</p>
           {currentStatus && (
             <p className="flex flex-wrap items-center gap-2">
-              <span className="u-meta text-ink-2">Recorded status is now</span>
-              <StatusPill tone="neutral">{currentStatus.replace(/_/g, " ")}</StatusPill>
+              <span className="u-meta text-ink-2">{t("notice.recordedStatus")}</span>
+              <StatusPill tone="neutral">{statusLabel(t, currentStatus)}</StatusPill>
             </p>
           )}
           {/* Not fine print: it is the difference between "your click failed"
               and "someone else already decided this". */}
-          <Dateline>Read back from the platform record · nothing was written and this page was not reloaded</Dateline>
+          <Dateline>{t("notice.dateline")}</Dateline>
           {action && <div className="pt-1">{action}</div>}
         </div>
       </div>
@@ -89,6 +99,7 @@ export function DecisionNoticeInline({
   action,
   className,
 }: Pick<DecisionNoticeProps, "message" | "currentStatus" | "action" | "className">) {
+  const t = useTranslations("adminReview");
   return (
     <Surface
       rung={2}
@@ -108,8 +119,8 @@ export function DecisionNoticeInline({
             {currentStatus && (
               <>
                 {" "}
-                <span className="text-ink-2">Recorded status is now</span>{" "}
-                <span className="font-medium">{currentStatus.replace(/_/g, " ")}</span>.
+                <span className="text-ink-2">{t("notice.recordedStatus")}</span>{" "}
+                <span className="font-medium">{statusLabel(t, currentStatus)}</span>.
               </>
             )}
           </p>

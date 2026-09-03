@@ -5,13 +5,17 @@ import { formatCurrency, type SupportedCurrency } from "@avenick/utils";
 import { Receipt } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import {
   PageHeader, CellGrid, LedgerTable, EmptyState, Surface, Num, Dateline,
 } from "@avenick/ui";
 import { CountStat, MoneyStat } from "@/app/finance/money-figures";
 import { Pager } from "@/components/console/chrome";
 
-export const metadata = { title: "VAT Summary" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminCommerce.vat");
+  return { title: t("meta.title") };
+}
 export const dynamic = "force-dynamic";
 
 /** Money crosses to a string here and nowhere earlier; currency is never blended. */
@@ -24,6 +28,7 @@ interface PageProps {
 
 export default async function VATPage({ searchParams }: PageProps) {
   await requireAdminSession();
+  const t = await getTranslations("adminCommerce.vat");
 
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const limit = 25;
@@ -40,11 +45,11 @@ export default async function VATPage({ searchParams }: PageProps) {
       <div className="space-y-block">
         <PageHeader
           linkComponent={Link}
-          breadcrumbs={[{ label: "Finance", href: "/finance" }, { label: "VAT" }]}
-          eyebrow="Tax"
-          title="VAT summary"
-          description={`Output VAT on paid orders, net of completed refunds, ${new Date().getFullYear()} year to date.`}
-          dateline="Grouped by the currency the order was billed in · never combined into one total"
+          breadcrumbs={[{ label: t("breadcrumbFinance"), href: "/finance" }, { label: t("breadcrumbSelf") }]}
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description", { year: String(new Date().getFullYear()) })}
+          dateline={t("dateline")}
         />
 
         {/* A filing number must not be a blend. VAT is levied at different rates
@@ -52,68 +57,61 @@ export default async function VATPage({ searchParams }: PageProps) {
             no exchange rates, so these figures are reported per currency and
             never added together — there is deliberately no headline total. */}
         <Surface tone="warning" className="p-4">
-          <p className="u-ui max-w-prose text-ink-1">
-            Figures are reported per currency and are never combined. VAT rates differ by jurisdiction (UAE 5%,
-            KSA 15%) and the platform holds no exchange rates, so no single-currency total exists for a filing.
-            These rows are grouped by the currency the order was billed in, which is a proxy for the filing jurisdiction
-            and not the jurisdiction itself: the order carries a validated destination country on its shipping address,
-            but no tax place-of-supply field, and nothing here is grouped by that country. Confirm the jurisdiction of
-            each order before submitting a return.
-          </p>
+          <p className="u-ui max-w-prose text-ink-1">{t("notice")}</p>
         </Surface>
 
         <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
           <MoneyStat
-            label="Output VAT (YTD)"
+            label={t("stats.outputVat")}
             rank="section"
             lines={summary.byCurrency.map((c) => ({ currency: c.currency, formatted: money(c.vat, c.currency) }))}
-            dateline="One line per currency · no single-currency total exists"
+            dateline={t("stats.outputVatDateline")}
           />
-          <CountStat label="Taxable orders (YTD)" value={summary.taxableOrders} />
-          <CountStat label="Currencies" value={summary.currencyCount} />
-          <CountStat label="Tax invoices issued" value={summary.invoiceCount} />
+          <CountStat label={t("stats.taxableOrders")} value={summary.taxableOrders} />
+          <CountStat label={t("stats.currencies")} value={summary.currencyCount} />
+          <CountStat label={t("stats.invoices")} value={summary.invoiceCount} />
         </CellGrid>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* By currency */}
           <LedgerTable
-            title="VAT by currency"
+            title={t("byCurrency.title")}
             rows={summary.byCurrency}
             getRowKey={(c) => c.currency}
             density="compact"
             columns={[
-              { key: "currency", label: "Currency", render: (c) => <span className="font-medium text-ink-1">{c.currency}</span> },
-              { key: "orders", label: "Orders", numeric: true, render: (c) => c.orders },
-              { key: "gross", label: "Gross", numeric: true, render: (c) => <span className="text-ink-2">{money(c.gross, c.currency)}</span> },
-              { key: "vat", label: "Output VAT", numeric: true, render: (c) => <Num value={money(c.vat, c.currency)} /> },
+              { key: "currency", label: t("byCurrency.columns.currency"), render: (c) => <span className="font-medium text-ink-1">{c.currency}</span> },
+              { key: "orders", label: t("byCurrency.columns.orders"), numeric: true, render: (c) => c.orders },
+              { key: "gross", label: t("byCurrency.columns.gross"), numeric: true, render: (c) => <span className="text-ink-2">{money(c.gross, c.currency)}</span> },
+              { key: "vat", label: t("byCurrency.columns.vat"), numeric: true, render: (c) => <Num value={money(c.vat, c.currency)} /> },
             ]}
             empty={
               <EmptyState
-                eyebrow="Nothing recorded"
-                headline="No paid order has been placed this year."
-                body="A currency appears here once an order billed in it reaches paid."
+                eyebrow={t("emptyEyebrow")}
+                headline={t("byCurrency.emptyHeadline")}
+                body={t("byCurrency.emptyBody")}
               />
             }
           />
 
           {/* By month, per currency: one row per (month, currency) pair. */}
           <LedgerTable
-            title="VAT by month and currency"
-            dateline="One row per month and currency pair"
+            title={t("byMonth.title")}
+            dateline={t("byMonth.dateline")}
             rows={summary.monthly}
             getRowKey={(m) => `${String(m.month)}-${m.currency}`}
             density="compact"
             columns={[
-              { key: "month", label: "Month", render: (m) => <span className="whitespace-nowrap font-medium text-ink-1">{format(m.month, "MMMM yyyy")}</span> },
-              { key: "currency", label: "Currency", render: (m) => <span className="text-ink-2">{m.currency}</span> },
-              { key: "orders", label: "Taxable orders", numeric: true, render: (m) => m.orders },
-              { key: "vat", label: "Output VAT", numeric: true, render: (m) => <Num value={money(m.vat, m.currency)} /> },
+              { key: "month", label: t("byMonth.columns.month"), render: (m) => <span className="whitespace-nowrap font-medium text-ink-1">{format(m.month, "MMMM yyyy")}</span> },
+              { key: "currency", label: t("byMonth.columns.currency"), render: (m) => <span className="text-ink-2">{m.currency}</span> },
+              { key: "orders", label: t("byMonth.columns.orders"), numeric: true, render: (m) => m.orders },
+              { key: "vat", label: t("byMonth.columns.vat"), numeric: true, render: (m) => <Num value={money(m.vat, m.currency)} /> },
             ]}
             empty={
               <EmptyState
-                eyebrow="Nothing recorded"
-                headline="No VAT has been collected this year."
-                body="A month appears here once an order billed with VAT in that month reaches paid."
+                eyebrow={t("emptyEyebrow")}
+                headline={t("byMonth.emptyHeadline")}
+                body={t("byMonth.emptyBody")}
               />
             }
           />
@@ -121,39 +119,39 @@ export default async function VATPage({ searchParams }: PageProps) {
 
         {/* Tax invoices */}
         <LedgerTable
-          title="Tax invoices"
-          dateline="Invoice records as issued · amounts in the currency of the order"
+          title={t("invoices.title")}
+          dateline={t("invoices.dateline")}
           rows={invoices}
           getRowKey={(inv) => inv.id}
           stickyHead
           columns={[
-            { key: "invoiceNo", label: "Invoice #", render: (inv) => <span className="u-mono text-meta font-medium text-ink-1">{inv.invoiceNo}</span> },
-            { key: "order", label: "Order", render: (inv) => <span className="u-mono text-meta text-ink-2">{inv.order.orderNumber}</span> },
+            { key: "invoiceNo", label: t("invoices.columns.invoiceNo"), render: (inv) => <span className="u-mono text-meta font-medium text-ink-1">{inv.invoiceNo}</span> },
+            { key: "order", label: t("invoices.columns.order"), render: (inv) => <span className="u-mono text-meta text-ink-2">{inv.order.orderNumber}</span> },
             {
               key: "buyer",
-              label: "Buyer",
+              label: t("invoices.columns.buyer"),
               render: (inv) => inv.order.company?.nameEn ?? `${inv.order.user.firstName} ${inv.order.user.lastName}`,
             },
             {
               key: "vatNumber",
-              label: "VAT reg.",
+              label: t("invoices.columns.vatNumber"),
               hideOnMobile: true,
               render: (inv) => <span className="u-mono text-meta text-ink-3">{inv.order.company?.vatNumber ?? "—"}</span>,
             },
-            { key: "amount", label: "Amount", numeric: true, render: (inv) => <Num value={money(inv.totalAmount, inv.currency)} /> },
-            { key: "vat", label: "VAT", numeric: true, render: (inv) => <span className="text-ink-2">{money(inv.vatAmount, inv.currency)}</span> },
+            { key: "amount", label: t("invoices.columns.amount"), numeric: true, render: (inv) => <Num value={money(inv.totalAmount, inv.currency)} /> },
+            { key: "vat", label: t("invoices.columns.vat"), numeric: true, render: (inv) => <span className="text-ink-2">{money(inv.vatAmount, inv.currency)}</span> },
             {
               key: "issuedAt",
-              label: "Issued",
+              label: t("invoices.columns.issued"),
               hideOnMobile: true,
               render: (inv) => <span className="whitespace-nowrap text-ink-2">{format(inv.issuedAt, "MMM d, yyyy")}</span>,
             },
           ]}
           empty={
             <EmptyState
-              eyebrow="Capability gap"
-              headline="No tax invoice has ever been issued."
-              body="Automatic tax-invoice generation is not implemented, so the platform creates no invoice today. This register populates on its own once it does."
+              eyebrow={t("invoices.emptyEyebrow")}
+              headline={t("invoices.emptyHeadline")}
+              body={t("invoices.emptyBody")}
               icon={<Receipt className="h-3.5 w-3.5" aria-hidden="true" />}
             />
           }
@@ -162,18 +160,16 @@ export default async function VATPage({ searchParams }: PageProps) {
               page={page}
               totalPages={totalPages}
               hrefFor={(target) => `/vat?page=${target}${search ? `&search=${encodeURIComponent(search)}` : ""}`}
-              summary={
-                <>
-                  <span className="fig text-ink-2">{total}</span> tax invoice{total === 1 ? "" : "s"} on record
-                </>
-              }
+              summary={t.rich("invoices.footer", {
+                total: String(total),
+                count: total,
+                n: (chunks) => <span className="fig text-ink-2">{chunks}</span>,
+              })}
             />
           }
         />
 
-        <Dateline className="max-w-prose">
-          Output VAT is taken from paid orders, net of completed refunds, in the currency each order was billed in.
-        </Dateline>
+        <Dateline className="max-w-prose">{t("note")}</Dateline>
       </div>
     </AdminLayout>
   );

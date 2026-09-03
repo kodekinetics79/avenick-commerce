@@ -15,9 +15,14 @@ import {
   StatusPill,
   type PillTone,
 } from "@avenick/ui";
+import { getTranslations } from "next-intl/server";
 import { ProductControls } from "./product-controls";
+import { statusLabel } from "@/app/approvals/status-labels";
 
-export const metadata = { title: "Products" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminReview");
+  return { title: t("meta.products") };
+}
 
 /** Queues an operator works, in the order they are worked. */
 const STATUS_TABS: ProductStatus[] = ["PENDING_REVIEW", "ACTIVE", "INACTIVE", "SUPPRESSED", "REJECTED"];
@@ -41,6 +46,7 @@ function isProductStatus(value: unknown): value is ProductStatus {
 
 export default async function AdminProductsPage({ searchParams }: { searchParams: { status?: string } }) {
   await requireAdminSession();
+  const t = await getTranslations("adminReview");
   // An unknown status is a stale link, not a query to run: fall back to the queue.
   const status: ProductStatus = isProductStatus(searchParams.status) ? searchParams.status : "PENDING_REVIEW";
   const pendingCount = await db.sellerProfile.count({ where: { status: "PENDING_REVIEW" } });
@@ -63,36 +69,42 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
     },
   });
 
-  const statusLabel = status.replace(/_/g, " ").toLowerCase();
+  // The in-sentence form of the status, which is its own message rather than a
+  // .toLowerCase() of the pill's: English lower-cases a status inside a sentence
+  // and Arabic uses the same word in both places.
+  const statusInline = statusLabel(t, status, "statusInline");
 
   return (
     <AdminLayout pendingCount={pendingCount}>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Catalogue"
-          title="Products"
-          description={
-            totalInStatus === 1
-              ? `1 listing is ${statusLabel}.`
-              : `${totalInStatus.toLocaleString()} listings are ${statusLabel}.`
-          }
+          eyebrow={t("products.eyebrow")}
+          title={t("products.title")}
+          description={t("products.description", {
+            count: totalInStatus,
+            total: totalInStatus.toLocaleString("en-US"),
+            status: statusInline,
+          })}
           // The table is a page of the queue, not the queue. Saying which page
           // is the difference between a count and a claim about the catalogue.
           dateline={
             totalInStatus > products.length
-              ? `Newest ${products.length} of ${totalInStatus.toLocaleString()} in this status · every decision is written against the listing's state at the moment of the click`
-              : "Newest first · every decision is written against the listing's state at the moment of the click"
+              ? t("products.datelineTruncated", {
+                  shown: products.length.toLocaleString("en-US"),
+                  total: totalInStatus.toLocaleString("en-US"),
+                })
+              : t("products.dateline")
           }
         />
 
         {/* Recessed strip, raised current item: the same gesture as the sidebar,
             so a queue selector reads as "where you are" rather than as a chip. */}
-        <FieldWell as="nav" aria-label="Filter listings by status" className="flex flex-wrap gap-1 p-1">
+        <FieldWell as="nav" aria-label={t("products.filterLabel")} className="flex flex-wrap gap-1 p-1">
           {STATUS_TABS.map((tab) => (
             <NavItem
               key={tab}
               href={`/products?status=${tab}`}
-              label={tab.replace(/_/g, " ")}
+              label={statusLabel(t, tab)}
               orientation="horizontal"
               active={status === tab}
               linkComponent={Link}
@@ -107,7 +119,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
           columns={[
             {
               key: "product",
-              label: "Listing",
+              label: t("products.columns.listing"),
               render: (p) => (
                 <div className="flex items-center gap-2.5">
                   {/* <ImageFrame>, not a bare <Image>: object-fit was COVER here,
@@ -135,7 +147,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
             },
             {
               key: "seller",
-              label: "Seller",
+              label: t("products.columns.seller"),
               render: (p) => (
                 <Link href={`/sellers/${p.seller.id}`} className="u-focus rounded-nested text-primary-ink hover:underline">
                   {p.seller.businessNameEn}
@@ -144,13 +156,13 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
             },
             {
               key: "category",
-              label: "Category",
+              label: t("products.columns.category"),
               hideOnMobile: true,
               render: (p) => <span className="u-meta text-ink-2">{p.category.nameEn}</span>,
             },
             {
               key: "health",
-              label: "Listing health",
+              label: t("products.columns.health"),
               hideOnMobile: true,
               width: "128px",
               render: (p) => (
@@ -162,7 +174,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
                     value={p.listingHealth}
                     tone={p.listingHealth < 60 ? "danger" : "neutral"}
                     size="sm"
-                    label={`Listing health for ${p.nameEn}`}
+                    label={t("products.healthLabel", { name: p.nameEn })}
                     className="w-14"
                   />
                   <span className="u-meta tnum text-ink-2">{p.listingHealth}</span>
@@ -171,15 +183,15 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
             },
             {
               key: "status",
-              label: "Status",
+              label: t("products.columns.status"),
               render: (p) => {
                 const suppression = Array.isArray(p.issues) ? p.issues[0] : undefined;
                 return (
                   <div className="space-y-1">
-                    <StatusPill tone={STATUS_TONE[p.status] ?? "neutral"}>{p.status.replace(/_/g, " ")}</StatusPill>
+                    <StatusPill tone={STATUS_TONE[p.status] ?? "neutral"}>{statusLabel(t, p.status)}</StatusPill>
                     {suppression && (
                       <p className="u-meta max-w-[32ch] text-ink-2" title={suppression.message}>
-                        <span className="text-ink-3">Reason: </span>
+                        <span className="text-ink-3">{t("products.reason")}</span>
                         {suppression.message}
                       </p>
                     )}
@@ -189,7 +201,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
             },
             {
               key: "actions",
-              label: "Decision",
+              label: t("products.columns.decision"),
               align: "end",
               render: (p) => (
                 <div className="flex justify-end">
@@ -204,13 +216,13 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline={`No listing is currently ${statusLabel}.`}
-              body="Listings move between these queues as sellers publish them and as the platform decides on them."
+              eyebrow={t("products.empty.eyebrow")}
+              headline={t("products.empty.headline", { status: statusInline })}
+              body={t("products.empty.body")}
               action={
                 status === "PENDING_REVIEW" ? undefined : (
                   <Button variant="secondary" size="sm" asChild>
-                    <Link href="/products?status=PENDING_REVIEW">Open the review queue</Link>
+                    <Link href="/products?status=PENDING_REVIEW">{t("products.empty.action")}</Link>
                   </Button>
                 )
               }

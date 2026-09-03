@@ -4,6 +4,7 @@ import { formatCurrency, isRecordId, isSupportedCurrency } from "@avenick/utils"
 import { groupAcceptedValueByCurrency } from "./accepted-value";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { FileText, CheckCircle, Clock, XCircle, TrendingUp, Inbox } from "lucide-react";
 import {
   Button,
@@ -19,37 +20,43 @@ import { SELLER_QUOTE_HISTORY_LIMIT } from "@avenick/database";
 import { requireSellerPermission } from "@/lib/auth";
 import { sellerHasPermission } from "@/lib/seller-permissions";
 
-export const metadata = { title: "Quote History" };
+export async function generateMetadata() {
+  const t = await getTranslations("sellerRelations");
+  return { title: t("quotes.metaTitle") };
+}
 
-// Enum → label map. The tone is one of the four semantic states, not a hue per
-// status: only "the buyer still owes you a decision" is warning, and only a
-// refusal is danger.
-const STATUS: Record<string, { label: string; tone: PillTone; icon: typeof CheckCircle }> = {
-  QUOTED: { label: "Awaiting response", tone: "warning", icon: Clock },
-  NEGOTIATING: { label: "Negotiating", tone: "primary", icon: Clock },
-  UNDER_REVIEW: { label: "Under review", tone: "neutral", icon: Clock },
-  SUBMITTED: { label: "Submitted", tone: "neutral", icon: Clock },
-  ACCEPTED: { label: "Accepted", tone: "success", icon: CheckCircle },
-  REJECTED: { label: "Declined", tone: "danger", icon: XCircle },
-  EXPIRED: { label: "Expired", tone: "neutral", icon: Clock },
-  CANCELLED: { label: "Cancelled", tone: "neutral", icon: XCircle },
-  DRAFT: { label: "Draft", tone: "neutral", icon: Clock },
+// Enum → tone and icon. The tone is one of the four semantic states, not a hue
+// per status: only "the buyer still owes you a decision" is warning, and only a
+// refusal is danger. The KEYS are the Prisma enum and are never translated; the
+// labels live under sellerRelations.quoteStatus.*.
+const STATUS: Record<string, { tone: PillTone; icon: typeof CheckCircle }> = {
+  QUOTED: { tone: "warning", icon: Clock },
+  NEGOTIATING: { tone: "primary", icon: Clock },
+  UNDER_REVIEW: { tone: "neutral", icon: Clock },
+  SUBMITTED: { tone: "neutral", icon: Clock },
+  ACCEPTED: { tone: "success", icon: CheckCircle },
+  REJECTED: { tone: "danger", icon: XCircle },
+  EXPIRED: { tone: "neutral", icon: Clock },
+  CANCELLED: { tone: "neutral", icon: XCircle },
+  DRAFT: { tone: "neutral", icon: Clock },
 };
 
 const fmt = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
 
 export default async function QuoteHistoryPage({ searchParams }: { searchParams?: { rfq?: string } }) {
   const { membership, userRole } = await requireSellerPermission("rfqs.view");
+  const t = await getTranslations("sellerRelations");
   // The inbox and thread pages link here with ?rfq=<id> for an RFQ this
   // seller has already quoted. This page is the history list and has no
   // per-RFQ view, so the seller landed on the list with no sign of the RFQ
   // they clicked. Send a well-formed id on to the RFQ page; anything else
   // falls through to the list rather than being forwarded.
   //
-  // The RFQ page requires quotes.submit, while this list — and the "View
-  // quote" links that point here — need only rfqs.view. Forwarding a member
-  // who lacks the higher permission would turn a link the inbox showed them
-  // into a permission error, so they stay on the list they can read.
+  // The RFQ page requires quotes.submit, while this list — and the
+  // inbox.row.viewQuote links that point here — need only rfqs.view.
+  // Forwarding a member who lacks the higher permission would turn a link the
+  // inbox showed them into a permission error, so they stay on the list they
+  // can read.
   const rfq = searchParams?.rfq;
   const canOpenRfq = sellerHasPermission({ user: { role: userRole }, membership }, "quotes.submit");
   if (rfq && isRecordId(rfq) && canOpenRfq) redirect(`/quotes/submit?rfq=${encodeURIComponent(rfq)}`);
@@ -86,27 +93,27 @@ export default async function QuoteHistoryPage({ searchParams }: { searchParams?
     acceptedTotals.length === 0
       ? "—"
       : acceptedTotals
-          .map((t) => (isSupportedCurrency(t.currency) ? formatCurrency(t.total, t.currency) : `${t.currency} ${t.total.toFixed(2)}`))
+          .map((t2) => (isSupportedCurrency(t2.currency) ? formatCurrency(t2.total, t2.currency) : `${t2.currency} ${t2.total.toFixed(2)}`))
           .join(" · ");
   const winRate = responded.length > 0 ? Math.round((accepted.length / responded.length) * 100) : 0;
 
   // What the whole page is a view of. The cap is stated once, at page rank,
   // rather than as a grey strip apologising above the table.
   const pageDateline = capped
-    ? `Your ${SELLER_QUOTE_HISTORY_LIMIT} most recently updated quotations · every figure below describes these rows, not your lifetime total`
-    : "Every quotation you have submitted to buyers";
+    ? t("quotes.datelineCapped", { limit: String(SELLER_QUOTE_HISTORY_LIMIT) })
+    : t("quotes.datelineAll");
 
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="RFQ / Quotes"
-          title="Quote history"
+          eyebrow={t("quotes.eyebrow")}
+          title={t("quotes.title")}
           dateline={pageDateline}
           actions={
             <Button variant="secondary" size="sm" asChild>
               <Link href="/messages">
-                <Inbox className="h-3.5 w-3.5" aria-hidden="true" /> RFQ inbox
+                <Inbox className="h-3.5 w-3.5" aria-hidden="true" /> {t("quotes.rfqInbox")}
               </Link>
             </Button>
           }
@@ -116,30 +123,30 @@ export default async function QuoteHistoryPage({ searchParams }: { searchParams?
             four different hues carried no information the labels did not. */}
         <CellGrid cols={{ base: 2, lg: 4 }}>
           <Stat
-            label={capped ? `Listed (newest ${SELLER_QUOTE_HISTORY_LIMIT})` : "Total submitted"}
+            label={capped ? t("quotes.stats.listedNewest", { limit: String(SELLER_QUOTE_HISTORY_LIMIT) }) : t("quotes.stats.totalSubmitted")}
             value={rfqs.length}
             rank="section"
             icon={FileText}
             chip="neutral"
           />
-          <Stat label="Accepted" value={accepted.length} icon={CheckCircle} chip={accepted.length > 0 ? "success" : "neutral"} />
+          <Stat label={t("quotes.stats.accepted")} value={accepted.length} icon={CheckCircle} chip={accepted.length > 0 ? "success" : "neutral"} />
           <Stat
-            label="Win rate"
+            label={t("quotes.stats.winRate")}
             value={responded.length > 0 ? winRate : "—"}
             unit={responded.length > 0 ? "%" : undefined}
             icon={TrendingUp}
             chip="neutral"
-            dateline={responded.length > 0 ? `Accepted out of the ${responded.length} that received a decision` : undefined}
+            dateline={responded.length > 0 ? t("quotes.stats.winRateBasis", { n: String(responded.length) }) : undefined}
             // No decision has come back on anything listed, so there is nothing
             // to take a ratio of — say that rather than print a confident 0%.
-            deltaWithheld={responded.length === 0 ? "No listed quote has received a decision yet" : undefined}
+            deltaWithheld={responded.length === 0 ? t("quotes.stats.noDecisionYet") : undefined}
           />
           <Stat
-            label={acceptedTotals.length > 1 ? "Accepted value by currency" : "Accepted value"}
+            label={acceptedTotals.length > 1 ? t("quotes.stats.acceptedValueByCurrency") : t("quotes.stats.acceptedValue")}
             value={acceptedValueLabel}
             icon={TrendingUp}
             chip="neutral"
-            dateline={acceptedTotals.length > 1 ? "Each currency as recorded · no conversion applied" : undefined}
+            dateline={acceptedTotals.length > 1 ? t("quotes.stats.noConversion") : undefined}
           />
         </CellGrid>
 
@@ -147,27 +154,23 @@ export default async function QuoteHistoryPage({ searchParams }: { searchParams?
           rows={rfqs}
           getRowKey={(r) => r.id}
           stickyHead
-          dateline={
-            capped
-              ? `The ${SELLER_QUOTE_HISTORY_LIMIT} most recently updated quotes; older quotes are not listed here yet.`
-              : undefined
-          }
+          dateline={capped ? t("quotes.tableCapped", { limit: String(SELLER_QUOTE_HISTORY_LIMIT) }) : undefined}
           columns={[
             {
               key: "rfqNumber",
-              label: "RFQ #",
+              label: t("quotes.columns.rfqNumber"),
               width: "140px",
               render: (r) => <span className="u-mono u-meta text-ink-2">{r.rfqNumber}</span>,
             },
             {
               key: "buyer",
-              label: "Buyer",
-              render: (r) => <span className="block max-w-[220px] truncate">{r.company?.nameEn ?? "Direct buyer"}</span>,
+              label: t("quotes.columns.buyer"),
+              render: (r) => <span className="block max-w-[220px] truncate">{r.company?.nameEn ?? t("common.directBuyer")}</span>,
             },
-            { key: "items", label: "Items", numeric: true, render: (r) => r._count.items },
+            { key: "items", label: t("quotes.columns.items"), numeric: true, render: (r) => r._count.items },
             {
               key: "total",
-              label: "Quoted total",
+              label: t("quotes.columns.quotedTotal"),
               numeric: true,
               // Each quote in the currency it was written in. A supported
               // currency formats; anything else prints its raw code so a
@@ -181,20 +184,21 @@ export default async function QuoteHistoryPage({ searchParams }: { searchParams?
             },
             {
               key: "requiredBy",
-              label: "Required by",
+              label: t("quotes.columns.requiredBy"),
               hideOnMobile: true,
               render: (r) => <span className="u-meta whitespace-nowrap text-ink-2">{fmt(r.requiredBy)}</span>,
             },
             {
               key: "status",
-              label: "Status",
+              label: t("quotes.columns.status"),
               align: "end",
               render: (r) => {
+                const known = r.status in STATUS;
                 const st = STATUS[r.status] ?? STATUS.SUBMITTED!;
                 return (
                   <StatusPill tone={st.tone} className="whitespace-nowrap">
                     <st.icon className="h-3 w-3" aria-hidden="true" />
-                    {st.label}
+                    {known ? t(`quoteStatus.${r.status}`) : t("quoteStatus.SUBMITTED")}
                   </StatusPill>
                 );
               },
@@ -202,12 +206,12 @@ export default async function QuoteHistoryPage({ searchParams }: { searchParams?
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline="You have not submitted a quotation yet."
-              body="RFQs routed to you arrive in your inbox; every quote you send from there is listed here."
+              eyebrow={t("common.nothingRecorded")}
+              headline={t("quotes.empty.headline")}
+              body={t("quotes.empty.body")}
               action={
                 <Button variant="secondary" size="sm" asChild>
-                  <Link href="/messages">Open the RFQ inbox</Link>
+                  <Link href="/messages">{t("quotes.empty.action")}</Link>
                 </Button>
               }
             />

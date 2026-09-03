@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle, Download, EyeOff, Package, Search, Upload, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn, formatCurrency, isSupportedCurrency } from "@avenick/utils";
 import { platformName } from "@avenick/utils/portal-config";
 import {
@@ -60,6 +61,7 @@ const ATTENTION = "__attention" as const;
 
 export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canManage: boolean }) {
   const router = useRouter();
+  const t = useTranslations("sellerCatalog");
   const { toast } = useToast();
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
   /**
@@ -143,11 +145,14 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
    */
   const hiddenSelectedCount = selectedRows.filter((row) => !visibleIdSet.has(row.id)).length;
 
+  // The enum keys are the platform's; only the sentences beside them are
+  // translated. The platform name stays an interpolation value so it is never
+  // frozen into a message.
   const SKIP_LABELS: Record<BulkStatusSkipReason, string> = {
-    NOT_APPROVED_YET: "not yet approved — submit it for review from the product form",
-    PLATFORM_SUPPRESSED: `suppressed or suspended by ${platformName()} — contact support`,
-    ALREADY_IN_STATUS: "already in that status",
-    NOT_PAUSABLE: "not live, so there is nothing to pause",
+    NOT_APPROVED_YET: t("skip.NOT_APPROVED_YET"),
+    PLATFORM_SUPPRESSED: t("skip.PLATFORM_SUPPRESSED", { platform: platformName() }),
+    ALREADY_IN_STATUS: t("skip.ALREADY_IN_STATUS"),
+    NOT_PAUSABLE: t("skip.NOT_PAUSABLE"),
   };
 
   async function bulk(status: "ACTIVE" | "INACTIVE") {
@@ -163,8 +168,8 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
       // be a claim this page cannot stand behind. Say what is actually known —
       // that no answer arrived — and send the seller to the record.
       toast({
-        title: "No answer came back",
-        description: "The platform did not confirm this update, so what it did is not known here. Reload the list to see the catalog as it now stands.",
+        title: t("bulk.noAnswer.title"),
+        description: t("bulk.noAnswer.description"),
         variant: "error",
       });
       return;
@@ -172,7 +177,6 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
     setPending(null);
     setSelected(new Set());
 
-    const verb = status === "ACTIVE" ? "resumed" : "paused";
     const skippedIds = new Set(res.skipped.map((entry) => entry.id));
     const byId = new Map(rows.map((row) => [row.id, row]));
     const presumedChanged = requested.filter((id) => !skippedIds.has(id));
@@ -189,9 +193,15 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
 
     setReport({
       tone: res.count === 0 ? "danger" : res.skipped.length > 0 ? "warning" : "success",
-      headline: `${res.count} listing${res.count === 1 ? "" : "s"} ${verb}`,
-      dateline: `Counted from the ${requested.length} listing${requested.length === 1 ? "" : "s"} selected, as the platform answered`,
-      linesTitle: "Not changed",
+      // Two keys rather than one with an interpolated verb: "resumed" and
+      // "paused" inflect with the noun in Arabic, so the whole sentence has to
+      // be written per outcome.
+      headline: t(status === "ACTIVE" ? "bulk.report.resumed" : "bulk.report.paused", {
+        count: res.count,
+        n: String(res.count),
+      }),
+      dateline: t("bulk.report.dateline", { count: requested.length, n: String(requested.length) }),
+      linesTitle: t("bulk.report.notChanged"),
       lines: res.skipped.map((entry) => {
         const row = byId.get(entry.id);
         return {
@@ -204,7 +214,12 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
       ...(reconciles
         ? {}
         : {
-            note: `The platform reported ${res.count} change${res.count === 1 ? "" : "s"} for ${presumedChanged.length} listing${presumedChanged.length === 1 ? "" : "s"} it did not refuse, so none are marked in the table below. Refresh to see the catalog as it now stands.`,
+            note: t("bulk.report.unreconciled", {
+              changeCount: res.count,
+              changes: String(res.count),
+              listingCount: presumedChanged.length,
+              listings: String(presumedChanged.length),
+            }),
           }),
     });
 
@@ -214,14 +229,14 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
   const columns: LedgerColumn<ProductRow>[] = [
     {
       key: "product",
-      label: "Product",
+      label: t("table.columns.product"),
       width: "34%",
       render: (row) => (
         <div className="flex items-center gap-3">
           {canManage && (
             <input
               type="checkbox"
-              aria-label={`Select ${row.nameEn}`}
+              aria-label={t("table.selectRow", { name: row.nameEn })}
               checked={selected.has(row.id)}
               onChange={() => toggle(row.id)}
               className="u-focus h-4 w-4 shrink-0 rounded-sm border-border accent-primary"
@@ -257,21 +272,23 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
     },
     {
       key: "sku",
-      label: "SKU",
+      label: t("table.columns.sku"),
       hideOnMobile: true,
       render: (row) => <span className="u-mono text-meta text-ink-2">{row.sku}</span>,
     },
     {
       key: "status",
-      label: "Status",
+      label: t("table.columns.status"),
       render: (row) => {
         const meta = statusMeta(row.status);
-        return <StatusPill tone={meta.tone}>{meta.label}</StatusPill>;
+        // statusMeta hands back a key, not a word: a status nobody has labelled
+        // yet still shows the raw state rather than disappearing.
+        return <StatusPill tone={meta.tone}>{meta.labelKey ? t(meta.labelKey) : meta.fallbackLabel}</StatusPill>;
       },
     },
     {
       key: "health",
-      label: "Listing health",
+      label: t("table.columns.health"),
       width: "140px",
       hideOnMobile: true,
       render: (row) => (
@@ -293,7 +310,7 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
     },
     {
       key: "available",
-      label: "Available",
+      label: t("table.columns.available"),
       numeric: true,
       // Zero is a fact; anything above it is not called "low" here, because the
       // reorder point that would decide that lives per warehouse location and
@@ -324,7 +341,7 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
     },
     {
       key: "price",
-      label: "Price",
+      label: t("table.columns.price"),
       numeric: true,
       render: (row) =>
         row.price != null && row.currency && isSupportedCurrency(row.currency) ? (
@@ -339,7 +356,7 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
     },
     {
       key: "issues",
-      label: "Issues",
+      label: t("table.columns.issues"),
       numeric: true,
       render: (row) =>
         row.issueCount > 0 ? (
@@ -350,11 +367,11 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
             <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
             {row.issueCount}
             <span className="sr-only">
-              open issue{row.issueCount === 1 ? "" : "s"} on {row.nameEn}
+              {t("table.openIssues", { count: row.issueCount, name: row.nameEn })}
             </span>
           </Link>
         ) : (
-          <span className="text-ink-3">None</span>
+          <span className="text-ink-3">{t("table.noIssues")}</span>
         ),
     },
     {
@@ -365,23 +382,28 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
         canManage ? (
           <Button variant="link" size="sm" asChild>
             <Link href={`/products/${row.id}/edit`}>
-              Edit<span className="sr-only"> {row.nameEn}</span>
+              {t("table.edit")}<span className="sr-only"> {row.nameEn}</span>
             </Link>
           </Button>
         ) : (
-          <span className="text-meta text-ink-3">View only</span>
+          <span className="text-meta text-ink-3">{t("table.viewOnly")}</span>
         ),
     },
   ];
 
   const filters: Array<{ key: FilterKey; label: string; count: number }> = [
-    { key: "all", label: "All", count: rows.length },
-    ...STATUS_ORDER.filter((status) => (counts.byStatus.get(status) ?? 0) > 0).map((status) => ({
-      key: status as FilterKey,
-      label: statusMeta(status).label,
-      count: counts.byStatus.get(status) ?? 0,
-    })),
-    ...(counts.attention > 0 ? [{ key: ATTENTION as FilterKey, label: "Needs attention", count: counts.attention }] : []),
+    { key: "all", label: t("filters.all"), count: rows.length },
+    ...STATUS_ORDER.filter((status) => (counts.byStatus.get(status) ?? 0) > 0).map((status) => {
+      const meta = statusMeta(status);
+      return {
+        key: status as FilterKey,
+        label: meta.labelKey ? t(meta.labelKey) : meta.fallbackLabel,
+        count: counts.byStatus.get(status) ?? 0,
+      };
+    }),
+    ...(counts.attention > 0
+      ? [{ key: ATTENTION as FilterKey, label: t("filters.needsAttention"), count: counts.attention }]
+      : []),
   ];
 
   return (
@@ -407,15 +429,15 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search name or SKU"
-              aria-label="Search this catalog by product name or SKU"
+              placeholder={t("toolbar.searchPlaceholder")}
+              aria-label={t("toolbar.searchLabel")}
               startIcon={<Search className="h-4 w-4" aria-hidden="true" />}
             />
           </div>
           <div className="flex items-center gap-2 ms-auto">
             {canManage && (
               <Button variant="secondary" size="sm" onClick={() => setImportOpen(true)}>
-                <Upload className="h-3.5 w-3.5" aria-hidden="true" /> Import CSV
+                <Upload className="h-3.5 w-3.5" aria-hidden="true" /> {t("toolbar.importCsv")}
               </Button>
             )}
             <Button
@@ -429,7 +451,9 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
               }
             >
               <Download className="h-3.5 w-3.5" aria-hidden="true" />
-              Export {selected.size > 0 ? `${selected.size} selected` : "these rows"}
+              {selected.size > 0
+                ? t("toolbar.exportSelected", { count: selected.size, n: String(selected.size) })
+                : t("toolbar.exportRows")}
             </Button>
           </div>
         </div>
@@ -445,7 +469,7 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
                   disabled={visibleIds.length === 0}
                   className="u-focus h-4 w-4 rounded-sm border-border accent-primary"
                 />
-                Select all {visibleIds.length} shown
+                {t("toolbar.selectAllShown", { count: visibleIds.length, n: String(visibleIds.length) })}
               </label>
               <Divider orientation="vertical" className="h-5" />
             </>
@@ -485,11 +509,15 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
         rows={visible}
         getRowKey={(row) => row.id}
         density="compact"
-        dateline="Your listings as recorded, most recently updated first · a deleted listing is not shown"
+        dateline={t("table.dateline")}
         footer={
           visible.length === rows.length
-            ? `${rows.length} listing${rows.length === 1 ? "" : "s"}`
-            : `${visible.length} of ${rows.length} listing${rows.length === 1 ? "" : "s"} shown`
+            ? t("table.footerAll", { count: rows.length, n: String(rows.length) })
+            : t("table.footerFiltered", {
+                count: rows.length,
+                shown: String(visible.length),
+                n: String(rows.length),
+              })
         }
         rowProps={(row) => ({
           // The rule is always present and only its colour changes, so marking a
@@ -516,27 +544,27 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
               <EmptyState
                 variant="certificate"
                 glyph={<Package />}
-                eyebrow="Nothing recorded"
-                headline="This catalog has no listings yet."
-                body="A listing you add here is saved as a draft until it has been through review, and it is not on the public storefront until a further decision after that."
+                eyebrow={t("empty.eyebrow")}
+                headline={t("empty.headline")}
+                body={t("empty.body")}
                 action={
                   <Button variant="primary" size="sm" asChild>
-                    <Link href="/products/new">Add your first product</Link>
+                    <Link href="/products/new">{t("empty.action")}</Link>
                   </Button>
                 }
               />
             ) : (
               <EmptyState
-                eyebrow="Nothing recorded"
-                headline="This catalog has no listings yet."
-                body="Your role can read this catalog but not add to it. Ask a seller owner for the catalog.manage permission."
+                eyebrow={t("empty.eyebrow")}
+                headline={t("empty.headline")}
+                body={t("empty.readOnlyBody")}
               />
             )
           ) : (
             <EmptyState
-              eyebrow="No match"
-              headline="No listing in this catalog matches the current filter."
-              body={`${rows.length} listing${rows.length === 1 ? " is" : "s are"} recorded — clear the filter to see them.`}
+              eyebrow={t("noMatch.eyebrow")}
+              headline={t("noMatch.headline")}
+              body={t("noMatch.body", { count: rows.length, n: String(rows.length) })}
               action={
                 <Button
                   variant="secondary"
@@ -546,7 +574,7 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
                     setQuery("");
                   }}
                 >
-                  Clear the filter
+                  {t("noMatch.action")}
                 </Button>
               }
             />
@@ -561,19 +589,26 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
         <Surface
           rung={4}
           role="group"
-          aria-label="Actions for the selected listings"
+          aria-label={t("bulk.barLabel")}
           className="sticky bottom-4 z-sticky flex flex-wrap items-center gap-2 p-3"
         >
           <div className="min-w-0">
             <span className="u-ui font-medium text-ink-1">
-              <span className="fig">{selected.size}</span> selected
+              {t.rich("bulk.selectedCount", {
+                count: selected.size,
+                n: String(selected.size),
+                fig: (chunks) => <span className="fig">{chunks}</span>,
+              })}
             </span>
             {hiddenSelectedCount > 0 && (
               // A count that is larger than what is on screen has to say so
               // before it is acted on, not after.
               <p className="u-meta text-ink-2">
-                <span className="fig">{hiddenSelectedCount}</span> of them{" "}
-                {hiddenSelectedCount === 1 ? "is" : "are"} hidden by the current filter and will still be changed.
+                {t.rich("bulk.hiddenBySelection", {
+                  count: hiddenSelectedCount,
+                  n: String(hiddenSelectedCount),
+                  fig: (chunks) => <span className="fig">{chunks}</span>,
+                })}
               </p>
             )}
           </div>
@@ -585,7 +620,7 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
               loading={pending === "ACTIVE"}
               onClick={() => bulk("ACTIVE")}
             >
-              {pending !== "ACTIVE" && <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />} Resume
+              {pending !== "ACTIVE" && <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />} {t("bulk.resume")}
             </Button>
             <Button
               variant="secondary"
@@ -594,22 +629,19 @@ export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canMana
               loading={pending === "INACTIVE"}
               onClick={() => bulk("INACTIVE")}
             >
-              {pending !== "INACTIVE" && <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />} Pause
+              {pending !== "INACTIVE" && <EyeOff className="h-3.5 w-3.5" aria-hidden="true" />} {t("bulk.pause")}
             </Button>
             <Button
               variant="ghost"
               size="icon"
               disabled={pending !== null}
               onClick={() => setSelected(new Set())}
-              aria-label="Clear the selection"
+              aria-label={t("bulk.clearSelection")}
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
-          <Dateline className="w-full">
-            Resuming and pausing obey the same rule as review: a listing the platform stopped, or one that has never been
-            approved, is reported back rather than moved.
-          </Dateline>
+          <Dateline className="w-full">{t("bulk.dateline")}</Dateline>
         </Surface>
       )}
 

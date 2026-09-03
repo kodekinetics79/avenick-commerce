@@ -5,51 +5,46 @@ import { getAdminUsers, UserRole, UserStatus } from "@avenick/database";
 import { UserStatusActions } from "./user-actions";
 import { FilterTabs, Pager, ConsoleSearch, queryHref } from "@/components/console/chrome";
 import { Shield, Store, ShoppingBag, User, Users } from "lucide-react";
-import { format } from "date-fns";
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import {
   Button, CellGrid, EmptyState, LedgerTable, PageHeader, Stat, StatusPill, type PillTone,
 } from "@avenick/ui";
 
-export const metadata = { title: "User Management" };
+// generateMetadata rather than a static object: the tab title is user-visible
+// copy and a module-scope constant has no translator in scope.
+export async function generateMetadata() {
+  const t = await getTranslations("adminShell.meta");
+  return { title: t("users") };
+}
 export const dynamic = "force-dynamic";
 
-const ROLE_LABEL: Record<UserRole, string> = {
-  SUPER_ADMIN: "Super admin",
-  ADMIN: "Admin",
-  SELLER_OWNER: "Seller owner",
-  SELLER_STAFF: "Seller staff",
-  COMPANY_ADMIN: "Company admin",
-  COMPANY_BUYER: "Company buyer",
-  COMPANY_APPROVER: "Company approver",
-  CONSUMER: "Consumer",
-};
-
-/** The four audiences an operator distinguishes, and the roles inside each. */
-const ROLE_GROUPS: Array<{ label: string; icon: ElementType; roles: UserRole[]; filter: UserRole }> = [
-  { label: "Platform staff", icon: Shield, roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN], filter: UserRole.ADMIN },
-  { label: "Suppliers", icon: Store, roles: [UserRole.SELLER_OWNER, UserRole.SELLER_STAFF], filter: UserRole.SELLER_OWNER },
+/**
+ * The four audiences an operator distinguishes, and the roles inside each. The
+ * group carries a stable `key`, not a display string — this map sits at module
+ * scope where no translator is in scope, so the label is looked up at render
+ * from `adminShell.users.roleGroups`.
+ */
+const ROLE_GROUPS: Array<{ key: string; icon: ElementType; roles: UserRole[]; filter: UserRole }> = [
+  { key: "platformStaff", icon: Shield, roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN], filter: UserRole.ADMIN },
+  { key: "suppliers", icon: Store, roles: [UserRole.SELLER_OWNER, UserRole.SELLER_STAFF], filter: UserRole.SELLER_OWNER },
   {
-    label: "B2B buyers",
+    key: "b2bBuyers",
     icon: ShoppingBag,
     roles: [UserRole.COMPANY_ADMIN, UserRole.COMPANY_BUYER, UserRole.COMPANY_APPROVER],
     filter: UserRole.COMPANY_ADMIN,
   },
-  { label: "Consumers", icon: User, roles: [UserRole.CONSUMER], filter: UserRole.CONSUMER },
+  { key: "consumers", icon: User, roles: [UserRole.CONSUMER], filter: UserRole.CONSUMER },
 ];
 
+// Tone is presentation, not copy, so it stays here; the enum keys are the
+// stored values and are never translated — only their labels are, under
+// `adminShell.users.statuses`.
 const STATUS_TONE: Record<UserStatus, PillTone> = {
   ACTIVE: "success",
   PENDING: "warning",
   SUSPENDED: "danger",
   BANNED: "neutral",
-};
-
-const STATUS_LABEL: Record<UserStatus, string> = {
-  ACTIVE: "Active",
-  PENDING: "Pending",
-  SUSPENDED: "Suspended",
-  BANNED: "Banned",
 };
 
 interface PageProps {
@@ -60,6 +55,25 @@ type AdminUser = Awaited<ReturnType<typeof getAdminUsers>>["users"][number];
 
 export default async function UsersPage({ searchParams }: PageProps) {
   const { userId: currentUserId } = await requireAdminSession();
+  const t = await getTranslations("adminShell.users");
+  const locale = await getLocale();
+
+  // The joined date, in the reader's language. `format(d, "d MMM yyyy")`
+  // from date-fns has no locale argument here, so it printed "3 Sep 2026" on
+  // the Arabic page — a column of English month abbreviations is the same
+  // defect as an English label in an Arabic sentence.
+  //
+  // `Intl` rather than a date-fns locale bundle, matching the buyer suite's
+  // own formatter: it is in every runtime, and it lets the numbering system
+  // be PINNED. A bare `ar` returns Arabic-Indic digits; `-u-nu-latn` holds the
+  // one numeral system this product uses. `en-AE` is the GCC English locale
+  // and renders "3 Sep 2026" — byte-identical to what this column already
+  // showed, so the English console is unchanged.
+  const joinedFormat = new Intl.DateTimeFormat(locale === "ar" ? "ar-u-nu-latn" : "en-AE", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const limit = 20;
@@ -84,17 +98,17 @@ export default async function UsersPage({ searchParams }: PageProps) {
     <AdminLayout>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Settings"
-          title="Users and access"
-          description="Platform identities, their role and their access. Every status change is written to the audit stream."
-          dateline="Counts in the band below are of the whole register by role; the table shows one page of it. Erased subjects are excluded everywhere."
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
+          dateline={t("dateline")}
         />
 
         <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
           {ROLE_GROUPS.map((group) => (
             <Stat
-              key={group.label}
-              label={group.label}
+              key={group.key}
+              label={t(`roleGroups.${group.key}`)}
               value={countFor(group.roles)}
               icon={group.icon}
               href={href({ role: group.filter })}
@@ -105,27 +119,27 @@ export default async function UsersPage({ searchParams }: PageProps) {
 
         <div className="flex flex-wrap items-start gap-3">
           <FilterTabs
-            label="Filter users by role"
+            label={t("filterByRole")}
             tabs={[
-              { href: href({ role: undefined }), label: "All roles", count: allRoles, active: !role },
+              { href: href({ role: undefined }), label: t("allRoles"), count: allRoles, active: !role },
               ...ROLE_GROUPS.map((g) => ({
                 href: href({ role: g.filter }),
                 // The count is of the GROUP, but the filter is one role inside
                 // it — so the count is deliberately omitted rather than shown
                 // next to a filter that will not return it. A number a reader
                 // can falsify by clicking it is worse than no number.
-                label: ROLE_LABEL[g.filter],
+                label: t(`roles.${g.filter}`),
                 active: role === g.filter,
               })),
             ]}
           />
           <FilterTabs
-            label="Filter users by status"
+            label={t("filterByStatus")}
             tabs={[
-              { href: href({ status: undefined }), label: "Any status", active: !status },
+              { href: href({ status: undefined }), label: t("anyStatus"), active: !status },
               ...([UserStatus.ACTIVE, UserStatus.SUSPENDED, UserStatus.PENDING] as const).map((s) => ({
                 href: href({ status: s }),
-                label: STATUS_LABEL[s],
+                label: t(`statuses.${s}`),
                 active: status === s,
               })),
             ]}
@@ -133,8 +147,8 @@ export default async function UsersPage({ searchParams }: PageProps) {
           <ConsoleSearch
             className="ms-auto"
             action="/users"
-            label="Search users by name or email"
-            placeholder="Name or email…"
+            label={t("searchLabel")}
+            placeholder={t("searchPlaceholder")}
             defaultValue={search}
             preserve={{ role, status }}
             clearHref={href({ search: undefined })}
@@ -148,7 +162,7 @@ export default async function UsersPage({ searchParams }: PageProps) {
           columns={[
             {
               key: "user",
-              label: "User",
+              label: t("columnUser"),
               render: (u) => (
                 <>
                   <span className="flex min-w-0 items-center gap-1.5">
@@ -157,7 +171,7 @@ export default async function UsersPage({ searchParams }: PageProps) {
                     </span>
                     {/* Marking the operator's own row is what stops somebody
                         suspending themselves out of the console. */}
-                    {u.id === currentUserId && <StatusPill>You</StatusPill>}
+                    {u.id === currentUserId && <StatusPill>{t("you")}</StatusPill>}
                   </span>
                   <span className="u-meta block truncate text-ink-3">{u.email}</span>
                 </>
@@ -165,43 +179,43 @@ export default async function UsersPage({ searchParams }: PageProps) {
             },
             {
               key: "role",
-              label: "Role",
+              label: t("columnRole"),
               width: "152px",
-              render: (u) => <span className="u-meta text-ink-2">{ROLE_LABEL[u.role]}</span>,
+              render: (u) => <span className="u-meta text-ink-2">{t(`roles.${u.role}`)}</span>,
             },
             {
               key: "org",
-              label: "Organisation",
+              label: t("columnOrg"),
               hideOnMobile: true,
               render: (u) => {
                 const org = u.sellerProfile?.businessNameEn ?? u.companyMember?.company.nameEn;
                 return org ? (
                   <span className="block truncate text-ink-2">{org}</span>
                 ) : (
-                  <span className="u-meta text-ink-3">Not attached to one</span>
+                  <span className="u-meta text-ink-3">{t("noOrg")}</span>
                 );
               },
             },
             {
               key: "status",
-              label: "Status",
+              label: t("columnStatus"),
               width: "120px",
               render: (u) => (
                 <StatusPill tone={STATUS_TONE[u.status]} dot={u.status !== "ACTIVE"}>
-                  {STATUS_LABEL[u.status]}
+                  {t(`statuses.${u.status}`)}
                 </StatusPill>
               ),
             },
             {
               key: "joined",
-              label: "Joined",
+              label: t("columnJoined"),
               hideOnMobile: true,
               width: "104px",
-              render: (u) => <span className="tnum text-ink-2">{format(u.createdAt, "d MMM yyyy")}</span>,
+              render: (u) => <span className="tnum text-ink-2">{joinedFormat.format(u.createdAt)}</span>,
             },
             {
               key: "decision",
-              label: "Access",
+              label: t("columnAccess"),
               align: "end",
               width: "184px",
               render: (u) => (
@@ -219,18 +233,25 @@ export default async function UsersPage({ searchParams }: PageProps) {
               page={page}
               totalPages={totalPages}
               hrefFor={(p) => href({ page: String(p), search, role, status })}
-              summary={`${total.toLocaleString()} ${total === 1 ? "user" : "users"}${filtered ? " match these filters" : " registered"}`}
+              // The total goes in twice: as a number so ICU selects the plural
+              // form — Arabic has six — and as a Western-digit string, because a
+              // bare number would render in the locale's own numeral system.
+              summary={
+                filtered
+                  ? t("pagerFiltered", { count: total, value: total.toLocaleString("en") })
+                  : t("pagerAll", { count: total, value: total.toLocaleString("en") })
+              }
             />
           }
           empty={
             filtered ? (
               <EmptyState
-                eyebrow="No match"
-                headline="No user matches the filters currently applied."
-                body="Clearing the search, the role or the status filter returns the full register."
+                eyebrow={t("emptyFiltered.eyebrow")}
+                headline={t("emptyFiltered.headline")}
+                body={t("emptyFiltered.body")}
                 action={
                   <Button variant="secondary" size="sm" asChild>
-                    <Link href="/users">Clear the filters</Link>
+                    <Link href="/users">{t("emptyFiltered.action")}</Link>
                   </Button>
                 }
               />
@@ -238,12 +259,12 @@ export default async function UsersPage({ searchParams }: PageProps) {
               <EmptyState
                 variant="certificate"
                 glyph={<Users />}
-                eyebrow="Nothing registered"
-                headline="No user account exists on the platform yet."
-                body="An account appears here the moment anyone registers, whether as a consumer, a supplier or a member of a buyer company."
+                eyebrow={t("emptyRegister.eyebrow")}
+                headline={t("emptyRegister.headline")}
+                body={t("emptyRegister.body")}
                 action={
                   <Button variant="secondary" size="sm" asChild>
-                    <Link href="/audit">Open the audit trail</Link>
+                    <Link href="/audit">{t("emptyRegister.action")}</Link>
                   </Button>
                 }
               />

@@ -5,6 +5,7 @@ import { formatCurrency } from "@avenick/utils";
 import { CreditCard, CheckCircle, Clock, XCircle, RotateCcw, Building2, Smartphone, Search, Beaker, Banknote, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import {
   PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Surface,
   Num, Eyebrow, Dateline, Button, type PillTone,
@@ -13,25 +14,33 @@ import { MoneyStat } from "@/app/finance/money-figures";
 import { FilterTabs, Pager, CONTROL, CONTROL_SM } from "@/components/console/chrome";
 import { confirmBankTransfer } from "./actions";
 
-export const metadata = { title: "Payments" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminCommerce.payments");
+  return { title: t("meta.title") };
+}
 export const dynamic = "force-dynamic";
 
-const STATUS_CONFIG: Record<PaymentStatus, { label: string; tone: PillTone; icon: typeof CheckCircle }> = {
-  PAID: { label: "Paid", tone: "success", icon: CheckCircle },
-  UNPAID: { label: "Unpaid", tone: "warning", icon: Clock },
-  PARTIALLY_PAID: { label: "Partially Paid", tone: "warning", icon: Clock },
-  FAILED: { label: "Failed", tone: "danger", icon: XCircle },
-  REFUNDED: { label: "Refunded", tone: "neutral", icon: RotateCcw },
+/** Tone and icon per status; the label is translated from `payments.status`. */
+const STATUS_META: Record<PaymentStatus, { tone: PillTone; icon: typeof CheckCircle }> = {
+  PAID: { tone: "success", icon: CheckCircle },
+  UNPAID: { tone: "warning", icon: Clock },
+  PARTIALLY_PAID: { tone: "warning", icon: Clock },
+  FAILED: { tone: "danger", icon: XCircle },
+  REFUNDED: { tone: "neutral", icon: RotateCcw },
 };
 
-const METHOD_LABEL: Record<string, { label: string; icon: typeof CreditCard }> = {
-  BANK_TRANSFER: { label: "Bank Transfer", icon: Building2 },
-  CREDIT_CARD: { label: "Card", icon: CreditCard },
-  MADA: { label: "mada", icon: CreditCard },
-  APPLE_PAY: { label: "Apple Pay", icon: Smartphone },
-  STC_PAY: { label: "STC Pay", icon: Smartphone },
-  MOCK: { label: "Test (mock)", icon: Beaker },
+/** Icon per method; the label is translated from `payments.method`. */
+const METHOD_ICON: Record<string, typeof CreditCard> = {
+  BANK_TRANSFER: Building2,
+  CREDIT_CARD: CreditCard,
+  MADA: CreditCard,
+  APPLE_PAY: Smartphone,
+  STC_PAY: Smartphone,
+  MOCK: Beaker,
 };
+
+/** Refusal and outcome copy is read by the operator, so it is translated. */
+type Msg = (key: string, values?: Record<string, string | number>) => string;
 
 // Mirrors CLOSED_ORDER_STATUSES in packages/database/src/services/payments.ts.
 // The service is the authority; this list only decides whether a control is
@@ -67,31 +76,35 @@ function settlementFor(
   payment: { status: PaymentStatus; method: string; amount: Prisma.Decimal; currency: string },
   order: OrderFact | undefined,
   receipts: Receipts | undefined,
+  t: Msg,
 ): Settlement {
   // Gateway payments settle through their signed webhook; there is no
   // legitimate manual confirmation for them, so no control is offered.
   if (payment.method !== "BANK_TRANSFER") return { kind: "none" };
   if (payment.status === "PAID") return { kind: "none" };
   if (payment.status !== "UNPAID") {
-    return { kind: "blocked", reason: `A ${STATUS_CONFIG[payment.status].label.toLowerCase()} payment cannot be confirmed` };
+    return { kind: "blocked", reason: t("blocked.statusNotConfirmable", { status: t(`status.${payment.status}`).toLowerCase() }) };
   }
-  if (!order) return { kind: "blocked", reason: "Order record unavailable" };
-  if (order.paymentMethod !== "BANK_TRANSFER") return { kind: "blocked", reason: "Order is not a bank-transfer order" };
+  if (!order) return { kind: "blocked", reason: t("blocked.orderUnavailable") };
+  if (order.paymentMethod !== "BANK_TRANSFER") return { kind: "blocked", reason: t("blocked.notBankTransferOrder") };
   if (CLOSED_ORDER_STATUSES.has(order.status)) {
-    return { kind: "blocked", reason: `Order is ${order.status.toLowerCase().replace(/_/g, " ")}` };
+    return { kind: "blocked", reason: t("blocked.orderStatus", { status: t(`orderStatus.${order.status}`) }) };
   }
-  if (order.paymentStatus === "REFUNDED") return { kind: "blocked", reason: "Order has been refunded" };
+  if (order.paymentStatus === "REFUNDED") return { kind: "blocked", reason: t("blocked.orderRefunded") };
   // No FX policy exists in this system, so anything that would require
   // converting between currencies is handed back to a human.
   if (payment.currency !== order.currency) {
-    return { kind: "blocked", reason: `Payment is in ${payment.currency}, order in ${order.currency}` };
+    return {
+      kind: "blocked",
+      reason: t("blocked.currencyMismatch", { paymentCurrency: payment.currency, orderCurrency: order.currency }),
+    };
   }
   if (receipts?.currencies.some((currency) => currency !== order.currency)) {
-    return { kind: "blocked", reason: "Order holds receipts in more than one currency" };
+    return { kind: "blocked", reason: t("blocked.mixedReceipts") };
   }
 
   const outstanding = order.total.sub(receipts?.total ?? 0);
-  if (outstanding.lessThanOrEqualTo(0)) return { kind: "blocked", reason: "Order total is already covered" };
+  if (outstanding.lessThanOrEqualTo(0)) return { kind: "blocked", reason: t("blocked.alreadyCovered") };
   return {
     kind: "confirmable",
     outstanding,
@@ -120,6 +133,7 @@ const OUTCOME_PARAMS = { confirmed: undefined, outcome: undefined, sharedRef: un
 
 export default async function PaymentsPage({ searchParams }: PageProps) {
   await requireAdminSession();
+  const t = await getTranslations("adminCommerce.payments");
 
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const limit = 25;
@@ -189,20 +203,21 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
 
   const outcome = (() => {
     if (searchParams.confirmError) {
-      return { tone: "refused" as const, title: "Confirmation refused", detail: searchParams.confirmError };
+      return { tone: "refused" as const, title: t("outcome.refusedTitle"), detail: searchParams.confirmError };
     }
     if (!searchParams.confirmed) return null;
     const orderNumber = searchParams.confirmed;
     const title =
       searchParams.outcome === "REPLAY"
-        ? `Order ${orderNumber}: this credit was already recorded; nothing was changed.`
+        ? t("outcome.replay", { orderNumber })
         : searchParams.outcome === "PAID"
-          ? `Order ${orderNumber} is now paid in full.`
+          ? t("outcome.paid", { orderNumber })
           : searchParams.outcome === "PARTIALLY_PAID"
-            ? `Order ${orderNumber} is now partially paid; an unpaid instruction for the balance remains open in the ledger.`
-            : `Order ${orderNumber}: bank transfer recorded.`;
-    const shared = searchParams.sharedRef
-      ? `The same bank reference is also recorded against ${searchParams.sharedRef.split(",").length === 1 ? "order" : "orders"} ${searchParams.sharedRef.split(",").join(", ")}. That is expected when one wire settles several orders; if it is one statement line banked twice, it needs correcting.`
+            ? t("outcome.partiallyPaid", { orderNumber })
+            : t("outcome.recorded", { orderNumber });
+    const sharedOrders = searchParams.sharedRef ? searchParams.sharedRef.split(",") : [];
+    const shared = sharedOrders.length
+      ? t("outcome.sharedRef", { count: sharedOrders.length, orders: sharedOrders.join(", ") })
       : null;
     return { tone: "ok" as const, title, detail: shared };
   })();
@@ -210,20 +225,20 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
   // The four positions of the whole ledger, in the order an operator reads them:
   // what came in, what has not, what broke, what went back out.
   const tiles = [
-    { label: "Collected", statuses: [PaymentStatus.PAID] },
-    { label: "Awaiting settlement", statuses: [PaymentStatus.UNPAID, PaymentStatus.PARTIALLY_PAID] },
-    { label: "Failed", statuses: [PaymentStatus.FAILED] },
-    { label: "Refunded", statuses: [PaymentStatus.REFUNDED] },
+    { key: "collected", label: t("tiles.collected"), statuses: [PaymentStatus.PAID] },
+    { key: "awaiting", label: t("tiles.awaiting"), statuses: [PaymentStatus.UNPAID, PaymentStatus.PARTIALLY_PAID] },
+    { key: "failed", label: t("tiles.failed"), statuses: [PaymentStatus.FAILED] },
+    { key: "refunded", label: t("tiles.refunded"), statuses: [PaymentStatus.REFUNDED] },
   ];
 
   return (
     <AdminLayout>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Money in"
-          title="Payments"
-          description="Every payment attempt in the ledger. Bank transfers are confirmed here from the bank statement; card, mada, Apple Pay and STC Pay settle through their signed gateway webhook and cannot be confirmed by hand."
-          dateline="Totals cover the whole ledger, grouped by currency · no conversion applied"
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
+          dateline={t("dateline")}
         />
 
         {outcome && (
@@ -254,13 +269,13 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
             const ledger = ledgerFor(tile.statuses);
             return (
               <MoneyStat
-                key={tile.label}
+                key={tile.key}
                 label={tile.label}
                 lines={ledger.amounts.map(([currency, amount]) => ({
                   currency,
                   formatted: formatCurrency(Number(amount), currency as never),
                 }))}
-                note={`${ledger.count} payment${ledger.count === 1 ? "" : "s"}`}
+                note={t("tiles.note", { count: ledger.count, value: String(ledger.count) })}
               />
             );
           })}
@@ -268,11 +283,11 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
 
         <div className="flex flex-col gap-2 lg:flex-row lg:items-start">
           <FilterTabs
-            label="Filter payments by status"
+            label={t("filters.label")}
             className="min-w-0 flex-1"
             tabs={([undefined, ...Object.values(PaymentStatus)] as const).map((s) => ({
               href: filterHref({ status: s }),
-              label: s ? STATUS_CONFIG[s].label : "All",
+              label: s ? t(`status.${s}`) : t("filters.all"),
               active: status === s || (!status && !s),
             }))}
           />
@@ -285,8 +300,8 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
               type="search"
               name="search"
               defaultValue={search ?? ""}
-              aria-label="Search payments by order number or gateway reference"
-              placeholder="Order # or gateway ref…"
+              aria-label={t("search.label")}
+              placeholder={t("search.placeholder")}
               className={`${CONTROL} ps-9`}
             />
           </form>
@@ -296,7 +311,7 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
           rows={payments}
           getRowKey={(p) => p.id}
           stickyHead
-          dateline="Every payment attempt, in the currency it was taken in · no conversion applied"
+          dateline={t("table.dateline")}
           rowProps={(p) => ({
             // The row the last refusal was about, carried back in the URL so the
             // operator lands on it rather than hunting for it.
@@ -308,7 +323,7 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
           columns={[
             {
               key: "order",
-              label: "Order",
+              label: t("columns.order"),
               render: (p) => (
                 <div className="py-1">
                   <Link
@@ -323,7 +338,7 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
             },
             {
               key: "customer",
-              label: "Customer",
+              label: t("columns.customer"),
               hideOnMobile: true,
               render: (p) => (
                 <div className="min-w-0 py-1">
@@ -334,20 +349,23 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
             },
             {
               key: "method",
-              label: "Method",
+              label: t("columns.method"),
               render: (p) => {
-                const method = METHOD_LABEL[p.method] ?? { label: p.method, icon: CreditCard };
-                const MethodIcon = method.icon;
+                // A method the platform does not know is shown by its own code
+                // rather than under an invented label.
+                const known = Object.prototype.hasOwnProperty.call(METHOD_ICON, p.method);
+                const MethodIcon = METHOD_ICON[p.method] ?? CreditCard;
                 return (
                   <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-ink-2">
-                    <MethodIcon className="h-3.5 w-3.5 text-ink-3" aria-hidden="true" /> {method.label}
+                    <MethodIcon className="h-3.5 w-3.5 text-ink-3" aria-hidden="true" />{" "}
+                    {known ? t(`method.${p.method}`) : p.method}
                   </span>
                 );
               },
             },
             {
               key: "amount",
-              label: "Amount",
+              label: t("columns.amount"),
               numeric: true,
               render: (p) => (
                 <Num value={formatCurrency(Number(p.amount), p.currency as never)} className="whitespace-nowrap" />
@@ -355,26 +373,26 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
             },
             {
               key: "status",
-              label: "Status",
+              label: t("columns.status"),
               render: (p) => {
-                const cfg = STATUS_CONFIG[p.status];
+                const cfg = STATUS_META[p.status];
                 const StatusIcon = cfg.icon;
                 return (
                   <StatusPill tone={cfg.tone}>
-                    <StatusIcon className="h-3 w-3" aria-hidden="true" /> {cfg.label}
+                    <StatusIcon className="h-3 w-3" aria-hidden="true" /> {t(`status.${p.status}`)}
                   </StatusPill>
                 );
               },
             },
             {
               key: "gatewayRef",
-              label: "Gateway ref",
+              label: t("columns.gatewayRef"),
               hideOnMobile: true,
               render: (p) => <span className="u-mono text-meta text-ink-3">{p.gatewayRef ?? "—"}</span>,
             },
             {
               key: "date",
-              label: "Date",
+              label: t("columns.date"),
               hideOnMobile: true,
               render: (p) => (
                 <span className="whitespace-nowrap text-ink-2">{format(p.paidAt ?? p.createdAt, "MMM d, yyyy HH:mm")}</span>
@@ -382,11 +400,11 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
             },
             {
               key: "settlement",
-              label: "Settlement",
+              label: t("columns.settlement"),
               width: "300px",
               render: (p) => {
                 const order = orderById.get(p.order.id);
-                const settlement = settlementFor(p, order, receiptsByOrder.get(p.order.id));
+                const settlement = settlementFor(p, order, receiptsByOrder.get(p.order.id), t);
                 if (settlement.kind === "confirmable") {
                   return (
                     // The whole confirmation is one recessed well: everything you
@@ -400,7 +418,7 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
                     >
                       <input type="hidden" name="returnTo" value={returnTo} />
                       <div className="flex items-baseline justify-between gap-2">
-                        <Eyebrow>Outstanding</Eyebrow>
+                        <Eyebrow>{t("confirm.outstanding")}</Eyebrow>
                         <Num
                           value={formatCurrency(Number(settlement.outstanding), p.currency as never)}
                           className="whitespace-nowrap text-meta"
@@ -412,8 +430,8 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
                           name="bankReference"
                           required
                           maxLength={64}
-                          placeholder="Bank reference"
-                          aria-label={`Bank reference for order ${p.order.orderNumber}`}
+                          placeholder={t("confirm.bankReference")}
+                          aria-label={t("confirm.bankReferenceLabel", { orderNumber: p.order.orderNumber })}
                           className={`${CONTROL_SM} min-w-0 flex-1`}
                         />
                         <input
@@ -426,7 +444,7 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
                           max={settlement.outstanding.toFixed(2)}
                           defaultValue={settlement.suggested.toFixed(2)}
                           required
-                          aria-label={`Amount credited for order ${p.order.orderNumber}`}
+                          aria-label={t("confirm.amountLabel", { orderNumber: p.order.orderNumber })}
                           className={`${CONTROL_SM} fig w-24 shrink-0 text-end`}
                         />
                       </div>
@@ -440,11 +458,11 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
                           required
                           min={order ? order.createdAt.toISOString().slice(0, 10) : undefined}
                           max={todayIso}
-                          aria-label={`Bank value date for order ${p.order.orderNumber}`}
+                          aria-label={t("confirm.valueDateLabel", { orderNumber: p.order.orderNumber })}
                           className={`${CONTROL_SM} min-w-0 flex-1`}
                         />
                         <Button type="submit" variant="secondary" size="xs" className="shrink-0">
-                          <Banknote className="h-3.5 w-3.5" aria-hidden="true" /> Confirm
+                          <Banknote className="h-3.5 w-3.5" aria-hidden="true" /> {t("confirm.submit")}
                         </Button>
                       </div>
                     </form>
@@ -459,21 +477,13 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline={
-                search || status
-                  ? "No payment matches the current filters."
-                  : "No payment has been attempted yet."
-              }
-              body={
-                search || status
-                  ? "Clear the status filter or the search to see the whole ledger."
-                  : "A payment row is written the moment a buyer reaches checkout, whether or not it succeeds."
-              }
+              eyebrow={t("empty.eyebrow")}
+              headline={search || status ? t("empty.headlineFiltered") : t("empty.headline")}
+              body={search || status ? t("empty.bodyFiltered") : t("empty.body")}
               action={
                 search || status ? (
                   <Button variant="secondary" size="sm" asChild>
-                    <Link href="/payments">Show every payment</Link>
+                    <Link href="/payments">{t("empty.action")}</Link>
                   </Button>
                 ) : undefined
               }
@@ -485,20 +495,16 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
               page={page}
               totalPages={totalPages}
               hrefFor={(target) => filterHref({ page: String(target), search })}
-              summary={
-                <>
-                  <span className="fig text-ink-2">{total}</span> payment{total === 1 ? "" : "s"} in the current filter
-                </>
-              }
+              summary={t.rich("footer", {
+                total: String(total),
+                count: total,
+                n: (chunks) => <span className="fig text-ink-2">{chunks}</span>,
+              })}
             />
           }
         />
 
-        <Dateline className="max-w-prose">
-          Confirming a transfer records the bank reference, the amount credited, the value date and the confirming
-          administrator against the payment, and derives the order&apos;s payment status from the sum of confirmed
-          receipts. A short credit leaves the order partially paid and opens a fresh instruction for the balance.
-        </Dateline>
+        <Dateline className="max-w-prose">{t("note")}</Dateline>
       </div>
     </AdminLayout>
   );

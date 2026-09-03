@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import Link from "next/link";
 import { CheckCircle2, XCircle, FileText, AlertTriangle, Store } from "lucide-react";
 import { format } from "date-fns";
+import { useTranslations } from "next-intl";
 import {
   Button,
   CommitRow,
@@ -19,6 +20,7 @@ import {
   useCommitState,
 } from "@avenick/ui";
 import { DecisionNotice } from "@/app/approvals/decision-notice";
+import { documentTypeLabel, sellerTypeLabel, statusLabel } from "@/app/approvals/status-labels";
 
 interface SellerDoc { id: string; type: string; fileName: string; status: string }
 interface PendingSeller {
@@ -51,6 +53,7 @@ function Fact({ label, value, mono = false }: { label: string; value: string; mo
 }
 
 export default function PendingSellersPage() {
+  const t = useTranslations("adminReview");
   const [sellers, setSellers] = useState<PendingSeller[]>([]);
   const [loading, setLoading] = useState(true);
   // An empty queue and a queue that could not be read are different facts. The
@@ -96,14 +99,16 @@ export default function PendingSellersPage() {
       if (!res.ok || !body?.success) {
         setNotice({
           sellerId: id,
-          message: typeof body?.error === "string" ? body.error : "The decision was not recorded.",
+          // The route's own wording when it sent one — it names the row's real
+          // state — and only otherwise the console's generic refusal.
+          message: typeof body?.error === "string" ? body.error : t("notice.notRecorded"),
           currentStatus: typeof body?.currentStatus === "string" ? body.currentStatus : undefined,
         });
         return false;
       }
       return true;
     } catch {
-      setNotice({ sellerId: id, message: "The decision was not recorded." });
+      setNotice({ sellerId: id, message: t("notice.notRecorded") });
       return false;
     } finally {
       setBusy(null);
@@ -114,21 +119,22 @@ export default function PendingSellersPage() {
     <AdminLayout pendingCount={sellers.length}>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Onboarding"
-          title="Supplier applications"
+          eyebrow={t("pendingSellers.eyebrow")}
+          title={t("pendingSellers.title")}
           description={
             loading
-              ? "Reading the review queue."
+              ? t("pendingSellers.descriptionLoading")
               : loadError
-                ? "The review queue could not be read."
-                : sellers.length === 1
-                  ? "1 application is waiting on a decision."
-                  : `${sellers.length} applications are waiting on a decision.`
+                ? t("pendingSellers.descriptionUnread")
+                : t("pendingSellers.description", {
+                    count: sellers.length,
+                    total: sellers.length.toLocaleString("en-US"),
+                  })
           }
           // LAW E, and the reason the refusal notice below is not a surprise:
           // this list is a snapshot, and the write is checked against the row.
           // The route takes 100, which is stated rather than left to be assumed.
-          dateline="Applications in review, read when this page opened · at most 100 loaded · every decision is written against the application's state at the moment of the click"
+          dateline={t("pendingSellers.dateline")}
         />
 
         {loading ? (
@@ -138,12 +144,12 @@ export default function PendingSellersPage() {
             <EmptyState
               variant="certificate"
               glyph={<AlertTriangle />}
-              eyebrow="Not read"
-              headline="The application queue could not be read."
-              body="This is not an empty queue — the platform did not answer, so nothing on this page can be relied on, and no application should be assumed decided or undecided from it."
+              eyebrow={t("pendingSellers.unread.eyebrow")}
+              headline={t("pendingSellers.unread.headline")}
+              body={t("pendingSellers.unread.body")}
               action={
                 <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
-                  Read the queue again
+                  {t("pendingSellers.unread.action")}
                 </Button>
               }
             />
@@ -153,12 +159,12 @@ export default function PendingSellersPage() {
             <EmptyState
               variant="certificate"
               glyph={<Store />}
-              eyebrow="Nothing awaiting review"
-              headline="No supplier application is waiting on an administrator."
-              body="An application appears here the moment a business completes registration, carrying its trade licence and every other document it filed. Nothing is filtered out of this queue."
+              eyebrow={t("pendingSellers.empty.eyebrow")}
+              headline={t("pendingSellers.empty.headline")}
+              body={t("pendingSellers.empty.body")}
               action={
                 <Button variant="secondary" size="sm" asChild>
-                  <Link href="/sellers">Review approved suppliers</Link>
+                  <Link href="/sellers">{t("pendingSellers.empty.action")}</Link>
                 </Button>
               }
             />
@@ -204,6 +210,7 @@ interface RowProps {
  * in a queue worked at speed, weight is what stops the wrong one being hit.
  */
 function ApplicationRow({ seller, busy, notice, onApprove, onReject, onDropped }: RowProps) {
+  const t = useTranslations("adminReview");
   const commit = useCommitState({ onExit: onDropped });
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
@@ -242,7 +249,7 @@ function ApplicationRow({ seller, busy, notice, onApprove, onReject, onDropped }
     if (!trimmed) {
       // The applicant is told this reason, so an empty one is worse than no
       // rejection at all. The guard is the server's too; this only says so here.
-      setReasonError("A reason is required — the applicant is shown it.");
+      setReasonError(t("pendingSellers.reasonRequired"));
       return;
     }
     setReasonError(null);
@@ -287,12 +294,21 @@ function ApplicationRow({ seller, busy, notice, onApprove, onReject, onDropped }
           {/* A definition list, because these are recorded facts with names —
               the old middot-separated run of spans said none of that. */}
           <dl className="mt-3 flex flex-wrap gap-x-8 gap-y-2">
-            <Fact label="CR number" value={seller.crNumber} mono />
-            <Fact label="Business type" value={seller.type.replace(/_/g, " ")} />
-            <Fact label="Registered in" value={`${seller.country} — ${seller.city}`} />
-            <Fact label="Owner" value={`${seller.user.firstName} ${seller.user.lastName}`} />
-            <Fact label="Contact" value={seller.user.email} />
-            <Fact label="Applied" value={format(new Date(seller.createdAt), "MMM d, yyyy")} />
+            <Fact label={t("pendingSellers.facts.cr")} value={seller.crNumber} mono />
+            <Fact label={t("pendingSellers.facts.type")} value={sellerTypeLabel(t, seller.type)} />
+            <Fact
+              label={t("pendingSellers.facts.registeredIn")}
+              value={t("pendingSellers.facts.location", { country: seller.country, city: seller.city })}
+            />
+            <Fact
+              label={t("pendingSellers.facts.owner")}
+              value={t("pendingSellers.facts.ownerName", {
+                firstName: seller.user.firstName,
+                lastName: seller.user.lastName,
+              })}
+            />
+            <Fact label={t("pendingSellers.facts.contact")} value={seller.user.email} />
+            <Fact label={t("pendingSellers.facts.applied")} value={format(new Date(seller.createdAt), "MMM d, yyyy")} />
           </dl>
         </div>
 
@@ -305,7 +321,7 @@ function ApplicationRow({ seller, busy, notice, onApprove, onReject, onDropped }
             disabled={busy}
             className="text-success-ink"
           >
-            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> Approve
+            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> {t("pendingSellers.approve")}
           </Button>
           <Button
             variant="ghost"
@@ -314,20 +330,18 @@ function ApplicationRow({ seller, busy, notice, onApprove, onReject, onDropped }
             onClick={() => setRejecting(true)}
             className="hover:text-danger-ink"
           >
-            <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> Reject
+            <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> {t("pendingSellers.reject")}
           </Button>
         </div>
       </div>
 
       {/* The evidence. Recessed, because law A reads "recessed = context". */}
       <FieldWell className="p-3">
-        <Eyebrow className="mb-2">Filed evidence</Eyebrow>
+        <Eyebrow className="mb-2">{t("pendingSellers.evidence")}</Eyebrow>
         {seller.documents.length === 0 ? (
           // Silence here would read as "nothing to check"; the reviewer
           // must see that approval would rest on no filed evidence.
-          <p className="u-ui text-warning-ink">
-            No documents have been submitted for this application. Approving it would rest on no filed evidence.
-          </p>
+          <p className="u-ui text-warning-ink">{t("pendingSellers.noDocuments")}</p>
         ) : (
           <ul className="flex flex-wrap gap-2">
             {seller.documents.map((doc) => (
@@ -342,11 +356,11 @@ function ApplicationRow({ seller, busy, notice, onApprove, onReject, onDropped }
                     title={doc.fileName}
                   >
                     <FileText className="h-3.5 w-3.5" aria-hidden="true" />
-                    <span>{doc.type.replace(/_/g, " ")}</span>
+                    <span>{documentTypeLabel(t, doc.type)}</span>
                     <span className={`u-meta ${DOC_INK[doc.status] ?? "text-ink-3"}`}>
-                      {doc.status.replace(/_/g, " ")}
+                      {statusLabel(t, doc.status)}
                     </span>
-                    <span className="sr-only">— {doc.fileName}, opens in a new tab</span>
+                    <span className="sr-only">{t("pendingSellers.documentSr", { fileName: doc.fileName })}</span>
                   </a>
                 </Button>
               </li>
@@ -358,10 +372,10 @@ function ApplicationRow({ seller, busy, notice, onApprove, onReject, onDropped }
       {rejecting && (
         <FieldWell as="form" className="p-3" onSubmit={(event) => { event.preventDefault(); void reject(); }}>
           <Field
-            label="Reason for rejecting this application"
+            label={t("pendingSellers.rejectLabel")}
             htmlFor={reasonId}
             error={reasonError ?? undefined}
-            hint="Written to the audit log and shown to the applicant."
+            hint={t("pendingSellers.rejectHint")}
             required
           >
             <Textarea
@@ -372,7 +386,7 @@ function ApplicationRow({ seller, busy, notice, onApprove, onReject, onDropped }
               value={reason}
               onChange={(event) => setReason(event.target.value)}
               disabled={busy}
-              placeholder="What was wrong with this application"
+              placeholder={t("pendingSellers.rejectPlaceholder")}
             />
           </Field>
           <div className="flex items-center justify-end gap-2">
@@ -383,10 +397,10 @@ function ApplicationRow({ seller, busy, notice, onApprove, onReject, onDropped }
               disabled={busy}
               onClick={() => { setRejecting(false); setReason(""); setReasonError(null); }}
             >
-              Cancel
+              {t("pendingSellers.cancel")}
             </Button>
             <Button type="submit" variant="danger" size="sm" loading={inFlight === "reject"} disabled={busy}>
-              <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> Confirm rejection
+              <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> {t("pendingSellers.confirmReject")}
             </Button>
           </div>
         </FieldWell>

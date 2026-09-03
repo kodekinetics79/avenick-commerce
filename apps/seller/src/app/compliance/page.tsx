@@ -1,5 +1,5 @@
 import { ONBOARDING_SELLER_STATUSES, requireSellerAnyPermission } from "@/lib/auth";
-import { SELLER_DOCUMENT_TYPE_LABELS, SUPERSEDED_REJECTION_REASON, db } from "@avenick/database";
+import { SELLER_DOCUMENT_TYPES, SELLER_DOCUMENT_TYPE_LABELS, SUPERSEDED_REJECTION_REASON, db } from "@avenick/database";
 import { browserDirectUploadsEnabled } from "@avenick/utils/browser-upload-policy";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import {
@@ -16,30 +16,37 @@ import {
 import { format, isAfter, addDays } from "date-fns";
 import { AlertTriangle, CheckCircle, Clock, ExternalLink, RefreshCw, XCircle, Upload } from "lucide-react";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 
-export const metadata = { title: "Compliance" };
+export async function generateMetadata() {
+  const t = await getTranslations("sellerRelations");
+  return { title: t("compliance.metaTitle") };
+}
 
 // Every row here belongs to the acting seller; never prerender or share it.
 export const dynamic = "force-dynamic";
 
-// Enum → label map, plus the semantic tone the pill is drawn in. Four states,
-// not five hues: a replaced row is neutral because nothing is owed on it.
-const DOC_STATUS: Record<string, { icon: typeof CheckCircle; tone: PillTone; label: string }> = {
-  APPROVED: { icon: CheckCircle, tone: "success", label: "Approved" },
-  PENDING_REVIEW: { icon: Clock, tone: "warning", label: "Pending review" },
-  REJECTED: { icon: XCircle, tone: "danger", label: "Rejected" },
-  EXPIRED: { icon: AlertTriangle, tone: "danger", label: "Expired" },
-  // A REJECTED row carrying the supersession reason was replaced by the
-  // seller's own newer upload, not refused by an admin.
-  SUPERSEDED: { icon: RefreshCw, tone: "neutral", label: "Replaced" },
+// Enum → the semantic tone the pill is drawn in, and its icon. Four states,
+// not five hues: a replaced row is neutral because nothing is owed on it. The
+// KEYS are the stored status and are never translated; each label is
+// sellerRelations.compliance.status.<KEY>.
+//
+// SUPERSEDED is a REJECTED row carrying the supersession reason: replaced by
+// the seller's own newer upload, not refused by an admin.
+const DOC_STATUS: Record<string, { icon: typeof CheckCircle; tone: PillTone }> = {
+  APPROVED: { icon: CheckCircle, tone: "success" },
+  PENDING_REVIEW: { icon: Clock, tone: "warning" },
+  REJECTED: { icon: XCircle, tone: "danger" },
+  EXPIRED: { icon: AlertTriangle, tone: "danger" },
+  SUPERSEDED: { icon: RefreshCw, tone: "neutral" },
 };
 
-function DocStatus({ status }: { status: string }) {
+function DocStatus({ status, label }: { status: string; label: string }) {
   const cfg = DOC_STATUS[status] ?? DOC_STATUS["PENDING_REVIEW"]!;
   return (
     <StatusPill tone={cfg.tone} className="whitespace-nowrap">
       <cfg.icon className="h-3 w-3" aria-hidden="true" />
-      {cfg.label}
+      {label}
     </StatusPill>
   );
 }
@@ -50,6 +57,7 @@ export default async function CompliancePage() {
   const { seller, membership } = await requireSellerAnyPermission(["documents.view", "documents.manage"], {
     allowedSellerStatuses: ONBOARDING_SELLER_STATUSES,
   });
+  const t = await getTranslations("sellerRelations");
   const permissions = membership.permissions ?? [];
   const canUpload = (permissions.includes("*") || permissions.includes("documents.manage")) && browserDirectUploadsEnabled();
 
@@ -82,20 +90,20 @@ export default async function CompliancePage() {
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={expired.length + expiringSoon.length} permissions={membership.permissions}>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Compliance"
-          title="Compliance — الامتثال"
-          description="Every document the platform holds for this account, and what it is worth right now."
+          eyebrow={t("compliance.eyebrow")}
+          title={t("compliance.title")}
+          description={t("compliance.description")}
           // Nothing sweeps expiry into the status column, so it is derived when
           // the page is read. Saying which clock the page is reading is what
           // makes the "Expired" label credible.
-          dateline="Status as at page load · expiry is derived on read, not stored · warnings start 30 days out"
+          dateline={t("compliance.headerDateline")}
           actions={
             // Uploads live in the Document Center; this is a link to its uploader,
             // shown only when the member can upload and storage is configured.
             canUpload ? (
               <Button variant="primary" size="sm" asChild>
                 <Link href="/documents?upload=1">
-                  <Upload className="h-4 w-4" aria-hidden="true" /> Upload document
+                  <Upload className="h-4 w-4" aria-hidden="true" /> {t("documents.uploadDocument")}
                 </Link>
               </Button>
             ) : undefined
@@ -103,17 +111,17 @@ export default async function CompliancePage() {
         />
 
         {(expired.length > 0 || expiringSoon.length > 0) && (
-          <section aria-label="Action required" className="space-y-2">
-            <Eyebrow as="h2">Action required</Eyebrow>
+          <section aria-label={t("common.actionRequired")} className="space-y-2">
+            <Eyebrow as="h2">{t("common.actionRequired")}</Eyebrow>
             <Surface rung={1} className="divide-y divide-hairline overflow-hidden">
               {expired.length > 0 && (
                 <div className="flex items-start gap-3 border-s-[3px] border-s-danger px-4 py-3">
                   <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-danger-ink" aria-hidden="true" />
                   <div className="min-w-0">
-                    <p className="u-ui font-medium text-ink-1">Expired documents ({expired.length})</p>
-                    <p className="u-meta mt-0.5 text-ink-2">
-                      These documents have expired and may affect your account status.
+                    <p className="u-ui font-medium text-ink-1">
+                      {t("compliance.expiredHeadline", { n: String(expired.length) })}
                     </p>
+                    <p className="u-meta mt-0.5 text-ink-2">{t("compliance.expiredBody")}</p>
                   </div>
                 </div>
               )}
@@ -121,10 +129,10 @@ export default async function CompliancePage() {
                 <div className="flex items-start gap-3 border-s-[3px] border-s-warning px-4 py-3">
                   <Clock className="mt-0.5 h-4 w-4 shrink-0 text-warning-ink" aria-hidden="true" />
                   <div className="min-w-0">
-                    <p className="u-ui font-medium text-ink-1">Expiring within 30 days ({expiringSoon.length})</p>
-                    <p className="u-meta mt-0.5 text-ink-2">
-                      Please renew these documents soon to avoid service interruptions.
+                    <p className="u-ui font-medium text-ink-1">
+                      {t("compliance.expiringHeadline", { n: String(expiringSoon.length) })}
                     </p>
+                    <p className="u-meta mt-0.5 text-ink-2">{t("compliance.expiringBody")}</p>
                   </div>
                 </div>
               )}
@@ -144,12 +152,21 @@ export default async function CompliancePage() {
           columns={[
             {
               key: "type",
-              label: "Document type",
-              render: (r) => <span className="font-medium">{SELLER_DOCUMENT_TYPE_LABELS[r.doc.type]}</span>,
+              label: t("compliance.columns.documentType"),
+              // The type NAME is read by a person, so it comes from the message
+              // tree; SELLER_DOCUMENT_TYPE_LABELS stays the fallback for a type
+              // the Prisma enum grows before this namespace does.
+              render: (r) => (
+                <span className="font-medium">
+                  {(SELLER_DOCUMENT_TYPES as readonly string[]).includes(r.doc.type)
+                    ? t(`documentType.${r.doc.type}`)
+                    : SELLER_DOCUMENT_TYPE_LABELS[r.doc.type]}
+                </span>
+              ),
             },
             {
               key: "file",
-              label: "File",
+              label: t("compliance.columns.file"),
               render: (r) => (
                 // The stored value is a private object key, not a URL; the
                 // view route mints a short-lived signed link per request.
@@ -161,14 +178,23 @@ export default async function CompliancePage() {
                 >
                   <span className="truncate">{r.doc.fileName}</span>
                   <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
-                  <span className="sr-only">(opens in a new tab)</span>
+                  <span className="sr-only">{t("common.opensInNewTab")}</span>
                 </a>
               ),
             },
-            { key: "status", label: "Status", render: (r) => <DocStatus status={r.status} /> },
+            {
+              key: "status",
+              label: t("compliance.columns.status"),
+              render: (r) => (
+                <DocStatus
+                  status={r.status}
+                  label={r.status in DOC_STATUS ? t(`compliance.status.${r.status}`) : t("compliance.status.PENDING_REVIEW")}
+                />
+              ),
+            },
             {
               key: "expiry",
-              label: "Expiry",
+              label: t("compliance.columns.expiry"),
               align: "end",
               render: (r) =>
                 r.doc.expiryDate ? (
@@ -185,14 +211,14 @@ export default async function CompliancePage() {
             },
             {
               key: "uploaded",
-              label: "Uploaded",
+              label: t("compliance.columns.uploaded"),
               align: "end",
               hideOnMobile: true,
               render: (r) => <span className="u-meta whitespace-nowrap text-ink-2">{format(r.doc.uploadedAt, "MMM d, yyyy")}</span>,
             },
             {
               key: "actions",
-              label: "Follow-up",
+              label: t("compliance.columns.followUp"),
               align: "end",
               render: (r) => (
                 <div className="flex flex-col items-end gap-1">
@@ -203,7 +229,7 @@ export default async function CompliancePage() {
                     <Button variant="secondary" size="sm" asChild>
                       <Link href={`/documents?upload=${r.doc.type}`}>
                         <RefreshCw className="h-3 w-3" aria-hidden="true" />
-                        {r.doc.status === "REJECTED" ? "Re-upload" : "Renew"}
+                        {r.doc.status === "REJECTED" ? t("documents.followUp.reupload") : t("documents.followUp.renew")}
                       </Link>
                     </Button>
                   )}
@@ -213,13 +239,13 @@ export default async function CompliancePage() {
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline="No compliance document has been filed for this account."
-              body="Documents you upload are listed here with the decision the review team reached on each."
+              eyebrow={t("common.nothingRecorded")}
+              headline={t("compliance.empty.headline")}
+              body={t("compliance.empty.body")}
               action={
                 canUpload ? (
                   <Button variant="secondary" size="sm" asChild>
-                    <Link href="/documents?upload=1">Upload the first one</Link>
+                    <Link href="/documents?upload=1">{t("compliance.empty.action")}</Link>
                   </Button>
                 ) : undefined
               }
