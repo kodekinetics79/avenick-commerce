@@ -9,6 +9,9 @@
  */
 
 /* ── Foundation ─────────────────────────────────────────────────────────── */
+// Variants live outside the "use client" button module so a server component
+// can call them; see button-variants.ts.
+export * from "./button-variants";
 export * from "./surface";
 export * from "./ambient-field";
 export * from "./divider";

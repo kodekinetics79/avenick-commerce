@@ -158,7 +158,7 @@ export function ProductCard({
               // you cannot test every one.
               <div className="absolute inset-0 grid place-items-center bg-surface-0/75 p-3">
                 <StatusPill tone="neutral" className="text-center">
-                  {availability === "UNCONFIRMED" ? "Availability unconfirmed" : tp("outOfStock")}
+                  {availability === "UNCONFIRMED" ? tp("availabilityUnconfirmed") : tp("outOfStock")}
                 </StatusPill>
               </div>
             )}
@@ -255,7 +255,7 @@ export function ProductCard({
             disabled={inStock && !hasVariants && (price == null || !currency || vatRate == null)}
           >
             {inStock ? <ShoppingCart className="h-3.5 w-3.5" aria-hidden="true" /> : <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />}
-            {inStock ? (hasVariants ? "Select options" : tp("addToCart")) : "Request availability"}
+            {inStock ? (hasVariants ? tp("selectOptions") : tp("addToCart")) : tp("requestAvailability")}
           </Button>
         </div>
       </Surface>
