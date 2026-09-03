@@ -1,4 +1,4 @@
-import { db, type Currency } from "../index";
+import { db, type Currency, type Prisma } from "../index";
 
 /**
  * Delivery pricing, the way a carrier prices it: by ZONE and by WEIGHT.
@@ -133,9 +133,19 @@ export interface QuoteInput {
  * priced — a silent zero is indistinguishable from free delivery, and the
  * caller cannot tell the difference after the fact.
  */
-export async function quoteShipping(input: QuoteInput): Promise<ShippingQuote> {
+export async function quoteShipping(
+  input: QuoteInput,
+  /**
+   * The caller's transaction client, when there is one. Checkout quotes inside
+   * the same transaction that prices the goods and reserves the stock, so the
+   * tariff it reads is the tariff that was in force for THIS order — reading it
+   * on the global client would step outside that transaction and could price
+   * against a tariff an operator edited mid-checkout.
+   */
+  client: Prisma.TransactionClient | typeof db = db,
+): Promise<ShippingQuote> {
   const country = input.country.trim().toUpperCase();
-  const zones = await db.shippingZone.findMany({
+  const zones = await client.shippingZone.findMany({
     where: { isActive: true, countries: { has: country } },
     orderBy: { sortOrder: "asc" },
     include: {
@@ -180,4 +190,145 @@ export async function quoteShipping(input: QuoteInput): Promise<ShippingQuote> {
 
   return { zoneId: zone.id, zoneCode: zone.code, price: band.price, currency: input.currency,
     basis: "WEIGHT_BAND", billableWeightKg: weight, ...eta };
+}
+
+// ─── ADMINISTRATION ──────────────────────────────────────────────────────────
+
+export interface ZoneInput {
+  code: string;
+  nameEn: string;
+  nameAr: string;
+  countries: string[];
+  fallbackPrice: number;
+  freeOverSubtotal: number | null;
+  etaMinDays: number | null;
+  etaMaxDays: number | null;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+/** A country is already priced by another active zone. */
+export class ShippingZoneOverlapError extends Error {
+  readonly conflicts: Array<{ country: string; zoneCode: string }>;
+  constructor(conflicts: Array<{ country: string; zoneCode: string }>) {
+    super(
+      `Already covered by another active zone: ${conflicts
+        .map(({ country, zoneCode }) => `${country} (${zoneCode})`)
+        .join(", ")}`,
+    );
+    this.name = "ShippingZoneOverlapError";
+    this.conflicts = conflicts;
+  }
+}
+
+/**
+ * Refuse to create an overlap rather than let a quote discover it later.
+ *
+ * quoteShipping throws when two active zones claim a country, which is the
+ * right behaviour at checkout but a terrible place to learn about it — the
+ * buyer sees a failure for a configuration mistake made days earlier. The
+ * overlap is caught here, where an operator can still fix it, and the error
+ * names every offending country and the zone that already holds it.
+ */
+async function assertNoOverlap(
+  client: Prisma.TransactionClient | typeof db,
+  countries: string[],
+  excludeZoneId?: string,
+) {
+  const normalised = countries.map((country) => country.trim().toUpperCase()).filter(Boolean);
+  if (normalised.length === 0) return normalised;
+  const others = await client.shippingZone.findMany({
+    where: { isActive: true, ...(excludeZoneId ? { id: { not: excludeZoneId } } : {}) },
+    select: { code: true, countries: true },
+  });
+  const conflicts: Array<{ country: string; zoneCode: string }> = [];
+  for (const zone of others) {
+    for (const country of normalised) {
+      if (zone.countries.includes(country)) conflicts.push({ country, zoneCode: zone.code });
+    }
+  }
+  if (conflicts.length > 0) throw new ShippingZoneOverlapError(conflicts);
+  return normalised;
+}
+
+export async function listShippingZones() {
+  return db.shippingZone.findMany({
+    orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
+    include: { rates: { orderBy: [{ currency: "asc" }, { minWeightKg: "asc" }] } },
+  });
+}
+
+export async function createShippingZone(input: ZoneInput) {
+  return db.$transaction(async (tx) => {
+    const countries = await assertNoOverlap(tx, input.countries);
+    return tx.shippingZone.create({ data: { ...input, countries } });
+  });
+}
+
+export async function updateShippingZone(zoneId: string, input: ZoneInput) {
+  return db.$transaction(async (tx) => {
+    const countries = await assertNoOverlap(tx, input.countries, zoneId);
+    return tx.shippingZone.update({ where: { id: zoneId }, data: { ...input, countries } });
+  });
+}
+
+export interface RateInput {
+  zoneId: string;
+  currency: Currency;
+  minWeightKg: number;
+  maxWeightKg: number | null;
+  price: number;
+  isActive: boolean;
+}
+
+/** A band that overlaps or leaves a hole in an existing tariff. */
+export class ShippingBandInvalidError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ShippingBandInvalidError";
+  }
+}
+
+/**
+ * A tariff must be a partition, not a pile of ranges.
+ *
+ * Two bands covering the same weight means the price depends on which one the
+ * query happened to return first; a gap means selectRateBand finds nothing and
+ * checkout refuses an order it should have priced. Both are configuration
+ * mistakes that only show up as a wrong or missing price much later, so they
+ * are refused at the point of entry.
+ */
+export async function upsertShippingRate(rateId: string | null, input: RateInput) {
+  if (input.maxWeightKg != null && input.maxWeightKg <= input.minWeightKg) {
+    throw new ShippingBandInvalidError("A band's upper bound must be above its lower bound");
+  }
+  return db.$transaction(async (tx) => {
+    const siblings = await tx.shippingRate.findMany({
+      where: {
+        zoneId: input.zoneId, currency: input.currency, isActive: true,
+        ...(rateId ? { id: { not: rateId } } : {}),
+      },
+      select: { minWeightKg: true, maxWeightKg: true },
+    });
+    for (const sibling of siblings) {
+      const otherMin = Number(sibling.minWeightKg);
+      const otherMax = sibling.maxWeightKg == null ? Number.POSITIVE_INFINITY : Number(sibling.maxWeightKg);
+      const thisMax = input.maxWeightKg ?? Number.POSITIVE_INFINITY;
+      // Half-open ranges: [min, max). They overlap when each starts before the
+      // other ends.
+      if (input.minWeightKg < otherMax && otherMin < thisMax) {
+        throw new ShippingBandInvalidError(
+          `Overlaps the existing ${otherMin}–${sibling.maxWeightKg ?? "∞"}kg band in this currency`,
+        );
+      }
+    }
+    const data = { ...input };
+    return rateId
+      ? tx.shippingRate.update({ where: { id: rateId }, data })
+      : tx.shippingRate.create({ data });
+  });
+}
+
+export async function deleteShippingRate(rateId: string) {
+  return db.shippingRate.delete({ where: { id: rateId } });
 }

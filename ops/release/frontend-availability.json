@@ -242,6 +242,10 @@
           "availability": "read_only",
           "limitation": "Database-backed pricing and commission audit view."
         },
+        "/shipping-zones": {
+          "availability": "operational",
+          "evidence": "Database-backed delivery tariff; checkout quotes freight from these zones and weight bands."
+        },
         "/companies": {
           "availability": "operational",
           "evidence": "Company verification and status administration."

@@ -64,3 +64,43 @@ describe("rate band selection", () => {
     expect(selectRateBand([], 1)).toBeNull();
   });
 });
+
+/**
+ * The administration guards, exercised through the same half-open arithmetic
+ * the service uses. A tariff must be a partition: two bands covering one weight
+ * means the price depends on query order, and a gap means checkout refuses an
+ * order it should have priced. Both surface far from the mistake that caused
+ * them, which is why they are refused at entry.
+ */
+describe("band overlap arithmetic", () => {
+  const overlaps = (a: [number, number | null], b: [number, number | null]) => {
+    const [aMin, aMaxRaw] = a; const [bMin, bMaxRaw] = b;
+    const aMax = aMaxRaw ?? Number.POSITIVE_INFINITY;
+    const bMax = bMaxRaw ?? Number.POSITIVE_INFINITY;
+    return aMin < bMax && bMin < aMax;
+  };
+
+  it("treats touching bands as adjacent, not overlapping", () => {
+    // 0–1 and 1–5 share the boundary and must both be allowed; refusing them
+    // would make a complete tariff impossible to enter.
+    expect(overlaps([0, 1], [1, 5])).toBe(false);
+  });
+
+  it("catches a band contained inside another", () => {
+    expect(overlaps([2, 3], [0, 10])).toBe(true);
+  });
+
+  it("catches a partial overlap from either direction", () => {
+    expect(overlaps([0, 5], [3, 8])).toBe(true);
+    expect(overlaps([3, 8], [0, 5])).toBe(true);
+  });
+
+  it("catches anything above an open-ended band", () => {
+    expect(overlaps([50, null], [80, 90])).toBe(true);
+    expect(overlaps([80, 90], [50, null])).toBe(true);
+  });
+
+  it("allows a band entirely below an open-ended one", () => {
+    expect(overlaps([0, 50], [50, null])).toBe(false);
+  });
+});

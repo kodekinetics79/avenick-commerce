@@ -1381,6 +1381,66 @@
         "validationOnly": "This deployment is validation-only. Pilot write gates are not enabled.",
         "warningsTitle": "Warnings ({count} shown)"
       }
+    },
+    "shipping": {
+      "meta": "Shipping zones",
+      "eyebrow": "Delivery",
+      "title": "Shipping zones and rates",
+      "description": "Delivery is priced by zone and weight, the way a carrier prices it.",
+      "dateline": "Checkout quotes delivery from these rows and nothing else · editing a band changes what a buyer is charged",
+      "empty": {
+        "eyebrow": "No tariff",
+        "headline": "No shipping zone has been configured yet.",
+        "body": "Until a zone exists, delivery is not charged and every order ships at no freight cost."
+      },
+      "zone": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "noCountries": "No destinations assigned — this zone prices nothing.",
+        "noBands": "No weight bands in this zone. Orders here fall back to the flat price.",
+        "fallback": "Flat price when a parcel's weight is unknown: {amount}",
+        "freeOver": "Free delivery at or above {amount}",
+        "neverFree": "No free-delivery threshold"
+      },
+      "band": {
+        "currency": "Currency",
+        "from": "From (kg)",
+        "to": "To (kg)",
+        "price": "Price",
+        "andAbove": "and above"
+      },
+      "add": {
+        "title": "Add a zone",
+        "help": "A country belongs to at most one active zone.",
+        "submit": "Create zone",
+        "saving": "Creating…"
+      },
+      "field": {
+        "code": "Code",
+        "sortOrder": "Order",
+        "nameEn": "Name (English)",
+        "nameAr": "Name (Arabic)",
+        "countries": "Destinations",
+        "countriesHint": "Two-letter country codes, separated by spaces or commas.",
+        "fallbackPrice": "Flat fallback price",
+        "fallbackHint": "Charged when a parcel's weight cannot be determined.",
+        "freeOver": "Free above",
+        "freeOverHint": "Leave blank for no free-delivery threshold.",
+        "etaMin": "Delivery from (days)",
+        "etaMax": "Delivery to (days)",
+        "isActive": "Active"
+      }
+    },
+    "actions": {
+      "shipping": {
+        "codeShape": "A code uses capital letters, digits and underscores only.",
+        "countryShape": "Each destination must be a two-letter country code.",
+        "etaOrder": "The delivery window cannot end before it begins.",
+        "invalid": "Check the highlighted fields.",
+        "createFailed": "The zone was not created.",
+        "rateFailed": "The band was not saved.",
+        "unreachable": "The platform could not be reached, so nothing was saved."
+      }
     }
   },
   "adminReview": {
@@ -1913,7 +1973,8 @@
         "integrations": "Integrations",
         "auditTrail": "Audit Trail",
         "settings": "Settings"
-      }
+      },
+      "shippingZones": "Shipping zones"
     },
     "availability": {
       "notes": {

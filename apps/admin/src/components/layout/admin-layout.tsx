@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  Truck,
   LayoutDashboard, Brain, Package, Tag, Award, Percent,
   Building2, FileQuestion, Quote, CheckSquare, Store, Clock, FileCheck, TrendingUp,
   ShoppingCart, Ship, RotateCcw, Send, Warehouse, ArrowDownToLine, Boxes, PackageCheck,
@@ -92,6 +93,7 @@ const NAV_GROUPS = [
       { href: "/brands", icon: Award, key: "brands" },
       { href: "/deals", icon: Percent, key: "deals" },
       { href: "/pricing", icon: Coins, key: "pricing" },
+      { href: "/shipping-zones", icon: Truck, key: "shippingZones" },
     ],
   },
   {
