@@ -4,6 +4,7 @@ export * from "./services/listing-health";
 export * from "./services/products";
 export * from "./services/seller-catalog";
 export * from "./services/orders";
+export * from "./services/shipping-zones";
 export * from "./services/seller-order-projections";
 export * from "./services/secure-checkout";
 export * from "./services/checkout-invariants";
