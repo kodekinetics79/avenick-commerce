@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { AlertTriangle, CheckCircle2, FileUp, ShieldCheck } from "lucide-react";
 import { Surface, CellGrid, Button, Eyebrow, Num, Dateline } from "@avenick/ui";
 
@@ -27,6 +28,7 @@ type ImportResult = {
 };
 
 export function CatalogImportClient() {
+  const t = useTranslations("adminCommerce.catalogImport");
   const [file, setFile] = useState<File | null>(null);
   const [validating, setValidating] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -44,7 +46,7 @@ export function CatalogImportClient() {
       const body = await response.json() as ImportResult;
       setResult(body);
     } catch (error) {
-      setResult({ success: false, error: error instanceof Error ? error.message : "Catalog request failed" });
+      setResult({ success: false, error: error instanceof Error ? error.message : t("requestFailed") });
     } finally {
       setValidating(false);
       setApplying(false);
@@ -63,11 +65,8 @@ export function CatalogImportClient() {
       <Surface tone="warning" className="flex gap-3 p-4">
         <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-warning-ink" aria-hidden="true" />
         <div>
-          <p className="u-ui font-medium text-ink-1">Protected pilot-data path</p>
-          <p className="u-meta mt-1 max-w-prose text-ink-2">
-            Commercial catalog files are sent directly to the authenticated Admin API and are never committed to Git.
-            Validate first. Applying is separately gated by deployment environment controls.
-          </p>
+          <p className="u-ui font-medium text-ink-1">{t("protected.title")}</p>
+          <p className="u-meta mt-1 max-w-prose text-ink-2">{t("protected.body")}</p>
         </div>
       </Surface>
 
@@ -77,8 +76,8 @@ export function CatalogImportClient() {
             <FileUp className="h-4 w-4" aria-hidden="true" />
           </span>
           <div>
-            <h2 className="u-h3 text-ink-1">Upload normalized pilot catalog</h2>
-            <Dateline className="mt-0.5">Accepted: version-1 JSON or JSON.gz · maximum 8 MB</Dateline>
+            <h2 className="u-h3 text-ink-1">{t("upload.title")}</h2>
+            <Dateline className="mt-0.5">{t("upload.dateline")}</Dateline>
           </div>
         </div>
 
@@ -86,7 +85,7 @@ export function CatalogImportClient() {
             place you can put something into is pressed into the page. */}
         <input
           data-rung={1}
-          aria-label="Pilot catalog file"
+          aria-label={t("upload.fileLabel")}
           className="u-focus mt-5 block w-full border border-dashed border-border p-4 text-ui text-ink-1 file:me-3 file:rounded-nested file:border file:border-border file:bg-surface-3 file:px-3 file:py-1 file:text-meta file:font-medium file:text-ink-1"
           type="file"
           accept=".json,.gz,application/json,application/gzip"
@@ -94,7 +93,7 @@ export function CatalogImportClient() {
         />
         {file && (
           <Dateline className="mt-2">
-            Selected: {file.name} · {(file.size / 1024).toFixed(1)} KB
+            {t("upload.selected", { name: file.name, size: (file.size / 1024).toFixed(1) })}
           </Dateline>
         )}
 
@@ -107,7 +106,7 @@ export function CatalogImportClient() {
             loading={validating}
             onClick={() => void submit(false)}
           >
-            {!validating && <ShieldCheck className="h-4 w-4" aria-hidden="true" />} Validate only
+            {!validating && <ShieldCheck className="h-4 w-4" aria-hidden="true" />} {t("upload.validate")}
           </Button>
           <Button
             type="button"
@@ -117,13 +116,11 @@ export function CatalogImportClient() {
             loading={applying}
             onClick={() => void submit(true)}
           >
-            {!applying && <FileUp className="h-4 w-4" aria-hidden="true" />} Apply to pilot database
+            {!applying && <FileUp className="h-4 w-4" aria-hidden="true" />} {t("upload.apply")}
           </Button>
           {/* Applying writes rows. Say so beside the control, not after it. */}
           <span className="u-meta text-ink-3">
-            {readyToApply
-              ? "Applying writes these rows to the pilot database."
-              : "Validate a file first; applying stays disabled until validation passes."}
+            {readyToApply ? t("upload.readyNote") : t("upload.notReadyNote")}
           </span>
         </div>
 
@@ -132,9 +129,7 @@ export function CatalogImportClient() {
             number. This states what is actually true: the request is in flight. */}
         {busy && (
           <p role="status" className="u-meta mt-3 text-ink-2">
-            {applying
-              ? "Applying. The file is being written in one request; the result appears when it settles."
-              : "Validating. The file is being checked in one request; the result appears when it settles."}
+            {applying ? t("busy.applying") : t("busy.validating")}
           </p>
         )}
       </Surface>
@@ -152,7 +147,7 @@ export function CatalogImportClient() {
             )}
             <div className="min-w-0 flex-1">
               <p className="u-lead font-medium text-ink-1">
-                {result.success ? (result.applied ? "Catalog applied" : "Validation passed") : "Catalog rejected"}
+                {result.success ? (result.applied ? t("result.applied") : t("result.validated")) : t("result.rejected")}
               </p>
               {result.error && <p className="u-ui mt-1 max-w-prose text-danger-ink">{result.error}</p>}
 
@@ -165,7 +160,7 @@ export function CatalogImportClient() {
               {(data?.errors?.length ?? 0) > 0 && (
                 <div data-rung={1} className="mt-3 border border-danger-rule p-3">
                   <Eyebrow className="text-danger-ink">
-                    Validation errors ({data!.errors!.length} shown)
+                    {t("result.errorsTitle", { count: String(data!.errors!.length) })}
                   </Eyebrow>
                   <ul className="u-mono mt-2 max-h-64 space-y-0.5 overflow-auto text-meta leading-5 text-ink-2">
                     {data!.errors!.map((message, index) => (
@@ -178,10 +173,10 @@ export function CatalogImportClient() {
               {data && (
                 <CellGrid cols={{ base: 2, lg: 4 }} density="compact" className="mt-4">
                   {[
-                    ["Rows", rows],
-                    ["Verified price", verified],
-                    ["Draft / no price", data.draftMissingPrice ?? Math.max(0, (data.rowCount ?? 0) - (data.verifiedPriceRows ?? 0))],
-                    ["Source stock", data.rowsWithSourceStock ?? data.sourceStockRows ?? 0],
+                    [t("result.rows"), rows],
+                    [t("result.verified"), verified],
+                    [t("result.draft"), data.draftMissingPrice ?? Math.max(0, (data.rowCount ?? 0) - (data.verifiedPriceRows ?? 0))],
+                    [t("result.sourceStock"), data.rowsWithSourceStock ?? data.sourceStockRows ?? 0],
                   ].map(([label, value]) => (
                     <div key={String(label)}>
                       <Eyebrow>{label}</Eyebrow>
@@ -193,20 +188,20 @@ export function CatalogImportClient() {
 
               {data?.counts && (
                 <Dateline className="mt-3">
-                  Seller rows: {Object.entries(data.counts).map(([seller, count]) => `${seller} ${count}`).join(" · ")}
+                  {t("result.sellerRows", {
+                    rows: Object.entries(data.counts).map(([seller, count]) => `${seller} ${count}`).join(" · "),
+                  })}
                 </Dateline>
               )}
 
               {result.success && !result.applied && !data?.applyEnabled && (
-                <p className="u-meta mt-3 font-medium text-warning-ink">
-                  This deployment is validation-only. Pilot write gates are not enabled.
-                </p>
+                <p className="u-meta mt-3 font-medium text-warning-ink">{t("result.validationOnly")}</p>
               )}
 
               {(data?.warnings?.length ?? 0) > 0 && (
                 <details className="mt-3">
                   <summary className="u-focus u-ui cursor-pointer rounded-nested font-medium text-ink-1">
-                    Warnings ({data!.warnings!.length} shown)
+                    {t("result.warningsTitle", { count: String(data!.warnings!.length) })}
                   </summary>
                   <div
                     data-rung={1}

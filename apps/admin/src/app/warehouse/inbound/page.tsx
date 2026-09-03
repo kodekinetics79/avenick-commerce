@@ -4,18 +4,23 @@ import { getInboundMovements } from "@avenick/database";
 import { Truck, PackagePlus, SlidersHorizontal } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import {
   PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Num, type PillTone,
 } from "@avenick/ui";
 import { CountStat } from "@/app/finance/money-figures";
 import { Pager } from "@/components/console/chrome";
 
-export const metadata = { title: "Inbound Receiving" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminCommerce.inbound");
+  return { title: t("meta.title") };
+}
 export const dynamic = "force-dynamic";
 
-const TYPE_CONFIG: Record<string, { label: string; tone: PillTone; icon: typeof PackagePlus }> = {
-  IN: { label: "Stock In", tone: "success", icon: PackagePlus },
-  ADJUSTMENT: { label: "Adjustment", tone: "warning", icon: SlidersHorizontal },
+/** Tone and icon per movement type; labels come from `inbound.type`. */
+const TYPE_CONFIG: Record<string, { tone: PillTone; icon: typeof PackagePlus }> = {
+  IN: { tone: "success", icon: PackagePlus },
+  ADJUSTMENT: { tone: "warning", icon: SlidersHorizontal },
 };
 
 interface PageProps {
@@ -24,6 +29,7 @@ interface PageProps {
 
 export default async function InboundPage({ searchParams }: PageProps) {
   await requireAdminSession();
+  const t = await getTranslations("adminCommerce.inbound");
 
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
   const limit = 30;
@@ -39,47 +45,48 @@ export default async function InboundPage({ searchParams }: PageProps) {
       <div className="space-y-block">
         <PageHeader
           linkComponent={Link}
-          breadcrumbs={[{ label: "Warehouse", href: "/warehouse" }, { label: "Inbound" }]}
-          eyebrow="Operations"
-          title="Inbound receiving"
-          description="Stock-in movements and inventory adjustments from the movement ledger."
-          dateline="Three of the four figures below describe this page of the ledger, not the whole of it"
+          breadcrumbs={[{ label: t("breadcrumbWarehouse"), href: "/warehouse" }, { label: t("breadcrumbSelf") }]}
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
+          dateline={t("dateline")}
         />
 
         <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
-          <CountStat label="Total movements" value={total} rank="section" dateline="Every inbound movement on record" />
-          <CountStat label="Stock-in" value={inCount} dateline="On this page of the ledger" />
-          <CountStat label="Adjustments" value={adjCount} dateline="On this page of the ledger" />
-          <CountStat label="Units received" value={unitsIn.toLocaleString()} dateline="On this page of the ledger" />
+          <CountStat label={t("stats.total")} value={total} rank="section" dateline={t("stats.totalDateline")} />
+          <CountStat label={t("stats.in")} value={inCount} dateline={t("stats.pageDateline")} />
+          <CountStat label={t("stats.adjustments")} value={adjCount} dateline={t("stats.pageDateline")} />
+          <CountStat label={t("stats.units")} value={unitsIn.toLocaleString()} dateline={t("stats.pageDateline")} />
         </CellGrid>
 
         <LedgerTable
           rows={movements}
           getRowKey={(m) => m.id}
           stickyHead
-          dateline="Movements as recorded, newest first · a negative quantity is stock taken off the shelf"
+          dateline={t("table.dateline")}
           columns={[
             {
               key: "createdAt",
-              label: "Date",
+              label: t("columns.date"),
               render: (m) => <span className="whitespace-nowrap text-ink-2">{format(m.createdAt, "MMM d, yyyy HH:mm")}</span>,
             },
             {
               key: "type",
-              label: "Type",
+              label: t("columns.type"),
               render: (m) => {
-                const cfg = TYPE_CONFIG[m.type] ?? TYPE_CONFIG["IN"]!;
+                const known = TYPE_CONFIG[m.type];
+                const cfg = known ?? TYPE_CONFIG["IN"]!;
                 const Icon = cfg.icon;
                 return (
                   <StatusPill tone={cfg.tone} className="whitespace-nowrap">
-                    <Icon className="h-3 w-3" aria-hidden="true" /> {cfg.label}
+                    <Icon className="h-3 w-3" aria-hidden="true" /> {known ? t(`type.${m.type}`) : m.type}
                   </StatusPill>
                 );
               },
             },
             {
               key: "product",
-              label: "Product",
+              label: t("columns.product"),
               render: (m) => (
                 <div className="min-w-0 py-1">
                   <p className="truncate font-medium text-ink-1">{m.stock.product?.nameEn ?? "—"}</p>
@@ -89,7 +96,7 @@ export default async function InboundPage({ searchParams }: PageProps) {
             },
             {
               key: "qty",
-              label: "Qty",
+              label: t("columns.qty"),
               numeric: true,
               render: (m) => (
                 <Num
@@ -100,7 +107,7 @@ export default async function InboundPage({ searchParams }: PageProps) {
             },
             {
               key: "location",
-              label: "Location",
+              label: t("columns.location"),
               hideOnMobile: true,
               render: (m) => (
                 <span className="text-ink-2">
@@ -110,22 +117,22 @@ export default async function InboundPage({ searchParams }: PageProps) {
             },
             {
               key: "reference",
-              label: "Reference",
+              label: t("columns.reference"),
               hideOnMobile: true,
               render: (m) => <span className="u-mono text-meta text-ink-3">{m.reference ?? "—"}</span>,
             },
             {
               key: "notes",
-              label: "Notes",
+              label: t("columns.notes"),
               hideOnMobile: true,
               render: (m) => <span className="block max-w-[14rem] truncate text-ink-2" title={m.notes ?? undefined}>{m.notes ?? "—"}</span>,
             },
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline="No inbound movement has been recorded."
-              body="A stock-in appears here when a seller or warehouse operator receives inventory against a bin location."
+              eyebrow={t("empty.eyebrow")}
+              headline={t("empty.headline")}
+              body={t("empty.body")}
               icon={<Truck className="h-3.5 w-3.5" aria-hidden="true" />}
             />
           }
@@ -134,11 +141,11 @@ export default async function InboundPage({ searchParams }: PageProps) {
               page={page}
               totalPages={totalPages}
               hrefFor={(target) => `/warehouse/inbound?page=${target}`}
-              summary={
-                <>
-                  <span className="fig text-ink-2">{total}</span> movement{total === 1 ? "" : "s"} on record
-                </>
-              }
+              summary={t.rich("footer", {
+                total: String(total),
+                count: total,
+                n: (chunks) => <span className="fig text-ink-2">{chunks}</span>,
+              })}
             />
           }
         />

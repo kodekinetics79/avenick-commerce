@@ -558,6 +558,7 @@
       "qty": "Qty",
       "unit": "Unit price",
       "more": "{count, plural, one {1 further band} other {# further bands}} on the product page"
-    }
+    },
+    "quoteOnRequest": "Price on request"
   }
 }

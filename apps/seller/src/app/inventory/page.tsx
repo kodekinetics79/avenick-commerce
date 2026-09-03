@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { requireSellerAnyPermission } from "@/lib/auth";
 import { getSellerInventory } from "@avenick/database";
 import { cn } from "@avenick/utils";
@@ -23,6 +24,7 @@ const PAGE_LIMIT = 100;
 type StockRow = Awaited<ReturnType<typeof getSellerInventory>>[number];
 
 export default async function InventoryPage() {
+  const t = await getTranslations("sellerCatalog");
   const { seller, membership } = await requireSellerAnyPermission(["inventory.view", "inventory.manage"]);
   const stocks = await getSellerInventory(seller.id, { limit: PAGE_LIMIT });
 
@@ -34,7 +36,7 @@ export default async function InventoryPage() {
   const columns: LedgerColumn<StockRow>[] = [
     {
       key: "product",
-      label: "Product",
+      label: t("inventory.columns.product"),
       width: "32%",
       render: (row) => (
         <div className="flex items-center gap-3">
@@ -64,7 +66,7 @@ export default async function InventoryPage() {
     },
     {
       key: "location",
-      label: "Warehouse",
+      label: t("inventory.columns.warehouse"),
       hideOnMobile: true,
       render: (row) => (
         <span className="text-ink-2">
@@ -73,16 +75,16 @@ export default async function InventoryPage() {
         </span>
       ),
     },
-    { key: "qty", label: "On hand", numeric: true },
+    { key: "qty", label: t("inventory.columns.onHand"), numeric: true },
     {
       key: "reservedQty",
-      label: "Reserved",
+      label: t("inventory.columns.reserved"),
       numeric: true,
       render: (row) => <span className="text-ink-2">{row.reservedQty}</span>,
     },
     {
       key: "available",
-      label: "Available",
+      label: t("inventory.columns.available"),
       numeric: true,
       // The lamp is <AvailabilityDot> — the same 6px dot with a 3px ring that a
       // buyer sees on the storefront and an operator sees in the admin stock
@@ -109,18 +111,18 @@ export default async function InventoryPage() {
     },
     {
       key: "reorderPoint",
-      label: "Reorder at",
+      label: t("inventory.columns.reorderAt"),
       numeric: true,
       hideOnMobile: true,
       render: (row) => <span className="text-ink-3">{row.reorderPoint}</span>,
     },
     {
       key: "status",
-      label: "Status",
+      label: t("inventory.columns.status"),
       align: "end",
       render: (row) => (
         <StatusPill tone={row.isOut ? "danger" : row.isLow ? "warning" : "neutral"}>
-          {row.isOut ? "Out of stock" : row.isLow ? "At reorder point" : "In stock"}
+          {row.isOut ? t("inventory.state.out") : row.isLow ? t("inventory.state.atReorder") : t("inventory.state.in")}
         </StatusPill>
       ),
     },
@@ -130,37 +132,40 @@ export default async function InventoryPage() {
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-4">
         <PageHeader
-          eyebrow="Stock"
+          eyebrow={t("inventory.eyebrow")}
           // The Arabic gloss this title used to carry was decoration, not
-          // localisation: the seller portal has no Arabic locale, and Arabic set
-          // in the Latin display face at the heading's negative tracking pulls
-          // the letterforms apart at their joins.
-          title="Inventory"
+          // localisation: an Arabic word set in the Latin display face at the
+          // heading's negative tracking pulls the letterforms apart at their
+          // joins. Now the title IS the locale's own word, set in the Arabic
+          // display face the layout loads for the Arabic build.
+          title={t("inventory.title")}
           linkComponent={Link}
-          dateline={`Stock rows for this seller's products, lowest quantity first · first ${PAGE_LIMIT} rows · read-only`}
+          // The row ceiling is a disclosure, not decoration: it says the page is
+          // showing a bounded read.
+          dateline={t("inventory.dateline", { limit: String(PAGE_LIMIT) })}
         />
 
         {stocks.length > 0 && (
           <CellGrid cols={{ base: 1, sm: 3 }}>
             <Stat
-              label="Out of stock"
+              label={t("inventory.stats.out.label")}
               value={outCount}
               rank="section"
               chip={outCount > 0 ? "danger" : undefined}
-              note="No units available to promise."
+              note={t("inventory.stats.out.note")}
             />
             <Stat
-              label="At reorder point"
+              label={t("inventory.stats.atReorder.label")}
               value={lowCount}
               rank="section"
               chip={lowCount > 0 ? "warning" : undefined}
-              note="Available stock has reached the point recorded for that location."
+              note={t("inventory.stats.atReorder.note")}
             />
             <Stat
-              label="Stock rows shown"
+              label={t("inventory.stats.rowsShown.label")}
               value={stocks.length}
               rank="section"
-              note="One row per product per warehouse location."
+              note={t("inventory.stats.rowsShown.note")}
             />
           </CellGrid>
         )}
@@ -170,15 +175,12 @@ export default async function InventoryPage() {
           // available to promise is a refused order, not a warning, and washing
           // it amber would make it read as the same severity as a reorder point.
           <Surface rung={1} tone={outCount > 0 ? "danger" : "warning"} className="p-4">
-            <Eyebrow className="mb-1">Replenish</Eyebrow>
+            <Eyebrow className="mb-1">{t("inventory.replenish.eyebrow")}</Eyebrow>
             <p className="u-body text-ink-1">
-              {outCount > 0 && `${outCount} stock row${outCount === 1 ? " is" : "s are"} out of stock. `}
-              {lowCount > 0 && `${lowCount} row${lowCount === 1 ? " has" : "s have"} reached its reorder point.`}
+              {outCount > 0 && `${t("inventory.replenish.out", { count: outCount, n: String(outCount) })} `}
+              {lowCount > 0 && t("inventory.replenish.atReorder", { count: lowCount, n: String(lowCount) })}
             </p>
-            <Dateline className="mt-1">
-              A listing with nothing available to promise can be suppressed and cannot be ordered. Stock is adjusted in
-              the warehouse system; this page reports it and does not change it.
-            </Dateline>
+            <Dateline className="mt-1">{t("inventory.replenish.dateline")}</Dateline>
           </Surface>
         )}
 
@@ -195,15 +197,17 @@ export default async function InventoryPage() {
           })}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline="No stock has been recorded against this seller's products."
-              body="A stock row appears here once a product is stocked at a warehouse location."
+              eyebrow={t("inventory.empty.eyebrow")}
+              headline={t("inventory.empty.headline")}
+              body={t("inventory.empty.body")}
             />
           }
           footer={
+            // The capped case is a disclosure that rows exist which this page
+            // is not showing; it must read as plainly in Arabic as in English.
             stocks.length === PAGE_LIMIT
-              ? `${PAGE_LIMIT} rows shown — this page reads a bounded batch, so rows beyond it are not listed.`
-              : `${stocks.length} stock row${stocks.length === 1 ? "" : "s"}`
+              ? t("inventory.footerCapped", { limit: String(PAGE_LIMIT) })
+              : t("inventory.footerCount", { count: stocks.length, n: String(stocks.length) })
           }
         />
       </div>

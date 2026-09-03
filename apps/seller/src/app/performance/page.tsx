@@ -20,11 +20,16 @@ import {
   Surface,
 } from "@avenick/ui";
 import { TrendingUp, RotateCcw, MessageSquare, Star, Truck } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { ColumnChart } from "../analytics/column-chart";
 
-export const metadata = { title: "Performance" };
+export async function generateMetadata() {
+  const t = await getTranslations("sellerShell.performance");
+  return { title: t("title") };
+}
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** Month keys; the labels are read from the message tree inside the page. */
+const MONTH_KEYS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"] as const;
 
 /**
  * Every figure on this page is measured from the seller's own records or is
@@ -35,6 +40,8 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
  */
 export default async function PerformancePage() {
   const { seller, membership } = await requireSellerPermission("analytics.view");
+  const t = await getTranslations("sellerShell");
+  const tMonth = await getTranslations("sellerShell.months");
 
   const [sellerOrders, deliveredShipments, returnsCount, threads, performance, reviews] = await Promise.all([
     db.order.findMany({ where: { items: { some: { sellerId: seller.id } } }, select: { createdAt: true } }),
@@ -76,31 +83,48 @@ export default async function PerformancePage() {
   for (let i = 5; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const count = sellerOrders.filter((o) => o.createdAt.getMonth() === d.getMonth() && o.createdAt.getFullYear() === d.getFullYear()).length;
-    trend.push({ label: MONTHS[d.getMonth()]!, count });
+    trend.push({ label: tMonth(MONTH_KEYS[d.getMonth()]!), count });
   }
   const metrics = [
     {
-      label: "On-time delivery",
+      key: "onTime",
+      label: t("performance.metrics.onTime.label"),
       value: onTimeDelivery === null ? "—" : `${onTimeDelivery}%`,
-      basis: deliveredShipments.length > 0 ? `${onTimeCount} of ${deliveredShipments.length} delivered shipments with a promised date` : "No delivered shipments with a promised date yet",
+      basis: deliveredShipments.length > 0
+        ? t("performance.metrics.onTime.basis", { onTime: String(onTimeCount), total: String(deliveredShipments.length) })
+        : t("performance.metrics.onTime.none"),
       icon: Truck,
     },
     {
-      label: "Return rate",
+      key: "returns",
+      label: t("performance.metrics.returns.label"),
       value: returnRate === null ? "—" : `${returnRate}%`,
-      basis: totalOrders > 0 ? `${returnsCount} return request${returnsCount === 1 ? "" : "s"} across ${totalOrders} order${totalOrders === 1 ? "" : "s"}` : "No orders yet",
+      basis: totalOrders > 0
+        ? t("performance.metrics.returns.basis", {
+            returns: returnsCount,
+            r: String(returnsCount),
+            orders: totalOrders,
+            o: String(totalOrders),
+          })
+        : t("performance.metrics.returns.none"),
       icon: RotateCcw,
     },
     {
-      label: "Avg first response",
-      value: responseHours === null ? "—" : `${responseHours}h`,
-      basis: threads.length > 0 ? `Across ${threads.length} buyer thread${threads.length === 1 ? "" : "s"} you replied to` : "No buyer threads answered yet",
+      key: "response",
+      label: t("performance.metrics.response.label"),
+      value: responseHours === null ? "—" : t("performance.metrics.response.value", { value: String(responseHours) }),
+      basis: threads.length > 0
+        ? t("performance.metrics.response.basis", { count: threads.length, n: String(threads.length) })
+        : t("performance.metrics.response.none"),
       icon: MessageSquare,
     },
     {
-      label: "Buyer rating",
+      key: "rating",
+      label: t("performance.metrics.rating.label"),
       value: rating === null ? "—" : rating.toFixed(1),
-      basis: reviewCount > 0 ? `From ${reviewCount} review${reviewCount === 1 ? "" : "s"}` : "No reviews yet",
+      basis: reviewCount > 0
+        ? t("performance.metrics.rating.basis", { count: reviewCount, n: String(reviewCount) })
+        : t("performance.metrics.rating.none"),
       icon: Star,
     },
   ];
@@ -110,10 +134,10 @@ export default async function PerformancePage() {
       <div className="space-y-block">
         <PageHeader
           className="mb-0"
-          eyebrow="Overview"
-          title="Performance"
-          description="Measured from your own orders, shipments, returns, and messages"
-          dateline="No target, no platform average and no colouring by threshold — the platform publishes no benchmark"
+          eyebrow={t("performance.eyebrow")}
+          title={t("performance.title")}
+          description={t("performance.description")}
+          dateline={t("performance.dateline")}
         />
 
         {/* Score — the computed score or an honest "not enough data". The old
@@ -122,15 +146,19 @@ export default async function PerformancePage() {
         <Surface rung={2} className="p-5 sm:p-6">
           {performance === null ? (
             <EmptyState
-              eyebrow="Not enough data"
-              headline="There is no performance score for this account yet."
-              body={`A score needs at least ${MIN_ORDER_ITEMS_FOR_SCORE} paid order lines or ${MIN_RFQS_FOR_SCORE} quoted RFQs in the last ${PERFORMANCE_WINDOW_DAYS} days. Everything further down this page is measured and shown regardless; the score is the only figure that waits.`}
+              eyebrow={t("performance.empty.eyebrow")}
+              headline={t("performance.empty.headline")}
+              body={t("performance.empty.body", {
+                orderLines: String(MIN_ORDER_ITEMS_FOR_SCORE),
+                rfqs: String(MIN_RFQS_FOR_SCORE),
+                days: String(PERFORMANCE_WINDOW_DAYS),
+              })}
             />
           ) : (
             <>
               <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
                 <div className="min-w-0">
-                  <Eyebrow>Performance score</Eyebrow>
+                  <Eyebrow>{t("score.title")}</Eyebrow>
                   <div className="mt-1">
                     <Num value={performance.score} unit="/100" rank="hero" />
                   </div>
@@ -143,13 +171,13 @@ export default async function PerformancePage() {
                   value={performance.score}
                   tone="accent"
                   size="lg"
-                  label={`Performance score: ${performance.score} out of 100`}
+                  label={t("score.meterLabel", { score: String(performance.score) })}
                 />
               </div>
               <Dateline className="mt-3">
-                Orders from the last {performance.windowDays} days; listings and documents as they stand now
+                {t("score.provenanceDateline", { days: String(performance.windowDays) })}
               </Dateline>
-              <p className="u-ui mt-1 text-ink-2">The score has no effect on commission or ranking.</p>
+              <p className="u-ui mt-1 text-ink-2">{t("performance.noEffect")}</p>
 
               <div className="mt-6 grid gap-x-6 gap-y-4 sm:grid-cols-3">
                 {performance.components.map((component, index) => (
@@ -166,10 +194,18 @@ export default async function PerformancePage() {
                       max={1}
                       tone="accent"
                       index={index}
-                      label={`${component.label}: ${component.share === null ? "no data in this window" : `${component.good} of ${component.total}`}`}
+                      label={t("score.componentMeterLabel", {
+                        label: component.label,
+                        detail:
+                          component.share === null
+                            ? t("score.noDataInWindow")
+                            : t("score.goodOfTotal", { good: String(component.good), total: String(component.total) }),
+                      })}
                     />
                     <p className="u-meta mt-1 text-ink-3">
-                      {component.share === null ? "No data in this window" : `${component.good} of ${component.total}`}
+                      {component.share === null
+                        ? t("score.noDataInWindowSentence")
+                        : t("score.goodOfTotal", { good: String(component.good), total: String(component.total) })}
                     </p>
                   </div>
                 ))}
@@ -181,11 +217,11 @@ export default async function PerformancePage() {
         {/* Metric cells — each value with the exact basis it was computed from,
             as a Dateline rather than as 11px grey fine print. A metric with no
             basis reads "—" and says why underneath. */}
-        <section aria-label="Service metrics">
-          <SectionHeader title="Service metrics" description="Each figure is either measured or shown as “—”. None of them feeds the score above." />
+        <section aria-label={t("performance.metrics.title")}>
+          <SectionHeader title={t("performance.metrics.title")} description={t("performance.metrics.description")} />
           <CellGrid cols={{ base: 1, sm: 2, lg: 4 }}>
             {metrics.map((m) => (
-              <Stat key={m.label} label={m.label} value={m.value} rank="section" icon={m.icon} dateline={m.basis} />
+              <Stat key={m.key} label={m.label} value={m.value} rank="section" icon={m.icon} dateline={m.basis} />
             ))}
           </CellGrid>
         </section>
@@ -194,17 +230,17 @@ export default async function PerformancePage() {
         <Surface rung={2} className="p-5">
           <SectionHeader
             icon={TrendingUp}
-            title="Monthly orders"
-            dateline="Orders containing a line of yours, by the month they were placed · last six calendar months"
+            title={t("performance.monthly.title")}
+            dateline={t("performance.monthly.dateline")}
           />
           <ColumnChart
-            label="Orders by month"
+            label={t("performance.monthly.chartLabel")}
             plotHeight="h-36"
             data={trend.map((m) => ({
               label: m.label,
               value: m.count,
               caption: m.count > 0 ? m.count.toLocaleString() : "—",
-              exact: `${m.count} order${m.count === 1 ? "" : "s"}`,
+              exact: t("performance.monthly.exact", { count: m.count, n: String(m.count) }),
             }))}
           />
         </Surface>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { db } from "@avenick/database";
 import { PageHeader } from "@avenick/ui";
 import { browserDirectUploadsEnabled } from "@avenick/utils/browser-upload-policy";
@@ -9,7 +10,12 @@ import { platformName } from "@avenick/utils/portal-config";
 import { ProductForm, type ProductFormOption, type ProductFormValues } from "@/components/products/product-form";
 import { loadStatutoryVatTable } from "@/app/products/actions";
 
-export const metadata = { title: "Add product" };
+// The tab title is read by a person too, so it comes from the catalog rather
+// than a literal — which means it has to be resolved per request.
+export async function generateMetadata() {
+  const t = await getTranslations("sellerCatalog");
+  return { title: t("new.metaTitle") };
+}
 
 // The option lists, the capability flags and the upload availability are all
 // resolved for the acting seller at request time; nothing here may be
@@ -74,6 +80,7 @@ const EMPTY_PRODUCT: ProductFormValues = {
 };
 
 export default async function NewProductPage() {
+  const t = await getTranslations("sellerCatalog");
   const { seller, membership, userRole } = await requireSellerPermission("catalog.manage");
 
   // Categories and brands are marketplace-wide taxonomy (neither model carries
@@ -98,11 +105,13 @@ export default async function NewProductPage() {
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-4">
         <PageHeader
-          eyebrow="Catalog"
-          title="Add product"
+          eyebrow={t("new.eyebrow")}
+          title={t("new.title")}
           linkComponent={Link}
-          breadcrumbs={[{ label: "Products", href: "/products" }, { label: "Add product" }]}
-          description={`A new listing is saved as a draft or submitted for review. It is not shown to buyers until a ${platformName()} approver activates it, and whether it appears on the public storefront is a separate admin decision.`}
+          breadcrumbs={[{ label: t("breadcrumb.products"), href: "/products" }, { label: t("new.title") }]}
+          // The platform name stays an interpolation value: it is configuration,
+          // not a word to be frozen into a message.
+          description={t("new.description", { platform: platformName() })}
         />
 
         <ProductForm

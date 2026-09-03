@@ -16,18 +16,44 @@ export interface ProfileFields {
   logo: string | null;
 }
 
+/** The nullable columns, in display order. Code identifiers, never translated. */
+export const PROFILE_FIELD_KEYS = ["businessNameAr", "description", "logo"] as const;
+export type ProfileFieldKey = (typeof PROFILE_FIELD_KEYS)[number];
+
 /**
  * Fields the schema already guarantees (business name, CR number, country, city)
  * cannot be absent, so the only honest profile signal is the nullable columns a
  * storefront actually needs. The missing ones are named so the basis is visible
  * rather than reduced to a percentage.
+ *
+ * This returns KEYS rather than prose so each caller can render them in the
+ * reader's language; /onboarding looks each key up under
+ * sellerRelations.onboarding.profileFields.*.
  */
-export function missingProfileFields(seller: ProfileFields): string[] {
+export function missingProfileFieldKeys(seller: ProfileFields): ProfileFieldKey[] {
   return [
-    seller.businessNameAr?.trim() ? null : "Arabic business name",
-    seller.description?.trim() ? null : "Business description",
-    seller.logo ? null : "Store logo",
-  ].filter((field): field is string => field !== null);
+    seller.businessNameAr?.trim() ? null : ("businessNameAr" as const),
+    seller.description?.trim() ? null : ("description" as const),
+    seller.logo ? null : ("logo" as const),
+  ].filter((field): field is ProfileFieldKey => field !== null);
+}
+
+/**
+ * The same test, rendered as English prose.
+ *
+ * Kept because the dashboard's checklist (src/components/onboarding-checklist.tsx)
+ * still reads it; it is a thin wrapper over missingProfileFieldKeys so the two
+ * surfaces cannot diverge about which fields are missing, which is the whole
+ * reason this module exists. New callers should use the key form above.
+ */
+const PROFILE_FIELD_EN: Record<ProfileFieldKey, string> = {
+  businessNameAr: "Arabic business name",
+  description: "Business description",
+  logo: "Store logo",
+};
+
+export function missingProfileFields(seller: ProfileFields): string[] {
+  return missingProfileFieldKeys(seller).map((key) => PROFILE_FIELD_EN[key]);
 }
 
 /**

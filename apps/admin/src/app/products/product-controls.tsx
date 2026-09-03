@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Ban, CheckCircle2, RefreshCw, RotateCcw } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button, Input, Surface } from "@avenick/ui";
 import { ProductReviewControls } from "@/app/approvals/product-review-controls";
 import { DecisionNoticeInline } from "@/app/approvals/decision-notice";
@@ -25,6 +26,7 @@ interface Props {
  * filled button that commits on the first click.
  */
 export function ProductControls({ productId, status, restoreTarget }: Props) {
+  const t = useTranslations("adminReview");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [suppressing, setSuppressing] = useState(false);
@@ -48,7 +50,7 @@ export function ProductControls({ productId, status, restoreTarget }: Props) {
   function suppress() {
     const trimmed = reason.trim();
     if (!trimmed) {
-      setFieldError("A suppression reason is required");
+      setFieldError(t("productControls.reasonRequired"));
       return;
     }
     setFieldError(null);
@@ -67,7 +69,7 @@ export function ProductControls({ productId, status, restoreTarget }: Props) {
         setRefusal(result.error);
         return;
       }
-      setDone(result.message ?? "Suppressed");
+      setDone(result.message ?? t("productControls.suppressedFallback"));
       router.refresh();
     });
   }
@@ -80,7 +82,7 @@ export function ProductControls({ productId, status, restoreTarget }: Props) {
         setRefusal(result.error);
         return;
       }
-      setDone(result.message ?? "Restored");
+      setDone(result.message ?? t("productControls.restoredFallback"));
       router.refresh();
     });
   }
@@ -89,11 +91,11 @@ export function ProductControls({ productId, status, restoreTarget }: Props) {
     return (
       <div className="flex flex-col items-end gap-1.5">
         <Button type="button" variant="secondary" size="sm" onClick={restore} loading={pending}>
-          <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Restore
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> {t("productControls.restore")}
         </Button>
         {restoreTarget && (
           <span className="u-meta max-w-[28ch] text-end text-ink-3">
-            {restoreTarget === "ACTIVE" ? "Returns to its pre-suppression state (live unless the seller had paused it)" : "Never approved — returns to draft"}
+            {restoreTarget === "ACTIVE" ? t("productControls.restoreToActive") : t("productControls.restoreToDraft")}
           </span>
         )}
         {refusal && (
@@ -102,7 +104,7 @@ export function ProductControls({ productId, status, restoreTarget }: Props) {
             className="w-full max-w-sm"
             action={
               <Button type="button" variant="ghost" size="xs" onClick={() => router.refresh()}>
-                <RefreshCw className="h-3 w-3" aria-hidden="true" /> Re-read this row
+                <RefreshCw className="h-3 w-3" aria-hidden="true" /> {t("notice.reread")}
               </Button>
             }
           />
@@ -114,7 +116,7 @@ export function ProductControls({ productId, status, restoreTarget }: Props) {
   if (status !== "ACTIVE" && status !== "INACTIVE") {
     // DRAFT / REJECTED / SUSPENDED are owned by the seller or by the review
     // flow; there is no platform action to offer here.
-    return <span className="u-meta text-ink-3">No platform action</span>;
+    return <span className="u-meta text-ink-3">{t("productControls.noAction")}</span>;
   }
 
   return (
@@ -125,7 +127,7 @@ export function ProductControls({ productId, status, restoreTarget }: Props) {
         <Surface
           rung={1}
           as="form"
-          aria-label="Suppress this listing"
+          aria-label={t("productControls.formLabel")}
           className="w-full max-w-sm space-y-2 p-3"
           onSubmit={(event) => {
             event.preventDefault();
@@ -134,14 +136,14 @@ export function ProductControls({ productId, status, restoreTarget }: Props) {
         >
           <Input
             autoFocus
-            label="Reason the seller will see"
+            label={t("productControls.reasonLabel")}
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            placeholder="Why this listing is being taken down"
+            placeholder={t("productControls.reasonPlaceholder")}
             maxLength={1000}
             disabled={pending}
             error={fieldError ?? undefined}
-            hint="Written to the seller's issues queue."
+            hint={t("productControls.reasonHint")}
           />
           <div className="flex items-center justify-end gap-2">
             <Button
@@ -155,10 +157,10 @@ export function ProductControls({ productId, status, restoreTarget }: Props) {
                 setRefusal(null);
               }}
             >
-              Cancel
+              {t("productControls.cancel")}
             </Button>
             <Button type="submit" variant="danger" size="sm" loading={pending}>
-              <Ban className="h-3.5 w-3.5" aria-hidden="true" /> Confirm suppression
+              <Ban className="h-3.5 w-3.5" aria-hidden="true" /> {t("productControls.confirmSuppress")}
             </Button>
           </div>
         </Surface>
@@ -171,7 +173,7 @@ export function ProductControls({ productId, status, restoreTarget }: Props) {
           onClick={() => setSuppressing(true)}
           className="hover:text-danger-ink"
         >
-          <Ban className="h-3.5 w-3.5" aria-hidden="true" /> Suppress
+          <Ban className="h-3.5 w-3.5" aria-hidden="true" /> {t("productControls.suppress")}
         </Button>
       )}
       {refusal && (
@@ -180,7 +182,7 @@ export function ProductControls({ productId, status, restoreTarget }: Props) {
             className="w-full max-w-sm"
             action={
               <Button type="button" variant="ghost" size="xs" onClick={() => router.refresh()}>
-                <RefreshCw className="h-3 w-3" aria-hidden="true" /> Re-read this row
+                <RefreshCw className="h-3 w-3" aria-hidden="true" /> {t("notice.reread")}
               </Button>
             }
           />

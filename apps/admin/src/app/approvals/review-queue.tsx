@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, PackageSearch } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button, CommitRow, Dateline, EmptyState, Eyebrow, SectionHeader, Surface, useCommitState } from "@avenick/ui";
 import { ProductReviewControls, type ReviewKind, type ReviewOutcome } from "./product-review-controls";
 
@@ -50,6 +51,7 @@ interface Props {
  * in a forty-row queue, "which one did I just act on".
  */
 export function ReviewQueue({ listings, totalPending, unavailable = false }: Props) {
+  const t = useTranslations("adminReview");
   // Rows leave the list only once the server has confirmed the decision, and the
   // set is keyed by id so a router.refresh() that returns the same row (because
   // the write was refused) simply shows it again.
@@ -60,12 +62,12 @@ export function ReviewQueue({ listings, totalPending, unavailable = false }: Pro
     <Surface rung={1} className="overflow-hidden">
       <div className="px-4 pt-4">
         <SectionHeader
-          eyebrow="Queue"
-          title="Product listings awaiting review"
+          eyebrow={t("reviewQueue.eyebrow")}
+          title={t("reviewQueue.title")}
           // No count when the read failed: a "0" beside the title would be the
           // same lie as an empty state, just smaller.
           count={unavailable ? undefined : visible.length}
-          dateline="Listings a seller has submitted and no administrator has decided · newest first"
+          dateline={t("reviewQueue.dateline")}
           className="mb-3"
         />
       </div>
@@ -75,12 +77,12 @@ export function ReviewQueue({ listings, totalPending, unavailable = false }: Pro
           <EmptyState
             variant="certificate"
             glyph={<AlertTriangle />}
-            eyebrow="Not read"
-            headline="The review queue could not be read."
-            body="This is not the same as an empty queue: the platform did not answer, so nothing here can be relied on and no listing should be assumed decided or undecided from it."
+            eyebrow={t("reviewQueue.unread.eyebrow")}
+            headline={t("reviewQueue.unread.headline")}
+            body={t("reviewQueue.unread.body")}
             action={
               <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
-                Read the queue again
+                {t("reviewQueue.unread.action")}
               </Button>
             }
           />
@@ -88,12 +90,12 @@ export function ReviewQueue({ listings, totalPending, unavailable = false }: Pro
           <EmptyState
             variant="certificate"
             glyph={<PackageSearch />}
-            eyebrow="Nothing awaiting review"
-            headline="No product listing is waiting on an administrator."
-            body="A listing appears here the moment a seller submits one for review, and leaves it as soon as somebody approves or rejects it. Nothing is filtered out of this queue."
+            eyebrow={t("reviewQueue.empty.eyebrow")}
+            headline={t("reviewQueue.empty.headline")}
+            body={t("reviewQueue.empty.body")}
             action={
               <Button variant="secondary" size="sm" asChild>
-                <Link href="/products?status=ACTIVE">Review live listings</Link>
+                <Link href="/products?status=ACTIVE">{t("reviewQueue.empty.action")}</Link>
               </Button>
             }
           />
@@ -104,6 +106,7 @@ export function ReviewQueue({ listings, totalPending, unavailable = false }: Pro
             <QueueEntry
               key={listing.id}
               listing={listing}
+              submittedLabel={t("reviewQueue.submitted")}
               onDrained={() => setDrained((set) => new Set(set).add(listing.id))}
             />
           ))}
@@ -112,8 +115,17 @@ export function ReviewQueue({ listings, totalPending, unavailable = false }: Pro
 
       {totalPending !== null && totalPending > listings.length && (
         <div className="border-t border-hairline px-4 py-2.5">
+          {/* The disclosure the footer exists for: this panel is a page of the
+              queue, never the queue. Both figures are pre-formatted to STRINGS
+              on an explicit en-US, not a bare toLocaleString(): this component
+              is a client one, so a bare call would follow the operator's own
+              browser locale and print an Arabic-Indic figure inside a sentence
+              the rest of the product sets in Western digits. */}
           <Dateline>
-            {`Showing the newest ${listings.length} of ${totalPending.toLocaleString()} listings in review`}
+            {t("reviewQueue.showing", {
+              shown: listings.length.toLocaleString("en-US"),
+              total: totalPending.toLocaleString("en-US"),
+            })}
           </Dateline>
         </div>
       )}
@@ -121,7 +133,20 @@ export function ReviewQueue({ listings, totalPending, unavailable = false }: Pro
   );
 }
 
-function QueueEntry({ listing, onDrained }: { listing: QueueListing; onDrained: () => void }) {
+/**
+ * `submittedLabel` arrives as a prop rather than being read here: the row is a
+ * module-scope helper with no namespace of its own, and one translated word does
+ * not justify a second translator.
+ */
+function QueueEntry({
+  listing,
+  onDrained,
+  submittedLabel,
+}: {
+  listing: QueueListing;
+  onDrained: () => void;
+  submittedLabel: string;
+}) {
   const commit = useCommitState({ onExit: onDrained });
   const [tone, setTone] = useState<"success" | "danger" | "warning">("success");
 
@@ -168,7 +193,7 @@ function QueueEntry({ listing, onDrained }: { listing: QueueListing; onDrained: 
       </div>
 
       <div className="shrink-0">
-        <Eyebrow>Submitted</Eyebrow>
+        <Eyebrow>{submittedLabel}</Eyebrow>
         <p className="u-meta tnum text-ink-2">{listing.submitted}</p>
       </div>
 

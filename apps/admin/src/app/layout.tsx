@@ -1,15 +1,22 @@
 import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages } from "next-intl/server";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { AuthProvider } from "@/components/auth-provider";
 import { AmbientField, EnvironmentFlags } from "@avenick/ui";
 import { platformName } from "@avenick/utils/portal-config";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: { default: `Admin Console | ${platformName()}`, template: "%s | Admin" },
-  description: `${platformName()} Admin Console`,
-};
+// generateMetadata rather than a static `metadata` object: the console's own
+// name is translated, and a module-scope constant has no translator in scope.
+// The platform name stays configuration and is passed in as a value.
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("adminShell.meta");
+  const platform = platformName();
+  return {
+    title: { default: t("default", { platform }), template: `%s | ${t("suffix")}` },
+    description: t("description", { platform }),
+  };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();

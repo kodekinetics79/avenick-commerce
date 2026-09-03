@@ -2,6 +2,7 @@ import { maskIban, parseSellerBankDetails } from "@avenick/database";
 import { platformContacts } from "@avenick/utils/portal-config";
 import { format } from "date-fns";
 import { Building2, CreditCard, ShieldCheck } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { requireSellerPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import {
@@ -15,40 +16,57 @@ import {
 } from "@avenick/ui";
 import { BusinessProfileForm, PayoutAccountForm } from "./settings-form";
 
-export const metadata = { title: "Settings" };
+export async function generateMetadata() {
+  const t = await getTranslations("sellerRelations");
+  return { title: t("settings.metaTitle") };
+}
 
-/** Enum → label maps. Presentation only; the stored value is what the badge shows. */
-const SELLER_TYPE_LABEL: Record<string, string> = {
-  MANUFACTURER: "Manufacturer",
-  DISTRIBUTOR: "Distributor",
-  IMPORTER: "Importer",
-  RETAILER: "Retailer",
-};
+/**
+ * The seller types this page knows a label for. Presentation only; the stored
+ * value is what the badge shows when the enum grows past this list. The KEYS
+ * are the Prisma enum and are never translated; each label is
+ * sellerRelations.sellerType.<KEY>.
+ */
+const KNOWN_SELLER_TYPES = ["MANUFACTURER", "DISTRIBUTOR", "IMPORTER", "RETAILER"] as const;
+
+/** Statuses this page knows a label for; anything else prints its raw value. */
+const KNOWN_SELLER_STATUSES = ["PENDING_REVIEW", "ACTIVE", "SUSPENDED", "REJECTED"] as const;
 
 export default async function SettingsPage() {
   const { seller, membership } = await requireSellerPermission("settings.manage");
+  const t = await getTranslations("sellerRelations");
   const bank = parseSellerBankDetails(seller.bankDetails);
   const { support } = platformContacts();
 
   // Registration identity and platform decisions are shown, never edited, here:
   // changing any of them re-opens verification, which is an admin decision.
   const registration = [
-    { label: "CR Number", value: seller.crNumber },
-    { label: "VAT Number", value: seller.vatNumber ?? "Not provided" },
-    { label: "Country", value: seller.country },
-    { label: "Seller Type", value: SELLER_TYPE_LABEL[seller.type] ?? seller.type.replace(/_/g, " ") },
-    { label: "Tier", value: seller.tier },
-    { label: "Status", value: seller.status.replace(/_/g, " ") },
-    { label: "Commission Rate", value: `${Number(seller.commissionRate)}%` },
+    { label: t("settings.registration.crNumber"), value: seller.crNumber },
+    { label: t("settings.registration.vatNumber"), value: seller.vatNumber ?? t("settings.registration.notProvided") },
+    { label: t("settings.registration.country"), value: seller.country },
+    {
+      label: t("settings.registration.sellerType"),
+      value: (KNOWN_SELLER_TYPES as readonly string[]).includes(seller.type)
+        ? t(`sellerType.${seller.type}`)
+        : seller.type.replace(/_/g, " "),
+    },
+    { label: t("settings.registration.tier"), value: seller.tier },
+    {
+      label: t("settings.registration.status"),
+      value: (KNOWN_SELLER_STATUSES as readonly string[]).includes(seller.status)
+        ? t(`sellerStatus.${seller.status}`)
+        : seller.status.replace(/_/g, " "),
+    },
+    { label: t("settings.registration.commissionRate"), value: `${Number(seller.commissionRate)}%` },
   ];
 
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="max-w-3xl space-y-block">
         <PageHeader
-          eyebrow="Account"
-          title="Settings"
-          description="How your store presents itself to buyers, and where the platform pays you."
+          eyebrow={t("settings.eyebrow")}
+          title={t("settings.title")}
+          description={t("settings.description")}
         />
 
         {/* Profile summary — re-read from the database after every save */}
@@ -68,7 +86,7 @@ export default async function SettingsPage() {
             )}
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               <TierMark tier={seller.tier} />
-              <span className="u-meta u-mono text-ink-3">ID: {seller.id.slice(0, 8)}…</span>
+              <span className="u-meta u-mono text-ink-3">{t("settings.idLabel")}: {seller.id.slice(0, 8)}…</span>
             </div>
           </div>
         </Surface>
@@ -77,9 +95,9 @@ export default async function SettingsPage() {
         <Surface as="section" rung={2} className="p-5">
           <SectionHeader
             icon={Building2}
-            eyebrow="Seller-editable"
-            title="Business profile"
-            description="Names, description and city shown to buyers"
+            eyebrow={t("settings.sellerEditable")}
+            title={t("settings.profile.title")}
+            description={t("settings.profile.description")}
           />
           <BusinessProfileForm
             initial={{
@@ -96,9 +114,9 @@ export default async function SettingsPage() {
         <Surface as="section" rung={2} className="p-5">
           <SectionHeader
             icon={ShieldCheck}
-            eyebrow="Read-only"
-            title="Registration & platform terms"
-            description="Verified at onboarding and set by the platform — not editable here"
+            eyebrow={t("settings.readOnly")}
+            title={t("settings.registration.title")}
+            description={t("settings.registration.description")}
           />
           {/* Recessed, because this block is context rather than something to act on. */}
           <FieldWell className="divide-y divide-hairline overflow-hidden">
@@ -110,7 +128,7 @@ export default async function SettingsPage() {
             ))}
           </FieldWell>
           <Dateline className="mt-3">
-            Contact support to change registration details.
+            {t("settings.registration.contactSupport")}
             {support && (
               <>
                 {" "}
@@ -126,16 +144,16 @@ export default async function SettingsPage() {
         <Surface as="section" rung={2} className="p-5">
           <SectionHeader
             icon={CreditCard}
-            eyebrow="Seller-editable"
-            title="Banking & payouts"
-            description="Bank account details held on file for payouts"
+            eyebrow={t("settings.sellerEditable")}
+            title={t("settings.payout.title")}
+            description={t("settings.payout.description")}
           />
           <FieldWell className="mb-5 p-4">
             {bank ? (
               <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="min-w-0">
                   <dt>
-                    <Eyebrow as="span">IBAN</Eyebrow>
+                    <Eyebrow as="span">{t("settings.payout.iban")}</Eyebrow>
                   </dt>
                   <dd className="u-ui u-mono mt-0.5 truncate font-medium text-ink-1" dir="ltr">
                     {maskIban(bank.iban)}
@@ -143,27 +161,27 @@ export default async function SettingsPage() {
                 </div>
                 <div className="min-w-0">
                   <dt>
-                    <Eyebrow as="span">Bank</Eyebrow>
+                    <Eyebrow as="span">{t("settings.payout.bank")}</Eyebrow>
                   </dt>
                   <dd className="u-ui mt-0.5 truncate font-medium text-ink-1">{bank.bankName}</dd>
                 </div>
                 <div className="min-w-0">
                   <dt>
-                    <Eyebrow as="span">Account holder</Eyebrow>
+                    <Eyebrow as="span">{t("settings.payout.accountHolder")}</Eyebrow>
                   </dt>
                   <dd className="u-ui mt-0.5 truncate font-medium text-ink-1">{bank.accountName}</dd>
                 </div>
                 {bank.updatedAt && !Number.isNaN(Date.parse(bank.updatedAt)) && (
                   <div className="sm:col-span-3">
-                    <dt className="sr-only">Last changed</dt>
+                    <dt className="sr-only">{t("settings.payout.lastChangedLabel")}</dt>
                     <dd>
-                      <Dateline>Last changed {format(new Date(bank.updatedAt), "MMM d, yyyy")}</Dateline>
+                      <Dateline>{t("settings.payout.lastChanged", { date: format(new Date(bank.updatedAt), "MMM d, yyyy") })}</Dateline>
                     </dd>
                   </div>
                 )}
               </dl>
             ) : (
-              <p className="u-ui text-ink-2">No payout account on file.</p>
+              <p className="u-ui text-ink-2">{t("settings.payout.none")}</p>
             )}
           </FieldWell>
           <PayoutAccountForm configured={bank !== null} />

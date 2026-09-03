@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { platformName, portalUrl } from "@avenick/utils/portal-config";
+import { getTranslations } from "next-intl/server";
 import { Dateline, Divider, Eyebrow, Surface } from "@avenick/ui";
 import { RegisterForm } from "./register-form";
 
-export const metadata: Metadata = { title: "Apply to sell" };
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sellerRelations");
+  return { title: t("register.metaTitle") };
+}
 
 /**
  * Public entry point for a new seller. Listed in the seller portal's public
@@ -22,7 +26,8 @@ export const metadata: Metadata = { title: "Apply to sell" };
  * `font-extrabold` — a weight this system does not have. Ruled ground, a brass
  * rule, a recessed monogram, and type carrying the rank.
  */
-export default function RegisterPage() {
+export default async function RegisterPage() {
+  const t = await getTranslations("sellerRelations");
   const brand = platformName();
   const termsUrl = portalUrl("customer", "/terms");
 
@@ -37,12 +42,11 @@ export default function RegisterPage() {
           {brand.charAt(0).toUpperCase()}
         </Surface>
         <Divider drawn on className="mt-5 w-12" />
-        <Eyebrow className="mt-4">{brand} Seller Central</Eyebrow>
-        <h1 className="u-h1 mt-1 text-ink-1">Apply to sell on {brand}</h1>
-        <p className="u-body mt-1.5 max-w-desc text-ink-2">
-          Tell us about your business and who runs it. Applications are reviewed by the platform team before a store
-          can trade.
-        </p>
+        {/* platformName() stays dynamic inside the translated string; the brand
+            is never a literal in either language. */}
+        <Eyebrow className="mt-4">{t("register.brandEyebrow", { brand })}</Eyebrow>
+        <h1 className="u-h1 mt-1 text-ink-1">{t("register.title", { brand })}</h1>
+        <p className="u-body mt-1.5 max-w-desc text-ink-2">{t("register.intro")}</p>
       </div>
 
       {/* The one raised object on the page. The ruling goes on an INNER element:
@@ -57,17 +61,14 @@ export default function RegisterPage() {
 
       <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
         <span className="u-meta text-ink-2">
-          Already have a seller account?{" "}
+          {t("register.haveAccount")}{" "}
           <Link href="/login" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
-            Sign in
+            {t("register.signIn")}
           </Link>
         </span>
       </div>
 
-      <Dateline className="mt-3">
-        An application is a record on this platform from the moment it is submitted. Nothing about your business is
-        published until the review is complete and a store is opened.
-      </Dateline>
+      <Dateline className="mt-3">{t("register.provenance")}</Dateline>
     </div>
   );
 }

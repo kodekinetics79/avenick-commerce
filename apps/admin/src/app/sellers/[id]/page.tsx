@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { CheckCircle2, XCircle, FileText } from "lucide-react";
 import { format } from "date-fns";
+import { useTranslations } from "next-intl";
 import { isRecordId } from "@avenick/utils";
 import Link from "next/link";
 import {
@@ -26,6 +27,7 @@ import {
   type PillTone,
 } from "@avenick/ui";
 import { DecisionNotice } from "@/app/approvals/decision-notice";
+import { documentTypeLabel, sellerTypeLabel, statusLabel, tierLabel } from "@/app/approvals/status-labels";
 
 /**
  * What a document decision came back with when it did not land. A 409 carries
@@ -55,6 +57,7 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export default function SellerDetailPage() {
+  const t = useTranslations("adminReview");
   const { id } = useParams<{ id: string }>();
   const [seller, setSeller] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,14 +116,16 @@ export default function SellerDetailPage() {
       if (!res.ok || !body?.success) {
         setDocNotice({
           docId,
-          message: typeof body?.error === "string" ? body.error : "The decision was not recorded.",
+          // The route's own wording when it sent one — a 409 names the row's
+          // real state — and only otherwise the console's generic refusal.
+          message: typeof body?.error === "string" ? body.error : t("notice.notRecorded"),
           currentStatus: typeof body?.currentStatus === "string" ? body.currentStatus : undefined,
         });
         return false;
       }
       return true;
     } catch {
-      setDocNotice({ docId, message: "The decision was not recorded." });
+      setDocNotice({ docId, message: t("notice.notRecorded") });
       return false;
     } finally {
       setDocBusy(null);
@@ -137,7 +142,7 @@ export default function SellerDetailPage() {
     // The route requires a reason (min 1) and writes it to the audit log, so an
     // empty one can only ever come back as a 400. Saying so on the field is
     // faster and clearer than a round trip; the server check is unchanged.
-    if (!reason) { setRejectDocError("A reason is required — it is written to the audit log."); return; }
+    if (!reason) { setRejectDocError(t("sellerDetail.errors.reasonAudit")); return; }
     setRejectDocError(null);
     const recorded = await decideDoc(docId, "reject", {
       headers: { "Content-Type": "application/json" },
@@ -159,14 +164,14 @@ export default function SellerDetailPage() {
       const res = await fetch(`/api/admin/sellers/${id}/approve`, { method: "PUT" });
       const body = await res.json().catch(() => null);
       if (!res.ok || !body?.success) {
-        setSellerDecisionError(typeof body?.error === "string" ? body.error : "Approval was not recorded.");
+        setSellerDecisionError(typeof body?.error === "string" ? body.error : t("sellerDetail.errors.approvalNotRecorded"));
         setSubmitting(false);
         setSellerAction(null);
         return;
       }
       window.location.reload();
     } catch {
-      setSellerDecisionError("Approval was not recorded.");
+      setSellerDecisionError(t("sellerDetail.errors.approvalNotRecorded"));
       setSubmitting(false);
       setSellerAction(null);
     }
@@ -176,7 +181,7 @@ export default function SellerDetailPage() {
   // writes it to the audit log, so the button only fires once one is given.
   async function rejectSeller() {
     const reason = sellerRejectReason.trim();
-    if (!reason) { setSellerRejectError("A reason is required."); return; }
+    if (!reason) { setSellerRejectError(t("sellerDetail.errors.reasonRequired")); return; }
     setSubmitting(true);
     setSellerAction("reject");
     setSellerRejectError(null);
@@ -188,14 +193,14 @@ export default function SellerDetailPage() {
       });
       const body = await res.json().catch(() => null);
       if (!res.ok || !body?.success) {
-        setSellerRejectError(typeof body?.error === "string" ? body.error : "Rejection was not recorded.");
+        setSellerRejectError(typeof body?.error === "string" ? body.error : t("sellerDetail.errors.rejectionNotRecorded"));
         setSubmitting(false);
         setSellerAction(null);
         return;
       }
       window.location.reload();
     } catch {
-      setSellerRejectError("Rejection was not recorded.");
+      setSellerRejectError(t("sellerDetail.errors.rejectionNotRecorded"));
       setSubmitting(false);
       setSellerAction(null);
     }
@@ -217,12 +222,12 @@ export default function SellerDetailPage() {
       <AdminLayout>
         <Surface rung={1}>
           <EmptyState
-            eyebrow="Not read"
-            headline="This supplier record could not be read."
-            body="The platform did not answer, so nothing about this account can be shown. Reload to try again."
+            eyebrow={t("sellerDetail.loadError.eyebrow")}
+            headline={t("sellerDetail.loadError.headline")}
+            body={t("sellerDetail.loadError.body")}
             action={
               <Button variant="secondary" size="sm" asChild>
-                <Link href="/sellers">Back to sellers</Link>
+                <Link href="/sellers">{t("sellerDetail.back")}</Link>
               </Button>
             }
           />
@@ -236,12 +241,12 @@ export default function SellerDetailPage() {
       <AdminLayout>
         <Surface rung={1}>
           <EmptyState
-            eyebrow="Not found"
-            headline="No supplier record matches this reference."
-            body="The link may be stale, or the account may have been removed."
+            eyebrow={t("sellerDetail.notFound.eyebrow")}
+            headline={t("sellerDetail.notFound.headline")}
+            body={t("sellerDetail.notFound.body")}
             action={
               <Button variant="secondary" size="sm" asChild>
-                <Link href="/sellers">Back to sellers</Link>
+                <Link href="/sellers">{t("sellerDetail.back")}</Link>
               </Button>
             }
           />
@@ -282,22 +287,27 @@ export default function SellerDetailPage() {
       .map((doc) => doc as Record<string, unknown>)
       .sort((a, b) => new Date(String(b.reviewedAt)).getTime() - new Date(String(a.reviewedAt)).getTime())[0];
     if (!reviewed) return null;
-    const kind = String(reviewed.type).replace(/_/g, " ").toLowerCase();
-    return `${kind.charAt(0).toUpperCase()}${kind.slice(1)} reviewed ${format(new Date(String(reviewed.reviewedAt)), "d MMM yyyy")}`;
+    return t("sellerDetail.verificationBasis", {
+      type: documentTypeLabel(t, String(reviewed.type)),
+      date: format(new Date(String(reviewed.reviewedAt)), "d MMM yyyy"),
+    });
   })();
 
   return (
     <AdminLayout>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Supplier record"
+          eyebrow={t("sellerDetail.eyebrow")}
           title={String(s.businessNameEn)}
-          breadcrumbs={[{ label: "Sellers", href: "/sellers" }, { label: String(s.businessNameEn) }]}
+          breadcrumbs={[
+            { label: t("sellerDetail.breadcrumbSellers"), href: "/sellers" },
+            { label: String(s.businessNameEn) },
+          ]}
           linkComponent={Link}
-          dateline="Every field below is as recorded by the platform · a decision is written against this record's state at the moment of the click"
+          dateline={t("sellerDetail.dateline")}
           actions={
             <div className="flex items-center gap-2">
-              <StatusPill tone={STATUS_TONE[status] ?? "neutral"} dot>{status.replace(/_/g, " ")}</StatusPill>
+              <StatusPill tone={STATUS_TONE[status] ?? "neutral"} dot>{statusLabel(t, status)}</StatusPill>
               {(tier === "GOLD" || tier === "PLATINUM") && <TierMark tier={tier} />}
             </div>
           }
@@ -311,63 +321,71 @@ export default function SellerDetailPage() {
             what made a commission rate and a commercial registration number read
             as equally important objects. */}
         <CellGrid cols={{ base: 2, lg: 4 }}>
-          <Fact label="Account status">
-            <StatusPill tone={STATUS_TONE[status] ?? "neutral"}>{status.replace(/_/g, " ")}</StatusPill>
+          <Fact label={t("sellerDetail.facts.accountStatus")}>
+            <StatusPill tone={STATUS_TONE[status] ?? "neutral"}>{statusLabel(t, status)}</StatusPill>
           </Fact>
-          <Fact label="Tier">
+          <Fact label={t("sellerDetail.facts.tier")}>
             {tier === "GOLD" || tier === "PLATINUM" ? (
               <TierMark tier={tier} />
             ) : tier === "VERIFIED" ? (
-              <StatusPill tone="accent">Verified</StatusPill>
+              <StatusPill tone="accent">{t("sellerDetail.verified")}</StatusPill>
             ) : (
-              <p className="u-ui text-ink-1">{tier.replace(/_/g, " ")}</p>
+              <p className="u-ui text-ink-1">{tierLabel(t, tier)}</p>
             )}
           </Fact>
-          <Fact label="CR number">
+          <Fact label={t("sellerDetail.facts.cr")}>
             {/* Mono is for identifiers. A commercial registration number is one. */}
             <p className="u-ui u-mono text-ink-1">{String(s.crNumber)}</p>
           </Fact>
-          <Fact label="Commission">
+          <Fact label={t("sellerDetail.facts.commission")}>
             <Num value={Number(s.commissionRate)} unit="%" />
           </Fact>
-          <Fact label="Registered in">
-            <p className="u-ui text-ink-1">{String(s.country)} — {String(s.city)}</p>
+          <Fact label={t("sellerDetail.facts.registeredIn")}>
+            <p className="u-ui text-ink-1">
+              {t("sellerDetail.facts.location", { country: String(s.country), city: String(s.city) })}
+            </p>
           </Fact>
-          <Fact label="Business type">
-            <p className="u-ui text-ink-1">{String(s.type).replace(/_/g, " ")}</p>
+          <Fact label={t("sellerDetail.facts.businessType")}>
+            <p className="u-ui text-ink-1">{sellerTypeLabel(t, String(s.type))}</p>
           </Fact>
-          <Fact label="Product rating">
+          <Fact label={t("sellerDetail.facts.rating")}>
             {/* Averaged by the API over this seller's product reviews; the stored
                 SellerProfile.rating column is never recomputed and is not read. */}
             {s.rating ? (
               <>
                 <Num value={Number(s.rating).toFixed(1)} />
-                <Dateline>{`Averaged over ${Number(s.reviewCount)} product reviews`}</Dateline>
+                <Dateline>
+                  {t("sellerDetail.ratingBasis", { count: Number(s.reviewCount).toLocaleString("en-US") })}
+                </Dateline>
               </>
             ) : (
-              <p className="u-ui text-ink-2">No reviews yet</p>
+              <p className="u-ui text-ink-2">{t("sellerDetail.noReviews")}</p>
             )}
           </Fact>
           {/* The single seal on this page. One animated seal per viewport is the
               budget, and this is where the evidence for it lives. */}
-          <Fact label="Verification">
+          <Fact label={t("sellerDetail.facts.verification")}>
             {verificationBasis ? (
-              <TierMark verified basis={verificationBasis} showBasis verifiedLabel="Document verified" />
+              <TierMark verified basis={verificationBasis} showBasis verifiedLabel={t("sellerDetail.verifiedLabel")} />
             ) : (
               // Not a greyed-out mark and not "pending": no approved document
               // carries a review date, so there is nothing to verify against and
               // the honest thing is to say which fact is missing.
-              <p className="u-ui text-ink-2">No approved document carries a review date</p>
+              <p className="u-ui text-ink-2">{t("sellerDetail.noVerification")}</p>
             )}
           </Fact>
-          <Fact label="Performance score">
+          <Fact label={t("sellerDetail.facts.performance")}>
             {performance ? (
               <>
                 <Num value={performance.score} unit="/ 100" />
-                <Dateline>{`This seller's own activity over the last ${performance.windowDays} days`}</Dateline>
+                <Dateline>
+                  {t("sellerDetail.performanceBasis", { days: performance.windowDays.toLocaleString("en-US") })}
+                </Dateline>
               </>
             ) : (
-              <p className="u-ui text-ink-2">Not enough data</p>
+              // Not a zero and not a score: the API says there is too little of
+              // this seller's own activity to compute one, and it says so here.
+              <p className="u-ui text-ink-2">{t("sellerDetail.notEnoughData")}</p>
             )}
           </Fact>
         </CellGrid>
@@ -376,10 +394,14 @@ export default function SellerDetailPage() {
         <Surface rung={1} className="overflow-hidden">
           <div className="flex flex-wrap items-baseline justify-between gap-2 px-4 pt-4 pb-3">
             <div>
-              <Eyebrow>Evidence</Eyebrow>
-              <h2 className="u-h3 text-ink-1">Compliance documents</h2>
+              <Eyebrow>{t("sellerDetail.evidenceEyebrow")}</Eyebrow>
+              <h2 className="u-h3 text-ink-1">{t("sellerDetail.evidenceTitle")}</h2>
             </div>
-            {pendingDocs > 0 && <StatusPill tone="warning">{pendingDocs} awaiting a decision</StatusPill>}
+            {pendingDocs > 0 && (
+              <StatusPill tone="warning">
+                {t("sellerDetail.awaitingDecision", { count: pendingDocs, total: pendingDocs.toLocaleString("en-US") })}
+              </StatusPill>
+            )}
           </div>
 
           <div className="border-t border-hairline">
@@ -387,9 +409,9 @@ export default function SellerDetailPage() {
                 nothing was filed so the reviewer does not approve on silence. */}
             {docs.length === 0 && (
               <EmptyState
-                eyebrow="Nothing filed"
-                headline="This seller has filed no compliance documents."
-                body="Any decision on this application would rest on no filed evidence."
+                eyebrow={t("sellerDetail.noDocs.eyebrow")}
+                headline={t("sellerDetail.noDocs.headline")}
+                body={t("sellerDetail.noDocs.body")}
               />
             )}
             {docs.map((doc) => {
@@ -404,7 +426,7 @@ export default function SellerDetailPage() {
 
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="u-ui font-medium text-ink-1">{String(d.type).replace(/_/g, " ")}</p>
+                      <p className="u-ui font-medium text-ink-1">{documentTypeLabel(t, String(d.type))}</p>
                       {/* The stored file reference is a private object key, not a
                           link, and the API does not ship it; the view route mints a
                           short-lived signed URL per request. */}
@@ -416,15 +438,17 @@ export default function SellerDetailPage() {
                       >
                         <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                         {String(d.fileName)}
-                        <span className="sr-only">, opens in a new tab</span>
+                        <span className="sr-only">{t("sellerDetail.opensNewTab")}</span>
                       </a>
                       {Boolean(d.rejectionReason) && (
-                        <p className="u-meta mt-1 text-danger-ink">Rejected: {String(d.rejectionReason)}</p>
+                        <p className="u-meta mt-1 text-danger-ink">
+                          {t("sellerDetail.rejectedReason", { reason: String(d.rejectionReason) })}
+                        </p>
                       )}
                     </div>
 
                     <div className="flex shrink-0 items-center gap-2">
-                      <StatusPill tone={STATUS_TONE[docStatus] ?? "neutral"}>{docStatus.replace(/_/g, " ")}</StatusPill>
+                      <StatusPill tone={STATUS_TONE[docStatus] ?? "neutral"}>{statusLabel(t, docStatus)}</StatusPill>
                       {docStatus === "PENDING_REVIEW" && (
                         <>
                           <Button
@@ -436,7 +460,10 @@ export default function SellerDetailPage() {
                             disabled={docBusy === docId}
                           >
                             <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-                            Approve<span className="sr-only"> {String(d.type).replace(/_/g, " ")}</span>
+                            {t("sellerDetail.approve")}
+                            <span className="sr-only">
+                              {t("sellerDetail.approveSr", { type: documentTypeLabel(t, String(d.type)) })}
+                            </span>
                           </Button>
                           <Button
                             variant="ghost"
@@ -446,7 +473,10 @@ export default function SellerDetailPage() {
                             onClick={() => { setRejectDocId(docId); setRejectReason(""); setRejectDocError(null); }}
                           >
                             <XCircle className="h-3 w-3" aria-hidden="true" />
-                            Reject<span className="sr-only"> {String(d.type).replace(/_/g, " ")}</span>
+                            {t("sellerDetail.reject")}
+                            <span className="sr-only">
+                              {t("sellerDetail.rejectSr", { type: documentTypeLabel(t, String(d.type)) })}
+                            </span>
                           </Button>
                         </>
                       )}
@@ -463,10 +493,10 @@ export default function SellerDetailPage() {
                       onSubmit={(event) => { event.preventDefault(); void rejectDoc(docId); }}
                     >
                       <Field
-                        label={`Reason for rejecting ${String(d.type).replace(/_/g, " ")}`}
+                        label={t("sellerDetail.docRejectLabel", { type: documentTypeLabel(t, String(d.type)) })}
                         htmlFor={`${docReasonId}-${docId}`}
                         error={rejectDocError ?? undefined}
-                        hint="Written to the audit log and shown to the seller."
+                        hint={t("sellerDetail.docRejectHint")}
                         required
                       >
                         <Textarea
@@ -477,7 +507,7 @@ export default function SellerDetailPage() {
                           value={rejectReason}
                           onChange={(event) => setRejectReason(event.target.value)}
                           disabled={docBusy === docId}
-                          placeholder="What is wrong with this filing"
+                          placeholder={t("sellerDetail.docRejectPlaceholder")}
                         />
                       </Field>
                       <div className="flex items-center justify-end gap-2">
@@ -488,7 +518,7 @@ export default function SellerDetailPage() {
                           disabled={docBusy === docId}
                           onClick={() => { setRejectDocId(null); setRejectReason(""); setRejectDocError(null); setDocNotice(null); }}
                         >
-                          Cancel
+                          {t("sellerDetail.cancel")}
                         </Button>
                         <Button
                           type="submit"
@@ -497,7 +527,7 @@ export default function SellerDetailPage() {
                           loading={docBusy === docId && docAction === "reject"}
                           disabled={docBusy === docId}
                         >
-                          <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> Confirm rejection
+                          <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> {t("sellerDetail.confirmReject")}
                         </Button>
                       </div>
                     </FieldWell>
@@ -515,11 +545,14 @@ export default function SellerDetailPage() {
           <Surface rung={1} className="space-y-3 p-4">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="min-w-0">
-                <Eyebrow>Decision</Eyebrow>
-                <h2 className="u-h3 text-ink-1">Approve or reject this application</h2>
+                <Eyebrow>{t("sellerDetail.decisionEyebrow")}</Eyebrow>
+                <h2 className="u-h3 text-ink-1">{t("sellerDetail.decisionTitle")}</h2>
+                {/* The second sentence is a disclosure, not a flourish: it is
+                    the reviewer's only warning that approval would rest on no
+                    filed evidence, so it survives into every language. */}
                 <p className="u-ui max-w-desc text-ink-2">
-                  Approving activates the account and lets this supplier publish listings. Rejecting writes the reason
-                  to the audit log and shows it to the applicant. {docs.length === 0 && "No documents have been filed against this application."}
+                  {t("sellerDetail.decisionBody")}{" "}
+                  {docs.length === 0 && t("sellerDetail.decisionNoDocuments")}
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
@@ -530,7 +563,7 @@ export default function SellerDetailPage() {
                   disabled={submitting}
                   className="text-success-ink"
                 >
-                  <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Approve seller
+                  <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> {t("sellerDetail.approveSeller")}
                 </Button>
                 <Button
                   variant="ghost"
@@ -538,7 +571,7 @@ export default function SellerDetailPage() {
                   onClick={() => { setRejectSellerOpen(true); setSellerRejectError(null); }}
                   className="hover:text-danger-ink"
                 >
-                  <XCircle className="h-4 w-4" aria-hidden="true" /> Reject
+                  <XCircle className="h-4 w-4" aria-hidden="true" /> {t("sellerDetail.reject")}
                 </Button>
               </div>
             </div>
@@ -552,10 +585,10 @@ export default function SellerDetailPage() {
                 onSubmit={(event) => { event.preventDefault(); void rejectSeller(); }}
               >
                 <Field
-                  label="Reason for rejecting this application"
+                  label={t("sellerDetail.sellerRejectLabel")}
                   htmlFor={sellerReasonId}
                   error={sellerRejectError ?? undefined}
-                  hint="Written to the audit log and shown to the applicant."
+                  hint={t("sellerDetail.sellerRejectHint")}
                   required
                 >
                   <Textarea
@@ -566,7 +599,7 @@ export default function SellerDetailPage() {
                     value={sellerRejectReason}
                     onChange={(event) => setSellerRejectReason(event.target.value)}
                     disabled={submitting}
-                    placeholder="Why this application cannot be accepted"
+                    placeholder={t("sellerDetail.sellerRejectPlaceholder")}
                   />
                 </Field>
                 <div className="flex items-center justify-end gap-2">
@@ -577,10 +610,10 @@ export default function SellerDetailPage() {
                     disabled={submitting}
                     onClick={() => { setRejectSellerOpen(false); setSellerRejectReason(""); setSellerRejectError(null); }}
                   >
-                    Cancel
+                    {t("sellerDetail.cancel")}
                   </Button>
                   <Button type="submit" variant="danger" size="sm" loading={sellerAction === "reject"} disabled={submitting}>
-                    <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> Confirm rejection
+                    <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> {t("sellerDetail.confirmReject")}
                   </Button>
                 </div>
               </FieldWell>

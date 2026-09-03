@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { isValidIban, normaliseIban, updateSellerSettings } from "@avenick/database";
 import { log } from "@avenick/observability";
 import { z } from "zod";
@@ -21,13 +22,16 @@ const optionalText = (max: number) =>
     .max(max)
     .transform((value) => (value.length > 0 ? value : null));
 
-const ProfileSchema = z.object({
-  businessNameEn: z.string().trim().min(2, "Business name is required").max(120),
-  businessNameAr: optionalText(120),
-  description: optionalText(2000),
-  descriptionAr: optionalText(2000),
-  city: z.string().trim().min(2, "City is required").max(80),
-});
+/** Built per call so its refusals speak the caller's language; rules unchanged. */
+function profileSchema(t: (key: string, values?: Record<string, string | number>) => string) {
+  return z.object({
+    businessNameEn: z.string().trim().min(2, t("settingsErrors.businessNameRequired")).max(120),
+    businessNameAr: optionalText(120),
+    description: optionalText(2000),
+    descriptionAr: optionalText(2000),
+    city: z.string().trim().min(2, t("settingsErrors.cityRequired")).max(80),
+  });
+}
 
 /**
  * The IBAN is normalised (spaces stripped, upper-cased) BEFORE the length
@@ -36,22 +40,26 @@ const ProfileSchema = z.object({
  * generous on purpose (ISO 13616 allows 15–34); the checksum, not a length
  * table, decides validity. The refine runs the same check as the service so
  * the seller sees the error inline instead of after a failed transaction.
+ *
+ * Built per call so its refusals speak the caller's language; rules unchanged.
  */
-const BankSchema = z.object({
-  iban: z
-    .string()
-    .max(64, "IBAN is too long")
-    .transform(normaliseIban)
-    .pipe(
-      z
-        .string()
-        .min(15, "IBAN is too short")
-        .max(34, "IBAN is too long")
-        .refine(isValidIban, "That IBAN did not pass the checksum — re-enter it exactly as printed by your bank."),
-    ),
-  bankName: z.string().trim().min(2, "Bank name is required").max(120),
-  accountName: z.string().trim().min(2, "Account holder name is required").max(120),
-});
+function bankSchema(t: (key: string, values?: Record<string, string | number>) => string) {
+  return z.object({
+    iban: z
+      .string()
+      .max(64, t("settingsErrors.ibanTooLong"))
+      .transform(normaliseIban)
+      .pipe(
+        z
+          .string()
+          .min(15, t("settingsErrors.ibanTooShort"))
+          .max(34, t("settingsErrors.ibanTooLong"))
+          .refine(isValidIban, t("settingsErrors.ibanChecksum")),
+      ),
+    bankName: z.string().trim().min(2, t("settingsErrors.bankNameRequired")).max(120),
+    accountName: z.string().trim().min(2, t("settingsErrors.accountNameRequired")).max(120),
+  });
+}
 
 function firstIssue(error: unknown, fallback: string): string {
   if (error instanceof z.ZodError) return error.issues[0]?.message ?? fallback;
@@ -76,13 +84,15 @@ function pick(formData: FormData, keys: readonly string[]): Record<string, strin
  * Next can act on them) and genuine failures such as a database error — is
  * rethrown untouched.
  */
-async function requireSettingsActor(): Promise<{ sellerId: string; userId: string } | { error: string }> {
+async function requireSettingsActor(
+  t: (key: string, values?: Record<string, string | number>) => string,
+): Promise<{ sellerId: string; userId: string } | { error: string }> {
   try {
     const { seller, userId } = await requireSellerPermission("settings.manage");
     return { sellerId: seller.id, userId };
   } catch (error) {
     if (error instanceof Error && error.message.startsWith("Seller permission required")) {
-      return { error: "You no longer have permission to manage these settings." };
+      return { error: t("settingsErrors.permissionWithdrawn") };
     }
     throw error;
   }
@@ -92,17 +102,18 @@ export async function updateSellerProfileAction(
   _prev: SettingsActionState,
   formData: FormData,
 ): Promise<SettingsActionState> {
+  const t = await getTranslations("sellerRelations");
   // Session + permission are re-checked here, and the service re-resolves the
   // actor inside its transaction — a revoked member cannot ride a stale page.
-  const actor = await requireSettingsActor();
+  const actor = await requireSettingsActor(t);
   if ("error" in actor) return { error: actor.error };
   const { sellerId, userId } = actor;
 
-  let profile: z.infer<typeof ProfileSchema>;
+  let profile: z.infer<ReturnType<typeof profileSchema>>;
   try {
-    profile = ProfileSchema.parse(pick(formData, ["businessNameEn", "businessNameAr", "description", "descriptionAr", "city"]));
+    profile = profileSchema(t).parse(pick(formData, ["businessNameEn", "businessNameAr", "description", "descriptionAr", "city"]));
   } catch (error) {
-    return { error: firstIssue(error, "Check the business details and try again.") };
+    return { error: firstIssue(error, t("settingsErrors.checkBusinessDetails")) };
   }
 
   try {
@@ -111,7 +122,7 @@ export async function updateSellerProfileAction(
     return { ok: true, changed };
   } catch (error) {
     log.error("seller profile settings write failed", error, { scope: "settings.actions", sellerId });
-    return { error: error instanceof Error ? error.message : "Couldn't save the business details — please retry." };
+    return { error: error instanceof Error ? error.message : t("settingsErrors.profileSaveFailed") };
   }
 }
 
@@ -119,15 +130,16 @@ export async function updateSellerBankAction(
   _prev: SettingsActionState,
   formData: FormData,
 ): Promise<SettingsActionState> {
-  const actor = await requireSettingsActor();
+  const t = await getTranslations("sellerRelations");
+  const actor = await requireSettingsActor(t);
   if ("error" in actor) return { error: actor.error };
   const { sellerId, userId } = actor;
 
-  let bank: z.infer<typeof BankSchema>;
+  let bank: z.infer<ReturnType<typeof bankSchema>>;
   try {
-    bank = BankSchema.parse(pick(formData, ["iban", "bankName", "accountName"]));
+    bank = bankSchema(t).parse(pick(formData, ["iban", "bankName", "accountName"]));
   } catch (error) {
-    return { error: firstIssue(error, "Check the payout account details and try again.") };
+    return { error: firstIssue(error, t("settingsErrors.checkPayoutDetails")) };
   }
 
   try {
@@ -149,6 +161,6 @@ export async function updateSellerBankAction(
       ...(typeof code === "string" ? { errorCode: code } : {}),
     });
     const safeMessage = error instanceof Error && error.name === "Error" ? error.message : null;
-    return { error: safeMessage ?? "Couldn't save the payout account — please retry." };
+    return { error: safeMessage ?? t("settingsErrors.payoutSaveFailed") };
   }
 }

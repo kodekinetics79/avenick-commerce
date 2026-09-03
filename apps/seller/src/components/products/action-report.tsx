@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button, Dateline, Divider, Eyebrow, Surface } from "@avenick/ui";
 
 /**
@@ -44,6 +45,7 @@ export function ActionReport({
   onDismiss: () => void;
   linkComponent?: React.ElementType;
 }) {
+  const t = useTranslations("sellerCatalog");
   const panelRef = React.useRef<HTMLElement>(null);
   const listLabelId = React.useId();
 
@@ -77,12 +79,12 @@ export function ActionReport({
     >
       <div className="flex items-start gap-3 p-4">
         <div className="min-w-0 flex-1">
-          <Eyebrow className="mb-1">Result</Eyebrow>
+          <Eyebrow className="mb-1">{t("report.eyebrow")}</Eyebrow>
           <p className="u-h3 text-ink-1">{report.headline}</p>
           <Dateline className="mt-1">{report.dateline}</Dateline>
           {report.note && <p className="u-ui mt-2 max-w-prose text-ink-2">{report.note}</p>}
         </div>
-        <Button variant="ghost" size="icon" onClick={onDismiss} aria-label="Dismiss this result">
+        <Button variant="ghost" size="icon" onClick={onDismiss} aria-label={t("report.dismiss")}>
           <X className="h-4 w-4" aria-hidden="true" />
         </Button>
       </div>
@@ -92,7 +94,7 @@ export function ActionReport({
           <Divider tone="hairline" />
           <div className="px-4 pb-4 pt-3">
             <Eyebrow className="mb-2" id={listLabelId}>
-              {report.linesTitle ?? "Not changed"}
+              {report.linesTitle ?? t("report.notChangedFallback")}
             </Eyebrow>
             {/* The scroll container carries its own tab stop: on a member
                 without catalog.manage none of the lines below is a link, so

@@ -1,9 +1,2346 @@
 {
-  "common": { "loading": "Loading...", "error": "Something went wrong", "save": "Save", "cancel": "Cancel", "approve": "Approve", "reject": "Reject", "suspend": "Suspend", "activate": "Activate", "search": "Search", "filter": "Filter", "export": "Export", "viewAll": "View All" },
-  "nav": { "dashboard": "Dashboard", "sellers": "Sellers", "products": "Products", "orders": "Orders", "companies": "B2B Companies", "compliance": "Compliance", "rfqs": "RFQs", "messages": "Messages", "settings": "Settings", "users": "Users", "signOut": "Sign Out" },
-  "dashboard": { "title": "Admin Console", "gmvToday": "GMV Today", "gmvMonth": "GMV This Month", "gmvYear": "GMV This Year", "activeSellers": "Active Sellers", "pendingReviews": "Pending Seller Reviews", "pendingCompliance": "Pending Compliance", "ordersToday": "Orders Today", "b2bCompanies": "B2B Companies", "openRFQs": "Open RFQs", "recentOrders": "Recent Orders", "alerts": "Alerts" },
-  "sellers": { "title": "Sellers", "pending": "Pending Review", "name": "Business Name", "cr": "CR Number", "type": "Type", "tier": "Tier", "status": "Status", "country": "Country", "products": "Products", "gmv": "GMV", "created": "Created", "actions": "Actions", "rejectionReason": "Rejection reason (required)" },
-  "compliance": { "title": "Compliance Documents", "seller": "Seller", "type": "Type", "status": "Status", "expiry": "Expiry", "uploaded": "Uploaded", "rejectionReason": "Rejection Reason" },
-  "orders": { "title": "All Orders", "orderNumber": "Order #", "buyer": "Buyer", "seller": "Seller", "date": "Date", "total": "Total", "status": "Status", "type": "Type", "override": "Override Status" },
-  "products": { "title": "Product Moderation", "pending": "Pending Review", "name": "Product", "seller": "Seller", "category": "Category", "status": "Status", "health": "Health", "rejectionReason": "Rejection reason" }
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "save": "Save",
+    "cancel": "Cancel",
+    "approve": "Approve",
+    "reject": "Reject",
+    "suspend": "Suspend",
+    "activate": "Activate",
+    "search": "Search",
+    "filter": "Filter",
+    "export": "Export",
+    "viewAll": "View All"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "sellers": "Sellers",
+    "products": "Products",
+    "orders": "Orders",
+    "companies": "B2B Companies",
+    "compliance": "Compliance",
+    "rfqs": "RFQs",
+    "messages": "Messages",
+    "settings": "Settings",
+    "users": "Users",
+    "signOut": "Sign Out"
+  },
+  "dashboard": {
+    "title": "Admin Console",
+    "gmvToday": "GMV Today",
+    "gmvMonth": "GMV This Month",
+    "gmvYear": "GMV This Year",
+    "activeSellers": "Active Sellers",
+    "pendingReviews": "Pending Seller Reviews",
+    "pendingCompliance": "Pending Compliance",
+    "ordersToday": "Orders Today",
+    "b2bCompanies": "B2B Companies",
+    "openRFQs": "Open RFQs",
+    "recentOrders": "Recent Orders",
+    "alerts": "Alerts"
+  },
+  "sellers": {
+    "title": "Sellers",
+    "pending": "Pending Review",
+    "name": "Business Name",
+    "cr": "CR Number",
+    "type": "Type",
+    "tier": "Tier",
+    "status": "Status",
+    "country": "Country",
+    "products": "Products",
+    "gmv": "GMV",
+    "created": "Created",
+    "actions": "Actions",
+    "rejectionReason": "Rejection reason (required)"
+  },
+  "compliance": {
+    "title": "Compliance Documents",
+    "seller": "Seller",
+    "type": "Type",
+    "status": "Status",
+    "expiry": "Expiry",
+    "uploaded": "Uploaded",
+    "rejectionReason": "Rejection Reason"
+  },
+  "orders": {
+    "title": "All Orders",
+    "orderNumber": "Order #",
+    "buyer": "Buyer",
+    "seller": "Seller",
+    "date": "Date",
+    "total": "Total",
+    "status": "Status",
+    "type": "Type",
+    "override": "Override Status"
+  },
+  "products": {
+    "title": "Product Moderation",
+    "pending": "Pending Review",
+    "name": "Product",
+    "seller": "Seller",
+    "category": "Category",
+    "status": "Status",
+    "health": "Health",
+    "rejectionReason": "Rejection reason"
+  },
+  "adminCommerce": {
+    "orders": {
+      "meta": {
+        "title": "Orders"
+      },
+      "eyebrow": "Orders",
+      "title": "All orders",
+      "description": "Every order across the B2C and B2B channels.",
+      "dateline": "Newest first · latest {count} of the current filter",
+      "status": {
+        "PENDING_PAYMENT": "Pending Payment",
+        "PAYMENT_CONFIRMED": "Payment Confirmed",
+        "CONFIRMED": "Confirmed",
+        "PROCESSING": "Processing",
+        "SHIPPED": "Shipped",
+        "OUT_FOR_DELIVERY": "Out for Delivery",
+        "DELIVERED": "Delivered",
+        "CANCELLED": "Cancelled",
+        "REFUNDED": "Refunded",
+        "RETURN_REQUESTED": "Return Requested",
+        "RETURNED": "Returned"
+      },
+      "filters": {
+        "all": "All",
+        "allTypes": "All Types",
+        "statusLabel": "Filter orders by status",
+        "channelLabel": "Filter orders by channel"
+      },
+      "scope": "{count, plural, one {the {value} row shown} other {the {value} rows shown}}",
+      "stats": {
+        "matching": "Matching orders",
+        "gmv": "GMV of rows shown",
+        "gmvDateline": "Order totals for {scope}, each in its own currency · no conversion applied",
+        "b2b": "B2B among rows shown",
+        "b2bNote": "of {scope}",
+        "returnRequested": "Return requested",
+        "returnAwaiting": "awaiting a decision",
+        "returnNone": "none open"
+      },
+      "columns": {
+        "orderNumber": "Order #",
+        "customer": "Customer",
+        "date": "Date",
+        "items": "Items",
+        "total": "Total",
+        "channel": "Channel",
+        "status": "Status",
+        "action": "Action"
+      },
+      "table": {
+        "dateline": "Order totals as recorded, each in the currency it was billed in · no conversion applied"
+      },
+      "view": "View",
+      "empty": {
+        "eyebrow": "Nothing recorded",
+        "headlineFiltered": "No orders are currently {status}.",
+        "headline": "No orders have been placed yet.",
+        "bodyFiltered": "Clear the status filter to see every order in the ledger.",
+        "body": "An order appears here the moment a buyer completes checkout.",
+        "action": "Show all orders"
+      },
+      "footer": {
+        "gmv": "GMV of {scope}: {amounts}",
+        "showing": "Showing latest <n>{shown}</n> of <n>{total}</n>"
+      }
+    },
+    "orderControls": {
+      "steps": {
+        "PROCESSING": {
+          "label": "Mark as Processing",
+          "short": "Process"
+        },
+        "SHIPPED": {
+          "label": "Mark as Shipped",
+          "short": "Ship"
+        },
+        "OUT_FOR_DELIVERY": {
+          "label": "Out for Delivery",
+          "short": "Dispatch"
+        },
+        "DELIVERED": {
+          "label": "Mark as Delivered",
+          "short": "Deliver"
+        }
+      },
+      "cancelBlocked": {
+        "governed": "This order was placed from a governed purchase order; nothing can return that purchase order to an orderable state, so it cannot be cancelled here.",
+        "afterPayment": "Cancellation after payment is handled through Returns."
+      },
+      "done": "Done",
+      "cancelOrder": "Cancel Order",
+      "addNote": "Add internal note",
+      "messageLabel": "Message shown to the customer (optional)",
+      "confirmStep": "Confirm: {step}",
+      "back": "Back",
+      "cancelWarning": "Cancelling releases the order and tells the customer why. It cannot be undone here.",
+      "reasonLabel": "Reason (shown to the customer)",
+      "confirmCancellation": "Confirm cancellation",
+      "noteLabel": "Internal note (staff only; the customer never sees it)",
+      "saveNote": "Save note"
+    },
+    "orderActions": {
+      "invalidOrderRef": "Invalid order reference",
+      "unsupportedTransition": "Unsupported order transition",
+      "customerMessageTooLong": "Keep the customer message under {max} characters",
+      "reasonRequired": "Give the customer a reason",
+      "reasonTooLong": "Keep the reason under {max} characters",
+      "noteRequired": "Write the note first",
+      "noteTooLong": "Keep the note under {max} characters",
+      "invalidInput": "Invalid input",
+      "advanceFailed": "Could not update the order; reload and retry",
+      "cancelFailed": "Could not cancel the order; reload and retry",
+      "noteFailed": "Could not save the note; reload and retry",
+      "advanced": "Order is now {status}",
+      "cancelledWithRelease": "Order cancelled; {count, plural, one {{value} reserved unit released} other {{value} reserved units released}}",
+      "cancelled": "Order cancelled",
+      "noteSaved": "Note saved"
+    },
+    "orderDetail": {
+      "meta": {
+        "title": "Order Detail"
+      },
+      "breadcrumbOrders": "Orders",
+      "eyebrow": "Order",
+      "placed": "Placed {date}",
+      "paymentStatus": {
+        "PAID": "Paid",
+        "UNPAID": "Unpaid",
+        "PARTIALLY_PAID": "Partially paid",
+        "FAILED": "Failed",
+        "REFUNDED": "Refunded"
+      },
+      "money": {
+        "orderTotal": "Order total",
+        "orderTotalDateline": "Billed in {currency}, VAT included · no conversion applied",
+        "subtotal": "Subtotal",
+        "vat": "VAT",
+        "payment": "Payment",
+        "noMethod": "no method recorded"
+      },
+      "timeline": {
+        "title": "Order timeline",
+        "terminal": "This order is {status}; the fulfilment steps below stop where it left the chain.",
+        "steps": {
+          "CONFIRMED": "Order Confirmed",
+          "PROCESSING": "Processing",
+          "SHIPPED": "Shipped",
+          "OUT_FOR_DELIVERY": "Out for Delivery",
+          "DELIVERED": "Delivered"
+        },
+        "current": "Current",
+        "noTimestamp": "No timestamp recorded",
+        "notYet": "Not yet",
+        "otherEvents": "Other status events"
+      },
+      "items": {
+        "title": "Order items",
+        "sku": "SKU",
+        "supplier": "Supplier: {name}",
+        "qty": "Qty {quantity} × {price}"
+      },
+      "totals": {
+        "subtotal": "Subtotal",
+        "vat": "VAT",
+        "total": "Total"
+      },
+      "customer": {
+        "title": "Customer"
+      },
+      "address": {
+        "title": "Delivery address",
+        "notSpecified": "Not specified"
+      },
+      "info": {
+        "title": "Order info",
+        "orderNumber": "Order #",
+        "type": "Type",
+        "currency": "Currency",
+        "paymentMethod": "Payment method",
+        "paymentStatus": "Payment status",
+        "created": "Created"
+      },
+      "customerNote": {
+        "title": "Customer note"
+      },
+      "internalNotes": {
+        "title": "Internal notes",
+        "empty": "No internal note has been written on this order.",
+        "unknownAuthor": "Unknown staff member"
+      }
+    },
+    "payments": {
+      "meta": {
+        "title": "Payments"
+      },
+      "eyebrow": "Money in",
+      "title": "Payments",
+      "description": "Every payment attempt in the ledger. Bank transfers are confirmed here from the bank statement; card, mada, Apple Pay and STC Pay settle through their signed gateway webhook and cannot be confirmed by hand.",
+      "dateline": "Totals cover the whole ledger, grouped by currency · no conversion applied",
+      "status": {
+        "PAID": "Paid",
+        "UNPAID": "Unpaid",
+        "PARTIALLY_PAID": "Partially Paid",
+        "FAILED": "Failed",
+        "REFUNDED": "Refunded"
+      },
+      "method": {
+        "BANK_TRANSFER": "Bank Transfer",
+        "CREDIT_CARD": "Card",
+        "MADA": "mada",
+        "APPLE_PAY": "Apple Pay",
+        "STC_PAY": "STC Pay",
+        "MOCK": "Test (mock)"
+      },
+      "orderStatus": {
+        "CANCELLED": "cancelled",
+        "REFUNDED": "refunded",
+        "RETURNED": "returned"
+      },
+      "blocked": {
+        "statusNotConfirmable": "A {status} payment cannot be confirmed",
+        "orderUnavailable": "Order record unavailable",
+        "notBankTransferOrder": "Order is not a bank-transfer order",
+        "orderStatus": "Order is {status}",
+        "orderRefunded": "Order has been refunded",
+        "currencyMismatch": "Payment is in {paymentCurrency}, order in {orderCurrency}",
+        "mixedReceipts": "Order holds receipts in more than one currency",
+        "alreadyCovered": "Order total is already covered"
+      },
+      "outcome": {
+        "refusedTitle": "Confirmation refused",
+        "replay": "Order {orderNumber}: this credit was already recorded; nothing was changed.",
+        "paid": "Order {orderNumber} is now paid in full.",
+        "partiallyPaid": "Order {orderNumber} is now partially paid; an unpaid instruction for the balance remains open in the ledger.",
+        "recorded": "Order {orderNumber}: bank transfer recorded.",
+        "sharedRef": "{count, plural, one {The same bank reference is also recorded against order {orders}.} other {The same bank reference is also recorded against orders {orders}.}} That is expected when one wire settles several orders; if it is one statement line banked twice, it needs correcting."
+      },
+      "tiles": {
+        "collected": "Collected",
+        "awaiting": "Awaiting settlement",
+        "failed": "Failed",
+        "refunded": "Refunded",
+        "note": "{count, plural, one {{value} payment} other {{value} payments}}"
+      },
+      "filters": {
+        "label": "Filter payments by status",
+        "all": "All"
+      },
+      "search": {
+        "label": "Search payments by order number or gateway reference",
+        "placeholder": "Order # or gateway ref…"
+      },
+      "table": {
+        "dateline": "Every payment attempt, in the currency it was taken in · no conversion applied"
+      },
+      "columns": {
+        "order": "Order",
+        "customer": "Customer",
+        "method": "Method",
+        "amount": "Amount",
+        "status": "Status",
+        "gatewayRef": "Gateway ref",
+        "date": "Date",
+        "settlement": "Settlement"
+      },
+      "confirm": {
+        "outstanding": "Outstanding",
+        "bankReference": "Bank reference",
+        "bankReferenceLabel": "Bank reference for order {orderNumber}",
+        "amountLabel": "Amount credited for order {orderNumber}",
+        "valueDateLabel": "Bank value date for order {orderNumber}",
+        "submit": "Confirm"
+      },
+      "empty": {
+        "eyebrow": "Nothing recorded",
+        "headlineFiltered": "No payment matches the current filters.",
+        "headline": "No payment has been attempted yet.",
+        "bodyFiltered": "Clear the status filter or the search to see the whole ledger.",
+        "body": "A payment row is written the moment a buyer reaches checkout, whether or not it succeeds.",
+        "action": "Show every payment"
+      },
+      "footer": "<n>{total}</n> {count, plural, one {payment} other {payments}} in the current filter",
+      "note": "Confirming a transfer records the bank reference, the amount credited, the value date and the confirming administrator against the payment, and derives the order's payment status from the sum of confirmed receipts. A short credit leaves the order partially paid and opens a fresh instruction for the balance."
+    },
+    "paymentActions": {
+      "paymentRequired": "A payment must be selected",
+      "bankReferenceRequired": "The bank reference from the statement is required",
+      "amountRequired": "The amount actually credited is required",
+      "valueDateRequired": "The bank value date is required"
+    },
+    "settlements": {
+      "meta": {
+        "title": "Settlements"
+      },
+      "breadcrumbFinance": "Finance",
+      "breadcrumbSelf": "Settlements",
+      "eyebrow": "Money out",
+      "title": "Supplier settlements",
+      "description": "Payouts to sellers net of commission. Generating a run and every status change are audit-logged.",
+      "dateline": "Amounts per seller and currency, as accrued · no conversion applied",
+      "status": {
+        "PENDING": "Pending",
+        "PROCESSING": "Processing",
+        "PAID": "Paid",
+        "FAILED": "Failed"
+      },
+      "card": {
+        "PENDING": "Awaiting settlement",
+        "PROCESSING": "In transfer",
+        "PAID": "Settled",
+        "FAILED": "Failed"
+      },
+      "run": {
+        "created": "{count, plural, one {Settlement run created {value} payout.} other {Settlement run created {value} payouts.}}",
+        "createdNone": "Settlement run created no payouts.",
+        "examined": "{count, plural, one {{value} seller examined} other {{value} sellers examined}}",
+        "claimed": "{value} had no unclaimed accrual left in that window",
+        "unpayable": "{value} had nothing payable (claimable orders refunded in full)",
+        "heldSellers": "{value} held (closed seller account)",
+        "heldAccruals": "{count, plural, one {{value} accrual held because the order is cancelled or unpaid} other {{value} accruals held because the order is cancelled or unpaid}}",
+        "pendingNote": " New payouts are PENDING until you record the transfer below.",
+        "refused": "{count, plural, one {{value} seller refused: the ledger did not reconcile, so nothing was written for them.} other {{value} sellers refused: the ledger did not reconcile, so nothing was written for them.}}"
+      },
+      "tiles": {
+        "note": "{count, plural, one {{value} payout} other {{value} payouts}}"
+      },
+      "generate": {
+        "title": "Generate payouts",
+        "emptyEyebrow": "Nothing awaiting settlement",
+        "emptyHeadline": "No commission is awaiting settlement.",
+        "emptyBody": "Commission accrues when an order containing a seller's items is paid; each accrual can be claimed into exactly one payout, and everything accrued so far already has been.",
+        "intro": "Unsettled commission is grouped by seller and currency: one payout per pair, one line per order, gross less commission. Refunds already completed on an order are deducted from its line and their open receivable is marked applied. Re-running a period cannot pay the same order twice.",
+        "currencyLabel": "{currency} awaiting settlement",
+        "currencyDateline": "Accrued on {orders} across {sellers} · oldest {date}",
+        "ordersCount": "{count, plural, one {{value} order} other {{value} orders}}",
+        "sellersCount": "{count, plural, one {{value} seller} other {{value} sellers}}",
+        "from": "Accrued from (UTC)",
+        "to": "to (UTC, inclusive)",
+        "seller": "Seller",
+        "allSellers": "All sellers with unsettled commission",
+        "submit": "Generate payouts",
+        "tableCaption": "Commission awaiting settlement, by seller and currency",
+        "columns": {
+          "seller": "Seller",
+          "currency": "Currency",
+          "orders": "Orders",
+          "commission": "Commission awaiting settlement"
+        },
+        "truncated": "Showing the largest {count} seller/currency positions. A run with no seller selected settles every seller, including those not listed here."
+      },
+      "filters": {
+        "label": "Filter payouts by status",
+        "all": "All"
+      },
+      "table": {
+        "dateline": "One payout per seller and currency, gross less commission · no conversion applied"
+      },
+      "columns": {
+        "seller": "Seller",
+        "period": "Period",
+        "lines": "Lines",
+        "amount": "Payout total",
+        "status": "Status",
+        "reference": "Reference",
+        "created": "Created",
+        "record": "Record settlement"
+      },
+      "lines": {
+        "orders": "<n>{value}</n> {count, plural, one {order} other {orders}}",
+        "caption": "Lines making up this payout",
+        "columns": {
+          "order": "Order",
+          "gross": "Gross",
+          "commission": "Commission",
+          "net": "Net"
+        },
+        "total": "Total",
+        "truncated": "First {shown} of {total} lines shown; the totals cover every line."
+      },
+      "lineMismatch": "lines total {amount}",
+      "record": {
+        "settled": "Settled",
+        "retry": "Retry transfer",
+        "markInTransfer": "Mark in transfer",
+        "eyebrow": "Record as paid · final",
+        "referencePlaceholder": "Bank reference",
+        "referenceLabel": "Bank reference for the payout to {seller}",
+        "markPaid": "Mark paid",
+        "finalNote": "Settles this payout's commission. It cannot be undone."
+      },
+      "empty": {
+        "eyebrow": "Nothing recorded",
+        "headlineFiltered": "No payout is in that state.",
+        "headlineClaimable": "No payout has been generated yet.",
+        "headlineNone": "No payout has been generated, and no commission is awaiting settlement.",
+        "bodyFiltered": "Clear the status filter to see every payout on record.",
+        "bodyClaimable": "The commission above is awaiting a settlement run. Generating one writes a payout per seller and currency.",
+        "bodyNone": "Commission accrues when an order containing a seller's items is paid; a payout is written when a run claims it.",
+        "action": "Show every payout"
+      },
+      "footer": "<n>{total}</n> {count, plural, one {payout} other {payouts}} in the current filter"
+    },
+    "settlementActions": {
+      "periodRequired": "A settlement run needs a start and an end date",
+      "invalidDate": "{value} is not a valid date",
+      "payoutRequired": "A payout is required",
+      "referenceRequired": "A bank or transfer reference is required to mark a payout paid"
+    },
+    "finance": {
+      "meta": {
+        "title": "Finance Overview"
+      },
+      "eyebrow": "Finance",
+      "title": "Finance overview",
+      "description": "Live revenue, commissions, payouts and VAT from the order ledger.",
+      "dateline": "Every figure in the currency it was billed in · the platform holds no exchange rates, so amounts are never combined",
+      "actions": {
+        "payments": "Payments",
+        "settlements": "Settlements"
+      },
+      "kpi": {
+        "gmvMonth": "GMV (month)",
+        "yearToDate": "{amounts} year to date",
+        "commissionMonth": "Commission revenue (month)",
+        "pendingPayouts": "Pending payouts",
+        "pendingPayoutsNote": "{count, plural, one {{value} payout awaiting settlement} other {{value} payouts awaiting settlement}}",
+        "refunds": "Refunds in flight",
+        "refundsNote": "{count, plural, one {{value} open refund} other {{value} open refunds}}"
+      },
+      "chart": {
+        "title": "Paid GMV by month ({year})",
+        "emptyHeadline": "No paid order has been placed this year.",
+        "emptyBody": "A month appears here once an order in that month reaches paid.",
+        "barLabel": "{month} paid GMV, {amount}",
+        "vatYtd": "VAT collected, year to date",
+        "vatLink": "VAT summary"
+      },
+      "commissions": {
+        "title": "Recent commissions",
+        "unsettled": "<n>{count}</n> unsettled · {amounts}",
+        "emptyHeadline": "No commission has been accrued yet.",
+        "emptyBody": "Commission accrues when an order containing a seller's items is paid.",
+        "rate": "{rate}% of {amount}",
+        "settled": "Settled {date}",
+        "unsettledPill": "Unsettled"
+      },
+      "links": {
+        "paymentsLabel": "Payments ledger",
+        "paymentsDesc": "Every gateway transaction with status and reference",
+        "settlementsLabel": "Supplier settlements",
+        "settlementsDesc": "{count, plural, one {{value} payout awaiting processing} other {{value} payouts awaiting processing}}",
+        "vatLabel": "VAT summary",
+        "vatDesc": "Output VAT by month and currency"
+      },
+      "emptyEyebrow": "Nothing recorded"
+    },
+    "vat": {
+      "meta": {
+        "title": "VAT Summary"
+      },
+      "breadcrumbFinance": "Finance",
+      "breadcrumbSelf": "VAT",
+      "eyebrow": "Tax",
+      "title": "VAT summary",
+      "description": "Output VAT on paid orders, net of completed refunds, {year} year to date.",
+      "dateline": "Grouped by the currency the order was billed in · never combined into one total",
+      "notice": "Figures are reported per currency and are never combined. VAT rates differ by jurisdiction (UAE 5%, KSA 15%) and the platform holds no exchange rates, so no single-currency total exists for a filing. These rows are grouped by the currency the order was billed in, which is a proxy for the filing jurisdiction and not the jurisdiction itself: the order carries a validated destination country on its shipping address, but no tax place-of-supply field, and nothing here is grouped by that country. Confirm the jurisdiction of each order before submitting a return.",
+      "stats": {
+        "outputVat": "Output VAT (YTD)",
+        "outputVatDateline": "One line per currency · no single-currency total exists",
+        "taxableOrders": "Taxable orders (YTD)",
+        "currencies": "Currencies",
+        "invoices": "Tax invoices issued"
+      },
+      "byCurrency": {
+        "title": "VAT by currency",
+        "columns": {
+          "currency": "Currency",
+          "orders": "Orders",
+          "gross": "Gross",
+          "vat": "Output VAT"
+        },
+        "emptyHeadline": "No paid order has been placed this year.",
+        "emptyBody": "A currency appears here once an order billed in it reaches paid."
+      },
+      "byMonth": {
+        "title": "VAT by month and currency",
+        "dateline": "One row per month and currency pair",
+        "columns": {
+          "month": "Month",
+          "currency": "Currency",
+          "orders": "Taxable orders",
+          "vat": "Output VAT"
+        },
+        "emptyHeadline": "No VAT has been collected this year.",
+        "emptyBody": "A month appears here once an order billed with VAT in that month reaches paid."
+      },
+      "invoices": {
+        "title": "Tax invoices",
+        "dateline": "Invoice records as issued · amounts in the currency of the order",
+        "columns": {
+          "invoiceNo": "Invoice #",
+          "order": "Order",
+          "buyer": "Buyer",
+          "vatNumber": "VAT reg.",
+          "amount": "Amount",
+          "vat": "VAT",
+          "issued": "Issued"
+        },
+        "emptyEyebrow": "Capability gap",
+        "emptyHeadline": "No tax invoice has ever been issued.",
+        "emptyBody": "Automatic tax-invoice generation is not implemented, so the platform creates no invoice today. This register populates on its own once it does.",
+        "footer": "<n>{total}</n> {count, plural, one {tax invoice} other {tax invoices}} on record"
+      },
+      "emptyEyebrow": "Nothing recorded",
+      "note": "Output VAT is taken from paid orders, net of completed refunds, in the currency each order was billed in."
+    },
+    "pricing": {
+      "meta": {
+        "title": "Pricing & Commission"
+      },
+      "eyebrow": "Commerce",
+      "title": "Pricing & commission",
+      "description": "Live price tiers, per-seller commission rates, and the price-change audit trail.",
+      "dateline": "Tier prices are shown in the currency each price row was set in · no conversion applied",
+      "stats": {
+        "b2c": "Active B2C prices",
+        "b2b": "Active B2B prices",
+        "avgCommission": "Avg commission rate",
+        "avgCommissionDateline": "{count, plural, one {Unweighted mean across {value} active seller} other {Unweighted mean across {value} active sellers}}",
+        "tiered": "Volume-tiered products",
+        "tieredDateline": "Of the 10 loaded below, not the whole catalogue"
+      },
+      "commission": {
+        "title": "Commission rates by seller",
+        "dateline": "Active sellers, highest rate first",
+        "columns": {
+          "seller": "Seller",
+          "tier": "Tier",
+          "rate": "Rate",
+          "products": "Products",
+          "commissions": "Commissions"
+        },
+        "emptyHeadline": "No seller is active.",
+        "emptyBody": "A seller appears here once their account is approved and active."
+      },
+      "changes": {
+        "title": "Recent price changes",
+        "dateline": "The audit trail, newest first · latest 10 entries",
+        "emptyHeadline": "No price change has been recorded.",
+        "emptyBody": "A seller's price edit appears here with its before and after values.",
+        "system": "System",
+        "changedPrice": " changed a price on "
+      },
+      "tiers": {
+        "title": "Volume-tiered pricing",
+        "dateline": "Products offering quantity breaks (B2B bulk tiers) · latest 10 loaded",
+        "columns": {
+          "product": "Product",
+          "seller": "Seller",
+          "tiers": "Tiers"
+        },
+        "emptyHeadline": "No product offers a volume tier.",
+        "emptyBody": "A product appears here once a seller sets a price row with a minimum quantity above one."
+      },
+      "emptyEyebrow": "Nothing recorded"
+    },
+    "deals": {
+      "meta": {
+        "title": "Deals"
+      },
+      "eyebrow": "Commerce",
+      "title": "Deals",
+      "description": "Promotional pricing and campaigns.",
+      "empty": {
+        "eyebrow": "Moved",
+        "headline": "Promotions are managed in Campaigns.",
+        "body": "Governed promotions, coupons and their redemption rules live in the campaigns workspace, backed by the promotions engine. This page holds no data of its own.",
+        "action": "Go to Campaigns"
+      }
+    },
+    "warehouse": {
+      "meta": {
+        "title": "Warehouse & 3PL"
+      },
+      "type": {
+        "SELLER": "Seller-operated",
+        "PLATFORM": "Platform",
+        "THIRD_PARTY_3PL": "3PL partner"
+      },
+      "eyebrow": "Operations",
+      "title": "Warehouse & 3PL",
+      "description": "Live inventory across facilities.",
+      "dateline": "{count, plural, one {{value} stock movement recorded in the last 24 hours} other {{value} stock movements recorded in the last 24 hours}}",
+      "actions": {
+        "inbound": "Inbound",
+        "pickpack": "Pick & pack"
+      },
+      "kpi": {
+        "units": "Units on hand",
+        "unitsNote": "{reserved} reserved · {lines} stock lines",
+        "toFulfil": "Orders to fulfil",
+        "toFulfilNote": "confirmed / processing",
+        "openShipments": "Open shipments",
+        "openShipmentsNote": "in the carrier network",
+        "lowStock": "Low stock lines",
+        "lowStockNote": "at or below reorder point"
+      },
+      "facilities": {
+        "title": "Facilities",
+        "dateline": "Active warehouses and the bin locations recorded against them",
+        "active": "<n>{count}</n> active",
+        "columns": {
+          "facility": "Facility",
+          "type": "Type",
+          "operator": "Operator",
+          "location": "Location",
+          "bins": "Bin locations",
+          "stock": "Stock"
+        },
+        "bins": "<n>{locations}</n> locations · <n>{lines}</n> stock lines",
+        "stockLink": "Stock",
+        "emptyEyebrow": "Nothing configured",
+        "emptyHeadline": "No active warehouse has been configured.",
+        "emptyBody": "A facility appears here once it is created and set active; stock lines are recorded against its bin locations."
+      },
+      "links": {
+        "stockLabel": "Stock manager",
+        "stockDesc": "All stock lines with reserve and reorder levels",
+        "inboundLabel": "Inbound receiving",
+        "inboundDesc": "Stock-in movements and adjustments",
+        "pickpackLabel": "Pick & pack queue",
+        "pickpackDesc": "{count, plural, one {{value} paid order awaiting fulfilment} other {{value} paid orders awaiting fulfilment}}"
+      }
+    },
+    "pickpack": {
+      "meta": {
+        "title": "Pick & Pack"
+      },
+      "shipmentStatus": {
+        "PENDING": "Pending pickup",
+        "PICKED_UP": "Picked up",
+        "IN_TRANSIT": "In transit",
+        "OUT_FOR_DELIVERY": "Out for delivery"
+      },
+      "breadcrumbWarehouse": "Warehouse",
+      "breadcrumbSelf": "Pick & pack",
+      "eyebrow": "Operations",
+      "title": "Pick & pack queue",
+      "description": "Paid orders awaiting fulfilment, oldest first, plus shipments in the carrier network.",
+      "dateline": "Order values in the currency each order was billed in · no conversion applied",
+      "stats": {
+        "queue": "Orders in queue",
+        "units": "Units to pick",
+        "shipments": "Active shipments",
+        "withoutShipment": "Without shipment",
+        "withoutShipmentNote": "paid, but nothing booked with a carrier"
+      },
+      "queue": {
+        "title": "Awaiting fulfilment",
+        "dateline": "Paid orders that have not shipped, oldest first",
+        "toolbar": "FIFO · oldest first",
+        "columns": {
+          "order": "Order",
+          "age": "Age",
+          "customer": "Customer",
+          "items": "Items",
+          "value": "Value",
+          "shipment": "Shipment"
+        },
+        "moreItems": " +{count} more",
+        "shipmentCount": "{count, plural, one {{value} shipment} other {{value} shipments}}",
+        "notShipped": "Not shipped",
+        "emptyEyebrow": "Queue is clear",
+        "emptyHeadline": "No paid order is awaiting fulfilment.",
+        "emptyBody": "An order joins this queue as soon as its payment is confirmed and it has not yet shipped."
+      },
+      "shipments": {
+        "title": "Active shipments",
+        "dateline": "Shipments currently in the carrier network",
+        "columns": {
+          "shipment": "Shipment",
+          "order": "Order",
+          "seller": "Seller",
+          "carrier": "Carrier",
+          "tracking": "Tracking",
+          "status": "Status",
+          "promised": "Promised"
+        },
+        "emptyEyebrow": "Nothing in transit",
+        "emptyHeadline": "No shipment is currently in the carrier network.",
+        "emptyBody": "A shipment appears here once fulfilment books one against an order."
+      }
+    },
+    "inbound": {
+      "meta": {
+        "title": "Inbound Receiving"
+      },
+      "type": {
+        "IN": "Stock In",
+        "ADJUSTMENT": "Adjustment"
+      },
+      "breadcrumbWarehouse": "Warehouse",
+      "breadcrumbSelf": "Inbound",
+      "eyebrow": "Operations",
+      "title": "Inbound receiving",
+      "description": "Stock-in movements and inventory adjustments from the movement ledger.",
+      "dateline": "Three of the four figures below describe this page of the ledger, not the whole of it",
+      "stats": {
+        "total": "Total movements",
+        "totalDateline": "Every inbound movement on record",
+        "in": "Stock-in",
+        "adjustments": "Adjustments",
+        "units": "Units received",
+        "pageDateline": "On this page of the ledger"
+      },
+      "table": {
+        "dateline": "Movements as recorded, newest first · a negative quantity is stock taken off the shelf"
+      },
+      "columns": {
+        "date": "Date",
+        "type": "Type",
+        "product": "Product",
+        "qty": "Qty",
+        "location": "Location",
+        "reference": "Reference",
+        "notes": "Notes"
+      },
+      "empty": {
+        "eyebrow": "Nothing recorded",
+        "headline": "No inbound movement has been recorded.",
+        "body": "A stock-in appears here when a seller or warehouse operator receives inventory against a bin location."
+      },
+      "footer": "<n>{total}</n> {count, plural, one {movement} other {movements}} on record"
+    },
+    "stock": {
+      "meta": {
+        "title": "Stock Manager"
+      },
+      "filters": {
+        "all": "All Stock",
+        "low": "Low Stock",
+        "out": "Out of Stock",
+        "label": "Filter stock lines"
+      },
+      "breadcrumbWarehouse": "Warehouse",
+      "breadcrumbSelf": "Stock manager",
+      "eyebrow": "Operations",
+      "title": "Stock manager",
+      "description": "On-hand and reserved units per location, as recorded in the inventory ledger.",
+      "dateline": "Ordered lowest stock first · latest {count} loaded",
+      "stats": {
+        "skus": "SKUs",
+        "matchDateline": "Every row matching the current search",
+        "units": "Units on hand",
+        "low": "Low stock",
+        "lowDateline": "Available at or below the reorder point",
+        "out": "Out of stock",
+        "outDateline": "Nothing available to sell",
+        "loadedDateline": "Of the {count} lowest-stock rows loaded"
+      },
+      "alert": {
+        "out": "{count, plural, one {{value} SKU with nothing available to sell{scope}} other {{value} SKUs with nothing available to sell{scope}}}",
+        "scope": " (of the {count} lowest-stock loaded)",
+        "action": "Show them"
+      },
+      "search": {
+        "placeholder": "SKU, product name or category…",
+        "label": "Search stock by SKU, product name or category",
+        "clear": "Clear",
+        "submit": "Search"
+      },
+      "table": {
+        "dateline": "On-hand and reserved as recorded · available is on-hand less reserved, which is the only number that can be sold"
+      },
+      "columns": {
+        "sku": "SKU",
+        "product": "Product",
+        "category": "Category",
+        "supplier": "Supplier",
+        "location": "Warehouse / bin",
+        "onHand": "On hand",
+        "reserved": "Reserved",
+        "available": "Available",
+        "reorderPoint": "Reorder pt",
+        "status": "Status",
+        "action": "Action"
+      },
+      "pill": {
+        "out": "Out",
+        "low": "Low",
+        "ok": "OK"
+      },
+      "empty": {
+        "eyebrow": "Nothing recorded",
+        "headlineSearch": "Nothing matches “{search}”.",
+        "headline": "No stock line has been recorded.",
+        "bodySearch": "Clear the search, or try a SKU, product name or category.",
+        "body": "A stock line is written when inventory is received against a bin location.",
+        "action": "Show all stock"
+      },
+      "footer": "<n>{value}</n> {count, plural, one {SKU} other {SKUs}}{scope}",
+      "footerScope": " shown of the {loaded} lowest-stock loaded ({matching} match)"
+    },
+    "stockAdjust": {
+      "open": "Adjust",
+      "wholeNumber": "On-hand must be a whole number of zero or more",
+      "belowReserved": "On-hand cannot go below the {reserved} reserved for open orders",
+      "reasonRequired": "Say why the count changed",
+      "adjusted": "Adjusted",
+      "formLabel": "Adjust on-hand quantity",
+      "newOnHand": "New on-hand",
+      "cancel": "Cancel adjustment",
+      "reasonPlaceholder": "Reason (required)",
+      "reasonLabel": "Adjustment reason",
+      "referencePlaceholder": "Reference, e.g. stocktake sheet (optional)",
+      "referenceLabel": "Adjustment reference",
+      "save": "Save",
+      "reservedNote": "{count} reserved"
+    },
+    "stockActions": {
+      "invalidStockRef": "Invalid stock reference",
+      "enterQty": "Enter the new on-hand quantity",
+      "wholeNumber": "On-hand must be a whole number",
+      "notNegative": "On-hand cannot be negative",
+      "tooLarge": "On-hand is unrealistically large",
+      "reasonRequired": "Say why the count changed (stocktake, damage, receipt…)",
+      "reasonTooLong": "Keep the reason under {max} characters",
+      "referenceTooLong": "Keep the reference under {max} characters",
+      "invalidInput": "Invalid input",
+      "failed": "Could not adjust stock; reload and retry",
+      "adjusted": "On-hand {from} → {to}"
+    },
+    "shipments": {
+      "meta": {
+        "title": "Shipments"
+      },
+      "status": {
+        "PENDING": "Pending pickup",
+        "PICKED_UP": "Picked up",
+        "IN_TRANSIT": "In transit",
+        "OUT_FOR_DELIVERY": "Out for delivery",
+        "DELIVERED": "Delivered",
+        "FAILED": "Failed",
+        "RETURNED": "Returned"
+      },
+      "eyebrow": "Fulfilment",
+      "title": "Shipments",
+      "description": "Marketplace-wide outbound shipment oversight.",
+      "dateline": "Latest 100 shipment records · order value is the parent order's total, not the parcel's",
+      "noRecords": "No records",
+      "pickpackLink": "Pick & pack queue",
+      "gap": {
+        "eyebrow": "Capability gap",
+        "headline": "No shipment has ever been recorded.",
+        "body": "This is a capability gap, not a quiet day. Nothing in the platform creates a shipment record — not checkout, not order confirmation, not the seller portal — so carrier tracking, delivery dates and transit exceptions are unavailable marketplace-wide. The seller fulfilment screen can only advance a shipment that already exists.",
+        "action": "Open the pick & pack queue",
+        "note": "Paid orders awaiting fulfilment are real and visible in the pick & pack queue. This register will populate on its own once fulfilment begins writing shipments."
+      },
+      "stats": {
+        "pending": "Pending pickup",
+        "inTransit": "In transit",
+        "delivered": "Delivered",
+        "failed": "Failed",
+        "failedNote": "needs resolution to avoid order disputes"
+      },
+      "truncated": "Showing the 100 most recent shipments. The counts above cover only those, not the full shipment history.",
+      "failedAlert": "{count, plural, one {{value} failed shipment needs resolution to avoid order disputes{scope}.} other {{value} failed shipments need resolution to avoid order disputes{scope}.}}",
+      "failedAlertScope": " (within the 100 most recent)",
+      "table": {
+        "dateline": "Order value is the parent order's total in its own currency — not this shipment's value when an order ships in more than one parcel"
+      },
+      "columns": {
+        "shipment": "Shipment",
+        "order": "Order",
+        "seller": "Seller",
+        "buyer": "Buyer",
+        "carrier": "Carrier",
+        "value": "Order value",
+        "status": "Status",
+        "promised": "Promised",
+        "delivered": "Delivered"
+      },
+      "carrierNotSet": "Not set",
+      "empty": {
+        "eyebrow": "Nothing recorded",
+        "headline": "No shipment matches this view.",
+        "body": "This register populates once fulfilment begins writing shipment records."
+      }
+    },
+    "quotes": {
+      "meta": {
+        "title": "Quotes"
+      },
+      "status": {
+        "DRAFT": "Draft",
+        "SUBMITTED": "Submitted",
+        "UNDER_REVIEW": "Under review",
+        "QUOTED": "Awaiting buyer",
+        "NEGOTIATING": "Negotiating",
+        "ACCEPTED": "Accepted",
+        "REJECTED": "Rejected",
+        "EXPIRED": "Expired",
+        "CANCELLED": "Cancelled"
+      },
+      "eyebrow": "B2B trade",
+      "title": "Quotes",
+      "description": "Supplier quotes submitted against marketplace RFQs, live from the RFQ workflow.",
+      "dateline": "A quote is an RFQ a seller has priced · there is no margin column, because the platform never records what the goods cost the seller",
+      "none": {
+        "eyebrow": "Nothing recorded",
+        "headline": "No supplier quote has ever been submitted.",
+        "body": "A quote appears here the moment a seller prices an open RFQ — that is the only way one is created. Until then there is nothing to report: no accepted value and no win rate can be computed.",
+        "action": "Open the RFQ register"
+      },
+      "stats": {
+        "quoted": "Quoted RFQs",
+        "awaiting": "Awaiting buyer decision",
+        "winRate": "Win rate",
+        "winRateNote": "{accepted} of {decided} decided",
+        "winRateDateline": "No quote has been decided yet, so a rate cannot be computed",
+        "acceptedValue": "Accepted value",
+        "acceptedMulti": "One line per currency · no conversion applied",
+        "acceptedSingle": "Total quoted on accepted RFQs, as recorded"
+      },
+      "filters": {
+        "label": "Filter quotes by status",
+        "all": "All"
+      },
+      "search": {
+        "label": "Search quotes by RFQ number, buyer or supplier",
+        "placeholder": "RFQ #, buyer or supplier…"
+      },
+      "table": {
+        "dateline": "Ordered by most recent quote activity · quoted totals in the currency of the RFQ, no conversion applied"
+      },
+      "columns": {
+        "rfq": "RFQ",
+        "buyer": "Buyer",
+        "seller": "Quoting supplier",
+        "items": "Quoted items",
+        "total": "Quoted total",
+        "rev": "Rev",
+        "status": "Status",
+        "updated": "Last updated"
+      },
+      "raised": "Raised {date}",
+      "revValue": "v{version}",
+      "individualBuyer": "Individual buyer",
+      "unassigned": "Unassigned",
+      "moreItems": "+{count} more",
+      "empty": {
+        "eyebrow": "Nothing matches",
+        "headline": "No quote matches the current filters.",
+        "body": "Clear the status filter or the search to see every quote on record.",
+        "action": "Show every quote"
+      },
+      "footer": "<n>{total}</n> {count, plural, one {quote} other {quotes}} in the current filter"
+    },
+    "returns": {
+      "meta": {
+        "title": "Returns"
+      },
+      "status": {
+        "REQUESTED": "Awaiting decision",
+        "APPROVED": "Approved",
+        "IN_TRANSIT": "In transit",
+        "RECEIVED": "Received",
+        "REFUNDED": "Refunded",
+        "REJECTED": "Rejected"
+      },
+      "eyebrow": "Money out",
+      "title": "Returns & refunds",
+      "description": "Buyer return requests across every seller. Approvals, rejections and refunds are audit-logged.",
+      "dateline": "Newest first · latest {count} shown · refund amounts in the currency of the order",
+      "refund": {
+        "none": "None yet",
+        "count": "{count, plural, one {{value} refund} other {{value} refunds}}",
+        "labelMixed": "Refunded (mixed currencies)",
+        "label": "Refunded value",
+        "mixedDateline": "Refunds were taken in more than one currency, so a total cannot be stated"
+      },
+      "stats": {
+        "awaiting": "Awaiting decision",
+        "inProgress": "In progress",
+        "inProgressNote": "approved, in transit or received",
+        "total": "Total requests"
+      },
+      "filters": {
+        "label": "Filter returns by status",
+        "all": "All"
+      },
+      "table": {
+        "dateline": "Buyer-opened requests, as recorded · refund amounts in the currency of the order, no conversion applied"
+      },
+      "columns": {
+        "returnNumber": "Return #",
+        "order": "Order",
+        "buyer": "Buyer",
+        "seller": "Seller",
+        "items": "Items",
+        "reason": "Reason",
+        "amount": "Amount",
+        "status": "Status",
+        "requested": "Requested",
+        "actions": "Actions"
+      },
+      "notItemised": "Not itemised",
+      "moreLines": "{count, plural, one {+{value} more line} other {+{value} more lines}}",
+      "amountNotSet": "Not set",
+      "amountNotSetTitle": "No authorised refund amount is recorded on this request.",
+      "empty": {
+        "eyebrow": "Nothing recorded",
+        "headlineFiltered": "No return is in that state.",
+        "headline": "No buyer has opened a return.",
+        "bodyFiltered": "Clear the status filter to see every return on record.",
+        "body": "A request appears here as soon as one is opened against a delivered order.",
+        "action": "Show every return"
+      },
+      "footer": {
+        "showing": "Showing <n>{shown}</n> of <n>{total}</n> {count, plural, one {return} other {returns}}{scope}",
+        "scope": " with status {status}",
+        "newest": "Newest first, latest {count} shown"
+      }
+    },
+    "segments": {
+      "meta": {
+        "title": "Customer Segments"
+      },
+      "role": {
+        "CONSUMER": "B2C consumers",
+        "COMPANY_ADMIN": "Company admins",
+        "COMPANY_BUYER": "Company buyers",
+        "COMPANY_APPROVER": "Company approvers"
+      },
+      "eyebrow": "CRM",
+      "title": "Customer segments",
+      "description": "Segments computed live from user roles and purchase behaviour — no manual lists to maintain.",
+      "dateline": "Spend is the sum of order totals as recorded, each in its own currency · no conversion applied, so it carries no currency symbol",
+      "stats": {
+        "accounts": "Buyer accounts",
+        "active": "Active (30d)",
+        "highValue": "High value (top 20%)",
+        "dormant": "Dormant (60d+)"
+      },
+      "byRole": {
+        "title": "Buyer accounts by role",
+        "emptyHeadline": "No buyer account exists yet.",
+        "emptyBody": "A role appears here as soon as one account carries it.",
+        "barLabel": "{role}: {count} of {total} accounts"
+      },
+      "highValue": {
+        "title": "High-value buyers",
+        "dateline": "Top 20% by lifetime spend · {count, plural, one {{value} buyer with purchases} other {{value} buyers with purchases}}",
+        "emptyHeadline": "No purchase has been made yet.",
+        "emptyBody": "A high-value buyer appears here once orders exist to rank."
+      },
+      "ordersCount": "{count, plural, one {{value} order} other {{value} orders}}",
+      "emptyEyebrow": "Nothing recorded"
+    },
+    "crm": {
+      "meta": {
+        "title": "CRM & Accounts"
+      },
+      "activity": {
+        "VIEW": "Viewed product",
+        "ORDER": "Placed order",
+        "RFQ": "Requested quote"
+      },
+      "eyebrow": "CRM",
+      "title": "CRM & accounts",
+      "description": "Buyer relationships, purchase history, and recent account activity — live from the order ledger.",
+      "dateline": "Buyer spend is the sum of order totals as recorded, each in its own currency · no conversion applied, so it carries no currency symbol",
+      "stats": {
+        "buyers": "Buyers with purchases",
+        "relationships": "Seller–buyer relationships",
+        "activities": "Activities",
+        "activitiesDateline": "The recent window loaded below",
+        "topSpend": "Top buyer spend",
+        "topSpendDateline": "As recorded, unconverted — so it carries no currency"
+      },
+      "topBuyers": {
+        "title": "Top buyers by lifetime spend",
+        "dateline": "Order totals as recorded, unconverted",
+        "emptyHeadline": "No order has been paid yet.",
+        "emptyBody": "A buyer appears here after their first purchase.",
+        "lastOrder": " · last {date}"
+      },
+      "ordersCount": "{count, plural, one {{value} order} other {{value} orders}}",
+      "activityPanel": {
+        "title": "Recent buyer activity",
+        "emptyHeadline": "No buyer activity has been tracked.",
+        "emptyBody": "Views, orders and quote requests appear here as they are recorded."
+      },
+      "relationships": {
+        "title": "Seller–buyer relationships",
+        "dateline": "Lifetime spend per pair, in the currency recorded on the relationship · no conversion applied",
+        "columns": {
+          "buyer": "Buyer",
+          "seller": "Seller",
+          "orders": "Orders",
+          "spend": "Lifetime spend",
+          "lastOrder": "Last order",
+          "tags": "Tags"
+        },
+        "unknownBuyer": "Unknown buyer",
+        "emptyHeadline": "No seller–buyer relationship has been recorded.",
+        "emptyBody": "A relationship row is written the first time a buyer orders from a seller."
+      },
+      "emptyEyebrow": "Nothing recorded"
+    },
+    "integrations": {
+      "meta": {
+        "title": "Integration Hub"
+      },
+      "never": "Never",
+      "eyebrow": "Platform",
+      "title": "Integration hub",
+      "description": "Configuration, health evidence, durable queue state and ERP acceptance truth are shown separately.",
+      "dateline": "A credential being present is never presented as a successful integration",
+      "state": {
+        "LIVE": "LIVE",
+        "DOWN": "DOWN",
+        "CONFIGURED": "CONFIGURED",
+        "NOT_CONFIGURED": "NOT CONFIGURED",
+        "INCOMPLETE": "INCOMPLETE",
+        "NOT_IMPLEMENTED": "NOT IMPLEMENTED",
+        "DEGRADED": "DEGRADED",
+        "ACTIVE": "ACTIVE",
+        "DISABLED": "DISABLED",
+        "DEAD": "DEAD",
+        "RETRY": "RETRY",
+        "PENDING": "PENDING",
+        "PROCESSING": "PROCESSING",
+        "PROCESSED": "PROCESSED"
+      },
+      "outbox": {
+        "title": "Outbound durable queue",
+        "pending": "Pending",
+        "processing": "Processing",
+        "retry": "Retry",
+        "dead": "Dead-letter"
+      },
+      "registry": {
+        "title": "Registry and inbound queue",
+        "connections": "ERP connections",
+        "inboundRetry": "Inbound retry",
+        "inboundDead": "Inbound dead"
+      },
+      "services": {
+        "title": "Runtime services",
+        "category": {
+          "database": "Database",
+          "payments": "Payments",
+          "messaging": "Messaging",
+          "storage": "Storage",
+          "search": "Search",
+          "infrastructure": "Infrastructure"
+        },
+        "presenceOnly": "Presence only; no provider health check has been recorded on this screen.",
+        "postgresOk": "Health query {latency}ms",
+        "postgresUnreachable": "Unreachable",
+        "postgresTruth": "Health verified by this deployment.",
+        "checkoutPresent": "Credentials detected",
+        "checkoutMissing": "Credentials missing",
+        "checkoutTruth": "Signed webhook consumption exists, but outbound payment-session initiation is not implemented yet. Card/mada/Apple Pay therefore fail closed.",
+        "credentialPresent": "Credential present",
+        "emailDisabled": "Email disabled",
+        "smsDisabled": "SMS/WhatsApp disabled",
+        "s3Present": "Endpoint configured",
+        "s3Missing": "Uploads disabled",
+        "s3Truth": "Configuration presence only. Pilot media import should run only after a write/read/delete probe succeeds.",
+        "elasticSet": "Endpoint set but never read",
+        "elasticUnset": "No endpoint set",
+        "elasticTruth": "No Elasticsearch client dependency or indexing/query code exists in this repository, so this is not a fallback — catalog search is served entirely by PostgreSQL. The environment variable proves configuration intent only.",
+        "redisShared": "Upstash REST credentials present",
+        "redisLocal": "In-memory store, this process only",
+        "redisTruthShared": "UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN are both set, which is the condition under which the shared store is installed at boot. Credential presence only — no Redis reachability probe has been recorded on this screen.",
+        "redisTruthLocal": "UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN are unset, so the shared store was never installed: rate limiting and the read cache run in per-process memory, are not shared across instances and reset on every restart. Per-IP login, registration and catalog throttles are therefore only as strong as one instance. REDIS_URL is read by no code in this repository and configures nothing."
+      },
+      "register": {
+        "title": "Register ERP / operational system",
+        "dateline": "Only secret-manager references are stored. Editing a connection always returns it to Disabled until an admin explicitly activates it.",
+        "system": "System",
+        "connectionKey": "Connection key",
+        "name": "Name",
+        "baseUrl": "Base URL",
+        "credentialsRef": "Credentials reference",
+        "submit": "Save disabled connection"
+      },
+      "registryTable": {
+        "title": "ERP / system registry",
+        "dateline": "ACTIVE means administratively enabled. “Verified” requires a recorded successful health or transaction event.",
+        "columns": {
+          "system": "System",
+          "endpoint": "Endpoint / secret ref",
+          "evidence": "Evidence",
+          "state": "State",
+          "control": "Control"
+        },
+        "noEndpoint": "No endpoint",
+        "secretSet": "Secret reference set",
+        "noSecret": "No secret reference",
+        "verified": "Last result: verified success",
+        "notVerified": "No verified success",
+        "success": "Success: {date}",
+        "activate": "Activate",
+        "disable": "Disable",
+        "routeCompanyLabel": "Company to route through {name}",
+        "routeCompanyPlaceholder": "Route company…",
+        "routeModeLabel": "Assign or remove the route on {name}",
+        "assign": "Assign",
+        "remove": "Remove",
+        "apply": "Apply",
+        "routes": "{count, plural, one {{value} company route} other {{value} company routes}}",
+        "emptyEyebrow": "Nothing registered",
+        "emptyHeadline": "No ERP, WMS or PIM connection has been registered.",
+        "emptyBody": "Register one on the left. It is saved disabled until an administrator explicitly activates it."
+      },
+      "outboundQueue": {
+        "title": "Outbound retry / dead-letter queue",
+        "dateline": "Manual redrive is explicit and audited; processed messages cannot be replayed from this control.",
+        "columns": {
+          "event": "Event",
+          "destination": "Destination",
+          "attempts": "Attempts",
+          "lastError": "Last error",
+          "state": "State",
+          "redrive": "Redrive"
+        },
+        "redrive": "Redrive",
+        "emptyEyebrow": "Queue is clear",
+        "emptyHeadline": "No outbound message is in retry or dead-letter.",
+        "emptyBody": "A message lands here only after the durable outbox has exhausted its automatic attempts."
+      },
+      "inboundQueue": {
+        "title": "Inbound retry / dead-letter queue",
+        "dateline": "Provider deliveries retain source identity, attempt history and audited manual redrive.",
+        "columns": {
+          "source": "Source"
+        },
+        "emptyHeadline": "No inbound message is in retry or dead-letter.",
+        "emptyBody": "A provider delivery lands here only after its automatic attempts are exhausted."
+      },
+      "notice": {
+        "lead": "Activation is not certification.",
+        "body": "A connection can be administratively active while health is unverified. Production-pilot certification requires a successful provider/ERP handshake plus an accepted and rejected transaction scenario with evidence."
+      }
+    },
+    "integrationActions": {
+      "unsupportedSystem": "Unsupported integration system",
+      "invalidConnectionKey": "Connection key must be 2-49 lowercase letters/numbers/_/-",
+      "invalidName": "Connection name must be 2-120 characters",
+      "unsupportedStatus": "Unsupported connection status",
+      "companyRequired": "Company is required"
+    },
+    "catalogImport": {
+      "meta": {
+        "title": "Pilot Catalog Import"
+      },
+      "eyebrow": "Pilot",
+      "title": "Catalog import",
+      "description": "Validate and load client-supplied industrial catalog data without placing commercial source files in Git history.",
+      "dateline": "Every figure below describes the file you just submitted, not the catalogue as a whole",
+      "requestFailed": "Catalog request failed",
+      "protected": {
+        "title": "Protected pilot-data path",
+        "body": "Commercial catalog files are sent directly to the authenticated Admin API and are never committed to Git. Validate first. Applying is separately gated by deployment environment controls."
+      },
+      "upload": {
+        "title": "Upload normalized pilot catalog",
+        "dateline": "Accepted: version-1 JSON or JSON.gz · maximum 8 MB",
+        "fileLabel": "Pilot catalog file",
+        "selected": "Selected: {name} · {size} KB",
+        "validate": "Validate only",
+        "apply": "Apply to pilot database",
+        "readyNote": "Applying writes these rows to the pilot database.",
+        "notReadyNote": "Validate a file first; applying stays disabled until validation passes."
+      },
+      "busy": {
+        "applying": "Applying. The file is being written in one request; the result appears when it settles.",
+        "validating": "Validating. The file is being checked in one request; the result appears when it settles."
+      },
+      "result": {
+        "applied": "Catalog applied",
+        "validated": "Validation passed",
+        "rejected": "Catalog rejected",
+        "errorsTitle": "Validation errors ({count} shown)",
+        "rows": "Rows",
+        "verified": "Verified price",
+        "draft": "Draft / no price",
+        "sourceStock": "Source stock",
+        "sellerRows": "Seller rows: {rows}",
+        "validationOnly": "This deployment is validation-only. Pilot write gates are not enabled.",
+        "warningsTitle": "Warnings ({count} shown)"
+      }
+    },
+    "shipping": {
+      "meta": "Shipping zones",
+      "eyebrow": "Delivery",
+      "title": "Shipping zones and rates",
+      "description": "Delivery is priced by zone and weight, the way a carrier prices it.",
+      "dateline": "Checkout quotes delivery from these rows and nothing else · editing a band changes what a buyer is charged",
+      "empty": {
+        "eyebrow": "No tariff",
+        "headline": "No shipping zone has been configured yet.",
+        "body": "Until a zone exists, delivery is not charged and every order ships at no freight cost."
+      },
+      "zone": {
+        "active": "Active",
+        "inactive": "Inactive",
+        "noCountries": "No destinations assigned — this zone prices nothing.",
+        "noBands": "No weight bands in this zone. Orders here fall back to the flat price.",
+        "fallback": "Flat price when a parcel's weight is unknown: {amount}",
+        "freeOver": "Free delivery at or above {amount}",
+        "neverFree": "No free-delivery threshold"
+      },
+      "band": {
+        "currency": "Currency",
+        "from": "From (kg)",
+        "to": "To (kg)",
+        "price": "Price",
+        "andAbove": "and above"
+      },
+      "add": {
+        "title": "Add a zone",
+        "help": "A country belongs to at most one active zone.",
+        "submit": "Create zone",
+        "saving": "Creating…"
+      },
+      "field": {
+        "code": "Code",
+        "sortOrder": "Order",
+        "nameEn": "Name (English)",
+        "nameAr": "Name (Arabic)",
+        "countries": "Destinations",
+        "countriesHint": "Two-letter country codes, separated by spaces or commas.",
+        "fallbackPrice": "Flat fallback price",
+        "fallbackHint": "Charged when a parcel's weight cannot be determined.",
+        "freeOver": "Free above",
+        "freeOverHint": "Leave blank for no free-delivery threshold.",
+        "etaMin": "Delivery from (days)",
+        "etaMax": "Delivery to (days)",
+        "isActive": "Active"
+      }
+    },
+    "actions": {
+      "shipping": {
+        "codeShape": "A code uses capital letters, digits and underscores only.",
+        "countryShape": "Each destination must be a two-letter country code.",
+        "etaOrder": "The delivery window cannot end before it begins.",
+        "invalid": "Check the highlighted fields.",
+        "createFailed": "The zone was not created.",
+        "rateFailed": "The band was not saved.",
+        "unreachable": "The platform could not be reached, so nothing was saved."
+      }
+    }
+  },
+  "adminReview": {
+    "meta": {
+      "approvals": "Approvals",
+      "compliance": "Compliance",
+      "categories": "Categories",
+      "brands": "Brands",
+      "products": "Products",
+      "sellers": "Sellers"
+    },
+    "status": {
+      "DRAFT": "Draft",
+      "PENDING_REVIEW": "Pending review",
+      "ACTIVE": "Active",
+      "INACTIVE": "Inactive",
+      "SUPPRESSED": "Suppressed",
+      "SUSPENDED": "Suspended",
+      "REJECTED": "Rejected",
+      "APPROVED": "Approved",
+      "EXPIRED": "Expired"
+    },
+    "statusInline": {
+      "DRAFT": "draft",
+      "PENDING_REVIEW": "pending review",
+      "ACTIVE": "active",
+      "INACTIVE": "inactive",
+      "SUPPRESSED": "suppressed",
+      "SUSPENDED": "suspended",
+      "REJECTED": "rejected",
+      "APPROVED": "approved",
+      "EXPIRED": "expired"
+    },
+    "docType": {
+      "COMMERCIAL_REGISTRATION": "Commercial registration",
+      "TRADE_LICENSE": "Trade licence",
+      "VAT_CERTIFICATE": "VAT certificate",
+      "SASO_CERTIFICATE": "SASO certificate",
+      "SFDA_APPROVAL": "SFDA approval",
+      "HALAL_CERTIFICATE": "Halal certificate",
+      "ESMA_CERTIFICATE": "ESMA certificate",
+      "ISO_CERTIFICATE": "ISO certificate",
+      "OTHER": "Other"
+    },
+    "sellerType": {
+      "MANUFACTURER": "Manufacturer",
+      "DISTRIBUTOR": "Distributor",
+      "IMPORTER": "Importer",
+      "RETAILER": "Retailer"
+    },
+    "tier": {
+      "STANDARD": "Standard",
+      "VERIFIED": "Verified",
+      "GOLD": "Gold",
+      "PLATINUM": "Platinum"
+    },
+    "notice": {
+      "eyebrow": "Decision not recorded",
+      "recordedStatus": "Recorded status is now",
+      "dateline": "Read back from the platform record · nothing was written and this page was not reloaded",
+      "reread": "Re-read this row",
+      "notRecorded": "The decision was not recorded."
+    },
+    "approvals": {
+      "eyebrow": "Marketplace review",
+      "title": "Approvals",
+      "dateline": "Counts read when this page loaded · every decision is written against the row's state at the moment of the click",
+      "summaryPartial": "At least {total} items are waiting on an administrator; {unread, plural, one {one queue could not be read} other {{unreadText} queues could not be read}}.",
+      "summaryTotal": "{count, plural, =0 {No items are waiting on an administrator.} one {1 item is waiting on an administrator.} other {{total} items are waiting on an administrator.}}",
+      "queues": {
+        "products": "Product listings",
+        "sellers": "Supplier applications",
+        "documents": "Compliance documents"
+      },
+      "notRead": "Not read",
+      "noteUnread": "The platform did not answer this count",
+      "noteOpen": "Open the queue",
+      "noteEmpty": "Nothing awaiting review",
+      "sellerNotRecorded": "Seller not recorded",
+      "uncategorised": "Uncategorised"
+    },
+    "reviewQueue": {
+      "eyebrow": "Queue",
+      "title": "Product listings awaiting review",
+      "dateline": "Listings a seller has submitted and no administrator has decided · newest first",
+      "submitted": "Submitted",
+      "showing": "Showing the newest {shown} of {total} listings in review",
+      "unread": {
+        "eyebrow": "Not read",
+        "headline": "The review queue could not be read.",
+        "body": "This is not the same as an empty queue: the platform did not answer, so nothing here can be relied on and no listing should be assumed decided or undecided from it.",
+        "action": "Read the queue again"
+      },
+      "empty": {
+        "eyebrow": "Nothing awaiting review",
+        "headline": "No product listing is waiting on an administrator.",
+        "body": "A listing appears here the moment a seller submits one for review, and leaves it as soon as somebody approves or rejects it. Nothing is filtered out of this queue.",
+        "action": "Review live listings"
+      }
+    },
+    "productReview": {
+      "reasonRequired": "A rejection reason is required",
+      "formLabel": "Reject this listing",
+      "reasonLabel": "Reason the seller will see",
+      "reasonPlaceholder": "What has to change before this can be listed",
+      "reasonHint": "Written to the seller's issues queue.",
+      "cancel": "Cancel",
+      "confirmReject": "Confirm rejection",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approvedFallback": "Approved",
+      "rejectedFallback": "Rejected"
+    },
+    "productControls": {
+      "reasonRequired": "A suppression reason is required",
+      "restore": "Restore",
+      "restoreToActive": "Returns to its pre-suppression state (live unless the seller had paused it)",
+      "restoreToDraft": "Never approved — returns to draft",
+      "noAction": "No platform action",
+      "formLabel": "Suppress this listing",
+      "reasonLabel": "Reason the seller will see",
+      "reasonPlaceholder": "Why this listing is being taken down",
+      "reasonHint": "Written to the seller's issues queue.",
+      "cancel": "Cancel",
+      "confirmSuppress": "Confirm suppression",
+      "suppress": "Suppress",
+      "suppressedFallback": "Suppressed",
+      "restoredFallback": "Restored"
+    },
+    "compliance": {
+      "eyebrow": "Compliance",
+      "title": "Compliance documents",
+      "description": "{count, plural, =0 {None of the {loaded} filings loaded here is awaiting review.} one {1 of the {loaded} filings loaded here is awaiting review.} other {{pending} of the {loaded} filings loaded here are awaiting review.}}",
+      "dateline": "Seller-filed documents, ordered by status then upload date · at most 100 loaded · each file opens through a short-lived signed link minted per request",
+      "openInNewTab": "Open the filed document in a new tab",
+      "expiry": {
+        "notRecorded": "Not recorded",
+        "past": "Past expiry",
+        "soon": "Within 30 days"
+      },
+      "columns": {
+        "seller": "Seller",
+        "document": "Document",
+        "expiry": "Expiry",
+        "uploaded": "Uploaded",
+        "status": "Status",
+        "decision": "Decision"
+      },
+      "review": "Review",
+      "reviewSr": " {type} for {seller}",
+      "pending": {
+        "title": "Awaiting review",
+        "dateline": "Filed by the seller and not yet decided by an administrator · only filings inside the {loaded} rows loaded on this page appear here",
+        "empty": {
+          "eyebrow": "Nothing awaiting review",
+          "headline": "No compliance document is waiting on an administrator.",
+          "body": "A filing appears here the moment a supplier submits one, and leaves it as soon as somebody approves, rejects or lets it expire. Everything already decided is in the register below.",
+          "action": "Review supplier applications"
+        }
+      },
+      "decided": {
+        "title": "Already decided",
+        "dateline": "Approved, rejected and expired filings, newest upload first",
+        "footer": "{count, plural, =0 {No decided documents loaded} one {1 decided document loaded} other {{total} decided documents loaded}}",
+        "empty": {
+          "eyebrow": "Nothing recorded",
+          "headline": "No decided document is in the loaded set.",
+          "body": "Approved, rejected and expired filings appear here once a decision is written."
+        }
+      }
+    },
+    "categories": {
+      "eyebrow": "Catalogue structure",
+      "title": "Categories",
+      "description": "{count, plural, =0 {No top-level categories} one {1 top-level category} other {{topLevel} top-level categories}}, {total} in total.",
+      "dateline": "The whole tree, ordered by sort order then English name · a slug is the storefront URL and does not change on its own",
+      "inactive": "Inactive",
+      "subcategories": "Subcategories",
+      "products": "Products",
+      "empty": {
+        "eyebrow": "Nothing recorded",
+        "headline": "No categories have been created yet.",
+        "body": "The storefront navigation and every product listing are organised by this tree, so it is the first thing to build."
+      }
+    },
+    "categoryForm": {
+      "addSubcategory": "Add subcategory",
+      "newCategory": "New category",
+      "edit": "Edit",
+      "editSr": " {name}",
+      "categoryFallback": "category",
+      "ariaEdit": "Edit {name}",
+      "ariaNew": "New category",
+      "headingEdit": "Edit category",
+      "headingNewSubcategory": "New subcategory",
+      "headingNew": "New category",
+      "close": "Close",
+      "nameEn": "Name (English)",
+      "nameAr": "Name (Arabic)",
+      "slug": "Slug",
+      "slugHintTouched": "Edited by hand; no longer follows the English name",
+      "slugHintAuto": "Follows the English name until you edit it",
+      "sortOrder": "Sort order",
+      "parent": "Parent category",
+      "parentHint": "A category cannot be moved under itself or its own descendants.",
+      "topLevel": "Top level",
+      "active": "Active (shown in storefront navigation)",
+      "errorDateline": "Nothing was saved · this form still holds everything you typed",
+      "cancel": "Cancel",
+      "saveChanges": "Save changes",
+      "create": "Create category"
+    },
+    "brands": {
+      "eyebrow": "Catalogue",
+      "title": "Brands",
+      "description": "{count, plural, =0 {No brands} one {1 brand} other {{brands} brands}} · {listings} listings between them.",
+      "datelineSearch": "Brands whose English or Arabic name contains \"{query}\" · listing counts exclude deleted listings",
+      "dateline": "Every brand in the catalogue, A to Z · listing counts exclude deleted listings",
+      "searchLabel": "Search brands",
+      "searchHint": "Matches the English and Arabic name only.",
+      "searchPlaceholder": "Search brands by English or Arabic name",
+      "search": "Search",
+      "clear": "Clear",
+      "active": "Active",
+      "inactive": "Inactive",
+      "listings": "{count, plural, one {Listing} other {Listings}}",
+      "empty": {
+        "eyebrow": "Nothing recorded",
+        "headlineSearch": "No brand's name contains \"{query}\".",
+        "headline": "No brands are recorded in the catalogue.",
+        "bodySearch": "Brands are matched on their English and Arabic names only.",
+        "body": "Brands are created as sellers list branded products; none has been created yet.",
+        "showAll": "Show every brand"
+      }
+    },
+    "products": {
+      "eyebrow": "Catalogue",
+      "title": "Products",
+      "description": "{count, plural, =0 {No listing is {status}.} one {1 listing is {status}.} other {{total} listings are {status}.}}",
+      "datelineTruncated": "Newest {shown} of {total} in this status · every decision is written against the listing's state at the moment of the click",
+      "dateline": "Newest first · every decision is written against the listing's state at the moment of the click",
+      "filterLabel": "Filter listings by status",
+      "columns": {
+        "listing": "Listing",
+        "seller": "Seller",
+        "category": "Category",
+        "health": "Listing health",
+        "status": "Status",
+        "decision": "Decision"
+      },
+      "healthLabel": "Listing health for {name}",
+      "reason": "Reason: ",
+      "empty": {
+        "eyebrow": "Nothing recorded",
+        "headline": "No listing is currently {status}.",
+        "body": "Listings move between these queues as sellers publish them and as the platform decides on them.",
+        "action": "Open the review queue"
+      }
+    },
+    "sellers": {
+      "eyebrow": "Supply base",
+      "title": "Sellers",
+      "description": "{count, plural, =0 {No supplier account is loaded for this filter.} one {1 supplier account is loaded for this filter.} other {{total} supplier accounts are loaded for this filter.}}",
+      "dateline": "Filter: {filter} · newest first · at most 100 loaded",
+      "filterLabel": "Filter sellers by status",
+      "filters": {
+        "all": "All",
+        "PENDING_REVIEW": "Pending review",
+        "ACTIVE": "Active",
+        "SUSPENDED": "Suspended"
+      },
+      "filtersInline": {
+        "all": "all",
+        "PENDING_REVIEW": "pending review",
+        "ACTIVE": "active",
+        "SUSPENDED": "suspended"
+      },
+      "verified": "Verified",
+      "docs": {
+        "none": "None filed",
+        "pending": "{count, plural, one {1 pending} other {{total} pending}}",
+        "allDecided": "All decided"
+      },
+      "columns": {
+        "seller": "Seller",
+        "cr": "CR",
+        "type": "Type",
+        "tier": "Tier",
+        "status": "Status",
+        "products": "Products",
+        "documents": "Documents",
+        "applied": "Applied",
+        "record": "Record"
+      },
+      "open": "Open",
+      "openSr": " the record for {name}",
+      "empty": {
+        "eyebrow": "Nothing recorded",
+        "headlineFiltered": "No supplier account is currently {filter}.",
+        "headline": "No supplier accounts have been created yet.",
+        "body": "Supplier accounts appear here as soon as a business registers.",
+        "showAll": "Show every supplier"
+      }
+    },
+    "pendingSellers": {
+      "eyebrow": "Onboarding",
+      "title": "Supplier applications",
+      "descriptionLoading": "Reading the review queue.",
+      "descriptionUnread": "The review queue could not be read.",
+      "description": "{count, plural, =0 {No application is waiting on a decision.} one {1 application is waiting on a decision.} other {{total} applications are waiting on a decision.}}",
+      "dateline": "Applications in review, read when this page opened · at most 100 loaded · every decision is written against the application's state at the moment of the click",
+      "unread": {
+        "eyebrow": "Not read",
+        "headline": "The application queue could not be read.",
+        "body": "This is not an empty queue — the platform did not answer, so nothing on this page can be relied on, and no application should be assumed decided or undecided from it.",
+        "action": "Read the queue again"
+      },
+      "empty": {
+        "eyebrow": "Nothing awaiting review",
+        "headline": "No supplier application is waiting on an administrator.",
+        "body": "An application appears here the moment a business completes registration, carrying its trade licence and every other document it filed. Nothing is filtered out of this queue.",
+        "action": "Review approved suppliers"
+      },
+      "reasonRequired": "A reason is required — the applicant is shown it.",
+      "facts": {
+        "cr": "CR number",
+        "type": "Business type",
+        "registeredIn": "Registered in",
+        "location": "{country} — {city}",
+        "owner": "Owner",
+        "ownerName": "{firstName} {lastName}",
+        "contact": "Contact",
+        "applied": "Applied"
+      },
+      "approve": "Approve",
+      "reject": "Reject",
+      "evidence": "Filed evidence",
+      "noDocuments": "No documents have been submitted for this application. Approving it would rest on no filed evidence.",
+      "documentSr": "— {fileName}, opens in a new tab",
+      "rejectLabel": "Reason for rejecting this application",
+      "rejectHint": "Written to the audit log and shown to the applicant.",
+      "rejectPlaceholder": "What was wrong with this application",
+      "cancel": "Cancel",
+      "confirmReject": "Confirm rejection"
+    },
+    "sellerDetail": {
+      "eyebrow": "Supplier record",
+      "breadcrumbSellers": "Sellers",
+      "dateline": "Every field below is as recorded by the platform · a decision is written against this record's state at the moment of the click",
+      "loadError": {
+        "eyebrow": "Not read",
+        "headline": "This supplier record could not be read.",
+        "body": "The platform did not answer, so nothing about this account can be shown. Reload to try again."
+      },
+      "notFound": {
+        "eyebrow": "Not found",
+        "headline": "No supplier record matches this reference.",
+        "body": "The link may be stale, or the account may have been removed."
+      },
+      "back": "Back to sellers",
+      "facts": {
+        "accountStatus": "Account status",
+        "tier": "Tier",
+        "cr": "CR number",
+        "commission": "Commission",
+        "registeredIn": "Registered in",
+        "location": "{country} — {city}",
+        "businessType": "Business type",
+        "rating": "Product rating",
+        "verification": "Verification",
+        "performance": "Performance score"
+      },
+      "verified": "Verified",
+      "ratingBasis": "Averaged over {count} product reviews",
+      "noReviews": "No reviews yet",
+      "verifiedLabel": "Document verified",
+      "verificationBasis": "{type} reviewed {date}",
+      "noVerification": "No approved document carries a review date",
+      "performanceBasis": "This seller's own activity over the last {days} days",
+      "notEnoughData": "Not enough data",
+      "evidenceEyebrow": "Evidence",
+      "evidenceTitle": "Compliance documents",
+      "awaitingDecision": "{count, plural, one {1 awaiting a decision} other {{total} awaiting a decision}}",
+      "noDocs": {
+        "eyebrow": "Nothing filed",
+        "headline": "This seller has filed no compliance documents.",
+        "body": "Any decision on this application would rest on no filed evidence."
+      },
+      "opensNewTab": ", opens in a new tab",
+      "rejectedReason": "Rejected: {reason}",
+      "approve": "Approve",
+      "approveSr": " {type}",
+      "reject": "Reject",
+      "rejectSr": " {type}",
+      "docRejectLabel": "Reason for rejecting {type}",
+      "docRejectHint": "Written to the audit log and shown to the seller.",
+      "docRejectPlaceholder": "What is wrong with this filing",
+      "cancel": "Cancel",
+      "confirmReject": "Confirm rejection",
+      "decisionEyebrow": "Decision",
+      "decisionTitle": "Approve or reject this application",
+      "decisionBody": "Approving activates the account and lets this supplier publish listings. Rejecting writes the reason to the audit log and shows it to the applicant.",
+      "decisionNoDocuments": "No documents have been filed against this application.",
+      "approveSeller": "Approve seller",
+      "sellerRejectLabel": "Reason for rejecting this application",
+      "sellerRejectHint": "Written to the audit log and shown to the applicant.",
+      "sellerRejectPlaceholder": "Why this application cannot be accepted",
+      "errors": {
+        "reasonAudit": "A reason is required — it is written to the audit log.",
+        "reasonRequired": "A reason is required.",
+        "approvalNotRecorded": "Approval was not recorded.",
+        "rejectionNotRecorded": "Rejection was not recorded."
+      }
+    },
+    "actions": {
+      "alreadyDecided": "This item was already decided — reload to see its current state.",
+      "invalidProduct": "Invalid product reference",
+      "productNotFound": "Product not found",
+      "invalidInput": "Invalid input",
+      "reasonMin": "Give the seller a reason they can act on",
+      "reasonMax": "Keep the reason under 1000 characters",
+      "approveFallback": "Could not approve this listing; reload and retry",
+      "rejectFallback": "Could not reject this listing; reload and retry",
+      "approved": "Listing approved and live",
+      "rejected": "Listing rejected; the seller sees the reason in their issues queue",
+      "suppressFallback": "Could not suppress this listing; reload and retry",
+      "restoreFallback": "Could not restore this listing; reload and retry",
+      "suppressed": "Listing suppressed; the seller sees the reason in their issues queue",
+      "restored": "Listing restored to {status}",
+      "category": {
+        "invalidReference": "Invalid reference",
+        "invalidCategoryReference": "Invalid category reference",
+        "nameEnMin": "English name must be at least 2 characters",
+        "nameEnMax": "Keep the English name under 120 characters",
+        "nameArMin": "Arabic name must be at least 2 characters",
+        "nameArMax": "Keep the Arabic name under 120 characters",
+        "slugMin": "Slug must be at least 2 characters",
+        "slugMax": "Keep the slug under 120 characters",
+        "slugShape": "Slug may contain only lowercase letters, digits and single hyphens",
+        "sortInteger": "Sort order must be a whole number",
+        "sortMin": "Sort order cannot be negative",
+        "sortMax": "Sort order is too large",
+        "createFallback": "Could not create the category; reload and retry",
+        "updateFallback": "Could not save the category; reload and retry",
+        "created": "Category created",
+        "saved": "Category saved"
+      }
+    }
+  },
+  "adminShell": {
+    "meta": {
+      "default": "Admin Console | {platform}",
+      "suffix": "Admin",
+      "description": "{platform} Admin Console",
+      "dashboard": "Executive Command Center",
+      "settings": "Platform Settings",
+      "performance": "Supplier Performance",
+      "users": "User Management"
+    },
+    "nav": {
+      "brandEyebrow": "Admin",
+      "sections": "Console sections",
+      "skipToContent": "Skip to page content",
+      "openNavigation": "Open navigation",
+      "closeNavigation": "Close navigation",
+      "expandNavigation": "Expand navigation",
+      "collapseNavigation": "Collapse navigation",
+      "accountMenu": "Account menu",
+      "jumpToPage": "Jump to any page…",
+      "devBuild": "Dev build",
+      "signOut": "Sign out",
+      "identityUnavailable": "Signed-in identity unavailable",
+      "pendingLabel": "{label} — {value} awaiting review",
+      "badge": {
+        "example": "Example",
+        "exampleDescription": "shows example data",
+        "notConfigured": "Not configured",
+        "notConfiguredDescription": "not configured"
+      },
+      "groups": {
+        "commandCenter": "Command Center",
+        "commerce": "Commerce",
+        "b2bTrade": "B2B Trade",
+        "supplierNetwork": "Supplier Network",
+        "orders": "Orders",
+        "warehouse": "Warehouse",
+        "crm": "CRM",
+        "finance": "Finance",
+        "support": "Support",
+        "settings": "Settings"
+      },
+      "items": {
+        "dashboard": "Dashboard",
+        "aiInsights": "AI Insights",
+        "automation": "Automation",
+        "products": "Products",
+        "catalogImport": "Catalog Import",
+        "categories": "Categories",
+        "brands": "Brands",
+        "deals": "Deals",
+        "pricing": "Pricing & Commission",
+        "companies": "Companies",
+        "rfqs": "RFQs",
+        "quotes": "Quotes",
+        "approvals": "Approvals",
+        "allSuppliers": "All Suppliers",
+        "pending": "Pending",
+        "documents": "Documents",
+        "performance": "Performance",
+        "allOrders": "All Orders",
+        "shipments": "Shipments",
+        "returns": "Returns",
+        "dispatch": "Dispatch",
+        "warehouseOverview": "Overview",
+        "inbound": "Inbound",
+        "stock": "Stock",
+        "pickPack": "Pick/Pack",
+        "accounts": "Accounts",
+        "campaigns": "Campaigns",
+        "segments": "Segments",
+        "retention": "Retention",
+        "invoices": "Invoices",
+        "payments": "Payments",
+        "settlements": "Settlements",
+        "vat": "VAT",
+        "tickets": "Tickets",
+        "disputes": "Disputes",
+        "slaMonitor": "SLA Monitor",
+        "users": "Users",
+        "integrations": "Integrations",
+        "auditTrail": "Audit Trail",
+        "settings": "Settings"
+      },
+      "shippingZones": "Shipping zones"
+    },
+    "availability": {
+      "notes": {
+        "aiInsights": "No certified AI pipeline is configured.",
+        "automation": "Static example automation rules; no execution engine.",
+        "deals": "Static example deals; use Campaigns for live promotions.",
+        "pricing": "Pricing and commission audit view.",
+        "quotes": "Static example quotes; not an operational register.",
+        "approvals": "Buyer companies make the decisions.",
+        "performance": "Database-derived seller performance reporting.",
+        "orders": "Sellers own fulfilment transitions.",
+        "shipments": "Static example shipments; seller registers hold live records.",
+        "returns": "Static example returns; not the governed register.",
+        "warehouse": "Warehouse summary.",
+        "crm": "Account activity; no external CRM synchronisation.",
+        "segments": "Database-derived customer segmentation.",
+        "retention": "Database-derived retention reporting.",
+        "finance": "Control-plane summary and links.",
+        "payments": "Payment ledger; bank-transfer verification is unavailable.",
+        "vat": "Tax ledger; statutory document delivery is unavailable.",
+        "disputes": "Dispute register; external case management is unavailable.",
+        "sla": "SLA view; no external paging integration.",
+        "integrations": "Configuration and health visibility only.",
+        "audit": "Audit register; external retention is not activated.",
+        "settings": "Environment capability and tax configuration visibility."
+      }
+    },
+    "palette": {
+      "dialogLabel": "Jump to a page",
+      "placeholder": "Jump to a page…",
+      "listLabel": "Pages",
+      "resultCount": "{count, plural, one {{value} page matches} other {{value} pages match}}",
+      "footerDefault": "Navigates the console. It does not search your data.",
+      "availability": {
+        "simulated": "Example data",
+        "unavailable": "Not configured",
+        "read_only": "Read only"
+      },
+      "empty": {
+        "eyebrow": "No match",
+        "headline": "No page is named “{query}”.",
+        "body": "This searches the console's own pages, not your data."
+      }
+    },
+    "dashboard": {
+      "quickActions": {
+        "createRfq": "Create RFQ",
+        "inviteSupplier": "Invite supplier",
+        "launchCampaign": "Launch campaign",
+        "warehouseQueue": "Warehouse queue"
+      },
+      "masthead": {
+        "eyebrow": "Platform operations",
+        "title": "Executive Command Center",
+        "lead": "Marketplace performance across B2B and B2C — revenue, suppliers, fulfillment, and rule-based actions.",
+        "dateline": "Every figure on this page is read from the platform database at request time."
+      },
+      "attention": {
+        "eyebrow": "Needs a person now",
+        "flagged": "{count, plural, one {One signal on this console is flagged right now.} other {{value} signals on this console are flagged right now.}}",
+        "none": "No signal on this console is flagged right now.",
+        "withinThresholds": "Seller applications, support tickets, stock lines and unfulfilled paid orders are all inside their thresholds."
+      },
+      "signals": {
+        "sectionLabel": "Operational signals",
+        "title": "Operational signals",
+        "descriptionFlagged": "{count, plural, one {{value} of {total} needs attention.} other {{value} of {total} need attention.}}",
+        "descriptionClear": "{total} tracked, none currently flagged.",
+        "dateline": "Live counts of seller applications, support tickets, stock lines and unfulfilled paid orders.",
+        "columnSignal": "Signal",
+        "columnCount": "Count",
+        "columnState": "State",
+        "stateClear": "Clear",
+        "stateNeedsAttention": "Needs attention",
+        "delayedLabel": "Delayed orders",
+        "delayedNote": "paid, still awaiting shipment",
+        "disputesLabel": "Open disputes",
+        "disputesNote": "awaiting resolution",
+        "empty": {
+          "eyebrow": "Nothing flagged",
+          "headline": "No operational signal is currently being tracked.",
+          "body": "Seller applications, support tickets, stock lines and unfulfilled paid orders appear here as soon as the platform records any."
+        }
+      },
+      "recommendations": {
+        "sectionLabel": "Recommended actions",
+        "title": "Recommended actions",
+        "dateline": "Derived by fixed rules from the live counts above. No model is involved and nothing here is a prediction.",
+        "aiStatus": "AI status",
+        "empty": {
+          "eyebrow": "No rule triggered",
+          "headline": "Nothing needs routing right now.",
+          "body": "A recommendation appears here when seller applications, unfulfilled paid orders, low stock lines or unassigned RFQs cross their thresholds."
+        }
+      },
+      "revenue": {
+        "sectionLabel": "Recorded revenue",
+        "title": "Recorded revenue",
+        "gmvMonth": "GMV · this month",
+        "b2bAllTime": "B2B revenue · all time",
+        "b2cAllTime": "B2C revenue · all time",
+        "commissionAllTime": "Commission · all time",
+        "deltaWithheld": "No prior-month figure",
+        "dateline": "Paid order totals summed as recorded in each order's own currency; no conversion between currencies is applied. Deltas compare this month so far against the previous whole month."
+      },
+      "counts": {
+        "sectionLabel": "Platform counts",
+        "title": "Platform counts",
+        "activeCompanies": "Active companies",
+        "b2cCustomers": "B2C customers",
+        "activeSuppliers": "Active suppliers",
+        "rfqConversion": "RFQ conversion",
+        "fulfillmentRate": "Fulfillment rate",
+        "warehouseUse": "Warehouse use",
+        "dateline": "Point-in-time counts and ratios; no prior period is compared."
+      },
+      "split": {
+        "title": "Revenue split",
+        "description": "B2B against B2C, as recorded",
+        "totalRecorded": "Total recorded",
+        "b2b": "B2B",
+        "b2c": "B2C",
+        "b2bMeter": "B2B share of recorded revenue",
+        "b2cMeter": "B2C share of recorded revenue"
+      },
+      "funnel": {
+        "title": "RFQ funnel",
+        "description": "Submitted through accepted",
+        "view": "View",
+        "stageMeter": "{stage}: {count}"
+      },
+      "lifecycle": {
+        "title": "Order lifecycle",
+        "description": "Active pipeline",
+        "view": "View",
+        "stageMeter": "{stage}: {count}"
+      },
+      "topCategories": {
+        "title": "Top categories",
+        "dateline": "By share of recorded GMV",
+        "columnCategory": "Category",
+        "columnShare": "Share",
+        "columnGmv": "GMV",
+        "shareMeter": "{name}: {share}% of recorded GMV",
+        "empty": {
+          "eyebrow": "Nothing recorded",
+          "headline": "No category has recorded GMV yet.",
+          "body": "A category appears here once a paid order contains a product in it."
+        }
+      },
+      "topSuppliers": {
+        "title": "Top suppliers",
+        "dateline": "By recorded GMV, as stored",
+        "allSuppliers": "All suppliers",
+        "columnSupplier": "Supplier",
+        "columnOrders": "Orders",
+        "columnGmv": "GMV",
+        "rated": "Rated {rating}",
+        "empty": {
+          "eyebrow": "Nothing recorded",
+          "headline": "No supplier has recorded GMV yet.",
+          "body": "A supplier appears here once one of their orders is paid."
+        }
+      },
+      "topCustomers": {
+        "title": "Top customers",
+        "dateline": "By recorded spend, as stored",
+        "crm": "CRM",
+        "columnCustomer": "Customer",
+        "columnType": "Type",
+        "columnSpend": "Spend",
+        "orderCount": "{count, plural, one {{value} order} other {{value} orders}}",
+        "empty": {
+          "eyebrow": "Nothing recorded",
+          "headline": "No customer has recorded spend yet.",
+          "body": "A customer appears here once one of their orders is paid."
+        }
+      },
+      "footerDateline": "Figures are read from the platform database when this page is requested. Nothing on this screen is cached, estimated or projected."
+    },
+    "settings": {
+      "eyebrow": "Console",
+      "title": "Platform Settings",
+      "description": "Operational configuration as the platform actually sees it. Values are read from the environment; secrets are never displayed.",
+      "dateline": "This screen reports configuration and reads nothing back: there is no setting on it that can be changed from here.",
+      "readOnly": "Read only",
+      "stats": {
+        "database": "Database",
+        "reachable": "Reachable",
+        "unreachable": "Unreachable",
+        "environment": "Environment",
+        "authSecret": "Auth secret",
+        "authSecretSet": "Set",
+        "authSecretMissing": "Missing",
+        "authSecretPresent": "AUTH_SECRET or NEXTAUTH_SECRET is present",
+        "authSecretAbsent": "Sessions cannot be signed",
+        "sessionStrategy": "Session strategy",
+        "sessionCookies": "Per-portal cookies"
+      },
+      "services": {
+        "title": "Service configuration",
+        "columnService": "Service",
+        "columnStatus": "Status",
+        "configured": "Configured",
+        "notConfigured": "Not configured",
+        "notImplemented": "Not implemented",
+        "inMemoryFallback": "In-memory fallback",
+        "checkoutPayments": {
+          "label": "Checkout.com payments",
+          "detail": "Card / mada / Apple Pay processing on the customer portal"
+        },
+        "checkoutWebhook": {
+          "label": "Checkout.com webhook secret",
+          "detail": "HMAC verification for payment status webhooks (fails closed when missing)"
+        },
+        "anthropic": {
+          "label": "Anthropic AI drafts",
+          "detail": "Seller portal RFQ/listing draft generation (falls back to templates)"
+        },
+        "resend": {
+          "label": "Resend email",
+          "detail": "Transactional email delivery"
+        },
+        "twilio": {
+          "label": "Twilio SMS/WhatsApp",
+          "detail": "SMS and WhatsApp notifications"
+        },
+        "storage": {
+          "label": "S3 / MinIO object storage",
+          "detail": "Product images and seller documents"
+        },
+        "elasticsearch": {
+          "label": "Elasticsearch",
+          "detail": "No Elasticsearch integration exists in this codebase; catalog search is served by PostgreSQL"
+        },
+        "redis": {
+          "label": "Redis (Upstash REST)",
+          "detailShared": "UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN present — the shared rate-limit and read-cache store is installed at boot; Redis reachability is not probed here",
+          "detailFallback": "Not set, so rate limiting and caching run in per-process memory: not shared across instances and reset on restart. REDIS_URL is read by no code and configures nothing"
+        },
+        "empty": {
+          "eyebrow": "Nothing to report",
+          "headline": "No external service is wired into this deployment."
+        },
+        "dateline": "Presence of an environment variable only. A variable being set is not proof that the service is reachable, and nothing on this screen probes one."
+      },
+      "vat": {
+        "title": "VAT rates by jurisdiction",
+        "dateline": "The statutory rates this platform applies, by country code.",
+        "columnCountry": "Country",
+        "columnRate": "Rate",
+        "empty": {
+          "eyebrow": "Nothing configured",
+          "headline": "No VAT jurisdiction is configured.",
+          "body": "Rates come from the platform's shared tax configuration; an empty table means none is loaded."
+        }
+      }
+    },
+    "performance": {
+      "eyebrow": "Supplier network",
+      "title": "Supplier Performance",
+      "description": "Scorecards computed from live orders, shipments, returns, reviews, and listing health.",
+      "dateline": "Weights: listing health 40 · on-time delivery 30 · rating 20 · returns 10. A reporting view — no score on this screen can be edited.",
+      "readOnly": "Read only",
+      "avgScore": "Avg supplier score",
+      "avgScoreNote": "{count, plural, one {Across {value} active supplier} other {Across {value} active suppliers}}",
+      "avgOnTime": "Avg on-time delivery",
+      "avgOnTimeDateline": "{count, plural, one {Over the {value} supplier with a recorded delivery} other {Over the {value} suppliers with a recorded delivery}}",
+      "avgOnTimeNone": "No supplier has a recorded delivery yet",
+      "avgReturnRate": "Avg return rate",
+      "atRisk": "Suppliers at risk",
+      "atRiskNote": "Scoring below 70",
+      "atRiskBanner": "{count, plural, one {<strong>{value} supplier</strong> scoring below 70 — review listing health, delivery reliability, and return rates.} other {<strong>{value} suppliers</strong> scoring below 70 — review listing health, delivery reliability, and return rates.}}",
+      "tier": {
+        "PLATINUM": "Platinum",
+        "GOLD": "Gold",
+        "VERIFIED": "Verified",
+        "STANDARD": "Standard"
+      },
+      "table": {
+        "title": "Scorecards",
+        "dateline": "One row per active supplier, ordered as the service returns them.",
+        "columnSupplier": "Supplier",
+        "columnScore": "Score",
+        "scoreMeter": "{name} score: {score} of 100",
+        "columnGmv": "GMV (as recorded)",
+        "columnOrders": "Orders",
+        "columnOnTime": "On-time",
+        "columnReturnRate": "Return rate",
+        "columnHealth": "Listing health",
+        "columnRating": "Rating",
+        "noReviews": "No reviews",
+        "empty": {
+          "eyebrow": "Nothing recorded",
+          "headline": "No active supplier has a scorecard yet.",
+          "body": "A supplier appears here once their account is active; the score is computed from their own orders, shipments, returns, reviews and listing health."
+        }
+      }
+    },
+    "users": {
+      "eyebrow": "Settings",
+      "title": "Users and access",
+      "description": "Platform identities, their role and their access. Every status change is written to the audit stream.",
+      "dateline": "Counts in the band below are of the whole register by role; the table shows one page of it. Erased subjects are excluded everywhere.",
+      "roleGroups": {
+        "platformStaff": "Platform staff",
+        "suppliers": "Suppliers",
+        "b2bBuyers": "B2B buyers",
+        "consumers": "Consumers"
+      },
+      "roles": {
+        "SUPER_ADMIN": "Super admin",
+        "ADMIN": "Admin",
+        "SELLER_OWNER": "Seller owner",
+        "SELLER_STAFF": "Seller staff",
+        "COMPANY_ADMIN": "Company admin",
+        "COMPANY_BUYER": "Company buyer",
+        "COMPANY_APPROVER": "Company approver",
+        "CONSUMER": "Consumer"
+      },
+      "statuses": {
+        "ACTIVE": "Active",
+        "PENDING": "Pending",
+        "SUSPENDED": "Suspended",
+        "BANNED": "Banned"
+      },
+      "filterByRole": "Filter users by role",
+      "allRoles": "All roles",
+      "filterByStatus": "Filter users by status",
+      "anyStatus": "Any status",
+      "searchLabel": "Search users by name or email",
+      "searchPlaceholder": "Name or email…",
+      "columnUser": "User",
+      "columnRole": "Role",
+      "columnOrg": "Organisation",
+      "noOrg": "Not attached to one",
+      "columnStatus": "Status",
+      "columnJoined": "Joined",
+      "columnAccess": "Access",
+      "you": "You",
+      "pagerFiltered": "{count, plural, one {{value} user matches these filters} other {{value} users match these filters}}",
+      "pagerAll": "{count, plural, one {{value} user registered} other {{value} users registered}}",
+      "emptyFiltered": {
+        "eyebrow": "No match",
+        "headline": "No user matches the filters currently applied.",
+        "body": "Clearing the search, the role or the status filter returns the full register.",
+        "action": "Clear the filters"
+      },
+      "emptyRegister": {
+        "eyebrow": "Nothing registered",
+        "headline": "No user account exists on the platform yet.",
+        "body": "An account appears here the moment anyone registers, whether as a consumer, a supplier or a member of a buyer company.",
+        "action": "Open the audit trail"
+      },
+      "actions": {
+        "ownAccount": "Your own account",
+        "suspend": "Suspend",
+        "restore": "Restore",
+        "confirmSuspend": "Suspend <strong>{name}</strong>? They will not be able to sign in until this is reversed.",
+        "confirmRestore": "Restore access for <strong>{name}</strong>? They can sign in again immediately.",
+        "cancel": "Cancel",
+        "confirmSuspension": "Confirm suspension",
+        "confirmRestoration": "Confirm restore",
+        "updateFailed": "Failed to update status",
+        "networkFailure": "The platform could not be reached, so nothing was written. Retry when the connection is back."
+      }
+    }
+  }
 }

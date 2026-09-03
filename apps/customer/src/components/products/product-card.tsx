@@ -347,11 +347,22 @@ export function ProductCard({
               // states for money.
               vat={vatRate != null ? tc("vatExcl", { rate: String(vatRate) }) : undefined}
             />
-          ) : (
+          ) : hasVariants ? (
             // Deliberately NOT a <Num>. "See options" is an instruction, and
             // setting an instruction at figure rank in tabular numerals told
             // the reader it was a price they had failed to parse.
             <p className="u-ui mt-0.5 font-medium text-ink-2">{tc("seeOptions")}</p>
+          ) : (
+            /*
+              No price in this channel, and no variants to choose between — so
+              there is nothing for a consumer to buy at any figure. Every one of
+              the 385 live listings is B2B-only, and "See options" sent those
+              shoppers to a page with no options and no price, which reads as a
+              storefront that is broken rather than one that quotes.
+              Naming the actual route is both the honest answer and the
+              commercially correct one: this catalogue is quoted, not carted.
+            */
+            <p className="u-ui mt-0.5 font-medium text-primary-ink">{tc("quoteOnRequest")}</p>
           )}
 
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">

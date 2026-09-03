@@ -2,39 +2,46 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import type { ZodIssue } from "zod";
 import { Building2, UserRound } from "lucide-react";
 import { Button, Divider, Eyebrow, Field, Input, Textarea } from "@avenick/ui";
 import { COUNTRY_VALUES, LANGUAGE_VALUES, RegisterSellerSchema } from "@avenick/types/schemas";
 import { getCountryName } from "@avenick/utils";
 
-/** Enum → label. The values are the Prisma `SellerType` enum, via the schema. */
-const SELLER_TYPES: ReadonlyArray<{ value: string; label: string }> = [
-  { value: "MANUFACTURER", label: "Manufacturer" },
-  { value: "DISTRIBUTOR", label: "Distributor" },
-  { value: "IMPORTER", label: "Importer" },
-  { value: "RETAILER", label: "Retailer" },
-];
+/**
+ * The Prisma `SellerType` enum values, via the schema. The values are code
+ * identifiers and are never translated; each label is
+ * sellerRelations.sellerType.<VALUE>.
+ */
+const SELLER_TYPE_VALUES = ["MANUFACTURER", "DISTRIBUTOR", "IMPORTER", "RETAILER"] as const;
 
+/**
+ * Language names are endonyms — each is written in its own language whatever
+ * the interface language is — so they are not translated.
+ */
 const LANGUAGE_LABELS: Record<(typeof LANGUAGE_VALUES)[number], string> = { AR: "العربية", EN: "English" };
 
-const FIELD_LABELS: Record<string, string> = {
-  businessNameEn: "Business name (English)",
-  businessNameAr: "Business name (Arabic)",
-  crNumber: "Commercial registration number",
-  vatNumber: "VAT number",
-  type: "Business type",
-  country: "Country",
-  city: "City",
-  description: "Description",
-  firstName: "First name",
-  lastName: "Last name",
-  email: "Email address",
-  phone: "Phone number",
-  password: "Password",
-  language: "Preferred language",
-  acceptTerms: "Terms of service",
-};
+/** The field names the form labels; the keys are the schema's, never translated. */
+const FIELD_KEYS = [
+  "businessNameEn",
+  "businessNameAr",
+  "crNumber",
+  "vatNumber",
+  "type",
+  "country",
+  "city",
+  "description",
+  "firstName",
+  "lastName",
+  "email",
+  "phone",
+  "password",
+  "language",
+  "acceptTerms",
+] as const;
+
+type FieldLabels = Record<string, string>;
 
 type FormValues = {
   businessNameEn: string;
@@ -107,18 +114,30 @@ const SELECT_STYLE = { height: "var(--control-h-md)" } as const;
  * specific (the password rules, the phone format) and replaced where it would
  * name no field ("Required", "Invalid enum value").
  */
-function messageFor(field: string, issue: ZodIssue, raw: unknown): string {
-  const label = FIELD_LABELS[field] ?? field;
-  if (raw === "" || raw === undefined) return `${label} is required.`;
+function messageFor(
+  field: string,
+  issue: ZodIssue,
+  raw: unknown,
+  labels: FieldLabels,
+  t: (key: string, values?: Record<string, string | number>) => string,
+): string {
+  const label = labels[field] ?? field;
+  if (raw === "" || raw === undefined) return t("register.validation.required", { label });
   switch (issue.code) {
     case "too_small":
-      return issue.type === "string" ? `${label} must be at least ${issue.minimum} characters.` : issue.message;
+      // The bound is passed as a string so it stays in Western digits inside an
+      // Arabic sentence.
+      return issue.type === "string"
+        ? t("register.validation.tooShort", { label, min: String(issue.minimum) })
+        : issue.message;
     case "too_big":
-      return issue.type === "string" ? `${label} must be at most ${issue.maximum} characters.` : issue.message;
+      return issue.type === "string"
+        ? t("register.validation.tooLong", { label, max: String(issue.maximum) })
+        : issue.message;
     case "invalid_string":
-      return issue.validation === "email" ? "Enter a valid email address." : issue.message;
+      return issue.validation === "email" ? t("register.validation.invalidEmail") : issue.message;
     case "invalid_enum_value":
-      return `Choose a ${label.toLowerCase()}.`;
+      return t("register.validation.chooseOne", { label: label.toLowerCase() });
     default:
       return issue.message;
   }
@@ -126,6 +145,17 @@ function messageFor(field: string, issue: ZodIssue, raw: unknown): string {
 
 export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
   const router = useRouter();
+  const t = useTranslations("sellerRelations");
+  // getCountryName already carries both name sets; without a locale it silently
+  // defaults to English, which is how the country picker stayed English on an
+  // otherwise Arabic form.
+  const locale = useLocale() === "ar" ? "ar" : "en";
+  // Built here rather than at module scope: a hook cannot be called outside the
+  // component, and the labels are read by both the inputs and messageFor().
+  const FIELD_LABELS: FieldLabels = Object.fromEntries(
+    FIELD_KEYS.map((key) => [key, t(`register.fields.${key}`)]),
+  );
+  const optional = (label: string) => t("register.optionalLabel", { label });
   const [form, setForm] = useState<FormValues>(EMPTY);
   const [acceptTerms, setAcceptTerms] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -159,10 +189,10 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
       for (const issue of parsed.error.issues) {
         const field = issue.path.map(String).join(".") || "form";
         // First issue per field wins: later ones are usually consequences of it.
-        if (!(field in next)) next[field] = messageFor(field, issue, candidate[field]);
+        if (!(field in next)) next[field] = messageFor(field, issue, candidate[field], FIELD_LABELS, t);
       }
       setFieldErrors(next);
-      setError("Please correct the highlighted fields.");
+      setError(t("register.errors.correctFields"));
       return;
     }
 
@@ -185,20 +215,20 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
       if (data && !data.success) {
         if (data.fieldErrors) setFieldErrors(data.fieldErrors);
         else if (data.field && data.error) setFieldErrors({ [data.field]: data.error });
-        setError(data.error ?? "Registration failed. Please try again.");
+        setError(data.error ?? t("register.errors.failed"));
       } else if (res.status === 429) {
-        setError("Too many registration attempts. Please try again later.");
+        setError(t("register.errors.rateLimited"));
       } else {
-        setError("Registration failed. Please try again.");
+        setError(t("register.errors.failed"));
       }
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(t("register.errors.unexpected"));
     }
     setLoading(false);
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6" aria-label="Seller application" noValidate>
+    <form onSubmit={handleSubmit} className="space-y-6" aria-label={t("register.formLabel")} noValidate>
       {/* Two numbered movements, each headed by the brass rule the whole product
           uses to say "you are here". A long application form read as one
           undifferentiated scroll; the rule and the step number make it a
@@ -208,9 +238,9 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
           <Divider drawn on className="w-10" />
           <span className="mt-3 flex items-center gap-2">
             <Building2 className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
-            <Eyebrow as="span">Step 1 of 2</Eyebrow>
+            <Eyebrow as="span">{t("register.step", { current: "1", total: "2" })}</Eyebrow>
           </span>
-          <span className="u-h3 mt-0.5 block text-ink-1">Your business</span>
+          <span className="u-h3 mt-0.5 block text-ink-1">{t("register.yourBusiness")}</span>
         </legend>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
@@ -226,7 +256,7 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
           <Input
             id="reg-business-ar"
             name="businessNameAr"
-            label={`${FIELD_LABELS.businessNameAr} (optional)`}
+            label={optional(FIELD_LABELS.businessNameAr!)}
             dir="rtl"
             value={form.businessNameAr}
             onChange={(e) => set("businessNameAr", e.target.value)}
@@ -246,7 +276,7 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
           <Input
             id="reg-vat"
             name="vatNumber"
-            label={`${FIELD_LABELS.vatNumber} (optional)`}
+            label={optional(FIELD_LABELS.vatNumber!)}
             value={form.vatNumber}
             onChange={(e) => set("vatNumber", e.target.value)}
             error={fieldErrors.vatNumber}
@@ -264,9 +294,9 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
               style={SELECT_STYLE}
               required
             >
-              <option value="" disabled>Select type</option>
-              {SELLER_TYPES.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
+              <option value="" disabled>{t("register.selectType")}</option>
+              {SELLER_TYPE_VALUES.map((value) => (
+                <option key={value} value={value}>{t(`sellerType.${value}`)}</option>
               ))}
             </select>
           </Field>
@@ -281,9 +311,9 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
               style={SELECT_STYLE}
               required
             >
-              <option value="" disabled>Select country</option>
+              <option value="" disabled>{t("register.selectCountry")}</option>
               {COUNTRY_VALUES.map((code) => (
-                <option key={code} value={code}>{getCountryName(code)}</option>
+                <option key={code} value={code}>{getCountryName(code, locale)}</option>
               ))}
             </select>
           </Field>
@@ -299,14 +329,14 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
           />
         </div>
         <Field
-          label={`${FIELD_LABELS.description} (optional)`}
+          label={optional(FIELD_LABELS.description!)}
           htmlFor="reg-description"
           error={fieldErrors.description}
         >
           <Textarea
             id="reg-description"
             name="description"
-            placeholder="What you sell, which markets you serve, and anything the reviewer should know"
+            placeholder={t("register.descriptionPlaceholder")}
             value={form.description}
             onChange={(e) => set("description", e.target.value)}
             maxLength={1000}
@@ -319,12 +349,10 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
           <Divider drawn on className="w-10" />
           <span className="mt-3 flex items-center gap-2">
             <UserRound className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
-            <Eyebrow as="span">Step 2 of 2</Eyebrow>
+            <Eyebrow as="span">{t("register.step", { current: "2", total: "2" })}</Eyebrow>
           </span>
-          <span className="u-h3 mt-0.5 block text-ink-1">Account owner</span>
-          <span className="u-meta mt-0.5 block max-w-desc text-ink-2">
-            This person signs in to Seller Central and can invite staff later.
-          </span>
+          <span className="u-h3 mt-0.5 block text-ink-1">{t("register.accountOwner")}</span>
+          <span className="u-meta mt-0.5 block max-w-desc text-ink-2">{t("register.accountOwnerNote")}</span>
         </legend>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
@@ -364,7 +392,7 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
             id="reg-phone"
             name="phone"
             type="tel"
-            label={`${FIELD_LABELS.phone} (optional)`}
+            label={optional(FIELD_LABELS.phone!)}
             autoComplete="tel"
             placeholder="+9715xxxxxxxx"
             dir="ltr"
@@ -380,7 +408,7 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
             type="password"
             label={FIELD_LABELS.password}
             autoComplete="new-password"
-            hint="At least 8 characters, with an uppercase letter and a number."
+            hint={t("register.passwordHint")}
             value={form.password}
             onChange={(e) => set("password", e.target.value)}
             error={fieldErrors.password}
@@ -417,21 +445,24 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
             }}
             className="u-focus mt-0.5 h-4 w-4 shrink-0 rounded-sm border-border accent-primary"
           />
+          {/* One sentence in both cases: when the terms URL is unknown the same
+              words render without a link rather than guessing a host. */}
           <span>
-            I have read and accept the{" "}
-            {termsUrl ? (
-              <a
-                href={termsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
-              >
-                terms of service
-              </a>
-            ) : (
-              "terms of service"
-            )}
-            .
+            {t.rich("register.acceptTerms", {
+              link: (chunks) =>
+                termsUrl ? (
+                  <a
+                    href={termsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+                  >
+                    {chunks}
+                  </a>
+                ) : (
+                  <>{chunks}</>
+                ),
+            })}
           </span>
         </label>
         {fieldErrors.acceptTerms && (
@@ -446,7 +477,7 @@ export function RegisterForm({ termsUrl }: { termsUrl: string | null }) {
       )}
 
       <Button type="submit" className="w-full" loading={loading}>
-        Submit application
+        {t("register.submit")}
       </Button>
     </form>
   );

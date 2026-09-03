@@ -2,8 +2,14 @@ import { DashboardView } from "./dashboard-view";
 import { db, getExecutiveDashboardData } from "@avenick/database";
 import { getCurrentAdmin } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
-export const metadata = { title: "Executive Command Center" };
+// generateMetadata rather than a static object: the tab title is user-visible
+// copy and a module-scope constant has no translator in scope.
+export async function generateMetadata() {
+  const t = await getTranslations("adminShell.meta");
+  return { title: t("dashboard") };
+}
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {

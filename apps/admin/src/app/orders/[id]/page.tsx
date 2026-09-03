@@ -5,6 +5,7 @@ import { formatCurrency, isRecordId } from "@avenick/utils";
 import { format } from "date-fns";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { MapPin, Package, CheckCircle, Truck, Navigation, Home, AlertTriangle, User, Building2, StickyNote } from "lucide-react";
 import {
   PageHeader, Surface, FieldWell, StatusPill, Num, Eyebrow, Dateline, Divider,
@@ -13,34 +14,44 @@ import {
 import { CountStat, MoneyStat } from "@/app/finance/money-figures";
 import { OrderControls } from "../order-controls";
 
-export const metadata = { title: "Order Detail" };
+export async function generateMetadata() {
+  const t = await getTranslations("adminCommerce.orderDetail");
+  return { title: t("meta.title") };
+}
 
-/** Same four-state tone vocabulary as the orders register. See the note there. */
-const STATUS_CONFIG: Record<OrderStatus, { label: string; tone: PillTone }> = {
-  PENDING_PAYMENT:   { label: "Pending Payment",   tone: "warning" },
-  PAYMENT_CONFIRMED: { label: "Payment Confirmed", tone: "accent" },
-  CONFIRMED:         { label: "Confirmed",         tone: "accent" },
-  PROCESSING:        { label: "Processing",        tone: "neutral" },
-  SHIPPED:           { label: "Shipped",           tone: "neutral" },
-  OUT_FOR_DELIVERY:  { label: "Out for Delivery",  tone: "neutral" },
-  DELIVERED:         { label: "Delivered",         tone: "success" },
-  CANCELLED:         { label: "Cancelled",         tone: "danger" },
-  REFUNDED:          { label: "Refunded",          tone: "warning" },
-  RETURN_REQUESTED:  { label: "Return Requested",  tone: "warning" },
-  RETURNED:          { label: "Returned",          tone: "neutral" },
+/**
+ * Same four-state tone vocabulary as the orders register. See the note there.
+ * The label that goes with each tone is translated, keyed by the enum value
+ * under `adminCommerce.orders.status`.
+ */
+const STATUS_TONE: Record<OrderStatus, PillTone> = {
+  PENDING_PAYMENT:   "warning",
+  PAYMENT_CONFIRMED: "accent",
+  CONFIRMED:         "accent",
+  PROCESSING:        "neutral",
+  SHIPPED:           "neutral",
+  OUT_FOR_DELIVERY:  "neutral",
+  DELIVERED:         "success",
+  CANCELLED:         "danger",
+  REFUNDED:          "warning",
+  RETURN_REQUESTED:  "warning",
+  RETURNED:          "neutral",
 };
 
-const TIMELINE_STEPS: Array<{ status: OrderStatus; label: string; icon: typeof Package }> = [
-  { status: "CONFIRMED",        label: "Order Confirmed",  icon: CheckCircle },
-  { status: "PROCESSING",       label: "Processing",       icon: Package },
-  { status: "SHIPPED",          label: "Shipped",          icon: Truck },
-  { status: "OUT_FOR_DELIVERY", label: "Out for Delivery", icon: Navigation },
-  { status: "DELIVERED",        label: "Delivered",        icon: Home },
+/** Step order and icon; the label comes from `orderDetail.timeline.steps`. */
+const TIMELINE_STEPS: Array<{ status: OrderStatus; icon: typeof Package }> = [
+  { status: "CONFIRMED",        icon: CheckCircle },
+  { status: "PROCESSING",       icon: Package },
+  { status: "SHIPPED",          icon: Truck },
+  { status: "OUT_FOR_DELIVERY", icon: Navigation },
+  { status: "DELIVERED",        icon: Home },
 ];
 const CHAIN_RANK = new Map(TIMELINE_STEPS.map((step, index) => [step.status, index]));
 
 export default async function AdminOrderDetailPage({ params }: { params: { id: string } }) {
   await requireAdminSession();
+  const t = await getTranslations("adminCommerce.orderDetail");
+  const ts = await getTranslations("adminCommerce.orders.status");
   if (!isRecordId(params.id)) notFound();
 
   const order = await db.order.findUnique({
@@ -64,7 +75,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
     include: { actor: { select: { firstName: true, lastName: true, email: true } } },
   });
 
-  const sc = STATUS_CONFIG[order.status];
+  const statusLabel = ts(order.status);
   const currentRank = CHAIN_RANK.get(order.status);
   const subtotal = Number(order.subtotal);
   const vatAmount = Number(order.vatAmount);
@@ -75,13 +86,13 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
       <div className="space-y-block">
         <PageHeader
           linkComponent={Link}
-          breadcrumbs={[{ label: "Orders", href: "/orders" }, { label: order.orderNumber }]}
-          eyebrow="Order"
+          breadcrumbs={[{ label: t("breadcrumbOrders"), href: "/orders" }, { label: order.orderNumber }]}
+          eyebrow={t("eyebrow")}
           title={order.orderNumber}
-          dateline={`Placed ${format(order.createdAt, "MMM d, yyyy 'at' h:mm a")}`}
+          dateline={t("placed", { date: format(order.createdAt, "MMM d, yyyy 'at' h:mm a") })}
           actions={
             <div className="flex flex-wrap items-center gap-2">
-              <StatusPill tone={sc.tone}>{sc.label}</StatusPill>
+              <StatusPill tone={STATUS_TONE[order.status]}>{statusLabel}</StatusPill>
               <StatusPill tone={order.type === "B2B" ? "accent" : "neutral"}>{order.type}</StatusPill>
             </div>
           }
@@ -96,17 +107,17 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
               read the hairline rules exist to prevent. */}
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <MoneyStat
-              label="Order total"
+              label={t("money.orderTotal")}
               lines={[{ currency: order.currency, formatted: formatCurrency(Number(order.total), order.currency) }]}
               rank="section"
-              dateline={`Billed in ${order.currency}, VAT included · no conversion applied`}
+              dateline={t("money.orderTotalDateline", { currency: order.currency })}
             />
-            <CountStat label="Subtotal" value={formatCurrency(subtotal, order.currency)} />
-            <CountStat label="VAT" value={formatCurrency(vatAmount, order.currency)} />
+            <CountStat label={t("money.subtotal")} value={formatCurrency(subtotal, order.currency)} />
+            <CountStat label={t("money.vat")} value={formatCurrency(vatAmount, order.currency)} />
             <CountStat
-              label="Payment"
-              value={order.paymentStatus.toLowerCase().replace(/_/g, " ")}
-              note={order.paymentMethod ?? "no method recorded"}
+              label={t("money.payment")}
+              value={t(`paymentStatus.${order.paymentStatus}`)}
+              note={order.paymentMethod ?? t("money.noMethod")}
             />
           </div>
 
@@ -122,10 +133,10 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
 
             {/* Order timeline */}
             <Surface className="p-5">
-              <h2 className="u-h3 text-ink-1">Order timeline</h2>
+              <h2 className="u-h3 text-ink-1">{t("timeline.title")}</h2>
               {terminal && (
                 <Dateline className="mt-1">
-                  This order is {sc.label.toLowerCase()}; the fulfilment steps below stop where it left the chain.
+                  {t("timeline.terminal", { status: statusLabel.toLowerCase() })}
                 </Dateline>
               )}
               <div className="mt-5">
@@ -157,13 +168,13 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                       </div>
                       <div className={`flex-1 ${isLast ? "pb-0" : "pb-6"}`}>
                         <p className={`u-ui font-medium ${!isReached && !isCurrent ? "text-ink-3" : "text-ink-1"}`}>
-                          {step.label}
+                          {t(`timeline.steps.${step.status}`)}
                           {isCurrent && (
-                            <StatusPill tone="accent" className="ms-2 align-middle">Current</StatusPill>
+                            <StatusPill tone="accent" className="ms-2 align-middle">{t("timeline.current")}</StatusPill>
                           )}
                         </p>
                         <p className="u-meta mt-0.5 text-ink-3">
-                          {entry ? `${format(entry.createdAt, "MMM d, h:mm a")}${entry.message ? ` · ${entry.message}` : ""}` : isReached ? "No timestamp recorded" : "Not yet"}
+                          {entry ? `${format(entry.createdAt, "MMM d, h:mm a")}${entry.message ? ` · ${entry.message}` : ""}` : isReached ? t("timeline.noTimestamp") : t("timeline.notYet")}
                         </p>
                       </div>
                     </div>
@@ -172,11 +183,11 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
               </div>
               {order.statusHistory.some((h) => CHAIN_RANK.get(h.status) === undefined) && (
                 <div className="mt-5 border-t border-hairline pt-4">
-                  <Eyebrow className="mb-2">Other status events</Eyebrow>
+                  <Eyebrow className="mb-2">{t("timeline.otherEvents")}</Eyebrow>
                   <ul className="space-y-1">
                     {order.statusHistory.filter((h) => CHAIN_RANK.get(h.status) === undefined).map((h) => (
                       <li key={h.id} className="u-meta text-ink-2">
-                        {format(h.createdAt, "MMM d, h:mm a")} · {STATUS_CONFIG[h.status].label}{h.message ? ` · ${h.message}` : ""}
+                        {format(h.createdAt, "MMM d, h:mm a")} · {ts(h.status)}{h.message ? ` · ${h.message}` : ""}
                       </li>
                     ))}
                   </ul>
@@ -187,7 +198,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
             {/* Items */}
             <Surface className="overflow-hidden">
               <div className="flex items-baseline justify-between gap-3 border-b-2 border-border-strong px-5 py-3">
-                <h2 className="u-h3 text-ink-1">Order items</h2>
+                <h2 className="u-h3 text-ink-1">{t("items.title")}</h2>
                 <span className="fig u-meta text-ink-3">{order.items.length}</span>
               </div>
               <div>
@@ -200,16 +211,20 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                       <div className="min-w-0">
                         <p className="u-ui font-medium text-ink-1">{item.nameEn}</p>
                         <p className="u-meta text-ink-3">
-                          SKU <span className="u-mono">{item.sku}</span> · Supplier: {item.product?.seller?.businessNameEn ?? "—"}
+                          {t("items.sku")} <span className="u-mono">{item.sku}</span> ·{" "}
+                          {t("items.supplier", { name: item.product?.seller?.businessNameEn ?? "—" })}
                         </p>
                         <p className="u-meta text-ink-3">
-                          Qty {item.quantity} × {formatCurrency(Number(item.unitPrice), order.currency)}
+                          {t("items.qty", {
+                            quantity: String(item.quantity),
+                            price: formatCurrency(Number(item.unitPrice), order.currency),
+                          })}
                         </p>
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
                       <Num value={formatCurrency(Number(item.total), order.currency)} />
-                      <StatusPill tone={STATUS_CONFIG[item.status].tone}>{STATUS_CONFIG[item.status].label}</StatusPill>
+                      <StatusPill tone={STATUS_TONE[item.status]}>{ts(item.status)}</StatusPill>
                     </div>
                   </div>
                 ))}
@@ -219,15 +234,15 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
               <FieldWell className="rounded-none border-x-0 border-b-0 px-5 py-4">
                 <dl className="ms-auto flex max-w-xs flex-col gap-1.5">
                   <div className="flex items-baseline justify-between gap-6">
-                    <dt className="u-ui text-ink-2">Subtotal</dt>
+                    <dt className="u-ui text-ink-2">{t("totals.subtotal")}</dt>
                     <dd className="fig u-ui text-ink-1">{formatCurrency(subtotal, order.currency)}</dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-6">
-                    <dt className="u-ui text-ink-2">VAT</dt>
+                    <dt className="u-ui text-ink-2">{t("totals.vat")}</dt>
                     <dd className="fig u-ui text-ink-1">{formatCurrency(vatAmount, order.currency)}</dd>
                   </div>
                   <div className="mt-1 flex items-baseline justify-between gap-6 border-t border-border-strong pt-2">
-                    <dt className="u-ui font-medium text-ink-1">Total</dt>
+                    <dt className="u-ui font-medium text-ink-1">{t("totals.total")}</dt>
                     <dd><Num value={formatCurrency(Number(order.total), order.currency)} /></dd>
                   </div>
                 </dl>
@@ -240,7 +255,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
             {/* Customer */}
             <Surface className="p-4">
               <Eyebrow className="mb-3 flex items-center gap-1.5">
-                <User className="h-3.5 w-3.5" aria-hidden="true" /> Customer
+                <User className="h-3.5 w-3.5" aria-hidden="true" /> {t("customer.title")}
               </Eyebrow>
               <p className="u-ui font-medium text-ink-1">{order.user.firstName} {order.user.lastName}</p>
               <p className="u-meta text-ink-3">{order.user.email}</p>
@@ -255,7 +270,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
             {/* Shipping address */}
             <Surface className="p-4">
               <Eyebrow className="mb-3 flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5" aria-hidden="true" /> Delivery address
+                <MapPin className="h-3.5 w-3.5" aria-hidden="true" /> {t("address.title")}
               </Eyebrow>
               {order.shippingAddress && typeof order.shippingAddress === "object" ? (
                 <address className="u-ui not-italic text-ink-2">
@@ -266,21 +281,21 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                     ))}
                 </address>
               ) : (
-                <p className="u-ui text-ink-3">Not specified</p>
+                <p className="u-ui text-ink-3">{t("address.notSpecified")}</p>
               )}
             </Surface>
 
             {/* Order meta */}
             <Surface className="p-4">
-              <Eyebrow className="mb-3">Order info</Eyebrow>
+              <Eyebrow className="mb-3">{t("info.title")}</Eyebrow>
               <dl className="space-y-2">
                 {[
-                  ["Order #", order.orderNumber],
-                  ["Type", order.type],
-                  ["Currency", order.currency],
-                  ["Payment method", order.paymentMethod ?? "—"],
-                  ["Payment status", order.paymentStatus.replace(/_/g, " ")],
-                  ["Created", format(order.createdAt, "MMM d, yyyy")],
+                  [t("info.orderNumber"), order.orderNumber],
+                  [t("info.type"), order.type],
+                  [t("info.currency"), order.currency],
+                  [t("info.paymentMethod"), order.paymentMethod ?? "—"],
+                  [t("info.paymentStatus"), t(`paymentStatus.${order.paymentStatus}`)],
+                  [t("info.created"), format(order.createdAt, "MMM d, yyyy")],
                 ].map(([k, v]) => (
                   <div key={k} className="flex items-baseline justify-between gap-3">
                     <dt className="u-meta text-ink-3">{k}</dt>
@@ -294,7 +309,7 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
             {order.notes && (
               <Surface tone="warning" className="p-4">
                 <Eyebrow className="mb-2 flex items-center gap-1.5 text-warning-ink">
-                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Customer note
+                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> {t("customerNote.title")}
                 </Eyebrow>
                 <p className="u-ui whitespace-pre-wrap text-ink-1">{order.notes}</p>
               </Surface>
@@ -303,15 +318,15 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
             {/* Internal notes — staff only */}
             <Surface className="p-4">
               <Eyebrow className="mb-3 flex items-center gap-1.5">
-                <StickyNote className="h-3.5 w-3.5" aria-hidden="true" /> Internal notes
+                <StickyNote className="h-3.5 w-3.5" aria-hidden="true" /> {t("internalNotes.title")}
               </Eyebrow>
               {internalNotes.length === 0 ? (
-                <p className="u-meta text-ink-3">No internal note has been written on this order.</p>
+                <p className="u-meta text-ink-3">{t("internalNotes.empty")}</p>
               ) : (
                 <ul className="space-y-3">
                   {internalNotes.map((entry) => {
                     const note = (entry.after as { note?: unknown } | null)?.note;
-                    const author = entry.actor ? `${entry.actor.firstName} ${entry.actor.lastName}`.trim() || entry.actor.email : "Unknown staff member";
+                    const author = entry.actor ? `${entry.actor.firstName} ${entry.actor.lastName}`.trim() || entry.actor.email : t("internalNotes.unknownAuthor");
                     return (
                       <li key={entry.id} className="border-b border-hairline pb-3 last:border-b-0 last:pb-0">
                         <p className="u-ui whitespace-pre-wrap text-ink-1">{typeof note === "string" ? note : ""}</p>

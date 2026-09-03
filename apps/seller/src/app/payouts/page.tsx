@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { format } from "date-fns";
+import { getTranslations } from "next-intl/server";
 import { requireSellerPermission } from "@/lib/auth";
 import { db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
@@ -19,14 +20,24 @@ import {
 } from "@avenick/ui";
 import { Wallet } from "lucide-react";
 
-export const metadata = { title: "Payouts" };
+// generateMetadata rather than a static object: a document title is a
+// user-visible string, and a literal here read English at an Arabic desk.
+export async function generateMetadata() {
+  const t = await getTranslations("sellerOps");
+  return { title: t("payouts.metaTitle") };
+}
 
-/** PayoutStatus, mapped to the tone vocabulary the rest of the portal uses. */
-const PAYOUT_STATUS: Record<string, { label: string; tone: PillTone }> = {
-  PENDING: { label: "Pending", tone: "neutral" },
-  PROCESSING: { label: "Processing", tone: "primary" },
-  PAID: { label: "Paid", tone: "success" },
-  FAILED: { label: "Failed", tone: "danger" },
+/**
+ * PayoutStatus, mapped to the tone vocabulary the rest of the portal uses. The
+ * label half lives at sellerOps.payouts.status.<ENUM>: this is module scope and
+ * has no translator in it, and a label a seller reads has to be able to be
+ * Arabic. The enum keys stay exactly as the schema writes them.
+ */
+const PAYOUT_STATUS_TONE: Record<string, PillTone> = {
+  PENDING: "neutral",
+  PROCESSING: "primary",
+  PAID: "success",
+  FAILED: "danger",
 };
 
 /**
@@ -70,6 +81,7 @@ function MoneyLines({ totals, currencies }: { totals: Record<string, number>; cu
 }
 
 export default async function PayoutsPage() {
+  const t = await getTranslations("sellerOps");
   const { seller, membership } = await requireSellerPermission("finance.view");
 
   const [payouts, receivables] = await Promise.all([
@@ -104,51 +116,61 @@ export default async function PayoutsPage() {
     new Set([...Object.keys(pendingByCurrency), ...Object.keys(paidByCurrency), ...Object.keys(receivableByCurrency)]),
   ).sort();
 
+  // A status nobody has named yet is still a fact about the payout, so an
+  // unmapped enum is shown as it reads rather than dropped or relabelled.
+  const payoutStatus = (status: string) => ({
+    label: t.has(`payouts.status.${status}`) ? t(`payouts.status.${status}`) : status.replace(/_/g, " "),
+    tone: PAYOUT_STATUS_TONE[status] ?? ("neutral" as PillTone),
+  });
+
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Finance"
-          title="Payouts"
-          description="What the platform has settled to you, and what is still owed in either direction."
+          eyebrow={t("payouts.eyebrow")}
+          title={t("payouts.title")}
+          description={t("payouts.description")}
           // LAW E, and the single most important sentence on this page: every
           // figure below is reported in the currency it was recorded in. There is
           // no combined total anywhere on this screen, on purpose.
-          dateline="Payout and adjustment totals, as recorded, each in its own currency · no conversion is applied"
+          dateline={t("payouts.dateline")}
         />
 
         <CellGrid cols={{ base: 1, sm: 2, lg: 4 }}>
           <div>
-            <Eyebrow>Pending payout</Eyebrow>
+            <Eyebrow>{t("payouts.pending.label")}</Eyebrow>
             <div className="mt-1.5">
               <MoneyLines totals={pendingByCurrency} currencies={currencies} />
             </div>
-            <Dateline className="mt-1">Payouts recorded as pending or processing</Dateline>
+            <Dateline className="mt-1">{t("payouts.pending.dateline")}</Dateline>
           </div>
 
           <div>
-            <Eyebrow>Paid out</Eyebrow>
+            <Eyebrow>{t("payouts.paid.label")}</Eyebrow>
             <div className="mt-1.5">
               <MoneyLines totals={paidByCurrency} currencies={currencies} />
             </div>
-            <Dateline className="mt-1">Payouts recorded as paid, all time</Dateline>
+            <Dateline className="mt-1">{t("payouts.paid.dateline")}</Dateline>
           </div>
 
           <Stat
-            label="Commission rate"
+            label={t("payouts.commission.label")}
             value={Number(seller.commissionRate)}
             unit="%"
             rank="section"
-            dateline="The rate on your account today, not the rate applied to past payouts"
+            dateline={t("payouts.commission.dateline")}
           />
 
           <div>
-            <Eyebrow>Refund receivable</Eyebrow>
+            <Eyebrow>{t("payouts.receivable.label")}</Eyebrow>
             <div className="mt-1.5">
               <MoneyLines totals={receivableByCurrency} currencies={currencies} />
             </div>
             <p className="u-meta mt-1 text-ink-2">
-              {openAdjustments} open adjustment{openAdjustments === 1 ? "" : "s"}
+              {/* `count` picks the plural form; `n` is the same figure as a
+                  STRING, because a bare number renders in the locale's own
+                  numeral system and every figure in this product is Western. */}
+              {t("payouts.receivable.openAdjustments", { count: openAdjustments, n: String(openAdjustments) })}
             </p>
             {currencies.length > 0 && (
               <>
@@ -158,7 +180,7 @@ export default async function PayoutsPage() {
                     figures that let a column of currency be compared. The net
                     position is a figure, so it is rendered as one. */}
                 <p className="u-meta mt-1 text-ink-2">
-                  Net position{" "}
+                  {t("payouts.receivable.netPosition")}{" "}
                   {currencies.map((c, i) => (
                     <span key={c}>
                       {i > 0 ? " · " : ""}
@@ -168,26 +190,24 @@ export default async function PayoutsPage() {
                     </span>
                   ))}
                 </p>
-                <Dateline className="mt-1">
-                  Pending payouts less open refund adjustments, in each currency
-                </Dateline>
+                <Dateline className="mt-1">{t("payouts.receivable.netDateline")}</Dateline>
               </>
             )}
           </div>
         </CellGrid>
 
         <LedgerTable
-          title="Payout history"
-          dateline="Every payout raised on your account, as recorded · gross, commission and net are summed from that payout's own lines"
+          title={t("payouts.history.title")}
+          dateline={t("payouts.history.dateline")}
           rows={payouts}
           getRowKey={(p) => p.id}
           density="compact"
           stickyHead
-          footer={`${payouts.length} payout${payouts.length === 1 ? "" : "s"} recorded`}
+          footer={t("payouts.history.footer", { count: payouts.length, n: String(payouts.length) })}
           columns={[
             {
               key: "period",
-              label: "Period",
+              label: t("payouts.history.col.period"),
               // Two <time> elements rather than one wrapping the whole range:
               // a single dateTime of periodFrom would tell a machine the cell is
               // one day when the text on screen says it is a period.
@@ -201,7 +221,7 @@ export default async function PayoutsPage() {
             },
             {
               key: "gross",
-              label: "Gross",
+              label: t("payouts.history.col.gross"),
               numeric: true,
               render: (p) => {
                 const gross = p.items.reduce((s, i) => s + Number(i.amount), 0);
@@ -210,7 +230,7 @@ export default async function PayoutsPage() {
             },
             {
               key: "commission",
-              label: "Commission",
+              label: t("payouts.history.col.commission"),
               numeric: true,
               hideOnMobile: true,
               render: (p) => {
@@ -224,7 +244,7 @@ export default async function PayoutsPage() {
             },
             {
               key: "net",
-              label: "Net",
+              label: t("payouts.history.col.net"),
               numeric: true,
               render: (p) => {
                 const net = p.items.reduce((s, i) => s + Number(i.net), 0);
@@ -235,15 +255,15 @@ export default async function PayoutsPage() {
             },
             {
               key: "status",
-              label: "Status",
+              label: t("payouts.history.col.status"),
               render: (p) => {
-                const view = PAYOUT_STATUS[p.status] ?? { label: p.status.replace(/_/g, " "), tone: "neutral" as PillTone };
+                const view = payoutStatus(p.status);
                 return <StatusPill tone={view.tone} dot>{view.label}</StatusPill>;
               },
             },
             {
               key: "reference",
-              label: "Reference",
+              label: t("payouts.history.col.reference"),
               hideOnMobile: true,
               // Mono is for identifiers — a bank reference is one. Money above
               // is not, which is why none of the figure columns use it.
@@ -251,7 +271,7 @@ export default async function PayoutsPage() {
             },
             {
               key: "processedAt",
-              label: "Processed",
+              label: t("payouts.history.col.processed"),
               hideOnMobile: true,
               render: (p) =>
                 p.processedAt ? (
@@ -265,15 +285,15 @@ export default async function PayoutsPage() {
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline="No payout has been raised on your account yet."
+              eyebrow={t("payouts.history.empty.eyebrow")}
+              headline={t("payouts.history.empty.headline")}
               // A currency-neutral mark. The old page used a dollar sign on a
               // GCC marketplace that settles in AED, SAR, QAR, KWD, BHD and OMR.
               icon={<Wallet className="h-3.5 w-3.5" aria-hidden="true" />}
-              body="Payouts are raised by the platform as your delivered orders settle."
+              body={t("payouts.history.empty.body")}
               action={
                 <Button variant="secondary" size="sm" asChild>
-                  <Link href="/orders">Review your orders</Link>
+                  <Link href="/orders">{t("payouts.history.empty.action")}</Link>
                 </Button>
               }
             />

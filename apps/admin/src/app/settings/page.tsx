@@ -6,11 +6,19 @@ import {
   CellGrid, Dateline, EmptyState, LedgerTable, PageHeader, Stat, StatusPill,
 } from "@avenick/ui";
 import { Database, ShieldCheck, Globe, KeyRound } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
-export const metadata = { title: "Platform Settings" };
+// generateMetadata rather than a static object: the tab title is user-visible
+// copy and a module-scope constant has no translator in scope.
+export async function generateMetadata() {
+  const t = await getTranslations("adminShell.meta");
+  return { title: t("settings") };
+}
 export const dynamic = "force-dynamic";
 
 interface ServiceRow {
+  /** Stable row identity, so a translated label never becomes the React key. */
+  key: string;
   label: string;
   configured: boolean;
   detail: string;
@@ -20,6 +28,7 @@ interface ServiceRow {
 
 export default async function SettingsPage() {
   await requireAdminSession();
+  const t = await getTranslations("adminShell.settings");
 
   const dbHealth = await checkDatabaseHealth();
 
@@ -34,20 +43,21 @@ export default async function SettingsPage() {
   const authSecret = env("AUTH_SECRET") || env("NEXTAUTH_SECRET");
 
   const services: ServiceRow[] = [
-    { label: "Checkout.com payments", configured: env("CHECKOUT_SECRET_KEY"), detail: "Card / mada / Apple Pay processing on the customer portal" },
-    { label: "Checkout.com webhook secret", configured: env("CHECKOUT_WEBHOOK_SECRET"), detail: "HMAC verification for payment status webhooks (fails closed when missing)" },
-    { label: "Anthropic AI drafts", configured: env("ANTHROPIC_API_KEY"), detail: "Seller portal RFQ/listing draft generation (falls back to templates)" },
-    { label: "Resend email", configured: env("RESEND_API_KEY"), detail: "Transactional email delivery" },
-    { label: "Twilio SMS/WhatsApp", configured: env("TWILIO_AUTH_TOKEN"), detail: "SMS and WhatsApp notifications" },
-    { label: "S3 / MinIO object storage", configured: env("S3_ACCESS_KEY"), detail: "Product images and seller documents" },
-    { label: "Elasticsearch", configured: false, badge: "Not implemented", detail: "No Elasticsearch integration exists in this codebase; catalog search is served by PostgreSQL" },
+    { key: "checkoutPayments", label: t("services.checkoutPayments.label"), configured: env("CHECKOUT_SECRET_KEY"), detail: t("services.checkoutPayments.detail") },
+    { key: "checkoutWebhook", label: t("services.checkoutWebhook.label"), configured: env("CHECKOUT_WEBHOOK_SECRET"), detail: t("services.checkoutWebhook.detail") },
+    { key: "anthropic", label: t("services.anthropic.label"), configured: env("ANTHROPIC_API_KEY"), detail: t("services.anthropic.detail") },
+    { key: "resend", label: t("services.resend.label"), configured: env("RESEND_API_KEY"), detail: t("services.resend.detail") },
+    { key: "twilio", label: t("services.twilio.label"), configured: env("TWILIO_AUTH_TOKEN"), detail: t("services.twilio.detail") },
+    { key: "storage", label: t("services.storage.label"), configured: env("S3_ACCESS_KEY"), detail: t("services.storage.detail") },
+    { key: "elasticsearch", label: t("services.elasticsearch.label"), configured: false, badge: t("services.notImplemented"), detail: t("services.elasticsearch.detail") },
     {
-      label: "Redis (Upstash REST)",
+      key: "redis",
+      label: t("services.redis.label"),
       configured: redisShared,
-      badge: redisShared ? undefined : "In-memory fallback",
+      badge: redisShared ? undefined : t("services.inMemoryFallback"),
       detail: redisShared
-        ? "UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN present — the shared rate-limit and read-cache store is installed at boot; Redis reachability is not probed here"
-        : "Not set, so rate limiting and caching run in per-process memory: not shared across instances and reset on restart. REDIS_URL is read by no code and configures nothing",
+        ? t("services.redis.detailShared")
+        : t("services.redis.detailFallback"),
     },
   ];
 
@@ -57,54 +67,56 @@ export default async function SettingsPage() {
     <AdminLayout>
       <div className="max-w-4xl space-y-section">
         <PageHeader
-          eyebrow="Console"
-          title="Platform Settings"
-          description="Operational configuration as the platform actually sees it. Values are read from the environment; secrets are never displayed."
-          dateline="This screen reports configuration and reads nothing back: there is no setting on it that can be changed from here."
-          actions={<StatusPill>Read only</StatusPill>}
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
+          dateline={t("dateline")}
+          actions={<StatusPill>{t("readOnly")}</StatusPill>}
         />
 
         <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
           <Stat
-            label="Database"
+            label={t("stats.database")}
             value={dbHealth.ok ? dbHealth.latencyMs : "—"}
             unit={dbHealth.ok ? "ms" : undefined}
             icon={Database}
             chip={dbHealth.ok ? "success" : "danger"}
-            note={dbHealth.ok ? "Reachable" : "Unreachable"}
+            note={dbHealth.ok ? t("stats.reachable") : t("stats.unreachable")}
           />
           <Stat
-            label="Environment"
+            // NODE_ENV is the environment's own identifier, not a label, so it
+            // is reported verbatim rather than translated.
+            label={t("stats.environment")}
             value={process.env.NODE_ENV ?? "development"}
             icon={Globe}
             chip="neutral"
           />
           <Stat
-            label="Auth secret"
-            value={authSecret ? "Set" : "Missing"}
+            label={t("stats.authSecret")}
+            value={authSecret ? t("stats.authSecretSet") : t("stats.authSecretMissing")}
             icon={KeyRound}
             chip={authSecret ? "success" : "danger"}
-            note={authSecret ? "AUTH_SECRET or NEXTAUTH_SECRET is present" : "Sessions cannot be signed"}
+            note={authSecret ? t("stats.authSecretPresent") : t("stats.authSecretAbsent")}
           />
           <Stat
-            label="Session strategy"
+            label={t("stats.sessionStrategy")}
             value="JWT"
             icon={ShieldCheck}
             chip="neutral"
-            note="Per-portal cookies"
+            note={t("stats.sessionCookies")}
           />
         </CellGrid>
 
         <div>
           <LedgerTable
-            title="Service configuration"
+            title={t("services.title")}
             rows={services}
-            getRowKey={(row) => row.label}
+            getRowKey={(row) => row.key}
             density="compact"
             columns={[
               {
                 key: "label",
-                label: "Service",
+                label: t("services.columnService"),
                 render: (row) => (
                   <>
                     <span className="block font-medium text-ink-1">{row.label}</span>
@@ -114,7 +126,7 @@ export default async function SettingsPage() {
               },
               {
                 key: "status",
-                label: "Status",
+                label: t("services.columnStatus"),
                 align: "end",
                 width: "160px",
                 render: (row) => {
@@ -123,7 +135,7 @@ export default async function SettingsPage() {
                   const ok = row.configured && !row.badge;
                   return (
                     <StatusPill tone={ok ? "success" : "neutral"} dot={ok}>
-                      {row.badge ?? (ok ? "Configured" : "Not configured")}
+                      {row.badge ?? (ok ? t("services.configured") : t("services.notConfigured"))}
                     </StatusPill>
                   );
                 },
@@ -131,32 +143,29 @@ export default async function SettingsPage() {
             ]}
             empty={
               <EmptyState
-                eyebrow="Nothing to report"
-                headline="No external service is wired into this deployment."
+                eyebrow={t("services.empty.eyebrow")}
+                headline={t("services.empty.headline")}
               />
             }
           />
-          <Dateline className="mt-2">
-            Presence of an environment variable only. A variable being set is not proof that the service is reachable,
-            and nothing on this screen probes one.
-          </Dateline>
+          <Dateline className="mt-2">{t("services.dateline")}</Dateline>
         </div>
 
         <LedgerTable
-          title="VAT rates by jurisdiction"
-          dateline="The statutory rates this platform applies, by country code."
+          title={t("vat.title")}
+          dateline={t("vat.dateline")}
           rows={vatRows}
           getRowKey={(row) => row.country}
           density="compact"
           columns={[
-            { key: "country", label: "Country" },
-            { key: "rate", label: "Rate", numeric: true, width: "96px", render: (row) => `${row.rate}%` },
+            { key: "country", label: t("vat.columnCountry") },
+            { key: "rate", label: t("vat.columnRate"), numeric: true, width: "96px", render: (row) => `${row.rate}%` },
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing configured"
-              headline="No VAT jurisdiction is configured."
-              body="Rates come from the platform's shared tax configuration; an empty table means none is loaded."
+              eyebrow={t("vat.empty.eyebrow")}
+              headline={t("vat.empty.headline")}
+              body={t("vat.empty.body")}
             />
           }
         />

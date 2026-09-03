@@ -16,6 +16,7 @@ import { assertMatchingIdempotencyFingerprint } from "./commerce-governance";
 // what produced the two-sources-of-truth defect this module now guards against.
 import { VAT_RATES } from "@avenick/utils";
 import type { Prisma, OrderStatus, Country, Currency, PaymentMethod } from "@prisma/client";
+import { quoteShipping } from "./shipping-zones";
 
 // Prisma interactive-transaction client — the subset of the client available
 // inside db.$transaction(async (tx) => ...). Lets commission accrual join an
@@ -398,10 +399,55 @@ export async function createOrder(input: CreateOrderInput) {
         subtotal = money(subtotal);
         const discountAmount = money(promotion.discountAmount);
         const vatAmount = money(vatTotal);
-        const total = money(subtotal - discountAmount + vatAmount);
-        if (input.governedCommercial && Math.round(total * 100) !== Math.round(input.governedCommercial.total * 100)) {
+        const merchandiseTotal = money(subtotal - discountAmount + vatAmount);
+
+        // The snapshot approved GOODS, so it is compared against the goods
+        // total. Freight is added after this check and never to a governed
+        // purchase order: an approved commercial figure that silently grows by
+        // a delivery charge is no longer the figure anybody approved.
+        if (input.governedCommercial && Math.round(merchandiseTotal * 100) !== Math.round(input.governedCommercial.total * 100)) {
           throw new Error("Governed purchase-order total does not match the approved commercial snapshot");
         }
+
+        /*
+          Delivery, priced server-side by zone and weight.
+
+          Skipped entirely for a governed purchase order (see above). For every
+          other order the quote is authoritative — a shipping figure the client
+          can influence is a discount the client can grant itself.
+
+          The distinction that matters here is between "this platform has not
+          configured delivery yet" and "we do not ship there". With NO zones at
+          all, freight is zero and the order proceeds, which is exactly how
+          checkout behaved before this existed. With zones configured but none
+          covering the destination, the order is REFUSED — that is a real answer
+          about a real destination, and shipping a parcel nobody priced is a
+          loss the buyer never agreed to.
+        */
+        let shippingAmount = 0;
+        if (!input.governedCommercial) {
+          const destination = typeof input.shippingAddress?.["country"] === "string"
+            ? String(input.shippingAddress["country"])
+            : "";
+          const configuredZones = await tx.shippingZone.count({ where: { isActive: true } });
+          if (configuredZones > 0 && destination) {
+            const quote = await quoteShipping({
+              country: destination,
+              currency: input.currency,
+              subtotal,
+              lines: pricedLines.map((line) => {
+                const product = productMap.get(line.productId)!;
+                return {
+                  quantity: line.quantity,
+                  weightKg: product.weight == null ? null : Number(product.weight),
+                };
+              }),
+            }, tx);
+            shippingAmount = money(quote.price);
+          }
+        }
+
+        const total = money(merchandiseTotal + shippingAmount);
 
         const initialStockRows = await Promise.all(input.items.map((item) => tx.inventoryStock.findMany({
           where: inventoryStockIdentityWhere(item.productId, item.variantId),
@@ -496,6 +542,7 @@ export async function createOrder(input: CreateOrderInput) {
             subtotal,
             discountAmount,
             vatAmount,
+            shippingAmount,
             total,
             paymentMethod: input.paymentMethod,
             shippingAddress: input.shippingAddress,

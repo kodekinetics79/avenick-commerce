@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { requireSellerAnyPermission } from "@/lib/auth";
 import { db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
@@ -8,6 +9,7 @@ import { AiAssist } from "@/components/ai-assist";
 import { ProductsTable, type ProductRow } from "@/components/products-table";
 
 export default async function ProductsPage({ searchParams }: { searchParams?: { submitted?: string } }) {
+  const t = await getTranslations("sellerCatalog");
   const { seller, membership } = await requireSellerAnyPermission(["catalog.view", "catalog.manage"]);
   const permissions = membership.permissions ?? [];
   const canManage = permissions.includes("*") || (permissions.includes("catalog.manage") && permissions.includes("pricing.manage"));
@@ -46,20 +48,21 @@ export default async function ProductsPage({ searchParams }: { searchParams?: { 
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={products.flatMap((p) => p.issues).length} permissions={membership.permissions}>
       <div className="space-y-4">
         <PageHeader
-          eyebrow="Catalog"
-          title="Products"
+          eyebrow={t("list.eyebrow")}
+          title={t("list.title")}
           linkComponent={Link}
           // LAW E. The figures in this table are one price row and one stock row
           // per listing, which is not the same thing as the whole commercial
-          // record — saying so is what makes the rest of it credible.
-          dateline="Every listing on this account · one active price row and one stock row for each, in its own currency and with no conversion applied — a listing priced across several channels or quantity tiers shows only the first of those rows here"
+          // record — saying so is what makes the rest of it credible. The whole
+          // disclosure travels into `list.dateline`, in both languages.
+          dateline={t("list.dateline")}
           actions={
             <>
-              {canManage && <AiAssist kind="listing" label="AI listing copy" />}
+              {canManage && <AiAssist kind="listing" label={t("list.aiListingCopy")} />}
               {canManage && (
                 <Button variant="primary" size="sm" asChild>
                   <Link href="/products/new">
-                    <Plus className="h-4 w-4" aria-hidden="true" /> Add product
+                    <Plus className="h-4 w-4" aria-hidden="true" /> {t("list.addProduct")}
                   </Link>
                 </Button>
               )}
@@ -71,14 +74,13 @@ export default async function ProductsPage({ searchParams }: { searchParams?: { 
           // Recessed and toned: this is context about what just happened, not an
           // object to act on.
           <Surface rung={1} tone="success" role="status" className="p-4">
-            <Eyebrow className="mb-1">Submitted</Eyebrow>
+            <Eyebrow className="mb-1">{t("submitted.eyebrow")}</Eyebrow>
             <p className="u-body text-ink-1">
-              Listing {searchParams.submitted === "updated" ? "changes were" : "was"} submitted for review.
+              {/* Two whole sentences rather than one with a swapped verb phrase:
+                  the clause that changes does not survive being spliced. */}
+              {searchParams.submitted === "updated" ? t("submitted.changes") : t("submitted.listing")}
             </p>
-            <Dateline className="mt-1">
-              It does not become active until an administrator approves it, and appearing on the public storefront is a
-              further decision after that.
-            </Dateline>
+            <Dateline className="mt-1">{t("submitted.dateline")}</Dateline>
           </Surface>
         )}
 

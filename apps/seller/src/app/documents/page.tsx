@@ -26,10 +26,14 @@ import {
   type PillTone,
 } from "@avenick/ui";
 import { AlertTriangle, Upload, CheckCircle, Clock, XCircle, FileText, Calendar, RefreshCw, Eye, Info } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { DocumentUploader, UploadDocumentButton, UploadDocumentPanel, type DocumentTypeOption } from "./upload-document";
 import { documentIsInDate } from "../onboarding/document-selection";
 
-export const metadata = { title: "Document Center" };
+export async function generateMetadata() {
+  const t = await getTranslations("sellerRelations");
+  return { title: t("documents.metaTitle") };
+}
 
 // Every row and every count here belongs to the acting seller; nothing may be
 // prerendered or shared between sellers.
@@ -44,14 +48,15 @@ export const dynamic = "force-dynamic";
  */
 type EffectiveStatus = DocumentStatus | "SUPERSEDED";
 
-// Enum → label map, plus the semantic tone. Four states, not five hues: a
-// replaced row is neutral because nothing is owed on it.
-const STATUS_CONFIG: Record<EffectiveStatus, { label: string; tone: PillTone; icon: typeof CheckCircle }> = {
-  APPROVED: { label: "Valid", tone: "success", icon: CheckCircle },
-  PENDING_REVIEW: { label: "Under review", tone: "warning", icon: Clock },
-  REJECTED: { label: "Rejected", tone: "danger", icon: XCircle },
-  EXPIRED: { label: "Expired", tone: "danger", icon: XCircle },
-  SUPERSEDED: { label: "Replaced", tone: "neutral", icon: RefreshCw },
+// Enum → tone and icon. Four states, not five hues: a replaced row is neutral
+// because nothing is owed on it. The KEYS are the effective status and are
+// never translated; each label is sellerRelations.documents.status.<KEY>.
+const STATUS_CONFIG: Record<EffectiveStatus, { tone: PillTone; icon: typeof CheckCircle }> = {
+  APPROVED: { tone: "success", icon: CheckCircle },
+  PENDING_REVIEW: { tone: "warning", icon: Clock },
+  REJECTED: { tone: "danger", icon: XCircle },
+  EXPIRED: { tone: "danger", icon: XCircle },
+  SUPERSEDED: { tone: "neutral", icon: RefreshCw },
 };
 
 /** How far ahead of a lapse the seller is warned; the copy quotes this same value. */
@@ -79,11 +84,26 @@ function effectiveStatus(doc: { status: DocumentStatus; expiryDate: Date | null;
 
 const DOCUMENT_POLICY = UPLOAD_POLICIES["seller-document"];
 
-const TYPE_OPTIONS: readonly DocumentTypeOption[] = SELLER_DOCUMENT_TYPES.map((type) => ({
-  value: type,
-  label: SELLER_DOCUMENT_TYPE_LABELS[type],
-  expires: documentTypeExpires(type),
-}));
+/**
+ * The picker's options, built per render because the NAME of a document type is
+ * read by a person and therefore belongs in the message tree, not in the
+ * database package. The enum value stays the option's value; only the label is
+ * translated, and SELLER_DOCUMENT_TYPE_LABELS remains the fallback for a type
+ * the Prisma enum grows before this namespace does.
+ */
+function typeOptions(t: (key: string) => string): readonly DocumentTypeOption[] {
+  return SELLER_DOCUMENT_TYPES.map((type) => ({
+    value: type,
+    label: documentTypeLabel(type, t),
+    expires: documentTypeExpires(type),
+  }));
+}
+
+function documentTypeLabel(type: DocumentType, t: (key: string) => string): string {
+  return (SELLER_DOCUMENT_TYPES as readonly string[]).includes(type)
+    ? t(`documentType.${type}`)
+    : SELLER_DOCUMENT_TYPE_LABELS[type];
+}
 
 function isDocumentType(value: string | undefined): value is DocumentType {
   return typeof value === "string" && (SELLER_DOCUMENT_TYPES as readonly string[]).includes(value);
@@ -95,6 +115,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
   const { seller, membership } = await requireSellerAnyPermission(["documents.view", "documents.manage"], {
     allowedSellerStatuses: ONBOARDING_SELLER_STATUSES,
   });
+  const t = await getTranslations("sellerRelations");
   const permissions = membership.permissions ?? [];
   const canManage = permissions.includes("*") || permissions.includes("documents.manage");
   const uploadsEnabled = browserDirectUploadsEnabled();
@@ -122,9 +143,9 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
   });
   const documents = raw.map((d) => ({
     id: d.id,
-    name: d.fileName || SELLER_DOCUMENT_TYPE_LABELS[d.type],
+    name: d.fileName || documentTypeLabel(d.type, t),
     type: d.type,
-    typeLabel: SELLER_DOCUMENT_TYPE_LABELS[d.type],
+    typeLabel: documentTypeLabel(d.type, t),
     status: effectiveStatus(d),
     expiryDate: d.expiryDate,
     rejectionReason: d.rejectionReason,
@@ -156,7 +177,9 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
   const sealSource = validDocs
     .filter((d): d is typeof d & { reviewedAt: Date } => d.reviewedAt !== null)
     .sort((a, b) => b.reviewedAt.getTime() - a.reviewedAt.getTime())[0] ?? null;
-  const sealBasis = sealSource ? `${sealSource.typeLabel} reviewed ${fmtDate(sealSource.reviewedAt)}` : null;
+  const sealBasis = sealSource
+    ? t("documents.sealBasis", { type: sealSource.typeLabel, date: fmtDate(sealSource.reviewedAt) })
+    : null;
 
   // Deep link: /documents?upload=TRADE_LICENSE opens the form preset to that
   // type; any other value opens it unpreset. The value is only ever matched
@@ -170,7 +193,7 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
       <DocumentUploader
         enabled={uploadsEnabled}
         canManage={canManage}
-        types={TYPE_OPTIONS}
+        types={typeOptions(t)}
         maxBytes={DOCUMENT_POLICY.maxBytes}
         accept={Object.keys(DOCUMENT_POLICY.mediaTypesByExtension).sort().join(",")}
         initialOpen={initialOpen}
@@ -178,15 +201,15 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
       >
         <div className="space-y-block">
           <PageHeader
-            eyebrow="Compliance"
-            title="Document Center"
-            description="Every compliance and business document filed against this account."
+            eyebrow={t("documents.eyebrow")}
+            title={t("documents.title")}
+            description={t("documents.description")}
             // Expiry is derived on read rather than swept into a column, so the
             // page says which clock it is reading.
-            dateline={`Status as at page load · a document is expired the moment its expiry date passes · warnings start ${EXPIRY_WARNING_DAYS} days out`}
+            dateline={t("documents.headerDateline", { days: String(EXPIRY_WARNING_DAYS) })}
             actions={
               <UploadDocumentButton variant="primary" size="sm">
-                <Upload className="h-4 w-4" aria-hidden="true" /> Upload document
+                <Upload className="h-4 w-4" aria-hidden="true" /> {t("documents.uploadDocument")}
               </UploadDocumentButton>
             }
           />
@@ -195,12 +218,8 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
             <FieldWell className="flex items-start gap-3 p-4">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
               <div className="min-w-0">
-                <p className="u-ui font-medium text-ink-1">
-                  Your application is under review — upload the documents below to complete it.
-                </p>
-                <p className="u-meta mt-0.5 text-ink-2">
-                  Each upload is reviewed by the platform team. Its status changes here once a decision is made.
-                </p>
+                <p className="u-ui font-medium text-ink-1">{t("documents.underReviewBanner.title")}</p>
+                <p className="u-meta mt-0.5 text-ink-2">{t("documents.underReviewBanner.body")}</p>
               </div>
             </FieldWell>
           )}
@@ -208,7 +227,9 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
           {!canManage && (
             <p className="u-ui flex items-start gap-2 text-ink-2">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
-              Your role can view these documents but not upload them; a member with the documents-manage capability can.
+              {/* The capability is named as an interpolation value so it survives
+                  translation: a seller has to ask for it by the name it actually has. */}
+              {t("documents.viewOnlyNotice", { permission: "documents-manage" })}
             </p>
           )}
 
@@ -235,22 +256,18 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
               the shoulder silently. */}
           <Surface rung={2} rim className="overflow-hidden">
             <div data-rule-ground="" className="p-5 [&>*]:relative">
-              <Eyebrow>Compliance standing</Eyebrow>
+              <Eyebrow>{t("documents.standing.eyebrow")}</Eyebrow>
               {sealBasis ? (
                 <>
                   <div className="mt-2">
-                    <TierMark verified basis={sealBasis} verifiedLabel="Reviewed" showBasis />
+                    <TierMark verified basis={sealBasis} verifiedLabel={t("documents.standing.reviewed")} showBasis />
                   </div>
                   <p className="u-body mt-2 max-w-desc text-ink-2">
-                    {validDocs.length} document{validDocs.length === 1 ? "" : "s"} on this account {validDocs.length === 1 ? "is" : "are"}{" "}
-                    approved and in date.
+                    {t("documents.standing.approvedAndInDate", { count: validDocs.length, n: String(validDocs.length) })}
                     {underReview.length > 0 &&
-                      ` ${underReview.length} more ${underReview.length === 1 ? "is" : "are"} with the review team.`}
+                      ` ${t("documents.standing.moreWithReviewTeam", { count: underReview.length, n: String(underReview.length) })}`}
                   </p>
-                  <Dateline className="mt-1">
-                    The mark cites the most recently reviewed approval on file. It is drawn from that row and disappears
-                    with it.
-                  </Dateline>
+                  <Dateline className="mt-1">{t("documents.standing.markProvenance")}</Dateline>
                 </>
               ) : (
                 <>
@@ -258,15 +275,12 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
                       the records rather than a status. */}
                   <p className="u-provenance mt-2 max-w-desc text-h2 text-ink-1">
                     {documents.length === 0
-                      ? "Nothing has been filed against this account yet."
+                      ? t("documents.standing.nothingFiled")
                       : underReview.length > 0
-                        ? "Nothing is approved yet — your filings are with the review team."
-                        : "No filing on this account is currently approved and in date."}
+                        ? t("documents.standing.nothingApprovedYet")
+                        : t("documents.standing.noneInDate")}
                   </p>
-                  <Dateline className="mt-2">
-                    No verification mark is shown, because there is no reviewed approval to cite. One appears here as soon
-                    as the platform approves a document and records when it did.
-                  </Dateline>
+                  <Dateline className="mt-2">{t("documents.standing.noMarkExplanation")}</Dateline>
                 </>
               )}
             </div>
@@ -276,49 +290,48 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
               four hues said nothing the four labels did not already say. */}
           <CellGrid cols={{ base: 2, lg: 4 }}>
             <Stat
-              label="Valid documents"
+              label={t("documents.stats.valid")}
               value={validDocs.length}
               rank="section"
               icon={CheckCircle}
               chip={validDocs.length > 0 ? "success" : "neutral"}
             />
             <Stat
-              label="Expiring soon"
+              label={t("documents.stats.expiringSoon")}
               value={expiringDocs.length}
               icon={AlertTriangle}
               chip={expiringDocs.length > 0 ? "warning" : "neutral"}
-              note={`Within ${EXPIRY_WARNING_DAYS} days`}
+              note={t("documents.stats.withinDays", { days: String(EXPIRY_WARNING_DAYS) })}
             />
             <Stat
-              label="Expired"
+              label={t("documents.stats.expired")}
               value={expiredDocs.length}
               icon={XCircle}
               chip={expiredDocs.length > 0 ? "danger" : "neutral"}
             />
-            <Stat label="Under review" value={underReview.length} icon={Clock} chip="neutral" />
+            <Stat label={t("documents.stats.underReview")} value={underReview.length} icon={Clock} chip="neutral" />
           </CellGrid>
 
           {/* One "action required" well instead of two banners stacked above the
               list. Each row keeps its own sentence and its own deep link, so the
               uploader still opens preset to the type that needs filing. */}
           {(expiredDocs.length > 0 || expiringDocs.length > 0) && (
-            <section aria-label="Action required" className="space-y-2">
-              <Eyebrow as="h2">Action required</Eyebrow>
+            <section aria-label={t("common.actionRequired")} className="space-y-2">
+              <Eyebrow as="h2">{t("common.actionRequired")}</Eyebrow>
               <Surface rung={1} className="divide-y divide-hairline overflow-hidden">
                 {expiredDocs.length > 0 && (
                   <div className="flex flex-wrap items-start gap-3 border-s-[3px] border-s-danger px-4 py-3">
                     <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger-ink" aria-hidden="true" />
                     <div className="min-w-0 flex-1">
                       <p className="u-ui font-medium text-ink-1">
-                        {expiredDocs.length} document{expiredDocs.length > 1 ? "s" : ""} expired — action required
+                        {t("documents.action.expiredHeadline", { count: expiredDocs.length, n: String(expiredDocs.length) })}
                       </p>
                       <p className="u-meta mt-0.5 text-ink-2">
-                        {expiredDocs.map((d) => d.name).join(", ")} — upload a renewed copy so the review team can
-                        re-approve it.
+                        {t("documents.action.expiredBody", { names: expiredDocs.map((d) => d.name).join(", ") })}
                       </p>
                     </div>
                     <UploadDocumentButton type={expiredDocs[0]!.type} variant="secondary" size="sm" className="shrink-0">
-                      <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Renew now
+                      <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> {t("documents.action.renewNow")}
                     </UploadDocumentButton>
                   </div>
                 )}
@@ -327,16 +340,18 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-ink" aria-hidden="true" />
                     <div className="min-w-0 flex-1">
                       <p className="u-ui font-medium text-ink-1">
-                        {expiringDocs.length} document{expiringDocs.length > 1 ? "s" : ""} expiring within{" "}
-                        {EXPIRY_WARNING_DAYS} days
+                        {t("documents.action.expiringHeadline", {
+                          count: expiringDocs.length,
+                          n: String(expiringDocs.length),
+                          days: String(EXPIRY_WARNING_DAYS),
+                        })}
                       </p>
                       <p className="u-meta mt-0.5 text-ink-2">
-                        {expiringDocs.map((d) => d.name).join(", ")} — upload renewed copies before they lapse. The
-                        current approval stays valid until the renewal is decided.
+                        {t("documents.action.expiringBody", { names: expiringDocs.map((d) => d.name).join(", ") })}
                       </p>
                     </div>
                     <UploadDocumentButton type={expiringDocs[0]!.type} variant="secondary" size="sm" className="shrink-0">
-                      <Upload className="h-3.5 w-3.5" aria-hidden="true" /> Upload renewal
+                      <Upload className="h-3.5 w-3.5" aria-hidden="true" /> {t("documents.action.uploadRenewal")}
                     </UploadDocumentButton>
                   </div>
                 )}
@@ -348,19 +363,19 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
           {documents.length === 0 ? (
             <Surface rung={1}>
               <EmptyState
-                eyebrow="Nothing recorded"
-                headline={`No document has been filed against ${seller.businessNameEn}.`}
+                eyebrow={t("common.nothingRecorded")}
+                headline={t("documents.empty.headline", { seller: seller.businessNameEn })}
                 body={
                   canManage && uploadsEnabled
-                    ? "Use “Upload document” above to submit the first one; the review team decides on it from there."
-                    : "Documents filed for this account will be listed here."
+                    ? t("documents.empty.bodyCanUpload", { action: t("documents.uploadDocument") })
+                    : t("documents.empty.bodyReadOnly")
                 }
                 icon={<FileText className="h-3.5 w-3.5" aria-hidden="true" />}
               />
             </Surface>
           ) : (
-            <section aria-label="Filed documents" className="space-y-2">
-              <Eyebrow as="h2">On file — {documents.length}</Eyebrow>
+            <section aria-label={t("documents.filedSectionLabel")} className="space-y-2">
+              <Eyebrow as="h2">{t("documents.onFile", { n: String(documents.length) })}</Eyebrow>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {documents.map((doc) => {
                   const cfg = STATUS_CONFIG[doc.status];
@@ -373,10 +388,10 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
                   // replace an open review, and leave a valid or replaced row alone
                   // beyond the general upload button.
                   const followUp =
-                    expired ? { label: "Renew", primary: true }
-                    : expiring ? { label: "Renew", primary: true }
-                    : doc.status === "REJECTED" ? { label: "Re-upload", primary: true }
-                    : doc.status === "PENDING_REVIEW" ? { label: "Replace", primary: false }
+                    expired ? { label: t("documents.followUp.renew"), primary: true }
+                    : expiring ? { label: t("documents.followUp.renew"), primary: true }
+                    : doc.status === "REJECTED" ? { label: t("documents.followUp.reupload"), primary: true }
+                    : doc.status === "PENDING_REVIEW" ? { label: t("documents.followUp.replace"), primary: false }
                     : null;
 
                   return (
@@ -393,14 +408,14 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
                         <Eyebrow className="min-w-0 truncate">{doc.typeLabel}</Eyebrow>
                         <StatusPill tone={cfg.tone} className="shrink-0 whitespace-nowrap">
                           <StatusIcon className="h-3 w-3" aria-hidden="true" />
-                          {cfg.label}
+                          {t(`documents.status.${doc.status}`)}
                         </StatusPill>
                       </div>
 
                       <p className="u-ui mt-1.5 truncate font-medium text-ink-1" title={doc.name}>
                         {doc.name}
                       </p>
-                      <p className="u-meta text-ink-3">Uploaded {fmtDate(doc.uploadedAt)}</p>
+                      <p className="u-meta text-ink-3">{t("documents.uploadedOn", { date: fmtDate(doc.uploadedAt) })}</p>
 
                       {doc.expiryDate && (
                         <p
@@ -411,12 +426,15 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
                         >
                           <Calendar className="h-3 w-3 shrink-0" aria-hidden="true" />
                           <span>
-                            {isExpired(doc.expiryDate) ? "Expired on " : "Expires "}
-                            {fmtDate(doc.expiryDate)}
+                            {isExpired(doc.expiryDate)
+                              ? t("documents.expiredOn", { date: fmtDate(doc.expiryDate) })
+                              : t("documents.expiresOn", { date: fmtDate(doc.expiryDate) })}
                             {daysLeft !== null && (
                               // ms-1, not ml-1: a physical margin is wrong in Arabic.
                               <span className={cn("ms-1 font-medium", expiring ? "text-warning-ink" : "text-ink-2")}>
-                                ({daysLeft > 0 ? `${daysLeft} days left` : "today"})
+                                {daysLeft > 0
+                                  ? t("documents.daysLeft", { count: daysLeft, n: String(daysLeft) })
+                                  : t("documents.expiresToday")}
                               </span>
                             )}
                           </span>
@@ -434,8 +452,8 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
                               the view route mints a short-lived signed link per
                               request. */}
                           <a href={`/documents/${doc.id}/view`} target="_blank" rel="noopener noreferrer">
-                            <Eye className="h-3.5 w-3.5" aria-hidden="true" /> View
-                            <span className="sr-only"> {doc.name} (opens in a new tab)</span>
+                            <Eye className="h-3.5 w-3.5" aria-hidden="true" /> {t("documents.view")}
+                            <span className="sr-only"> {t("documents.viewSrHint", { name: doc.name })}</span>
                           </a>
                         </Button>
                         {followUp && (

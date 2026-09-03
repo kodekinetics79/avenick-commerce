@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { SlidersHorizontal, X } from "lucide-react";
 import { Button, Eyebrow } from "@avenick/ui";
 import { CONTROL_SM } from "@/components/console/chrome";
@@ -21,6 +22,7 @@ interface Props {
  */
 export function AdjustStock({ stockId, qty, reservedQty }: Props) {
   const router = useRouter();
+  const t = useTranslations("adminCommerce.stockAdjust");
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [newQty, setNewQty] = useState(String(qty));
@@ -43,15 +45,15 @@ export function AdjustStock({ stockId, qty, reservedQty }: Props) {
     setNotice(null);
     const parsed = Number(newQty);
     if (!Number.isInteger(parsed) || parsed < 0) {
-      setError({ message: "On-hand must be a whole number of zero or more", field: "newQty" });
+      setError({ message: t("wholeNumber"), field: "newQty" });
       return;
     }
     if (parsed < reservedQty) {
-      setError({ message: `On-hand cannot go below the ${reservedQty} reserved for open orders`, field: "newQty" });
+      setError({ message: t("belowReserved", { reserved: String(reservedQty) }), field: "newQty" });
       return;
     }
     if (!reason.trim()) {
-      setError({ message: "Say why the count changed", field: "reason" });
+      setError({ message: t("reasonRequired"), field: "reason" });
       return;
     }
     startTransition(async () => {
@@ -60,7 +62,7 @@ export function AdjustStock({ stockId, qty, reservedQty }: Props) {
         setError({ message: result.error, field: result.field });
         return;
       }
-      setNotice(result.message ?? "Adjusted");
+      setNotice(result.message ?? t("adjusted"));
       close();
       router.refresh();
     });
@@ -70,7 +72,7 @@ export function AdjustStock({ stockId, qty, reservedQty }: Props) {
     return (
       <div className="flex flex-col items-end gap-0.5">
         <Button type="button" variant="link" size="xs" onClick={() => setOpen(true)}>
-          <SlidersHorizontal className="h-3 w-3" aria-hidden="true" /> Adjust
+          <SlidersHorizontal className="h-3 w-3" aria-hidden="true" /> {t("open")}
         </Button>
         {notice && (
           <span role="status" className="u-meta text-success-ink">
@@ -88,11 +90,11 @@ export function AdjustStock({ stockId, qty, reservedQty }: Props) {
       onSubmit={submit}
       data-rung={1}
       className="flex min-w-[15rem] flex-col gap-1.5 border border-border p-2 text-start"
-      aria-label="Adjust on-hand quantity"
+      aria-label={t("formLabel")}
     >
       <div className="flex items-start justify-between gap-2">
         <label className="u-meta flex items-center gap-1.5 text-ink-2">
-          New on-hand
+          {t("newOnHand")}
           <input
             data-rung={1}
             autoFocus
@@ -113,7 +115,7 @@ export function AdjustStock({ stockId, qty, reservedQty }: Props) {
           size="xs"
           onClick={close}
           disabled={pending}
-          aria-label="Cancel adjustment"
+          aria-label={t("cancel")}
           className="px-1"
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />
@@ -123,10 +125,10 @@ export function AdjustStock({ stockId, qty, reservedQty }: Props) {
         data-rung={1}
         value={reason}
         onChange={(event) => setReason(event.target.value)}
-        placeholder="Reason (required)"
+        placeholder={t("reasonPlaceholder")}
         maxLength={500}
         disabled={pending}
-        aria-label="Adjustment reason"
+        aria-label={t("reasonLabel")}
         aria-invalid={error?.field === "reason" || undefined}
         className={`${CONTROL_SM} ${error?.field === "reason" ? "border-danger" : ""}`}
       />
@@ -134,18 +136,18 @@ export function AdjustStock({ stockId, qty, reservedQty }: Props) {
         data-rung={1}
         value={reference}
         onChange={(event) => setReference(event.target.value)}
-        placeholder="Reference, e.g. stocktake sheet (optional)"
+        placeholder={t("referencePlaceholder")}
         maxLength={120}
         disabled={pending}
-        aria-label="Adjustment reference"
+        aria-label={t("referenceLabel")}
         className={CONTROL_SM}
       />
       <div className="flex items-center gap-2">
         <Button type="submit" variant="secondary" size="xs" loading={pending} disabled={pending}>
-          Save
+          {t("save")}
         </Button>
         {/* The floor the service enforces, stated where the number is typed. */}
-        <Eyebrow>{reservedQty} reserved</Eyebrow>
+        <Eyebrow>{t("reservedNote", { count: String(reservedQty) })}</Eyebrow>
       </div>
       {error && (
         <span role="alert" className="u-meta text-danger-ink">

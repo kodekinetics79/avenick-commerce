@@ -1,10 +1,18 @@
 import Link from "next/link";
-import { SUPERSEDED_REJECTION_REASON, db, type DocumentStatus, type DocumentType } from "@avenick/database";
+import {
+  SELLER_DOCUMENT_TYPES,
+  SELLER_DOCUMENT_TYPE_LABELS,
+  SUPERSEDED_REJECTION_REASON,
+  db,
+  type DocumentStatus,
+  type DocumentType,
+} from "@avenick/database";
 import { requireSellerAnyPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { sellerNavigationAllows } from "@/lib/seller-permissions";
+import { getTranslations } from "next-intl/server";
 import { documentIsInDate, selectGoverningDocuments } from "./document-selection";
-import { hasPayoutDetails, missingProfileFields } from "./readiness";
+import { hasPayoutDetails, missingProfileFieldKeys } from "./readiness";
 import { cn } from "@avenick/utils";
 import {
   Button,
@@ -36,7 +44,10 @@ import {
   XCircle,
 } from "lucide-react";
 
-export const metadata = { title: "Onboarding" };
+export async function generateMetadata() {
+  const t = await getTranslations("sellerRelations");
+  return { title: t("onboarding.metaTitle") };
+}
 
 // Every figure on this page is read from the acting seller's own rows, so it must
 // never be prerendered or shared between sellers.
@@ -54,19 +65,14 @@ const DOCUMENT_UPLOAD_HREF = "/documents?upload=1";
 /**
  * Compliance documents Avenick expects from every seller. Typed as DocumentType
  * so the list is checked against the Prisma enum at compile time — if the enum
- * changes, this fails to build rather than silently drifting.
+ * changes, this fails to build rather than silently drifting. The NAME of each
+ * comes from sellerRelations.documentType.<TYPE> — the same key the Document
+ * Center reads, so the two surfaces cannot name one document differently — and
+ * the reason from sellerRelations.onboarding.required.<TYPE>.why.
  */
-const CORE_REQUIRED_DOCUMENTS: ReadonlyArray<{ type: DocumentType; label: string; why: string }> = [
-  {
-    type: "COMMERCIAL_REGISTRATION",
-    label: "Commercial Registration (CR)",
-    why: "Required for every seller account.",
-  },
-  {
-    type: "TRADE_LICENSE",
-    label: "Trade License",
-    why: "Valid trade license from your issuing authority.",
-  },
+const CORE_REQUIRED_DOCUMENTS: ReadonlyArray<{ type: DocumentType }> = [
+  { type: "COMMERCIAL_REGISTRATION" },
+  { type: "TRADE_LICENSE" },
 ];
 
 /**
@@ -84,31 +90,27 @@ type StepState = "COMPLETE" | "IN_PROGRESS" | "BLOCKED" | "PENDING";
 // light-only wash (bg-green-500/10, bg-amber-500/10, bg-muted) with no dark
 // counterpart; the tones below resolve to token triples that have real values in
 // both themes.
-const DOC_STATUS_CONFIG: Record<
-  EffectiveDocumentStatus,
-  { label: string; tone: PillTone; icon: typeof CheckCircle }
-> = {
-  APPROVED: { label: "Approved", tone: "success", icon: CheckCircle },
-  PENDING_REVIEW: { label: "Under review", tone: "warning", icon: Clock },
-  REJECTED: { label: "Rejected", tone: "danger", icon: XCircle },
-  EXPIRED: { label: "Expired", tone: "danger", icon: AlertTriangle },
-  MISSING: { label: "Not on file", tone: "neutral", icon: Circle },
-  SUPERSEDED: { label: "Replaced", tone: "neutral", icon: RefreshCw },
+// The KEYS are the effective status and are never translated; each label is
+// sellerRelations.onboarding.docStatus.<KEY>.
+const DOC_STATUS_CONFIG: Record<EffectiveDocumentStatus, { tone: PillTone; icon: typeof CheckCircle }> = {
+  APPROVED: { tone: "success", icon: CheckCircle },
+  PENDING_REVIEW: { tone: "warning", icon: Clock },
+  REJECTED: { tone: "danger", icon: XCircle },
+  EXPIRED: { tone: "danger", icon: AlertTriangle },
+  MISSING: { tone: "neutral", icon: Circle },
+  SUPERSEDED: { tone: "neutral", icon: RefreshCw },
 };
 
-const STEP_STATE_CONFIG: Record<StepState, { label: string; tone: PillTone; ink: string }> = {
-  COMPLETE: { label: "Complete", tone: "success", ink: "text-success-ink" },
-  IN_PROGRESS: { label: "In progress", tone: "warning", ink: "text-warning-ink" },
-  BLOCKED: { label: "Blocked by platform", tone: "warning", ink: "text-warning-ink" },
-  PENDING: { label: "Not started", tone: "neutral", ink: "text-ink-3" },
+// Labels live at sellerRelations.onboarding.stepState.<KEY>.
+const STEP_STATE_CONFIG: Record<StepState, { tone: PillTone; ink: string }> = {
+  COMPLETE: { tone: "success", ink: "text-success-ink" },
+  IN_PROGRESS: { tone: "warning", ink: "text-warning-ink" },
+  BLOCKED: { tone: "warning", ink: "text-warning-ink" },
+  PENDING: { tone: "neutral", ink: "text-ink-3" },
 };
 
-const SELLER_STATUS_LABEL: Record<string, string> = {
-  PENDING_REVIEW: "Pending review",
-  ACTIVE: "Active",
-  SUSPENDED: "Suspended",
-  REJECTED: "Rejected",
-};
+/** Statuses this page knows a label for; anything else prints its raw value. */
+const KNOWN_SELLER_STATUSES = ["PENDING_REVIEW", "ACTIVE", "SUSPENDED", "REJECTED"] as const;
 
 /** Enum → tone. The pill states the status; it never grades it. */
 const SELLER_STATUS_TONE: Record<string, PillTone> = {
@@ -145,14 +147,20 @@ function effectiveDocumentStatus(
  * renewal can actually sit in while an approval still holds; the rest are
  * spelled from the shared label so nothing is ever left unsaid.
  */
-function renewalNote(status: EffectiveDocumentStatus): { text: string; className: string } {
+function renewalNote(
+  status: EffectiveDocumentStatus,
+  t: (key: string, values?: Record<string, string | number>) => string,
+): { text: string; className: string } {
   switch (status) {
     case "PENDING_REVIEW":
-      return { text: "Renewal pending review", className: "text-warning-ink" };
+      return { text: t("onboarding.renewal.pending"), className: "text-warning-ink" };
     case "REJECTED":
-      return { text: "Renewal rejected", className: "text-danger-ink" };
+      return { text: t("onboarding.renewal.rejected"), className: "text-danger-ink" };
     default:
-      return { text: `Renewal ${DOC_STATUS_CONFIG[status].label.toLowerCase()}`, className: "text-ink-3" };
+      return {
+        text: t("onboarding.renewal.generic", { status: t(`onboarding.docStatus.${status}`).toLowerCase() }),
+        className: "text-ink-3",
+      };
   }
 }
 
@@ -163,8 +171,21 @@ function humaniseDocumentType(type: string): string {
     .join(" ");
 }
 
+/**
+ * The NAME of a document type, as the Document Center prints it. It comes from
+ * the message tree so both surfaces name the same document identically in both
+ * languages; SELLER_DOCUMENT_TYPE_LABELS is the fallback for a type the Prisma
+ * enum grows before this namespace does, and humaniseDocumentType the last
+ * resort so an unknown value still reads as words rather than as an enum.
+ */
+function documentTypeLabel(type: string, t: (key: string) => string): string {
+  if ((SELLER_DOCUMENT_TYPES as readonly string[]).includes(type)) return t(`documentType.${type}`);
+  return SELLER_DOCUMENT_TYPE_LABELS[type as DocumentType] ?? humaniseDocumentType(type);
+}
+
 export default async function OnboardingPage() {
   const { seller, membership } = await requireSellerAnyPermission(["documents.view", "documents.manage"]);
+  const t = await getTranslations("sellerRelations");
 
   // Everything below is scoped to the acting seller resolved from the session.
   // No identifier is taken from the request.
@@ -193,13 +214,17 @@ export default async function OnboardingPage() {
   // registration number — that is a real column, not an assumption about the seller.
   const vatRegistered = Boolean(seller.vatNumber?.trim());
   const requiredDocuments = [
-    ...CORE_REQUIRED_DOCUMENTS,
+    ...CORE_REQUIRED_DOCUMENTS.map((d) => ({
+      type: d.type,
+      label: documentTypeLabel(d.type, t),
+      why: t(`onboarding.required.${d.type}.why`),
+    })),
     {
       type: "VAT_CERTIFICATE" as DocumentType,
-      label: "VAT Certificate",
+      label: documentTypeLabel("VAT_CERTIFICATE", t),
       why: vatRegistered
-        ? `Required because VAT number ${seller.vatNumber} is recorded on your profile.`
-        : "Only required if your account carries a VAT registration number. None is recorded on your profile.",
+        ? t("onboarding.required.VAT_CERTIFICATE.whyRegistered", { vatNumber: seller.vatNumber ?? "" })
+        : t("onboarding.required.VAT_CERTIFICATE.whyNotRegistered"),
     },
   ];
 
@@ -241,7 +266,7 @@ export default async function OnboardingPage() {
   // The profile and payout tests live in ./readiness because the dashboard's
   // checklist renders the same two claims and used to disagree with this page
   // about both of them.
-  const missingProfile = missingProfileFields(seller);
+  const missingProfile = missingProfileFieldKeys(seller).map((key) => t(`onboarding.profileFields.${key}`));
   const profileComplete = missingProfile.length === 0;
 
   const payoutReady = hasPayoutDetails(seller.bankDetails);
@@ -253,41 +278,43 @@ export default async function OnboardingPage() {
   const steps = [
     {
       id: "profile",
-      label: "Business profile",
+      label: t("onboarding.steps.profile.label"),
       icon: User,
       href: "/settings",
       permissions: ["settings.manage"],
       state: (profileComplete ? "COMPLETE" : "IN_PROGRESS") as StepState,
       desc: profileComplete
-        ? "Arabic name, description, and logo are all on file."
-        : `Still missing: ${missingProfile.join(", ")}.`,
+        ? t("onboarding.steps.profile.complete")
+        : t("onboarding.steps.profile.missing", { fields: missingProfile.join(t("common.listSeparator")) }),
     },
     {
       id: "documents",
-      label: "Compliance documents",
+      label: t("onboarding.steps.documents.label"),
       icon: ShieldCheck,
       href: DOCUMENT_CENTER_HREF,
       permissions: ["documents.view", "documents.manage"],
       state: documentStepState,
       desc:
         applicableDocumentRows.length === 0
-          ? "No compliance documents apply to this account."
-          : `${approvedRequiredCount} of ${applicableDocumentRows.length} required document${applicableDocumentRows.length === 1 ? "" : "s"} approved.`,
+          ? t("onboarding.steps.documents.none")
+          : t("onboarding.steps.documents.approved", {
+              count: applicableDocumentRows.length,
+              approved: String(approvedRequiredCount),
+              n: String(applicableDocumentRows.length),
+            }),
     },
     {
       id: "payout",
-      label: "Payout details",
+      label: t("onboarding.steps.payout.label"),
       icon: CreditCard,
       href: "/settings",
       permissions: ["settings.manage"],
       state: (payoutReady ? "COMPLETE" : "PENDING") as StepState,
-      desc: payoutReady
-        ? "Bank details are recorded for settlement."
-        : "No bank details are recorded on your profile, so payouts cannot be settled.",
+      desc: payoutReady ? t("onboarding.steps.payout.complete") : t("onboarding.steps.payout.missing"),
     },
     {
       id: "products",
-      label: "Product listings",
+      label: t("onboarding.steps.products.label"),
       icon: Package,
       href: "/products",
       permissions: ["catalog.view", "catalog.manage"],
@@ -298,20 +325,24 @@ export default async function OnboardingPage() {
           : "PENDING") as StepState,
       desc:
         totalProductCount === 0
-          ? "You have no products in the catalogue yet."
-          : `${activeProductCount} active of ${totalProductCount} product${totalProductCount === 1 ? "" : "s"} in your catalogue.`,
+          ? t("onboarding.steps.products.none")
+          : t("onboarding.steps.products.active", {
+              count: totalProductCount,
+              active: String(activeProductCount),
+              n: String(totalProductCount),
+            }),
     },
     {
       id: "first-order",
-      label: "First order",
+      label: t("onboarding.steps.firstOrder.label"),
       icon: ShoppingCart,
       href: "/orders",
       permissions: ["orders.view", "orders.fulfill"],
       state: (orderItemCount > 0 ? "COMPLETE" : "PENDING") as StepState,
       desc:
         orderItemCount > 0
-          ? `${orderItemCount} order line${orderItemCount === 1 ? "" : "s"} received to date.`
-          : "No buyer has ordered from you yet.",
+          ? t("onboarding.steps.firstOrder.received", { count: orderItemCount, n: String(orderItemCount) })
+          : t("onboarding.steps.firstOrder.none"),
     },
   ];
 
@@ -331,12 +362,16 @@ export default async function OnboardingPage() {
       <div className="max-w-2xl space-y-block">
         <PageHeader
           className="mb-0"
-          eyebrow="Store readiness"
-          title="Onboarding"
-          description={`Every item below reflects what is recorded for ${seller.businessNameEn} right now. Nothing on this page is an example.`}
+          eyebrow={t("onboarding.eyebrow")}
+          title={t("onboarding.title")}
+          description={t("onboarding.description", { seller: seller.businessNameEn })}
           actions={
             <StatusPill tone={SELLER_STATUS_TONE[seller.status] ?? "neutral"} dot>
-              Account status: {SELLER_STATUS_LABEL[seller.status] ?? seller.status}
+              {t("onboarding.accountStatus", {
+                status: (KNOWN_SELLER_STATUSES as readonly string[]).includes(seller.status)
+                  ? t(`sellerStatus.${seller.status}`)
+                  : seller.status,
+              })}
             </StatusPill>
           }
         />
@@ -353,7 +388,7 @@ export default async function OnboardingPage() {
         <FieldWell className="p-4 sm:p-5">
           <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
             <div className="min-w-0">
-              <Eyebrow>Overall progress</Eyebrow>
+              <Eyebrow>{t("onboarding.overallProgress")}</Eyebrow>
               <div className="mt-1">
                 <Num value={progress} unit="%" rank="hero" />
               </div>
@@ -364,13 +399,15 @@ export default async function OnboardingPage() {
               max={steps.length}
               tone="accent"
               size="lg"
-              label={`Onboarding progress: ${completedSteps} of ${steps.length} steps complete`}
+              label={t("onboarding.progressMeterLabel", { completed: String(completedSteps), total: String(steps.length) })}
             />
           </div>
           <Dateline className="mt-2">
-            {completedSteps} of {steps.length} steps complete
-            {blockedSteps > 0 ? ` · ${blockedSteps} blocked by the platform` : ""}
-            {nextStep ? ` · next: ${nextStep.label.toLowerCase()}` : " · nothing outstanding"}
+            {t("onboarding.stepsComplete", { completed: String(completedSteps), total: String(steps.length) })}
+            {blockedSteps > 0 ? ` · ${t("onboarding.blockedByPlatform", { n: String(blockedSteps) })}` : ""}
+            {nextStep
+              ? ` · ${t("onboarding.nextIs", { step: nextStep.label.toLowerCase() })}`
+              : ` · ${t("onboarding.nothingOutstanding")}`}
           </Dateline>
         </FieldWell>
 
@@ -429,7 +466,7 @@ export default async function OnboardingPage() {
                     // its three permitted uses in the whole product is exactly
                     // this — the active indicator.
                     <Eyebrow tone="brass" className="mb-0.5">
-                      Next step
+                      {t("onboarding.nextStep")}
                     </Eyebrow>
                   )}
                   <div className="flex flex-wrap items-center gap-2">
@@ -437,7 +474,7 @@ export default async function OnboardingPage() {
                         from the four around it. Two adjacent ranks that differ
                         only in colour are the same rank. */}
                     <p className={cn(isCurrent ? "u-h3 text-ink-1" : "u-ui font-medium text-ink-1")}>{step.label}</p>
-                    <StatusPill tone={cfg.tone}>{cfg.label}</StatusPill>
+                    <StatusPill tone={cfg.tone}>{t(`onboarding.stepState.${step.state}`)}</StatusPill>
                   </div>
                   <p className={cn("mt-0.5 text-ink-2", isCurrent ? "u-body" : "u-meta")}>{step.desc}</p>
                 </div>
@@ -466,11 +503,11 @@ export default async function OnboardingPage() {
           <div className="border-b border-hairline px-4 pt-4 pb-3">
             <SectionHeader
               className="mb-0"
-              title="Required documents"
-              dateline="Status is read from your document records · a type with no record shows as “Not on file”"
+              title={t("onboarding.requiredDocuments")}
+              dateline={t("onboarding.requiredDateline", { notOnFile: t("onboarding.docStatus.MISSING") })}
               action={
                 <Button variant="link" size="sm" asChild>
-                  <Link href={DOCUMENT_CENTER_HREF}>Document Center</Link>
+                  <Link href={DOCUMENT_CENTER_HREF}>{t("onboarding.documentCenter")}</Link>
                 </Button>
               }
             />
@@ -479,11 +516,15 @@ export default async function OnboardingPage() {
           {missingRequiredCount > 0 && (
             <FieldWell className="rounded-none border-x-0 border-t-0 border-b-hairline px-4 py-3">
               <p className="u-meta text-ink-2">
-                A document shown as “Not on file” can be submitted from the{" "}
-                <Link href={DOCUMENT_UPLOAD_HREF} className="u-focus rounded-nested font-medium text-primary-ink underline">
-                  Document Center
-                </Link>
-                . Each upload is reviewed before it counts as approved.
+                {t.rich("onboarding.missingNotice", {
+                  notOnFile: t("onboarding.docStatus.MISSING"),
+                  center: t("onboarding.documentCenter"),
+                  link: (chunks) => (
+                    <Link href={DOCUMENT_UPLOAD_HREF} className="u-focus rounded-nested font-medium text-primary-ink underline">
+                      {chunks}
+                    </Link>
+                  ),
+                })}
               </p>
             </FieldWell>
           )}
@@ -498,7 +539,7 @@ export default async function OnboardingPage() {
               const renewal =
                 doc.renewal && doc.renewalStatus
                   ? {
-                      ...renewalNote(doc.renewalStatus),
+                      ...renewalNote(doc.renewalStatus, t),
                       Icon: DOC_STATUS_CONFIG[doc.renewalStatus].icon,
                       fileName: doc.renewal.fileName,
                       filed: doc.renewal.uploadedAt.toISOString().slice(0, 10),
@@ -513,13 +554,16 @@ export default async function OnboardingPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="u-ui font-medium text-ink-1">{doc.label}</p>
-                      {!doc.applicable && <StatusPill tone="neutral">Not required</StatusPill>}
+                      {!doc.applicable && <StatusPill tone="neutral">{t("onboarding.notRequired")}</StatusPill>}
                     </div>
                     <p className="u-meta mt-0.5 text-ink-2">{doc.why}</p>
                     {doc.row && (
                       <p className="u-meta mt-1 truncate text-ink-3">
-                        <span className="u-mono">{doc.row.fileName}</span> · filed {doc.row.uploadedAt.toISOString().slice(0, 10)}
-                        {doc.row.expiryDate ? ` · expires ${doc.row.expiryDate.toISOString().slice(0, 10)}` : ""}
+                        <span className="u-mono">{doc.row.fileName}</span> ·{" "}
+                        {t("onboarding.filedOn", { date: doc.row.uploadedAt.toISOString().slice(0, 10) })}
+                        {doc.row.expiryDate
+                          ? ` · ${t("onboarding.expiresOn", { date: doc.row.expiryDate.toISOString().slice(0, 10) })}`
+                          : ""}
                       </p>
                     )}
                     {/* A supersession reason is not a refusal; the "Replaced" badge already says what happened. */}
@@ -531,7 +575,8 @@ export default async function OnboardingPage() {
                       <p className={cn("u-meta mt-1 flex items-start gap-1", renewal.className)}>
                         <renewal.Icon className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
                         <span className="min-w-0 break-words">
-                          {renewal.text} · {renewal.fileName} filed {renewal.filed}
+                          {renewal.text} · {renewal.fileName}{" "}
+                          {t("onboarding.filedOn", { date: renewal.filed })}
                           {renewal.reason}
                         </span>
                       </p>
@@ -539,7 +584,7 @@ export default async function OnboardingPage() {
                   </div>
                   <StatusPill tone={cfg.tone} className="shrink-0">
                     <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                    {cfg.label}
+                    {t(`onboarding.docStatus.${doc.status}`)}
                   </StatusPill>
                 </div>
               );
@@ -549,7 +594,7 @@ export default async function OnboardingPage() {
           {additionalDocuments.length > 0 && (
             <div className="border-t border-hairline">
               <FieldWell className="rounded-none border-x-0 border-t-0 border-b-hairline px-4 py-2">
-                <Eyebrow>Other documents on file</Eyebrow>
+                <Eyebrow>{t("onboarding.otherDocuments")}</Eyebrow>
               </FieldWell>
               <div className="divide-y divide-hairline">
                 {additionalDocuments.map((doc) => {
@@ -559,12 +604,12 @@ export default async function OnboardingPage() {
                   return (
                     <div key={doc.id} className="flex items-center justify-between gap-3 px-4 py-3">
                       <div className="min-w-0">
-                        <p className="u-ui font-medium text-ink-1">{humaniseDocumentType(doc.type)}</p>
+                        <p className="u-ui font-medium text-ink-1">{documentTypeLabel(doc.type, t)}</p>
                         <p className="u-meta u-mono truncate text-ink-3">{doc.fileName}</p>
                       </div>
                       <StatusPill tone={cfg.tone} className="shrink-0">
                         <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                        {cfg.label}
+                        {t(`onboarding.docStatus.${status}`)}
                       </StatusPill>
                     </div>
                   );
@@ -576,12 +621,12 @@ export default async function OnboardingPage() {
           {documents.length === 0 && (
             <div className="border-t border-hairline">
               <EmptyState
-                eyebrow="Nothing filed"
-                headline="No document has ever been filed against this account."
-                body={`Nothing is recorded for ${seller.businessNameEn}, so your compliance obligations are not yet satisfied.`}
+                eyebrow={t("onboarding.empty.eyebrow")}
+                headline={t("onboarding.empty.headline")}
+                body={t("onboarding.empty.body", { seller: seller.businessNameEn })}
                 action={
                   <Button variant="primary" size="sm" asChild>
-                    <Link href={DOCUMENT_UPLOAD_HREF}>Upload a document</Link>
+                    <Link href={DOCUMENT_UPLOAD_HREF}>{t("onboarding.empty.action")}</Link>
                   </Button>
                 }
               />

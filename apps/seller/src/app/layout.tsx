@@ -1,15 +1,25 @@
 import type { Metadata } from "next";
 import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages } from "next-intl/server";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { AuthProvider } from "@/components/auth-provider";
 import { AmbientField, EnvironmentFlags, RevealRoot } from "@avenick/ui";
 import { platformName } from "@avenick/utils/portal-config";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: { default: `Seller Central | ${platformName()}`, template: "%s | Seller Central" },
-  description: `${platformName()} Seller Central — manage your store`,
-};
+/**
+ * The document title and description are the first strings a supplier reads, so
+ * they are message-tree strings like everything else — which means they cannot
+ * be a module-scope constant any more: a translator only exists inside a
+ * request. The platform name stays dynamic and travels in as an interpolation
+ * value rather than being written into either translation.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("sellerShell.meta");
+  return {
+    title: { default: t("title", { platform: platformName() }), template: t("titleTemplate") },
+    description: t("description", { platform: platformName() }),
+  };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();

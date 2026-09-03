@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { requireSellerAnyPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { db } from "@avenick/database";
@@ -19,23 +20,33 @@ import {
 } from "@avenick/ui";
 import { Truck, Package, CheckCircle2, MapPin, ArrowRight } from "lucide-react";
 
-export const metadata = { title: "Shipments" };
+// generateMetadata rather than a static object: a document title is a
+// user-visible string, and a literal here read English at an Arabic desk.
+export async function generateMetadata() {
+  const t = await getTranslations("sellerOps");
+  return { title: t("shipments.metaTitle") };
+}
 
 /**
- * Every ShipmentStatus in the schema, with the label a seller reads and the tone
- * it maps to. The seven raw wash colours this map used to carry — including a
- * hardcoded `bg-amber-500/15 text-amber-600 dark:text-amber-400` — had no dark
- * counterpart for the two soft washes and no shared vocabulary with the rest of
- * the portal. Tone names do both jobs in one place.
+ * Every ShipmentStatus in the schema, mapped to the tone it carries. The seven
+ * raw wash colours this map used to carry — including a hardcoded
+ * `bg-amber-500/15 text-amber-600 dark:text-amber-400` — had no dark counterpart
+ * for the two soft washes and no shared vocabulary with the rest of the portal.
+ * Tone names do both jobs in one place.
+ *
+ * The LABEL half of this map has moved to the message tree, at
+ * sellerOps.shipments.status.<ENUM> — this is module scope and has no translator
+ * in it, and a label a seller reads has to be able to be Arabic. The enum keys
+ * stay exactly as the schema writes them.
  */
-const STATUS: Record<string, { label: string; tone: PillTone }> = {
-  PENDING: { label: "Pending", tone: "neutral" },
-  PICKED_UP: { label: "Picked up", tone: "accent" },
-  IN_TRANSIT: { label: "In transit", tone: "primary" },
-  OUT_FOR_DELIVERY: { label: "Out for delivery", tone: "warning" },
-  DELIVERED: { label: "Delivered", tone: "success" },
-  FAILED: { label: "Failed", tone: "danger" },
-  RETURNED: { label: "Returned", tone: "neutral" },
+const STATUS_TONE: Record<string, PillTone> = {
+  PENDING: "neutral",
+  PICKED_UP: "accent",
+  IN_TRANSIT: "primary",
+  OUT_FOR_DELIVERY: "warning",
+  DELIVERED: "success",
+  FAILED: "danger",
+  RETURNED: "neutral",
 };
 
 /**
@@ -45,17 +56,31 @@ const STATUS: Record<string, { label: string; tone: PillTone }> = {
  */
 const STAGES = ["PENDING", "PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY", "DELIVERED"] as const;
 
-const NEXT_LABEL: Record<string, { verb: string; target: string }> = {
-  PENDING: { verb: "Mark picked up", target: "PICKED_UP" },
-  PICKED_UP: { verb: "Mark in transit", target: "IN_TRANSIT" },
-  IN_TRANSIT: { verb: "Out for delivery", target: "OUT_FOR_DELIVERY" },
-  OUT_FOR_DELIVERY: { verb: "Mark delivered", target: "DELIVERED" },
+// Current status → the status the button writes. The button's VERB for each
+// current status is sellerOps.shipments.advance.<ENUM>, in the message tree for
+// the same reason the labels are.
+const NEXT_TARGET: Record<string, string> = {
+  PENDING: "PICKED_UP",
+  PICKED_UP: "IN_TRANSIT",
+  IN_TRANSIT: "OUT_FOR_DELIVERY",
+  OUT_FOR_DELIVERY: "DELIVERED",
 };
 
 const fmt = (d: Date | null) => (d ? format(d, "MMM d · HH:mm") : "—");
 
 export default async function ShipmentsPage() {
+  const t = await getTranslations("sellerOps");
   const { seller, membership } = await requireSellerAnyPermission(["shipments.view", "shipments.manage"]);
+
+  /**
+   * A status arrives as a string from this page's own query. An enum nobody has
+   * named yet is still a fact about the shipment, so it is shown as it reads
+   * rather than dropped or relabelled — the same rule the map above kept before
+   * its labels moved into the message tree.
+   */
+  const statusLabel = (status: string) =>
+    t.has(`shipments.status.${status}`) ? t(`shipments.status.${status}`) : status.replace(/_/g, " ");
+  const statusTone = (status: string): PillTone => STATUS_TONE[status] ?? "neutral";
 
   const shipments = await db.shipment.findMany({
     where: { sellerId: seller.id },
@@ -74,32 +99,35 @@ export default async function ShipmentsPage() {
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Fulfilment"
-          title="Shipments"
-          description="Track and update carrier progress for your orders."
+          eyebrow={t("shipments.eyebrow")}
+          title={t("shipments.title")}
+          description={t("shipments.description")}
           // LAW E. These three counts are computed from the 100 rows this query
           // takes, not from the seller's whole shipment history, and the tile
           // labelled "Total" used to read as if it were the latter.
-          dateline={`Your ${shipments.length} most recent shipments · the counts below describe this view, not your full history`}
+          // `n` is the same figure as `count`, passed as a STRING: `count`
+          // selects the plural form, and a bare number would render in the
+          // locale's own numeral system where this product uses Western digits.
+          dateline={t("shipments.dateline", { count: shipments.length, n: String(shipments.length) })}
         />
 
         <CellGrid cols={{ base: 3 }}>
-          <Stat label="In transit" value={inTransit} icon={Truck} chip={inTransit > 0 ? "warning" : "neutral"} />
+          <Stat label={t("shipments.stats.inTransit")} value={inTransit} icon={Truck} chip={inTransit > 0 ? "warning" : "neutral"} />
           {/* Conditional, like the tile beside it: a success chip over a zero
               count colours an absence as an achievement. */}
-          <Stat label="Delivered" value={delivered} icon={CheckCircle2} chip={delivered > 0 ? "success" : "neutral"} />
-          <Stat label="Shown here" value={shipments.length} icon={Package} />
+          <Stat label={t("shipments.stats.delivered")} value={delivered} icon={CheckCircle2} chip={delivered > 0 ? "success" : "neutral"} />
+          <Stat label={t("shipments.stats.shownHere")} value={shipments.length} icon={Package} />
         </CellGrid>
 
         {shipments.length === 0 ? (
           <Surface rung={1}>
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline="No shipments have been created on your account."
-              body="A shipment appears here once a confirmed order is released to a carrier."
+              eyebrow={t("shipments.empty.eyebrow")}
+              headline={t("shipments.empty.headline")}
+              body={t("shipments.empty.body")}
               action={
                 <Button variant="secondary" size="sm" asChild>
-                  <Link href="/orders">Review your orders</Link>
+                  <Link href="/orders">{t("shipments.empty.action")}</Link>
                 </Button>
               }
             />
@@ -107,8 +135,9 @@ export default async function ShipmentsPage() {
         ) : (
           <ul className="space-y-3">
             {shipments.map((sh) => {
-              const st = STATUS[sh.status] ?? { label: sh.status.replace(/_/g, " "), tone: "neutral" as PillTone };
-              const next = NEXT_LABEL[sh.status];
+              const stLabel = statusLabel(sh.status);
+              const nextTarget = NEXT_TARGET[sh.status];
+              const nextVerb = nextTarget ? t(`shipments.advance.${sh.status}`) : "";
               const stageIndex = (STAGES as readonly string[]).indexOf(sh.status);
 
               return (
@@ -119,17 +148,17 @@ export default async function ShipmentsPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           {/* Mono is for identifiers. A shipment number is one. */}
                           <span className="u-mono text-ui font-medium text-ink-1">{sh.shipmentNumber}</span>
-                          <StatusPill tone={st.tone} dot>{st.label}</StatusPill>
+                          <StatusPill tone={statusTone(sh.status)} dot>{stLabel}</StatusPill>
                         </div>
                         <p className="u-meta mt-1 text-ink-3">
-                          Order <span className="u-mono text-ink-2">{sh.order.orderNumber}</span>
+                          {t("shipments.orderLabel")} <span className="u-mono text-ink-2">{sh.order.orderNumber}</span>
                           {" · "}
-                          {sh.carrier ?? "Carrier not recorded"}
+                          {sh.carrier ?? t("shipments.carrierNotRecorded")}
                           {sh.trackingNumber ? <> · <span className="u-mono text-ink-2">{sh.trackingNumber}</span></> : null}
                         </p>
                       </div>
 
-                      {next && (
+                      {nextTarget && (
                         <form action={advanceShipment.bind(null, sh.id)} className="shrink-0 text-end">
                           {/* Secondary, not a primary fill. There can be a hundred
                               of these on one screen, and the portal's budget is a
@@ -142,9 +171,9 @@ export default async function ShipmentsPage() {
                             type="submit"
                             variant="secondary"
                             size="sm"
-                            aria-label={`${next.verb} for shipment ${sh.shipmentNumber}`}
+                            aria-label={t("shipments.advanceAria", { verb: nextVerb, number: sh.shipmentNumber })}
                           >
-                            {next.verb}
+                            {nextVerb}
                             <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />
                           </Button>
                           {/* u-meta, not u-micro: this is a sentence, and the
@@ -154,7 +183,7 @@ export default async function ShipmentsPage() {
                               same reason: ink-3 is reserved for labels and
                               metadata, never for prose. */}
                           <p className="u-meta mt-1.5 text-ink-2">
-                            Records a {STATUS[next.target]?.label ?? next.target} event
+                            {t("shipments.recordsEvent", { status: statusLabel(nextTarget) })}
                           </p>
                         </form>
                       )}
@@ -170,7 +199,11 @@ export default async function ShipmentsPage() {
                       <div
                         className="mt-3 flex items-center"
                         role="img"
-                        aria-label={`Stage ${stageIndex + 1} of ${STAGES.length}: ${st.label}`}
+                        aria-label={t("shipments.railLabel", {
+                          index: String(stageIndex + 1),
+                          total: String(STAGES.length),
+                          status: stLabel,
+                        })}
                       >
                         {STAGES.map((stage, i) => (
                           <div key={stage} className="flex flex-1 items-center last:flex-none">
@@ -191,14 +224,14 @@ export default async function ShipmentsPage() {
                       </div>
                     ) : (
                       <Dateline className="mt-2">
-                        This shipment left the carrier sequence and is recorded as {st.label.toLowerCase()}
+                        {t("shipments.offSequence", { status: stLabel.toLowerCase() })}
                       </Dateline>
                     )}
 
                     {sh.events.length > 0 && (
                       <>
                         <Divider className="my-3" />
-                        <Eyebrow className="mb-2">Carrier events</Eyebrow>
+                        <Eyebrow className="mb-2">{t("shipments.eventsHeading")}</Eyebrow>
                         <ol className="space-y-2">
                           {sh.events.map((ev, i) => (
                             <li key={ev.id} className="flex gap-2.5">
@@ -208,7 +241,11 @@ export default async function ShipmentsPage() {
                               />
                               <div className="min-w-0">
                                 <p className={`u-ui ${i === 0 ? "text-ink-1" : "text-ink-2"}`}>
-                                  {ev.note ?? (STATUS[ev.status]?.label ?? ev.status.replace(/_/g, " "))}
+                                  {/* ev.note is a stored record written at the
+                                      time of the event, so it is shown verbatim;
+                                      only the fallback — the event's own status —
+                                      is read out of the message tree. */}
+                                  {ev.note ?? statusLabel(ev.status)}
                                 </p>
                                 <p className="u-meta flex flex-wrap items-center gap-1 text-ink-3">
                                   {ev.location && (

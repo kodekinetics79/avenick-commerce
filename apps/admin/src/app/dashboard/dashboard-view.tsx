@@ -10,6 +10,7 @@ import {
 } from "@avenick/ui";
 import type { ExecutiveKpis } from "@avenick/database";
 import { cn } from "@avenick/utils";
+import { useTranslations } from "next-intl";
 import {
   TrendingUp, TrendingDown, Building2, Users, Store, ShoppingCart, Coins, Truck,
   Boxes, FileQuestion, ArrowRight, Circle, Plus, UserPlus, Megaphone, Tag,
@@ -19,11 +20,13 @@ const ICON_MAP: Record<string, React.ElementType> = {
   TrendingDown, Truck, FileQuestion, ShoppingCart, Boxes, Coins,
 };
 
+// A stable `key` rather than a display string: this map sits at module scope,
+// where no translator is in scope, so the label is looked up at render.
 const QUICK_ACTIONS = [
-  { label: "Create RFQ", icon: Plus, href: "/rfqs" },
-  { label: "Invite supplier", icon: UserPlus, href: "/sellers/pending" },
-  { label: "Launch campaign", icon: Megaphone, href: "/campaigns" },
-  { label: "Warehouse queue", icon: Boxes, href: "/warehouse/pickpack" },
+  { key: "createRfq", icon: Plus, href: "/rfqs" },
+  { key: "inviteSupplier", icon: UserPlus, href: "/sellers/pending" },
+  { key: "launchCampaign", icon: Megaphone, href: "/campaigns" },
+  { key: "warehouseQueue", icon: Boxes, href: "/warehouse/pickpack" },
 ];
 
 // The KPI contract is the service's own declaration (a type-only import, so
@@ -91,6 +94,7 @@ interface Signal {
 }
 
 export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, activeSuppliers, pendingCount }: DashboardViewProps) {
+  const t = useTranslations("adminShell.dashboard");
   const k = exec.kpis;
 
   // The service reports null for any trend it did not measure — no prior
@@ -106,22 +110,22 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
     // hero-rank figure on the count that needs a person, and a console that
     // shouts its revenue as loudly as its alarms has told the operator nothing
     // about which to read first.
-    { label: "GMV · this month", value: amount(gmvMonth), icon: TrendingUp, trend: k.gmvTrend, rank: "section" },
+    { label: t("revenue.gmvMonth"), value: amount(gmvMonth), icon: TrendingUp, trend: k.gmvTrend, rank: "section" },
     // The service computes the B2B/B2C split and commission over all paid
     // orders, not the current month, so the labels say so; each trend is that
     // channel's own month-over-month movement.
-    { label: "B2B revenue · all time", value: amount(k.b2bRevenue), icon: Building2, trend: k.b2bTrend, rank: "section" },
-    { label: "B2C revenue · all time", value: amount(k.b2cRevenue), icon: ShoppingCart, trend: k.b2cTrend, rank: "section" },
-    { label: "Commission · all time", value: amount(k.commission), icon: Coins, trend: k.commissionTrend, rank: "section" },
+    { label: t("revenue.b2bAllTime"), value: amount(k.b2bRevenue), icon: Building2, trend: k.b2bTrend, rank: "section" },
+    { label: t("revenue.b2cAllTime"), value: amount(k.b2cRevenue), icon: ShoppingCart, trend: k.b2cTrend, rank: "section" },
+    { label: t("revenue.commissionAllTime"), value: amount(k.commission), icon: Coins, trend: k.commissionTrend, rank: "section" },
   ];
 
   const countKpis: { label: string; value: string | number; unit?: string; icon: React.ElementType }[] = [
-    { label: "Active companies", value: activeCompanies || k.activeCompanies, icon: Building2 },
-    { label: "B2C customers", value: k.activeCustomers.toLocaleString(), icon: Users },
-    { label: "Active suppliers", value: activeSuppliers || k.activeSuppliers, icon: Store },
-    { label: "RFQ conversion", value: k.rfqConversion, unit: "%", icon: FileQuestion },
-    { label: "Fulfillment rate", value: k.fulfillmentRate, unit: "%", icon: TrendingUp },
-    { label: "Warehouse use", value: k.warehouseUtilization, unit: "%", icon: Boxes },
+    { label: t("counts.activeCompanies"), value: activeCompanies || k.activeCompanies, icon: Building2 },
+    { label: t("counts.b2cCustomers"), value: k.activeCustomers.toLocaleString("en"), icon: Users },
+    { label: t("counts.activeSuppliers"), value: activeSuppliers || k.activeSuppliers, icon: Store },
+    { label: t("counts.rfqConversion"), value: k.rfqConversion, unit: "%", icon: FileQuestion },
+    { label: t("counts.fulfillmentRate"), value: k.fulfillmentRate, unit: "%", icon: TrendingUp },
+    { label: t("counts.warehouseUse"), value: k.warehouseUtilization, unit: "%", icon: Boxes },
   ];
 
   // One ledger for everything that might need a person, instead of the three
@@ -138,8 +142,8 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
     })),
     // The service counts paid orders still CONFIRMED/PROCESSING past its own
     // age threshold; no SLA is published, so none is claimed here.
-    { key: "delayed", label: "Delayed orders", note: "paid, still awaiting shipment", value: k.delayedOrders, href: "/orders?status=PROCESSING", tone: "danger" as const },
-    { key: "disputes", label: "Open disputes", note: "awaiting resolution", value: k.openDisputes, href: "/disputes", tone: "danger" as const },
+    { key: "delayed", label: t("signals.delayedLabel"), note: t("signals.delayedNote"), value: k.delayedOrders, href: "/orders?status=PROCESSING", tone: "danger" as const },
+    { key: "disputes", label: t("signals.disputesLabel"), note: t("signals.disputesNote"), value: k.openDisputes, href: "/disputes", tone: "danger" as const },
   ]
     // A danger signal at zero is not a signal; a health row at zero still is,
     // because "0 open tickets" is a reading an operator came here to take.
@@ -182,19 +186,15 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
         <FieldWell className="p-4">
           <div className="grid gap-5 lg:grid-cols-12 lg:items-end">
             <div className="min-w-0 lg:col-span-7">
-              <Eyebrow>Platform operations</Eyebrow>
-              <h1 className="u-h2 mt-1 text-ink-1">Executive Command Center</h1>
-              <p className="u-body mt-1.5 max-w-prose text-ink-2">
-                Marketplace performance across B2B and B2C — revenue, suppliers, fulfillment, and rule-based actions.
-              </p>
-              <Dateline className="mt-2">
-                Every figure on this page is read from the platform database at request time.
-              </Dateline>
+              <Eyebrow>{t("masthead.eyebrow")}</Eyebrow>
+              <h1 className="u-h2 mt-1 text-ink-1">{t("masthead.title")}</h1>
+              <p className="u-body mt-1.5 max-w-prose text-ink-2">{t("masthead.lead")}</p>
+              <Dateline className="mt-2">{t("masthead.dateline")}</Dateline>
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                {QUICK_ACTIONS.map(({ label, icon: Icon, href }) => (
-                  <Button key={label} variant="secondary" size="sm" asChild>
+                {QUICK_ACTIONS.map(({ key, icon: Icon, href }) => (
+                  <Button key={key} variant="secondary" size="sm" asChild>
                     <Link href={href}>
-                      <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {label}
+                      <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {t(`quickActions.${key}`)}
                     </Link>
                   </Button>
                 ))}
@@ -217,7 +217,7 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                 forty rows tracking a pointer is a composite storm. */}
             <SpecularSurface className="lg:col-span-5">
               <Surface rung={3} rim specular className="h-full p-4">
-                <Eyebrow tone={flagged > 0 ? "brass" : "muted"}>Needs a person now</Eyebrow>
+                <Eyebrow tone={flagged > 0 ? "brass" : "muted"}>{t("attention.eyebrow")}</Eyebrow>
                 {/* <Num>, not a hand-set figure: it is the structural guarantee
                     that a digit is never the animated element. A count that ticks
                     up is a count an operator cannot trust. */}
@@ -231,9 +231,12 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                     healthier. The ledger under it carries the denominator, where
                     it is the true one. */}
                 <p className="u-provenance mt-1 text-ui text-ink-2">
+                  {/* The count goes in twice: as a number so ICU picks the plural
+                      form — Arabic has six — and as a string so the digits stay
+                      Western inside the Arabic sentence. */}
                   {flagged > 0
-                    ? `${flagged === 1 ? "One signal" : `${flagged} signals`} on this console ${flagged === 1 ? "is" : "are"} flagged right now.`
-                    : "No signal on this console is flagged right now."}
+                    ? t("attention.flagged", { count: flagged, value: String(flagged) })
+                    : t("attention.none")}
                 </p>
                 {/* The flagged signals themselves, at metadata rank, each one a
                     route to the screen that resolves it. The 3px inline-start rule
@@ -260,10 +263,7 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                       ))}
                   </ul>
                 ) : (
-                  <p className="u-meta mt-3 text-ink-3">
-                    Seller applications, support tickets, stock lines and unfulfilled paid orders are all inside their
-                    thresholds.
-                  </p>
+                  <p className="u-meta mt-3 text-ink-3">{t("attention.withinThresholds")}</p>
                 )}
               </Surface>
             </SpecularSurface>
@@ -272,15 +272,19 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
 
         {/* The full ledger behind the reading above. It stays a table because an
             operator works it row by row; the masthead only states its headline. */}
-        <section aria-label="Operational signals">
+        <section aria-label={t("signals.sectionLabel")}>
           <SectionHeader
-            title="Operational signals"
+            title={t("signals.title")}
             description={
               flagged > 0
-                ? `${flagged} of ${signals.length} ${flagged === 1 ? "needs" : "need"} attention.`
-                : `${signals.length} tracked, none currently flagged.`
+                ? t("signals.descriptionFlagged", {
+                    count: flagged,
+                    value: String(flagged),
+                    total: String(signals.length),
+                  })
+                : t("signals.descriptionClear", { total: String(signals.length) })
             }
-            dateline="Live counts of seller applications, support tickets, stock lines and unfulfilled paid orders."
+            dateline={t("signals.dateline")}
           />
           <LedgerTable
             rows={signals}
@@ -299,7 +303,7 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
             columns={[
               {
                 key: "label",
-                label: "Signal",
+                label: t("signals.columnSignal"),
                 render: (s) => (
                   <>
                     <Link
@@ -312,24 +316,24 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                   </>
                 ),
               },
-              { key: "value", label: "Count", numeric: true, width: "96px" },
+              { key: "value", label: t("signals.columnCount"), numeric: true, width: "96px" },
               {
                 key: "tone",
-                label: "State",
+                label: t("signals.columnState"),
                 align: "end",
                 width: "128px",
                 render: (s) => (
                   <StatusPill tone={s.tone} dot={s.tone !== "neutral"}>
-                    {s.tone === "neutral" ? "Clear" : "Needs attention"}
+                    {s.tone === "neutral" ? t("signals.stateClear") : t("signals.stateNeedsAttention")}
                   </StatusPill>
                 ),
               },
             ]}
             empty={
               <EmptyState
-                eyebrow="Nothing flagged"
-                headline="No operational signal is currently being tracked."
-                body="Seller applications, support tickets, stock lines and unfulfilled paid orders appear here as soon as the platform records any."
+                eyebrow={t("signals.empty.eyebrow")}
+                headline={t("signals.empty.headline")}
+                body={t("signals.empty.body")}
               />
             }
           />
@@ -339,22 +343,22 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
             on every row — a confidence score for a deterministic count, which is
             exactly the sort of claim this codebase spent a hardening programme
             removing. The provenance line below says what these actually are. */}
-        <section aria-label="Recommended actions">
+        <section aria-label={t("recommendations.sectionLabel")}>
           <SectionHeader
-            title="Recommended actions"
-            dateline="Derived by fixed rules from the live counts above. No model is involved and nothing here is a prediction."
+            title={t("recommendations.title")}
+            dateline={t("recommendations.dateline")}
             action={
               <Link href="/ai-insights" className="u-focus u-ui rounded-nested text-primary-ink underline-offset-4 hover:underline">
-                AI status
+                {t("recommendations.aiStatus")}
               </Link>
             }
           />
           {exec.aiRecommendations.length === 0 ? (
             <Surface rung={2}>
               <EmptyState
-                eyebrow="No rule triggered"
-                headline="Nothing needs routing right now."
-                body="A recommendation appears here when seller applications, unfulfilled paid orders, low stock lines or unassigned RFQs cross their thresholds."
+                eyebrow={t("recommendations.empty.eyebrow")}
+                headline={t("recommendations.empty.headline")}
+                body={t("recommendations.empty.body")}
               />
             </Surface>
           ) : (
@@ -400,8 +404,8 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
         {/* The money. One panel divided by hairlines, not four floating cards,
             with the month's GMV promoted to hero rank so the grid has an
             unmistakable first reading. */}
-        <section aria-label="Recorded revenue">
-          <SectionHeader title="Recorded revenue" />
+        <section aria-label={t("revenue.sectionLabel")}>
+          <SectionHeader title={t("revenue.title")} />
           <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
             {revenueKpis.map((kpi) => (
               <Stat
@@ -414,26 +418,23 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                 // Nothing was recorded in the previous month, so there is no
                 // delta to state. An empty corner would let the reader assume
                 // "flat"; saying what was withheld costs one line.
-                deltaWithheld={kpi.trend === null ? "No prior-month figure" : undefined}
+                deltaWithheld={kpi.trend === null ? t("revenue.deltaWithheld") : undefined}
               />
             ))}
           </CellGrid>
-          <Dateline className="mt-2">
-            Paid order totals summed as recorded in each order&apos;s own currency; no conversion between currencies is
-            applied. Deltas compare this month so far against the previous whole month.
-          </Dateline>
+          <Dateline className="mt-2">{t("revenue.dateline")}</Dateline>
         </section>
 
         {/* Point-in-time counts, at inline rank so they read as subordinate to
             the revenue panel above rather than competing with it. */}
-        <section aria-label="Platform counts">
-          <SectionHeader title="Platform counts" />
+        <section aria-label={t("counts.sectionLabel")}>
+          <SectionHeader title={t("counts.title")} />
           <CellGrid cols={{ base: 2, sm: 3, lg: 6 }} density="compact">
             {countKpis.map((kpi) => (
               <Stat key={kpi.label} label={kpi.label} value={kpi.value} unit={kpi.unit} icon={kpi.icon} />
             ))}
           </CellGrid>
-          <Dateline className="mt-2">Point-in-time counts and ratios; no prior period is compared.</Dateline>
+          <Dateline className="mt-2">{t("counts.dateline")}</Dateline>
         </section>
 
         {/* Flow. Thirty divs of hand-rolled segment bars, each carrying a raw
@@ -442,34 +443,34 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
             inline start so it is correct in Arabic without a mirrored rule. */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Surface rung={2} className="p-4">
-            <SectionHeader title="Revenue split" description="B2B against B2C, as recorded" />
+            <SectionHeader title={t("split.title")} description={t("split.description")} />
             <Num value={amount(revTotal)} rank="section" />
-            <Eyebrow className="mt-0.5">Total recorded</Eyebrow>
+            <Eyebrow className="mt-0.5">{t("split.totalRecorded")}</Eyebrow>
             <div className="mt-4 space-y-3">
               <div>
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="u-ui text-ink-2">B2B</span>
+                  <span className="u-ui text-ink-2">{t("split.b2b")}</span>
                   <span className="fig u-ui text-ink-1">{amount(exec.revenueSplit.b2b)} · {b2bPct}%</span>
                 </div>
-                <Meter className="mt-1.5" value={exec.revenueSplit.b2b} max={Math.max(1, revTotal)} tone="accent" label="B2B share of recorded revenue" />
+                <Meter className="mt-1.5" value={exec.revenueSplit.b2b} max={Math.max(1, revTotal)} tone="accent" label={t("split.b2bMeter")} />
               </div>
               <div>
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="u-ui text-ink-2">B2C</span>
+                  <span className="u-ui text-ink-2">{t("split.b2c")}</span>
                   <span className="fig u-ui text-ink-1">{amount(exec.revenueSplit.b2c)} · {revTotal > 0 ? 100 - b2bPct : 0}%</span>
                 </div>
-                <Meter className="mt-1.5" value={exec.revenueSplit.b2c} max={Math.max(1, revTotal)} tone="accent" index={1} label="B2C share of recorded revenue" />
+                <Meter className="mt-1.5" value={exec.revenueSplit.b2c} max={Math.max(1, revTotal)} tone="accent" index={1} label={t("split.b2cMeter")} />
               </div>
             </div>
           </Surface>
 
           <Surface rung={2} className="p-4">
             <SectionHeader
-              title="RFQ funnel"
-              description="Submitted through accepted"
+              title={t("funnel.title")}
+              description={t("funnel.description")}
               action={
                 <Link href="/rfqs" className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline">
-                  View
+                  {t("funnel.view")}
                 </Link>
               }
             />
@@ -480,7 +481,7 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                     <span className="u-meta text-ink-2">{s.stage}</span>
                     <span className="fig u-meta text-ink-1">{s.count}</span>
                   </div>
-                  <Meter className="mt-1" value={s.count} max={rfqMax} tone="accent" size="sm" index={i} label={`${s.stage}: ${s.count}`} />
+                  <Meter className="mt-1" value={s.count} max={rfqMax} tone="accent" size="sm" index={i} label={t("funnel.stageMeter", { stage: s.stage, count: String(s.count) })} />
                 </div>
               ))}
             </div>
@@ -488,11 +489,11 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
 
           <Surface rung={2} className="p-4">
             <SectionHeader
-              title="Order lifecycle"
-              description="Active pipeline"
+              title={t("lifecycle.title")}
+              description={t("lifecycle.description")}
               action={
                 <Link href="/orders" className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline">
-                  View
+                  {t("lifecycle.view")}
                 </Link>
               }
             />
@@ -503,7 +504,7 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                     <span className="u-meta text-ink-2">{s.stage}</span>
                     <span className="fig u-meta text-ink-1">{s.count}</span>
                   </div>
-                  <Meter className="mt-1" value={s.count} max={lifeMax} tone="accent" size="sm" index={i} label={`${s.stage}: ${s.count}`} />
+                  <Meter className="mt-1" value={s.count} max={lifeMax} tone="accent" size="sm" index={i} label={t("lifecycle.stageMeter", { stage: s.stage, count: String(s.count) })} />
                 </div>
               ))}
             </div>
@@ -514,41 +515,41 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
             what the hand-rolled divide-y lists could silently skip. */}
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <LedgerTable
-            title="Top categories"
-            dateline="By share of recorded GMV"
+            title={t("topCategories.title")}
+            dateline={t("topCategories.dateline")}
             rows={exec.topCategories}
             getRowKey={(c) => c.name}
             density="compact"
             columns={[
               {
                 key: "name",
-                label: "Category",
+                label: t("topCategories.columnCategory"),
                 render: (c) => (
                   <>
                     <span className="block truncate text-ink-1">{c.name}</span>
-                    <Meter className="mt-1" value={c.share} max={catMax} tone="accent" size="sm" label={`${c.name}: ${c.share}% of recorded GMV`} />
+                    <Meter className="mt-1" value={c.share} max={catMax} tone="accent" size="sm" label={t("topCategories.shareMeter", { name: c.name, share: String(c.share) })} />
                   </>
                 ),
               },
-              { key: "share", label: "Share", numeric: true, width: "64px", render: (c) => `${c.share}%` },
-              { key: "gmv", label: "GMV", numeric: true, render: (c) => amount(c.gmv) },
+              { key: "share", label: t("topCategories.columnShare"), numeric: true, width: "64px", render: (c) => `${c.share}%` },
+              { key: "gmv", label: t("topCategories.columnGmv"), numeric: true, render: (c) => amount(c.gmv) },
             ]}
             empty={
               <EmptyState
-                eyebrow="Nothing recorded"
-                headline="No category has recorded GMV yet."
-                body="A category appears here once a paid order contains a product in it."
+                eyebrow={t("topCategories.empty.eyebrow")}
+                headline={t("topCategories.empty.headline")}
+                body={t("topCategories.empty.body")}
                 icon={<Tag className="h-3.5 w-3.5" aria-hidden="true" />}
               />
             }
           />
 
           <LedgerTable
-            title="Top suppliers"
-            dateline="By recorded GMV, as stored"
+            title={t("topSuppliers.title")}
+            dateline={t("topSuppliers.dateline")}
             toolbar={
               <Link href="/sellers" className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline">
-                All suppliers
+                {t("topSuppliers.allSuppliers")}
               </Link>
             }
             rows={exec.topSuppliers}
@@ -557,7 +558,7 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
             columns={[
               {
                 key: "name",
-                label: "Supplier",
+                label: t("topSuppliers.columnSupplier"),
                 render: (s) => (
                   <>
                     <span className="flex min-w-0 items-center gap-1.5">
@@ -574,29 +575,33 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                         loudest signal was that nobody has reviewed anyone.
                         Truth does not require printing the same null five times:
                         the slot simply is not there until a rating exists. */}
-                    {s.rating > 0 && <span className="u-meta block text-ink-3">Rated {s.rating}</span>}
+                    {s.rating > 0 && (
+                      <span className="u-meta block text-ink-3">
+                        {t("topSuppliers.rated", { rating: String(s.rating) })}
+                      </span>
+                    )}
                   </>
                 ),
               },
-              { key: "orders", label: "Orders", numeric: true, width: "72px" },
-              { key: "gmv", label: "GMV", numeric: true, render: (s) => amount(s.gmv) },
+              { key: "orders", label: t("topSuppliers.columnOrders"), numeric: true, width: "72px" },
+              { key: "gmv", label: t("topSuppliers.columnGmv"), numeric: true, render: (s) => amount(s.gmv) },
             ]}
             empty={
               <EmptyState
-                eyebrow="Nothing recorded"
-                headline="No supplier has recorded GMV yet."
-                body="A supplier appears here once one of their orders is paid."
+                eyebrow={t("topSuppliers.empty.eyebrow")}
+                headline={t("topSuppliers.empty.headline")}
+                body={t("topSuppliers.empty.body")}
                 icon={<Store className="h-3.5 w-3.5" aria-hidden="true" />}
               />
             }
           />
 
           <LedgerTable
-            title="Top customers"
-            dateline="By recorded spend, as stored"
+            title={t("topCustomers.title")}
+            dateline={t("topCustomers.dateline")}
             toolbar={
               <Link href="/crm" className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline">
-                CRM
+                {t("topCustomers.crm")}
               </Link>
             }
             rows={topCustomers.slice(0, 5)}
@@ -605,28 +610,30 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
             columns={[
               {
                 key: "name",
-                label: "Customer",
+                label: t("topCustomers.columnCustomer"),
                 render: (c) => (
                   <>
                     <span className="block truncate text-ink-1">{c.name}</span>
-                    <span className="u-meta block text-ink-3">{c.totalOrders} orders</span>
+                    <span className="u-meta block text-ink-3">
+                      {t("topCustomers.orderCount", { count: c.totalOrders, value: String(c.totalOrders) })}
+                    </span>
                   </>
                 ),
               },
               {
                 key: "type",
-                label: "Type",
+                label: t("topCustomers.columnType"),
                 align: "end",
                 width: "72px",
                 render: (c) => <StatusPill tone={c.type === "B2B" ? "accent" : "neutral"}>{c.type}</StatusPill>,
               },
-              { key: "totalSpent", label: "Spend", numeric: true, render: (c) => amount(c.totalSpent) },
+              { key: "totalSpent", label: t("topCustomers.columnSpend"), numeric: true, render: (c) => amount(c.totalSpent) },
             ]}
             empty={
               <EmptyState
-                eyebrow="Nothing recorded"
-                headline="No customer has recorded spend yet."
-                body="A customer appears here once one of their orders is paid."
+                eyebrow={t("topCustomers.empty.eyebrow")}
+                headline={t("topCustomers.empty.headline")}
+                body={t("topCustomers.empty.body")}
                 icon={<Users className="h-3.5 w-3.5" aria-hidden="true" />}
               />
             }
@@ -640,10 +647,7 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
         {/* <Dateline>, not a hand-written .u-provenance paragraph: the
             provenance voice has a component, and a page that reimplements it
             locally is where a second dialect starts. */}
-        <Dateline className="pb-2">
-          Figures are read from the platform database when this page is requested. Nothing on this screen is cached,
-          estimated or projected.
-        </Dateline>
+        <Dateline className="pb-2">{t("footerDateline")}</Dateline>
       </div>
     </AdminLayout>
   );

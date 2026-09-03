@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { AlertTriangle, Upload, X } from "lucide-react";
 import { Button, Eyebrow, Field, Input, Surface, type ButtonProps } from "@avenick/ui";
 import type { DocumentType } from "@avenick/database";
@@ -152,12 +153,6 @@ const SELECT_FIELD =
 
 type Phase = "idle" | "presign" | "put" | "record";
 
-const PHASE_LABEL: Record<Exclude<Phase, "idle">, string> = {
-  presign: "Requesting upload…",
-  put: "Uploading file…",
-  record: "Recording document…",
-};
-
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024) return `${Math.round(bytes / (1024 * 1024))} MB`;
   return `${Math.round(bytes / 1024)} KB`;
@@ -173,6 +168,7 @@ function tomorrowIso(): string {
 
 export function UploadDocumentPanel() {
   const uploader = useUploader();
+  const t = useTranslations("sellerRelations");
   const router = useRouter();
   const { toast } = useToast();
   const fileRef = React.useRef<HTMLInputElement>(null);
@@ -184,6 +180,9 @@ export function UploadDocumentPanel() {
   const [expiryDate, setExpiryDate] = React.useState("");
   const [phase, setPhase] = React.useState<Phase>("idle");
   const [notice, setNotice] = React.useState<string | null>(null);
+  // Which of the three steps is in flight, in the reader's language. Keyed off
+  // the phase name, which is a code identifier and is never translated.
+  const phaseLabel = (p: Exclude<Phase, "idle">) => t(`upload.phase.${p}`);
 
   // A trigger elsewhere on the page re-opens the form with its own preset; the
   // preset wins over whatever was half-typed, since the seller just chose it.
@@ -197,10 +196,7 @@ export function UploadDocumentPanel() {
     return (
       <Surface rung={1} className="flex items-start gap-3 p-4">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
-        <p className="u-ui text-ink-2">
-          Document uploads are not enabled in this environment — file storage is not configured, so no upload could
-          be stored. Existing records are listed below.
-        </p>
+        <p className="u-ui text-ink-2">{t("upload.storageUnavailable")}</p>
       </Surface>
     );
   }
@@ -221,15 +217,15 @@ export function UploadDocumentPanel() {
     event.preventDefault();
     setNotice(null);
     if (!selected) {
-      setNotice("Choose the document type first.");
+      setNotice(t("upload.chooseTypeFirst"));
       return;
     }
     if (!file) {
-      setNotice("Choose a file to upload.");
+      setNotice(t("upload.chooseFile"));
       return;
     }
     if (file.size > uploader.maxBytes) {
-      setNotice(`"${file.name}" is larger than ${formatBytes(uploader.maxBytes)} and was not uploaded.`);
+      setNotice(t("upload.tooLarge", { name: file.name, max: formatBytes(uploader.maxBytes) }));
       return;
     }
 
@@ -250,7 +246,7 @@ export function UploadDocumentPanel() {
       });
     } catch {
       setPhase("idle");
-      setNotice("Couldn't reach the upload service. Nothing was uploaded.");
+      setNotice(t("upload.serviceUnreachable"));
       return;
     }
     const body = (await grant.json().catch(() => null)) as
@@ -258,13 +254,13 @@ export function UploadDocumentPanel() {
       | null;
     if (!grant.ok || body?.success === false || !body?.data) {
       setPhase("idle");
-      setNotice(body?.error ?? `Upload is unavailable right now (HTTP ${grant.status}). Nothing was uploaded.`);
+      setNotice(body?.error ?? t("upload.unavailableHttp", { status: String(grant.status) }));
       return;
     }
     const { key, url, headers } = body.data;
     if (typeof key !== "string" || typeof url !== "string") {
       setPhase("idle");
-      setNotice("The upload service returned a response this form can't use. Nothing was uploaded.");
+      setNotice(t("upload.unusableResponse"));
       return;
     }
 
@@ -274,7 +270,11 @@ export function UploadDocumentPanel() {
     const put = await fetch(url, { method: "PUT", body: file, headers: headers ?? undefined }).catch(() => null);
     if (!put || !put.ok) {
       setPhase("idle");
-      setNotice(`Uploading "${file.name}" failed${put ? ` (HTTP ${put.status})` : ""}. No document was recorded.`);
+      setNotice(
+        put
+          ? t("upload.putFailedHttp", { name: file.name, status: String(put.status) })
+          : t("upload.putFailed", { name: file.name }),
+      );
       return;
     }
 
@@ -292,7 +292,7 @@ export function UploadDocumentPanel() {
       });
     } catch {
       setPhase("idle");
-      setNotice("The file was uploaded but could not be recorded. Please try again — the review only starts once the record exists.");
+      setNotice(t("upload.recordFailed"));
       return;
     }
     setPhase("idle");
@@ -302,11 +302,11 @@ export function UploadDocumentPanel() {
     }
 
     toast({
-      title: "Document submitted for review",
+      title: t("upload.toast.title"),
       description:
         result.supersededCount > 0
-          ? `${selected.label} uploaded. It replaces the previous upload that was still awaiting review.`
-          : `${selected.label} uploaded. It will appear as "Under review" until an admin decides.`,
+          ? t("upload.toast.replaced", { type: selected.label })
+          : t("upload.toast.queued", { type: selected.label, status: t("documents.status.PENDING_REVIEW") }),
       variant: "success",
     });
     reset();
@@ -325,12 +325,9 @@ export function UploadDocumentPanel() {
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <Eyebrow className="mb-1">New filing</Eyebrow>
-          <h2 className="u-h3 text-ink-1">Upload a document</h2>
-          <p className="u-meta u-measure-desc mt-1 text-ink-2">
-            One review is open per document type: uploading a type that is already awaiting review replaces that
-            upload. A document that has been approved stays approved until the admin decides on the new one.
-          </p>
+          <Eyebrow className="mb-1">{t("upload.eyebrow")}</Eyebrow>
+          <h2 className="u-h3 text-ink-1">{t("upload.heading")}</h2>
+          <p className="u-meta u-measure-desc mt-1 text-ink-2">{t("upload.rule")}</p>
         </div>
         <button
           type="button"
@@ -340,14 +337,14 @@ export function UploadDocumentPanel() {
           }}
           disabled={busy}
           className="u-focus grid h-8 w-8 shrink-0 place-items-center rounded-nested text-ink-3 transition-colors duration-press ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1 disabled:opacity-50"
-          aria-label="Close uploader"
+          aria-label={t("upload.close")}
         >
           <X className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Document type" htmlFor={typeFieldId} required>
+        <Field label={t("upload.typeLabel")} htmlFor={typeFieldId} required>
           <select
             id={typeFieldId}
             data-rung={1}
@@ -358,7 +355,7 @@ export function UploadDocumentPanel() {
             disabled={busy}
             required
           >
-            <option value="">Select a type…</option>
+            <option value="">{t("upload.selectType")}</option>
             {uploader.types.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -370,21 +367,24 @@ export function UploadDocumentPanel() {
         {selected?.expires && (
           <Input
             type="date"
-            label="Expiry date (optional)"
+            label={t("upload.expiryLabel")}
             value={expiryDate}
             min={tomorrowIso()}
             onChange={(event) => setExpiryDate(event.target.value)}
             disabled={busy}
-            hint="Used to warn you before this document lapses. Leave blank if the document does not state one."
+            hint={t("upload.expiryHint")}
           />
         )}
       </div>
 
       <Field
-        label="File"
+        label={t("upload.fileLabel")}
         htmlFor={fileFieldId}
         required
-        hint={`Accepted: ${uploader.accept.split(",").join(", ")} · up to ${formatBytes(uploader.maxBytes)}. The file is stored privately and is only visible to you and the review team.`}
+        hint={t("upload.fileHint", {
+          accepted: uploader.accept.split(",").join(", "),
+          max: formatBytes(uploader.maxBytes),
+        })}
       >
         <input
           id={fileFieldId}
@@ -408,7 +408,7 @@ export function UploadDocumentPanel() {
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" loading={busy} disabled={!selected || !file}>
           {!busy && <Upload className="h-4 w-4" aria-hidden="true" />}
-          {busy ? PHASE_LABEL[phase as Exclude<Phase, "idle">] : "Upload for review"}
+          {busy ? phaseLabel(phase as Exclude<Phase, "idle">) : t("upload.submit")}
         </Button>
         <Button
           type="button"
@@ -419,13 +419,13 @@ export function UploadDocumentPanel() {
             uploader.close();
           }}
         >
-          Cancel
+          {t("common.cancel")}
         </Button>
         {/* The upload is three steps that can each fail on their own, so which
             one is in flight is announced rather than only implied by a spinner. */}
         {busy && (
           <p role="status" className="u-meta text-ink-3">
-            {PHASE_LABEL[phase as Exclude<Phase, "idle">]}
+            {phaseLabel(phase as Exclude<Phase, "idle">)}
           </p>
         )}
       </div>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { format } from "date-fns";
+import { getTranslations } from "next-intl/server";
 import { requireSellerAnyPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { db } from "@avenick/database";
@@ -18,30 +19,44 @@ import {
 } from "@avenick/ui";
 import { RotateCcw, AlertTriangle, CheckCircle2, List } from "lucide-react";
 
-export const metadata = { title: "Returns" };
+// generateMetadata rather than a static object: a document title is a
+// user-visible string, and a literal here read English at an Arabic desk.
+export async function generateMetadata() {
+  const t = await getTranslations("sellerOps");
+  return { title: t("returns.metaTitle") };
+}
 
 /**
- * Every ReturnStatus in the schema, labelled as the enum reads rather than as a
- * derived instruction. "REQUESTED" used to render as "Action needed", which is
- * true of the seller's inbox but is not the state the record holds — and a badge
- * that does not map to its own enum is the fastest way to lose a support call.
- * The urgency now lives on the count above and on the action buttons, which is
- * where an instruction belongs.
+ * Every ReturnStatus in the schema, mapped to the tone it carries.
+ *
+ * The LABEL half lives in the message tree at sellerOps.returns.status.<ENUM>,
+ * shared with returns/actions.ts so the flash message and the pill can never
+ * name the same state two different ways. It is labelled as the enum READS
+ * rather than as a derived instruction: "REQUESTED" used to render as "Action
+ * needed", which is true of the seller's inbox but is not the state the record
+ * holds — and a badge that does not map to its own enum is the fastest way to
+ * lose a support call. The urgency lives on the count above and on the action
+ * buttons, which is where an instruction belongs.
  */
-const STATUS: Record<string, { label: string; tone: PillTone }> = {
-  REQUESTED: { label: "Requested", tone: "warning" },
-  APPROVED: { label: "Approved", tone: "primary" },
-  REJECTED: { label: "Rejected", tone: "danger" },
-  IN_TRANSIT: { label: "In transit", tone: "primary" },
-  RECEIVED: { label: "Received", tone: "accent" },
-  REFUNDED: { label: "Refunded", tone: "success" },
+const STATUS_TONE: Record<string, PillTone> = {
+  REQUESTED: "warning",
+  APPROVED: "primary",
+  REJECTED: "danger",
+  IN_TRANSIT: "primary",
+  RECEIVED: "accent",
+  REFUNDED: "success",
 };
 
-const statusView = (status: string) =>
-  STATUS[status] ?? { label: status.replace(/_/g, " "), tone: "neutral" as PillTone };
-
 export default async function SellerReturnsPage({ searchParams }: { searchParams?: { returnDone?: string; returnError?: string } }) {
+  const t = await getTranslations("sellerOps");
   const { seller, membership } = await requireSellerAnyPermission(["returns.view", "returns.manage"]);
+
+  // A status nobody has named yet is still a fact about the record, so it is
+  // shown as it reads rather than dropped or relabelled.
+  const statusView = (status: string) => ({
+    label: t.has(`returns.status.${status}`) ? t(`returns.status.${status}`) : status.replace(/_/g, " "),
+    tone: STATUS_TONE[status] ?? ("neutral" as PillTone),
+  });
 
   const returns = await db.returnRequest.findMany({
     where: { sellerId: seller.id },
@@ -76,7 +91,7 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
             {/* The tone is already carried three ways — the wash, the edge and the
                 icon — so the eyebrow keeps the metadata ink rather than fighting
                 <Eyebrow>'s own colour class for the same specificity. */}
-            <Eyebrow>{failed ? "Action failed" : "Done"}</Eyebrow>
+            <Eyebrow>{failed ? t("returns.flash.failed") : t("returns.flash.done")}</Eyebrow>
             {/* ink-1 on the soft wash rather than the tone's own ink: this is a
                 sentence, and the tone inks are sized for labels, not prose. */}
             <p className="u-ui mt-0.5 text-ink-1">{flash}</p>
@@ -86,17 +101,20 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
 
       <div className="space-y-block">
         <PageHeader
-          eyebrow="Fulfilment"
-          title="Returns"
-          description="Return requests raised by buyers against your products."
+          eyebrow={t("returns.eyebrow")}
+          title={t("returns.title")}
+          description={t("returns.description")}
           // LAW E. The query takes 100 rows, so the three counts below describe
           // this page rather than the account's whole return history.
-          dateline={`Your ${returns.length} most recent return requests · the counts below describe this view, not your full history`}
+          // `n` is the same figure as `count`, passed as a STRING: `count` picks
+          // the plural form, and a bare number would render in the locale's own
+          // numeral system where this product uses Western digits throughout.
+          dateline={t("returns.dateline", { count: returns.length, n: String(returns.length) })}
         />
 
         <CellGrid cols={{ base: 3 }}>
           <Stat
-            label="Awaiting your response"
+            label={t("returns.stats.pending")}
             value={pending}
             // Section rank unconditionally. Rank encodes what a metric IS — this
             // is the reason a seller opens the page — and swapping it on the
@@ -110,15 +128,15 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
             // score. The original page carried that as a comment beside a
             // call-out band; the band is gone, so the fact is stated in the
             // provenance line where a seller can actually read it.
-            dateline="Status REQUESTED · no response deadline is enforced by the platform"
+            dateline={t("returns.stats.pendingDateline")}
           />
           {/* Conditional: a success chip over a zero count colours an absence as
               an achievement. */}
-          <Stat label="Refunded" value={refunded} chip={refunded > 0 ? "success" : "neutral"} icon={CheckCircle2} />
+          <Stat label={t("returns.stats.refunded")} value={refunded} chip={refunded > 0 ? "success" : "neutral"} icon={CheckCircle2} />
           {/* An icon here too, so the three eyebrows in this grid sit on one
               baseline instead of the third starting 24px to the inline start of
               its neighbours. */}
-          <Stat label="Shown here" value={returns.length} icon={List} />
+          <Stat label={t("returns.stats.shownHere")} value={returns.length} icon={List} />
         </CellGrid>
 
         <LedgerTable
@@ -126,23 +144,23 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
           getRowKey={(r) => r.id}
           density="compact"
           stickyHead
-          dateline="Buyer-raised requests, as recorded · a refund is executed by the platform, not from this page"
+          dateline={t("returns.tableDateline")}
           columns={[
             {
               key: "returnNumber",
-              label: "Return",
+              label: t("returns.col.returnNumber"),
               // Mono is for identifiers. Never for money.
               render: (r) => <span className="u-mono text-ink-1">{r.returnNumber}</span>,
             },
             {
               key: "order",
-              label: "Order",
+              label: t("returns.col.order"),
               hideOnMobile: true,
               render: (r) => <span className="u-mono text-ink-3">{r.order.orderNumber}</span>,
             },
             {
               key: "buyer",
-              label: "Buyer",
+              label: t("returns.col.buyer"),
               render: (r) => (
                 <span className="block max-w-[160px] truncate">
                   {r.order.company?.nameEn ?? `${r.order.user.firstName} ${r.order.user.lastName}`.trim()}
@@ -151,13 +169,13 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
             },
             {
               key: "reason",
-              label: "Reason",
+              label: t("returns.col.reason"),
               hideOnMobile: true,
               render: (r) => <span className="block max-w-[220px] truncate text-ink-2">{r.reason}</span>,
             },
             {
               key: "createdAt",
-              label: "Requested",
+              label: t("returns.col.requested"),
               hideOnMobile: true,
               render: (r) => (
                 <time dateTime={r.createdAt.toISOString()} className="text-ink-3">
@@ -167,7 +185,7 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
             },
             {
               key: "status",
-              label: "Status",
+              label: t("returns.col.status"),
               render: (r) => {
                 const view = statusView(r.status);
                 return <StatusPill tone={view.tone} dot>{view.label}</StatusPill>;
@@ -175,7 +193,7 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
             },
             {
               key: "actions",
-              label: "Decision",
+              label: t("returns.col.decision"),
               align: "end",
               render: (r) =>
                 r.status === "REQUESTED" ? (
@@ -187,8 +205,13 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
                   // reader announces it forty times down a column.
                   <div className="flex items-center justify-end gap-2">
                     <form action={setReturnStatus.bind(null, r.id, "APPROVED")}>
-                      <Button type="submit" variant="secondary" size="xs" aria-label={`Approve return ${r.returnNumber}`}>
-                        Approve
+                      <Button
+                        type="submit"
+                        variant="secondary"
+                        size="xs"
+                        aria-label={t("returns.approveAria", { number: r.returnNumber })}
+                      >
+                        {t("returns.approve")}
                       </Button>
                     </form>
                     <form action={setReturnStatus.bind(null, r.id, "REJECTED")}>
@@ -201,14 +224,14 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
                         // drains the reject control of its danger colour at the
                         // exact moment the pointer is on it.
                         className="text-danger-ink hover:bg-danger-soft hover:text-danger-ink"
-                        aria-label={`Reject return ${r.returnNumber}`}
+                        aria-label={t("returns.rejectAria", { number: r.returnNumber })}
                       >
-                        Reject
+                        {t("returns.reject")}
                       </Button>
                     </form>
                   </div>
                 ) : r.status === "APPROVED" || r.status === "RECEIVED" ? (
-                  <span className="u-meta text-ink-3">Awaiting platform refund</span>
+                  <span className="u-meta text-ink-3">{t("returns.awaitingRefund")}</span>
                 ) : (
                   <span className="u-meta text-ink-3">—</span>
                 ),
@@ -216,12 +239,12 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline="No buyer has raised a return against your products."
-              body="A return request appears here as soon as a buyer opens one, with the decision controls on its row."
+              eyebrow={t("returns.empty.eyebrow")}
+              headline={t("returns.empty.headline")}
+              body={t("returns.empty.body")}
               action={
                 <Button variant="secondary" size="sm" asChild>
-                  <Link href="/orders">Review your orders</Link>
+                  <Link href="/orders">{t("returns.empty.action")}</Link>
                 </Button>
               }
             />

@@ -16,11 +16,18 @@ import {
   Dateline,
   Button,
 } from "@avenick/ui";
+import { getTranslations } from "next-intl/server";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { requireSellerAnyPermission } from "@/lib/auth";
 import { ORDER_PRE_RELEASE, ORDER_STAGES, orderStatusMeta } from "@/components/orders/status-meta";
 
-export const metadata = { title: "Order detail" };
+// generateMetadata rather than a static object: a document title is a
+// user-visible string — tab, history entry, bookmark, share card — and a literal
+// here read English for an Arabic session reading an Arabic page.
+export async function generateMetadata() {
+  const t = await getTranslations("sellerOps");
+  return { title: t("orderDetail.metaTitle") };
+}
 
 /**
  * The status vocabulary, the stage sequence and the pre-release set now live in
@@ -44,6 +51,7 @@ const money = (amount: number, code: string) =>
   formatCurrency(amount, isSupportedCurrency(code) ? code : (code as SupportedCurrency));
 
 export default async function SellerOrderDetailPage({ params }: { params: { id: string } }) {
+  const t = await getTranslations("sellerOps");
   const { seller, membership } = await requireSellerAnyPermission(["orders.view", "orders.fulfill"]);
   const order = await db.order.findFirst({
     where: { id: params.id, items: { some: { sellerId: seller.id } } },
@@ -110,6 +118,9 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
   // lines are split across two stages must not read that node as "all of it".
   const splitStages = onTrack && new Set(lineStages).size > 1;
   const lineStateLabels = Array.from(new Set(order.items.map((item) => statusView(item.status).label)));
+  // The list separator is a message too: Arabic sets a series with the Arabic
+  // comma (،), and joining with a Latin one leaves a foreign mark mid-sentence.
+  const lineStates = lineStateLabels.join(t("listSeparator")).toLowerCase();
 
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
@@ -118,18 +129,18 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
           <Button variant="link" size="sm" asChild className="mb-2 -ms-1 px-1">
             <Link href="/orders">
               {/* The arrow is an icon that flips, not a literal "←" that cannot. */}
-              <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" /> Back to orders
+              <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" /> {t("orderDetail.backToOrders")}
             </Link>
           </Button>
 
           <PageHeader
-            eyebrow="Order"
+            eyebrow={t("orderDetail.eyebrow")}
             title={order.orderNumber}
             description={`${buyer}${order.company?.nameEn ? ` · ${order.company.nameEn}` : ""} · ${format(order.createdAt, "MMM d, yyyy")}`}
             actions={
               <>
                 <StatusPill tone="neutral">
-                  <span className="sr-only">Order type: </span>
+                  <span className="sr-only">{t("orderDetail.orderTypeLabel")}</span>
                   {order.type}
                 </StatusPill>
                 {/* Named for a screen reader as the ORDER's status, because the
@@ -137,7 +148,7 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
                     seller's own lines — and two unlabelled state pills a few
                     pixels apart is how the two get read as one. */}
                 <StatusPill tone={status.tone} dot>
-                  <span className="sr-only">Order status: </span>
+                  <span className="sr-only">{t("orderDetail.orderStatusLabel")}</span>
                   {status.label}
                 </StatusPill>
               </>
@@ -153,24 +164,27 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
             position and not a history — no per-stage timestamps are queried by
             this page, so none are implied. */}
         <Surface rung={1} className="p-4">
-          <Eyebrow>Your fulfilment stage</Eyebrow>
+          <Eyebrow>{t("orderDetail.stage.heading")}</Eyebrow>
 
           {offTrack ? (
             <div className="mt-2">
               <p className="u-body text-ink-1">
                 {noLines
-                  ? "No fulfilment position is shown: this order carries no lines from your account."
-                  : "No fulfilment position is shown, because your lines on this order are not all inside the fulfilment sequence."}
+                  ? t("orderDetail.stage.noneNoLines")
+                  : t("orderDetail.stage.noneOffTrack")}
               </p>
               {!noLines && (
                 <Dateline className="mt-1">
-                  {`Your lines are recorded as ${lineStateLabels.join(", ").toLowerCase()} · the order itself is recorded as ${status.label.toLowerCase()}`}
+                  {t("orderDetail.stage.recordedAs", {
+                    states: lineStates,
+                    status: status.label.toLowerCase(),
+                  })}
                 </Dateline>
               )}
             </div>
           ) : (
             <>
-              <ol className="mt-3 flex items-start" aria-label="Fulfilment stages">
+              <ol className="mt-3 flex items-start" aria-label={t("orderDetail.stage.railLabel")}>
                 {STAGES.map((stage, i) => {
                   const done = i < stageIndex;
                   const current = i === stageIndex;
@@ -221,7 +235,11 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
                           one of those marks is aria-hidden, so without this the
                           rail announces five identical stage names. */}
                       <span className="sr-only">
-                        {done ? "Completed: " : current ? "Current stage: " : "Not reached: "}
+                        {done
+                          ? t("orderDetail.stage.srCompleted")
+                          : current
+                            ? t("orderDetail.stage.srCurrent")
+                            : t("orderDetail.stage.srNotReached")}
                       </span>
                       <Eyebrow className={`px-1 text-center ${done || current ? "text-ink-1" : "text-ink-3"}`}>
                         {view.label}
@@ -233,28 +251,31 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
 
               <Dateline className="mt-3">
                 {preRelease
-                  ? `Your lines are recorded as ${lineStateLabels.join(", ").toLowerCase()} — this order has not been released for fulfilment · position only, no stage timestamps on this view`
+                  ? t("orderDetail.stage.preRelease", { states: lineStates })
                   : splitStages
-                    ? `Position of your own lines, not the order's · your ${order.items.length} lines are not all at the same stage, so the rail shows the least advanced of them · this view carries no stage timestamps`
-                    : "Position of your own lines, not the order's · the order's own status is the pill beside the title · this view carries no stage timestamps"}
+                    // A string, not a number: a bare number renders in the
+                    // locale's own numeral system, and this product sets every
+                    // figure in Western digits.
+                    ? t("orderDetail.stage.splitStages", { n: String(order.items.length) })
+                    : t("orderDetail.stage.position")}
               </Dateline>
             </>
           )}
         </Surface>
 
         <LedgerTable
-          title={`Your lines (${order.items.length})`}
+          title={t("orderDetail.lines.title", { n: String(order.items.length) })}
           // The original page said this in 11px grey. It is the most important
           // sentence on the screen: every figure below is a slice of the order,
           // not the order.
-          dateline={`Only ${seller.businessNameEn} lines and totals · other sellers' lines and platform charges are not shown`}
+          dateline={t("orderDetail.lines.dateline", { sellerName: seller.businessNameEn })}
           rows={order.items}
           getRowKey={(item) => item.id}
           density="compact"
           columns={[
             {
               key: "item",
-              label: "Item",
+              label: t("orderDetail.lines.col.item"),
               render: (item) => (
                 <div className="min-w-0">
                   <p className="truncate font-medium text-ink-1">{item.nameEn}</p>
@@ -264,30 +285,30 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
                 </div>
               ),
             },
-            { key: "quantity", label: "Qty", numeric: true, width: "72px" },
+            { key: "quantity", label: t("orderDetail.lines.col.qty"), numeric: true, width: "72px" },
             {
               key: "unitPrice",
-              label: "Unit price",
+              label: t("orderDetail.lines.col.unitPrice"),
               numeric: true,
               hideOnMobile: true,
               render: (item) => money(Number(item.unitPrice), order.currency),
             },
             {
               key: "vatAmount",
-              label: "VAT",
+              label: t("orderDetail.lines.col.vat"),
               numeric: true,
               hideOnMobile: true,
               render: (item) => money(Number(item.vatAmount), order.currency),
             },
             {
               key: "total",
-              label: "Line total",
+              label: t("orderDetail.lines.col.lineTotal"),
               numeric: true,
               render: (item) => <span className="font-medium text-ink-1">{money(Number(item.total), order.currency)}</span>,
             },
             {
               key: "status",
-              label: "Line status",
+              label: t("orderDetail.lines.col.lineStatus"),
               render: (item) => {
                 const view = statusView(item.status);
                 return <StatusPill tone={view.tone}>{view.label}</StatusPill>;
@@ -296,9 +317,9 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
           ]}
           empty={
             <EmptyState
-              eyebrow="Nothing recorded"
-              headline="This order carries no lines from your account."
-              body="You are seeing the order because it did at the time it was opened. Reload to refresh what is recorded."
+              eyebrow={t("orderDetail.lines.empty.eyebrow")}
+              headline={t("orderDetail.lines.empty.headline")}
+              body={t("orderDetail.lines.empty.body")}
             />
           }
         />
@@ -314,23 +335,21 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
         <div className="ms-auto w-full max-w-sm">
           <Surface rung={2} className="overflow-hidden">
             <div className="flex items-baseline justify-between gap-4 px-4 py-2.5">
-              <Eyebrow>Subtotal</Eyebrow>
+              <Eyebrow>{t("orderDetail.summary.subtotal")}</Eyebrow>
               <span className="fig text-ui text-ink-2">{money(sellerSubtotal, order.currency)}</span>
             </div>
             <Divider />
             <div className="flex items-baseline justify-between gap-4 px-4 py-2.5">
-              <Eyebrow>VAT</Eyebrow>
+              <Eyebrow>{t("orderDetail.summary.vat")}</Eyebrow>
               <span className="fig text-ui text-ink-2">{money(sellerVat, order.currency)}</span>
             </div>
             <Divider tone="strong" />
             <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-3">
-              <Eyebrow>Seller total</Eyebrow>
+              <Eyebrow>{t("orderDetail.summary.sellerTotal")}</Eyebrow>
               <Num value={money(sellerTotal, order.currency)} rank="section" />
             </div>
           </Surface>
-          <Dateline className="mt-1.5">
-            Summed from your lines above, in the order's own currency · no conversion applied
-          </Dateline>
+          <Dateline className="mt-1.5">{t("orderDetail.summary.dateline")}</Dateline>
         </div>
       </div>
     </SellerLayout>

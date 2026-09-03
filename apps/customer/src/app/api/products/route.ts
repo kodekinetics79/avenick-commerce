@@ -14,6 +14,13 @@ function boundedInt(value: string | null, fallback: number, max: number) {
   return Number.isInteger(parsed) && parsed > 0 ? Math.min(parsed, max) : fallback;
 }
 
+// Catalogue data changes when a seller publishes, not when this app is built.
+// /api/categories already declares this; without it a route handler can be
+// evaluated once and serve a build-time snapshot, so a newly published listing
+// would not appear until the next deploy. The Cache-Control header below still
+// gives a CDN its own short window, which is where caching belongs.
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   try {
     // This route is public and runs an unbounded count() next to the page

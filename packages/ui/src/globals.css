@@ -1497,8 +1497,17 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 .u-imgframe__void {
   display: grid;
   gap: 6px;
-  justify-items: center;
+  place-items: center;
+  align-content: center;
+  block-size: 100%;
+  inline-size: 100%;
   color: hsl(var(--ink-3));
+  /* The plate sits on the same tinted ground a photographed product would, so a
+     mixed grid of photographed and drawn listings still reads as one shelf
+     rather than as some tiles having failed to load. */
+  background:
+    radial-gradient(120% 90% at 50% 18%, hsl(var(--ink-1) / 0.05), transparent 62%),
+    hsl(var(--surface-1));
 }
 
 /* ═══ THE SEAL — verification that is actually verified ═══
