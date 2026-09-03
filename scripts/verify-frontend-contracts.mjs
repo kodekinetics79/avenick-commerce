@@ -81,12 +81,22 @@ for (const app of apps) {
   const pageFiles = walk(appRoot, (file) => file.endsWith(`${path.sep}page.tsx`));
   const pageRoutes = pageFiles.map((file) => appRouteFromFile(appRoot, file));
   const matchers = pageRoutes.map((route) => ({ route, matcher: routeMatcher(route) }));
+  // A link may also point at a route handler rather than a page: /documents/<id>/view
+  // streams a signed document and is a route.ts by design, because it answers with a
+  // redirect and no markup. Those are real, reachable destinations, so they count when
+  // deciding whether a link goes nowhere — but not as screens, which is why they are
+  // kept out of `matchers` and away from the availability-contract checks below.
+  const handlerFiles = walk(appRoot, (file) => file.endsWith(`${path.sep}route.ts`) || file.endsWith(`${path.sep}route.tsx`));
+  const linkMatchers = [
+    ...matchers,
+    ...handlerFiles.map((file) => appRouteFromFile(appRoot, file)).map((route) => ({ route, matcher: routeMatcher(route) })),
+  ];
   const sourceFiles = walk(sourceRoot, (file) => /\.(?:ts|tsx)$/.test(file) && !/\.(?:test|spec)\./.test(file));
   const destinations = sourceFiles.flatMap((file) => collectDestinations(file).map((destination) => ({ ...destination, file })));
 
   for (const destination of destinations) {
-    if (!matchers.some(({ matcher }) => matcher.test(destination.target))) {
-      failures.push(`${relative(destination.file)}:${destination.line} points to missing internal page ${destination.target}`);
+    if (!linkMatchers.some(({ matcher }) => matcher.test(destination.target))) {
+      failures.push(`${relative(destination.file)}:${destination.line} points to missing internal destination ${destination.target}`);
     }
   }
 
