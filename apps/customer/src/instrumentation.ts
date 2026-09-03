@@ -19,5 +19,14 @@ export async function register() {
     const { log } = await import("@avenick/observability");
     const installed = installRedisRateLimitStore();
     log.info(`rate-limit store: ${installed ? "redis (shared)" : "in-memory (per-instance)"}`);
+
+    // The read cache has the same swap point and the same env vars, but its
+    // bootstrap was never written — so the shared store was never installed and
+    // every instance kept a private Map. On serverless that means a ~1/N hit
+    // rate and, more importantly, a stale-on-error fallback that only protects
+    // an instance which already served that exact query.
+    const { installRedisCacheStore } = await import("@avenick/database");
+    const cacheShared = installRedisCacheStore();
+    log.info(`read cache: ${cacheShared ? "redis (shared)" : "in-memory (per-instance)"}`);
   }
 }

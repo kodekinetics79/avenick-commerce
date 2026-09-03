@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { db, accrueCommissions } from "@avenick/database";
+import { applyCheckoutPaymentEvent, type CheckoutPaymentEvent } from "@avenick/database";
 import { log, recordEvent, withSpan } from "@avenick/observability";
 
 // Signature verification must run on the raw body in the Node runtime.
@@ -14,6 +14,36 @@ function isValidSignature(rawBody: string, signature: string, secret: string): b
   const a = Buffer.from(expected);
   const b = Buffer.from(signature);
   return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+function checkoutEvent(value: unknown): CheckoutPaymentEvent | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid webhook envelope");
+  const body = value as Record<string, unknown>;
+  if (body.type !== "payment_approved" && body.type !== "payment_declined") return null;
+  if (!body.data || typeof body.data !== "object" || Array.isArray(body.data)) throw new Error("Invalid payment event data");
+  const data = body.data as Record<string, unknown>;
+  const metadata = data.metadata && typeof data.metadata === "object" && !Array.isArray(data.metadata)
+    ? data.metadata as Record<string, unknown>
+    : {};
+  if (
+    typeof body.id !== "string" ||
+    typeof data.id !== "string" ||
+    typeof metadata.orderId !== "string" ||
+    typeof metadata.paymentAttemptId !== "string" ||
+    typeof data.amount !== "number" ||
+    typeof data.currency !== "string"
+  ) {
+    throw new Error("Payment event is missing required identity or commercial fields");
+  }
+  return {
+    eventId: body.id,
+    type: body.type,
+    paymentId: data.id,
+    orderId: metadata.orderId,
+    paymentAttemptId: metadata.paymentAttemptId,
+    amount: data.amount,
+    currency: data.currency,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -38,28 +68,22 @@ export async function POST(req: NextRequest) {
   // of work — the money path is the one you most need to trace in 60 seconds.
   return withSpan("payment.webhook", async (span) => {
     try {
-      const { type, data } = JSON.parse(rawBody);
-      const orderId = data?.metadata?.orderId as string | undefined;
-      span.setAttribute("payment.event_type", String(type));
-      if (orderId) span.setAttribute("order.id", orderId);
+      const event = checkoutEvent(JSON.parse(rawBody));
+      if (!event) return NextResponse.json({ received: true, ignored: true });
+      span.setAttribute("payment.event_type", event.type);
+      span.setAttribute("order.id", event.orderId);
+      span.setAttribute("payment.attempt_id", event.paymentAttemptId);
 
-      if (orderId && type === "payment_approved") {
-        await db.$transaction(async (tx) => {
-          await tx.order.update({ where: { id: orderId }, data: { paymentStatus: "PAID", status: "CONFIRMED" } });
-          await tx.payment.updateMany({ where: { orderId }, data: { status: "PAID", gatewayRef: data.id, paidAt: new Date() } });
-          await tx.orderStatusHistory.create({ data: { orderId, status: "CONFIRMED", message: "Payment confirmed via Checkout.com" } });
-          // Accrue platform commission for each seller (idempotent on webhook replay).
-          await accrueCommissions(tx, orderId);
-        });
-        log.info("payment captured", { orderId, eventType: type });
-        recordEvent("payment.captured");
-      } else if (orderId && type === "payment_declined") {
-        await db.order.update({ where: { id: orderId }, data: { paymentStatus: "FAILED" } });
-        log.warn("payment declined", { orderId, eventType: type });
-        recordEvent("payment.declined");
+      const result = await applyCheckoutPaymentEvent(event);
+      if (event.type === "payment_approved") {
+        log.info("payment captured", { orderId: event.orderId, eventType: event.type, replay: result.replay });
+        if (!result.replay) recordEvent("payment.captured");
+      } else {
+        log.warn("payment declined", { orderId: event.orderId, eventType: event.type, replay: result.replay });
+        if (!result.replay) recordEvent("payment.declined");
       }
 
-      return NextResponse.json({ received: true });
+      return NextResponse.json({ received: true, replay: result.replay });
     } catch (e) {
       // Recorded on the span by withSpan; also log with correlation.
       log.error("payments.webhook processing error", e);

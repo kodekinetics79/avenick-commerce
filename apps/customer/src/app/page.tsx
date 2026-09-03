@@ -1,44 +1,15 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  Factory,
-  Briefcase,
-  Cpu,
-  ShieldAlert,
-  UtensilsCrossed,
-  Building2,
-  ShieldCheck,
-  Truck,
-  BadgeCheck,
-  Sparkles,
-} from "lucide-react";
+import { ArrowRight, ShieldCheck, Truck, BadgeCheck, Sparkles, PackageSearch } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
+import { categoryIcon } from "@/components/products/category-icon";
 import { fetchBackendJson } from "@/lib/backend";
+import { categoryLabel, getPublicCategories } from "@/lib/catalog-categories";
+import { partitionHomeProducts } from "@/lib/home-catalog";
 
 export const dynamic = "force-dynamic";
-
-const CATEGORIES = [
-  { slug: "industrial-supplies", nameEn: "Industrial", icon: Factory },
-  { slug: "electronics", nameEn: "Electronics", icon: Cpu },
-  { slug: "office-supplies", nameEn: "Office", icon: Briefcase },
-  { slug: "safety-ppe", nameEn: "Safety & PPE", icon: ShieldAlert },
-  { slug: "food-hospitality", nameEn: "Hospitality", icon: UtensilsCrossed },
-  { slug: "building-materials", nameEn: "Building", icon: Building2 },
-];
-
-const PARTNERS = ["SKF", "EATON", "NSK", "TIMKEN", "ABB", "BOSCH", "SIEMENS", "GATES"];
-
-const CATEGORY_TRANSLATIONS: Record<string, string> = {
-  "industrial-supplies": "catIndustrial",
-  "electronics": "catElectronics",
-  "office-supplies": "catOffice",
-  "safety-ppe": "catSafety",
-  "food-hospitality": "catHospitality",
-  "building-materials": "catBuilding",
-};
 
 async function getFeaturedProducts() {
   try {
@@ -54,27 +25,41 @@ export default async function HomePage() {
   const cookieStore = await cookies();
   const locale = (cookieStore.get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
   const t = await getTranslations("home");
-  const products = await getFeaturedProducts();
+  // The category strip comes from the catalog, not from a list typed into this
+  // page: a typed list kept advertising categories with nothing to sell.
+  const [products, categories] = await Promise.all([getFeaturedProducts(), getPublicCategories()]);
 
   const mapped = products.map((p) => {
-    const price = p.prices?.find((pr: { type: string; price: number }) => pr.type === "B2C") ?? p.prices?.[0];
     const stock = p.inventory?.[0];
-    const available = stock ? stock.qty - stock.reservedQty : 0;
+    const available = stock?.inStock ? 1 : 0;
     return {
       id: p.id,
       slug: p.slug,
       nameEn: p.nameEn,
       nameAr: p.nameAr,
       imageUrl: p.images?.[0]?.url,
-      price: price ? Number(price.price) : 0,
+      price: p.cardPrice?.amount,
+      currency: p.cardPrice?.currency,
+      vatRate: p.cardPrice?.vatRate,
+      priceIsFrom: p.cardPrice?.isFrom === true,
       sku: p.sku,
       sellerId: p.sellerId,
       sellerName: p.seller?.businessNameEn,
       inStock: available > 0,
+      availabilityStatus: stock?.status,
+      hasVariants: p.hasVariants === true,
+      priceTiered: p.priceTiered === true,
       moq: p.moq,
-      category: p.category?.nameEn ?? "Industrial",
+      // Locale-aware, and no fallback label: a product whose category is
+      // unknown is shown without one rather than filed under a category it may
+      // not belong to.
+      category: (locale === "ar" ? p.category?.nameAr || p.category?.nameEn : p.category?.nameEn) ?? undefined,
     };
   });
+  // Two headings over one ten-item feed used to render the same five products
+  // twice. The catalog API exposes no sales ranking, so the sections are simply
+  // made disjoint rather than labelled with a ranking nobody computes.
+  const productSections = partitionHomeProducts(mapped);
 
   return (
     <MainLayout>
@@ -113,54 +98,44 @@ export default async function HomePage() {
               </Link>
             </div>
 
-            {/* trust stats */}
-            <div className="mt-12 grid grid-cols-3 gap-6 max-w-lg border-t border-border pt-6">
-              {[
-                { v: "2,400+", l: t("statSuppliers") },
-                { v: "48,000+", l: t("statProducts") },
-                { v: "287", l: t("statCompanies") },
-              ].map((s) => (
-                <div key={s.l}>
-                  <p className="text-2xl font-bold font-mono tracking-tight">{s.v}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">{s.l}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* partner marquee */}
-        <div className="relative border-t border-border bg-background/40 backdrop-blur">
-          <div className="max-w-7xl mx-auto px-4 py-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
-            <span className="text-[11px] uppercase tracking-widest text-muted-foreground">{t("trustedBrands")}</span>
-            {PARTNERS.map((b) => (
-              <span key={b} className="text-sm font-bold tracking-wide text-muted-foreground/70 hover:text-foreground transition-colors">{b}</span>
-            ))}
           </div>
         </div>
       </section>
 
       {/* ─── Category strip ───────────────────────────────── */}
+      {/* Categories come from the catalog API (active, with discoverable
+          products), never a list typed into this page. An empty catalog gets a
+          plain link to all products rather than a decorative strip. */}
       <section className="max-w-7xl mx-auto px-4 py-10">
         <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
-          {CATEGORIES.map(({ slug, icon: Icon }) => (
-            <Link
-              key={slug}
-              href={`/products?category=${slug}`}
-              className="group shrink-0 flex items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-3 hover:border-primary/40 hover:shadow-card transition-all"
-            >
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                <Icon className="h-4 w-4" />
-              </span>
-              <span className="text-sm font-semibold whitespace-nowrap">{t(CATEGORY_TRANSLATIONS[slug] || "catIndustrial")}</span>
+          {categories.length === 0 ? (
+            <Link href="/products" className="inline-flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-semibold">
+              <PackageSearch className="h-4 w-4 text-primary" /> Browse all products
             </Link>
-          ))}
+          ) : (
+            categories.map((category) => {
+              const Icon = categoryIcon(category.iconName);
+              return (
+                <Link
+                  key={category.slug}
+                  href={`/products?category=${encodeURIComponent(category.slug)}`}
+                  className="group shrink-0 flex items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-3 hover:border-primary/40 hover:shadow-card transition-all"
+                >
+                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="text-sm font-semibold whitespace-nowrap">{categoryLabel(category, locale)}</span>
+                </Link>
+              );
+            })
+          )}
         </div>
       </section>
 
       {/* ─── Best sellers ─────────────────────────────────── */}
       <Section title={t("bestSellers")} subtitle={t("bestSellersSub")} href="/products">
-        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} locale={locale} badge="HOT" />)}</Grid>
+        {/* No badge: "HOT" asserts demand ranking the catalog does not compute. */}
+        <Grid>{productSections.catalog.map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>
       </Section>
 
       {/* ─── Value props ──────────────────────────────────── */}
@@ -184,9 +159,14 @@ export default async function HomePage() {
       </section>
 
       {/* ─── Featured ─────────────────────────────────────── */}
-      <Section title={t("featuredProducts")} subtitle={t("featuredProductsSub")} href="/products">
-        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} locale={locale} badge="NEW" />)}</Grid>
-      </Section>
+      {/* No badge: "NEW" was stamped on every product regardless of age. The
+          section is dropped entirely when the feed holds nothing the catalog
+          strip above did not already show. */}
+      {productSections.more.length > 0 && (
+        <Section title={t("featuredProducts")} subtitle={t("featuredProductsSub")} href="/products">
+          <Grid>{productSections.more.map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>
+        </Section>
+      )}
 
       {/* ─── B2B CTA band ─────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 pb-16 pt-6">

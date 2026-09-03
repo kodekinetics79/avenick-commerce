@@ -1,45 +1,49 @@
-import type { SellerProfile } from "@avenick/database";
+import {
+  computeSellerPerformanceScore,
+  db,
+  getSellerDashboard,
+  SELLER_RFQ_INBOX_WHERE,
+  UNASSIGNED_RFQ_OPEN_STATUSES,
+} from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
-import { fetchSellerBackend } from "@/lib/backend";
 import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
 import Link from "next/link";
+import { requireSellerPermission } from "@/lib/auth";
 import {
   ShoppingCart, DollarSign, Package, AlertTriangle, FileCheck, MessageSquare,
   TrendingUp, Activity, Zap, Clock, CheckCircle, XCircle, Star
 } from "lucide-react";
 
 export default async function DashboardPage() {
-  type DashboardData = {
-    seller: SellerProfile;
-    dashboard: {
-      todayOrderCount: number;
-      monthRevenue: string | number;
-      activeListings: number;
-      pendingPayoutAmount: string | number;
-      pendingOrders: number;
-      issueCount: number;
-      pendingCompliance: number;
-      lowStockItems: number;
-      unreadMessages: number;
-      rfqCount: number;
-      recentOrders: Array<{
-        id: string;
-        orderNumber: string;
-        type: string;
-        status: string;
-        total: string | number;
-        currency: "AED" | "SAR" | "USD";
-        createdAt: string;
-      }>;
-    };
-    expiringDocs: number;
-    pendingRfqCount: number;
-  };
-  const data = await fetchSellerBackend<DashboardData>("/api/seller/dashboard");
-  const { seller, dashboard: dash, expiringDocs, pendingRfqCount } = data;
-  const perfScore = seller.accountHealth;
+  const { seller, membership } = await requireSellerPermission("dashboard.view");
+  const [dash, expiringDocs, openRfqCount, performance] = await Promise.all([
+    getSellerDashboard(seller.id),
+    db.sellerDocument.count({
+      where: {
+        sellerId: seller.id,
+        expiryDate: { gte: new Date(), lte: new Date(Date.now() + 30 * 86_400_000) },
+      },
+    }),
+    // "Open RFQs" is the part of the /messages inbox that still wants a quote:
+    // the rfq service's inbox predicate (what getRFQsForSeller lists, what
+    // dash.rfqCount counts in full) narrowed to the statuses still open to a
+    // quote — the rows that page flags "Needs response". The full inbox count
+    // is not used here because it also holds every RFQ this seller already
+    // claimed, whatever its status, and this card promises work to do.
+    db.rFQRequest.count({
+      where: {
+        AND: [SELLER_RFQ_INBOX_WHERE(seller.id), { status: { in: [...UNASSIGNED_RFQ_OPEN_STATUSES] } }],
+      },
+    }),
+    // SellerProfile.accountHealth is never recomputed (schema default 100; the
+    // seed no longer writes it), so it is not shown anywhere. The score below is derived from the
+    // seller's own paid orders, listings and current documents (RFQs quoted
+    // count as activity, not as a component), and is null when there is too
+    // little activity to state one honestly.
+    computeSellerPerformanceScore(seller.id),
+  ]);
 
   const stats = [
     { label: "Today's Orders", labelAr: "طلبات اليوم", value: dash.todayOrderCount, icon: ShoppingCart, color: "bg-blue-500", urgent: false },
@@ -51,15 +55,16 @@ export default async function DashboardPage() {
     { label: "Compliance Issues", labelAr: "وثائق معلقة", value: dash.pendingCompliance, icon: FileCheck, color: "bg-amber-500", urgent: dash.pendingCompliance > 0, href: "/compliance" },
     { label: "Low Stock Items", labelAr: "مخزون منخفض", value: dash.lowStockItems, icon: Zap, color: "bg-red-400", urgent: dash.lowStockItems > 0, href: "/inventory" },
     { label: "Unread Messages", labelAr: "رسائل غير مقروءة", value: dash.unreadMessages, icon: MessageSquare, color: "bg-cyan-500", urgent: dash.unreadMessages > 0, href: "/messages" },
-    { label: "Open RFQs", labelAr: "طلبات عروض مفتوحة", value: dash.rfqCount, icon: Activity, color: "bg-indigo-500", urgent: false },
+    { label: "Open RFQs", labelAr: "طلبات عروض مفتوحة", value: openRfqCount, icon: Activity, color: "bg-indigo-500", urgent: false, href: "/messages" },
   ];
 
-  // Account health bar
-  const health = seller.accountHealth;
-  const healthColor = health >= 80 ? "bg-green-500" : health >= 60 ? "bg-yellow-500" : "bg-red-500";
+  // Score bands are presentation only: they colour a number the service produced.
+  const score = performance?.score ?? null;
+  const scoreBar = score === null ? "bg-muted" : score >= 80 ? "bg-green-500" : score >= 60 ? "bg-yellow-500" : "bg-red-500";
+  const scoreText = score === null ? "text-muted-foreground" : score >= 80 ? "text-green-600" : score >= 60 ? "text-yellow-600" : "text-red-600";
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={dash.issueCount} unreadMessages={dash.unreadMessages}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={dash.issueCount} unreadMessages={dash.unreadMessages} performance={performance} permissions={membership.permissions}>
       <div className="space-y-6">
         <OnboardingChecklist seller={seller} />
         {/* Header */}
@@ -69,15 +74,19 @@ export default async function DashboardPage() {
             <p className="text-sm text-muted-foreground">{seller.businessNameEn}</p>
           </div>
           <div className="text-end">
-            <p className="text-xs text-muted-foreground mb-1">Account Health</p>
-            <div className="flex items-center gap-2">
-              <div className="flex gap-0.5 w-24 h-2">
-                {Array.from({ length: 10 }).map((_, i) => (
-                  <div key={i} className={`flex-1 rounded-full ${i < Math.floor(health / 10) ? healthColor : "bg-muted"}`} />
-                ))}
+            <p className="text-xs text-muted-foreground mb-1">Performance score</p>
+            {score === null ? (
+              <p className="text-sm font-medium text-muted-foreground">Not enough data yet</p>
+            ) : (
+              <div className="flex items-center gap-2">
+                <div className="flex gap-0.5 w-24 h-2">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <div key={i} className={`flex-1 rounded-full ${i < Math.floor(score / 10) ? scoreBar : "bg-muted"}`} />
+                  ))}
+                </div>
+                <span className={`text-sm font-bold ${scoreText}`}>{score}/100</span>
               </div>
-              <span className={`text-sm font-bold ${health >= 80 ? "text-green-600" : health >= 60 ? "text-yellow-600" : "text-red-600"}`}>{health}/100</span>
-            </div>
+            )}
           </div>
         </div>
 
@@ -126,27 +135,36 @@ export default async function DashboardPage() {
             <Link href="/documents" className="text-xs text-primary hover:underline mt-2 block">Manage →</Link>
           </div>
 
-          {/* Pending RFQs widget */}
-          <div className={`bg-card rounded-2xl border p-4 ${pendingRfqCount > 0 ? "border-primary/30 bg-primary/5" : "border-border"}`}>
+          {/* Open RFQs widget — unassigned requests any seller may quote */}
+          <div className={`bg-card rounded-2xl border p-4 ${openRfqCount > 0 ? "border-primary/30 bg-primary/5" : "border-border"}`}>
             <div className="flex items-center gap-2 mb-2">
               <Activity className="h-4 w-4 text-primary" />
-              <p className="text-sm font-semibold">Pending RFQs</p>
+              <p className="text-sm font-semibold">Open RFQs</p>
             </div>
-            <p className="text-2xl font-bold font-mono text-primary">{pendingRfqCount}</p>
-            <p className="text-xs text-muted-foreground mt-1">Awaiting your quote response</p>
-            {pendingRfqCount > 0 && <Link href="/messages" className="text-xs text-primary hover:underline mt-2 block">Respond →</Link>}
+            <p className="text-2xl font-bold font-mono text-primary">{openRfqCount}</p>
+            <p className="text-xs text-muted-foreground mt-1">Awaiting a quote — first seller to quote is assigned</p>
+            {openRfqCount > 0 && <Link href="/messages" className="text-xs text-primary hover:underline mt-2 block">Quote →</Link>}
           </div>
 
-          {/* Performance score widget */}
+          {/* Performance score widget — the same computed score as the header and sidebar */}
           <div className="bg-card rounded-2xl border border-border p-4">
             <div className="flex items-center gap-2 mb-2">
               <Star className="h-4 w-4 text-amber-400" />
-              <p className="text-sm font-semibold">Account health</p>
+              <p className="text-sm font-semibold">Performance score</p>
             </div>
-            <p className={`text-2xl font-bold font-mono ${perfScore >= 80 ? "text-success" : perfScore >= 60 ? "text-amber-600 dark:text-amber-400" : "text-danger"}`}>
-              {perfScore}/100
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">{seller.reviewCount} reviews{seller.rating ? ` · ${Number(seller.rating).toFixed(1)}★` : ""}</p>
+            {performance === null ? (
+              <>
+                <p className="text-lg font-semibold text-muted-foreground">Not enough data yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Ship a few paid orders or quote a few RFQs and a score will appear here.</p>
+              </>
+            ) : (
+              <>
+                <p className={`text-2xl font-bold font-mono ${scoreText}`}>{performance.score}/100</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {performance.components.filter((component) => component.share !== null).map((component) => component.label).join(", ")} · orders from the last {performance.windowDays} days
+                </p>
+              </>
+            )}
             <Link href="/performance" className="text-xs text-primary hover:underline mt-2 block">View details →</Link>
           </div>
         </div>

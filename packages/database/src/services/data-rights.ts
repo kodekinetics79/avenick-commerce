@@ -14,8 +14,9 @@
  *   - Erasure runs in a single transaction so a partial erasure can't leave the
  *     subject half-forgotten.
  */
-import { db, Prisma } from "../index";
+import { AuditAction, db, Prisma } from "../index";
 import { logAudit } from "./audit";
+import { lockCompanyApprovalRows, lockUserCommerceRows } from "./checkout-invariants";
 
 /** Everything we hold about a user, assembled for a data-access request. */
 export interface UserDataExport {
@@ -88,10 +89,44 @@ export interface ErasureResult {
  * are kept but de-identified. Personal-only data is hard-deleted. Idempotent:
  * re-running on an already-erased subject is a no-op-ish pass.
  */
-export async function eraseUserData(subjectId: string, actorId: string): Promise<ErasureResult> {
+export async function eraseUserData(
+  subjectId: string,
+  actorId: string,
+  options: { afterGovernanceLocks?: () => Promise<void> } = {},
+): Promise<ErasureResult> {
   return db.$transaction(async (tx) => {
-    const user = await tx.user.findUnique({ where: { id: subjectId } });
+    // Resolve the immutable company identity before taking advisory locks, then
+    // follow the global company -> sorted users lock order used by checkout and
+    // governed B2B mutations. Re-reading below makes this a revocation fence,
+    // rather than relying on the HTTP session check that preceded the request.
+    const target = await tx.user.findUnique({
+      where: { id: subjectId },
+      select: { companyMember: { select: { companyId: true } } },
+    });
+    if (!target) throw new Error(`No user ${subjectId} to erase`);
+    await lockCompanyApprovalRows(tx, target.companyMember ? [target.companyMember.companyId] : []);
+    await lockUserCommerceRows(tx, [actorId, subjectId]);
+    await options.afterGovernanceLocks?.();
+
+    const [user, actor] = await Promise.all([
+      tx.user.findUnique({ where: { id: subjectId } }),
+      tx.user.findUnique({ where: { id: actorId }, select: { role: true, status: true, deletedAt: true } }),
+    ]);
     if (!user) throw new Error(`No user ${subjectId} to erase`);
+    if (!actor || actor.status !== "ACTIVE" || actor.deletedAt || !["ADMIN", "SUPER_ADMIN"].includes(actor.role)) {
+      throw new Error("An active platform administrator is required to erase user data");
+    }
+
+    const affected = target.companyMember && (!user.deletedAt || user.status !== "SUSPENDED")
+      ? await tx.purchaseOrder.findMany({
+          where: {
+            companyId: target.companyMember.companyId,
+            status: "APPROVED",
+            OR: [{ requesterId: subjectId }, { approverId: subjectId }],
+          },
+          select: { id: true, approvalVersion: true },
+        })
+      : [];
 
     const deletedCounts: Record<string, number> = {};
     // Hard-delete personal-only data with no retention requirement.
@@ -120,13 +155,42 @@ export async function eraseUserData(subjectId: string, actorId: string): Promise
       },
     });
 
+    if (affected.length) {
+      await tx.purchaseOrder.updateMany({
+        where: { id: { in: affected.map(({ id }) => id) }, status: "APPROVED" },
+        data: {
+          status: "PENDING_APPROVAL",
+          approverId: null,
+          approvedAt: null,
+          approvalSnapshot: Prisma.DbNull,
+          approvedCommercialFingerprint: null,
+          rejectionReason: "User account erased; reapproval required",
+          approvalVersion: { increment: 1 },
+        },
+      });
+      await tx.auditLog.createMany({
+        data: affected.map((po) => ({
+          actorId,
+          entityType: "PurchaseOrder",
+          entityId: po.id,
+          action: AuditAction.STATUS_CHANGE,
+          before: { status: "APPROVED", approvalVersion: po.approvalVersion },
+          after: { status: "PENDING_APPROVAL", reason: "USER_ERASED" },
+        })),
+      });
+    }
+
     await logAudit(
       {
         actorId,
         entityType: "DataRights",
         entityId: subjectId,
         action: "DELETE",
-        after: { operation: "erasure", deletedCounts } as Prisma.InputJsonValue,
+        after: {
+          operation: "erasure",
+          deletedCounts,
+          invalidatedPurchaseOrderIds: affected.map(({ id }) => id),
+        } as Prisma.InputJsonValue,
       },
       tx,
     );

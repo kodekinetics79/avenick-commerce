@@ -8,6 +8,7 @@ import {
   ListChecks, Receipt, BarChart3, Users, Building2, Plus, ShieldCheck, MapPin,
 } from "lucide-react";
 import { cn } from "@avenick/utils";
+import { platformName } from "@avenick/utils/portal-config";
 import { MainLayout } from "@/components/layout/main-layout";
 
 const NAV = [
@@ -54,7 +55,7 @@ export function B2BShell({
               </span>
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-widest text-primary">Business Portal</p>
-                <p className="text-sm font-bold truncate">Avenick for Business</p>
+                <p className="text-sm font-bold truncate">{platformName()} for Business</p>
               </div>
             </div>
             <Link href="/b2b/rfq/new" className="hidden sm:inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">

@@ -30,8 +30,11 @@ interface OrderConfirmationProps {
   vatAmount: number;
   shippingAmount: number;
   total: number;
+  /** The order's own currency; there is no default because a guessed currency on an invoice is a wrong invoice. */
   currency: string;
   locale?: "ar" | "en";
+  /** Platform display name; the sender passes platformName() from portal-config. */
+  platformName?: string;
 }
 
 export function OrderConfirmationEmail({
@@ -42,10 +45,13 @@ export function OrderConfirmationEmail({
   vatAmount,
   shippingAmount,
   total,
-  currency = "AED",
+  currency,
   locale = "en",
+  platformName,
 }: OrderConfirmationProps) {
   const isAr = locale === "ar";
+  // The brand name is the one permitted literal; the sender can override it.
+  const name = platformName ?? (isAr ? "منزل" : "Avenick");
   const dir = isAr ? "rtl" : "ltr";
 
   const t = isAr
@@ -63,7 +69,7 @@ export function OrderConfirmationEmail({
         vat: "ضريبة القيمة المضافة",
         shipping: "الشحن",
         total: "الإجمالي",
-        footer: "شكراً لتسوقكم معنا في منزل.",
+        footer: `شكراً لتسوقكم معنا في ${name}.`,
       }
     : {
         preview: `Your order #${orderNumber} has been confirmed`,
@@ -79,7 +85,7 @@ export function OrderConfirmationEmail({
         vat: "VAT",
         shipping: "Shipping",
         total: "Total",
-        footer: "Thank you for shopping with Avenick.",
+        footer: `Thank you for shopping with ${name}.`,
       };
 
   return (

@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { AIInsightCard } from "@avenick/ui";
-import { formatCurrency } from "@avenick/utils";
+import type { ExecutiveKpis } from "@avenick/database";
 import {
   TrendingUp, Building2, Users, Store, ShoppingCart, Coins, Scale, Truck,
   Boxes, FileQuestion, ArrowRight, Brain, Plus, UserPlus, Megaphone,
@@ -23,8 +23,12 @@ const QUICK_ACTIONS = [
   { label: "Warehouse queue", icon: Boxes, href: "/warehouse/pickpack" },
 ];
 
+// The KPI contract is the service's own declaration (a type-only import, so
+// nothing from the database package reaches the client bundle). A trend is a
+// month-over-month percentage, or null when the service did not measure one;
+// a local copy of the interface would be a second place for that to drift.
 interface ExecData {
-  kpis: Record<string, number>;
+  kpis: ExecutiveKpis;
   revenueSplit: { b2b: number; b2c: number };
   rfqFunnel: { stage: string; count: number; color: string }[];
   orderLifecycle: { stage: string; count: number; color: string }[];
@@ -46,13 +50,43 @@ export interface DashboardViewProps {
 }
 
 /* ── Reusable bits ─────────────────────────────────────── */
-function Trend({ value, up }: { value: string; up: boolean }) {
+/**
+ * A month-over-month delta. Direction comes from the sign of the number, never
+ * from a hard-coded "up" flag: the previous version painted every KPI green
+ * with an up arrow regardless of the value. The title says what was compared:
+ * the running month against the previous whole month, which also holds for
+ * the cards whose headline figure is an all-time total.
+ */
+function Trend({ percent }: { percent: number }) {
+  const up = percent >= 0;
   return (
-    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${up ? "text-success" : "text-danger"}`}>
+    <span className={`inline-flex items-center gap-0.5 text-xs font-semibold ${up ? "text-success" : "text-danger"}`} title="This month so far against the previous whole month">
       {up ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
-      {value}
+      {up ? "+" : ""}{percent}%
     </span>
   );
+}
+
+/**
+ * Takes the badge's place when the service reports null: nothing was recorded
+ * in the previous month, so there is no delta to state. An empty corner would
+ * let the reader assume "flat"; saying what was withheld costs one line.
+ */
+function TrendWithheld() {
+  return (
+    <span className="text-[11px] text-muted-foreground" title="Not measured: nothing was recorded in the previous month to compare against">
+      No prior-month figure
+    </span>
+  );
+}
+
+/**
+ * Order totals are summed as recorded in each order's own currency; nothing is
+ * converted. Labelling that sum "AED" would be a claim the data does not
+ * support, so amounts are shown as plain numbers with a disclosure below.
+ */
+function amount(n: number): string {
+  return n.toLocaleString("en", { maximumFractionDigits: 0 });
 }
 
 function Bars({ ratio, gradient = true }: { ratio: number; gradient?: boolean }) {
@@ -91,32 +125,41 @@ function PanelHead({ title, sub, icon: Icon, action }: { title: string; sub?: st
 export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, activeSuppliers, pendingCount }: DashboardViewProps) {
   const k = exec.kpis;
 
-  const heroKpis = [
-    { label: "Gross merchandise value", value: formatCurrency(gmvMonth, "AED"), icon: TrendingUp, trend: `${k.gmvTrend}%`, up: true, hero: true },
-    { label: "B2B revenue", value: formatCurrency(k.b2bRevenue, "AED"), icon: Building2, trend: `${k.b2bTrend}%`, up: true },
-    { label: "B2C revenue", value: formatCurrency(k.b2cRevenue, "AED"), icon: ShoppingCart, trend: `${k.b2cTrend}%`, up: true },
-    { label: "Commission", value: formatCurrency(k.commission, "AED"), icon: Coins, trend: `${k.commissionTrend}%`, up: true },
+  // The service reports null for any trend it did not measure — no prior
+  // month to compare against, or a figure it never compares at all — and the
+  // card says so instead of showing a badge. A 0 that does arrive is a
+  // measured flat month and is shown as one.
+  const heroKpis: { label: string; value: string; icon: React.ElementType; trend: number | null; hero?: boolean }[] = [
+    { label: "Gross merchandise value (this month)", value: amount(gmvMonth), icon: TrendingUp, trend: k.gmvTrend, hero: true },
+    // The service computes the B2B/B2C split and commission over all paid
+    // orders, not the current month, so the labels say so; each trend is that
+    // channel's own month-over-month movement.
+    { label: "B2B revenue (all time)", value: amount(k.b2bRevenue), icon: Building2, trend: k.b2bTrend },
+    { label: "B2C revenue (all time)", value: amount(k.b2cRevenue), icon: ShoppingCart, trend: k.b2cTrend },
+    { label: "Commission (all time)", value: amount(k.commission), icon: Coins, trend: k.commissionTrend },
   ];
 
   const statKpis = [
-    { label: "Active companies", value: activeCompanies || k.activeCompanies, icon: Building2, trend: `${k.companiesTrend}%`, up: true },
-    { label: "B2C customers", value: k.activeCustomers.toLocaleString(), icon: Users, trend: `${k.customersTrend}%`, up: true },
-    { label: "Active suppliers", value: activeSuppliers || k.activeSuppliers, icon: Store, trend: `${k.suppliersTrend}%`, up: true },
-    { label: "RFQ conversion", value: `${k.rfqConversion}%`, icon: FileQuestion, trend: `${k.rfqConversionTrend}%`, up: true },
-    { label: "Fulfillment rate", value: `${k.fulfillmentRate}%`, icon: TrendingUp, trend: `${k.fulfillmentTrend}%`, up: true },
-    { label: "Warehouse use", value: `${k.warehouseUtilization}%`, icon: Boxes, trend: `${k.warehouseTrend}%`, up: false },
+    { label: "Active companies", value: activeCompanies || k.activeCompanies, icon: Building2 },
+    { label: "B2C customers", value: k.activeCustomers.toLocaleString(), icon: Users },
+    { label: "Active suppliers", value: activeSuppliers || k.activeSuppliers, icon: Store },
+    { label: "RFQ conversion", value: `${k.rfqConversion}%`, icon: FileQuestion },
+    { label: "Fulfillment rate", value: `${k.fulfillmentRate}%`, icon: TrendingUp },
+    { label: "Warehouse use", value: `${k.warehouseUtilization}%`, icon: Boxes },
   ];
 
   const alerts = [
-    { label: "Open disputes", value: k.openDisputes, sub: "need mediation", icon: Scale, href: "/disputes" },
-    { label: "Delayed orders", value: k.delayedOrders, sub: "past SLA", icon: AlertTriangle, href: "/orders?status=PROCESSING" },
+    { label: "Open disputes", value: k.openDisputes, sub: "awaiting resolution", icon: Scale, href: "/disputes" },
+    // The service counts paid orders still CONFIRMED/PROCESSING past its own
+    // age threshold; no SLA is published, so none is claimed here.
+    { label: "Delayed orders", value: k.delayedOrders, sub: "paid, still awaiting shipment", icon: AlertTriangle, href: "/orders?status=PROCESSING" },
   ].filter((a) => a.value > 0);
 
   const revTotal = exec.revenueSplit.b2b + exec.revenueSplit.b2c;
-  const b2bPct = Math.round((exec.revenueSplit.b2b / revTotal) * 100);
-  const rfqMax = Math.max(...exec.rfqFunnel.map((s) => s.count));
-  const lifeMax = Math.max(...exec.orderLifecycle.map((s) => s.count));
-  const catMax = Math.max(...exec.topCategories.map((c) => c.share));
+  const b2bPct = revTotal > 0 ? Math.round((exec.revenueSplit.b2b / revTotal) * 100) : 0;
+  const rfqMax = Math.max(1, ...exec.rfqFunnel.map((s) => s.count));
+  const lifeMax = Math.max(1, ...exec.orderLifecycle.map((s) => s.count));
+  const catMax = Math.max(1, ...exec.topCategories.map((c) => c.share));
 
   return (
     <AdminLayout pendingCount={pendingCount}>
@@ -127,11 +170,11 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
         <div className="relative px-6 py-7 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
           <div>
             <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" /> Live · Modern Trade OS
+              <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" /> Database-backed marketplace overview
             </span>
             <h1 className="mt-2 text-3xl font-extrabold tracking-tight">Executive Command Center</h1>
             <p className="mt-1.5 text-sm text-muted-foreground max-w-xl">
-              Real-time marketplace performance across B2B and B2C — revenue, suppliers, fulfillment, and AI-driven actions.
+              Database-backed marketplace performance across B2B and B2C — revenue, suppliers, fulfillment, and rule-based actions.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -163,13 +206,16 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                 <span className={`grid h-9 w-9 place-items-center rounded-xl ${kpi.hero ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"}`}>
                   <kpi.icon className="h-4 w-4" />
                 </span>
-                <Trend value={kpi.trend} up={kpi.up} />
+                {kpi.trend !== null ? <Trend percent={kpi.trend} /> : <TrendWithheld />}
               </div>
               <p className="mt-4 text-2xl font-bold font-mono tracking-tight">{kpi.value}</p>
               <p className="text-xs text-muted-foreground mt-1">{kpi.label}</p>
             </div>
           ))}
         </div>
+        <p className="-mt-5 text-[11px] text-muted-foreground">
+          Amounts are paid order totals summed as recorded in each order&apos;s own currency; no conversion between currencies is applied.
+        </p>
 
         {/* Stat strip + alerts */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -179,10 +225,7 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                 <kpi.icon className="h-4 w-4" />
                 <span className="text-[11px] truncate">{kpi.label}</span>
               </div>
-              <div className="flex items-end justify-between">
-                <p className="text-xl font-bold font-mono tracking-tight">{kpi.value}</p>
-                <Trend value={kpi.trend} up={kpi.up} />
-              </div>
+              <p className="text-xl font-bold font-mono tracking-tight">{kpi.value}</p>
             </div>
           ))}
         </div>
@@ -204,15 +247,15 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
           </div>
         )}
 
-        {/* AI recommendations + operational health */}
+        {/* Rule-based recommendations + operational health */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <section className="lg:col-span-2">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-primary" />
-                <h2 className="text-base font-semibold">AI recommendations</h2>
+                <h2 className="text-base font-semibold">Operational recommendations</h2>
               </div>
-              <Link href="/ai-insights" className="text-sm text-primary hover:underline font-medium flex items-center gap-1">View all <ArrowRight className="h-3 w-3" /></Link>
+              <Link href="/ai-insights" className="text-sm text-primary hover:underline font-medium flex items-center gap-1">AI status <ArrowRight className="h-3 w-3" /></Link>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {exec.aiRecommendations.map((rec) => (
@@ -269,8 +312,8 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
             <PanelHead title="Revenue split" sub="B2B vs B2C" icon={PieChart} />
             <div className="p-0 pt-5">
               <div className="flex items-end gap-2 mb-4">
-                <p className="text-3xl font-bold font-mono tracking-tight">{formatCurrency(revTotal, "AED")}</p>
-                <p className="text-xs text-muted-foreground mb-1.5">total</p>
+                <p className="text-3xl font-bold font-mono tracking-tight">{amount(revTotal)}</p>
+                <p className="text-xs text-muted-foreground mb-1.5">total, as recorded</p>
               </div>
               <div className="flex gap-0.5 h-3 mb-4 rounded-full overflow-hidden">
                 {Array.from({ length: 20 }).map((_, i) => (
@@ -280,11 +323,11 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
               <div className="space-y-2 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-primary" /> B2B</span>
-                  <span className="font-semibold font-mono">{formatCurrency(exec.revenueSplit.b2b, "AED")} · {b2bPct}%</span>
+                  <span className="font-semibold font-mono">{amount(exec.revenueSplit.b2b)} · {b2bPct}%</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-accent" /> B2C</span>
-                  <span className="font-semibold font-mono">{formatCurrency(exec.revenueSplit.b2c, "AED")} · {100 - b2bPct}%</span>
+                  <span className="font-semibold font-mono">{amount(exec.revenueSplit.b2c)} · {revTotal > 0 ? 100 - b2bPct : 0}%</span>
                 </div>
               </div>
             </div>
@@ -330,7 +373,7 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                 <div key={c.name}>
                   <div className="flex items-center justify-between text-sm mb-1.5">
                     <span className="font-medium">{c.name}</span>
-                    <span className="text-muted-foreground text-xs font-mono">{formatCurrency(c.gmv, "AED")}</span>
+                    <span className="text-muted-foreground text-xs font-mono">{amount(c.gmv)}</span>
                   </div>
                   <Bars ratio={c.share / catMax} />
                 </div>
@@ -348,11 +391,12 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{s.name}</p>
                       <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Star className="h-3 w-3 text-amber-400 fill-current" /> {s.rating} · {s.orders} orders
+                        {/* The service returns 0 when a supplier has no reviews; 0 is not a rating. */}
+                        {s.rating > 0 ? <><Star className="h-3 w-3 text-amber-400 fill-current" /> {s.rating}</> : "No reviews"} · {s.orders} orders
                       </p>
                     </div>
                   </div>
-                  <span className="text-sm font-semibold font-mono shrink-0">{formatCurrency(s.gmv, "AED")}</span>
+                  <span className="text-sm font-semibold font-mono shrink-0">{amount(s.gmv)}</span>
                 </div>
               ))}
             </div>
@@ -368,7 +412,7 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                     <p className="text-xs text-muted-foreground">{c.totalOrders} orders</p>
                   </div>
                   <div className="text-end shrink-0">
-                    <p className="text-sm font-semibold font-mono">{formatCurrency(c.totalSpent, "AED")}</p>
+                    <p className="text-sm font-semibold font-mono">{amount(c.totalSpent)}</p>
                     <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${c.type === "B2B" ? "bg-accent/15 text-accent" : "bg-primary/15 text-primary"}`}>{c.type}</span>
                   </div>
                 </div>

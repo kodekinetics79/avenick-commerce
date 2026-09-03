@@ -9,11 +9,12 @@ import {
   ShoppingCart, Ship, RotateCcw, Send, Warehouse, ArrowDownToLine, Boxes, PackageCheck,
   Users, Megaphone, PieChart, Heart, DollarSign, CreditCard, Receipt, FileSpreadsheet,
   LifeBuoy, Scale, Gauge, Settings, UserCog, Plug, ScrollText,
-  Menu, Search, Bell, ChevronDown, Zap, LogOut, Coins
+  Menu, Search, Bell, ChevronDown, Zap, LogOut, Coins, FileUp
 } from "lucide-react";
 import { cn } from "@avenick/utils";
 import { ThemeToggle } from "@avenick/ui";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
+import { CommandPalette } from "@/components/command-palette";
 
 const NAV_GROUPS = [
   {
@@ -28,6 +29,7 @@ const NAV_GROUPS = [
     label: "Commerce",
     items: [
       { href: "/products", icon: Package, label: "Products" },
+      { href: "/catalog-import", icon: FileUp, label: "Catalog Import" },
       { href: "/categories", icon: Tag, label: "Categories" },
       { href: "/brands", icon: Award, label: "Brands" },
       { href: "/deals", icon: Percent, label: "Deals" },
@@ -107,12 +109,31 @@ const NAV_GROUPS = [
   },
 ];
 
+/** Initial for the avatar: first letter of the real name, else of the email. */
+function avatarInitial(name: string | null | undefined, email: string | null | undefined): string {
+  const source = name?.trim() || email?.trim() || "";
+  return source ? source.charAt(0).toUpperCase() : "";
+}
+
 export function AdminLayout({ children, pendingCount = 0 }: { children: React.ReactNode; pendingCount?: number }) {
   const pathname = usePathname();
+  const { data: session, status: sessionStatus } = useSession();
   const [collapsed, setCollapsed] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [profileOpen, setProfileOpen] = React.useState(false);
+  const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const [shortcutHint, setShortcutHint] = React.useState("");
   const profileRef = React.useRef<HTMLDivElement>(null);
+
+  // The shortcut label depends on the visitor's platform, which is only known
+  // in the browser; rendering it after mount avoids a hydration mismatch.
+  React.useEffect(() => {
+    const isMac = /mac|iphone|ipad/i.test(navigator.platform || navigator.userAgent);
+    setShortcutHint(isMac ? "⌘K" : "Ctrl K");
+  }, []);
+
+  const user = sessionStatus === "authenticated" ? session?.user : null;
+  const initial = avatarInitial(user?.name, user?.email);
 
   React.useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -240,14 +261,25 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
               <Menu className="h-5 w-5 text-muted-foreground" />
             </button>
 
-            <div className="hidden sm:flex items-center gap-2 bg-secondary/60 border border-border rounded-xl px-3 h-9 w-64">
+            <button
+              type="button"
+              onClick={() => setPaletteOpen(true)}
+              className="hidden sm:flex items-center gap-2 bg-secondary/60 border border-border rounded-xl px-3 h-9 w-64 text-start hover:bg-secondary transition-colors"
+              aria-haspopup="dialog"
+              aria-expanded={paletteOpen}
+            >
               <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <input type="text" placeholder="Search admin…" className="bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none flex-1 min-w-0" />
-            </div>
+              <span className="text-sm text-muted-foreground flex-1 min-w-0 truncate">Jump to page…</span>
+              {shortcutHint && <kbd className="text-[10px] text-muted-foreground border border-border rounded px-1.5 py-0.5">{shortcutHint}</kbd>}
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">STAGING</span>
+            {/* Only a build that is not a production build gets a badge; a
+                production build must not claim to be anything else. */}
+            {process.env.NODE_ENV !== "production" && (
+              <span className="text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full">DEV BUILD</span>
+            )}
             <ThemeToggle />
             <button type="button" className="relative p-2 hover:bg-secondary rounded-lg transition-colors" aria-label="Notifications">
               <Bell className="h-5 w-5 text-muted-foreground" />
@@ -258,16 +290,28 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
               )}
             </button>
             <div className="relative" ref={profileRef}>
-              <button type="button" onClick={() => setProfileOpen(v => !v)} className="flex items-center gap-2 p-1.5 hover:bg-secondary rounded-lg transition-colors">
-                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center text-white font-bold text-xs">A</div>
+              <button type="button" onClick={() => setProfileOpen(v => !v)} className="flex items-center gap-2 p-1.5 hover:bg-secondary rounded-lg transition-colors" aria-label="Account menu">
+                {/* Blank while the session is loading: a placeholder letter would be a made-up identity. */}
+                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center text-white font-bold text-xs" aria-hidden="true">{initial}</div>
                 <ChevronDown className={cn("h-3 w-3 text-muted-foreground transition-transform", profileOpen && "rotate-180")} />
               </button>
               {profileOpen && (
-                <div className="absolute end-0 top-full mt-1.5 w-48 bg-popover text-popover-foreground border border-border rounded-xl shadow-elevated z-50 p-1">
-                  <div className="px-3 py-2.5 border-b border-border mb-1">
-                    <p className="text-sm font-semibold">Admin User</p>
-                    <p className="text-xs text-muted-foreground">admin@avenick.com</p>
-                  </div>
+                <div className="absolute end-0 top-full mt-1.5 w-56 bg-popover text-popover-foreground border border-border rounded-xl shadow-elevated z-50 p-1">
+                  {sessionStatus === "loading" ? (
+                    <div className="px-3 py-2.5 border-b border-border mb-1" aria-busy="true">
+                      <div className="h-3.5 w-24 rounded bg-muted animate-pulse mb-1.5" />
+                      <div className="h-3 w-36 rounded bg-muted animate-pulse" />
+                    </div>
+                  ) : user ? (
+                    <div className="px-3 py-2.5 border-b border-border mb-1 min-w-0">
+                      {user.name?.trim() && <p className="text-sm font-semibold truncate">{user.name}</p>}
+                      {user.email && <p className="text-xs text-muted-foreground truncate">{user.email}</p>}
+                    </div>
+                  ) : (
+                    <div className="px-3 py-2.5 border-b border-border mb-1">
+                      <p className="text-xs text-muted-foreground">Signed-in identity unavailable</p>
+                    </div>
+                  )}
                   <Link href="/settings" onClick={() => setProfileOpen(false)} className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">Settings</Link>
                   <button type="button" onClick={() => signOut({ callbackUrl: "/login" })} className="w-full text-start px-3 py-2 text-sm rounded-lg text-danger hover:bg-danger/10 transition-colors">Sign out</button>
                 </div>
@@ -279,6 +323,8 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
         {/* Page content */}
         <main className="flex-1 overflow-y-auto p-4 lg:p-6 bg-background">{children}</main>
       </div>
+
+      <CommandPalette groups={NAV_GROUPS} open={paletteOpen} onOpenChange={setPaletteOpen} />
     </div>
   );
 }

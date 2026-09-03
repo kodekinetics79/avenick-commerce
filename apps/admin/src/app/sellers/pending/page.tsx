@@ -5,7 +5,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { CheckCircle, XCircle, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 
-interface SellerDoc { id: string; type: string; fileUrl: string; fileName: string; status: string }
+interface SellerDoc { id: string; type: string; fileName: string; status: string }
 interface PendingSeller {
   id: string; businessNameEn: string; businessNameAr?: string; crNumber: string;
   type: string; country: string; city: string; createdAt: string;
@@ -18,6 +18,9 @@ export default function PendingSellersPage() {
   const [loading, setLoading] = useState(true);
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  // A decision that did not land must not vanish from the queue as if it had.
+  const [notice, setNotice] = useState<{ sellerId: string; message: string; currentStatus?: string } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/sellers?status=PENDING_REVIEW")
@@ -26,17 +29,50 @@ export default function PendingSellersPage() {
       .catch(() => setLoading(false));
   }, []);
 
+  /**
+   * Record a decision and only then drop the card. The API refuses an
+   * application another admin already decided (409, carrying the real status)
+   * and a row that is gone (404); removing the card on either would tell the
+   * reviewer their click was honoured when nothing was written.
+   */
+  async function decide(id: string, path: "approve" | "reject", init: RequestInit): Promise<boolean> {
+    setBusy(id);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/admin/sellers/${id}/${path}`, { method: "PUT", ...init });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body?.success) {
+        setNotice({
+          sellerId: id,
+          message: typeof body?.error === "string" ? body.error : "The decision was not recorded.",
+          currentStatus: typeof body?.currentStatus === "string" ? body.currentStatus : undefined,
+        });
+        return false;
+      }
+      setSellers((list) => list.filter((x) => x.id !== id));
+      return true;
+    } catch {
+      setNotice({ sellerId: id, message: "The decision was not recorded." });
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function approve(id: string) {
-    await fetch(`/api/admin/sellers/${id}/approve`, { method: "PUT" });
-    setSellers((s) => s.filter((x) => x.id !== id));
+    await decide(id, "approve", {});
   }
 
   async function reject(id: string) {
     if (!rejectReason.trim()) return;
-    await fetch(`/api/admin/sellers/${id}/reject`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason: rejectReason }) });
-    setSellers((s) => s.filter((x) => x.id !== id));
-    setRejecting(null);
-    setRejectReason("");
+    const recorded = await decide(id, "reject", {
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: rejectReason }),
+    });
+    if (recorded) {
+      setRejecting(null);
+      setRejectReason("");
+    }
   }
 
   return (
@@ -73,26 +109,42 @@ export default function PendingSellersPage() {
                 <div className="flex gap-2 shrink-0">
                   <button
                     onClick={() => approve(seller.id)}
-                    className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-green-600"
+                    disabled={busy === seller.id}
+                    className="flex items-center gap-2 bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-green-600 disabled:opacity-50"
                   >
                     <CheckCircle className="h-4 w-4" />Approve
                   </button>
                   <button
                     onClick={() => setRejecting(seller.id)}
-                    className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-red-600"
+                    disabled={busy === seller.id}
+                    className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50"
                   >
                     <XCircle className="h-4 w-4" />Reject
                   </button>
                 </div>
               </div>
 
+              {notice?.sellerId === seller.id && (
+                <p role="alert" className="mb-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                  {notice.message}
+                  {notice.currentStatus && <> Current status: <strong>{notice.currentStatus.replace(/_/g, " ")}</strong>.</>}
+                </p>
+              )}
+
               {/* Documents */}
-              {seller.documents.length > 0 && (
+              {seller.documents.length === 0 ? (
+                // Silence here would read as "nothing to check"; the reviewer
+                // must see that approval would rest on no filed evidence.
+                <p className="text-xs text-muted-foreground">No documents have been submitted for this application.</p>
+              ) : (
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground mb-2">SUBMITTED DOCUMENTS</p>
                   <div className="flex flex-wrap gap-2">
                     {seller.documents.map((doc) => (
-                      <a key={doc.id} href={doc.fileUrl} target="_blank" rel="noopener noreferrer"
+                      // The stored file reference is a private object key, not a
+                      // link; the view route mints a short-lived signed URL per request.
+                      <a key={doc.id} href={`/documents/${encodeURIComponent(doc.id)}/view`} target="_blank" rel="noopener noreferrer"
+                        title={doc.fileName}
                         className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-muted rounded-lg hover:bg-muted/70 transition-colors">
                         <ExternalLink className="h-3 w-3" />
                         {doc.type.replace(/_/g, " ")}
@@ -117,7 +169,7 @@ export default function PendingSellersPage() {
                     placeholder="Explain why this seller application is being rejected..."
                   />
                   <div className="flex gap-2 mt-2">
-                    <button onClick={() => reject(seller.id)} disabled={!rejectReason.trim()} className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm font-semibold disabled:opacity-50">Confirm Reject</button>
+                    <button onClick={() => reject(seller.id)} disabled={!rejectReason.trim() || busy === seller.id} className="bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm font-semibold disabled:opacity-50">Confirm Reject</button>
                     <button onClick={() => { setRejecting(null); setRejectReason(""); }} className="px-3 py-1.5 rounded-lg text-sm border border-border">Cancel</button>
                   </div>
                 </div>

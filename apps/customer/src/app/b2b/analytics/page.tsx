@@ -2,9 +2,11 @@ import { B2BShell } from "@/components/b2b/b2b-shell";
 import { formatCurrency } from "@avenick/utils";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
+import { companyCurrencyForCountry } from "@/lib/company-currency";
+import { platformName } from "@avenick/utils/portal-config";
 import { TrendingUp, Wallet, Clock, Building2, BarChart3 } from "lucide-react";
 
-export const metadata = { title: "Spend Analytics — Avenick for Business" };
+export const metadata = { title: `Spend Analytics — ${platformName()} for Business` };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -22,11 +24,19 @@ export default async function SpendAnalyticsPage() {
     );
   }
 
-  const [pos, members] = await Promise.all([
-    db.purchaseOrder.findMany({ where: { companyId: ctx.companyId }, select: { total: true, status: true, requesterId: true, createdAt: true } }),
+  const [allPos, members] = await Promise.all([
+    db.purchaseOrder.findMany({ where: { companyId: ctx.companyId }, select: { total: true, status: true, requesterId: true, createdAt: true, currency: true } }),
     db.companyMember.findMany({ where: { companyId: ctx.companyId }, select: { userId: true, department: true } }),
   ]);
   const deptOf = new Map(members.map((m) => [m.userId, m.department ?? "Unassigned"]));
+
+  // Purchase orders are stored in the currency they were raised in. Totals
+  // across currencies are not a sum of anything, so every figure on this page
+  // is in the company's jurisdiction currency and POs in any other currency
+  // are counted and disclosed rather than silently folded in.
+  const currency = companyCurrencyForCountry(ctx.company.country);
+  const pos = allPos.filter((p) => p.currency === currency);
+  const excludedCount = allPos.length - pos.length;
 
   const committed = pos.filter((p) => p.status === "ORDERED" || p.status === "APPROVED");
   const totalSpend = committed.reduce((s, p) => s + Number(p.total), 0);
@@ -54,15 +64,20 @@ export default async function SpendAnalyticsPage() {
   const trendMax = Math.max(1, ...trend.map((t) => t.value));
 
   const kpis = [
-    { label: "Committed spend", value: formatCurrency(totalSpend, "AED"), icon: Wallet },
-    { label: "This month", value: formatCurrency(monthSpend, "AED"), icon: TrendingUp },
-    { label: "Awaiting approval", value: formatCurrency(pendingValue, "AED"), icon: Clock },
+    { label: "Committed spend", value: formatCurrency(totalSpend, currency), icon: Wallet },
+    { label: "This month", value: formatCurrency(monthSpend, currency), icon: TrendingUp },
+    { label: "Awaiting approval", value: formatCurrency(pendingValue, currency), icon: Clock },
   ];
 
   const empty = committed.length === 0;
 
   return (
-    <B2BShell title="Spend Analytics" description={`Approved & ordered purchasing across ${ctx.company.nameEn}.`}>
+    <B2BShell title="Spend Analytics" description={`Approved & ordered purchasing across ${ctx.company.nameEn}, in ${currency}.`}>
+      {excludedCount > 0 && (
+        <p className="text-xs text-muted-foreground mb-4">
+          {excludedCount} purchase order{excludedCount === 1 ? "" : "s"} raised in other currencies {excludedCount === 1 ? "is" : "are"} not included in these figures.
+        </p>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {kpis.map((k) => (
           <div key={k.label} className="rounded-2xl border border-border bg-card p-5">
@@ -89,7 +104,7 @@ export default async function SpendAnalyticsPage() {
                 <div key={d.name}>
                   <div className="flex items-center justify-between text-xs mb-1.5">
                     <span className="font-medium">{d.name}</span>
-                    <span className="font-mono text-muted-foreground">{formatCurrency(d.spend, "AED")}</span>
+                    <span className="font-mono text-muted-foreground">{formatCurrency(d.spend, currency)}</span>
                   </div>
                   <div className="h-2 rounded-full bg-secondary overflow-hidden">
                     <div className="h-full rounded-full bg-gradient-to-r from-primary-500 to-accent-500" style={{ width: `${(d.spend / deptMax) * 100}%` }} />
@@ -106,7 +121,7 @@ export default async function SpendAnalyticsPage() {
               {trend.map((m, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-2">
                   <div className="w-full flex items-end justify-center" style={{ height: "100%" }}>
-                    <div className="w-full max-w-[44px] rounded-t-lg bg-gradient-to-t from-primary-600 to-accent-500" style={{ height: `${Math.max(4, (m.value / trendMax) * 100)}%` }} title={formatCurrency(m.value, "AED")} />
+                    <div className="w-full max-w-[44px] rounded-t-lg bg-gradient-to-t from-primary-600 to-accent-500" style={{ height: `${Math.max(4, (m.value / trendMax) * 100)}%` }} title={formatCurrency(m.value, currency)} />
                   </div>
                   <span className="text-xs text-muted-foreground">{m.label}</span>
                 </div>

@@ -2,11 +2,13 @@ import { B2BShell } from "@/components/b2b/b2b-shell";
 import { formatCurrency } from "@avenick/utils";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
+import { companyCurrencyForCountry } from "@/lib/company-currency";
+import { platformName } from "@avenick/utils/portal-config";
 import { inviteMember, setMemberActive } from "./actions";
 import { ValidatedForm } from "@/components/b2b/validated-form";
 import { Shield, ShoppingBag, CheckSquare, UserPlus, Building2 } from "lucide-react";
 
-export const metadata = { title: "Team & Roles — Avenick for Business" };
+export const metadata = { title: `Team & Roles — ${platformName()} for Business` };
 
 const ROLES: Record<string, { label: string; cls: string; icon: typeof Shield; desc: string }> = {
   COMPANY_ADMIN: { label: "Admin", cls: "bg-accent/15 text-accent", icon: Shield, desc: "Full access — manage team, billing, approvals & ordering." },
@@ -35,6 +37,9 @@ export default async function B2BTeamPage() {
     orderBy: { joinedAt: "asc" },
   });
   const isAdmin = ctx.member.role === "COMPANY_ADMIN";
+  // CompanyMember.spendLimit has no currency column; like the credit limit it
+  // is read in the company's jurisdiction currency.
+  const currency = companyCurrencyForCountry(ctx.company.country);
 
   return (
     <B2BShell
@@ -65,7 +70,7 @@ export default async function B2BTeamPage() {
               <option value="COMPANY_APPROVER">Approver</option>
               <option value="COMPANY_ADMIN">Admin</option>
             </select>
-            <input name="spendLimit" type="number" placeholder="Spend limit (AED)" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <input name="spendLimit" type="number" min="0" placeholder={`Spend limit (${currency})`} aria-label={`Spend limit in ${currency}`} className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             <button type="submit" className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">Send invite</button>
           </div>
           <p className="text-xs text-muted-foreground mt-2">Department is optional — invited members join with a pending status until they set a password.</p>
@@ -107,7 +112,7 @@ export default async function B2BTeamPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">{m.department ?? "—"}</td>
-                    <td className="px-4 py-3 font-mono">{m.spendLimit ? formatCurrency(Number(m.spendLimit), "AED") : <span className="text-muted-foreground">Unlimited</span>}</td>
+                    <td className="px-4 py-3 font-mono">{m.spendLimit ? formatCurrency(Number(m.spendLimit), currency) : <span className="text-muted-foreground">Unlimited</span>}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${active ? "text-success" : "text-muted-foreground"}`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${active ? "bg-success" : "bg-muted-foreground"}`} />

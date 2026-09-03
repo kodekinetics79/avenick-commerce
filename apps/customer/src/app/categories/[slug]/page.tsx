@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
 import { fetchBackendJson } from "@/lib/backend";
+import { platformName } from "@avenick/utils/portal-config";
 
 interface Props { params: { slug: string } }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const categories = await fetchBackendJson<any[]>("/api/categories");
   const cat = categories.find((c) => c.slug === params.slug);
-  return { title: cat ? `${cat.nameEn} | Avenick Commerce` : "Category" };
+  return { title: cat ? `${cat.nameEn} | ${platformName()}` : "Category" };
 }
 
 export default async function CategoryPage({ params }: Props) {
@@ -28,10 +29,9 @@ export default async function CategoryPage({ params }: Props) {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {products.map((p) => {
-            const price = p.prices?.[0];
             const stock = p.inventory?.[0];
             return (
-              <ProductCard key={p.id} id={p.id} slug={p.slug} nameEn={p.nameEn} nameAr={p.nameAr} imageUrl={p.images?.[0]?.url} price={price ? Number(price.price) : 0} sku={p.sku} sellerId={p.sellerId} sellerName={p.seller?.businessNameEn} inStock={stock ? stock.qty - stock.reservedQty > 0 : false} moq={p.moq} />
+              <ProductCard key={p.id} id={p.id} slug={p.slug} nameEn={p.nameEn} nameAr={p.nameAr} imageUrl={p.images?.[0]?.url} price={p.cardPrice?.amount} currency={p.cardPrice?.currency} vatRate={p.cardPrice?.vatRate} priceIsFrom={p.cardPrice?.isFrom === true} sku={p.sku} sellerId={p.sellerId} sellerName={p.seller?.businessNameEn} inStock={stock?.inStock === true} availabilityStatus={stock?.status} hasVariants={p.hasVariants === true} priceTiered={p.priceTiered === true} moq={p.moq} />
             );
           })}
         </div>

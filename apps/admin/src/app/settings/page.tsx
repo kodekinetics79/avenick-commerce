@@ -7,7 +7,21 @@ import { Settings, Database, ShieldCheck, Globe, Percent, KeyRound, CheckCircle,
 export const metadata = { title: "Platform Settings" };
 export const dynamic = "force-dynamic";
 
-function ConfigRow({ label, configured, detail }: { label: string; configured: boolean; detail?: string }) {
+function ConfigRow({
+  label,
+  configured,
+  detail,
+  badge,
+}: {
+  label: string;
+  configured: boolean;
+  detail?: string;
+  /** Overrides the presence badge where an env var cannot imply a working integration. */
+  badge?: string;
+}) {
+  // A badge override always reads as unverified: presence must never render a green check
+  // for a service this codebase does not actually integrate with.
+  const ok = configured && !badge;
   return (
     <li className="px-5 py-3 flex items-center justify-between gap-3">
       <div>
@@ -16,11 +30,11 @@ function ConfigRow({ label, configured, detail }: { label: string; configured: b
       </div>
       <span
         className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full shrink-0 ${
-          configured ? "bg-green-100 text-green-700" : "bg-slate-100 text-muted-foreground"
+          ok ? "bg-green-100 text-green-700" : "bg-slate-100 text-muted-foreground"
         }`}
       >
-        {configured ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
-        {configured ? "Configured" : "Not configured"}
+        {ok ? <CheckCircle className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+        {badge ?? (ok ? "Configured" : "Not configured")}
       </span>
     </li>
   );
@@ -33,6 +47,12 @@ export default async function SettingsPage() {
 
   // Presence-only checks — values are never read into the page.
   const env = (key: string) => Boolean(process.env[key]);
+  // The only variables the rate-limit and cache stores read, and together the
+  // exact condition under which the shared store is installed at boot. Trimmed
+  // to match those install functions, which read them with `?.trim()` — a
+  // whitespace-only value installs nothing and must not report as configured.
+  const envSet = (key: string) => Boolean(process.env[key]?.trim());
+  const redisShared = envSet("UPSTASH_REDIS_REST_URL") && envSet("UPSTASH_REDIS_REST_TOKEN");
 
   return (
     <AdminLayout>
@@ -76,8 +96,17 @@ export default async function SettingsPage() {
             <ConfigRow label="Resend email" configured={env("RESEND_API_KEY")} detail="Transactional email delivery" />
             <ConfigRow label="Twilio SMS/WhatsApp" configured={env("TWILIO_AUTH_TOKEN")} detail="SMS and WhatsApp notifications" />
             <ConfigRow label="S3 / MinIO object storage" configured={env("S3_ACCESS_KEY")} detail="Product images and seller documents" />
-            <ConfigRow label="Elasticsearch" configured={env("ELASTICSEARCH_URL")} detail="Catalog search (falls back to database search)" />
-            <ConfigRow label="Redis" configured={env("REDIS_URL")} detail="Shared rate limiting and caching (in-memory fallback when unset)" />
+            <ConfigRow label="Elasticsearch" configured={false} badge="Not implemented" detail="No Elasticsearch integration exists in this codebase; catalog search is served by PostgreSQL" />
+            <ConfigRow
+              label="Redis (Upstash REST)"
+              configured={redisShared}
+              badge={redisShared ? undefined : "In-memory fallback"}
+              detail={
+                redisShared
+                  ? "UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN present — the shared rate-limit and read-cache store is installed at boot; Redis reachability is not probed here"
+                  : "Not set, so rate limiting and caching run in per-process memory: not shared across instances and reset on restart. REDIS_URL is read by no code and configures nothing"
+              }
+            />
           </ul>
         </div>
 

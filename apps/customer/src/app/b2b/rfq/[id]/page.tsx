@@ -3,7 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, FileText, CheckCircle, XCircle, Clock, Store, MessageSquare } from "lucide-react";
 import { B2BShell } from "@/components/b2b/b2b-shell";
 import type { RFQStatus } from "@avenick/database";
-import { formatCurrency } from "@avenick/utils";
+import { formatCurrency, RECORD_ID } from "@avenick/utils";
+import { platformName } from "@avenick/utils/portal-config";
 import { fetchB2BJson } from "@/lib/b2b";
 import { acceptRFQQuote, rejectRFQQuote } from "../actions";
 import { format } from "date-fns";
@@ -23,6 +24,24 @@ const STATUS_CONFIG: Record<RFQStatus, { label: string; color: string }> = {
   CANCELLED: { label: "Cancelled", color: "bg-slate-100 text-muted-foreground" },
 };
 
+/**
+ * Who wrote a thread message, in the buyer's terms. The stored value is the
+ * MessageSenderType enum, which read as "BUYER"/"SELLER" on the page. The
+ * supplier is named when the RFQ has been routed to one; a platform message
+ * is labelled with the configured platform name rather than "ADMIN", and an
+ * automated one says so. Any value this page does not know is shown as a
+ * neutral "Participant" instead of leaking the raw enum.
+ */
+function senderLabel(senderType: string, supplierName: string | null): string {
+  switch (senderType) {
+    case "BUYER": return "You";
+    case "SELLER": return supplierName ?? "Supplier";
+    case "ADMIN": return platformName();
+    case "SYSTEM": return `${platformName()} (automated)`;
+    default: return "Participant";
+  }
+}
+
 export default async function RFQDetailPage({ params }: { params: { id: string } }) {
   type RFQDetail = {
     id: string;
@@ -31,6 +50,7 @@ export default async function RFQDetailPage({ params }: { params: { id: string }
     currency: string;
     notes: string | null;
     totalQuoted: string | number | null;
+    quoteVersion: number;
     createdAt: string;
     requiredBy: string | null;
     seller: { businessNameEn: string; tier: string } | null;
@@ -41,16 +61,25 @@ export default async function RFQDetailPage({ params }: { params: { id: string }
       quantity: number;
       unitQuoted: string | number | null;
     }>;
+    /** The LATEST messages on the thread, not the whole history. */
     messages: Array<{
       id: string;
       senderType: string;
       body: string;
       createdAt: string;
     }>;
+    /** Count of every message on the thread; present when the API paginates. */
+    messageTotal?: number;
   };
+  // params.id is URL-decoded by Next, so a crafted link can deliver path
+  // separators here — and fetchB2BJson forwards the caller's cookies, making an
+  // unencoded value a confused-deputy primitive against other authenticated
+  // routes. Validate the id shape, then encode it.
+  if (!RECORD_ID.test(params.id)) notFound();
+
   let rfq: RFQDetail;
   try {
-    rfq = await fetchB2BJson<RFQDetail>(`/api/b2b/rfqs/${params.id}`);
+    rfq = await fetchB2BJson<RFQDetail>(`/api/b2b/rfqs/${encodeURIComponent(params.id)}`);
   } catch (error) {
     if (error instanceof Error && error.message === "RFQ not found") notFound();
     redirect("/b2b/register");
@@ -137,25 +166,33 @@ export default async function RFQDetailPage({ params }: { params: { id: string }
             </div>
 
             {quoted && (
-              <div className="flex items-center gap-2 pt-2 border-t border-border">
-                <form action={acceptRFQQuote.bind(null, rfq.id)}>
-                  <button type="submit" className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
-                    <CheckCircle className="h-4 w-4" /> Accept quote
-                  </button>
-                </form>
-                <form action={rejectRFQQuote.bind(null, rfq.id)}>
-                  <button type="submit" className="inline-flex items-center gap-1.5 border border-red-200 text-red-600 hover:bg-red-50 text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
-                    <XCircle className="h-4 w-4" /> Decline
-                  </button>
-                </form>
-                <p className="text-xs text-muted-foreground ms-auto">Accepting notifies the supplier and moves this RFQ to your order pipeline.</p>
+              <div className="space-y-2 pt-2 border-t border-border">
+                <div className="flex items-center gap-2">
+                  <form action={acceptRFQQuote.bind(null, rfq.id, rfq.quoteVersion)}>
+                    <button type="submit" className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+                      <CheckCircle className="h-4 w-4" /> Accept quote
+                    </button>
+                  </form>
+                  <form action={rejectRFQQuote.bind(null, rfq.id, rfq.quoteVersion)}>
+                    <button type="submit" className="inline-flex items-center gap-1.5 border border-red-200 text-red-600 hover:bg-red-50 text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+                      <XCircle className="h-4 w-4" /> Decline
+                    </button>
+                  </form>
+                </div>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Accepting records your acceptance of the supplier&apos;s quoted price and closes this RFQ. It does not
+                  message the supplier and does not create an order &mdash; confirm with them directly, then{" "}
+                  <Link href="/b2b/purchase-orders/new" className="text-primary hover:underline">raise a purchase order</Link>{" "}
+                  separately. Purchase-order lines are re-priced from the catalog, so the quoted total above is not
+                  carried across for you.
+                </p>
               </div>
             )}
 
             {!quoted && rfq.status === "SUBMITTED" && (
               <div className="flex items-center gap-2 rounded-xl bg-blue-50 border border-blue-200 p-3 text-sm text-primary">
                 <Clock className="h-4 w-4 shrink-0" />
-                Waiting for supplier quotes — you&apos;ll be notified when pricing arrives.
+                Waiting for supplier quotes — no alert is sent when pricing arrives, so check this page for updates.
               </div>
             )}
 
@@ -164,11 +201,16 @@ export default async function RFQDetailPage({ params }: { params: { id: string }
                 <h2 className="text-sm font-semibold mb-2 inline-flex items-center gap-1.5">
                   <MessageSquare className="h-4 w-4" /> Messages
                 </h2>
+                {typeof rfq.messageTotal === "number" && rfq.messageTotal > rfq.messages.length && (
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Showing the latest {rfq.messages.length} of {rfq.messageTotal} messages
+                  </p>
+                )}
                 <ul className="space-y-2">
                   {rfq.messages.map((m) => (
                     <li key={m.id} className="rounded-xl border border-border p-3 text-sm">
                       <p className="text-xs text-muted-foreground mb-1">
-                        {m.senderType} · {format(new Date(m.createdAt), "MMM d, HH:mm")}
+                        {senderLabel(m.senderType, rfq.seller?.businessNameEn ?? null)} · {format(new Date(m.createdAt), "MMM d, HH:mm")}
                       </p>
                       {m.body}
                     </li>

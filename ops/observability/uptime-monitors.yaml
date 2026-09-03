@@ -34,13 +34,13 @@ monitors:
     severity: page
 
   - name: seller-readiness
-    url: https://avenick-seller.vercel.app/api/ready
+    url: https://avenick-commerce-seller.vercel.app/api/ready
     method: GET
     expect_status: 200
     severity: page
 
   - name: admin-readiness
-    url: https://avenick-admin.vercel.app/api/ready
+    url: https://avenick-commerce-admin.vercel.app/api/ready
     method: GET
     expect_status: 200
     severity: page

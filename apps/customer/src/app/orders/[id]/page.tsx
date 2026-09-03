@@ -2,16 +2,18 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   CheckCircle, Package, Truck, Home, AlertCircle, ArrowLeft,
-  MapPin, RotateCcw, ShieldCheck, FileText, Clock,
+  MapPin, RotateCcw, ShieldCheck, Clock,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { auth } from "@/lib/auth-instance";
-import { formatCurrency } from "@avenick/utils";
-import { cookies } from "next/headers";
-import { cookieHeaderFromStore, fetchBackendJsonWithCookies } from "@/lib/backend";
+import { db } from "@avenick/database";
+import { formatCurrency, isRecordId } from "@avenick/utils";
 
 const MACRO_STEPS = [
-  { key: "CONFIRMED", label: "Order confirmed", icon: CheckCircle, rank: 1, desc: "Payment received and order confirmed." },
+  // "Confirmed" is an order state, not a payment state: bank-transfer and
+  // on-terms orders are confirmed before any money moves. Payment is reported
+  // separately from paymentStatus.
+  { key: "CONFIRMED", label: "Order confirmed", icon: CheckCircle, rank: 1, desc: "Order confirmed with the supplier." },
   { key: "PROCESSING", label: "Processing", icon: Package, rank: 2, desc: "Supplier is preparing your items." },
   { key: "SHIPPED", label: "Shipped", icon: Truck, rank: 3, desc: "Order is on its way to you." },
   { key: "DELIVERED", label: "Delivered", icon: Home, rank: 4, desc: "Order delivered successfully." },
@@ -40,36 +42,64 @@ type OrderStatusHistoryEntry = {
   createdAt: Date;
 };
 
-type OrderDetail = {
-  id: string;
-  orderNumber: string;
-  status: string;
+/**
+ * Human label for the order's real payment state.
+ *
+ * "On terms" used to be shown for every B2B order that was not PAID — including
+ * one that was partially paid, or a B2B cart checkout awaiting a bank transfer
+ * with no credit terms at all. Terms are only real when the order came through
+ * an approved purchase order AND the buying company has a non-zero payment
+ * term (Company.paymentTerms, in days); everything else is described by the
+ * PaymentStatus enum as stored.
+ */
+function paymentLabel(order: {
   type: string;
-  createdAt: Date;
-  total: string | number;
-  subtotal: string | number;
-  vatAmount: string | number;
+  status: string;
   paymentStatus: string;
-  currency: string;
-  shippingAddress: { line1?: string; city?: string; country?: string } | null;
-  items: Array<{ id: string; nameEn: string; quantity: number; unitPrice: string | number; total: string | number }>;
-  statusHistory: OrderStatusHistoryEntry[];
-  taxInvoice?: { invoiceNo: string } | null;
-};
+  purchaseOrderId: string | null;
+  company: { paymentTerms: number } | null;
+}): string {
+  switch (order.paymentStatus) {
+    case "PAID": return "Paid";
+    case "PARTIALLY_PAID": return "Partially paid";
+    case "REFUNDED": return "Refunded";
+    case "FAILED": return "Payment failed";
+    case "UNPAID": {
+      // A cancelled order is not waiting for money; nothing was charged.
+      if (order.status === "CANCELLED") return "Not charged";
+      const onApprovedTerms = order.type === "B2B" && order.purchaseOrderId !== null && (order.company?.paymentTerms ?? 0) > 0;
+      return onApprovedTerms ? `On terms · net ${order.company!.paymentTerms} days` : "Awaiting payment";
+    }
+    default: return order.paymentStatus.replace(/_/g, " ");
+  }
+}
+
+/** Delivery cell: derived from the order's status rank, with the closed states named rather than shown as "Preparing". */
+function deliveryLabel(status: string, rank: number, isDelivered: boolean): string {
+  if (isDelivered) return "Delivered";
+  if (status === "RETURNED" || status === "RETURN_REQUESTED") return "Returned";
+  if (status === "REFUNDED") return "Refunded";
+  if (rank < 0) return "Cancelled";
+  if (rank >= 3) return "In transit";
+  if (rank >= 1) return "Preparing";
+  return "Not started";
+}
 
 export default async function OrderDetailPage({ params }: { params: { id: string } }) {
   const session = await auth();
   const userId = session?.user?.id as string | undefined;
   if (!userId) notFound();
+  if (!isRecordId(params.id)) notFound();
 
-  const cookieStore = await cookies();
-  const cookieHeader = cookieHeaderFromStore(cookieStore);
-  let order: OrderDetail;
-  try {
-    order = await fetchBackendJsonWithCookies<OrderDetail>(`/api/orders/${params.id}`, undefined, cookieHeader);
-  } catch {
-    notFound();
-  }
+  const order = await db.order.findFirst({
+    where: { id: params.id, userId },
+    include: {
+      items: true,
+      statusHistory: { orderBy: { createdAt: "asc" } },
+      company: { select: { paymentTerms: true } },
+    },
+  });
+  if (!order) notFound();
 
   const currentRank = RANK[order.status] ?? 0;
   const addr = (order.shippingAddress as { line1?: string; city?: string; country?: string } | null) ?? {};
@@ -77,6 +107,7 @@ export default async function OrderDetailPage({ params }: { params: { id: string
   const vat = Number(order.vatAmount);
   const badge = STATUS_BADGE[order.status] ?? STATUS_BADGE.CONFIRMED;
   const isDelivered = order.status === "DELIVERED";
+  const currency = order.currency as never;
 
   return (
     <MainLayout>
@@ -98,15 +129,15 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                 <p className="text-sm text-muted-foreground">Placed on {order.createdAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
               </div>
               <div className="text-end">
-                <p className="text-2xl font-bold font-mono text-foreground">{formatCurrency(Number(order.total), "AED")}</p>
+                <p className="text-2xl font-bold font-mono text-foreground">{formatCurrency(Number(order.total), currency)}</p>
                 <p className="text-xs text-muted-foreground">incl. VAT</p>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3 text-center text-sm">
               {[
                 { label: "Items", value: String(order.items.length) },
-                { label: "Payment", value: order.paymentStatus === "PAID" ? "Paid" : order.type === "B2B" ? "On terms" : order.paymentStatus.replace(/_/g, " ") },
-                { label: "Delivery", value: isDelivered ? "Delivered" : currentRank >= 3 ? "In transit" : "Preparing" },
+                { label: "Payment", value: paymentLabel(order) },
+                { label: "Delivery", value: deliveryLabel(order.status, currentRank, isDelivered) },
               ].map(({ label, value }) => (
                 <div key={label} className="bg-secondary/60 rounded-xl p-2.5">
                   <p className="font-bold capitalize">{value.toLowerCase()}</p>
@@ -178,10 +209,10 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                     <div className="h-10 w-10 rounded-lg bg-secondary grid place-items-center shrink-0"><Package className="h-4 w-4 text-muted-foreground" /></div>
                     <div>
                       <p className="text-sm font-medium">{item.nameEn}</p>
-                      <p className="text-xs text-muted-foreground">Qty {item.quantity} × {formatCurrency(Number(item.unitPrice), "AED")}</p>
+                      <p className="text-xs text-muted-foreground">Qty {item.quantity} × {formatCurrency(Number(item.unitPrice), currency)}</p>
                     </div>
                   </div>
-                  <p className="font-bold font-mono text-sm">{formatCurrency(Number(item.total), "AED")}</p>
+                  <p className="font-bold font-mono text-sm">{formatCurrency(Number(item.total), currency)}</p>
                 </div>
               ))}
             </div>
@@ -197,10 +228,9 @@ export default async function OrderDetailPage({ params }: { params: { id: string
             <div className="rounded-2xl border border-border bg-card p-5">
               <h2 className="font-semibold text-sm mb-3">Summary</h2>
               <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-mono">{formatCurrency(subtotal, "AED")}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">VAT</span><span className="font-mono">{formatCurrency(vat, "AED")}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span className="text-success font-medium">Free</span></div>
-                <div className="flex justify-between font-bold text-base pt-2 border-t border-border"><span>Total</span><span className="font-mono">{formatCurrency(Number(order.total), "AED")}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-mono">{formatCurrency(subtotal, currency)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">VAT</span><span className="font-mono">{formatCurrency(vat, currency)}</span></div>
+                <div className="flex justify-between font-bold text-base pt-2 border-t border-border"><span>Total</span><span className="font-mono">{formatCurrency(Number(order.total), currency)}</span></div>
               </div>
             </div>
           </div>
@@ -215,15 +245,11 @@ export default async function OrderDetailPage({ params }: { params: { id: string
             <Link href="/support" className="flex-1 flex items-center justify-center gap-2 bg-card border border-border text-muted-foreground hover:border-danger/40 hover:text-danger font-medium px-4 py-2.5 rounded-xl text-sm transition-colors">
               <AlertCircle className="h-4 w-4" /> Report an issue
             </Link>
-            {order.taxInvoice && (
-              <button type="button" className="flex-1 flex items-center justify-center gap-2 bg-card border border-border text-muted-foreground hover:text-foreground font-medium px-4 py-2.5 rounded-xl text-sm transition-colors">
-                <FileText className="h-4 w-4" /> Invoice {order.taxInvoice.invoiceNo}
-              </button>
-            )}
+            {/* No "Invoice" button: nothing issues TaxInvoice rows yet, and the button it replaced did nothing when clicked. */}
           </div>
 
           <div className="mt-5 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-            <ShieldCheck className="h-4 w-4 text-primary" /> Protected by Avenick Commerce Buyer Protection
+            <ShieldCheck className="h-4 w-4 text-primary" /> Price, tax and availability are revalidated when an order is submitted
           </div>
         </div>
       </div>

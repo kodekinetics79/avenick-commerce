@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { requireSellerSession } from "@/lib/auth";
+import { requireSellerAnyPermission } from "@/lib/auth";
 import { db } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { AlertTriangle, XCircle, AlertCircle, Info, ArrowRight } from "lucide-react";
@@ -23,7 +23,7 @@ const ISSUE_ACTION_MAP: Record<string, { label: string; path: string }> = {
 };
 
 export default async function IssuesPage() {
-  const { seller } = await requireSellerSession();
+  const { seller, membership } = await requireSellerAnyPermission(["catalog.view", "catalog.manage"]);
 
   const issuesWithProducts = await db.productIssue.findMany({
     where: { product: { sellerId: seller.id }, resolvedAt: null },
@@ -35,7 +35,7 @@ export default async function IssuesPage() {
   const warningCount = issuesWithProducts.filter((i) => i.severity === "WARNING").length;
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={issuesWithProducts.length}>
+    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={issuesWithProducts.length} permissions={membership.permissions}>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">

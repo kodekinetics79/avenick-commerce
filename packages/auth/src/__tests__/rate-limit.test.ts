@@ -42,8 +42,18 @@ describe("checkRateLimit", () => {
 });
 
 describe("clientIpFrom", () => {
-  it("takes the first x-forwarded-for entry", () => {
-    expect(clientIpFrom(new Headers({ "x-forwarded-for": "203.0.113.9, 10.0.0.1" }))).toBe("203.0.113.9");
+  // Proxies APPEND to X-Forwarded-For, so the leftmost entry is whatever the
+  // client sent. Reading it let an attacker rotate a forged value per request
+  // and evaporate every per-IP limit — password spraying against the login
+  // route was effectively unthrottled. The trusted edge's appended entry is the
+  // rightmost one, so that is the only entry a client cannot control.
+  it("ignores a client-forged leading x-forwarded-for entry and takes the edge-appended one", () => {
+    expect(clientIpFrom(new Headers({ "x-forwarded-for": "203.0.113.9, 10.0.0.1" }))).toBe("10.0.0.1");
+  });
+
+  it("cannot be bypassed by forging a longer chain", () => {
+    const forged = new Headers({ "x-forwarded-for": "1.1.1.1, 2.2.2.2, 3.3.3.3, 9.9.9.9" });
+    expect(clientIpFrom(forged)).toBe("9.9.9.9");
   });
 
   it("falls back to x-real-ip then to 'unknown'", () => {

@@ -27,12 +27,31 @@ export const VAT_RATES: Record<string, number> = {
   OM: 5,
 };
 
+/**
+ * Is this code one this platform can format? Callers holding a string from
+ * outside the type system — a persisted cart line, a query parameter, a row
+ * written before a currency was retired — use this before narrowing.
+ */
+export function isSupportedCurrency(code: string): code is SupportedCurrency {
+  return Object.prototype.hasOwnProperty.call(CURRENCY_CONFIG, code);
+}
+
 export function formatCurrency(
   amount: number,
   currency: SupportedCurrency = "AED",
   locale: "ar" | "en" = "en",
 ): string {
   const config = CURRENCY_CONFIG[currency];
+  // A code with no config reaches here from persisted state a `as Currency`
+  // cast waved through — a wishlist saved before a currency was retired, a
+  // stale localStorage line. Reading `config.symbol` off undefined would take
+  // the whole page down over one row, so the amount is shown with its raw code
+  // instead: unstyled, but true, and never a different currency's symbol.
+  if (!config) {
+    return locale === "ar"
+      ? `${new Intl.NumberFormat("ar-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)} ${currency}`
+      : `${currency} ${new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)}`;
+  }
   const symbol = locale === "ar" ? config.symbolAr : config.symbol;
 
   const formatted = new Intl.NumberFormat(locale === "ar" ? config.locale : "en-US", {

@@ -1,11 +1,20 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 import type { Session } from "next-auth";
 import { z } from "zod";
 import { guarded, jsonOk, jsonErr, ApiError, parsePagination, paginationMeta } from "../api";
 import { UserRole } from "@avenick/database";
 
+const durableUser = vi.hoisted(() => ({ role: "ADMIN", status: "ACTIVE", deletedAt: null as Date | null }));
+vi.mock("@avenick/database", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@avenick/database")>();
+  return { ...actual, db: { user: { findUnique: vi.fn(async () => ({ ...durableUser })) } } };
+});
+
 function makeSession(role: UserRole, id = "user-1"): Session {
+  durableUser.role = role;
+  durableUser.status = "ACTIVE";
+  durableUser.deletedAt = null;
   return {
     user: { id, email: "t@example.test", role } as Session["user"],
     expires: new Date(Date.now() + 60_000).toISOString(),
@@ -32,6 +41,13 @@ describe("guarded()", () => {
     const res = await handler(req());
     expect(res.status).toBe(403);
     expect((await res.json()).error).toBe("Insufficient permissions");
+  });
+
+  it("rejects a suspended durable user even when the JWT still has an allowed role", async () => {
+    const session = makeSession(UserRole.ADMIN);
+    durableUser.status = "SUSPENDED";
+    const handler = guarded({ auth: async () => session, roles: [UserRole.ADMIN] }, async () => jsonOk({}));
+    expect((await handler(req())).status).toBe(403);
   });
 
   it("invokes the handler for an allowed role and sets x-request-id", async () => {

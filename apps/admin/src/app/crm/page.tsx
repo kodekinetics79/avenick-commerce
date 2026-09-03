@@ -14,6 +14,10 @@ const ACTIVITY_CONFIG: Record<string, { label: string; icon: typeof Eye; color: 
   RFQ: { label: "Requested quote", icon: FileQuestion, color: "bg-purple-100 text-purple-700" },
 };
 
+// Spend is SUM(order total) per buyer as recorded in each order's own currency;
+// nothing is converted, so the figure carries no currency symbol.
+const amount = (n: number) => n.toLocaleString("en", { maximumFractionDigits: 0 });
+
 export default async function CrmPage() {
   await requireAdminSession();
 
@@ -34,7 +38,7 @@ export default async function CrmPage() {
             { label: "Buyers with purchases", value: topBuyers.length },
             { label: "Seller–buyer relationships", value: relationships.length },
             { label: "Activities (recent)", value: activities.length },
-            { label: "Top buyer spend", value: topBuyers[0] ? formatCurrency(topBuyers[0].spent, "AED") : "—" },
+            { label: "Top buyer spend (as recorded)", value: topBuyers[0] ? amount(topBuyers[0].spent) : "—" },
           ].map((s) => (
             <div key={s.label} className="rounded-2xl border border-border bg-white p-4">
               <span className="text-sm text-muted-foreground">{s.label}</span>
@@ -71,7 +75,7 @@ export default async function CrmPage() {
                       </div>
                     </div>
                     <div className="text-end shrink-0">
-                      <p className="text-sm font-semibold">{formatCurrency(b.spent, "AED")}</p>
+                      <p className="text-sm font-semibold">{amount(b.spent)}</p>
                       <p className="text-[11px] text-muted-foreground">
                         {b.orders} order{b.orders === 1 ? "" : "s"}
                         {b.lastorder ? ` · last ${format(b.lastorder, "MMM d")}` : ""}

@@ -3,6 +3,7 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getWarehouseOverview } from "@avenick/database";
 import { Warehouse as WarehouseIcon, Boxes, Truck, Clock, AlertTriangle, ArrowRight, MapPin, Activity } from "lucide-react";
 import Link from "next/link";
+import { platformName } from "@avenick/utils/portal-config";
 
 export const metadata = { title: "Warehouse & 3PL" };
 export const dynamic = "force-dynamic";
@@ -100,7 +101,7 @@ export default async function WarehousePage() {
                           {TYPE_LABEL[w.type] ?? w.type}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{w.seller?.businessNameEn ?? "Avenick"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{w.seller?.businessNameEn ?? platformName()}</td>
                       <td className="px-4 py-3 text-muted-foreground">
                         <span className="inline-flex items-center gap-1">
                           <MapPin className="h-3.5 w-3.5" /> {w.city}, {w.country}

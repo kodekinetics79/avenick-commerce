@@ -4,8 +4,9 @@ import { getB2BContext } from "@/lib/b2b";
 import { createAddress, setDefaultAddress, deleteAddress } from "./actions";
 import { ValidatedForm } from "@/components/b2b/validated-form";
 import { MapPin, Plus, Building2, Star } from "lucide-react";
+import { platformName } from "@avenick/utils/portal-config";
 
-export const metadata = { title: "Delivery Sites — Avenick for Business" };
+export const metadata = { title: `Delivery Sites — ${platformName()} for Business` };
 
 const COUNTRY_LABEL: Record<string, string> = { AE: "UAE", SA: "Saudi Arabia", QA: "Qatar", KW: "Kuwait", OM: "Oman", BH: "Bahrain" };
 
@@ -38,7 +39,7 @@ export default async function AddressesPage() {
         <ValidatedForm action={createAddress} className="rounded-2xl border border-border bg-card p-5 mb-6">
           <div className="flex items-center gap-2 text-sm font-semibold mb-4"><Plus className="h-4 w-4 text-primary" /> Add a site</div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            <input name="label" required placeholder="Site name (e.g. Warehouse — JAFZA)" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <input name="label" required placeholder="Site name (e.g. Main warehouse)" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             <input name="line1" required placeholder="Address line 1" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             <input name="line2" placeholder="Address line 2 (optional)" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             <input name="city" required placeholder="City" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />

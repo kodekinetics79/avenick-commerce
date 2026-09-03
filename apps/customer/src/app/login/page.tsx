@@ -1,30 +1,33 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signInWithCredentials } from "@avenick/auth/client";
+import { messageForSignInErrorBilingual as messageForError } from "@avenick/auth/sign-in-messages";
+import { safeReturnTo } from "@avenick/auth/safe-redirect";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Input, Button } from "@avenick/ui";
 import { MainLayout } from "@/components/layout/main-layout";
-import { safeCallbackPath } from "@/lib/safe-callback-url";
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
-  const urlError = searchParams.get("error");
-  const callbackUrl = safeCallbackPath(searchParams.get("callbackUrl"));
+  const urlError = searchParams.get("code") ?? searchParams.get("error");
+  // Validated before use: an unchecked callbackUrl is an open redirect, since a
+  // successful login would navigate the visitor to an attacker-chosen origin.
+  const callbackUrl = safeReturnTo(searchParams.get("callbackUrl"), "/account/orders");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(urlError ? "Invalid email or password. / بيانات الدخول غير صحيحة." : "");
+  const [error, setError] = useState(messageForError(urlError));
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
     try {
-      const res = await signIn("credentials", { email, password, redirect: false });
-      if (res?.error) {
-        setError("Invalid email or password. / بيانات الدخول غير صحيحة.");
+      const res = await signInWithCredentials(email, password, callbackUrl);
+      if (!res.ok) {
+        setError(messageForError(res.code ?? res.error));
         setLoading(false);
       } else {
         window.location.assign(callbackUrl);
@@ -49,19 +52,22 @@ export default function LoginPage() {
             <p className="text-muted-foreground text-sm mt-1">B2B-first. B2C-ready. Built for modern trade.</p>
           </div>
           <div className="glass-strong rounded-2xl p-6 shadow-elevated">
-            <form onSubmit={handleLogin} className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-4" aria-label="Sign in / تسجيل الدخول">
               <div>
+                {/* htmlFor/id: the label was visually adjacent but not
+                    programmatically associated, so it was not announced. */}
                 <label htmlFor="login-email" className="block text-sm font-medium mb-1.5">Email / البريد الإلكتروني</label>
-                <Input id="login-email" name="email" autoComplete="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                <Input id="login-email" name="email" type="email" autoComplete="username" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div>
                 <label htmlFor="login-password" className="block text-sm font-medium mb-1.5">Password / كلمة المرور</label>
-                <Input id="login-password" name="password" autoComplete="current-password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                <Input id="login-password" name="password" type="password" autoComplete="current-password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
               </div>
-              {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+              {error && <p className="text-sm text-danger" role="alert">{error}</p>}
               <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
             </form>
-            <div className="mt-4 text-center text-sm text-muted-foreground">
+            <div className="mt-4 text-center text-sm text-muted-foreground space-y-1">
+              <p><Link href="/auth/forgot-password" className="text-primary font-medium hover:underline">Forgot password?</Link></p>
               <p>Don&apos;t have an account? <Link href="/register" className="text-primary font-medium hover:underline">Register</Link></p>
             </div>
           </div>
