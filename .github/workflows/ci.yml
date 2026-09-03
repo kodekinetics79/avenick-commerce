@@ -155,6 +155,14 @@ jobs:
       - name: Seed catalog
         run: pnpm db:seed
 
+      # Fail here, on the data, rather than in a browser fifteen minutes later.
+      # The authenticated suite signs personas in through the real login form,
+      # so a missing account, a non-ACTIVE one, or a hash that does not match
+      # this run's password all surface identically as "Invalid email or
+      # password" on a screenshot. This step says which it is.
+      - name: Verify the seeded personas can sign in
+        run: pnpm --filter @avenick/database verify:personas
+
       - name: Build all apps
         run: pnpm build
 

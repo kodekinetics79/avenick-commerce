@@ -138,7 +138,15 @@ async function main() {
   // ── ADMIN ────────────────────────────────────────────────────────────────────
   const adminUser = await prisma.user.upsert({
     where: { email: "admin@avenick.test" },
-    update: {},
+    update: {
+      // Re-seeding must reset the credential, not preserve it. With
+      // `update: {}` an account that already existed kept its previous
+      // password while the browser suite typed the new SEED_PASSWORD,
+      // which surfaces only as "Invalid email or password" on a
+      // screenshot fifteen minutes later.
+      passwordHash: await HASH(SEED_PASSWORD),
+      status: UserStatus.ACTIVE,
+    },
     create: {
       email: "admin@avenick.test",
       passwordHash: await HASH(SEED_PASSWORD),
@@ -155,7 +163,15 @@ async function main() {
   // ── SELLER USER ────────────────────────────────────────────────────────────
   const sellerUser = await prisma.user.upsert({
     where: { email: "seller@avenick.test" },
-    update: {},
+    update: {
+      // Re-seeding must reset the credential, not preserve it. With
+      // `update: {}` an account that already existed kept its previous
+      // password while the browser suite typed the new SEED_PASSWORD,
+      // which surfaces only as "Invalid email or password" on a
+      // screenshot fifteen minutes later.
+      passwordHash: await HASH(SEED_PASSWORD),
+      status: UserStatus.ACTIVE,
+    },
     create: {
       email: "seller@avenick.test",
       passwordHash: await HASH(SEED_PASSWORD),
@@ -232,7 +248,7 @@ async function main() {
   // finance, documents, RFQs, returns, settings, or other capability domains.
   const fulfillmentStaff = await prisma.user.upsert({
     where: { email: "seller-a-fulfillment@avenick.test" },
-    update: { role: UserRole.SELLER_STAFF, status: UserStatus.ACTIVE, deletedAt: null },
+    update: { role: UserRole.SELLER_STAFF, status: UserStatus.ACTIVE, deletedAt: null, passwordHash: await HASH(SEED_PASSWORD) },
     create: {
       email: "seller-a-fulfillment@avenick.test", passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Seller A", lastName: "Fulfillment", role: UserRole.SELLER_STAFF,
@@ -241,7 +257,7 @@ async function main() {
   });
   const catalogStaff = await prisma.user.upsert({
     where: { email: "seller-a-catalog@avenick.test" },
-    update: { role: UserRole.SELLER_STAFF, status: UserStatus.ACTIVE, deletedAt: null },
+    update: { role: UserRole.SELLER_STAFF, status: UserStatus.ACTIVE, deletedAt: null, passwordHash: await HASH(SEED_PASSWORD) },
     create: {
       email: "seller-a-catalog@avenick.test", passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Seller A", lastName: "Catalog", role: UserRole.SELLER_STAFF,
@@ -261,7 +277,7 @@ async function main() {
 
   const sellerBUser = await prisma.user.upsert({
     where: { email: "seller-b-owner@avenick.test" },
-    update: { role: UserRole.SELLER_OWNER, status: UserStatus.ACTIVE, deletedAt: null },
+    update: { role: UserRole.SELLER_OWNER, status: UserStatus.ACTIVE, deletedAt: null, passwordHash: await HASH(SEED_PASSWORD) },
     create: {
       email: "seller-b-owner@avenick.test", passwordHash: await HASH(SEED_PASSWORD),
       firstName: "Seller B", lastName: "Owner", role: UserRole.SELLER_OWNER,
@@ -282,7 +298,15 @@ async function main() {
   // ── B2C BUYER ──────────────────────────────────────────────────────────────
   const buyerUser = await prisma.user.upsert({
     where: { email: "buyer@avenick.test" },
-    update: {},
+    update: {
+      // Re-seeding must reset the credential, not preserve it. With
+      // `update: {}` an account that already existed kept its previous
+      // password while the browser suite typed the new SEED_PASSWORD,
+      // which surfaces only as "Invalid email or password" on a
+      // screenshot fifteen minutes later.
+      passwordHash: await HASH(SEED_PASSWORD),
+      status: UserStatus.ACTIVE,
+    },
     create: {
       email: "buyer@avenick.test",
       passwordHash: await HASH(SEED_PASSWORD),
@@ -299,7 +323,15 @@ async function main() {
   // ── B2B COMPANY ────────────────────────────────────────────────────────────
   const companyUser = await prisma.user.upsert({
     where: { email: "company@avenick.test" },
-    update: {},
+    update: {
+      // Re-seeding must reset the credential, not preserve it. With
+      // `update: {}` an account that already existed kept its previous
+      // password while the browser suite typed the new SEED_PASSWORD,
+      // which surfaces only as "Invalid email or password" on a
+      // screenshot fifteen minutes later.
+      passwordHash: await HASH(SEED_PASSWORD),
+      status: UserStatus.ACTIVE,
+    },
     create: {
       email: "company@avenick.test",
       passwordHash: await HASH(SEED_PASSWORD),
@@ -1237,7 +1269,15 @@ async function main() {
   // ── PENDING SELLER (for admin review demo) ────────────────────────────────
   const pendingSellerUser = await prisma.user.upsert({
     where: { email: "pending-seller@avenick.test" },
-    update: {},
+    update: {
+      // Re-seeding must reset the credential, not preserve it. With
+      // `update: {}` an account that already existed kept its previous
+      // password while the browser suite typed the new SEED_PASSWORD,
+      // which surfaces only as "Invalid email or password" on a
+      // screenshot fifteen minutes later.
+      passwordHash: await HASH(SEED_PASSWORD),
+      status: UserStatus.ACTIVE,
+    },
     create: {
       email: "pending-seller@avenick.test",
       passwordHash: await HASH(SEED_PASSWORD),
