@@ -851,7 +851,33 @@ async function main() {
 
   for (const p of productSeeds) {
     const existing = await prisma.product.findUnique({ where: { sku: p.sku } });
-    if (existing) { createdProducts.push({ id: existing.id, sku: existing.sku }); continue; }
+    if (existing) {
+      // Re-seeding must RECONCILE an existing listing, not skip it. Skipping is
+      // how the storefront ended up empty: rows created by an earlier seed kept
+      // isPubliclyDiscoverable = false, every later seed run walked past them,
+      // and 19 ACTIVE priced products with images were invisible to the catalogue
+      // because discovery requires status ACTIVE *and* the flag.
+      //
+      // Only the discovery triplet is rewritten. Names, prices, images and
+      // health stay as they are, so a listing a human has edited is not
+      // clobbered by a fixture.
+      await prisma.product.update({
+        where: { id: existing.id },
+        data: {
+          status: p.status,
+          isPubliclyDiscoverable: p.isB2C,
+          isB2CEnabled: p.isB2C,
+          isB2BEnabled: p.isB2B,
+          // A listing the catalogue can show has a publication date; ACTIVE with
+          // a null publishedAt is a state the governed approval path never emits.
+          ...(p.status === ProductStatus.ACTIVE && existing.publishedAt === null
+            ? { publishedAt: new Date() }
+            : {}),
+        },
+      });
+      createdProducts.push({ id: existing.id, sku: existing.sku });
+      continue;
+    }
 
     const product = await prisma.product.create({
       data: {

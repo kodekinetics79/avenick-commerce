@@ -2,6 +2,13 @@ import { NextResponse } from "next/server";
 import { db } from "@avenick/database";
 import { log } from "@avenick/observability";
 
+// Catalogue data changes when a seller publishes, not when this app is built.
+// /api/categories already declares this; without it a route handler can be
+// evaluated once and serve a build-time snapshot, so a newly published listing
+// would not appear until the next deploy. The Cache-Control header below still
+// gives a CDN its own short window, which is where caching belongs.
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const brands = await db.brand.findMany({
