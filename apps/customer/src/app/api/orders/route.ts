@@ -46,7 +46,9 @@ const CreateOrderSchema = z.object({
     country: CountrySchema,
   }),
   paymentMethod: PaymentMethodSchema,
-  currency: CurrencySchema.default("AED"),
+  // Required: prices are resolved in this currency, so a defaulted one would
+  // silently price an order in a currency the buyer never chose.
+  currency: CurrencySchema,
   type: z.enum(["B2C", "B2B"]).default("B2C"),
   purchaseOrderId: z.string().min(1).max(128).optional(),
   couponCode: z.string().trim().min(3).max(40).regex(/^[A-Za-z0-9_-]+$/).optional(),

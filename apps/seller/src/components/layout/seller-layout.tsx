@@ -5,13 +5,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard, TrendingUp,
-  Package, Boxes, UploadCloud,
+  Package, Boxes, AlertTriangle,
   ShoppingCart, Truck, RotateCcw,
-  FileQuestion, Send, Clock,
+  Inbox, Send, Clock,
   DollarSign, FileText, CreditCard,
   FolderOpen, CheckSquare,
   LifeBuoy, MessageSquare,
-  Settings, Menu, ChevronDown, Star, LogOut, Search, BarChart3
+  Settings, Menu, ChevronDown, Star, LogOut, Search, BarChart3, Info
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { cn } from "@avenick/utils";
@@ -35,7 +35,8 @@ export const NAV_GROUPS = [
     items: [
       { href: "/products", icon: Package, label: "Products", permissions: ["catalog.view", "catalog.manage"] },
       { href: "/inventory", icon: Boxes, label: "Inventory", permissions: ["inventory.view", "inventory.manage"] },
-      { href: "/issues", icon: UploadCloud, label: "Bulk Upload", badge: "issues", permissions: ["catalog.view", "catalog.manage"] },
+      // /issues renders "Fix Your Products" (listing issues) — it was never a bulk uploader.
+      { href: "/issues", icon: AlertTriangle, label: "Listing Issues", badge: "issues", permissions: ["catalog.view", "catalog.manage"] },
     ],
   },
   {
@@ -49,7 +50,8 @@ export const NAV_GROUPS = [
   {
     label: "RFQ / Quotes",
     items: [
-      { href: "/messages", icon: FileQuestion, label: "RFQ Inbox", badge: "messages", permissions: ["rfqs.view"] },
+      // /messages is "Messages & RFQs": buyer threads and RFQs share one inbox.
+      { href: "/messages", icon: Inbox, label: "Inbox", badge: "messages", permissions: ["rfqs.view"] },
       { href: "/quotes/submit", icon: Send, label: "Submit Quote", permissions: ["quotes.submit"] },
       { href: "/quotes", icon: Clock, label: "Quote History", permissions: ["rfqs.view"] },
     ],
@@ -66,6 +68,8 @@ export const NAV_GROUPS = [
     label: "Documents",
     items: [
       { href: "/documents", icon: FolderOpen, label: "Document Center", permissions: ["documents.view", "documents.manage"] },
+      // The onboarding page is the seller's own readiness checklist; nothing
+      // else links to it, so removing this entry orphaned the route.
       { href: "/onboarding", icon: CheckSquare, label: "Onboarding", permissions: ["documents.view", "documents.manage"] },
       { href: "/compliance", icon: CheckSquare, label: "Compliance", permissions: ["documents.view", "documents.manage"] },
     ],
@@ -79,23 +83,140 @@ export const NAV_GROUPS = [
   },
 ];
 
+/**
+ * Structural mirror of SellerPerformanceScore from @avenick/database. Declared
+ * here rather than imported so this client bundle never reaches for the
+ * database barrel; the dashboard passes the service result straight through.
+ */
+export interface PerformanceComponentView {
+  key: string;
+  label: string;
+  weight: number;
+  /** Share in 0..1, or null when the component had no data and was left out. */
+  share: number | null;
+  good: number;
+  total: number;
+}
+
+export interface PerformanceView {
+  score: number;
+  windowDays: number;
+  components: PerformanceComponentView[];
+}
+
 interface SellerLayoutProps {
   children: React.ReactNode;
+  /** The seller's own business name. No default: a made-up name is worse than no name. */
   sellerName?: string;
   tier?: string;
   issueCount?: number;
   unreadMessages?: number;
-  performanceScore?: number;
+  /**
+   * Three states, all honest:
+   *  - undefined: this page did not compute a score → the widget is not shown.
+   *  - null: computed, but the seller has too little activity to state one.
+   *  - object: a real score derived from the seller's own records.
+   * There is deliberately no default; the sidebar used to show 87 to everyone.
+   */
+  performance?: PerformanceView | null;
   permissions?: readonly string[];
+}
+
+/** Band thresholds are presentation only — they colour the number, they do not produce it. */
+function scoreTone(score: number) {
+  if (score >= 80) return { text: "text-success", box: "bg-success/10 border-success/30", fill: "bg-success" };
+  if (score >= 60) return { text: "text-warning", box: "bg-warning/10 border-warning/30", fill: "bg-warning" };
+  return { text: "text-danger", box: "bg-danger/10 border-danger/30", fill: "bg-danger" };
+}
+
+/**
+ * Sidebar pill for the performance score. Lives at module scope so it has a
+ * stable component identity and can own the tooltip state (SidebarContent is
+ * an inline component re-created on every layout render). The info control is
+ * a sibling of the link, not a child: a button inside an anchor is invalid
+ * markup and breaks keyboard focus.
+ */
+function PerformancePill({ performance }: { performance: PerformanceView | null }) {
+  const [open, setOpen] = React.useState(false);
+
+  if (performance === null) {
+    return (
+      <div className="px-3 py-2.5 border-b border-border">
+        <Link href="/performance" className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl border border-border bg-secondary/40 text-xs transition-colors hover:bg-secondary">
+          <Star className="h-3.5 w-3.5 text-muted-foreground" />
+          <div className="flex-1 min-w-0">
+            <span className="text-muted-foreground text-[11px] block">Performance score</span>
+            <span className="text-xs font-medium text-foreground">Not enough data yet</span>
+          </div>
+        </Link>
+      </div>
+    );
+  }
+
+  const tone = scoreTone(performance.score);
+  return (
+    <div className="px-3 py-2.5 border-b border-border">
+      <div
+        className={cn("relative flex items-stretch rounded-xl border text-xs", tone.box)}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+      >
+        <Link href="/performance" className="flex flex-1 items-center gap-2.5 ps-2.5 py-2 rounded-s-xl transition-colors hover:brightness-105">
+          <Star className={cn("h-3.5 w-3.5", tone.text)} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground text-[11px]">Performance score</span>
+              <span className={cn("font-bold font-mono", tone.text)}>{performance.score}/100</span>
+            </div>
+            <div className="mt-1.5 h-1 bg-secondary rounded-full overflow-hidden">
+              <div className={cn("h-full rounded-full transition-all", tone.fill)} style={{ width: `${performance.score}%` }} />
+            </div>
+          </div>
+        </Link>
+        <button
+          type="button"
+          aria-label="How the performance score is calculated"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setOpen(false)}
+          className="px-2 flex items-center text-muted-foreground hover:text-foreground rounded-e-xl transition-colors"
+        >
+          <Info className="h-3.5 w-3.5" />
+        </button>
+        {open && (
+          <div role="tooltip" className="absolute start-0 top-full mt-1.5 w-64 z-50 bg-popover text-popover-foreground border border-border rounded-xl shadow-elevated p-3 text-xs space-y-2">
+            <p className="font-semibold">Orders from the last {performance.windowDays} days; listings and documents as they stand now</p>
+            <ul className="space-y-1">
+              {performance.components.map((component) => (
+                <li key={component.key} className="flex items-start justify-between gap-2">
+                  <span className="text-muted-foreground">
+                    {component.label}
+                    <span className="ms-1 text-[10px] font-mono">×{component.weight}</span>
+                  </span>
+                  <span className="font-mono shrink-0">
+                    {component.share === null ? "no data" : `${component.good} of ${component.total}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-muted-foreground">
+              Weights are re-scaled across the components that have data, so a component with none is left out rather than counted as zero.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function SellerLayout({
   children,
-  sellerName = "My Store",
-  tier = "VERIFIED",
+  sellerName,
+  tier,
   issueCount = 0,
   unreadMessages = 0,
-  performanceScore = 87,
+  performance,
   permissions = [],
 }: SellerLayoutProps) {
   const pathname = usePathname();
@@ -117,49 +238,27 @@ export function SellerLayout({
     });
   }
 
-  const scoreColor = performanceScore >= 80 ? "text-success" : performanceScore >= 60 ? "text-warning" : "text-danger";
-  const scoreBg = performanceScore >= 80 ? "bg-success/10 border-success/30" : performanceScore >= 60 ? "bg-warning/10 border-warning/30" : "bg-danger/10 border-danger/30";
-  const scoreFill = performanceScore >= 80 ? "bg-success" : performanceScore >= 60 ? "bg-warning" : "bg-danger";
   const can = (required: readonly string[]) => sellerNavigationAllows(permissions, required);
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-card border-e border-border">
-      {/* Logo / Branding */}
+      {/* Seller identity — only what the page actually knows about the seller */}
       <div className={cn("px-4 h-16 border-b border-border flex items-center gap-3", collapsed && "justify-center px-2")}>
-        <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center shrink-0 font-black text-white">
-          {sellerName.charAt(0).toUpperCase()}
-        </div>
-        {!collapsed && (
+        {sellerName && (
+          <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center shrink-0 font-black text-white">
+            {sellerName.charAt(0).toUpperCase()}
+          </div>
+        )}
+        {!collapsed && (sellerName || tier) && (
           <div className="min-w-0">
-            <p className="font-bold text-sm leading-tight truncate">{sellerName}</p>
-            <span className="text-xs text-primary font-medium">{tier}</span>
+            {sellerName && <p className="font-bold text-sm leading-tight truncate">{sellerName}</p>}
+            {tier && <span className="text-xs text-primary font-medium">{tier}</span>}
           </div>
         )}
       </div>
 
-      {/* Performance Score Pill */}
-      {!collapsed && (
-        <div className="px-3 py-2.5 border-b border-border">
-          <Link href="/performance" className={cn("flex items-center gap-2.5 px-2.5 py-2 rounded-xl border text-xs transition-colors hover:brightness-105", scoreBg)}>
-            <Star className={cn("h-3.5 w-3.5", scoreColor)} />
-            <div className="flex-1">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-[11px]">Performance score</span>
-                <span className={cn("font-bold font-mono", scoreColor)}>{performanceScore}/100</span>
-              </div>
-              <div className="mt-1.5 h-1 bg-secondary rounded-full overflow-hidden">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all",
-                    scoreFill,
-                    performanceScore >= 90 ? "w-[90%]" : performanceScore >= 80 ? "w-[80%]" : performanceScore >= 70 ? "w-[70%]" : performanceScore >= 60 ? "w-[60%]" : "w-[50%]"
-                  )}
-                />
-              </div>
-            </div>
-          </Link>
-        </div>
-      )}
+      {/* Performance score — hidden unless the page computed one */}
+      {!collapsed && performance !== undefined && <PerformancePill performance={performance} />}
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-3 scrollbar-hide">
@@ -276,18 +375,26 @@ export function SellerLayout({
               )}
             </Link>
             <div className="relative group">
-              <button type="button" className="flex items-center gap-2 p-1.5 hover:bg-secondary rounded-lg transition-colors">
-                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center text-white font-bold text-xs">
-                  {sellerName.charAt(0).toUpperCase()}
-                </div>
-                <span className="text-sm font-medium hidden sm:block max-w-[100px] truncate">{sellerName}</span>
+              <button type="button" className="flex items-center gap-2 p-1.5 hover:bg-secondary rounded-lg transition-colors" aria-label="Account menu">
+                {sellerName ? (
+                  <>
+                    <div className="h-7 w-7 rounded-full bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center text-white font-bold text-xs">
+                      {sellerName.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium hidden sm:block max-w-[100px] truncate">{sellerName}</span>
+                  </>
+                ) : (
+                  <Settings className="h-4 w-4 text-muted-foreground" />
+                )}
                 <ChevronDown className="h-3 w-3 text-muted-foreground" />
               </button>
               <div className="absolute end-0 top-full mt-1.5 w-48 bg-popover text-popover-foreground border border-border rounded-xl shadow-elevated opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 p-1">
-                <div className="px-3 py-2.5 border-b border-border mb-1">
-                  <p className="text-sm font-semibold truncate">{sellerName}</p>
-                  <span className="text-xs text-primary">{tier}</span>
-                </div>
+                {(sellerName || tier) && (
+                  <div className="px-3 py-2.5 border-b border-border mb-1">
+                    {sellerName && <p className="text-sm font-semibold truncate">{sellerName}</p>}
+                    {tier && <span className="text-xs text-primary">{tier}</span>}
+                  </div>
+                )}
                 <Link href="/performance" className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">Performance</Link>
                 <Link href="/settings" className="block px-3 py-2 text-sm rounded-lg hover:bg-secondary transition-colors">Settings</Link>
                 <button

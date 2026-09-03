@@ -1,7 +1,6 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { getSupplierPerformance } from "@avenick/database";
-import { formatCurrency } from "@avenick/utils";
 import { TrendingUp, Star, RotateCcw, Award, AlertTriangle, Store } from "lucide-react";
 
 export const metadata = { title: "Supplier Performance" };
@@ -9,6 +8,10 @@ export const dynamic = "force-dynamic";
 
 const scoreColor = (s: number) => (s >= 85 ? "text-green-600" : s >= 70 ? "text-amber-600" : "text-red-600");
 const barColor = (s: number) => (s >= 85 ? "bg-green-500" : s >= 70 ? "bg-amber-500" : "bg-red-500");
+
+// GMV is SUM(order total) as recorded in each order's own currency; nothing is
+// converted, so no currency symbol is attached to the figure.
+const amount = (n: number) => n.toLocaleString("en", { maximumFractionDigits: 0 });
 
 const TIER_COLORS: Record<string, string> = {
   PLATINUM: "bg-purple-100 text-purple-700",
@@ -66,7 +69,7 @@ export default async function PerformancePage() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-border">
                 <tr>
-                  {["Supplier", "Tier", "Score", "GMV", "Orders", "On-time", "Return rate", "Listing health", "Rating"].map((h) => (
+                  {["Supplier", "Tier", "Score", "GMV (as recorded)", "Orders", "On-time", "Return rate", "Listing health", "Rating"].map((h) => (
                     <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
                   ))}
                 </tr>
@@ -96,7 +99,7 @@ export default async function PerformancePage() {
                         <span className={`text-sm font-bold ${scoreColor(s.score)}`}>{s.score}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-semibold">{formatCurrency(s.gmv, "AED")}</td>
+                    <td className="px-4 py-3 font-semibold">{amount(s.gmv)}</td>
                     <td className="px-4 py-3 text-muted-foreground">{s.orders}</td>
                     <td className="px-4 py-3 text-muted-foreground">{s.onTimePct !== null ? `${s.onTimePct}%` : "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">{s.returnRate}%</td>

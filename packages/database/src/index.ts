@@ -25,12 +25,19 @@ export * from "./services/admin";
 export * from "./services/audit";
 export * from "./services/health";
 export * from "./services/finance";
+export * from "./services/settlements";
 export * from "./services/workflow";
 export * from "./services/customer-returns";
 export * from "./services/warehouse";
 export * from "./services/analytics";
 export * from "./services/rfq";
 export * from "./services/data-rights";
+export * from "./services/seller-registration";
+export * from "./services/seller-settings";
+export * from "./services/seller-documents";
+export * from "./services/messaging";
+export * from "./services/product-reviews";
+export * from "./services/admin-operations";
 
 // Resilience layer: circuit breaker, timeouts/retries, and cache fallback that
 // keep reads available and writes fail-fast when Postgres is degraded.
@@ -49,4 +56,5 @@ export {
   type CacheEntry,
   type CachedResult,
 } from "./cache";
+export { installRedisCacheStore } from "./redis-cache-store";
 export { read, write, type ReadOptions } from "./resilient-ops";

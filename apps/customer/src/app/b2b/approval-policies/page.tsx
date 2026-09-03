@@ -6,8 +6,9 @@ import { companyCurrencyForCountry } from "@/lib/company-currency";
 import { createPolicy, togglePolicy } from "./actions";
 import { ValidatedForm } from "@/components/b2b/validated-form";
 import { CheckSquare, ShieldCheck, Building2 } from "lucide-react";
+import { platformName } from "@avenick/utils/portal-config";
 
-export const metadata = { title: "Approval Policies — Avenick for Business" };
+export const metadata = { title: `Approval Policies — ${platformName()} for Business` };
 
 const ROLE_LABEL: Record<string, string> = {
   COMPANY_ADMIN: "Admin",

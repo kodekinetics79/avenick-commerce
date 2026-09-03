@@ -70,7 +70,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       data: returnRequests,
-      message: "Return request submitted — our team will review it within 1–2 business days.",
+      // No review-time promise: nothing measures or enforces one.
+      message: "Return request submitted. Track its review status on the returns page.",
     });
   } catch (error) {
     const code = error instanceof Error ? error.message : "";

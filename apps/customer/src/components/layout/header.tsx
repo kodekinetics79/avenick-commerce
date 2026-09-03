@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { platformName } from "@avenick/utils/portal-config";
 import {
   ShoppingCart,
   Search,
@@ -26,7 +27,9 @@ function setLocaleCookie(locale: string) {
 const NAV = [
   { href: "/", labelKey: "home" },
   { href: "/products", labelKey: "shop" },
-  { href: "/deals", labelKey: "deals" },
+  // Deals stays out of primary navigation until governed active promotions
+  // exist. The page currently lists ordinary catalog products, so presenting it
+  // as "Deals" claims a discount the commercial model does not back.
   { href: "/brands", labelKey: "brands" },
   { href: "/b2b", labelKey: "forBusiness" },
   { href: "/support", labelKey: "support" },
@@ -66,8 +69,9 @@ export function Header() {
         <div className="max-w-7xl mx-auto px-4 min-h-16 py-3 flex flex-wrap items-center gap-x-3 gap-y-2 lg:flex-nowrap">
           {/* Logo */}
           <Link href="/" className="shrink-0 flex items-center gap-2 group">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-primary-500 to-accent-600 text-white font-black shadow-glow-sm group-hover:scale-105 transition-transform">A</span>
-            <span className="text-lg font-extrabold tracking-tight">avenick</span>
+            {/* Wordmark from the resolver: the monogram is the name's first letter. */}
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-primary-500 to-accent-600 text-white font-black shadow-glow-sm group-hover:scale-105 transition-transform">{platformName().charAt(0).toUpperCase()}</span>
+            <span className="text-lg font-extrabold tracking-tight lowercase">{platformName()}</span>
           </Link>
 
           {/* Nav */}

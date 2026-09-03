@@ -5,10 +5,13 @@
   "exports": {
     ".": "./src/index.ts",
     "./client": "./src/client.ts",
+    "./safe-redirect": "./src/safe-redirect.ts",
     "./remote-session": "./src/remote-session.ts",
     "./middleware": "./src/middleware.ts",
     "./guards": "./src/guards.ts",
-    "./api": "./src/api.ts"
+    "./api": "./src/api.ts",
+    "./sign-in-messages": "./src/sign-in-messages.ts",
+    "./rate-limit": "./src/rate-limit.ts"
   },
   "dependencies": {
     "@avenick/database": "workspace:*",

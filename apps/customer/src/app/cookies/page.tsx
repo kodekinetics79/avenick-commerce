@@ -1,10 +1,11 @@
 import { cookies } from "next/headers";
 import { Info, Settings, ShieldCheck, EyeOff, Activity, RefreshCw } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
+import { platformName } from "@avenick/utils/portal-config";
 
 export const metadata = {
-  title: "Cookies Policy — Avenick Commerce",
-  description: "Avenick Commerce cookies policy, user tracking management, and data settings.",
+  title: `Cookies Policy — ${platformName()}`,
+  description: `${platformName()} cookies policy, user tracking management, and data settings.`,
 };
 
 export const dynamic = "force-dynamic";
@@ -44,24 +45,24 @@ const SECTIONS: LegalSection[] = [
     icon: ShieldCheck,
     contentEn: (
       <>
-        <p>Avenick Commerce uses cookies to optimize your procurement experience. Specifically, they enable us to:</p>
+        <p>{platformName()} uses cookies and browser storage only to make the storefront work. Specifically, they:</p>
         <ul className="list-disc ps-5 space-y-1 mt-2">
           <li>Keep you securely signed in to your B2B or consumer account.</li>
-          <li>Remember your bilingual preference (Arabic or English) and load local currency settings.</li>
-          <li>Persist items inside your shopping cart and wishlist as you navigate between products.</li>
-          <li>Analyze platform performance, traffic density, and page loading speed.</li>
+          <li>Remember your language preference (Arabic or English).</li>
+          <li>Persist items inside your shopping cart and wishlist, and your light/dark theme choice, in your browser&apos;s local storage as you navigate between products.</li>
         </ul>
+        <p>We do not run analytics or advertising cookies, and no browsing statistics are collected.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>تستخدم منصة أفينيك ملفات تعريف الارتباط لتحسين تجربة الشراء والمشتريات الخاصة بكم. وبشكل خاص، تتيح لنا ملفات الكوكيز:</p>
+        <p>تستخدم المنصة ملفات تعريف الارتباط وتخزين المتصفح فقط لتشغيل المتجر. وبشكل خاص، فهي:</p>
         <ul className="list-disc ps-5 space-y-1 mt-2">
-          <li>إبقائكم مسجلين الدخول بأمان إلى حساباتكم التجارية أو الشخصية.</li>
-          <li>حفظ اختياركم اللغوي المفضل (العربية أو الإنجليزية) وتحميل إعدادات العملة المحلية.</li>
-          <li>حفظ المنتجات المضافة إلى سلة التسوق وقائمة الأمنيات أثناء التنقل بين الصفحات.</li>
-          <li>تحليل أداء المنصة، وحجم حركة المرور، وسرعة تحميل الصفحات.</li>
+          <li>تبقيكم مسجلين الدخول بأمان إلى حساباتكم التجارية أو الشخصية.</li>
+          <li>تحفظ اختياركم اللغوي المفضل (العربية أو الإنجليزية).</li>
+          <li>تحفظ المنتجات المضافة إلى سلة التسوق وقائمة الأمنيات واختيار المظهر (الفاتح أو الداكن) في التخزين المحلي لمتصفحكم أثناء التنقل بين الصفحات.</li>
         </ul>
+        <p>لا نستخدم ملفات تعريف ارتباط للتحليلات أو الإعلانات، ولا نجمع أي إحصاءات تصفح.</p>
       </>
     ),
   },
@@ -72,22 +73,24 @@ const SECTIONS: LegalSection[] = [
     icon: Activity,
     contentEn: (
       <>
-        <p>We classify cookies into four distinct categories depending on their functionality:</p>
+        <p>Everything the storefront stores in your browser falls into one of these categories:</p>
         <ul className="list-disc ps-5 space-y-2 mt-2">
-          <li><strong>Necessary Cookies:</strong> Crucial for account login, B2B approval workflows, CSRF protection, and core checkout tasks. The site cannot function properly without these.</li>
-          <li><strong>Functional Cookies:</strong> Used to store your active language (`AVENICK_LOCALE`) and theme selection (light or dark mode) so they persist across sessions.</li>
-          <li><strong>Performance & Analytics:</strong> Gather anonymous statistics on page views, click behaviors, and sourcing pathways to help us optimize the site.</li>
+          <li><strong>Necessary Cookies:</strong> The session and CSRF cookies set at sign-in, which account login, B2B approval workflows, and checkout depend on. The site cannot function properly without these.</li>
+          <li><strong>Functional Cookies:</strong> Your active language (`AVENICK_LOCALE`), stored so it persists across sessions.</li>
+          <li><strong>Local Storage (not a cookie):</strong> Your cart, wishlist, and light/dark theme choice, kept in your browser&apos;s local storage and never sent to us as tracking data.</li>
         </ul>
+        <p>There is no performance or analytics category: the platform sets no analytics cookies.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>نصنف ملفات تعريف الارتباط إلى فئات مميزة اعتماداً على وظيفتها:</p>
+        <p>كل ما يخزنه المتجر في متصفحكم يندرج ضمن إحدى هذه الفئات:</p>
         <ul className="list-disc ps-5 space-y-2 mt-2">
-          <li><strong>ملفات أساسية ولازمة:</strong> بالغة الأهمية لتسجيل دخول الحساب، وإدارة تدفقات اعتماد أوامر الشراء B2B، وحماية CSRF، وإجراءات الدفع الأساسية. لا يمكن للموقع العمل بدونها.</li>
-          <li><strong>ملفات وظيفية:</strong> تُستخدم لحفظ تفضيلات اللغة النشطة (`AVENICK_LOCALE`) واختيار المظهر (الوضع الفاتح أو الداكن) لاسترجاعها عند الزيارات القادمة.</li>
-          <li><strong>ملفات الأداء والتحليل:</strong> تجمع إحصاءات مجهولة المصدر حول مشاهدات الصفحة، وسلوكيات النقر، ومسارات التوريد لمساعدتنا في تحسين خدماتنا.</li>
+          <li><strong>ملفات أساسية ولازمة:</strong> ملفات الجلسة وحماية CSRF التي تُنشأ عند تسجيل الدخول، ويعتمد عليها تسجيل الدخول وتدفقات اعتماد أوامر الشراء B2B وإجراءات الدفع. لا يمكن للموقع العمل بدونها.</li>
+          <li><strong>ملفات وظيفية:</strong> تفضيل اللغة النشطة (`AVENICK_LOCALE`) لاسترجاعه عند الزيارات القادمة.</li>
+          <li><strong>التخزين المحلي (ليس ملف تعريف ارتباط):</strong> سلة التسوق وقائمة الأمنيات واختيار المظهر (الفاتح أو الداكن)، تُحفظ في التخزين المحلي لمتصفحكم ولا تُرسل إلينا كبيانات تتبع.</li>
         </ul>
+        <p>لا توجد فئة للأداء أو التحليلات: المنصة لا تضع أي ملفات تعريف ارتباط تحليلية.</p>
       </>
     ),
   },
@@ -162,10 +165,12 @@ export default async function CookiesPage() {
             <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight mb-3">
               {isAr ? "سياسة ملفات تعريف الارتباط" : "Cookies Policy"}
             </h1>
+            {/* No "last updated" date: nothing records when this text changed,
+                so a typed date would be a claim the platform cannot back. */}
             <p className="text-muted-foreground text-sm">
-              {isAr 
-                ? "آخر تحديث: يونيو ٢٠٢٦ — يوضح هذا الدليل كيف نستخدم ملفات تعريف الارتباط للتخصيص والأداء." 
-                : "Last updated: June 2026 — This guide explains how we use cookies for personalization and performance."}
+              {isAr
+                ? "يوضح هذا الدليل ما تخزنه المنصة في متصفحكم ولماذا."
+                : "This guide explains what the platform stores in your browser and why."}
             </p>
           </div>
 

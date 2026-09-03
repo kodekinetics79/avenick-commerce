@@ -3,10 +3,14 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowUpDown } from "lucide-react";
 
+// Only sorts the catalog query can actually perform across the whole result
+// set. Price sorting is deliberately absent: a product has no single price —
+// ProductPrice holds a row per (type, currency, quantity tier) — so ordering
+// requires deciding which tier represents a product and denormalising it onto
+// Product for the database to sort on. Until that exists, offering the option
+// produced a page sorted within itself that restarted on page 2.
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest" },
-  { value: "price_asc", label: "Price: Low → High" },
-  { value: "price_desc", label: "Price: High → Low" },
   { value: "name_asc", label: "Name A–Z" },
 ];
 

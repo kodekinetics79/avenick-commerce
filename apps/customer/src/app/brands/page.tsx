@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Building2, ArrowRight } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
 import { fetchBackendJson } from "@/lib/backend";
+import { platformName } from "@avenick/utils/portal-config";
+import { SELLER_REGISTER_URL } from "@/lib/portal-urls";
 
 export const metadata = { title: "Brands" };
 // Live catalog data — must not prerender at build time (no DB on build machines).
@@ -17,7 +19,7 @@ export default async function BrandsPage() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight mb-2">Shop by brand</h1>
-          <p className="text-muted-foreground">Browse products from verified GCC suppliers and global brands.</p>
+          <p className="text-muted-foreground">Browse products from GCC suppliers and global brands.</p>
         </div>
 
         {brands.length === 0 ? (
@@ -50,19 +52,28 @@ export default async function BrandsPage() {
           </div>
         )}
 
-        {/* Seller CTA */}
-        <div className="mt-12 bg-primary/10 border border-primary/30 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Building2 className="h-8 w-8 text-primary shrink-0" />
-            <div>
-              <p className="font-semibold">Are you a brand or distributor?</p>
-              <p className="text-sm text-muted-foreground">Join Avenick Commerce as a verified seller and reach thousands of B2B buyers.</p>
+        {/*
+          Seller CTA. Seller sign-up lives in the seller portal; this app's
+          /register is buyer registration, which is where this button used to
+          send suppliers. Without a configured seller-portal origin there is no
+          correct target, so the whole card is omitted rather than linked to a
+          guess. The old copy also promised "thousands of B2B buyers" — a
+          number nothing measures — so it now says only what the button does.
+        */}
+        {SELLER_REGISTER_URL && (
+          <div className="mt-12 bg-primary/10 border border-primary/30 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Building2 className="h-8 w-8 text-primary shrink-0" />
+              <div>
+                <p className="font-semibold">Are you a brand or distributor?</p>
+                <p className="text-sm text-muted-foreground">Apply to sell on {platformName()}. Applications are reviewed before a storefront goes live.</p>
+              </div>
             </div>
+            <a href={SELLER_REGISTER_URL} className="inline-flex items-center gap-1.5 h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98] shrink-0 whitespace-nowrap">
+              Become a seller <ArrowRight className="h-4 w-4" />
+            </a>
           </div>
-          <Link href="/register" className="inline-flex items-center gap-1.5 h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98] shrink-0 whitespace-nowrap">
-            Become a seller <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
+        )}
       </div>
     </MainLayout>
   );

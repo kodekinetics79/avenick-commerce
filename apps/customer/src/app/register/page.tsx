@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { User, Building2 } from "lucide-react";
 import { Input, Button, Textarea } from "@avenick/ui";
 import { MainLayout } from "@/components/layout/main-layout";
+import { platformName } from "@avenick/utils/portal-config";
 import { SUPPORTED_COUNTRIES } from "@/lib/market-context";
 
 type Mode = "select" | "consumer" | "business";
@@ -40,7 +41,7 @@ export default function RegisterPage() {
         <div className="w-full max-w-lg">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-primary mb-1">إنشاء حساب</h1>
-            <p className="text-muted-foreground">Create your Avenick Commerce account</p>
+            <p className="text-muted-foreground">Create your {platformName()} account</p>
           </div>
 
           {mode === "select" && (

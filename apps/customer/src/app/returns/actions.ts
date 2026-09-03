@@ -45,7 +45,8 @@ export async function createReturnRequest(
     );
 
     revalidatePath("/returns");
-    return { ok: true, message: result.message ?? "Return request submitted — our team will review it within 1–2 business days." };
+    // No review-time promise: the platform measures no returns SLA.
+    return { ok: true, message: result.message ?? "Return request submitted. Track its review status below." };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Failed to submit return request." };
   }

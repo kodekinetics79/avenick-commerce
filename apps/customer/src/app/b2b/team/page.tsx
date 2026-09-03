@@ -2,12 +2,13 @@ import { B2BShell } from "@/components/b2b/b2b-shell";
 import { formatCurrency } from "@avenick/utils";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
+import { companyCurrencyForCountry } from "@/lib/company-currency";
+import { platformName } from "@avenick/utils/portal-config";
 import { inviteMember, setMemberActive } from "./actions";
 import { ValidatedForm } from "@/components/b2b/validated-form";
 import { Shield, ShoppingBag, CheckSquare, UserPlus, Building2 } from "lucide-react";
-import { companyCurrencyForCountry } from "@/lib/company-currency";
 
-export const metadata = { title: "Team & Roles — Avenick for Business" };
+export const metadata = { title: `Team & Roles — ${platformName()} for Business` };
 
 const ROLES: Record<string, { label: string; cls: string; icon: typeof Shield; desc: string }> = {
   COMPANY_ADMIN: { label: "Admin", cls: "bg-accent/15 text-accent", icon: Shield, desc: "Full access — manage team, billing, approvals & ordering." },
@@ -36,6 +37,8 @@ export default async function B2BTeamPage() {
     orderBy: { joinedAt: "asc" },
   });
   const isAdmin = ctx.member.role === "COMPANY_ADMIN";
+  // CompanyMember.spendLimit has no currency column; like the credit limit it
+  // is read in the company's jurisdiction currency.
   const currency = companyCurrencyForCountry(ctx.company.country);
 
   return (

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { RECORD_ID } from "@avenick/utils";
 import { fetchB2BJson, type B2BActionState } from "@/lib/b2b";
 import { z } from "zod";
 
@@ -47,12 +48,31 @@ export async function submitRFQ(_prev: B2BActionState, formData: FormData): Prom
   }
 
   revalidatePath("/b2b/quotes");
-  redirect(`/b2b/rfq/${rfq.id}`);
+  redirect(`/b2b/rfq/${encodeURIComponent(rfq.id)}`);
+}
+
+/**
+ * Recording a decision on a supplier quote is a commercial act, so a malformed
+ * id must not resolve to "nothing visibly happened".
+ *
+ * Every caller binds an id the server itself read from the database, so a value
+ * that is not a record id means a forged submission — there is no legitimate
+ * request to keep available here. Fail loudly into the app error boundary
+ * rather than returning quietly, which would be indistinguishable from a
+ * recorded decision.
+ */
+function assertRecordId(id: string) {
+  if (!RECORD_ID.test(id)) {
+    throw new Error("That RFQ could not be identified. Reopen it from the quotes list and retry.");
+  }
 }
 
 export async function acceptRFQQuote(id: string, expectedQuoteVersion: number) {
+  assertRecordId(id);
   try {
-    await fetchB2BJson(`/api/b2b/rfqs/${id}`, {
+    // Encoding is the containment; the shape check above is the guard. Keep
+    // both — encodeURIComponent holds even if the id shape is ever widened.
+    await fetchB2BJson(`/api/b2b/rfqs/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ decision: "ACCEPTED", expectedQuoteVersion }),
@@ -65,8 +85,9 @@ export async function acceptRFQQuote(id: string, expectedQuoteVersion: number) {
 }
 
 export async function rejectRFQQuote(id: string, expectedQuoteVersion: number) {
+  assertRecordId(id);
   try {
-    await fetchB2BJson(`/api/b2b/rfqs/${id}`, {
+    await fetchB2BJson(`/api/b2b/rfqs/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ decision: "REJECTED", expectedQuoteVersion }),

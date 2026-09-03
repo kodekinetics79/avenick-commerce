@@ -128,12 +128,6 @@
     "prop4Desc": "RFQs and purchase orders retain approval, pricing, and actor evidence.",
     "b2bTitle": "Procuring at volume?",
     "b2bDesc": "Submit a governed RFQ and compare the quotes actually returned, with approval and audit evidence preserved.",
-    "b2bCta": "Submit an RFQ",
-    "catIndustrial": "Industrial",
-    "catElectronics": "Electronics",
-    "catOffice": "Office",
-    "catSafety": "Safety & PPE",
-    "catHospitality": "Hospitality",
-    "catBuilding": "Building"
+    "b2bCta": "Submit an RFQ"
   }
 }

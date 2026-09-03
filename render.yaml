@@ -35,8 +35,12 @@ services:
         sync: false
       - key: DIRECT_URL
         sync: false
-      - key: INTEGRATION_WORKER_ID
-        value: "render-primary"
+      # Deliberately unset: the worker generates a unique id per process.
+      # A fixed value made every instance upsert the SAME heartbeat row, so
+      # health reported one worker no matter how many were running. Row claiming
+      # stayed safe (SKIP LOCKED + fencing token); only observability broke.
+      # - key: INTEGRATION_WORKER_ID
+      #   value: "render-primary"
       # Each ERP adapter is pinned to an operator-owned origin and a dedicated
       # token variable. Admin configuration cannot select arbitrary hosts or
       # dereference unrelated runtime secrets.
@@ -85,6 +89,19 @@ services:
         value: "https://avenick.vercel.app"
       - key: AUTH_TRUST_HOST
         value: "true"
+      # Public origin of EACH portal (scheme + host, no path), inlined at build
+      # time and read only through @avenick/utils/portal-config. Every portal
+      # needs all three for cross-portal links; unset = the link is hidden and
+      # password-reset links refuse to send rather than guess a host.
+      - key: NEXT_PUBLIC_CUSTOMER_PORTAL_URL
+        sync: false
+      - key: NEXT_PUBLIC_SELLER_PORTAL_URL
+        sync: false
+      - key: NEXT_PUBLIC_ADMIN_PORTAL_URL
+        sync: false
+      # Bare address shown as the support contact; unset = the line is omitted.
+      - key: NEXT_PUBLIC_SUPPORT_EMAIL
+        sync: false
       - key: OTEL_SERVICE_NAME
         value: "avenick-customer"
       - key: LOG_LEVEL
@@ -116,9 +133,18 @@ services:
       - key: NEXTAUTH_SECRET
         sync: false
       - key: NEXTAUTH_URL
-        value: "https://avenick-seller.vercel.app"
+        value: "https://avenick-commerce-seller.vercel.app"
       - key: AUTH_TRUST_HOST
         value: "true"
+      # Cross-portal origins + support contact — same rules as avenick-customer.
+      - key: NEXT_PUBLIC_CUSTOMER_PORTAL_URL
+        sync: false
+      - key: NEXT_PUBLIC_SELLER_PORTAL_URL
+        sync: false
+      - key: NEXT_PUBLIC_ADMIN_PORTAL_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPPORT_EMAIL
+        sync: false
       - key: OTEL_SERVICE_NAME
         value: "avenick-seller"
       - key: LOG_LEVEL
@@ -150,9 +176,18 @@ services:
       - key: NEXTAUTH_SECRET
         sync: false
       - key: NEXTAUTH_URL
-        value: "https://avenick-admin.vercel.app"
+        value: "https://avenick-commerce-admin.vercel.app"
       - key: AUTH_TRUST_HOST
         value: "true"
+      # Cross-portal origins + support contact — same rules as avenick-customer.
+      - key: NEXT_PUBLIC_CUSTOMER_PORTAL_URL
+        sync: false
+      - key: NEXT_PUBLIC_SELLER_PORTAL_URL
+        sync: false
+      - key: NEXT_PUBLIC_ADMIN_PORTAL_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPPORT_EMAIL
+        sync: false
       - key: OTEL_SERVICE_NAME
         value: "avenick-admin"
       - key: LOG_LEVEL

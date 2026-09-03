@@ -5,13 +5,11 @@ import { SellerLayout } from "@/components/layout/seller-layout";
 import { Plus } from "lucide-react";
 import { AiAssist } from "@/components/ai-assist";
 import { ProductsTable, type ProductRow } from "@/components/products-table";
-import { countryCommerceDefaults } from "@/lib/product-form";
 
 export default async function ProductsPage({ searchParams }: { searchParams?: { submitted?: string } }) {
   const { seller, membership } = await requireSellerAnyPermission(["catalog.view", "catalog.manage"]);
   const permissions = membership.permissions ?? [];
   const canManage = permissions.includes("*") || (permissions.includes("catalog.manage") && permissions.includes("pricing.manage"));
-  const marketDefaults = countryCommerceDefaults(seller.country);
 
   const products = await db.product.findMany({
     where: { sellerId: seller.id, deletedAt: null },
@@ -37,7 +35,7 @@ export default async function ProductsPage({ searchParams }: { searchParams?: { 
       listingHealth: p.listingHealth,
       available: stock ? stock.qty - stock.reservedQty : 0,
       price: price ? Number(price.price) : null,
-      currency: price?.currency ?? marketDefaults.currency,
+      currency: price?.currency ?? null,
       issueCount: p.issues.length,
       imageUrl: p.images[0]?.url ?? null,
     };

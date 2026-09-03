@@ -2,13 +2,21 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { RECORD_ID } from "@avenick/utils";
 import { fetchSellerBackend } from "@/lib/backend";
 import { z } from "zod";
 
 export type QuoteActionState = { error?: string; ok?: boolean };
 
+// `rfqId` is interpolated into a credentialed backend path — the shared
+// RECORD_ID guard (why it is stricter than zod's .cuid()) is documented in
+// @avenick/utils/record-id.
+const RfqIdSchema = z
+  .string()
+  .regex(RECORD_ID, "That RFQ could not be identified — reopen it from the RFQ list.");
+
 const SubmitQuoteSchema = z.object({
-  rfqId: z.string().min(1),
+  rfqId: RfqIdSchema,
   notes: z.string().trim().max(1000).optional(),
   items: z
     .array(z.object({ itemId: z.string().min(1), unitQuoted: z.number().positive() }))
@@ -28,7 +36,9 @@ export async function submitQuoteAction(
   }
 
   try {
-    await fetchSellerBackend(`/api/seller/rfqs/${payload.rfqId}`, {
+    // Encoding is the containment; the schema above is the guard. Keep both —
+    // encodeURIComponent holds even if the id shape is ever widened.
+    await fetchSellerBackend(`/api/seller/rfqs/${encodeURIComponent(payload.rfqId)}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ items: payload.items, notes: payload.notes }),

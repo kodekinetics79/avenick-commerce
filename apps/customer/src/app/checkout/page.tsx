@@ -10,7 +10,7 @@ import { summarizeCartCommercial } from "@/lib/cart-commercial";
 import { emptyMarketAddress, SUPPORTED_COUNTRIES } from "@/lib/market-context";
 
 type Step = "address" | "payment" | "review" | "success";
-type OrderSummary = { total?: number; discountAmount?: number; vatAmount?: number };
+type OrderSummary = { total?: number; discountAmount?: number; vatAmount?: number; currency?: string };
 
 const PILOT_MODE = process.env.NEXT_PUBLIC_PILOT_MODE === "true";
 
@@ -34,7 +34,9 @@ export default function CheckoutPage() {
   const idempotencyKeyRef = useRef<string | null>(null);
 
   const summary = summarizeCartCommercial(items);
-  const checkoutCurrency = summary.valid ? summary.currency : "AED";
+  // No fallback currency: an invalid cart never reaches the order call, and
+  // the success screen uses the currency the server recorded on the order.
+  const checkoutCurrency = summary.valid ? summary.currency : null;
   const mixedCurrencies = !summary.valid;
   const subtotal = summary.valid ? summary.subtotal : 0;
   const vatAmount = summary.valid ? summary.vatAmount : 0;
@@ -43,7 +45,7 @@ export default function CheckoutPage() {
   async function placeOrder() {
     setLoading(true);
     try {
-      if (mixedCurrencies) throw new Error("Cart items must use one currency per checkout");
+      if (mixedCurrencies || !checkoutCurrency) throw new Error("Cart items must use one currency per checkout");
       if (!idempotencyKeyRef.current) {
         idempotencyKeyRef.current = globalThis.crypto?.randomUUID?.() ?? `checkout-${Date.now()}-${Math.random()}`;
       }
@@ -72,6 +74,7 @@ export default function CheckoutPage() {
           total: data.data.total == null ? undefined : Number(data.data.total),
           discountAmount: data.data.discountAmount == null ? undefined : Number(data.data.discountAmount),
           vatAmount: data.data.vatAmount == null ? undefined : Number(data.data.vatAmount),
+          currency: typeof data.data.currency === "string" ? data.data.currency : checkoutCurrency,
         });
         clearCart();
         setStep("success");
@@ -108,6 +111,10 @@ export default function CheckoutPage() {
   }
 
   if (step === "success") {
+    // The cart is cleared after submission, so the order's own currency (not
+    // the cart summary) is what the final amounts are labelled with.
+    const finalCurrency = finalSummary.currency ?? null;
+    const finalMoney = (n: number) => (finalCurrency ? formatCurrency(n, finalCurrency as never) : n.toFixed(2));
     return (
       <MainLayout>
         <div className="max-w-xl mx-auto px-4 py-20 text-center">
@@ -118,10 +125,10 @@ export default function CheckoutPage() {
           {finalSummary.total != null && (
             <div className="mx-auto mb-5 max-w-sm rounded-xl bg-muted p-3 text-sm text-left">
               {finalSummary.discountAmount != null && finalSummary.discountAmount > 0 && (
-                <div className="flex justify-between"><span>Discount</span><span>-{formatCurrency(finalSummary.discountAmount, checkoutCurrency as never)}</span></div>
+                <div className="flex justify-between"><span>Discount</span><span>-{finalMoney(finalSummary.discountAmount)}</span></div>
               )}
-              {finalSummary.vatAmount != null && <div className="flex justify-between"><span>VAT</span><span>{formatCurrency(finalSummary.vatAmount, checkoutCurrency as never)}</span></div>}
-              <div className="flex justify-between font-semibold mt-1"><span>Final total</span><span>{formatCurrency(finalSummary.total, checkoutCurrency as never)}</span></div>
+              {finalSummary.vatAmount != null && <div className="flex justify-between"><span>VAT</span><span>{finalMoney(finalSummary.vatAmount)}</span></div>}
+              <div className="flex justify-between font-semibold mt-1"><span>Final total</span><span>{finalMoney(finalSummary.total)}</span></div>
             </div>
           )}
           <p className="text-sm text-muted-foreground mb-6">

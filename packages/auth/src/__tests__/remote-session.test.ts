@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { UserRole } from "@avenick/database";
 import { encode } from "next-auth/jwt";
 import { resolveRemotePortalSession } from "../remote-session";
@@ -122,5 +122,70 @@ describe("split-runtime session verification", () => {
       "https://auth-safe.example.test/api/auth/session",
       expect.any(Object),
     );
+  });
+});
+
+describe("remote session verification fails closed", () => {
+  const ENV_KEYS = [
+    "NEXTAUTH_URL",
+    "NEXT_PUBLIC_BACKEND_URL",
+    "NEXT_PUBLIC_SELLER_BACKEND_URL",
+    "NEXT_PUBLIC_ADMIN_BACKEND_URL",
+    "AUTH_SECRET",
+    "NEXTAUTH_SECRET",
+  ] as const;
+  let saved: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    saved = Object.fromEntries(ENV_KEYS.map((k) => [k, process.env[k]]));
+    for (const k of ENV_KEYS) delete process.env[k];
+  });
+
+  afterEach(() => {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  });
+
+  const cookie = "avenick.seller.session-token=opaque-token";
+
+  it("does not call any origin when none is configured", async () => {
+    // Previously this fell back to a hardcoded production host, forwarding the
+    // visitor's session cookie to a live service in another environment.
+    const fetchImpl = vi.fn();
+
+    const result = await resolveRemotePortalSession("seller", cookie, fetchImpl as never);
+
+    expect(result).toBeNull();
+    expect(fetchImpl, "an unconfigured deployment must not reach out at all").not.toHaveBeenCalled();
+  });
+
+  it("never targets an onrender.com host by default", async () => {
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 200 }));
+
+    await resolveRemotePortalSession("customer", cookie.replace("seller", "customer"), fetchImpl as never);
+
+    const called = fetchImpl.mock.calls.map((c) => String(c[0])).join(" ");
+    expect(called).not.toContain("onrender.com");
+  });
+
+  it("uses the portal-specific backend URL when configured", async () => {
+    process.env.NEXT_PUBLIC_SELLER_BACKEND_URL = "https://seller.internal";
+    const fetchImpl = vi.fn(async () => new Response("null", { status: 200 }));
+
+    await resolveRemotePortalSession("seller", cookie, fetchImpl as never);
+
+    expect(String(fetchImpl.mock.calls[0]?.[0])).toBe("https://seller.internal/api/auth/session");
+  });
+
+  it("prefers NEXTAUTH_URL over the portal backend URL", async () => {
+    process.env.NEXTAUTH_URL = "https://portal.example";
+    process.env.NEXT_PUBLIC_SELLER_BACKEND_URL = "https://seller.internal";
+    const fetchImpl = vi.fn(async () => new Response("null", { status: 200 }));
+
+    await resolveRemotePortalSession("seller", cookie, fetchImpl as never);
+
+    expect(String(fetchImpl.mock.calls[0]?.[0])).toBe("https://portal.example/api/auth/session");
   });
 });

@@ -6,11 +6,12 @@ import { formatCurrency } from "@avenick/utils";
 import { fetchB2BJson } from "@/lib/b2b";
 import { approvePO, rejectPO } from "../purchase-orders/actions";
 import { format, formatDistanceToNow } from "date-fns";
+import { POActionBanner } from "@/components/b2b/po-action-banner";
 
 export const metadata = { title: "Approvals" };
 export const dynamic = "force-dynamic";
 
-export default async function ApprovalsPage() {
+export default async function ApprovalsPage({ searchParams }: { searchParams?: { poDone?: string; poError?: string } }) {
   type PurchaseOrderRow = {
     id: string;
     poNumber: string;
@@ -56,6 +57,7 @@ export default async function ApprovalsPage() {
       description="Purchase orders routed to approvers by your company's approval policies."
     >
       <div className="space-y-5">
+        <POActionBanner done={searchParams?.poDone} error={searchParams?.poError} />
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "Awaiting approval", value: pending.length, color: "bg-amber-50 border-amber-200" },

@@ -2,10 +2,11 @@ import { B2BShell } from "@/components/b2b/b2b-shell";
 import { formatCurrency } from "@avenick/utils";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
-import { TrendingUp, Wallet, Clock, Building2, BarChart3 } from "lucide-react";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
+import { platformName } from "@avenick/utils/portal-config";
+import { TrendingUp, Wallet, Clock, Building2, BarChart3 } from "lucide-react";
 
-export const metadata = { title: "Spend Analytics — Avenick for Business" };
+export const metadata = { title: `Spend Analytics — ${platformName()} for Business` };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -23,17 +24,23 @@ export default async function SpendAnalyticsPage() {
     );
   }
 
-  const [pos, members] = await Promise.all([
-    db.purchaseOrder.findMany({ where: { companyId: ctx.companyId }, select: { total: true, currency: true, status: true, requesterId: true, createdAt: true } }),
+  const [allPos, members] = await Promise.all([
+    db.purchaseOrder.findMany({ where: { companyId: ctx.companyId }, select: { total: true, status: true, requesterId: true, createdAt: true, currency: true } }),
     db.companyMember.findMany({ where: { companyId: ctx.companyId }, select: { userId: true, department: true } }),
   ]);
   const deptOf = new Map(members.map((m) => [m.userId, m.department ?? "Unassigned"]));
-  const currency = companyCurrencyForCountry(ctx.company.country);
-  const scoped = pos.filter((p) => p.currency === currency);
 
-  const committed = scoped.filter((p) => p.status === "ORDERED" || p.status === "APPROVED");
+  // Purchase orders are stored in the currency they were raised in. Totals
+  // across currencies are not a sum of anything, so every figure on this page
+  // is in the company's jurisdiction currency and POs in any other currency
+  // are counted and disclosed rather than silently folded in.
+  const currency = companyCurrencyForCountry(ctx.company.country);
+  const pos = allPos.filter((p) => p.currency === currency);
+  const excludedCount = allPos.length - pos.length;
+
+  const committed = pos.filter((p) => p.status === "ORDERED" || p.status === "APPROVED");
   const totalSpend = committed.reduce((s, p) => s + Number(p.total), 0);
-  const pendingValue = scoped.filter((p) => p.status === "PENDING_APPROVAL").reduce((s, p) => s + Number(p.total), 0);
+  const pendingValue = pos.filter((p) => p.status === "PENDING_APPROVAL").reduce((s, p) => s + Number(p.total), 0);
 
   const now = new Date();
   const monthSpend = committed.filter((p) => p.createdAt.getMonth() === now.getMonth() && p.createdAt.getFullYear() === now.getFullYear()).reduce((s, p) => s + Number(p.total), 0);
@@ -65,7 +72,12 @@ export default async function SpendAnalyticsPage() {
   const empty = committed.length === 0;
 
   return (
-    <B2BShell title="Spend Analytics" description={`Approved & ordered purchasing across ${ctx.company.nameEn}.`}>
+    <B2BShell title="Spend Analytics" description={`Approved & ordered purchasing across ${ctx.company.nameEn}, in ${currency}.`}>
+      {excludedCount > 0 && (
+        <p className="text-xs text-muted-foreground mb-4">
+          {excludedCount} purchase order{excludedCount === 1 ? "" : "s"} raised in other currencies {excludedCount === 1 ? "is" : "are"} not included in these figures.
+        </p>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {kpis.map((k) => (
           <div key={k.label} className="rounded-2xl border border-border bg-card p-5">

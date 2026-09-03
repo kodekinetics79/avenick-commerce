@@ -112,11 +112,19 @@ run("variant and refund commercial truth", () => {
       userId: requester.id, type: "B2C", currency: "AED",
       items: [{ productId: product.id, variantId: variant.id, quantity: 1 }], shippingAddress: { country: "AE" },
     });
-    expect(Number(b2c.total)).toBe(125);
+    // The variant's B2C row is seeded at vatRate 0 as a selection sentinel, but
+    // VAT is no longer taken from the price row: the delivery jurisdiction is the
+    // only authority for the rate charged, so this AE order is levied the
+    // statutory 5% (125 + 6.25). The former expectation of 125/0 encoded a real
+    // tax UNDER-collection — a mistyped price row silently deciding the tax due.
+    // Variant selection is still proven by unitPrice (125, not the base row's 10)
+    // and by the sku assertion below.
+    expect(Number(b2c.total)).toBe(131.25);
     const b2cItem = await db.orderItem.findFirstOrThrow({ where: { orderId: b2c.id } });
     expect(b2cItem).toMatchObject({ sku: variant.sku });
     expect(Number(b2cItem.unitPrice)).toBe(125);
-    expect(Number(b2cItem.vatAmount)).toBe(0);
+    expect(Number(b2cItem.vatRate)).toBe(5);
+    expect(Number(b2cItem.vatAmount)).toBe(6.25);
 
     const po = await createGovernedPurchaseOrder({
       companyId: company.id, requesterId: requester.id, currency: "AED",

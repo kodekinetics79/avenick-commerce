@@ -11,7 +11,7 @@ describe("public catalog detail privacy DTO", () => {
       prices: [{ id: "price-id", productId: "product", type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 10, vatRate: 5, createdAt: new Date() }],
       inventory: [{ variantId: null, available: 0 }, { variantId: "variant-selector", available: 4 }],
       brand: { id: "private-brand-id", nameEn: "Mennekes", nameAr: "مينيكيس", createdAt: new Date() },
-      seller: { id: "seller", businessNameEn: "Seller", businessNameAr: null, tier: "VERIFIED", rating: 5, reviewCount: 1, city: "Dubai", country: "AE" },
+      seller: { id: "seller", businessNameEn: "Seller", businessNameAr: null, tier: "VERIFIED", reviewSummary: { averageRating: 5, reviewCount: 1 }, city: "Dubai", country: "AE" },
       reviews: [{ id: "review", productId: "product", userId: "private-user", rating: 5, title: null, body: "Good", isVerified: true, createdAt: new Date(), user: { firstName: "A", lastName: "B" } }],
       listingHealth: 12, createdAt: new Date(), updatedAt: new Date(),
       commercialMetadata: { purchasePrice: 1, landedCost: 2, vendorCode: "PRIVATE", sourceFingerprint: "PRIVATE" },
@@ -44,8 +44,8 @@ describe("public catalog detail privacy DTO", () => {
       id: "p", sellerId: "s", sku: "P", slug: "p", nameEn: "P", nameAr: "P",
       descriptionEn: null, descriptionAr: null, isPubliclyDiscoverable: true, isB2CEnabled: true, isB2BEnabled: false,
       origin: null, weight: null, moq: 10, images: [], prices: [], seller: {
-        businessNameEn: "S", businessNameAr: null, tier: "VERIFIED", rating: 0,
-        reviewCount: 0, city: "Dubai", country: "AE",
+        id: "seller", businessNameEn: "S", businessNameAr: null, tier: "VERIFIED",
+        reviewSummary: { averageRating: null, reviewCount: 0 }, city: "Dubai", country: "AE",
       }, reviews: [], variants: [{ id: "v", sku: "V", nameEn: "V", nameAr: null, attributes: {}, isActive: true, prices: [] }],
       inventory: [{ variantId: null, available: 9 }, { variantId: "v", available: 5 }, { variantId: "v", available: 5 }],
     };
@@ -61,7 +61,7 @@ describe("public catalog detail privacy DTO", () => {
       descriptionEn: null, descriptionAr: null, isPubliclyDiscoverable: true, isB2CEnabled: false, isB2BEnabled: true,
       origin: null, weight: null, moq: 1, images: [], inventory: [], variants: [], reviews: [],
       prices: [{ type: "B2B", currency: "SAR", minQty: 1, maxQty: null, price: 9.45, vatRate: 15 }],
-      seller: { businessNameEn: "Seller", businessNameAr: null, tier: "VERIFIED", rating: 0, reviewCount: 0, city: "Riyadh", country: "SA" },
+      seller: { id: "seller", businessNameEn: "Seller", businessNameAr: null, tier: "VERIFIED", reviewSummary: { averageRating: null, reviewCount: 0 }, city: "Riyadh", country: "SA" },
     };
     const publicDto = toCatalogDetailDto(source, "B2C");
     expect(publicDto.prices).toEqual([]);

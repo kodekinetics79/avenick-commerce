@@ -26,7 +26,7 @@ type DashboardData = {
     _count: { members: number; orders: number; purchaseOrders: number };
   };
   companyCurrency: string;
-  lifetimeSpend: number;
+  lifetimeSpendByCurrency: Array<{ currency: string; total: number }>;
   pendingApprovals: number;
   openRFQs: number;
   recentOrders: Array<{
@@ -54,8 +54,14 @@ export default async function B2BDashboardPage() {
     redirect("/b2b/register");
   }
 
-  const { company, companyCurrency, lifetimeSpend, pendingApprovals, openRFQs, recentOrders, reorderItems } = data;
+  const { company, companyCurrency, lifetimeSpendByCurrency, pendingApprovals, openRFQs, recentOrders, reorderItems } = data;
   const creditLimit = company.creditLimit ? Number(company.creditLimit) : null;
+  // One figure per currency the company has actually paid in — never a mixed
+  // sum labelled with a currency nobody chose.
+  const lifetimeSpend =
+    lifetimeSpendByCurrency.length > 0
+      ? lifetimeSpendByCurrency.map((row) => formatCurrency(row.total, row.currency as never)).join(" · ")
+      : "—";
 
   return (
     <B2BShell>
@@ -90,7 +96,7 @@ export default async function B2BDashboardPage() {
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: "Lifetime spend", value: formatCurrency(lifetimeSpend, companyCurrency as never), icon: CreditCard, href: "/b2b/analytics" },
+            { label: "Lifetime spend", value: lifetimeSpend, icon: CreditCard, href: "/b2b/analytics" },
             { label: "Credit limit", value: creditLimit ? formatCurrency(creditLimit, companyCurrency as never) : "Not set", icon: Building2, href: "/b2b/billing" },
             { label: "Open RFQs", value: openRFQs, icon: FileText, href: "/b2b/quotes" },
             { label: "Pending approvals", value: pendingApprovals, icon: CheckSquare, href: "/b2b/approvals" },

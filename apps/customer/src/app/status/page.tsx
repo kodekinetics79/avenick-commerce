@@ -1,20 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { platformName } from "@avenick/utils/portal-config";
 
 // Deliberately standalone: no MainLayout, no backend data layer, no shared data
 // fetching. A status page must render even when the rest of the app is degraded,
 // so it only calls the lightweight public /api/status endpoint and nothing else.
 
-type ComponentStatus = "operational" | "degraded" | "down";
+type ComponentStatus = "operational" | "degraded" | "down" | "unverified" | "not_configured";
 
 interface StatusComponent {
   name: string;
   status: ComponentStatus;
+  kind?: "process" | "journey" | "integration";
   detail?: string;
 }
 interface StatusSummary {
   status: ComponentStatus;
+  processStatus: ComponentStatus;
+  journeyStatus: ComponentStatus;
   app: string;
   components: StatusComponent[];
   uptimeSeconds: number;
@@ -25,11 +29,15 @@ const COLOR: Record<ComponentStatus, string> = {
   operational: "#16a34a",
   degraded: "#d97706",
   down: "#dc2626",
+  unverified: "#6b7280",
+  not_configured: "#9ca3af",
 };
 const LABEL: Record<ComponentStatus, string> = {
   operational: "Operational",
   degraded: "Degraded",
   down: "Down",
+  unverified: "Unverified",
+  not_configured: "Not configured",
 };
 
 export default function StatusPage() {
@@ -58,11 +66,14 @@ export default function StatusPage() {
     };
   }, []);
 
-  const overall: ComponentStatus = error ? "down" : (data?.status ?? "operational");
+  // Never default to "operational". Before the first successful poll, and for
+  // any response that omits a field, the honest answer is that we do not know.
+  const processStatus: ComponentStatus = error ? "down" : (data?.processStatus ?? "unverified");
+  const journeyStatus: ComponentStatus = error ? "unverified" : (data?.journeyStatus ?? "unverified");
 
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "48px 20px", fontFamily: "system-ui, sans-serif" }}>
-      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Avenick — System Status</h1>
+      <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>{platformName()} — System Status</h1>
 
       <div
         style={{
@@ -75,10 +86,18 @@ export default function StatusPage() {
           marginBottom: 24,
         }}
       >
-        <span style={{ width: 12, height: 12, borderRadius: 999, background: COLOR[overall] }} />
-        <strong style={{ fontSize: 18 }}>
-          {error ? "Unable to reach status endpoint" : `All systems ${LABEL[overall].toLowerCase()}`}
-        </strong>
+        <span style={{ width: 12, height: 12, borderRadius: 999, background: COLOR[processStatus] }} />
+        <div>
+          {/* Scoped deliberately. "All systems operational" claimed health for
+              customer journeys and integrations this endpoint never measures. */}
+          <strong style={{ fontSize: 18, display: "block" }}>
+            {error ? "Unable to reach status endpoint" : `Process health: ${LABEL[processStatus].toLowerCase()}`}
+          </strong>
+          <small style={{ color: "#6b7280" }}>
+            Customer journeys: {LABEL[journeyStatus].toLowerCase()}
+            {journeyStatus === "unverified" && " — no journey synthetic has run against this deployment"}
+          </small>
+        </div>
       </div>
 
       {data && (

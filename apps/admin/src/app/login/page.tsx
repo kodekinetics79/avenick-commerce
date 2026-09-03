@@ -2,16 +2,17 @@
 
 import { useState } from "react";
 import { signInWithCredentials } from "@avenick/auth/client";
+import { messageForSignInError as messageForError } from "@avenick/auth/sign-in-messages";
 import { useSearchParams } from "next/navigation";
 import { Input, Button } from "@avenick/ui";
 
 export default function AdminLoginPage() {
   const searchParams = useSearchParams();
-  const urlError = searchParams.get("error");
+  const urlError = searchParams.get("code") ?? searchParams.get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(urlError ? "Invalid email or password." : "");
+  const [error, setError] = useState(messageForError(urlError));
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -20,7 +21,7 @@ export default function AdminLoginPage() {
     try {
       const res = await signInWithCredentials(email, password, "/dashboard");
       if (!res.ok) {
-        setError("Invalid email or password.");
+        setError(messageForError(res.code ?? res.error));
         setLoading(false);
       } else {
         window.location.assign("/dashboard");
@@ -44,13 +45,19 @@ export default function AdminLoginPage() {
           <p className="text-sm text-muted-foreground mt-1">Avenick Commerce — Platform Operations</p>
         </div>
         <div className="glass-strong rounded-2xl p-6 shadow-elevated">
-          <form onSubmit={handleLogin} className="space-y-3.5">
-            <Input type="email" placeholder="Admin email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            {error && <p className="text-danger text-sm">{error}</p>}
+          <form onSubmit={handleLogin} className="space-y-3.5" aria-label="Sign in">
+            {/* Placeholders are not accessible names: they vanish on input and
+                are not exposed as labels by every assistive technology. */}
+            <label htmlFor="login-email" className="sr-only">Admin email</label>
+            <Input id="login-email" name="email" type="email" autoComplete="username" placeholder="Admin email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <label htmlFor="login-password" className="sr-only">Password</label>
+            <Input id="login-password" name="password" type="password" autoComplete="current-password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+            {error && <p className="text-danger text-sm" role="alert">{error}</p>}
             <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
           </form>
-          <p className="text-center text-xs text-muted-foreground mt-4">admin@avenick.test · Password123!</p>
+          {/* No reset link on purpose: the public reset flow refuses admin
+              accounts, so offering it here would be a control that does nothing. */}
+          <p className="mt-4 text-center text-xs text-muted-foreground">Admin accounts are provisioned by platform operations.</p>
         </div>
         <p className="text-center text-[11px] text-muted-foreground/70 mt-6">B2B-first. B2C-ready. Built for modern trade.</p>
       </div>

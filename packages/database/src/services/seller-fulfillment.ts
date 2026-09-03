@@ -1,6 +1,6 @@
 import { AuditAction, Prisma, type OrderStatus } from "@prisma/client";
 import { db } from "../index";
-import { inventoryStockIdentityWhere, requireCurrentSellerActor } from "./checkout-invariants";
+import { inventoryStockIdentityWhere, lockInventoryStockRows, requireCurrentSellerActor } from "./checkout-invariants";
 
 const SELLER_FULFILLMENT: OrderStatus[] = [
   "CONFIRMED",
@@ -59,38 +59,65 @@ export async function advanceSellerOrderItems(input: {
     }
 
     // Reservation is consumed once, when each seller line first crosses from a
-    // pre-shipment state into SHIPPED or beyond. The advisory lock prevents two
-    // seller requests from consuming the same reservation concurrently.
-    for (const item of sellerItems) {
-      if (rank(item.status) < rank("SHIPPED") && targetRank >= rank("SHIPPED")) {
-        let remaining = item.quantity;
-        const rows = await tx.inventoryStock.findMany({
-          where: inventoryStockIdentityWhere(item.productId, item.variantId),
-          orderBy: { updatedAt: "asc" },
+    // pre-shipment state into SHIPPED or beyond.
+    //
+    // The advisory lock taken above is keyed on the ORDER, so it only serialises
+    // two requests against the same order. Two *different* orders that share a
+    // SKU take different order keys, so without a stock-level fence both could
+    // read the same reservedQty and both decrement it — driving qty and
+    // reservedQty negative and shipping more units than were ever reserved. It
+    // would also race adjustInventory and checkout, which fence on
+    // `inventory-stock:<id>`. Take that same fence here, for every line up front
+    // and in the sorted order lockInventoryStockRows imposes, so concurrent
+    // fulfilments serialise instead of deadlocking against each other.
+    const shippingItems = sellerItems.filter(
+      (item) => rank(item.status) < rank("SHIPPED") && targetRank >= rank("SHIPPED"),
+    );
+
+    if (shippingItems.length > 0) {
+      const fenced = await tx.inventoryStock.findMany({
+        where: {
+          OR: shippingItems.map((item) => inventoryStockIdentityWhere(item.productId, item.variantId)),
+        },
+        select: { id: true },
+      });
+      await lockInventoryStockRows(tx, fenced.map((row) => row.id));
+    }
+
+    for (const item of shippingItems) {
+      let remaining = item.quantity;
+      // Re-read under the fence: values read before the lock may be stale.
+      const rows = await tx.inventoryStock.findMany({
+        where: inventoryStockIdentityWhere(item.productId, item.variantId),
+        orderBy: { updatedAt: "asc" },
+      });
+      for (const stock of rows) {
+        if (remaining <= 0) break;
+        const take = Math.min(remaining, stock.reservedQty);
+        if (take <= 0) continue;
+        // Compare-and-set against the exact row this decision was made from,
+        // matching the reservation path in orders.ts. Any writer that reached
+        // the row without the fence makes count 0, and the decrement is skipped
+        // rather than applied to a value that has since moved.
+        const { count } = await tx.inventoryStock.updateMany({
+          where: { id: stock.id, qty: stock.qty, reservedQty: stock.reservedQty },
+          data: { reservedQty: { decrement: take }, qty: { decrement: take } },
         });
-        for (const stock of rows) {
-          if (remaining <= 0) break;
-          const take = Math.min(remaining, stock.reservedQty);
-          if (take <= 0) continue;
-          await tx.inventoryStock.update({
-            where: { id: stock.id },
-            data: { reservedQty: { decrement: take }, qty: { decrement: take } },
-          });
-          await tx.inventoryMovement.create({
-            data: {
-              stockId: stock.id,
-              type: "OUT",
-              qty: take,
-              reference: order.orderNumber,
-              notes: `Seller line ${item.sku} shipped — reservation consumed`,
-              createdBy: input.actorId,
-            },
-          });
-          remaining -= take;
-        }
-        if (remaining > 0) {
-          throw new Error(`Reserved inventory is incomplete for ${item.sku}; fulfillment was not applied`);
-        }
+        if (count !== 1) continue;
+        await tx.inventoryMovement.create({
+          data: {
+            stockId: stock.id,
+            type: "OUT",
+            qty: take,
+            reference: order.orderNumber,
+            notes: `Seller line ${item.sku} shipped — reservation consumed`,
+            createdBy: input.actorId,
+          },
+        });
+        remaining -= take;
+      }
+      if (remaining > 0) {
+        throw new Error(`Reserved inventory is incomplete for ${item.sku}; fulfillment was not applied`);
       }
     }
 

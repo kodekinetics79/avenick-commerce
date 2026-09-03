@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listProducts } from "@avenick/database";
 import type { Currency, ProductStatus } from "@avenick/database";
+// Narrow subpath on purpose: the package barrel pulls in next-auth, which is
+// unnecessary here and breaks tests that never touch authentication.
+import { checkRateLimit, clientIpFrom, RATE_LIMITS } from "@avenick/auth/rate-limit";
 import { getServerB2BContext } from "@/lib/b2b-server";
 import { toCatalogListDto } from "@/lib/catalog-list-dto";
 
@@ -13,6 +16,20 @@ function boundedInt(value: string | null, fallback: number, max: number) {
 
 export async function GET(req: NextRequest) {
   try {
+    // This route is public and runs an unbounded count() next to the page
+    // query, so it is the cheapest external way to load the database — and
+    // checkout transactions queue behind the same pool. Throttle per client IP.
+    const rl = await checkRateLimit(RATE_LIMITS.catalogRead, clientIpFrom(req.headers));
+    if (!rl.ok) {
+      return NextResponse.json(
+        { success: false, error: "Too many catalog requests. Please slow down." },
+        {
+          status: 429,
+          headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) },
+        },
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const wantsB2B = searchParams.get("b2b") === "true";
     const currencyParam = searchParams.get("currency")?.toUpperCase() as Currency | undefined;

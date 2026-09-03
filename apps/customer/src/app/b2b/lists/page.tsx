@@ -5,8 +5,9 @@ import { createList, deleteList, addItem, removeItem } from "./actions";
 import { ValidatedForm } from "@/components/b2b/validated-form";
 import { ReorderButton } from "@/components/b2b/reorder-button";
 import { ListChecks, Plus, Trash2, X, Building2 } from "lucide-react";
+import { platformName } from "@avenick/utils/portal-config";
 
-export const metadata = { title: "Requisition Lists — Avenick for Business" };
+export const metadata = { title: `Requisition Lists — ${platformName()} for Business` };
 
 export default async function RequisitionListsPage() {
   const ctx = await getB2BContext();

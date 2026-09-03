@@ -361,33 +361,57 @@ async function recordConnectionEvidence(connectionId: string | null, ok: boolean
   }).catch(() => undefined);
 }
 
+/**
+ * How many messages one worker cycle claims per direction.
+ *
+ * This was hardcoded to 1 while claimIntegrationOutbox already supported a
+ * bounded batch. At the default 2s poll that capped the platform near 0.5
+ * messages/second in each direction, so a busy sales day could take hours to
+ * drain — and one slow ERP call blocked both directions behind it. The claim
+ * query uses FOR UPDATE SKIP LOCKED, so batching stays safe with N workers.
+ */
+function cycleBatchSize(): number {
+  const parsed = Number.parseInt(process.env["INTEGRATION_BATCH_SIZE"] ?? "", 10);
+  if (!Number.isFinite(parsed) || parsed < 1) return 20;
+  return Math.min(parsed, 100);
+}
+
 export async function runGovernedIntegrationWorkerOnce(workerId: string) {
   await recordWorkerHeartbeat(workerId);
-  const outbound = await claimIntegrationOutbox({ workerId, limit: 1 });
-  let outboundResult: unknown;
-  if (outbound[0]) {
-    await recordWorkerHeartbeat(workerId, "CLAIM");
+  const batchSize = cycleBatchSize();
+  const outbound = await claimIntegrationOutbox({ workerId, limit: batchSize });
+  // Every claimed message must be processed in this cycle. The claim already
+  // committed: each row is PROCESSING, holds a lease, and has had `attempts`
+  // incremented. Abandoning a claimed message therefore does not merely delay it
+  // — it burns a retry against maxAttempts without ever calling the adapter, so
+  // a batch of real orders dead-letters after enough cycles having never been
+  // delivered once. Process the batch, not just its head.
+  const outboundResults: unknown[] = [];
+  if (outbound.length > 0) await recordWorkerHeartbeat(workerId, "CLAIM");
+  for (const message of outbound) {
     try {
-      const adapter = await resolveAdapterForMessage(outbound[0]);
-      outboundResult = await processIntegrationOutboxMessage(outbound[0], adapter);
-      const status = (outboundResult as { status: string }).status;
+      const adapter = await resolveAdapterForMessage(message);
+      const result = await processIntegrationOutboxMessage(message, adapter);
+      const status = (result as { status: string }).status;
       await recordWorkerHeartbeat(workerId, status === "ACCEPTED" || status === "REJECTED" ? "SUCCESS" : "FAILURE", status);
       await recordConnectionEvidence(
-        outbound[0].connectionId,
+        message.connectionId,
         status === "ACCEPTED" || status === "REJECTED",
-        (outboundResult as { error?: unknown }).error ?? status,
+        (result as { error?: unknown }).error ?? status,
       );
+      outboundResults.push(result);
     } catch (error) {
-      await failIntegrationOutbox(outbound[0], error);
+      // One poisoned message must not strand the rest of the batch behind it.
+      await failIntegrationOutbox(message, error);
       await recordWorkerHeartbeat(workerId, "FAILURE", error);
-      await recordConnectionEvidence(outbound[0].connectionId, false, error);
-      outboundResult = { status: "RETRY", error };
+      await recordConnectionEvidence(message.connectionId, false, error);
+      outboundResults.push({ status: "RETRY", error });
     }
   }
   const inbound = await runIntegrationInboxWorkerOnce({
     workerId,
     handlers: DEPLOYED_INTEGRATION_INBOX_HANDLERS,
-    limit: 1,
+    limit: batchSize,
   });
   if (inbound.claimed > 0) {
     await recordWorkerHeartbeat(workerId, "CLAIM");
@@ -396,7 +420,7 @@ export async function runGovernedIntegrationWorkerOnce(workerId: string) {
     }
   }
   if (outbound.length === 0 && inbound.claimed === 0) await probeDueIntegrationConnections();
-  return { claimed: outbound.length + inbound.claimed, outbound: outboundResult, inbound: inbound.results };
+  return { claimed: outbound.length + inbound.claimed, outbound: outboundResults, inbound: inbound.results };
 }
 
 export async function getIntegrationRuntimeReadiness(maxHeartbeatAgeMs = 90_000) {

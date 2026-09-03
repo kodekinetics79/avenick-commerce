@@ -2,6 +2,7 @@ export * from "./currency";
 export * from "./date";
 export * from "./arabic";
 export * from "./cn";
+export * from "./record-id";
 
 /** Generate a unique reference code for bank transfers */
 export function generateReference(prefix = "MNZ"): string {

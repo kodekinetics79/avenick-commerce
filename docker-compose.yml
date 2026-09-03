@@ -64,7 +64,8 @@ services:
       /bin/sh -c "
       mc alias set avenick http://minio:9000 avenick_access avenick_secret;
       mc mb --ignore-existing avenick/avenick-uploads;
-      mc anonymous set download avenick/avenick-uploads;
+      mc anonymous set none avenick/avenick-uploads;
+      mc anonymous set download avenick/avenick-uploads/public;
       echo 'MinIO bucket ready';
       "
 

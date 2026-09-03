@@ -1,0 +1,24 @@
+{
+  "name": "@avenick/e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Browser journey evidence for the Avenick gated-prompt process. Playwright, Puppeteer and Cypress side by side.",
+  "scripts": {
+    "e2e": "pnpm run e2e:playwright && pnpm run e2e:puppeteer && pnpm run e2e:cypress",
+    "e2e:playwright": "playwright test",
+    "e2e:playwright:ui": "playwright test --ui",
+    "e2e:playwright:report": "playwright show-report",
+    "e2e:puppeteer": "node --test \"puppeteer/*.test.mjs\"",
+    "e2e:cypress": "node scripts/cypress.mjs run",
+    "e2e:cypress:open": "node scripts/cypress.mjs open",
+    "e2e:install": "playwright install chromium && cypress install",
+    "e2e:install:ci": "playwright install --with-deps chromium && cypress install",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^22.19.19",
+    "cypress": "^15.20.1",
+    "puppeteer": "^25.7.0"
+  }
+}

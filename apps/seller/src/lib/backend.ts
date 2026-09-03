@@ -3,10 +3,14 @@ import { cookies } from "next/headers";
 type BackendJson<T> = { success?: boolean; data?: T; error?: string };
 
 function backendUrl(path: string) {
+  // Fail closed. This previously defaulted to a hardcoded production host
+  // whenever NODE_ENV was production and no backend URL was configured, so a
+  // preview, CI run or misconfigured deploy silently drove the LIVE service.
+  // With no configuration we now stay same-origin and let the caller's own
+  // /api rewrite resolve it, which is wrong loudly rather than wrong quietly.
   const base = (
     process.env.NEXT_PUBLIC_SELLER_BACKEND_URL?.trim() ||
     process.env.RENDER_EXTERNAL_URL?.trim() ||
-    (process.env.NODE_ENV === "production" ? "https://avenick-seller.onrender.com" : "") ||
     ""
   ).replace(/\/$/, "");
   return base ? new URL(path, `${base}/`).toString() : path;

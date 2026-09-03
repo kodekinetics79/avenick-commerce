@@ -4,8 +4,9 @@ import { getB2BContext } from "@/lib/b2b";
 import { createAddress, setDefaultAddress, deleteAddress } from "./actions";
 import { ValidatedForm } from "@/components/b2b/validated-form";
 import { MapPin, Plus, Building2, Star } from "lucide-react";
+import { platformName } from "@avenick/utils/portal-config";
 
-export const metadata = { title: "Delivery Sites — Avenick for Business" };
+export const metadata = { title: `Delivery Sites — ${platformName()} for Business` };
 
 const COUNTRY_LABEL: Record<string, string> = { AE: "UAE", SA: "Saudi Arabia", QA: "Qatar", KW: "Kuwait", OM: "Oman", BH: "Bahrain" };
 

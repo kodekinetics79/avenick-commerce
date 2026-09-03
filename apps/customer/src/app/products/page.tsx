@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SlidersHorizontal, PackageSearch } from "lucide-react";
@@ -10,9 +9,10 @@ import { PageLoader } from "@avenick/ui";
 import { fetchBackendJson } from "@/lib/backend";
 import { getServerB2BContext } from "@/lib/b2b-server";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
-import { emptyCategoryRecoveryHref } from "@/lib/catalog-navigation";
+import { browseAllHref } from "@/lib/catalog-navigation";
+import { platformName } from "@avenick/utils/portal-config";
 
-export const metadata: Metadata = { title: "Products — Avenick Commerce" };
+export const metadata: Metadata = { title: `Products — ${platformName()}` };
 
 export const dynamic = "force-dynamic";
 
@@ -46,28 +46,34 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
   });
   const { products, totalPages, total } = await fetchBackendJson<{ products: any[]; total: number; totalPages: number }>(`/api/products?${qs.toString()}`);
 
-  const sortedProducts =
-    searchParams.sort === "price_asc" || searchParams.sort === "price_desc"
-      ? [...products].sort((a, b) => {
-          const aPrice = Number(a.prices?.find((pr: { type: string }) => pr.type === "B2C")?.price ?? a.prices?.[0]?.price ?? 0);
-          const bPrice = Number(b.prices?.find((pr: { type: string }) => pr.type === "B2C")?.price ?? b.prices?.[0]?.price ?? 0);
-          return searchParams.sort === "price_desc" ? bPrice - aPrice : aPrice - bPrice;
-        })
-      : products;
+  // Ordering is done by the database across the full result set. A previous
+  // version re-sorted by price here — but only across the 24 rows already on
+  // the page, so "Price: Low → High" produced a false ordering that restarted
+  // on every page. It also read the B2C tier while in B2B mode.
+  const sortedProducts = products;
 
   if (sortedProducts.length === 0) {
-    if (searchParams.category && !searchParams.search && searchParams.inStock !== "1") {
-      redirect(emptyCategoryRecoveryHref(searchParams));
-    }
+    // An empty category shows an honest zero-result state that keeps the
+    // selection visible. Silently redirecting to the full catalog answered a
+    // question the visitor did not ask and hid the fact that the category is
+    // empty.
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">
         <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mb-4">
           <PackageSearch className="h-8 w-8 text-muted-foreground" />
         </div>
-        <h3 className="font-semibold text-lg mb-1">No products found</h3>
+        <h3 className="font-semibold text-lg mb-1">
+          {searchParams.category ? "No products in this category yet" : "No products found"}
+        </h3>
         <p className="text-muted-foreground text-sm mb-4">لم يتم العثور على منتجات</p>
-        <p className="text-sm text-muted-foreground mb-6">Try adjusting your filters or search term.</p>
-        <Link href="/products" className="text-sm text-primary hover:underline font-medium">Clear all filters →</Link>
+        <p className="text-sm text-muted-foreground mb-6">
+          {searchParams.category
+            ? "This category has no published products right now."
+            : "Try adjusting your filters or search term."}
+        </p>
+        <Link href={browseAllHref(searchParams)} className="text-sm text-primary hover:underline font-medium">
+          Browse all products →
+        </Link>
       </div>
     );
   }
@@ -103,7 +109,7 @@ async function ProductGrid({ searchParams }: { searchParams: SearchParams }) {
               sellerName={p.seller?.businessNameEn}
               inStock={stock?.inStock === true}
               availabilityStatus={stock?.status}
-              hasVariants={p.hasVariants === true}
+              hasVariants={p.hasVariants === true} priceTiered={p.priceTiered === true}
               isB2B={wantsB2B}
               moq={p.moq}
             />

@@ -14,17 +14,46 @@ export async function GET() {
   const db = await checkDatabaseHealth();
   const circuit = dbCircuitState();
 
+  // Integrations are only "operational" when something is actually configured
+  // and reachable. With none configured the honest answer is "not configured" —
+  // reporting zero integrations as active claims capability that is absent.
+  const configuredIntegrations = [
+    process.env.CHECKOUT_SECRET_KEY,
+    process.env.RESEND_API_KEY,
+    process.env.TWILIO_ACCOUNT_SID,
+  ].filter((v) => !!v?.trim()).length;
+
   const components: StatusComponent[] = [
-    { name: "api", status: "operational" }, // if this responds, the API is up
+    { name: "api", kind: "process", status: "operational" }, // if this responds, the API is up
     {
       name: "database",
+      kind: "process",
       status: db.ok ? "operational" : "down",
       detail: `latency ${db.latencyMs}ms`,
     },
     {
       name: "database-circuit",
+      kind: "process",
       status: circuit === "CLOSED" ? "operational" : circuit === "HALF_OPEN" ? "degraded" : "down",
       detail: circuit,
+    },
+    {
+      name: "external-integrations",
+      kind: "integration",
+      status: configuredIntegrations === 0 ? "not_configured" : "unverified",
+      detail:
+        configuredIntegrations === 0
+          ? "none configured"
+          : `${configuredIntegrations} configured, health not probed`,
+    },
+    {
+      // No journey synthetic runs against this deployment yet, so primary
+      // customer journeys are unverified. This must not read as operational —
+      // process health says nothing about whether anyone can actually buy.
+      name: "primary-journeys",
+      kind: "journey",
+      status: "unverified",
+      detail: "no synthetic configured",
     },
   ];
 

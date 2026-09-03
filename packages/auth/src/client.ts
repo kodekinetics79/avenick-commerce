@@ -2,7 +2,14 @@
 
 export type CredentialsSignInResult = {
   ok: boolean;
+  /** Auth.js error class, e.g. "CredentialsSignin". Coarse. */
   error?: string;
+  /**
+   * Fine-grained reason, e.g. "rate_limited". Auth.js returns this as a
+   * separate `code` parameter alongside `error`, so reading `error` alone
+   * collapses every failure into "invalid credentials".
+   */
+  code?: string;
 };
 
 /**
@@ -40,6 +47,7 @@ export async function signInWithCredentials(
   const data = (await response.json()) as { url?: string };
   const resultUrl = new URL(data.url ?? callbackUrl, "http://portal.local");
   const error = resultUrl.searchParams.get("error") ?? undefined;
+  const code = resultUrl.searchParams.get("code") ?? undefined;
 
-  return { ok: response.ok && !error, error };
+  return { ok: response.ok && !error, error, code };
 }

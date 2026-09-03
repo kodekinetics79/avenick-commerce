@@ -3,8 +3,10 @@ import { formatCurrency, type SupportedCurrency } from "@avenick/utils";
 import { fetchB2BJson } from "@/lib/b2b";
 import { approvePO, rejectPO, markOrdered, cancelPO } from "./actions";
 import { FileCheck2, Clock, CheckCircle2, Truck, XCircle, FileEdit, Building2, Plus, ShoppingCart } from "lucide-react";
+import { POActionBanner } from "@/components/b2b/po-action-banner";
+import { platformName } from "@avenick/utils/portal-config";
 
-export const metadata = { title: "Purchase Orders — Avenick for Business" };
+export const metadata = { title: `Purchase Orders — ${platformName()} for Business` };
 
 const STATUS: Record<string, { label: string; cls: string; icon: typeof Clock }> = {
   DRAFT: { label: "Draft", cls: "bg-secondary text-muted-foreground", icon: FileEdit },
@@ -19,7 +21,7 @@ function fmtDate(d: string) {
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export default async function PurchaseOrdersPage() {
+export default async function PurchaseOrdersPage({ searchParams }: { searchParams?: { poDone?: string; poError?: string } }) {
   type PurchaseOrderRow = {
     id: string;
     poNumber: string;
@@ -76,6 +78,7 @@ export default async function PurchaseOrdersPage() {
 
   return (
     <B2BShell title="Purchase Orders" description={`Raise, approve and place governed POs for ${data.company.nameEn}.`}>
+      <POActionBanner done={searchParams?.poDone} error={searchParams?.poError} />
       <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2 font-semibold"><ShoppingCart className="h-4 w-4 text-primary" /> Purchase orders now come from real catalog lines</div>

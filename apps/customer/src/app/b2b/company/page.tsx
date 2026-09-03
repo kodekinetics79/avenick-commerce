@@ -5,8 +5,8 @@ import { B2BShell } from "@/components/b2b/b2b-shell";
 import { db } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
 import { getB2BContext } from "@/lib/b2b";
-import { format } from "date-fns";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
+import { format } from "date-fns";
 
 export const metadata = { title: "Company Profile" };
 export const dynamic = "force-dynamic";
@@ -36,12 +36,23 @@ export default async function CompanyPage() {
         _count: { select: { orders: true, purchaseOrders: true, rfqRequests: true } },
       },
     }),
-    db.order.aggregate({
-      where: { companyId: ctx.companyId, paymentStatus: "PAID", currency: companyCurrencyForCountry(ctx.company.country) },
+    // Grouped by currency: a sum across currencies is not a sum of anything.
+    db.order.groupBy({
+      by: ["currency"],
+      where: { companyId: ctx.companyId, paymentStatus: "PAID" },
       _sum: { total: true },
     }),
   ]);
   if (!company) redirect("/b2b/register");
+
+  // Company.creditLimit has no currency column; it is read in the company's
+  // jurisdiction currency, the same assumption the billing page states.
+  const companyCurrency = companyCurrencyForCountry(company.country);
+  const lifetimeSpend = orderAgg
+    .filter((row) => Number(row._sum.total ?? 0) > 0)
+    .sort((a, b) => a.currency.localeCompare(b.currency))
+    .map((row) => formatCurrency(Number(row._sum.total ?? 0), row.currency))
+    .join(" · ");
 
   const memberUsers = await db.user.findMany({
     where: { id: { in: company.members.map((m) => m.userId) } },
@@ -50,12 +61,11 @@ export default async function CompanyPage() {
   const userOf = (id: string) => memberUsers.find((u) => u.id === id);
 
   const statusCfg = STATUS_CONFIG[company.status] ?? STATUS_CONFIG["PENDING_VERIFICATION"]!;
-  const currency = companyCurrencyForCountry(company.country);
 
   return (
     <B2BShell title="Company Profile" description="Your organization's registration, credit, and team.">
       <div className="space-y-5">
-        <div className="bg-card rounded-2xl border border-border p-6">
+        <div className="bg-white rounded-2xl border border-border p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="h-14 w-14 rounded-2xl bg-indigo-50 flex items-center justify-center">
@@ -91,14 +101,14 @@ export default async function CompanyPage() {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Credit limit", value: company.creditLimit ? formatCurrency(Number(company.creditLimit), currency) : "Not set", icon: CreditCard },
+            { label: "Credit limit", value: company.creditLimit ? formatCurrency(Number(company.creditLimit), companyCurrency) : "Not set", icon: CreditCard },
             { label: "Payment terms", value: company.paymentTerms > 0 ? `Net ${company.paymentTerms} days` : "Prepaid", icon: FileText },
-            { label: "Lifetime spend", value: formatCurrency(Number(orderAgg._sum.total ?? 0), currency), icon: CreditCard },
+            { label: "Lifetime spend", value: lifetimeSpend || "—", icon: CreditCard },
             { label: "Orders / POs / RFQs", value: `${company._count.orders} / ${company._count.purchaseOrders} / ${company._count.rfqRequests}`, icon: FileText },
           ].map((s) => {
             const Icon = s.icon;
             return (
-              <div key={s.label} className="bg-card rounded-2xl border border-border p-4">
+              <div key={s.label} className="bg-white rounded-2xl border border-border p-4">
                 <Icon className="h-4 w-4 text-muted-foreground mb-2" />
                 <p className="text-base font-bold">{s.value}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
@@ -107,7 +117,7 @@ export default async function CompanyPage() {
           })}
         </div>
 
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div className="bg-white rounded-2xl border border-border overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold inline-flex items-center gap-2">
               <Users className="h-4 w-4 text-muted-foreground" /> Team ({company.members.length})
@@ -136,7 +146,7 @@ export default async function CompanyPage() {
         </div>
 
         {company.addresses.length > 0 && (
-          <div className="bg-card rounded-2xl border border-border overflow-hidden">
+          <div className="bg-white rounded-2xl border border-border overflow-hidden">
             <div className="px-5 py-4 border-b border-border flex items-center justify-between">
               <h2 className="font-semibold inline-flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-muted-foreground" /> Addresses ({company.addresses.length})

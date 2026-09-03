@@ -4,10 +4,14 @@ import { UserRole } from "@avenick/database";
 
 export type PortalType = "customer" | "seller" | "admin";
 
-const DEFAULT_BACKEND_ORIGINS: Record<PortalType, string> = {
-  customer: "https://avenick-commerce.onrender.com",
-  seller: "https://avenick-seller.onrender.com",
-  admin: "https://avenick-admin.onrender.com",
+/**
+ * Per-portal backend URL variable. Each portal deployment configures its own,
+ * so remote verification never has to guess which service owns a session.
+ */
+const BACKEND_URL_ENV: Record<PortalType, string> = {
+  customer: "NEXT_PUBLIC_BACKEND_URL",
+  seller: "NEXT_PUBLIC_SELLER_BACKEND_URL",
+  admin: "NEXT_PUBLIC_ADMIN_BACKEND_URL",
 };
 
 const SESSION_COOKIE_NAMES: Record<PortalType, string> = {
@@ -42,11 +46,16 @@ function isSession(value: unknown): value is Session {
   );
 }
 
-function backendOrigin(portal: PortalType) {
+function backendOrigin(portal: PortalType): string {
+  // Returns "" when nothing is configured. This previously fell back to a
+  // hardcoded production host, which meant a misconfigured deployment would
+  // forward a visitor's SESSION COOKIE to a live service belonging to another
+  // environment. Verification must fail closed instead.
   const authOrigin = process.env.NEXTAUTH_URL?.trim();
   if (authOrigin) return authOrigin.replace(/\/$/, "");
-  const configured = process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
-  return (configured || DEFAULT_BACKEND_ORIGINS[portal]).replace(/\/$/, "");
+  const configured =
+    process.env[BACKEND_URL_ENV[portal]]?.trim() || process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
+  return configured ? configured.replace(/\/$/, "") : "";
 }
 
 /**
@@ -96,10 +105,15 @@ export async function resolveRemotePortalSession(
     }
   }
 
+  // No configured origin means there is nowhere trustworthy to verify against.
+  // Deny rather than sending the cookie to a guessed host.
+  const origin = backendOrigin(portal);
+  if (!origin) return null;
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 5_000);
   try {
-    const response = await fetchImpl(`${backendOrigin(portal)}/api/auth/session`, {
+    const response = await fetchImpl(`${origin}/api/auth/session`, {
       headers: { cookie: cookieHeader },
       cache: "no-store",
       redirect: "error",

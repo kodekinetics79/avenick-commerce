@@ -9,6 +9,8 @@ interface DocumentStatusProps {
   status: "APPROVED" | "REJECTED";
   rejectionReason?: string;
   locale?: "ar" | "en";
+  /** Platform display name; the sender passes platformName() from portal-config. */
+  platformName?: string;
 }
 
 export function DocumentStatusEmail({
@@ -17,8 +19,11 @@ export function DocumentStatusEmail({
   status,
   rejectionReason,
   locale = "en",
+  platformName,
 }: DocumentStatusProps) {
   const isAr = locale === "ar";
+  // The brand name is the one permitted literal; the sender can override it.
+  const name = platformName ?? (isAr ? "منزل" : "Avenick");
   const isApproved = status === "APPROVED";
   const dir = isAr ? "rtl" : "ltr";
 
@@ -70,7 +75,7 @@ export function DocumentStatusEmail({
 
             <Hr className="my-6" />
             <Text className="text-xs text-gray-400 text-center">
-              {isAr ? "منصة منزل للتجارة الإلكترونية" : "Avenick Marketplace"}
+              {isAr ? `منصة ${name} للتجارة الإلكترونية` : `${name} Marketplace`}
             </Text>
           </Container>
         </Body>

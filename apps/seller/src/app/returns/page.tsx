@@ -18,7 +18,7 @@ const STATUS: Record<string, { label: string; cls: string; icon: typeof Clock }>
 
 const fmt = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-export default async function SellerReturnsPage() {
+export default async function SellerReturnsPage({ searchParams }: { searchParams?: { returnDone?: string; returnError?: string } }) {
   const { seller, membership } = await requireSellerAnyPermission(["returns.view", "returns.manage"]);
 
   const returns = await db.returnRequest.findMany({
@@ -39,6 +39,22 @@ export default async function SellerReturnsPage() {
 
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
+      {(searchParams?.returnDone || searchParams?.returnError) && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`mb-4 rounded-xl border px-4 py-3 text-sm ${
+            searchParams?.returnError
+              ? "border-danger/30 bg-danger/10 text-danger"
+              : "border-success/30 bg-success/10 text-success"
+          }`}
+        >
+          <span className="font-semibold">
+            {searchParams?.returnError ? "Action failed. " : "Done. "}
+          </span>
+          {searchParams?.returnError ?? searchParams?.returnDone}
+        </div>
+      )}
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Returns</h1>
@@ -57,7 +73,8 @@ export default async function SellerReturnsPage() {
         {pending > 0 && (
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 flex items-center gap-3">
             <RotateCcw className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" />
-            <p className="font-semibold text-sm">{pending} return{pending !== 1 ? "s" : ""} awaiting your response — respond within 48h to protect your performance score.</p>
+            {/* No deadline: nothing enforces a response window or ties one to the score. */}
+            <p className="font-semibold text-sm">{pending} return{pending !== 1 ? "s" : ""} awaiting your response.</p>
           </div>
         )}
 

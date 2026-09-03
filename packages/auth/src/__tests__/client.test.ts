@@ -11,7 +11,7 @@ describe("relative credentials sign-in", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ url: "https://production.example/" }), { status: 200 }));
     vi.stubGlobal("fetch", request);
 
-    await expect(signInWithCredentials("buyer@example.test", "Password123!", "/orders"))
+    await expect(signInWithCredentials("buyer@example.test", "test-only-secret", "/orders"))
       .resolves.toEqual({ ok: true, error: undefined });
 
     expect(request).toHaveBeenNthCalledWith(1, "/api/auth/csrf", expect.any(Object));

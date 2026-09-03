@@ -1,55 +1,33 @@
 import Link from "next/link";
-import {
-  ArrowRight,
-  Factory,
-  ShieldCheck,
-  Truck,
-  BadgeCheck,
-  Sparkles,
-  Boxes,
-  Cable,
-  PackageSearch,
-  PlugZap,
-} from "lucide-react";
+import { ArrowRight, ShieldCheck, Truck, BadgeCheck, Sparkles, PackageSearch } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
+import { categoryIcon } from "@/components/products/category-icon";
 import { fetchBackendJson } from "@/lib/backend";
-import {
-  homeCategoryLinks,
-  partitionHomeProducts,
-  type StorefrontCategory,
-} from "@/lib/home-catalog";
+import { categoryLabel, getPublicCategories } from "@/lib/catalog-categories";
+import { partitionHomeProducts } from "@/lib/home-catalog";
 
 export const dynamic = "force-dynamic";
 
-const CATEGORY_ICONS = [Factory, PlugZap, Cable, Boxes, PackageSearch] as const;
-
-async function getHomeCatalog() {
-  const [productResult, categoryResult] = await Promise.all([
-    fetchBackendJson<{ products?: any[] }>("/api/products?limit=10&b2c=true&sort=newest")
-      .catch((error) => {
-        console.error("Unable to load homepage products", error);
-        return { products: [] };
-      }),
-    fetchBackendJson<StorefrontCategory[]>("/api/categories")
-      .catch((error) => {
-        console.error("Unable to load homepage categories", error);
-        return [];
-      }),
-  ]);
-  return {
-    products: Array.isArray(productResult.products) ? productResult.products : [],
-    categories: Array.isArray(categoryResult) ? categoryResult : [],
-  };
+async function getFeaturedProducts() {
+  try {
+    const result = await fetchBackendJson<{ products?: any[] }>("/api/products?limit=10&b2c=true");
+    return Array.isArray(result.products) ? result.products : [];
+  } catch (error) {
+    console.error("Unable to load featured products", error);
+    return [];
+  }
 }
 
 export default async function HomePage() {
   const cookieStore = await cookies();
   const locale = (cookieStore.get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
   const t = await getTranslations("home");
-  const { products, categories } = await getHomeCatalog();
+  // The category strip comes from the catalog, not from a list typed into this
+  // page: a typed list kept advertising categories with nothing to sell.
+  const [products, categories] = await Promise.all([getFeaturedProducts(), getPublicCategories()]);
 
   const mapped = products.map((p) => {
     const stock = p.inventory?.[0];
@@ -70,11 +48,17 @@ export default async function HomePage() {
       inStock: available > 0,
       availabilityStatus: stock?.status,
       hasVariants: p.hasVariants === true,
+      priceTiered: p.priceTiered === true,
       moq: p.moq,
-      category: locale === "ar" ? p.category?.nameAr || p.category?.nameEn : p.category?.nameEn,
+      // Locale-aware, and no fallback label: a product whose category is
+      // unknown is shown without one rather than filed under a category it may
+      // not belong to.
+      category: (locale === "ar" ? p.category?.nameAr || p.category?.nameEn : p.category?.nameEn) ?? undefined,
     };
   });
-  const categoryLinks = homeCategoryLinks(categories, locale);
+  // Two headings over one ten-item feed used to render the same five products
+  // twice. The catalog API exposes no sales ranking, so the sections are simply
+  // made disjoint rather than labelled with a ranking nobody computes.
   const productSections = partitionHomeProducts(mapped);
 
   return (
@@ -119,33 +103,38 @@ export default async function HomePage() {
       </section>
 
       {/* ─── Category strip ───────────────────────────────── */}
+      {/* Categories come from the catalog API (active, with discoverable
+          products), never a list typed into this page. An empty catalog gets a
+          plain link to all products rather than a decorative strip. */}
       <section className="max-w-7xl mx-auto px-4 py-10">
         <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
-          {categoryLinks.map(({ id, href, label }, index) => {
-            const Icon = CATEGORY_ICONS[index % CATEGORY_ICONS.length] ?? PackageSearch;
-            return (
-              <Link
-                key={id}
-                href={href}
-                className="group shrink-0 flex items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-3 hover:border-primary/40 hover:shadow-card transition-all"
-              >
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                  <Icon className="h-4 w-4" />
-                </span>
-                <span className="text-sm font-semibold whitespace-nowrap">{label}</span>
-              </Link>
-            );
-          })}
-          {categoryLinks.length === 0 && (
+          {categories.length === 0 ? (
             <Link href="/products" className="inline-flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-semibold">
               <PackageSearch className="h-4 w-4 text-primary" /> Browse all products
             </Link>
+          ) : (
+            categories.map((category) => {
+              const Icon = categoryIcon(category.iconName);
+              return (
+                <Link
+                  key={category.slug}
+                  href={`/products?category=${encodeURIComponent(category.slug)}`}
+                  className="group shrink-0 flex items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-3 hover:border-primary/40 hover:shadow-card transition-all"
+                >
+                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="text-sm font-semibold whitespace-nowrap">{categoryLabel(category, locale)}</span>
+                </Link>
+              );
+            })
           )}
         </div>
       </section>
 
-      {/* ─── Current catalog ──────────────────────────────── */}
+      {/* ─── Best sellers ─────────────────────────────────── */}
       <Section title={t("bestSellers")} subtitle={t("bestSellersSub")} href="/products">
+        {/* No badge: "HOT" asserts demand ranking the catalog does not compute. */}
         <Grid>{productSections.catalog.map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>
       </Section>
 
@@ -170,6 +159,9 @@ export default async function HomePage() {
       </section>
 
       {/* ─── Featured ─────────────────────────────────────── */}
+      {/* No badge: "NEW" was stamped on every product regardless of age. The
+          section is dropped entirely when the feed holds nothing the catalog
+          strip above did not already show. */}
       {productSections.more.length > 0 && (
         <Section title={t("featuredProducts")} subtitle={t("featuredProductsSub")} href="/products">
           <Grid>{productSections.more.map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>

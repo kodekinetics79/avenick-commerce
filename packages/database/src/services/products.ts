@@ -1,5 +1,7 @@
 import { db } from "../index";
 import { read } from "../resilient-ops";
+import { countSellerUnreadMessages } from "./messaging";
+import { SELLER_RFQ_INBOX_WHERE } from "./rfq";
 import type { Prisma, ProductStatus, Currency, PricingType } from "@prisma/client";
 
 export interface ProductListParams {
@@ -18,15 +20,266 @@ export interface ProductListParams {
   currency?: Currency;
 }
 
+/**
+ * Shortest search term that can use the trigram indexes.
+ *
+ * The catalog search runs an unanchored ILIKE across seven columns on two
+ * tables, backed by pg_trgm GIN indexes. Trigrams need three characters: a
+ * one- or two-character term cannot use the index and degrades to a sequential
+ * scan on every matching row — on a public, unauthenticated route.
+ *
+ * The floor is a limit on FREE TEXT only. It is not a limit on the catalog:
+ * identifier-shaped terms are answered below by equality and anchored prefix on
+ * indexed identifier columns, which never touch a trigram index.
+ */
+export const MIN_CATALOG_SEARCH_LENGTH = 3;
+
+/**
+ * Shortest term we will prefix-match. A single-character prefix is not a search
+ * — it selects a large arbitrary slice of the catalog — so one-character
+ * identifiers are answered by exact equality alone.
+ */
+const MIN_IDENTIFIER_PREFIX_LENGTH = 2;
+
+/**
+ * An identifier-shaped term: a SKU, part number, size code or ERP code, never a
+ * phrase. In an industrial catalog these are the highest-intent queries there
+ * are, and the shortest — "3M", "M6", "M8" — which is exactly the range the
+ * trigram floor used to swallow.
+ */
+const IDENTIFIER_TERM = /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/;
+
+/**
+ * What actually happened to a caller's search term. The whole point of this
+ * union is that "too_short" cannot be mistaken for "none": a refused search must
+ * never be rendered as a catalog listing under a result count.
+ */
+export type CatalogSearchOutcome =
+  /** No term was supplied. This is a plain catalog listing, not a search. */
+  | { status: "none" }
+  /**
+   * Below MIN_CATALOG_SEARCH_LENGTH and not identifier-shaped, so no predicate
+   * this schema can index applies. Nothing was queried; callers must say so.
+   */
+  | { status: "too_short"; term: string; minLength: number }
+  /** A search ran. `strategy` names the predicate families that were applied. */
+  | { status: "ran"; term: string; strategy: "identifier" | "identifier+text" | "text" };
+
+/**
+ * Whitespace normalisation only.
+ *
+ * This used to also return `undefined` below the trigram floor, which is how the
+ * defect worked: listProducts could not tell "no search" from "search refused",
+ * so a one- or two-character query silently returned the entire catalog while
+ * the UI reported a result count over it. The length decision now lives in
+ * classifyCatalogSearch, where it produces a distinguishable outcome.
+ */
 export function normalizeCatalogSearch(value?: string) {
   const normalized = value?.trim().replace(/\s+/g, " ");
-  return normalized || undefined;
+  if (!normalized) return undefined;
+  return normalized;
+}
+
+export function classifyCatalogSearch(value?: string): CatalogSearchOutcome {
+  const term = normalizeCatalogSearch(value);
+  if (!term) return { status: "none" };
+  const isIdentifier = IDENTIFIER_TERM.test(term);
+  if (term.length >= MIN_CATALOG_SEARCH_LENGTH) {
+    return { status: "ran", term, strategy: isIdentifier ? "identifier+text" : "text" };
+  }
+  if (isIdentifier) return { status: "ran", term, strategy: "identifier" };
+  return { status: "too_short", term, minLength: MIN_CATALOG_SEARCH_LENGTH };
+}
+
+/**
+ * Case foldings tried for an identifier match.
+ *
+ * The btree indexes on these columns are case-sensitive, and Prisma's
+ * `mode: "insensitive"` compiles to ILIKE, which cannot use them — that is the
+ * sequential scan we are avoiding. Testing a small literal set keeps the lookup
+ * an indexed equality while still bridging the two casings a catalog actually
+ * holds: what a buyer types ("1145a") and what the supplier sheet loaded
+ * ("1145A"). A mixed-case identifier stored as neither ("Part1145aB") will not
+ * match on this path; at three characters or more the trigram tier below still
+ * finds it case-insensitively.
+ */
+function identifierCandidates(term: string) {
+  return Array.from(new Set([term, term.toUpperCase(), term.toLowerCase()]));
+}
+
+/**
+ * Exact identifier equality — the rank-1 tier.
+ *
+ * Only columns the schema gives a btree index are listed: Product.sku (unique)
+ * plus manufacturerPartNumber / externalItemNumber / erpCode on
+ * ProductCommercialMetadata. supplierPartNumber is deliberately absent: it has a
+ * trigram GIN index and no btree, so an equality on it cannot be indexed and
+ * would seq-scan ProductCommercialMetadata — dragging the whole OR down with it
+ * and reintroducing precisely the vulnerability the floor exists to prevent. It
+ * stays in the free-text tier, where it is genuinely indexed. Adding a btree
+ * index would need a migration, which is out of scope here.
+ */
+function exactIdentifierWhere(term: string): Prisma.ProductWhereInput {
+  const values = identifierCandidates(term);
+  return {
+    OR: [
+      { sku: { in: values } },
+      { commercialMetadata: { is: { OR: [
+        { manufacturerPartNumber: { in: values } },
+        { externalItemNumber: { in: values } },
+        { erpCode: { in: values } },
+      ] } } },
+    ],
+  };
+}
+
+/**
+ * Anchored prefix on the same identifier columns — the rank-2 tier.
+ *
+ * Anchoring is what makes this safe below the trigram floor: `LIKE 'M6%'` reads
+ * one indexed identifier column per table and is answered from the btree
+ * outright wherever the deployment's collation permits it (C/POSIX, or a
+ * *_pattern_ops index). Even where it is not, it is a single anchored column
+ * comparison rather than the unanchored `%M6%` across seven columns and two
+ * tables that MIN_CATALOG_SEARCH_LENGTH exists to keep off a public route.
+ */
+function prefixIdentifierWhere(term: string): Prisma.ProductWhereInput {
+  const prefixes = identifierCandidates(term);
+  return {
+    OR: [
+      ...prefixes.map((value) => ({ sku: { startsWith: value } })),
+      { commercialMetadata: { is: { OR: prefixes.flatMap((value) => [
+        { manufacturerPartNumber: { startsWith: value } },
+        { externalItemNumber: { startsWith: value } },
+        { erpCode: { startsWith: value } },
+      ]) } } },
+    ],
+  };
+}
+
+/**
+ * Brand identity — the last tier, matched on Brand.slug.
+ *
+ * slug is the only indexed brand column (unique); nameEn has no index and is not
+ * searched. Brand earns a tier because "3M" is a two-character query with
+ * unmistakable intent against a catalog that really does carry 3M products —
+ * answering "no results" there would be a confident false negative, not a safe
+ * refusal. Brand is a small table reached through Product's brandId index, so
+ * the predicate is cheap at any term length.
+ *
+ * It is ranked last for a second, non-cosmetic reason: brandId is NULLABLE, and
+ * every tier below the first is expressed as "matches me AND NOT any tier above
+ * me". `NOT (brandId IN (...))` evaluates to NULL — not true — for a product
+ * with no brand, so a brand tier placed above another tier would silently drop
+ * every brandless product out of it. Last means nothing is ever subtracted
+ * through this predicate. The other tiers negate only sku, nameEn/nameAr and the
+ * ProductCommercialMetadata subquery, all of which compare non-nullable values.
+ */
+function brandIdentifierWhere(term: string): Prisma.ProductWhereInput {
+  const values = identifierCandidates(term);
+  const prefixes = term.length >= MIN_IDENTIFIER_PREFIX_LENGTH
+    ? Array.from(new Set([term, term.toLowerCase()])).map((value) => ({ slug: { startsWith: value } }))
+    : [];
+  return { brand: { is: { OR: [{ slug: { in: values } }, ...prefixes] } } };
+}
+
+/** Unanchored trigram search — the tier MIN_CATALOG_SEARCH_LENGTH guards. */
+function freeTextWhere(term: string): Prisma.ProductWhereInput {
+  return {
+    OR: [
+      { nameEn: { contains: term, mode: "insensitive" } },
+      { nameAr: { contains: term, mode: "insensitive" } },
+      { sku: { contains: term, mode: "insensitive" } },
+      { commercialMetadata: { is: { OR: [
+        { manufacturerPartNumber: { contains: term, mode: "insensitive" } },
+        { supplierPartNumber: { contains: term, mode: "insensitive" } },
+        { externalItemNumber: { contains: term, mode: "insensitive" } },
+        { erpCode: { contains: term, mode: "insensitive" } },
+      ] } } },
+    ],
+  };
+}
+
+/**
+ * The seller states whose products the public catalog may advertise.
+ *
+ * secure-checkout re-checks exactly this pair before it will accept a line
+ * (services/secure-checkout.ts: the seller must be ACTIVE and not soft-deleted),
+ * so a product behind a withdrawn seller is visible, indexable and unbuyable —
+ * the one combination worse than not listing it at all. Only four models carry
+ * `deletedAt` and the client applies no guard of its own, so the predicate has
+ * to be written out on every public path; it is defined once here so the rows,
+ * the counts that paginate them, and the detail read cannot drift apart.
+ */
+const PUBLIC_CATALOG_SELLER: Prisma.SellerProfileRelationFilter = {
+  is: { deletedAt: null, status: "ACTIVE" },
+};
+
+/**
+ * The one place the catalog list shape is defined. Hoisted out of listProducts so
+ * the row type can be named: the refusal path below returns an empty page of the
+ * same shape, and callers must not have to discriminate two different arrays.
+ */
+function findProductPage(
+  where: Prisma.ProductWhereInput,
+  skip: number,
+  take: number,
+  orderBy: Prisma.ProductOrderByWithRelationInput,
+) {
+  return db.product.findMany({
+    where,
+    skip,
+    take,
+    orderBy,
+    include: {
+      images: { where: { isPrimary: true }, take: 1 },
+      prices: { where: { isActive: true } },
+      inventory: { select: { variantId: true, qty: true, reservedQty: true } },
+      variants: {
+        where: { isActive: true },
+        select: { id: true, prices: { where: { isActive: true } } },
+      },
+      category: { select: { nameEn: true, nameAr: true, slug: true } },
+      brand: { select: { nameEn: true, nameAr: true } },
+      seller: { select: { businessNameEn: true, businessNameAr: true, tier: true, rating: true } },
+    },
+  });
+}
+
+type ProductListRow = Awaited<ReturnType<typeof findProductPage>>[number];
+
+/**
+ * The relevance tiers, most relevant first. In a B2B marketplace an exact part
+ * number hit is result #1 — never row 40 behind an unrelated newer product,
+ * which is all `createdAt desc` alone could promise.
+ */
+function searchTiers(outcome: CatalogSearchOutcome): Prisma.ProductWhereInput[] {
+  if (outcome.status !== "ran") return [];
+  const tiers: Prisma.ProductWhereInput[] = [];
+  if (outcome.strategy !== "text") {
+    tiers.push(exactIdentifierWhere(outcome.term));
+    if (outcome.term.length >= MIN_IDENTIFIER_PREFIX_LENGTH) tiers.push(prefixIdentifierWhere(outcome.term));
+  }
+  if (outcome.strategy !== "identifier") tiers.push(freeTextWhere(outcome.term));
+  // Brand goes last — see brandIdentifierWhere for why its nullable FK must
+  // never appear in another tier's exclusion.
+  if (outcome.strategy !== "text") tiers.push(brandIdentifierWhere(outcome.term));
+  return tiers;
 }
 
 export async function listProducts(params: ProductListParams) {
   const { page = 1, limit = 20, search, categoryId, categorySlug, sellerId, status, b2c, b2b, publiclyDiscoverable, inStock, sort } = params;
   const skip = (page - 1) * limit;
-  const normalizedSearch = normalizeCatalogSearch(search);
+  const searchOutcome = classifyCatalogSearch(search);
+
+  // Refuse, do not list. A term we cannot run is reported as refused with zero
+  // results; the caller renders "enter at least N characters". Falling through
+  // to an unfiltered query here is what made a failed search look like a
+  // successful one — the entire catalog under a confident result count.
+  if (searchOutcome.status === "too_short") {
+    return { products: [] as ProductListRow[], total: 0, page, limit, totalPages: 0, search: searchOutcome };
+  }
+
   const categoryIds = categorySlug
     ? await db.$queryRaw<Array<{ id: string }>>`
         WITH RECURSIVE category_tree AS (
@@ -40,26 +293,15 @@ export async function listProducts(params: ProductListParams) {
         SELECT id FROM category_tree
       `.then((rows) => rows.map(({ id }) => id))
     : undefined;
-  const and: Prisma.ProductWhereInput[] = [];
-  if (publiclyDiscoverable !== undefined) and.push({ isPubliclyDiscoverable: publiclyDiscoverable });
-  if (normalizedSearch) {
-    and.push({
-      OR: [
-        { nameEn: { contains: normalizedSearch, mode: "insensitive" } },
-        { nameAr: { contains: normalizedSearch, mode: "insensitive" } },
-        { sku: { contains: normalizedSearch, mode: "insensitive" } },
-        { commercialMetadata: { is: { OR: [
-          { manufacturerPartNumber: { contains: normalizedSearch, mode: "insensitive" } },
-          { supplierPartNumber: { contains: normalizedSearch, mode: "insensitive" } },
-          { externalItemNumber: { contains: normalizedSearch, mode: "insensitive" } },
-          { erpCode: { contains: normalizedSearch, mode: "insensitive" } },
-        ] } } },
-      ],
-    });
-  }
 
-  const where: Prisma.ProductWhereInput = {
+  const baseWhere: Prisma.ProductWhereInput = {
     deletedAt: null,
+    // In baseWhere on purpose: every tier predicate and every count() below is
+    // built from this object, so the page rows and the total that paginates
+    // them are filtered by the same rule. A filter applied to the rows alone
+    // would produce a page count that does not match them.
+    seller: PUBLIC_CATALOG_SELLER,
+    ...(publiclyDiscoverable !== undefined && { isPubliclyDiscoverable: publiclyDiscoverable }),
     ...(status && { status }),
     ...(categoryId && { categoryId }),
     // Pilot imports attach products to leaf categories at varying depths.
@@ -70,37 +312,69 @@ export async function listProducts(params: ProductListParams) {
     ...(b2c !== undefined && { isB2CEnabled: b2c }),
     ...(b2b !== undefined && { isB2BEnabled: b2b }),
     ...(inStock && { inventory: { some: { qty: { gt: 0 } } } }),
-    ...(and.length > 0 && { AND: and }),
   };
+
+  // Each tier subtracts every tier above it, so the tiers partition the result
+  // set: their counts sum to the true total exactly once per product, and
+  // reading them in order gives a stable global ranking that pagination can
+  // walk. Without a search there is one tier and this is the original query.
+  const tiers = searchTiers(searchOutcome);
+  const tierWheres: Prisma.ProductWhereInput[] = tiers.length === 0
+    ? [baseWhere]
+    : tiers.map((tier, index) => ({
+        ...baseWhere,
+        AND: index === 0 ? [tier] : [tier, { NOT: { OR: tiers.slice(0, index) } }],
+      }));
+
+  // The caller's sort is the tiebreak WITHIN a tier, so "Newest" and "Name A–Z"
+  // keep working; they just no longer outrank an exact part-number match.
+  const orderBy: Prisma.ProductOrderByWithRelationInput =
+    sort === "name_asc" ? { nameEn: "asc" } : { createdAt: "desc" };
 
   // Catalog listing is a "must stay up" read: run it through the resilience
   // layer with a short-lived, stale-on-failure cache so a DB blip degrades to
   // last-known-good results instead of a 500 on the browse/search path.
-  const cacheKey = `products:list:${JSON.stringify({ page, limit, sort, where })}`;
+  const cacheKey = `products:list:${JSON.stringify({ page, limit, sort, tierWheres })}`;
   const { data } = await read(
     async () => {
-      const [products, total] = await Promise.all([
-        db.product.findMany({
-          where,
-          skip,
-          take: limit,
-          orderBy: sort === "name_asc" ? { nameEn: "asc" } : { createdAt: "desc" },
-          include: {
-            images: { where: { isPrimary: true }, take: 1 },
-            prices: { where: { isActive: true } },
-            inventory: { select: { variantId: true, qty: true, reservedQty: true } },
-            variants: {
-              where: { isActive: true },
-              select: { id: true, prices: { where: { isActive: true } } },
-            },
-            category: { select: { nameEn: true, nameAr: true, slug: true } },
-            brand: { select: { nameEn: true, nameAr: true } },
-            seller: { select: { businessNameEn: true, businessNameAr: true, tier: true, rating: true } },
-          },
-        }),
-        db.product.count({ where }),
-      ]);
-      return { products, total, page, limit, totalPages: Math.ceil(total / limit) };
+      // With one tier — the un-searched catalog listing, the hottest read on the
+      // site — the page query does not depend on the count: that tier is always
+      // read at `skip`. Issue both in the same round trip, as this path did
+      // before tiering, instead of paying count-then-query serially. Both live
+      // in one Promise.all so neither rejection is ever unhandled.
+      const countsPromise: Promise<number[]> = Promise.all(
+        tierWheres.map((tierWhere) => db.product.count({ where: tierWhere })),
+      );
+      const singleTierPromise: Promise<ProductListRow[] | null> =
+        tierWheres.length === 1
+          ? Promise.resolve(findProductPage(tierWheres[0], skip, limit, orderBy))
+          : Promise.resolve(null);
+      const [counts, singleTierRows] = await Promise.all([countsPromise, singleTierPromise]);
+      const total = counts.reduce((sum, count) => sum + count, 0);
+      if (singleTierRows) {
+        return { products: singleTierRows, total, page, limit, totalPages: Math.ceil(total / limit), search: searchOutcome };
+      }
+
+      // Walk the tiers in rank order, consuming `skip` against each tier's size
+      // before reading from it, so a page can straddle a tier boundary without
+      // repeating or dropping a row.
+      const products: ProductListRow[] = [];
+      let offset = skip;
+      let remaining = limit;
+      for (const [index, tierWhere] of tierWheres.entries()) {
+        if (remaining <= 0) break;
+        const count = counts[index];
+        if (offset >= count) {
+          offset -= count;
+          continue;
+        }
+        const rows = await findProductPage(tierWhere, offset, remaining, orderBy);
+        products.push(...rows);
+        remaining -= rows.length;
+        offset = 0;
+      }
+
+      return { products, total, page, limit, totalPages: Math.ceil(total / limit), search: searchOutcome };
     },
     { name: "products.list", cache: { key: cacheKey, ttlMs: 60_000 } },
   );
@@ -113,15 +387,25 @@ export async function getProductBySlug(
   channel: "B2C" | "B2B" = "B2C",
   currency?: Currency,
 ) {
-  const product = await db.product.findUnique({
-    where: { slug, deletedAt: null },
+  // findFirst, not findUnique: slug is unique so this is the same index lookup,
+  // but the seller predicate is a relation filter and findFirst takes it without
+  // relying on extended-unique-where semantics.
+  const product = await db.product.findFirst({
+    // Same seller rule as the listing: a product the storefront will not list
+    // must not be reachable by deep link either, or the indexed URL outlives
+    // the listing and lands on an item checkout will refuse.
+    where: { slug, deletedAt: null, seller: PUBLIC_CATALOG_SELLER },
     include: {
       images: { orderBy: { sortOrder: "asc" } },
       prices: { where: { isActive: true }, orderBy: [{ type: "asc" }, { minQty: "asc" }] },
       inventory: { include: { location: { include: { warehouse: true } } } },
       category: true,
       brand: true,
-      seller: { select: { id: true, businessNameEn: true, businessNameAr: true, tier: true, rating: true, reviewCount: true, city: true, country: true } },
+      // Not `rating`/`reviewCount`: nothing writes those SellerProfile columns
+      // (no service updates them and the seed no longer does), so selecting
+      // them would print a number nobody vouches for. The seller's standing is
+      // aggregated from ProductReview below instead.
+      seller: { select: { id: true, businessNameEn: true, businessNameAr: true, tier: true, city: true, country: true } },
       compliance: { where: { status: "APPROVED" } },
       variants: { include: { prices: { where: { isActive: true } } } },
       reviews: {
@@ -129,12 +413,37 @@ export async function getProductBySlug(
         take: 20,
         include: { user: { select: { firstName: true, lastName: true } } },
       },
+      // The page shows the newest twenty above and must not present that
+      // window's length as the total. ProductReview has no status or
+      // visibility column and the window applies no filter, so the count
+      // needs none either — if a filter is ever added to `reviews`, mirror
+      // it here as `reviews: { where }` or the two will disagree again.
+      _count: { select: { reviews: true } },
     },
   });
   if (!product) return null;
-  const { inventory, variants, prices, ...safe } = product;
+  // The seller's standing across every product they list — the same aggregate
+  // the seller portal's performance page and the admin seller detail run, so
+  // the three portals show one number. No visibility filter: ProductReview has
+  // none, and the product's own `reviews` window above applies none either.
+  const sellerReviews = await db.productReview.aggregate({
+    where: { product: { sellerId: product.sellerId } },
+    _avg: { rating: true },
+    _count: { _all: true },
+  });
+  const { inventory, variants, prices, _count, seller, ...safe } = product;
   return {
     ...safe,
+    seller: {
+      ...seller,
+      reviewSummary: {
+        // null, not 0, when there is nothing to average: the page then shows
+        // no rating at all rather than a zero-star seller.
+        averageRating: sellerReviews._count._all > 0 ? sellerReviews._avg.rating : null,
+        reviewCount: sellerReviews._count._all,
+      },
+    },
+    reviewTotal: _count.reviews,
     prices: prices.filter((price) => price.type === channel && (!currency || price.currency === currency)),
     inventory: inventory.map((stock) => ({
       variantId: stock.variantId,
@@ -181,8 +490,15 @@ export async function getSellerDashboard(sellerId: string) {
         items: { where: { sellerId }, select: { total: true } },
       },
     }),
-    db.message.count({ where: { thread: { sellerId }, isRead: false, senderType: "BUYER" } }),
-    db.rFQRequest.count({ where: { sellerId, status: { in: ["SUBMITTED", "UNDER_REVIEW"] } } }),
+    // Both badges are counted the way their destination counts and lists —
+    // the messaging service's own unread count (the /messages header uses the
+    // same call) and the rfq service's inbox predicate (getRFQsForSeller
+    // lists with it) — so a badge can never promise rows the page lacks. The
+    // old RFQ predicate ("assigned to me AND still SUBMITTED") was empty by
+    // construction: submitQuote is the only writer of sellerId and it sets
+    // QUOTED in the same update.
+    countSellerUnreadMessages(sellerId),
+    db.rFQRequest.count({ where: SELLER_RFQ_INBOX_WHERE(sellerId) }),
   ]);
 
   const monthRevenue = await db.orderItem.aggregate({

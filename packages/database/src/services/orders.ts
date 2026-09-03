@@ -9,11 +9,13 @@ import {
   lockProductCommercialRows,
   lockSellerCommercialRows,
   lockUserCommerceRows,
-  resolveConfiguredVatRate,
 } from "./checkout-invariants";
 import { resolveCompanyOrderIntegration } from "./integration-routing";
 import { assertMatchingIdempotencyFingerprint } from "./commerce-governance";
-import type { Prisma, OrderStatus, Currency, PaymentMethod } from "@prisma/client";
+// The statutory VAT table lives in exactly one place. Re-declaring rates here is
+// what produced the two-sources-of-truth defect this module now guards against.
+import { VAT_RATES } from "@avenick/utils";
+import type { Prisma, OrderStatus, Country, Currency, PaymentMethod } from "@prisma/client";
 
 // Prisma interactive-transaction client — the subset of the client available
 // inside db.$transaction(async (tx) => ...). Lets commission accrual join an
@@ -107,9 +109,100 @@ export interface CreateOrderInput {
   afterIntegrationRoutingLocks?: () => Promise<void>;
 }
 
-// VAT rate by jurisdiction (KSA 15%, rest of GCC 5%).
-function vatRateForCurrency(currency: Currency): number {
-  return currency === "SAR" ? 15 : 5;
+/**
+ * The tax jurisdiction that governs an order. VAT follows the place of supply —
+ * where the goods are delivered — which is why the shipping destination, not the
+ * currency, is the authority here.
+ */
+export interface TaxJurisdiction {
+  /** ISO 3166-1 alpha-2 country whose VAT law governs this order. */
+  country: string;
+  /** Statutory rate in percent, read from the one table in @avenick/utils. */
+  rate: number;
+  /** How the country was established; surfaced in the refusal message. */
+  source: "SHIPPING_DESTINATION" | "CURRENCY_HOME_COUNTRY";
+}
+
+/**
+ * A currency is not a jurisdiction. Each GCC currency does have exactly one
+ * issuing state, so when a destination is genuinely absent the issuing state is
+ * the only defensible place of supply — and that is the ONLY case in which this
+ * map is consulted. USD is deliberately absent: it has no GCC home country, so a
+ * USD order with no destination has no derivable jurisdiction and must fail
+ * rather than be taxed at a guess.
+ */
+const CURRENCY_HOME_COUNTRY: Partial<Record<Currency, Country>> = {
+  AED: "AE",
+  SAR: "SA",
+  QAR: "QA",
+  KWD: "KW",
+  BHD: "BH",
+  OMR: "OM",
+};
+
+// VAT_RATES is a bare Record<string, number>, so an unknown key reads back as a
+// typed number that is actually undefined. Probe membership explicitly instead.
+function statutoryVatRate(country: string): number | undefined {
+  return Object.prototype.hasOwnProperty.call(VAT_RATES, country) ? VAT_RATES[country] : undefined;
+}
+
+/**
+ * Establish the order's tax jurisdiction, or refuse. Never returns a guess.
+ */
+export function resolveTaxJurisdiction(
+  shippingAddress: Record<string, string> | null | undefined,
+  currency: Currency,
+): TaxJurisdiction {
+  const destination = shippingAddress?.["country"]?.trim().toUpperCase();
+  if (destination) {
+    const rate = statutoryVatRate(destination);
+    // A stated destination we cannot tax is never quietly reinterpreted as the
+    // currency's home country: that would tax a real address by a guess.
+    if (rate === undefined) {
+      throw new Error(
+        `No VAT jurisdiction is configured for delivery destination "${destination}"; this order cannot be priced`,
+      );
+    }
+    return { country: destination, rate, source: "SHIPPING_DESTINATION" };
+  }
+  const homeCountry = CURRENCY_HOME_COUNTRY[currency];
+  const homeRate = homeCountry ? statutoryVatRate(homeCountry) : undefined;
+  if (!homeCountry || homeRate === undefined) {
+    throw new Error(
+      `Order has no delivery destination and ${currency} has no home VAT jurisdiction; this order cannot be priced`,
+    );
+  }
+  return { country: homeCountry, rate: homeRate, source: "CURRENCY_HOME_COUNTRY" };
+}
+
+/**
+ * Refuse any line whose configured rate contradicts the jurisdiction's statutory
+ * rate. Silently overriding would hide a mispriced catalog from the seller;
+ * silently accepting is the defect itself. Both are wrong, so this throws.
+ *
+ * ProductPrice.vatRate is a bare non-null Decimal — the schema has no
+ * zero-rated/exempt marker — so a 0 on a price row is honoured only where the
+ * jurisdiction is itself zero-rated (QA and KW today). A genuine per-product
+ * exemption would need a schema field, which this change does not invent.
+ */
+export function assertStatutoryVatRate(
+  productName: string,
+  configuredRate: number,
+  jurisdiction: TaxJurisdiction,
+): number {
+  if (!Number.isFinite(configuredRate) || configuredRate < 0) {
+    throw new Error(`Configured VAT rate for "${productName}" is invalid`);
+  }
+  // Compare as integer basis points: vatRate is Decimal(5,2) against a whole-
+  // percent table, so binary float equality is the only hazard in this compare.
+  if (Math.round(configuredRate * 100) !== Math.round(jurisdiction.rate * 100)) {
+    throw new Error(
+      `VAT rate mismatch for "${productName}": the price row is configured at ${configuredRate}% but the statutory rate in `
+      + `${jurisdiction.country} is ${jurisdiction.rate}% (jurisdiction from ${jurisdiction.source}). `
+      + `Correct the price row before this order can be placed.`,
+    );
+  }
+  return jurisdiction.rate;
 }
 
 function resolveUnitPrice(
@@ -134,7 +227,9 @@ export async function createOrder(input: CreateOrderInput) {
     throw new Error("Governed commercial terms require a B2B purchase-order placement without promotions");
   }
 
-  const defaultVat = vatRateForCurrency(input.currency);
+  // Resolved before the transaction opens: an order whose jurisdiction cannot be
+  // established must fail before it takes a single advisory lock.
+  const jurisdiction = resolveTaxJurisdiction(input.shippingAddress, input.currency);
   const productIds = [...new Set(input.items.map((i) => i.productId))];
   const governedByIdentity = new Map(input.governedCommercial?.lines.map((line) => [
     identityKey(line), line,
@@ -217,6 +312,25 @@ export async function createOrder(input: CreateOrderInput) {
           const tier = governed ? null : variantTier ?? resolveUnitPrice(product.prices, input.type, input.currency, item.quantity);
           if (!governed && !tier) throw new Error(`No active ${input.type} price for "${product.nameEn}" in ${input.currency}`);
           const unitPrice = governed?.unitPrice ?? Number(tier!.price);
+          // The jurisdiction is the single authority for the rate actually
+          // charged. ProductPrice.vatRate is data a seller or an importer typed
+          // — consulting it to decide tax is precisely the two-sources-of-truth
+          // defect this module now guards against, and its non-null 5% default
+          // is wrong in most GCC markets.
+          //
+          // Statute is applied rather than refused at this boundary on purpose.
+          // A mistyped price row is a seller data fault; refusing here would
+          // take checkout down for a buyer who did nothing wrong, while still
+          // leaving the bad row in the catalog. The row is instead rejected
+          // where it is authored (assertStatutoryVatRate, exported for the
+          // catalog write paths), so bad data cannot reach a price list at all.
+          //
+          // A governed purchase order is the one exception: its approved lines
+          // are an immutable snapshot fixed at approval and re-verified by the
+          // approval fingerprint. Re-deriving their rate here would let a later
+          // statutory change silently invalidate an already-approved PO — the
+          // one thing the B2B governance layer exists to prevent.
+          const vatRate = governed ? Number(governed.vatRate) : jurisdiction.rate;
           return {
             key: `line-${index}`,
             productId: item.productId,
@@ -230,7 +344,7 @@ export async function createOrder(input: CreateOrderInput) {
             quantity: item.quantity,
             unitPrice,
             lineSubtotal: money(unitPrice * item.quantity),
-            vatRate: governed?.vatRate ?? resolveConfiguredVatRate(tier!.vatRate, defaultVat),
+            vatRate,
             sourcePriceId: governed ? governed.sourcePriceId ?? undefined : tier!.id,
             priceScope: governed ? "GOVERNED_PO" : variantTier ? "VARIANT" : "PRODUCT",
           };
@@ -549,70 +663,17 @@ const RELEASE_STATUSES: OrderStatus[] = ["CANCELLED", "REFUNDED", "RETURNED"];
 /**
  * Transition an order's status and settle its inventory side-effects atomically.
  */
-export async function updateOrderStatus(orderId: string, status: OrderStatus, actorId: string, message?: string) {
-  if (!actorId) throw new Error("Order transition actor is required");
-  return db.$transaction(async (tx) => {
-    const current = await tx.order.findUnique({
-      where: { id: orderId },
-      include: { items: true },
-    });
-    if (!current) throw new Error("Order not found");
-
-    const wasReserved = RESERVED_STATUSES.includes(current.status);
-    const wasConsumed = CONSUME_STATUSES.includes(current.status);
-    const nowConsume = CONSUME_STATUSES.includes(status);
-    const nowRelease = RELEASE_STATUSES.includes(status);
-
-    if (wasReserved && (nowConsume || nowRelease)) {
-      for (const item of current.items) {
-        let remaining = item.quantity;
-        const rows = await tx.inventoryStock.findMany({
-          where: inventoryStockIdentityWhere(item.productId, item.variantId),
-          orderBy: { updatedAt: "asc" },
-        });
-        for (const s of rows) {
-          if (remaining <= 0) break;
-          const take = Math.min(remaining, s.reservedQty);
-          if (take <= 0) continue;
-          await tx.inventoryStock.update({
-            where: { id: s.id },
-            data: nowConsume
-              ? { reservedQty: { decrement: take }, qty: { decrement: take } }
-              : { reservedQty: { decrement: take } },
-          });
-          await tx.inventoryMovement.create({
-            data: {
-              stockId: s.id,
-              type: nowConsume ? "OUT" : "RELEASE",
-              qty: take,
-              reference: current.orderNumber,
-              notes: nowConsume ? "Shipped — reservation consumed" : "Order closed — reservation released",
-              createdBy: actorId,
-            },
-          });
-          remaining -= take;
-        }
-      }
-    }
-
-    const order = await tx.order.update({ where: { id: orderId }, data: { status } });
-    await tx.orderStatusHistory.create({ data: { orderId, status, message, actorId } });
-    if (wasConsumed || wasReserved) {
-      await tx.orderItem.updateMany({ where: { orderId }, data: { status } });
-    }
-    await tx.auditLog.create({
-      data: {
-        actorId,
-        entityType: "Order",
-        entityId: orderId,
-        action: "STATUS_CHANGE",
-        before: { status: current.status },
-        after: { status, message },
-      },
-    });
-    return order;
-  });
-}
+// updateOrderStatus was removed here.
+//
+// It had zero callers and was unsafe by construction: no advisory lock,
+// unlike every other stock writer in this file; a plain decrement rather
+// than the compare-and-set the reservation path uses; and no legal-
+// transition table, so it accepted any status from any status.
+//
+// Dead code with unsafe semantics is worse than no code — the next person
+// to need an order transition would have reached for it and quietly
+// bypassed the locking discipline. The governed path is
+// advanceSellerFulfillment in seller-fulfillment.ts.
 
 export async function getOrdersForSeller(sellerId: string, params: { page?: number; limit?: number; status?: OrderStatus }) {
   const { page = 1, limit = 20, status } = params;

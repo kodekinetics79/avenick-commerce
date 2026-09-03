@@ -68,3 +68,173 @@ jobs:
 
       - name: Build all apps
         run: pnpm build
+
+  e2e:
+    name: Browser journey evidence
+    runs-on: ubuntu-latest
+    needs: verify
+    timeout-minutes: 40
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: avenick
+          POSTGRES_PASSWORD: avenick
+          POSTGRES_DB: avenick
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U avenick"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # Pin every portal at its local instance. Without these, apps/*/src/lib/backend.ts
+      # falls back to https://avenick-*.onrender.com in production mode and CI would
+      # drive tests against the live deployed services (defect D-09).
+      NEXT_PUBLIC_BACKEND_URL: http://localhost:13100
+      NEXT_PUBLIC_SELLER_BACKEND_URL: http://localhost:13101
+      NEXT_PUBLIC_ADMIN_BACKEND_URL: http://localhost:13102
+      E2E_CUSTOMER_URL: http://localhost:13100
+      E2E_SELLER_URL: http://localhost:13101
+      E2E_ADMIN_URL: http://localhost:13102
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Browser binaries are large and version-stable; key on the lockfile.
+      - name: Cache browser binaries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/Cypress
+            ~/.cache/puppeteer
+          key: browsers-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: browsers-${{ runner.os }}-
+
+      - name: Install browsers
+        run: pnpm --filter @avenick/e2e e2e:install:ci
+
+      - name: Apply database migrations
+        run: pnpm --filter @avenick/database db:deploy
+
+      # The authenticated certification signs the seeded personas in through the
+      # real login form, so the seed and the suite have to agree on one password
+      # (SEED_PASSWORD when seeding, E2E_SEED_PASSWORD when certifying). Prefer
+      # the repository secret; where it is absent — a pull request from a fork,
+      # where secrets are deliberately not exposed — mint one for this run so the
+      # isolation suite still certifies instead of silently dropping out.
+      #
+      # Never fall back to a literal: a password written into a workflow file is
+      # a published credential, and the seeded personas are real accounts on
+      # whatever database this job points at.
+      - name: Resolve the seed password
+        env:
+          SUPPLIED_SEED_PASSWORD: ${{ secrets.E2E_SEED_PASSWORD }}
+        run: |
+          PASSWORD="${SUPPLIED_SEED_PASSWORD:-$(openssl rand -hex 24)}"
+          echo "::add-mask::$PASSWORD"
+          {
+            echo "SEED_PASSWORD=$PASSWORD"
+            echo "E2E_SEED_PASSWORD=$PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Seed catalog
+        run: pnpm db:seed
+
+      - name: Build all apps
+        run: pnpm build
+
+      - name: Start portals
+        run: |
+          NEXTAUTH_URL=http://localhost:13100 \
+            pnpm --filter @avenick/customer exec next start -p 13100 > /tmp/customer.log 2>&1 &
+          NEXTAUTH_URL=http://localhost:13101 \
+            pnpm --filter @avenick/seller exec next start -p 13101 > /tmp/seller.log 2>&1 &
+          NEXTAUTH_URL=http://localhost:13102 \
+            pnpm --filter @avenick/admin exec next start -p 13102 > /tmp/admin.log 2>&1 &
+
+      - name: Wait for portals
+        run: |
+          for port in 13100 13101 13102; do
+            ready=""
+            for _ in $(seq 1 60); do
+              if curl -fsS "http://localhost:$port/api/health" > /dev/null 2>&1; then
+                echo "portal on :$port is ready"
+                ready=1
+                break
+              fi
+              sleep 2
+            done
+            if [ -z "$ready" ]; then
+              echo "::error::portal on :$port never became ready"
+              tail -n 100 /tmp/customer.log /tmp/seller.log /tmp/admin.log || true
+              exit 1
+            fi
+          done
+
+      - name: Playwright — storefront journeys
+        run: pnpm --filter @avenick/e2e exec playwright test playwright/storefront.spec.ts
+
+      # Regression guard for defect D-01 (working credential pairs printed on all
+      # three login pages). The credentials are gone, so this step is EXPECTED TO
+      # PASS: a failure means they have come back on a public, unauthenticated
+      # page. Fix the page to turn it green — never weaken the assertion, add a
+      # skip, or narrow the forbidden list in packages/e2e/targets.mjs.
+      - name: Playwright — security guardrails (D-01 regression guard)
+        run: pnpm --filter @avenick/e2e exec playwright test playwright/security-guardrails.spec.ts
+
+      # The only tests that exercise a cross-tenant leak in a live session:
+      # seller-A-vs-seller-B isolation, direct-ID access, buyer order isolation
+      # (authenticated/tenant-isolation.spec.ts) and cross-portal denial with
+      # API/UI parity (authenticated/portal-boundaries.spec.ts). They were inert
+      # until now — CI invoked Playwright by spec path only, so the `auth-setup`
+      # and `authenticated` projects were never triggered.
+      #
+      # `--project=authenticated` pulls in its `auth-setup` dependency, which
+      # signs all six personas in through the real login form.
+      - name: Playwright — authenticated tenant isolation and portal boundaries
+        run: pnpm --filter @avenick/e2e exec playwright test --project=authenticated
+
+      - name: Puppeteer — storefront journeys
+        run: pnpm --filter @avenick/e2e run e2e:puppeteer
+
+      - name: Cypress — storefront journeys
+        run: pnpm --filter @avenick/e2e run e2e:cypress
+
+      # artifacts/auth/*.json is excluded on purpose: `auth-setup` caches each
+      # persona's signed-in browser state there, so those files are live session
+      # cookies. They are worthless as evidence and must not be published as a
+      # downloadable build artifact.
+      - name: Upload journey evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-journey-evidence
+          path: |
+            packages/e2e/artifacts/
+            !packages/e2e/artifacts/auth/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload portal logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: portal-logs
+          path: /tmp/*.log
+          retention-days: 7
+          if-no-files-found: ignore

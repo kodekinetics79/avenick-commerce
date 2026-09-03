@@ -25,7 +25,8 @@ export async function getB2BContext() {
     where: { userId },
     include: { company: true, user: { select: { role: true, status: true, deletedAt: true } } },
   });
-  if (!isDurableB2BMember(member)) return null;
+  // `member &&` does the null-narrowing the guard used to do as a type predicate.
+  if (!member || !isDurableB2BMember(member)) return null;
 
   return { userId, member, company: member.company, companyId: member.companyId };
 }

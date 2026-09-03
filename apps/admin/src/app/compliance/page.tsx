@@ -42,7 +42,10 @@ export default async function AdminCompliancePage() {
                         <Link href={`/sellers/${doc.seller.id}`} className="text-primary hover:underline text-sm">{doc.seller.businessNameEn}</Link>
                       </td>
                       <td className="px-4 py-3">
-                        <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer" className="text-sm hover:underline">{doc.type.replace(/_/g, " ")}</a>
+                        {/* The stored value is a private object key, not a URL; the
+                            view route mints a short-lived signed link per request. */}
+                        <a href={`/documents/${doc.id}/view`} target="_blank" rel="noopener noreferrer" className="text-sm hover:underline">{doc.type.replace(/_/g, " ")}</a>
+                        <p className="text-xs text-muted-foreground truncate max-w-xs">{doc.fileName}</p>
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${doc.status === "APPROVED" ? "bg-green-500/10 text-green-700 dark:text-green-400" : doc.status === "REJECTED" ? "bg-red-500/10 text-red-700 dark:text-red-400" : "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"}`}>

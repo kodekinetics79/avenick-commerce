@@ -28,10 +28,24 @@ describe("B2B market truth", () => {
     expect(source).not.toMatch(/Spend limit \(AED\)|Target Unit Price \(AED\)|JAFZA|Dubai/);
   });
 
-  it("labels unavailable billing exports instead of presenting dead actions", () => {
+  it("offers no billing control that does nothing when clicked", () => {
+    // The invariant is that a control on this page either works or is not
+    // rendered. It was first met by labelling both exports "unavailable"; the
+    // page now goes further — the statement button, which had no export behind
+    // it at all, is gone, and the invoice download is rendered only for an
+    // invoice that actually has a stored file, with "No file" otherwise. Both
+    // satisfy the rule, so the assertions below test the rule and not either
+    // wording: no payment action, no unconditional download, and a guard on the
+    // one download that remains.
     const billing = readFileSync(resolve(customerRoot, "app/b2b/billing/page.tsx"), "utf8");
-    expect(billing).toContain("Statement export unavailable");
-    expect(billing).toContain("PDF unavailable");
-    expect(billing).not.toContain(">Pay now<");
+    // Comments are stripped first: a note explaining that a dead button was
+    // removed names the button, and matching it would fail the file for
+    // documenting the very fix under test.
+    const rendered = billing.replace(/\{?\/\*[\s\S]*?\*\/\}?/g, "").replace(/^\s*\/\/.*$/gm, "");
+    expect(rendered).not.toContain(">Pay now<");
+    expect(rendered).not.toMatch(/Download statement|Export statement/);
+    // The PDF link must be behind a check on the stored file, never bare.
+    expect(rendered).toMatch(/inv\.fileUrl \?/);
+    expect(rendered).toMatch(/No file|PDF unavailable/);
   });
 });

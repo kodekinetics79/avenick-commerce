@@ -79,13 +79,17 @@ pnpm --filter @avenick/admin dev      # port 14002
 
 ## Test Accounts (after seed)
 
-| Role              | Email                         | Password       |
-|-------------------|-------------------------------|----------------|
-| Super Admin       | admin@avenick.test             | Password123!   |
-| Seller Owner      | seller@avenick.test            | Password123!   |
-| B2C Buyer         | buyer@avenick.test             | Password123!   |
-| B2B Company Admin | company@avenick.test           | Password123!   |
-| Pending Seller    | pending-seller@avenick.test    | Password123!   |
+| Role              | Email                       |
+|-------------------|-----------------------------|
+| Super Admin       | admin@avenick.test          |
+| Seller Owner      | seller@avenick.test         |
+| B2C Buyer         | buyer@avenick.test          |
+| B2B Company Admin | company@avenick.test        |
+| Pending Seller    | pending-seller@avenick.test |
+
+Passwords are not published. `pnpm db:seed` uses `SEED_PASSWORD` if set, and
+otherwise generates a random password and prints it once when the seed
+finishes. Do not commit that value or paste it into documentation.
 
 ---
 

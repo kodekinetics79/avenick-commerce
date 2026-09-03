@@ -38,11 +38,17 @@ export type CatalogDetailSource = {
   variants: DetailVariant[];
   brand?: { nameEn: string; nameAr: string | null } | null;
   seller: {
+    id: string;
     businessNameEn: string;
     businessNameAr: string | null;
     tier: string;
-    rating: unknown;
-    reviewCount: number;
+    /**
+     * Averaged over this seller's product reviews by the service, not read from
+     * the SellerProfile.rating column — nothing writes that column, so the star
+     * it used to print stood for no one's opinion. `averageRating` is null when
+     * there is nothing to average, which the page renders as no rating at all.
+     */
+    reviewSummary: { averageRating: number | null; reviewCount: number };
     city: string;
     country: string;
   };
@@ -55,6 +61,13 @@ export type CatalogDetailSource = {
     createdAt: Date;
     user: { firstName: string; lastName: string };
   }>;
+  /**
+   * Total review count from the service's `_count`, independent of the
+   * loaded `reviews` window (the newest 20). Optional so an older service
+   * shape still projects; the page falls back to `reviews.length` and says
+   * "recent" when it has to.
+   */
+  reviewTotal?: number;
 };
 
 /** Explicit anonymous/B2B storefront detail projection. */
@@ -111,5 +124,6 @@ export function toCatalogDetailDto(source: CatalogDetailSource, channel: "B2C" |
     reviews: source.reviews.map(({ id, rating, title, body, isVerified, createdAt, user }) => ({
       id, rating, title, body, isVerified, createdAt, user,
     })),
+    ...(typeof source.reviewTotal === "number" ? { reviewTotal: source.reviewTotal } : {}),
   };
 }

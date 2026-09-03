@@ -61,7 +61,7 @@ export default async function ReturnsPage() {
           <div>
             <h1 className="text-2xl font-bold">Returns & Refunds</h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Request a return for a delivered order. Most returns are reviewed within 1–2 business days.
+              Request a return for a delivered order. You can follow its review status here.
             </p>
           </div>
 
@@ -82,7 +82,7 @@ export default async function ReturnsPage() {
                           {r.returnNumber} · {r.order.orderNumber}
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
-                          {r.reason} · {format(r.createdAt, "MMM d, yyyy")}
+                          {r.reason} · {format(new Date(r.createdAt), "MMM d, yyyy")}
                         </p>
                         {r.resolution && <p className="text-xs text-muted-foreground/80 truncate">↳ {r.resolution}</p>}
                       </div>
@@ -118,7 +118,10 @@ export default async function ReturnsPage() {
                   orderNumber: o.orderNumber,
                   total: Number(o.total),
                   currency: o.currency,
-                  createdAt: o.createdAt.toISOString(),
+                  // Orders arrive through the JSON API, so createdAt is already
+                  // an ISO string; calling toISOString on it threw for every
+                  // buyer with an eligible order.
+                  createdAt: new Date(o.createdAt).toISOString(),
                   summary: o.items.map((i: { quantity: number; nameEn: string }) => `${i.quantity}× ${i.nameEn}`).join(", "),
                   items: o.items.map((i: { id: string; quantity: number; nameEn: string; total: unknown }) => ({
                     id: i.id,
