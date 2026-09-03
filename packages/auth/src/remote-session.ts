@@ -1,6 +1,39 @@
 import type { Session } from "next-auth";
 import { getToken } from "next-auth/jwt";
-import { UserRole } from "@avenick/database";
+import type { UserRole } from "@avenick/database";
+
+/**
+ * The roles a portal session may carry, as plain strings.
+ *
+ * This module is compiled into Next.js middleware, which runs in the edge
+ * runtime. Importing the generated `UserRole` OBJECT from @avenick/database
+ * pulls the whole barrel — and with it the Prisma client — into that bundle,
+ * where Prisma throws while the module is still initialising, so every request
+ * to the portal answers 500. The `import type` above is erased at compile time;
+ * this list is the runtime value that replaces the enum lookup below.
+ *
+ * `_EveryRoleIsListed` is a compile-time fence: add a role to the schema and
+ * forget it here, and this file stops compiling instead of silently rejecting
+ * sessions that carry the new role.
+ */
+const USER_ROLES = [
+  "CONSUMER",
+  "COMPANY_ADMIN",
+  "COMPANY_BUYER",
+  "COMPANY_APPROVER",
+  "SELLER_OWNER",
+  "SELLER_STAFF",
+  "ADMIN",
+  "SUPER_ADMIN",
+] as const satisfies readonly UserRole[];
+
+type _EveryRoleIsListed = Exclude<UserRole, (typeof USER_ROLES)[number]> extends never ? true : never;
+const _everyRoleIsListed: _EveryRoleIsListed = true;
+void _everyRoleIsListed;
+
+function isUserRole(value: unknown): value is UserRole {
+  return typeof value === "string" && (USER_ROLES as readonly string[]).includes(value);
+}
 
 export type PortalType = "customer" | "seller" | "admin";
 
@@ -42,7 +75,7 @@ function isSession(value: unknown): value is Session {
   return (
     typeof candidate["id"] === "string" &&
     typeof candidate["email"] === "string" &&
-    Object.values(UserRole).includes(candidate["role"] as UserRole)
+    isUserRole(candidate["role"])
   );
 }
 
@@ -86,7 +119,7 @@ export async function resolveRemotePortalSession(
         typeof token.email === "string" &&
         typeof token.exp === "number" &&
         token.exp * 1_000 > Date.now() &&
-        Object.values(UserRole).includes(token["role"] as UserRole)
+        isUserRole(token["role"])
       ) {
         return {
           user: {

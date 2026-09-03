@@ -1,17 +1,17 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { type Session } from "next-auth";
-import { UserRole } from "@avenick/database";
+import type { UserRole } from "@avenick/database";
 import { resolveRemotePortalSession, type PortalType } from "./remote-session";
 
+// String literals, not `UserRole.X`. The enum OBJECT is a runtime import from
+// @avenick/database, and this module is bundled into edge middleware, where
+// pulling that barrel drags in the Prisma client and every request 500s. The
+// type import above still checks each literal against the schema's role union,
+// so a typo or a renamed role fails the build exactly as it did before.
 const PORTAL_ROLE_MAP: Record<PortalType, UserRole[]> = {
-  customer: [
-    UserRole.CONSUMER,
-    UserRole.COMPANY_ADMIN,
-    UserRole.COMPANY_BUYER,
-    UserRole.COMPANY_APPROVER,
-  ],
-  seller: [UserRole.SELLER_OWNER, UserRole.SELLER_STAFF],
-  admin: [UserRole.ADMIN, UserRole.SUPER_ADMIN],
+  customer: ["CONSUMER", "COMPANY_ADMIN", "COMPANY_BUYER", "COMPANY_APPROVER"],
+  seller: ["SELLER_OWNER", "SELLER_STAFF"],
+  admin: ["ADMIN", "SUPER_ADMIN"],
 };
 
 // Paths that are publicly accessible (no auth required)
@@ -66,7 +66,23 @@ function isPublicPath(pathname: string, portal: PortalType): boolean {
   );
 }
 
-export function createMiddleware(portal: PortalType, authFn: () => Promise<Session | null>) {
+/**
+ * Build a portal's middleware.
+ *
+ * `authFn` is optional and the apps deliberately do not pass one. Supplying the
+ * NextAuth instance here is what put the Prisma client into the edge bundle:
+ * the instance carries the credentials provider, whose authorize() reaches the
+ * database, and importing it from middleware.ts dragged that whole graph into a
+ * runtime that cannot execute it — the module threw on evaluation and every
+ * request to every portal answered 500.
+ *
+ * Nothing is lost by omitting it. The session strategy is JWT, so `auth()` in
+ * middleware only ever decoded the session cookie; resolveRemotePortalSession
+ * decodes the same cookie, with the same secret, under the same cookie name,
+ * using next-auth/jwt directly — which is edge-safe. The parameter is kept so a
+ * split deployment that genuinely needs a different resolver can still pass one.
+ */
+export function createMiddleware(portal: PortalType, authFn?: () => Promise<Session | null>) {
   return async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
@@ -88,10 +104,12 @@ export function createMiddleware(portal: PortalType, authFn: () => Promise<Sessi
 
     const isApi = pathname.startsWith("/api/");
     let session: Session | null = null;
-    try {
-      session = await authFn();
-    } catch {
-      // A split runtime may not possess the backend JWT signing secret.
+    if (authFn) {
+      try {
+        session = await authFn();
+      } catch {
+        // A split runtime may not possess the backend JWT signing secret.
+      }
     }
     session ??= await resolveRemotePortalSession(portal, request.headers.get("cookie"));
 
