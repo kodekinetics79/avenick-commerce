@@ -153,7 +153,7 @@ export function ProductCard({
               <span className="text-xs font-medium text-foreground">{review.rating.toFixed(1)}</span>
               <span className="text-xs">({review.reviewCount})</span>
             </div>
-          ) : <p className="mt-1.5 text-xs text-muted-foreground">No reviews yet</p>}
+          ) : <p className="mt-1.5 text-xs text-muted-foreground">{tp("noReviews")}</p>}
 
           <div className="mt-2.5 flex items-end justify-between">
             <div>
@@ -172,7 +172,7 @@ export function ProductCard({
         onClick={handleWishlist}
         disabled={!hasVariants && (price == null || !currency || vatRate == null)}
         className={`absolute top-2.5 end-2.5 z-10 grid h-10 w-10 place-items-center rounded-full border border-border/70 backdrop-blur transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${wishlisted ? "bg-danger text-white" : "bg-background/90 text-muted-foreground hover:text-danger"}`}
-        aria-label={wishlisted ? `Remove ${name} from wishlist` : `Add ${name} to wishlist`}
+        aria-label={wishlisted ? `${tp("removeFromWishlist")} — ${name}` : `${tp("addToWishlist")} — ${name}`}
         aria-pressed={wishlisted}
       >
         <Heart className={`h-4 w-4 ${wishlisted ? "fill-current" : ""}`} />
@@ -186,7 +186,7 @@ export function ProductCard({
           className="flex h-10 w-full items-center justify-center gap-1.5 rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {inStock ? <ShoppingCart className="h-3.5 w-3.5" /> : <MessageSquare className="h-3.5 w-3.5" />}
-          {inStock ? (hasVariants ? "Select options" : tp("addToCart")) : "Request availability"}
+          {inStock ? (hasVariants ? tp("selectOptions") : tp("addToCart")) : tp("requestAvailability")}
         </button>
       </div>
     </article>

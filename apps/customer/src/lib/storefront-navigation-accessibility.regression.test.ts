@@ -16,7 +16,11 @@ describe("storefront navigation accessibility", () => {
     expect(productLinkEnd).toBeGreaterThan(productLinkStart);
     expect(card.slice(productLinkStart, productLinkEnd)).not.toContain("<button");
     expect(card).toContain("aria-pressed={wishlisted}");
-    expect(card).toContain("Add ${name} to wishlist");
+    // The label is translated now, so assert the property rather than the English
+    // literal: the control carries an aria-label, and that label names the product
+    // it acts on so a screen reader hears which card was toggled.
+    expect(card).toMatch(/aria-label=\{wishlisted \?/);
+    expect(card.slice(card.indexOf("aria-label={wishlisted ?"), card.indexOf("aria-label={wishlisted ?") + 200)).toContain("${name}");
     expect(card).toContain('className="flex h-10 w-full');
     expect(card).not.toContain("group-hover:opacity-100");
   });
