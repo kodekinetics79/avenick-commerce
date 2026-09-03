@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { RotateCcw } from "lucide-react";
+import { Button } from "@avenick/ui";
 import { useCartStore } from "@/stores/cart";
 import { canonicalRequisitionCartLines } from "@/lib/requisition-reprice";
 
@@ -36,14 +37,19 @@ export function ReorderButton({ items }: { items: Item[] }) {
   const reorderable = items.length > 0;
 
   return (
-    <button
+    <Button
       type="button"
+      variant="primary"
+      size="sm"
       onClick={reorder}
       disabled={!reorderable}
-      className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+      // A `title` is not announced by most screen readers and never appears on
+      // touch, so the reason a disabled control is disabled is given as its
+      // accessible name rather than only as a tooltip.
+      aria-label={reorderable ? "Add every catalog item on this list to the cart" : "Nothing to reorder — no item on this list is linked to a catalog product"}
       title={reorderable ? "Add all catalog items to cart" : "No catalog-linked items to reorder"}
     >
-      <RotateCcw className="h-3.5 w-3.5" /> Reorder
-    </button>
+      <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Reorder
+    </Button>
   );
 }

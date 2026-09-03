@@ -1,18 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ChevronRight, FileText, RotateCcw, Users } from "lucide-react";
 import {
-  Building2,
-  CreditCard,
-  FileText,
-  ArrowRight,
-  Plus,
-  RotateCcw,
-  ClipboardList,
-  CheckSquare,
-  Clock,
-} from "lucide-react";
+  Button,
+  CellGrid,
+  Dateline,
+  EmptyState,
+  Eyebrow,
+  LedgerTable,
+  Stat,
+  StatusPill,
+  Surface,
+} from "@avenick/ui";
 import { B2BShell } from "@/components/b2b/b2b-shell";
-import { formatCurrency } from "@avenick/utils";
+import { Money, MoneyStack } from "@/components/b2b/money";
 import { fetchB2BJson } from "@/lib/b2b";
 import { format } from "date-fns";
 
@@ -56,144 +57,214 @@ export default async function B2BDashboardPage() {
 
   const { company, companyCurrency, lifetimeSpendByCurrency, pendingApprovals, openRFQs, recentOrders, reorderItems } = data;
   const creditLimit = company.creditLimit ? Number(company.creditLimit) : null;
-  // One figure per currency the company has actually paid in — never a mixed
-  // sum labelled with a currency nobody chose.
-  const lifetimeSpend =
-    lifetimeSpendByCurrency.length > 0
-      ? lifetimeSpendByCurrency.map((row) => formatCurrency(row.total, row.currency as never)).join(" · ")
-      : "—";
+
+  /*
+   * What is open on this company's desk, above the fold, before anything else.
+   *
+   * Only states the data actually supports get a row, and only in the terms the
+   * data supports them. /api/b2b/dashboard counts every PENDING_APPROVAL PO
+   * belonging to the COMPANY — it does not know which approver a policy routed
+   * one to, and it does not know whether the viewer is an approver at all, so
+   * nothing here may say "routed to you". A buyer with no approver role sees
+   * this band, and the approvals page correctly tells them a decision needs an
+   * approver or admin role.
+   *
+   * An open RFQ is work a supplier owes the company, but no notification is
+   * sent when a quote lands, so checking is genuinely the buyer's job and it
+   * belongs here too. When both are zero the band says so — it does not
+   * disappear, because a queue that vanishes when it empties leaves the reader
+   * unsure whether it ran.
+   */
+  const queue: Array<{ href: string; label: string; count: number; tone: "warning" | "accent"; note: string }> = [];
+  if (pendingApprovals > 0) {
+    queue.push({
+      href: "/b2b/approvals",
+      label: `purchase order${pendingApprovals === 1 ? "" : "s"} awaiting approval`,
+      count: pendingApprovals,
+      tone: "warning",
+      note: "Waiting on an approver or admin at your company.",
+    });
+  }
+  if (openRFQs > 0) {
+    queue.push({
+      href: "/b2b/quotes",
+      label: `open request${openRFQs === 1 ? "" : "s"} for quotation`,
+      count: openRFQs,
+      tone: "accent",
+      note: "No alert is sent when a supplier prices one, so check the quote list.",
+    });
+  }
 
   return (
-    <B2BShell>
-      <div className="space-y-6">
-        <div className="flex items-start justify-between">
+    <B2BShell eyebrow="Overview" title={company.nameEn}>
+      <div className="space-y-block">
+        {/* ── What is open right now ────────────────────────────────────────
+            A recessed band, because it is context about the state of the
+            workspace, carrying raised rows because each one is an action. It
+            is the first thing on the page for the same reason a queue is the
+            first thing on a desk. The heading says "open" rather than "needs
+            you" because the counts behind it are the company's, not the
+            viewer's — see the note on `queue` above. */}
+        <Surface rung={1} className="p-4">
+          <Eyebrow className="mb-3">Open now</Eyebrow>
+          {queue.length === 0 ? (
+            <>
+              <p className="u-body text-ink-1">Nothing is open.</p>
+              <Dateline className="mt-1">
+                Counts your company&apos;s purchase orders awaiting approval and its requests for quotation still open
+              </Dateline>
+            </>
+          ) : (
+            <ul className="space-y-2">
+              {queue.map((entry) => (
+                <li key={entry.href}>
+                  {/* rounded-lg resolves to the portal's --radius, so the focus
+                      ring on the link is concentric with the surface it wraps. */}
+                  <Link href={entry.href} className="u-focus block rounded-lg">
+                    <Surface rung={2} interactive className="flex items-center gap-3 px-4 py-3">
+                      <StatusPill tone={entry.tone} dot>
+                        {entry.count}
+                      </StatusPill>
+                      <span className="min-w-0 flex-1">
+                        <span className="u-ui block font-medium text-ink-1">{entry.label}</span>
+                        <span className="u-meta block text-ink-2">{entry.note}</span>
+                      </span>
+                      {/* rtl:rotate-180 — a direction-implying icon must flip. */}
+                      <ChevronRight className="h-4 w-4 shrink-0 text-ink-3 rtl:rotate-180" aria-hidden="true" />
+                    </Surface>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Surface>
+
+        {/* ── Position ──────────────────────────────────────────────────────
+            One panel divided by hairlines, not four floating boxes. The team
+            and order counts used to be a grey subtitle under the company name;
+            they are figures, so they are rendered as figures. */}
+        <CellGrid cols={{ base: 2, lg: 4 }}>
           <div>
-            <h1 className="text-2xl font-bold">Welcome back, {company.nameEn}</h1>
-            <p className="text-muted-foreground text-sm">
-              {company._count.members} team member{company._count.members === 1 ? "" : "s"} · {company._count.orders} orders to date
-            </p>
-          </div>
-          <Link
-            href="/b2b/rfq/new"
-            className="inline-flex items-center gap-1.5 bg-primary text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="h-4 w-4" /> New RFQ
-          </Link>
-        </div>
-
-        {pendingApprovals > 0 && (
-          <Link
-            href="/b2b/approvals"
-            className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4 hover:border-amber-300 transition-colors"
-          >
-            <CheckSquare className="h-5 w-5 text-amber-600 shrink-0" />
-            <p className="font-semibold text-amber-800 text-sm flex-1">
-              {pendingApprovals} purchase order{pendingApprovals === 1 ? "" : "s"} awaiting approval
-            </p>
-            <ArrowRight className="h-4 w-4 text-amber-600" />
-          </Link>
-        )}
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {[
-            { label: "Lifetime spend", value: lifetimeSpend, icon: CreditCard, href: "/b2b/analytics" },
-            { label: "Credit limit", value: creditLimit ? formatCurrency(creditLimit, companyCurrency as never) : "Not set", icon: Building2, href: "/b2b/billing" },
-            { label: "Open RFQs", value: openRFQs, icon: FileText, href: "/b2b/quotes" },
-            { label: "Pending approvals", value: pendingApprovals, icon: CheckSquare, href: "/b2b/approvals" },
-          ].map((k) => {
-            const Icon = k.icon;
-            return (
-              <Link key={k.label} href={k.href} className="bg-white rounded-2xl border border-border p-4 hover:border-primary/40 transition-colors">
-                <Icon className="h-4 w-4 text-muted-foreground mb-2" />
-                <p className="text-xl font-bold">{k.value}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{k.label}</p>
-              </Link>
-            );
-          })}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Recent orders */}
-          <div className="bg-white rounded-2xl border border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <h2 className="font-semibold">Recent orders</h2>
-              <Link href="/account/orders" className="text-xs text-primary hover:underline">All orders →</Link>
+            <Eyebrow>Lifetime spend</Eyebrow>
+            <div className="mt-1.5">
+              {/* One figure per currency the company has actually paid in — never
+                  a mixed sum labelled with a currency nobody chose. */}
+              <MoneyStack
+                rows={lifetimeSpendByCurrency}
+                dateline="Paid order totals, as recorded, each in its own currency · no conversion applied"
+              />
             </div>
-            {recentOrders.length === 0 ? (
-              <div className="px-4 py-12 text-center">
-                <ClipboardList className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                <p className="text-sm text-muted-foreground">No orders yet — browse the catalog or raise an RFQ to get started.</p>
-              </div>
-            ) : (
-              <ul className="divide-y divide-border">
-                {recentOrders.map((o) => (
-                  <li key={o.id} className="px-5 py-3 flex items-center justify-between gap-3">
-                    <Link href={`/orders/${o.id}`} className="min-w-0">
-                      <p className="text-sm font-medium hover:text-primary">{o.orderNumber}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(o.createdAt), "MMM d, yyyy")} · {o.status.replace(/_/g, " ").toLowerCase()}
-                      </p>
-                    </Link>
-                    <span className="text-sm font-semibold shrink-0">{formatCurrency(Number(o.total), o.currency as never)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
+          <div>
+            <Eyebrow>Credit limit</Eyebrow>
+            <div className="mt-1.5">
+              {creditLimit ? (
+                <Money amount={creditLimit} currency={companyCurrency} />
+              ) : (
+                <span className="u-body text-ink-2">Not set</span>
+              )}
+            </div>
+            <Dateline className="mt-1">Read in {companyCurrency}, your company&apos;s jurisdiction currency</Dateline>
+          </div>
+          {/* Orders, not purchase orders — _count.orders counts Order rows, so
+              the link goes to the order history rather than to the PO queue,
+              whose count is a different number entirely. */}
+          <Stat
+            label="Orders to date"
+            value={company._count.orders}
+            icon={FileText}
+            href="/account/orders"
+            linkComponent={Link}
+          />
+          <Stat label="Team members" value={company._count.members} icon={Users} href="/b2b/team" linkComponent={Link} />
+        </CellGrid>
 
-          {/* Reorder */}
-          <div className="bg-white rounded-2xl border border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-              <RotateCcw className="h-4 w-4 text-muted-foreground" />
-              <h2 className="font-semibold">Buy again</h2>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {/* ── Recent orders ── */}
+          <LedgerTable
+            title="Recent orders"
+            rows={recentOrders}
+            getRowKey={(o) => o.id}
+            toolbar={
+              <Button asChild variant="link" size="sm">
+                <Link href="/account/orders">All orders</Link>
+              </Button>
+            }
+            columns={[
+              {
+                key: "orderNumber",
+                label: "Order",
+                render: (o) => (
+                  <Link href={`/orders/${o.id}`} className="u-focus u-mono rounded-nested text-primary-ink hover:underline">
+                    {o.orderNumber}
+                  </Link>
+                ),
+              },
+              {
+                key: "createdAt",
+                label: "Placed",
+                render: (o) => (
+                  <span className="u-meta text-ink-2">{format(new Date(o.createdAt), "MMM d, yyyy")}</span>
+                ),
+              },
+              {
+                key: "status",
+                label: "Status",
+                render: (o) => <StatusPill>{o.status.replace(/_/g, " ").toLowerCase()}</StatusPill>,
+              },
+              {
+                key: "total",
+                label: "Total",
+                numeric: true,
+                render: (o) => <Money amount={Number(o.total)} currency={o.currency} />,
+              },
+            ]}
+            empty={
+              <EmptyState
+                eyebrow="Nothing recorded"
+                headline="No orders have been placed by this company yet."
+                body="Orders raised from the catalogue or from an accepted quote will be listed here."
+              />
+            }
+          />
+
+          {/* ── Buy again ── */}
+          <Surface rung={2} className="overflow-hidden">
+            <div className="flex items-center gap-2 px-4 pt-4 pb-3">
+              <RotateCcw className="h-4 w-4 text-ink-3" aria-hidden="true" />
+              <h2 className="u-h3 text-ink-1">Buy again</h2>
             </div>
             {reorderItems.length === 0 ? (
-              <div className="px-4 py-12 text-center">
-                <RotateCcw className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                <p className="text-sm text-muted-foreground">Products you order will appear here for quick reordering.</p>
-              </div>
+              <EmptyState
+                eyebrow="Nothing recorded"
+                headline="No previously ordered products to repeat."
+                body="Products from your company's past orders appear here so they can be reordered without searching."
+              />
             ) : (
-              <ul className="divide-y divide-border">
+              <ul className="border-t border-hairline">
                 {reorderItems.map((item) => (
-                  <li key={item.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                  <li
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 border-b border-hairline px-4 py-3 last:border-b-0"
+                  >
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{item.nameEn}</p>
-                      <p className="text-xs text-muted-foreground">Last ordered ×{item.quantity} · SKU {item.sku}</p>
+                      <p className="u-ui truncate font-medium text-ink-1">{item.nameEn}</p>
+                      <p className="u-meta text-ink-3">
+                        Last ordered ×{item.quantity} · <span className="u-mono">{item.sku}</span>
+                      </p>
                     </div>
                     {item.product && item.product.status === "ACTIVE" ? (
-                      <Link
-                        href={`/products/${item.product.slug}`}
-                        className="text-xs font-semibold text-primary border border-primary/30 px-3 py-1.5 rounded-lg hover:bg-primary/10 transition-colors shrink-0"
-                      >
-                        Reorder
-                      </Link>
+                      <Button asChild variant="secondary" size="xs" className="shrink-0">
+                        <Link href={`/products/${item.product.slug}`}>Reorder</Link>
+                      </Button>
                     ) : (
-                      <span className="text-xs text-muted-foreground shrink-0">Unavailable</span>
+                      <span className="u-meta shrink-0 text-ink-3">Unavailable</span>
                     )}
                   </li>
                 ))}
               </ul>
             )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { href: "/b2b/quotes", label: "Quotes & RFQs", icon: FileText },
-            { href: "/b2b/purchase-orders", label: "Purchase orders", icon: ClipboardList },
-            { href: "/b2b/lists", label: "Requisition lists", icon: ClipboardList },
-            { href: "/b2b/company", label: "Company profile", icon: Building2 },
-          ].map((l) => {
-            const Icon = l.icon;
-            return (
-              <Link key={l.href} href={l.href} className="group bg-white rounded-2xl border border-border p-4 hover:border-primary/40 transition-colors flex items-center justify-between">
-                <span className="inline-flex items-center gap-2 text-sm font-medium">
-                  <Icon className="h-4 w-4 text-muted-foreground" /> {l.label}
-                </span>
-                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              </Link>
-            );
-          })}
+          </Surface>
         </div>
       </div>
     </B2BShell>

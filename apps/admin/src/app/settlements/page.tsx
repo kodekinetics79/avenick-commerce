@@ -3,18 +3,24 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getSettlementBoard, Prisma, PayoutStatus, type Currency } from "@avenick/database";
 import { formatCurrency, type SupportedCurrency } from "@avenick/utils";
 import { generatePayoutsForPeriod, markPayoutPaid, startPayoutProcessing } from "./actions";
-import { Receipt, ArrowLeft, CheckCircle, Clock, RefreshCw, XCircle, Store, AlertTriangle, PlayCircle } from "lucide-react";
+import { Receipt, CheckCircle, Clock, RefreshCw, XCircle, Store, AlertTriangle, PlayCircle } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+import {
+  PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Surface,
+  Num, Eyebrow, Dateline, Button, type PillTone,
+} from "@avenick/ui";
+import { MoneyStat } from "@/app/finance/money-figures";
+import { FilterTabs, Pager, CONTROL, CONTROL_SM } from "@/app/finance/console-chrome";
 
 export const metadata = { title: "Settlements" };
 export const dynamic = "force-dynamic";
 
-const STATUS_CONFIG: Record<PayoutStatus, { label: string; color: string; icon: typeof CheckCircle; card: string }> = {
-  PENDING: { label: "Pending", color: "bg-amber-100 text-amber-700", icon: Clock, card: "bg-amber-50 border-amber-200" },
-  PROCESSING: { label: "Processing", color: "bg-blue-100 text-primary", icon: RefreshCw, card: "bg-blue-50 border-blue-200" },
-  PAID: { label: "Paid", color: "bg-green-100 text-green-700", icon: CheckCircle, card: "bg-green-50 border-green-200" },
-  FAILED: { label: "Failed", color: "bg-red-100 text-red-700", icon: XCircle, card: "bg-red-50 border-red-200" },
+const STATUS_CONFIG: Record<PayoutStatus, { label: string; tone: PillTone; icon: typeof CheckCircle }> = {
+  PENDING: { label: "Pending", tone: "warning", icon: Clock },
+  PROCESSING: { label: "Processing", tone: "accent", icon: RefreshCw },
+  PAID: { label: "Paid", tone: "success", icon: CheckCircle },
+  FAILED: { label: "Failed", tone: "danger", icon: XCircle },
 };
 
 const CARD_LABEL: Record<PayoutStatus, string> = {
@@ -97,31 +103,26 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <Link href="/finance" className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
-                <ArrowLeft className="h-3.5 w-3.5" /> Finance
-              </Link>
-              <span className="text-muted-foreground">/</span>
-              <span className="text-sm font-medium">Settlements</span>
-            </div>
-            <h1 className="text-2xl font-bold">Supplier Settlements</h1>
-            <p className="text-sm text-muted-foreground">
-              Payouts to sellers net of commission. Generating a run and every status change are audit-logged.
-            </p>
-          </div>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          linkComponent={Link}
+          breadcrumbs={[{ label: "Finance", href: "/finance" }, { label: "Settlements" }]}
+          eyebrow="Money out"
+          title="Supplier settlements"
+          description="Payouts to sellers net of commission. Generating a run and every status change are audit-logged."
+          dateline="Amounts per seller and currency, as accrued · no conversion applied"
+        />
 
         {ran && (
-          <div className={`rounded-2xl border p-4 text-sm text-slate-800 ${failed > 0 ? "border-red-200 bg-red-50" : "border-blue-200 bg-blue-50"}`}>
-            <p className="font-semibold">
+          // The outcome of one run. A refusal is the loudest thing on the page,
+          // because a refused seller means the ledger did not reconcile.
+          <Surface role="status" tone={failed > 0 ? "danger" : "accent"} className="p-4">
+            <p className="u-ui font-medium text-ink-1">
               {generated > 0
                 ? `Settlement run created ${generated} payout${generated === 1 ? "" : "s"}.`
                 : "Settlement run created no payouts."}
             </p>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="u-meta mt-1 max-w-prose text-ink-2">
               {counter(searchParams.sellers)} seller{counter(searchParams.sellers) === 1 ? "" : "s"} examined ·{" "}
               {counter(searchParams.claimed)} had no unclaimed accrual left in that window
               {unpayable > 0 ? ` · ${unpayable} had nothing payable (claimable orders refunded in full)` : ""}
@@ -130,330 +131,400 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
               {generated > 0 ? " New payouts are PENDING until you record the transfer below." : ""}
             </p>
             {failed > 0 && (
-              <div className="mt-2 text-xs text-red-700">
-                <p className="font-semibold">
+              <div className="mt-3 border-t border-danger-rule pt-3">
+                <p className="u-ui inline-flex items-center gap-2 font-medium text-danger-ink">
+                  <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
                   {failed} seller{failed === 1 ? "" : "s"} refused: the ledger did not reconcile, so nothing was written for them.
                 </p>
-                <ul className="mt-1 list-disc ps-4 space-y-0.5">
+                <ul className="u-meta mt-1.5 list-disc space-y-0.5 ps-5 text-ink-2">
                   {refusals.map((line, index) => <li key={index}>{line}</li>)}
                 </ul>
               </div>
             )}
-          </div>
+          </Surface>
         )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
           {Object.values(PayoutStatus).map((s) => {
             const lines = linesFor(s);
+            const count = countFor(s);
             return (
-              <div key={s} className={`rounded-2xl border p-4 ${STATUS_CONFIG[s].card}`}>
-                <span className="text-sm text-muted-foreground">{CARD_LABEL[s]}</span>
-                {lines.length === 0 ? (
-                  <p className="text-xl font-bold mt-1 text-muted-foreground">—</p>
-                ) : (
-                  lines.map((line) => (
-                    <p key={line.currency} className="text-xl font-bold mt-1">
-                      {money(line._sum.amount ?? ZERO, line.currency)}
-                    </p>
-                  ))
-                )}
-                <p className="text-xs text-muted-foreground mt-0.5">{countFor(s)} payouts</p>
-              </div>
+              <MoneyStat
+                key={s}
+                label={CARD_LABEL[s]}
+                lines={lines.map((line) => ({
+                  currency: line.currency,
+                  formatted: money(line._sum.amount ?? ZERO, line.currency),
+                }))}
+                note={`${count} payout${count === 1 ? "" : "s"}`}
+              />
             );
           })}
-        </div>
+        </CellGrid>
 
         {/* Generate. The control only exists when there is accrual it can turn
             into money — a period picker that provably produces nothing would be
             a button that looks like it works. */}
-        <div className="bg-white rounded-2xl border border-border p-5">
-          <div className="flex items-center gap-2 mb-1">
-            <PlayCircle className="h-4 w-4 text-muted-foreground" />
-            <h2 className="font-semibold">Generate payouts</h2>
+        <Surface className="overflow-hidden">
+          <div className="border-b-2 border-border-strong px-5 py-3">
+            <h2 className="u-h3 inline-flex items-center gap-2 text-ink-1">
+              <PlayCircle className="h-4 w-4 text-ink-3" aria-hidden="true" /> Generate payouts
+            </h2>
           </div>
           {claimable.byCurrency.length === 0 ? (
-            <p className="text-sm text-muted-foreground mt-2">
-              No commission is awaiting settlement. Commission accrues when an order containing a seller&apos;s items is
-              paid; each accrual can be claimed into exactly one payout, and everything accrued so far already has been.
-            </p>
+            <EmptyState
+              eyebrow="Nothing awaiting settlement"
+              headline="No commission is awaiting settlement."
+              body="Commission accrues when an order containing a seller's items is paid; each accrual can be claimed into exactly one payout, and everything accrued so far already has been."
+            />
           ) : (
-            <>
-              <p className="text-sm text-muted-foreground mt-1">
+            <div className="p-5">
+              <p className="u-ui max-w-prose text-ink-2">
                 Unsettled commission is grouped by seller and currency: one payout per pair, one line per order, gross
                 less commission. Refunds already completed on an order are deducted from its line and their open
                 receivable is marked applied. Re-running a period cannot pay the same order twice.
               </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {claimable.byCurrency.map((row) => (
-                  <div key={row.currency} className="rounded-xl border border-border p-3">
-                    <p className="text-lg font-bold">{money(row.amount, row.currency)}</p>
-                    <p className="text-xs text-muted-foreground">
-                      commission accrued on {row.orders} order{row.orders === 1 ? "" : "s"} across {row.sellers} seller
-                      {row.sellers === 1 ? "" : "s"}, oldest {format(row.earliestAt, "MMM d, yyyy")}
-                    </p>
-                  </div>
-                ))}
-              </div>
 
-              <form action={generatePayoutsForPeriod} className="mt-4 flex flex-wrap items-end gap-3">
-                <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+              {/* What the run has to work with, per currency. Presented as one
+                  hairline-divided panel, because these figures are one fact. */}
+              {/* A single column, always full: the number of currencies varies,
+                  and a hairline-divided panel with a half-empty last row would
+                  read as a missing cell rather than as fewer currencies. */}
+              <CellGrid cols={{ base: 1 }} density="compact" className="mt-4">
+                {claimable.byCurrency.map((row) => (
+                  <MoneyStat
+                    key={row.currency}
+                    label={`${row.currency} awaiting settlement`}
+                    lines={[{ currency: row.currency, formatted: money(row.amount, row.currency) }]}
+                    dateline={`Accrued on ${row.orders} order${row.orders === 1 ? "" : "s"} across ${row.sellers} seller${row.sellers === 1 ? "" : "s"} · oldest ${format(row.earliestAt, "MMM d, yyyy")}`}
+                  />
+                ))}
+              </CellGrid>
+
+              {/* The run itself. Recessed, because every control on it is an
+                  input; the one raised thing is the act. */}
+              <form
+                action={generatePayoutsForPeriod}
+                data-rung={1}
+                className="mt-4 flex flex-wrap items-end gap-3 border border-border p-4"
+              >
+                <label className="u-meta flex flex-col gap-1 font-medium text-ink-2">
                   Accrued from (UTC)
                   <input
+                    data-rung={1}
                     type="date"
                     name="periodFrom"
                     required
                     max={today}
                     defaultValue={defaultFrom}
-                    className="h-10 rounded-xl border border-border px-3 text-sm text-foreground"
+                    className={`${CONTROL} fig w-auto`}
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+                <label className="u-meta flex flex-col gap-1 font-medium text-ink-2">
                   to (UTC, inclusive)
                   <input
+                    data-rung={1}
                     type="date"
                     name="periodTo"
                     required
                     max={today}
                     defaultValue={today}
-                    className="h-10 rounded-xl border border-border px-3 text-sm text-foreground"
+                    className={`${CONTROL} fig w-auto`}
                   />
                 </label>
-                <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+                <label className="u-meta flex min-w-[16rem] flex-col gap-1 font-medium text-ink-2">
                   Seller
-                  <select
-                    name="sellerId"
-                    defaultValue=""
-                    className="h-10 rounded-xl border border-border px-3 text-sm text-foreground"
-                  >
+                  <select data-rung={1} name="sellerId" defaultValue="" className={CONTROL}>
                     <option value="">All sellers with unsettled commission</option>
                     {claimableSellers.map((row) => (
                       <option key={row.sellerId} value={row.sellerId}>{row.sellerName}</option>
                     ))}
                   </select>
                 </label>
-                <button
-                  type="submit"
-                  className="h-10 rounded-xl bg-slate-900 hover:bg-slate-800 px-4 text-sm font-semibold text-white transition-colors"
-                >
+                <Button type="submit" variant="secondary" size="md">
                   Generate payouts
-                </button>
+                </Button>
               </form>
 
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="border-b border-border">
-                    <tr>
-                      {["Seller", "Currency", "Orders", "Commission awaiting settlement"].map((h) => (
-                        <th key={h} className="px-3 py-2 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
+              <div className="mt-4 overflow-x-auto scrollbar-thin">
+                <table className="w-full border-collapse">
+                  <caption className="sr-only">Commission awaiting settlement, by seller and currency</caption>
+                  <thead>
+                    <tr className="border-b-2 border-border-strong">
+                      {["Seller", "Currency", "Orders", "Commission awaiting settlement"].map((h, i) => (
+                        <th key={h} scope="col" className={`px-3 py-2 ${i === 3 ? "text-end" : "text-start"}`}>
+                          <Eyebrow as="span" className="block">{h}</Eyebrow>
+                        </th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
+                  <tbody>
                     {claimable.bySeller.map((row) => (
-                      <tr key={`${row.sellerId}:${row.currency}`}>
-                        <td className="px-3 py-2">{row.sellerName}</td>
-                        <td className="px-3 py-2 text-muted-foreground">{row.currency}</td>
-                        <td className="px-3 py-2 text-muted-foreground">{row.orders}</td>
-                        <td className="px-3 py-2 font-medium">{money(row.amount, row.currency)}</td>
+                      <tr key={`${row.sellerId}:${row.currency}`} className="u-ledger-row border-b border-hairline last:border-b-0">
+                        <td className="px-3 py-2 text-ui text-ink-1">{row.sellerName}</td>
+                        <td className="px-3 py-2 text-ui text-ink-2">{row.currency}</td>
+                        <td className="fig px-3 py-2 text-ui text-ink-2">{row.orders}</td>
+                        <td className="fig px-3 py-2 text-end text-ui text-ink-1">{money(row.amount, row.currency)}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 {claimable.truncated && (
-                  <p className="text-xs text-muted-foreground mt-2">
+                  <Dateline className="mt-2">
                     Showing the largest {claimable.bySeller.length} seller/currency positions. A run with no seller
                     selected settles every seller, including those not listed here.
-                  </p>
-                )}
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {([undefined, ...Object.values(PayoutStatus)] as const).map((s) => {
-            const active = status === s || (!status && !s);
-            return (
-              <Link
-                key={s ?? "all"}
-                href={filterHref({ status: s })}
-                className={`text-xs px-3 py-1.5 rounded-lg border ${active ? "bg-primary text-white border-primary" : "border-border hover:bg-muted"}`}
-              >
-                {s ? STATUS_CONFIG[s].label : "All"}
-              </Link>
-            );
-          })}
-        </div>
-
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
-                <tr>
-                  {["Seller", "Period", "Orders", "Payout total", "Status", "Reference", "Created", "Record settlement"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {payouts.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center">
-                      <Receipt className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        {status
-                          ? "No payouts match the current filter."
-                          : claimable.byCurrency.length > 0
-                            ? "No payouts have been generated yet. The commission above is awaiting a settlement run."
-                            : "No payouts have been generated, and no commission is awaiting settlement."}
-                      </p>
-                    </td>
-                  </tr>
-                )}
-                {payouts.map((p) => {
-                  const cfg = STATUS_CONFIG[p.status];
-                  const StatusIcon = cfg.icon;
-                  // Totals are aggregated over every line; p.items is a preview.
-                  const { gross, commission, net: lineNet } = p.lineTotals;
-                  return (
-                    <tr key={p.id} className="hover:bg-slate-50/60 align-top">
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-2">
-                          <span className="h-7 w-7 rounded-lg bg-orange-50 flex items-center justify-center">
-                            <Store className="h-3.5 w-3.5 text-orange-600" />
-                          </span>
-                          <span className="font-medium">{p.seller.businessNameEn}</span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                        {format(p.periodFrom, "MMM d")} – {format(p.periodTo, "MMM d, yyyy")}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        <details className="max-w-[22rem]">
-                          <summary className="cursor-pointer select-none">
-                            {p._count.items} order{p._count.items === 1 ? "" : "s"}
-                          </summary>
-                          <table className="mt-2 w-full text-xs">
-                            <thead>
-                              <tr className="text-muted-foreground">
-                                <th className="py-1 text-start font-medium">Order</th>
-                                <th className="py-1 text-end font-medium">Gross</th>
-                                <th className="py-1 text-end font-medium">Commission</th>
-                                <th className="py-1 text-end font-medium">Net</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {p.items.map((item) => (
-                                <tr key={item.id}>
-                                  <td className="py-1 font-mono">{item.order.orderNumber}</td>
-                                  <td className="py-1 text-end">{money(item.amount, p.currency)}</td>
-                                  <td className="py-1 text-end text-red-600">-{money(item.commission, p.currency)}</td>
-                                  <td className="py-1 text-end font-medium">{money(item.net, p.currency)}</td>
-                                </tr>
-                              ))}
-                              <tr className="border-t border-border font-semibold">
-                                <td className="py-1">Total</td>
-                                <td className="py-1 text-end">{money(gross, p.currency)}</td>
-                                <td className="py-1 text-end text-red-600">-{money(commission, p.currency)}</td>
-                                <td className="py-1 text-end">{money(lineNet, p.currency)}</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                          {p._count.items > p.items.length && (
-                            <p className="mt-1 text-[11px] text-muted-foreground">
-                              First {p.items.length} of {p._count.items} lines shown; the totals cover every line.
-                            </p>
-                          )}
-                          {p.notes && <p className="mt-2 text-[11px] text-muted-foreground">{p.notes}</p>}
-                        </details>
-                      </td>
-                      <td className="px-4 py-3 font-semibold whitespace-nowrap">
-                        {money(p.amount, p.currency)}
-                        {/* Refund netting decrements the payout and its lines
-                            together, so these agree unless something wrote one
-                            without the other. Say so rather than pick one. */}
-                        {!lineNet.equals(p.amount) && (
-                          <span className="mt-1 flex items-center gap-1 text-[11px] font-medium text-red-600">
-                            <AlertTriangle className="h-3 w-3" /> lines total {money(lineNet, p.currency)}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${cfg.color}`}>
-                          <StatusIcon className="h-3 w-3" /> {cfg.label}
-                        </span>
-                        {p.processedAt && (
-                          <p className="text-[11px] text-muted-foreground mt-0.5">{format(p.processedAt, "MMM d, yyyy")}</p>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.reference ?? "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{format(p.createdAt, "MMM d, yyyy")}</td>
-                      <td className="px-4 py-3">
-                        {p.status === "PAID" ? (
-                          <span className="text-xs text-muted-foreground">Settled</span>
-                        ) : p.status === "FAILED" ? (
-                          // The only transition out of FAILED is back to PROCESSING
-                          // (finance.setPayoutStatus); a Paid control here would always error.
-                          <form action={startPayoutProcessing.bind(null, p.id)}>
-                            <button
-                              type="submit"
-                              className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-blue-200 text-primary hover:bg-blue-50 transition-colors"
-                            >
-                              <RefreshCw className="h-3.5 w-3.5" /> Retry transfer
-                            </button>
-                          </form>
-                        ) : (
-                          <div className="flex flex-col gap-2">
-                            {p.status === "PENDING" && (
-                              <form action={startPayoutProcessing.bind(null, p.id)}>
-                                <button
-                                  type="submit"
-                                  className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-blue-200 text-primary hover:bg-blue-50 transition-colors"
-                                >
-                                  <RefreshCw className="h-3.5 w-3.5" /> Mark in transfer
-                                </button>
-                              </form>
-                            )}
-                            <form action={markPayoutPaid.bind(null, p.id)} className="flex items-center gap-1.5">
-                              <input
-                                name="reference"
-                                required
-                                maxLength={120}
-                                placeholder="Bank reference"
-                                className="h-8 w-32 rounded-lg border border-border px-2 text-xs"
-                              />
-                              <button
-                                type="submit"
-                                className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors"
-                                title="Records the transfer and settles the commission on this payout's orders. This cannot be undone."
-                              >
-                                <CheckCircle className="h-3.5 w-3.5" /> Paid
-                              </button>
-                            </form>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-border text-sm">
-              <span className="text-muted-foreground">Page {page} of {totalPages} · {total} payouts</span>
-              <div className="flex gap-2">
-                {page > 1 && (
-                  <Link href={filterHref({ page: String(page - 1) })} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs">Previous</Link>
-                )}
-                {page < totalPages && (
-                  <Link href={filterHref({ page: String(page + 1) })} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs">Next</Link>
+                  </Dateline>
                 )}
               </div>
             </div>
           )}
-        </div>
+        </Surface>
+
+        <FilterTabs
+          label="Filter payouts by status"
+          tabs={([undefined, ...Object.values(PayoutStatus)] as const).map((s) => ({
+            href: filterHref({ status: s }),
+            label: s ? STATUS_CONFIG[s].label : "All",
+            active: status === s || (!status && !s),
+          }))}
+        />
+
+        <LedgerTable
+          rows={payouts}
+          getRowKey={(p) => p.id}
+          stickyHead
+          dateline="One payout per seller and currency, gross less commission · no conversion applied"
+          rowProps={(p) => ({
+            // A payout whose lines do not add up to its own total is the one
+            // thing on this page that must never be scrolled past.
+            // The hover tint is a plain background-color, so without a hover
+            // variant of its own the wash is REPLACED the moment the pointer
+            // lands on the row — i.e. exactly when the operator is reading it.
+            // The hover state is a deeper wash of the same hue, never a neutral.
+            className: p.lineTotals.net.equals(p.amount) ? undefined : "bg-danger-soft hover:bg-danger/10",
+          })}
+          columns={[
+            {
+              key: "seller",
+              label: "Seller",
+              render: (p) => (
+                <span className="inline-flex items-center gap-2 py-1">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-nested bg-neutral-soft text-ink-3">
+                    <Store className="h-3.5 w-3.5" aria-hidden="true" />
+                  </span>
+                  <span className="font-medium text-ink-1">{p.seller.businessNameEn}</span>
+                </span>
+              ),
+            },
+            {
+              key: "period",
+              label: "Period",
+              hideOnMobile: true,
+              render: (p) => (
+                <span className="whitespace-nowrap text-ink-2">
+                  {format(p.periodFrom, "MMM d")} – {format(p.periodTo, "MMM d, yyyy")}
+                </span>
+              ),
+            },
+            {
+              key: "lines",
+              label: "Lines",
+              width: "22rem",
+              render: (p) => {
+                // Totals are aggregated over every line; p.items is a preview.
+                const { gross, commission, net: lineNet } = p.lineTotals;
+                return (
+                  <details className="max-w-[22rem] py-1">
+                    <summary className="u-focus cursor-pointer select-none rounded-nested text-ink-2 marker:text-ink-3">
+                      <span className="fig">{p._count.items}</span> order{p._count.items === 1 ? "" : "s"}
+                    </summary>
+                    <table className="mt-2 w-full border-collapse">
+                      <caption className="sr-only">Lines making up this payout</caption>
+                      <thead>
+                        <tr className="border-b border-hairline">
+                          {["Order", "Gross", "Commission", "Net"].map((h, i) => (
+                            <th key={h} scope="col" className={`py-1 ${i === 0 ? "text-start" : "text-end"}`}>
+                              <Eyebrow as="span" className="block">{h}</Eyebrow>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {p.items.map((item) => (
+                          <tr key={item.id}>
+                            <td className="u-mono py-1 text-meta text-ink-2">{item.order.orderNumber}</td>
+                            <td className="fig py-1 text-end text-meta text-ink-2">{money(item.amount, p.currency)}</td>
+                            <td className="fig py-1 text-end text-meta text-danger-ink">−{money(item.commission, p.currency)}</td>
+                            <td className="fig py-1 text-end text-meta font-medium text-ink-1">{money(item.net, p.currency)}</td>
+                          </tr>
+                        ))}
+                        <tr className="border-t border-border-strong">
+                          <td className="py-1 text-meta font-medium text-ink-1">Total</td>
+                          <td className="fig py-1 text-end text-meta text-ink-1">{money(gross, p.currency)}</td>
+                          <td className="fig py-1 text-end text-meta text-danger-ink">−{money(commission, p.currency)}</td>
+                          <td className="fig py-1 text-end text-meta font-medium text-ink-1">{money(lineNet, p.currency)}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    {p._count.items > p.items.length && (
+                      <Dateline className="mt-1">
+                        First {p.items.length} of {p._count.items} lines shown; the totals cover every line.
+                      </Dateline>
+                    )}
+                    {p.notes && <Dateline className="mt-1.5">{p.notes}</Dateline>}
+                  </details>
+                );
+              },
+            },
+            {
+              key: "amount",
+              label: "Payout total",
+              numeric: true,
+              render: (p) => {
+                const lineNet = p.lineTotals.net;
+                return (
+                  <div className="flex flex-col items-end gap-1 py-1">
+                    <Num value={money(p.amount, p.currency)} className="whitespace-nowrap" />
+                    {/* Refund netting decrements the payout and its lines
+                        together, so these agree unless something wrote one
+                        without the other. Say so rather than pick one. */}
+                    {!lineNet.equals(p.amount) && (
+                      <span className="u-meta inline-flex items-center gap-1 whitespace-nowrap font-medium text-danger-ink">
+                        <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+                        lines total {money(lineNet, p.currency)}
+                      </span>
+                    )}
+                  </div>
+                );
+              },
+            },
+            {
+              key: "status",
+              label: "Status",
+              render: (p) => {
+                const cfg = STATUS_CONFIG[p.status];
+                const StatusIcon = cfg.icon;
+                return (
+                  <div className="py-1">
+                    <StatusPill tone={cfg.tone}>
+                      <StatusIcon className="h-3 w-3" aria-hidden="true" /> {cfg.label}
+                    </StatusPill>
+                    {p.processedAt && (
+                      <p className="u-meta mt-0.5 text-ink-3">{format(p.processedAt, "MMM d, yyyy")}</p>
+                    )}
+                  </div>
+                );
+              },
+            },
+            {
+              key: "reference",
+              label: "Reference",
+              hideOnMobile: true,
+              render: (p) => <span className="u-mono text-meta text-ink-3">{p.reference ?? "—"}</span>,
+            },
+            {
+              key: "createdAt",
+              label: "Created",
+              hideOnMobile: true,
+              render: (p) => <span className="whitespace-nowrap text-ink-2">{format(p.createdAt, "MMM d, yyyy")}</span>,
+            },
+            {
+              key: "record",
+              label: "Record settlement",
+              width: "260px",
+              render: (p) => {
+                if (p.status === "PAID") return <span className="u-meta text-ink-3">Settled</span>;
+                if (p.status === "FAILED") {
+                  return (
+                    // The only transition out of FAILED is back to PROCESSING
+                    // (finance.setPayoutStatus); a Paid control here would always error.
+                    <form action={startPayoutProcessing.bind(null, p.id)}>
+                      <Button type="submit" variant="secondary" size="xs">
+                        <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Retry transfer
+                      </Button>
+                    </form>
+                  );
+                }
+                return (
+                  <div className="flex flex-col gap-2 py-1">
+                    {p.status === "PENDING" && (
+                      <form action={startPayoutProcessing.bind(null, p.id)}>
+                        <Button type="submit" variant="secondary" size="xs">
+                          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> Mark in transfer
+                        </Button>
+                      </form>
+                    )}
+                    {/* Recording a transfer settles the commission on this
+                        payout's orders and cannot be undone, so it is marked as
+                        irreversible in words rather than in a title attribute
+                        nothing announces. */}
+                    <form
+                      action={markPayoutPaid.bind(null, p.id)}
+                      data-rung={1}
+                      className="flex flex-col gap-1.5 border border-border p-2"
+                    >
+                      <Eyebrow>Record as paid · final</Eyebrow>
+                      <input
+                        data-rung={1}
+                        name="reference"
+                        required
+                        maxLength={120}
+                        placeholder="Bank reference"
+                        aria-label={`Bank reference for the payout to ${p.seller.businessNameEn}`}
+                        className={CONTROL_SM}
+                      />
+                      <Button type="submit" variant="secondary" size="xs" className="self-start">
+                        <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" /> Mark paid
+                      </Button>
+                      <span className="u-meta text-ink-3">
+                        Settles this payout&apos;s commission. It cannot be undone.
+                      </span>
+                    </form>
+                  </div>
+                );
+              },
+            },
+          ]}
+          empty={
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline={
+                status
+                  ? "No payout is in that state."
+                  : claimable.byCurrency.length > 0
+                    ? "No payout has been generated yet."
+                    : "No payout has been generated, and no commission is awaiting settlement."
+              }
+              body={
+                status
+                  ? "Clear the status filter to see every payout on record."
+                  : claimable.byCurrency.length > 0
+                    ? "The commission above is awaiting a settlement run. Generating one writes a payout per seller and currency."
+                    : "Commission accrues when an order containing a seller's items is paid; a payout is written when a run claims it."
+              }
+              action={
+                status ? (
+                  <Button variant="secondary" size="sm" asChild>
+                    <Link href="/settlements">Show every payout</Link>
+                  </Button>
+                ) : undefined
+              }
+              icon={<Receipt className="h-3.5 w-3.5" aria-hidden="true" />}
+            />
+          }
+          footer={
+            <Pager
+              page={page}
+              totalPages={totalPages}
+              hrefFor={(target) => filterHref({ page: String(target) })}
+              summary={
+                <>
+                  <span className="fig text-ink-2">{total}</span> payout{total === 1 ? "" : "s"} in the current filter
+                </>
+              }
+            />
+          }
+        />
       </div>
     </AdminLayout>
   );

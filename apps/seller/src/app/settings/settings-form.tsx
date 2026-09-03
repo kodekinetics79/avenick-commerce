@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2, Landmark, Save } from "lucide-react";
-import { Button, Input, Textarea } from "@avenick/ui";
+import { Button, Field, Input, Textarea } from "@avenick/ui";
 import { useToast } from "@/components/toast";
 import { updateSellerBankAction, updateSellerProfileAction, type SettingsActionState } from "./actions";
 
@@ -44,8 +44,8 @@ function useSettingsSubmit(action: (prev: SettingsActionState, formData: FormDat
 function StatusLine({ state, savedLabel, nothingChangedLabel }: { state: SettingsActionState; savedLabel: string; nothingChangedLabel: string }) {
   if (state.error) {
     return (
-      <p role="alert" className="flex items-center gap-1.5 text-sm text-danger">
-        <AlertCircle className="h-4 w-4 shrink-0" /> {state.error}
+      <p role="alert" className="u-ui flex items-center gap-1.5 text-danger-ink">
+        <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" /> {state.error}
       </p>
     );
   }
@@ -54,8 +54,8 @@ function StatusLine({ state, savedLabel, nothingChangedLabel }: { state: Setting
     // reported as such rather than as a save that did not happen.
     const changed = state.changed ?? [];
     return (
-      <p role="status" className="flex items-center gap-1.5 text-sm text-success">
-        <CheckCircle2 className="h-4 w-4 shrink-0" /> {changed.length > 0 ? savedLabel : nothingChangedLabel}
+      <p role="status" className="u-ui flex items-center gap-1.5 text-success-ink">
+        <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" /> {changed.length > 0 ? savedLabel : nothingChangedLabel}
       </p>
     );
   }
@@ -87,14 +87,12 @@ export function BusinessProfileForm({ initial }: BusinessProfileFormProps) {
         <Input name="businessNameEn" label="Business name (EN)" defaultValue={initial.businessNameEn} required maxLength={120} autoComplete="organization" />
         <Input name="businessNameAr" label="Business name (AR)" defaultValue={initial.businessNameAr ?? ""} maxLength={120} dir="rtl" />
       </div>
-      <div>
-        <label htmlFor="settings-description" className="mb-1.5 block text-sm font-medium text-foreground">Description (EN)</label>
+      <Field label="Description (EN)" htmlFor="settings-description">
         <Textarea id="settings-description" name="description" defaultValue={initial.description ?? ""} maxLength={2000} rows={4} placeholder="What you sell and who you serve" />
-      </div>
-      <div>
-        <label htmlFor="settings-description-ar" className="mb-1.5 block text-sm font-medium text-foreground">Description (AR)</label>
-        <Textarea id="settings-description-ar" name="descriptionAr" defaultValue={initial.descriptionAr ?? ""} maxLength={2000} rows={4} dir="rtl" />
-      </div>
+      </Field>
+      <Field label="Description (AR)" htmlFor="settings-description-ar">
+        <Textarea id="settings-description-ar" name="descriptionAr" defaultValue={initial.descriptionAr ?? ""} maxLength={2000} rows={4} dir="rtl" lang="ar" />
+      </Field>
       <div className="max-w-sm">
         <Input name="city" label="City" defaultValue={initial.city} required maxLength={80} autoComplete="address-level2" />
       </div>
@@ -134,10 +132,10 @@ export function PayoutAccountForm({ configured }: PayoutAccountFormProps) {
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex items-center gap-2 text-sm font-medium">
-        <Landmark className="h-4 w-4 text-primary" />
+      <p className="u-ui flex items-center gap-2 font-medium text-ink-1">
+        <Landmark className="h-4 w-4 text-ink-3" aria-hidden="true" />
         {configured ? "Replace payout account" : "Add payout account"}
-      </div>
+      </p>
       <Input
         name="iban"
         label="IBAN"
@@ -146,7 +144,7 @@ export function PayoutAccountForm({ configured }: PayoutAccountFormProps) {
         maxLength={64}
         autoComplete="off"
         spellCheck={false}
-        className="font-mono uppercase"
+        className="u-mono uppercase"
         placeholder="Country code, check digits, account"
         hint="Checked against the IBAN checksum before it is stored. Spaces are ignored."
       />

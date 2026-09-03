@@ -1,43 +1,904 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap");
+/* ============================================================================
+   MERIDIAN — the Avenick design system.
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+   THIS IS THE ONLY PLACE DESIGN TOKENS ARE DEFINED. The three portals used to
+   carry byte-identical 115-line copies of a token block, which is precisely how
+   three portals drift apart; each app's globals.css now @imports this file and
+   adds nothing but its own portal posture fallback.
 
-@layer base {
+   The file is deliberately PLAIN CSS — no @tailwind directives, no @apply. It is
+   pulled in through an `@import "@avenick/ui/globals.css"` at the top of each
+   app's globals.css, which Next resolves through webpack before Tailwind's own
+   layers are emitted. Keeping it free of Tailwind syntax means it stays valid
+   whether the bundler inlines it or serves it as its own stylesheet.
+
+   Reading order below: tokens (light) → tokens (dark) → portal posture → RTL
+   overrides → base → surfaces/elevation → motion → utilities → reduced motion.
+   RTL comes AFTER posture on purpose: Arabic type overrides must win.
+
+   Full reference, including the primitive props and the do-not-do list:
+   packages/ui/DESIGN_SYSTEM.md
+   ========================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,wght@1,400&display=swap");
+
+/* ────────────────────────────────────────────────────────────────────────────
+   1. TOKENS — LIGHT. Warm paper (hue 36), cool ink.
+   HSL values are bare triples so every token composes with alpha:
+   hsl(var(--ink-1) / .06).
+   ──────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* ═══ SURFACES ═══
+     The core defect this system exists to fix: --background and --card were both
+     `0 0% 100%`, so a card was a 1px border and a radius. The ground is now
+     tinted, which is what lets a white card read as catching light. */
+  --surface-0:      36 20% 97.5%;   /* page ground */
+  --surface-1:      36 16% 95.4%;   /* rung 1 — recessed: inputs, thead, wells */
+  --surface-2:       0  0% 100%;    /* rung 2 — the card */
+  --surface-3:       0  0% 100%;    /* rung 3 — raised; the shadow does the separating */
+  --surface-float:  36 20% 99%;     /* rung 4/5 base, used at alpha under blur */
+  --surface-sunken: 36 18% 93%;     /* deep well: code blocks, disabled tracks */
+
+  /* ═══ INK ═══ */
+  --ink-1: 224 22% 11%;   /* body + headings */
+  --ink-2: 222 12% 33%;   /* secondary sentences */
+  --ink-3: 220 10% 46%;   /* labels + metadata ONLY — never a sentence */
+  --ink-inv: 36 20% 97.5%;
+
+  /* ═══ LINES ═══
+     Two weights, because one token drawing both jobs is why dense tables read as
+     boxes inside boxes. --hairline is INSIDE a surface; --border is the EDGE of one. */
+  --hairline:      36 12% 91%;
+  --border:        34 12% 85%;
+  --border-strong: 32 10% 72%;
+
+  /* ═══ PHYSICS ═══ */
+  --rim: 0 0% 100%;          /* specular highlight colour, both themes */
+  --rim-2: .72;              /* alpha at rung 2 */
+  --rim-3: .88;              /*         rung 3 */
+  --rim-4: 1;                /*         rung 4/5 */
+  --shadow: 226 32% 12%;     /* hue-matched, NOT black. Black reads as soot. */
+
+  /* ═══ ELEVATION ═══
+     Five rungs, each written out in full per theme rather than derived from a
+     multiplier: CSS cannot multiply into a shadow's alpha without color-mix()
+     gymnastics that fail silently, and an invisible dark-mode shadow is exactly
+     how a good direction ships as a flat dark theme.
+     Every shadow has ZERO horizontal offset — one overhead light, so the system
+     is identical in Arabic and needs no mirroring. */
+  --elev-0: none;
+  --elev-1: inset 0 1px 2px hsl(var(--shadow) / .055),
+            inset 0 0 0 1px hsl(var(--shadow) / .035);
+  --elev-2: inset 0 1px 0 hsl(var(--rim) / var(--rim-2)),
+            0 1px 1px hsl(var(--shadow) / .045),
+            0 2px 5px -2px hsl(var(--shadow) / .055);
+  --elev-3: inset 0 1px 0 hsl(var(--rim) / var(--rim-3)),
+            0 1px 1px hsl(var(--shadow) / .04),
+            0 4px 8px -2px hsl(var(--shadow) / .06),
+            0 12px 22px -8px hsl(var(--shadow) / .09);
+  --elev-4: inset 0 1px 0 hsl(var(--rim) / var(--rim-4)),
+            0 2px 4px -1px hsl(var(--shadow) / .06),
+            0 12px 24px -6px hsl(var(--shadow) / .13),
+            0 32px 48px -20px hsl(var(--shadow) / .16);
+  --elev-5: inset 0 1px 0 hsl(var(--rim) / var(--rim-4)),
+            0 4px 8px -2px hsl(var(--shadow) / .08),
+            0 24px 48px -12px hsl(var(--shadow) / .20),
+            0 48px 88px -28px hsl(var(--shadow) / .30);
+
+  /* ═══ GLASS ═══
+     --glass-alpha is high on purpose. Chrome text (nav links, toolbar labels)
+     sits directly on the sticky bar, and law 5 does not allow us to gamble its
+     contrast on whatever happens to scroll underneath. Long-form text inside a
+     glass bar still belongs on an opaque plate — see <FieldWell>. */
+  --glass-bg:      36 20% 99%;   --glass-alpha: .86;
+  --glass-border:  34 12% 85%;   --glass-border-alpha: .70;
+  --modal-alpha: .96;
+  --blur-float: 20px;
+  --blur-modal: 28px;
+  --blur-scrim: 4px;
+  --sat-glass: 1.60;   /* without saturate(), blurred colour goes grey and dirty */
+  --sat-modal: 1.75;
+  --scrim: 226 32% 12%;  --scrim-alpha: .42;
+
+  /* ═══ BRAND ═══ */
+  --primary:            248 62% 52%;
+  --primary-foreground:   0  0% 100%;
+  --primary-ink:        248 58% 44%;   /* indigo TEXT — the fill hue fails 4.5:1 at 11px */
+  --primary-soft:       248 60% 96%;
+  --accent:             184 62% 30%;   /* deep verdigris — trade / verified / settled */
+  --accent-foreground:    0  0% 100%;
+  --accent-ink:         184 66% 26%;
+  --accent-soft:        184 44% 94%;
+  --brass:               36 56% 42%;   /* rule + tier + verification ONLY. Never a fill. */
+  --brass-ink:           34 60% 34%;
+
+  /* ═══ SEMANTICS ═══
+     Success sits 32° off --accent so a "verified" chip and a "paid" chip can
+     never read as the same colour, and every hue is desaturated — the neon
+     triad is half of what made the old palette read as cheap. */
+  --success:      152 48% 28%;  --success-soft: 152 40% 94%;
+  --success-ink:  152 52% 24%;  --success-rule: 152 26% 80%;
+  --success-foreground: 0 0% 100%;
+  --warning:       30 78% 36%;  --warning-soft:  38 74% 94%;
+  --warning-ink:   26 80% 30%;  --warning-rule:  36 48% 80%;
+  --warning-foreground: 0 0% 100%;
+  --danger:         2 62% 42%;  --danger-soft:    2 62% 96%;
+  --danger-ink:     2 66% 36%;  --danger-rule:    2 42% 84%;
+  --danger-foreground: 0 0% 100%;
+  --neutral-soft:  36 14% 93%;  --neutral-rule:  34 12% 85%;
+  --neutral-ink: var(--ink-2);
+
+  /* ═══ AMBIENT FIELD — the only gradient in the system ═══ */
+  --field-a: 248 66% 58%;   --field-a-alpha: .055;
+  --field-b: 184 64% 44%;   --field-b-alpha: .040;
+  --field-noise: .014;      /* without noise, wide low-alpha gradients band on 8-bit panels */
+  --field-intensity: 1;
+
+  /* ═══ FOCUS ═══ */
+  --ring: var(--primary);
+  --ring-width: 2px;
+  --ring-offset-surface: var(--surface-2);
+
+  /* ═══ TYPE ═══ */
+  --font-sans:       "Inter";
+  --font-sans-ar:    "IBM Plex Sans Arabic";
+  --font-provenance: "Source Serif 4";   /* Dateline + EmptyState lead ONLY */
+  --font-mono:       "IBM Plex Mono";    /* SKUs, order refs, tracking IDs. NOT money. */
+
+  --fs-micro:  11px;  --lh-micro: 16px;  --tr-micro:  .06em;
+  --fs-meta:   12px;  --lh-meta:  18px;  --tr-meta:   0;
+  --fs-ui:     13px;  --lh-ui:    20px;  --tr-ui:     0;
+  --fs-body:   15px;  --lh-body:  24px;  --tr-body:   0;
+  --fs-lead:   17px;  --lh-lead:  27px;  --tr-lead:   0;
+  --fs-h3:     20px;  --lh-h3:    28px;  --tr-h3:    -.008em;
+  --fs-h2:     26px;  --lh-h2:    32px;  --tr-h2:    -.014em;
+  --fs-h1:     34px;  --lh-h1:    40px;  --tr-h1:    -.018em;
+  --fs-display: clamp(34px, 2rem + 2.2vw, 52px);
+  --lh-display: 1.05;  --tr-display: -.026em;
+
+  /* Figures — the 3× rank ratio between a metric and its label lives here. */
+  --fs-fig-inline:  20px;  --lh-fig-inline:  28px;  --fw-fig-inline: 500;
+  --fs-fig-section: 30px;  --lh-fig-section: 34px;  --fw-fig-section: 600;
+  --fs-fig-hero:    46px;  --lh-fig-hero:    48px;  --fw-fig-hero:   700;
+  --tr-fig: -.02em;
+
+  --fw-body: 400; --fw-ui: 500; --fw-head: 600;   /* 800 and 900 do not exist here */
+  --measure-prose: 68ch;
+  --measure-desc:  60ch;
+
+  /* ═══ MOTION ═══ */
+  --ease-out:      cubic-bezier(.22, 1, .36, 1);
+  --ease-standard: cubic-bezier(.32, .72, 0, 1);
+  --ease-in-out:   cubic-bezier(.65, 0, .35, 1);
+  --ease-exit:     cubic-bezier(.4, 0, 1, 1);
+  --ease-spring:   cubic-bezier(.34, 1.4, .5, 1);
+  --dur-1: 90ms; --dur-2: 140ms; --dur-3: 220ms; --dur-4: 320ms; --dur-5: 480ms;
+  --stagger: 40ms;
+  --motion-scale: 1;
+  --t-press: calc(var(--dur-1) * var(--motion-scale));
+  --t-hover: calc(var(--dur-2) * var(--motion-scale));
+  --t-panel: calc(var(--dur-3) * var(--motion-scale));
+  --t-layer: calc(var(--dur-4) * var(--motion-scale));
+  --lift-y: -2px;
+  --press-y: 0.5px;
+
+  /* transform-origin has no logical keyword in CSS, so the inline start is a
+     token that the RTL block flips — same mechanism as --dir. */
+  --origin-inline-start: left;
+
+  /* ═══ DIRECTION ═══
+     Every directional transform in the product multiplies by this instead of
+     writing its own mirrored rule, which is what makes RTL structural rather
+     than a review item. */
+  --dir: 1;
+
+  /* ═══ SHAPE & DENSITY ═══ */
+  --radius: 14px; --radius-sm: 8px; --radius-lg: 20px; --radius-pill: 999px;
+  --row-h: 44px;
+  --control-h-sm: 30px; --control-h-md: 38px; --control-h-lg: 46px;
+  --space-unit: 4px; --space-tight: 8px; --space-stack: 16px;
+  --space-block: 32px; --space-section: 72px;
+
+  /* ═══ LEGACY SHADCN ALIASES ═══
+     Kept as var() aliases onto the new names so the hundreds of existing
+     bg-card / text-muted-foreground / border-border call sites keep working
+     while surfaces migrate portal by portal. Do not add new uses. */
+  --background: var(--surface-0);
+  --foreground: var(--ink-1);
+  --card: var(--surface-2);
+  --card-foreground: var(--ink-1);
+  --popover: var(--surface-float);
+  --popover-foreground: var(--ink-1);
+  --muted: var(--surface-1);
+  --muted-foreground: var(--ink-3);
+  --secondary: var(--surface-1);
+  --secondary-foreground: var(--ink-1);
+  --input: var(--border);
+  --destructive: var(--danger);
+  --destructive-foreground: var(--danger-foreground);
+  --accent-2: var(--accent);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   2. TOKENS — DARK. Cool ink (hue 232), warm off-white text.
+   The elevation MECHANISM inverts here: depth is carried by the surface
+   lightening plus a top rim-light, and the drop shadow becomes secondary.
+   Never copy a light-mode shadow stack into this block.
+   ──────────────────────────────────────────────────────────────────────────── */
+.dark {
+  --surface-0:      232 16%  6%;
+  --surface-1:      232 14%  8.5%;
+  --surface-2:      232 13% 11%;
+  --surface-3:      232 12% 14%;
+  --surface-float:  232 14% 16%;
+  --surface-sunken: 232 18%  4.5%;
+
+  --ink-1:  40 14% 94%;    /* warm off-white — pure white halates on ink */
+  --ink-2: 228 10% 72%;
+  --ink-3: 226  9% 58%;
+  --ink-inv: 232 16% 6%;
+
+  --hairline:      232 12% 15%;
+  --border:        232 12% 20%;
+  --border-strong: 232 10% 30%;
+
+  --rim: 0 0% 100%;
+  --rim-2: .05;  --rim-3: .075;  --rim-4: .10;
+  --shadow: 232 60% 2%;
+
+  --elev-0: none;
+  --elev-1: inset 0 1px 0 hsl(0 0% 0% / .45),
+            inset 0 0 0 1px hsl(var(--rim) / .035);
+  --elev-2: inset 0 1px 0 hsl(var(--rim) / var(--rim-2)),
+            0 1px 2px hsl(var(--shadow) / .50),
+            0 3px 8px -3px hsl(var(--shadow) / .55);
+  --elev-3: inset 0 1px 0 hsl(var(--rim) / var(--rim-3)),
+            0 2px 4px hsl(var(--shadow) / .55),
+            0 10px 24px -6px hsl(var(--shadow) / .65);
+  --elev-4: inset 0 1px 0 hsl(var(--rim) / var(--rim-4)),
+            0 4px 8px -2px hsl(var(--shadow) / .60),
+            0 18px 36px -10px hsl(var(--shadow) / .72);
+  --elev-5: inset 0 1px 0 hsl(var(--rim) / .12),
+            0 8px 16px -4px hsl(var(--shadow) / .65),
+            0 40px 80px -24px hsl(var(--shadow) / .85);
+
+  --glass-bg:     232 14% 16%;  --glass-alpha: .84;
+  --glass-border:   0  0% 100%; --glass-border-alpha: .08;
+  --modal-alpha: .96;
+  --scrim: 232 60% 2%;          --scrim-alpha: .62;
+
+  --primary:            250 84% 72%;
+  --primary-foreground: 248 40% 10%;
+  --primary-ink:        250 90% 80%;
+  --primary-soft:       248 40% 16%;
+  --accent:             184 56% 56%;
+  --accent-foreground:  184 60% 10%;
+  --accent-ink:         184 60% 62%;
+  --accent-soft:        184 38% 15%;
+  --brass:               38 62% 60%;
+  --brass-ink:           38 66% 68%;
+
+  --success:      152 44% 58%;  --success-soft: 152 32% 13%;
+  --success-ink:  152 46% 66%;  --success-rule: 152 26% 26%;
+  --success-foreground: 152 60% 8%;
+  --warning:       38 88% 62%;  --warning-soft:  32 45% 13%;
+  --warning-ink:   40 88% 70%;  --warning-rule:  32 38% 27%;
+  --warning-foreground: 32 70% 8%;
+  --danger:         4 78% 66%;  --danger-soft:    2 42% 14%;
+  --danger-ink:     4 84% 74%;  --danger-rule:    2 38% 27%;
+  --danger-foreground: 2 60% 8%;
+  --neutral-soft: 232 12% 15%;  --neutral-rule: 232 12% 20%;
+
+  --field-a-alpha: .14;
+  --field-b-alpha: .09;
+  --field-noise: .020;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   3. PORTAL POSTURE — one system at three intensities, not three looks.
+   Selected by <html data-portal="customer|seller|admin">. Each app's own
+   globals.css repeats the non-type half of its posture unconditionally so the
+   portal is already correct before its root layout gains the attribute; the
+   type half stays here so the RTL block below can still win.
+   ──────────────────────────────────────────────────────────────────────────── */
+[data-portal="seller"] {
+  --radius: 10px; --radius-sm: 6px; --radius-lg: 14px;
+  --row-h: 36px; --control-h-sm: 28px; --control-h-md: 34px; --control-h-lg: 42px;
+  --space-block: 24px; --space-section: 40px;
+  --field-intensity: .30;
+  --motion-scale: .8;
+  --fs-fig-hero: 38px; --lh-fig-hero: 42px;
+}
+
+[data-portal="admin"] {
+  --radius: 8px; --radius-sm: 4px; --radius-lg: 12px;
+  --row-h: 32px; --control-h-sm: 26px; --control-h-md: 32px; --control-h-lg: 40px;
+  --space-block: 16px; --space-section: 32px;
+  --field-intensity: .15;
+  --motion-scale: .7;
+  --fs-body: 14px; --lh-body: 21px;
+  --fs-fig-hero: 34px; --lh-fig-hero: 38px;
+  --fs-fig-section: 26px; --lh-fig-section: 32px;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   4. RTL — token-level, so that no component ever hand-patches Arabic.
+   Arabic is not Inter with different glyphs. Negative tracking breaks the joins
+   between letterforms, Naskh needs vertical room for its diacritics, and Plex
+   Arabic runs optically smaller than Inter at the same pixel size.
+   ──────────────────────────────────────────────────────────────────────────── */
+[dir="rtl"] {
+  --dir: -1;
+  --origin-inline-start: right;
+  --tr-micro: 0; --tr-h3: 0; --tr-h2: 0; --tr-h1: 0;
+  --tr-display: 0; --tr-fig: 0;
+  --fs-body: 16px;   --lh-body: 26px;
+  --fs-ui: 14px;     --lh-ui: 22px;
+  --fs-meta: 12.5px; --lh-meta: 20px;
+  --fs-micro: 11.5px;--lh-micro: 18px;
+  --lh-h1: 44px; --lh-h2: 36px; --lh-h3: 31px; --lh-display: 1.16;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   5. BASE
+   ──────────────────────────────────────────────────────────────────────────── */
+html {
+  /* Gated rather than unconditional: smooth scrolling is motion the user did
+     not ask for, and the reduced-motion block at the end turns it off. */
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: hsl(var(--surface-0));
+  color: hsl(var(--ink-1));
+  font-family: var(--font-sans), Inter, system-ui, -apple-system, sans-serif;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  font-weight: var(--fw-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+}
+
+[dir="rtl"] body {
+  font-family: var(--font-sans-ar), "IBM Plex Sans Arabic", system-ui, sans-serif;
+}
+
+/* Headings carry rank through size, never through weight. 700 exists in the
+   product on exactly one thing: a hero-rank numeral inside <Num>. */
+h1, h2, h3, h4, h5, h6 { font-weight: var(--fw-head); }
+h1 { font-size: var(--fs-h1); line-height: var(--lh-h1); letter-spacing: var(--tr-h1); }
+h2 { font-size: var(--fs-h2); line-height: var(--lh-h2); letter-spacing: var(--tr-h2); }
+h3 { font-size: var(--fs-h3); line-height: var(--lh-h3); letter-spacing: var(--tr-h3); }
+
+::selection { background: hsl(var(--primary) / .22); }
+
+/* Tabular figures. Applied by <Num>, and available by hand for a column of
+   numbers that has not been migrated yet. */
+.tnum, .fig {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "ss01" 1, "cv02" 1;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   6. ELEVATION — the ladder, as data attributes.
+   LAW A: raised = actionable, recessed = context or input, flat = content.
+   One rung-3 surface per viewport, maximum. Elevation is scarce or it is noise.
+   ──────────────────────────────────────────────────────────────────────────── */
+[data-rung] {
+  border-radius: var(--radius);
+  /* Colour-only properties are enumerated. `transition: all` is banned system
+     wide: it animates layout properties on every frame. Box-shadow is never
+     animated either — the ::after cross-fade below does elevation changes. */
+  transition: background-color var(--t-hover) var(--ease-standard),
+              border-color var(--t-hover) var(--ease-standard),
+              transform var(--t-hover) var(--ease-standard);
+}
+
+[data-rung="0"] { background-color: transparent; box-shadow: var(--elev-0); }
+[data-rung="1"] {
+  background-color: hsl(var(--surface-1));
+  box-shadow: var(--elev-1);
+  --ring-offset-surface: var(--surface-1);
+}
+[data-rung="2"] { background-color: hsl(var(--surface-2)); box-shadow: var(--elev-2); }
+[data-rung="3"] {
+  background-color: hsl(var(--surface-3));
+  box-shadow: var(--elev-3);
+  --ring-offset-surface: var(--surface-3);
+}
+[data-rung="4"] {
+  background-color: hsl(var(--surface-float));
+  box-shadow: var(--elev-4);
+  --ring-offset-surface: var(--surface-float);
+}
+[data-rung="5"] {
+  background-color: hsl(var(--surface-float));
+  box-shadow: var(--elev-5);
+  --ring-offset-surface: var(--surface-float);
+}
+
+/* Tone washes. A toned surface keeps its rung's shadow and swaps only its fill
+   and its edge, so an alert is still legibly the same object as a card. */
+/* Scoped to [data-rung] deliberately: data-tone is also carried by the commit
+   row, which must not pick up a permanent wash. */
+[data-rung][data-tone="success"] { background-color: hsl(var(--success-soft)); border-color: hsl(var(--success-rule)); }
+[data-rung][data-tone="warning"] { background-color: hsl(var(--warning-soft)); border-color: hsl(var(--warning-rule)); }
+[data-rung][data-tone="danger"]  { background-color: hsl(var(--danger-soft));  border-color: hsl(var(--danger-rule)); }
+[data-rung][data-tone="accent"]  { background-color: hsl(var(--accent-soft));  border-color: hsl(var(--accent) / .28); }
+
+/* Elevation change on hover/focus is a cross-fade of two stacked shadow layers.
+   Animating box-shadow itself repaints the whole element every frame. */
+[data-interactive]           { position: relative; }
+[data-interactive]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--t-hover) var(--ease-standard);
+}
+[data-rung="2"][data-interactive]::after { box-shadow: var(--elev-3); }
+[data-rung="3"][data-interactive]::after { box-shadow: var(--elev-4); }
+[data-rung="1"][data-interactive]::after { box-shadow: var(--elev-2); }
+[data-interactive]:hover::after,
+[data-interactive]:focus-within::after { opacity: 1; }
+
+/* The lift is 2px. The old product card used 4px, which reads as a jolt. */
+[data-lift]:hover  { transform: translateY(var(--lift-y)); }
+[data-lift]:active { transform: translateY(var(--press-y)); }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   7. GLASS — rungs 4 and 5 only, and never nested.
+   Budget: ≤3 blurred surfaces per viewport on customer, ≤2 on seller/admin.
+   ──────────────────────────────────────────────────────────────────────────── */
+[data-glass="true"] {
+  background-color: hsl(var(--glass-bg) / var(--glass-alpha));
+  backdrop-filter: blur(var(--blur-float)) saturate(var(--sat-glass));
+  -webkit-backdrop-filter: blur(var(--blur-float)) saturate(var(--sat-glass));
+  border: 1px solid hsl(var(--glass-border) / var(--glass-border-alpha));
+}
+[data-glass="true"][data-rung="5"] {
+  background-color: hsl(var(--glass-bg) / var(--modal-alpha));
+  backdrop-filter: blur(var(--blur-modal)) saturate(var(--sat-modal));
+  -webkit-backdrop-filter: blur(var(--blur-modal)) saturate(var(--sat-modal));
+}
+
+/* Law 8's mandatory fallback. Note the fallback IMPROVES contrast — it is an
+   opaque surface, not a transparent one. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  [data-glass="true"], .glass, .glass-strong {
+    background-color: hsl(var(--glass-bg)) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+/* A glass surface never contains another one. Belt and braces for the dev-time
+   throw in <Surface>: if one slips through in a page we do not own, the inner
+   one silently degrades to an opaque plate rather than compounding the blur. */
+[data-glass="true"] [data-glass="true"] {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background-color: hsl(var(--surface-2));
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   8. FOCUS — a two-stop ring so it survives on any ground, including glass,
+   plus a one-rung promotion so keyboard travel reads as physical.
+   ──────────────────────────────────────────────────────────────────────────── */
+.u-focus:focus-visible,
+[data-focus-lift]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--ring-offset-surface)),
+              0 0 0 calc(2px + var(--ring-width)) hsl(var(--ring));
+  transition: box-shadow var(--t-press) var(--ease-standard);
+}
+/*
+ * A container that clips its own overflow cannot show an outward ring.
+ *
+ * CellGrid paints hairlines as a 1px gap and must clip to keep cell fills
+ * inside its radius; a card with a specular gradient clips for the same reason.
+ * Any focusable descendant of one of those would draw the two-stop ring above
+ * and have it sliced off at the container edge — the keyboard user sees
+ * nothing. Marking the clipping container with data-clips-focus redraws the
+ * identical ring INSIDE the element's own box, where nothing can clip it. This
+ * is scoped to the container rather than asked of every child, because the
+ * child cannot know what it has been placed inside.
+ */
+[data-clips-focus] :is(a, button, [role="button"], [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px hsl(var(--ring-offset-surface)),
+              inset 0 0 0 calc(2px + var(--ring-width)) hsl(var(--ring));
+}
+
+[data-rung][data-focus-lift]:focus-visible {
+  box-shadow: var(--elev-3),
+              0 0 0 2px hsl(var(--ring-offset-surface)),
+              0 0 0 calc(2px + var(--ring-width)) hsl(var(--ring));
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   9. THE SIGNATURES
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/* The drawn rule. Brass hairline that draws itself from the inline start —
+   active nav, selected tab, link underline, section marker. One gesture used
+   everywhere is what makes a motion system feel designed rather than assembled. */
+.u-drawn {
+  display: block;
+  block-size: 2px;
+  background-color: hsl(var(--brass));
+  transform: scaleX(0);
+  transform-origin: var(--origin-inline-start);
+  transition: transform 160ms var(--ease-in-out);
+}
+.u-drawn[data-on="true"],
+[data-active="true"] > .u-drawn,
+.u-drawn-host:hover .u-drawn { transform: scaleX(1); }
+.u-drawn[data-orientation="vertical"] {
+  block-size: auto;
+  inline-size: 2px;
+  transform: scaleY(0);
+  transform-origin: top;
+}
+.u-drawn[data-orientation="vertical"][data-on="true"],
+[data-active="true"] > .u-drawn[data-orientation="vertical"] { transform: scaleY(1); }
+
+/* The pointer specular. A plain radial gradient at ≤9% rim alpha — no blend
+   modes anywhere in this system, because they force an isolated stacking
+   context and behave differently per theme in ways nobody tests. */
+[data-specular] { position: relative; overflow: hidden; }
+[data-specular]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 0;
+  background: radial-gradient(
+    380px circle at var(--mx, 50%) var(--my, 0%),
+    hsl(var(--rim) / .09),
+    transparent 62%
+  );
+  transition: opacity var(--t-hover) var(--ease-standard);
+}
+.dark [data-specular]::before {
+  background: radial-gradient(
+    380px circle at var(--mx, 50%) var(--my, 0%),
+    hsl(var(--rim) / .06),
+    transparent 62%
+  );
+}
+[data-specular]:hover::before { opacity: 1; }
+[data-specular] > * { position: relative; z-index: 1; }
+
+/* The ambient field. The single permitted gradient in the product. It spans
+   more than the viewport and carries noise, because a wide low-alpha gradient
+   without noise bands into visible rings on an 8-bit display — and a gradient
+   with a discernible edge is a 2019 SaaS orb. */
+.u-field {
+  position: fixed;
+  inset: -10vh -10vw;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(140% 120% at 15% -10%,
+      hsl(var(--field-a) / calc(var(--field-a-alpha) * var(--field-intensity))), transparent 60%),
+    radial-gradient(140% 120% at 85% 20%,
+      hsl(var(--field-b) / calc(var(--field-b-alpha) * var(--field-intensity))), transparent 55%);
+}
+.u-field::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: var(--field-noise);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* The row commit. In a 40-row queue the real usability problem is not knowing
+   which row you just acted on. Presentation only — it reports a state that has
+   already changed on the server, and it never gates the click. */
+.u-commit {
+  --commit: var(--success);
+  --commit-soft: var(--success-soft);
+  position: relative;
+  /* The rule is always 3px and always present; only its colour changes. Growing
+     a real border width would reflow every row below the one being acted on. */
+  border-inline-start: 3px solid transparent;
+  transition: border-inline-start-color var(--t-press) var(--ease-standard),
+              opacity 180ms var(--ease-exit),
+              transform 180ms var(--ease-exit);
+}
+.u-commit[data-tone="danger"]  { --commit: var(--danger);  --commit-soft: var(--danger-soft); }
+.u-commit[data-tone="warning"] { --commit: var(--warning); --commit-soft: var(--warning-soft); }
+.u-commit::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-color: hsl(var(--commit-soft));
+  transform: scaleX(0);
+  transform-origin: var(--origin-inline-start);
+  transition: transform 260ms var(--ease-standard);
+}
+.u-commit > * { position: relative; z-index: 1; }
+.u-commit[data-commit="committed"] { border-inline-start-color: hsl(var(--commit)); }
+.u-commit[data-commit="committed"]::before { transform: scaleX(1); }
+.u-commit[data-commit="failed"] { border-inline-start-color: hsl(var(--danger)); --commit-soft: var(--danger-soft); }
+.u-commit[data-commit="failed"]::before { transform: scaleX(1); }
+/* The exit: opacity and an inline-direction slide, never a height animation.
+   The row unmounts on transitionend and the list reflows in a single frame. */
+.u-commit[data-commit="exiting"] {
+  opacity: 0;
+  transform: translateX(calc(12px * var(--dir)));
+}
+
+/* The meter. One element, scaled on X from the inline start, so it is correct in
+   Arabic by construction and the number beside it never moves. */
+.u-meter-track {
+  position: relative;
+  overflow: hidden;
+  background-color: hsl(var(--surface-1));
+  box-shadow: var(--elev-1);
+  border-radius: var(--radius-pill);
+}
+.u-meter-fill {
+  display: block;
+  block-size: 100%;
+  inline-size: 100%;
+  border-radius: inherit;
+  background-color: hsl(var(--meter-tone, var(--primary)));
+  transform: scaleX(var(--meter-value, 0));
+  transform-origin: var(--origin-inline-start);
+  transition: transform 420ms var(--ease-out);
+}
+
+/* The layer entry — drawer, modal, sheet. One object wearing three contents:
+   the customer cart drawer, the seller bulk-edit sheet and the admin approval
+   modal are all this, which is a large part of what makes three portals feel
+   like one product. It arrives on Z, from behind, so the motion reads as depth
+   rather than as a card sliding around.
+
+   These are CSS ANIMATIONS rather than transitions on purpose. The panel mounts
+   already in its open state, so a transition would have nothing to travel from,
+   and Radix's presence layer defers unmount for an animation but not for a
+   transition — which is what lets the exit actually play. */
+.u-layer-root { perspective: 1000px; }
+
+@keyframes layer-scrim-in  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes layer-scrim-out { from { opacity: 1 } to { opacity: 0 } }
+/* A centred panel keeps its centring translate INSIDE the keyframes. If the
+   centring lived in a utility class, the animation's final `transform` would
+   overwrite it and the modal would land off-centre — and the translate is
+   multiplied by --dir because the panel is positioned from the inline start. */
+@keyframes layer-in-center {
+  from { opacity: 0; transform: translate(calc(-50% * var(--dir)), -50%) translateZ(-40px) scale(.972) translateY(8px); }
+  to   { opacity: 1; transform: translate(calc(-50% * var(--dir)), -50%); }
+}
+@keyframes layer-out-center {
+  from { opacity: 1; transform: translate(calc(-50% * var(--dir)), -50%); }
+  to   { opacity: 0; transform: translate(calc(-50% * var(--dir)), -50%) translateZ(-24px) scale(.98) translateY(4px); }
+}
+/* The inline-direction slides multiply by --dir, so `end` is the right-hand edge
+   in English and the left-hand edge in Arabic with no mirrored rule anywhere. */
+@keyframes layer-in-inline {
+  from { opacity: 0; transform: translateX(calc(var(--slide) * var(--dir))); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes layer-out-inline {
+  from { opacity: 1; transform: none; }
+  to   { opacity: 0; transform: translateX(calc(var(--slide) * var(--dir))); }
+}
+@keyframes layer-in-bottom  { from { opacity: 0; transform: translateY(24px) } to { opacity: 1; transform: none } }
+@keyframes layer-out-bottom { from { opacity: 1; transform: none } to { opacity: 0; transform: translateY(24px) } }
+
+.u-layer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background-color: hsl(var(--scrim) / var(--scrim-alpha));
+  backdrop-filter: blur(var(--blur-scrim));
+  -webkit-backdrop-filter: blur(var(--blur-scrim));
+}
+.u-layer-scrim[data-state="open"]   { animation: layer-scrim-in  var(--t-layer) var(--ease-out) both; }
+.u-layer-scrim[data-state="closed"] { animation: layer-scrim-out var(--t-panel) var(--ease-exit) both; }
+
+.u-layer-panel { position: fixed; z-index: 51; }
+/* Centred even with no animation at all — under reduced motion, or if the
+   keyframes never run. */
+.u-layer-panel[data-side="center"] { transform: translate(calc(-50% * var(--dir)), -50%); }
+.u-layer-panel[data-side="center"][data-state="open"]   { animation: layer-in-center  var(--t-layer) var(--ease-out) both; }
+.u-layer-panel[data-side="center"][data-state="closed"] { animation: layer-out-center var(--t-panel) var(--ease-exit) both; }
+.u-layer-panel[data-side="end"]   { --slide: 24px; }
+.u-layer-panel[data-side="start"] { --slide: -24px; }
+.u-layer-panel[data-side="start"][data-state="open"],
+.u-layer-panel[data-side="end"][data-state="open"]   { animation: layer-in-inline  var(--t-layer) var(--ease-out) both; }
+.u-layer-panel[data-side="start"][data-state="closed"],
+.u-layer-panel[data-side="end"][data-state="closed"] { animation: layer-out-inline var(--t-panel) var(--ease-exit) both; }
+.u-layer-panel[data-side="bottom"][data-state="open"]   { animation: layer-in-bottom  var(--t-layer) var(--ease-out) both; }
+.u-layer-panel[data-side="bottom"][data-state="closed"] { animation: layer-out-bottom var(--t-panel) var(--ease-exit) both; }
+
+/* Staged reveal. The base state is VISIBLE. The hidden state is applied only by
+   <RevealRoot> once it has confirmed the element is below the fold, so nothing
+   above the fold ever flashes and nothing is hidden if JS never runs. */
+[data-reveal][data-reveal-state="hidden"] {
+  opacity: 0;
+  transform: translateY(12px);
+}
+[data-reveal] {
+  transition: opacity var(--t-panel) var(--ease-out),
+              transform var(--t-panel) var(--ease-out);
+  transition-delay: calc(var(--reveal-index, 0) * var(--stagger));
+}
+
+/* Skeleton shimmer — the only infinite animation permitted in the product,
+   because it is a genuine loading indicator. Its highlight was a hardcoded
+   rgba(255,255,255,.35), i.e. invisible in dark mode; it is a rim token now. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: hsl(var(--surface-1));
+  border-radius: var(--radius-sm);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, hsl(var(--rim) / .35), transparent);
+  animation: skeleton-shimmer 1.6s infinite;
+}
+.dark .skeleton::after {
+  background: linear-gradient(90deg, transparent, hsl(var(--rim) / .07), transparent);
+}
+@keyframes skeleton-shimmer { 100% { transform: translateX(100%); } }
+
+/* Ledger row hover. No zebra striping and no vertical column rules — a hairline
+   between rows only. */
+.u-ledger-row {
+  transition: background-color var(--t-press) var(--ease-standard);
+}
+.u-ledger-row:hover { background-color: hsl(var(--ink-1) / .03); }
+.dark .u-ledger-row:hover { background-color: hsl(var(--rim) / .04); }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   10. TYPE UTILITIES — the scale as classes, so a surface team never writes a
+   raw px size. Each maps to the token, so RTL and portal posture come free.
+   ──────────────────────────────────────────────────────────────────────────── */
+.u-micro { font-size: var(--fs-micro); line-height: var(--lh-micro); letter-spacing: var(--tr-micro); font-weight: var(--fw-head); text-transform: uppercase; }
+.u-meta  { font-size: var(--fs-meta);  line-height: var(--lh-meta);  letter-spacing: var(--tr-meta); }
+.u-ui    { font-size: var(--fs-ui);    line-height: var(--lh-ui);    letter-spacing: var(--tr-ui); }
+.u-body  { font-size: var(--fs-body);  line-height: var(--lh-body); }
+.u-lead  { font-size: var(--fs-lead);  line-height: var(--lh-lead); }
+.u-h3    { font-size: var(--fs-h3);    line-height: var(--lh-h3);   letter-spacing: var(--tr-h3);   font-weight: var(--fw-head); }
+.u-h2    { font-size: var(--fs-h2);    line-height: var(--lh-h2);   letter-spacing: var(--tr-h2);   font-weight: var(--fw-head); }
+.u-h1    { font-size: var(--fs-h1);    line-height: var(--lh-h1);   letter-spacing: var(--tr-h1);   font-weight: var(--fw-head); }
+.u-display { font-size: var(--fs-display); line-height: var(--lh-display); letter-spacing: var(--tr-display); font-weight: var(--fw-head); }
+
+/* Arabic has no case, so uppercase is a no-op that signals nobody looked, and
+   0.06em tracking actively pulls the letterforms apart. An Arabic eyebrow earns
+   its prominence from weight and colour instead. */
+[dir="rtl"] .u-micro { text-transform: none; letter-spacing: 0; }
+
+/* The provenance voice. Arabic has no italic; faking one with an oblique is the
+   mark of a product that did not look, so under RTL this is upright Plex Arabic
+   at the same size and colour. */
+.u-provenance {
+  font-family: var(--font-provenance), Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: var(--fs-meta);
+  line-height: var(--lh-meta);
+  color: hsl(var(--ink-3));
+}
+[dir="rtl"] .u-provenance {
+  font-family: var(--font-sans-ar), "IBM Plex Sans Arabic", system-ui, sans-serif;
+  font-style: normal;
+}
+
+.u-mono { font-family: var(--font-mono), ui-monospace, SFMono-Regular, Menlo, monospace; }
+.u-measure { max-inline-size: var(--measure-prose); }
+.u-measure-desc { max-inline-size: var(--measure-desc); }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   11. LEGACY UTILITIES.
+   These class names are still present in pages other tracks own. They are kept
+   so nothing renders broken mid-migration, and re-pointed at the token system
+   so those pages inherit the new look without being touched. They are
+   DEPRECATED: do not write a new one. Delete each when its last call site goes.
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/* .glass used `border border-white/60` on all four sides — an even white ring is
+   the single most recognisable amateur tell in this genre, and it is also why a
+   directional-light system silently breaks in Arabic. Now: rung-4 glass with a
+   top-edge specular only. */
+.glass, .glass-strong {
+  background-color: hsl(var(--glass-bg) / var(--glass-alpha));
+  backdrop-filter: blur(var(--blur-float)) saturate(var(--sat-glass));
+  -webkit-backdrop-filter: blur(var(--blur-float)) saturate(var(--sat-glass));
+  border: 1px solid hsl(var(--glass-border) / var(--glass-border-alpha));
+  box-shadow: var(--elev-4);
+}
+
+/* .text-gradient was an indigo→violet clip-text: the most-copied move on the
+   internet, unselectable in some engines, and it vanishes under forced-colors.
+   Neutralised to plain ink rather than deleted, so the ~4 headings still using
+   it stay readable until their tracks migrate them. */
+.text-gradient {
+  background-image: none;
+  background-clip: border-box;
+  -webkit-background-clip: border-box;
+  color: hsl(var(--ink-1));
+  -webkit-text-fill-color: hsl(var(--ink-1));
+}
+
+.bg-grid {
+  background-image:
+    linear-gradient(to right, hsl(var(--ink-1) / .04) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--ink-1) / .04) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+.dark .bg-grid {
+  background-image:
+    linear-gradient(to right, hsl(var(--rim) / .05) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--rim) / .05) 1px, transparent 1px);
+}
+
+.mask-fade-b {
+  -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+}
+
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--border-strong)) transparent; }
+.scrollbar-thin::-webkit-scrollbar { height: 8px; width: 8px; }
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--border-strong));
+  border-radius: var(--radius-pill);
+}
+.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   12. THEME SWITCH.
+   The old rule transitioned `body, .glass, [class*="bg-card"], [class*="border-"]`
+   — an attribute-substring selector matching nearly every element in the tree.
+   It made hover mushy already and would visibly stutter now that real multi-layer
+   shadows exist. <ThemeToggle> adds .theme-transition to <html> for 200ms.
+   ──────────────────────────────────────────────────────────────────────────── */
+.theme-transition body,
+.theme-transition [data-rung] {
+  transition: background-color 200ms var(--ease-standard),
+              border-color 200ms var(--ease-standard),
+              color 200ms var(--ease-standard);
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   13. REDUCED MOTION — the complete contract.
+   Zeroing duration alone still MOVES the element, so the transform override is
+   the part that matters. Durations go to 1ms rather than 0 because transitionend
+   must still fire or the queue-drain unmount hangs forever. State changes still
+   happen; they simply arrive instantly.
+   ──────────────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  html { scroll-behavior: auto; }
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 18 88% 51%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 18 88% 51%;
-    --radius: 0.75rem;
+    --lift-y: 0px;
+    --press-y: 0px;
+    --stagger: 0ms;
+    --blur-scrim: 0px;
   }
-
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground font-sans antialiased;
-  }
-
-  /* RTL support */
-  [dir="rtl"] {
-    font-family: "IBM Plex Sans Arabic", system-ui, sans-serif;
-  }
+  [data-lift], [data-reveal], [data-layer] { transform: none !important; }
+  [data-specular]::before { opacity: 0 !important; }
+  .skeleton::after { animation: none; opacity: .5; }
 }

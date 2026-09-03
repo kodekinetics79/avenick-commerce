@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, SlidersHorizontal, X } from "lucide-react";
+import { SlidersHorizontal, X } from "lucide-react";
+import { Button, Eyebrow } from "@avenick/ui";
+import { CONTROL_SM } from "@/app/finance/console-chrome";
 import { adjustStockAction } from "./actions";
 
 interface Props {
@@ -10,9 +12,6 @@ interface Props {
   qty: number;
   reservedQty: number;
 }
-
-const BTN = "inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
-const FIELD = "h-8 rounded-lg border border-border bg-background px-2 text-xs outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50";
 
 /**
  * Inline on-hand correction for one stock row. The operator enters the new
@@ -69,21 +68,33 @@ export function AdjustStock({ stockId, qty, reservedQty }: Props) {
 
   if (!open) {
     return (
-      <div className="flex flex-col gap-0.5">
-        <button type="button" onClick={() => setOpen(true)} className="text-xs text-primary hover:underline font-medium inline-flex items-center gap-1">
-          <SlidersHorizontal className="h-3 w-3" /> Adjust
-        </button>
-        {notice && <span className="text-[11px] text-muted-foreground">{notice}</span>}
+      <div className="flex flex-col items-end gap-0.5">
+        <Button type="button" variant="link" size="xs" onClick={() => setOpen(true)}>
+          <SlidersHorizontal className="h-3 w-3" aria-hidden="true" /> Adjust
+        </Button>
+        {notice && (
+          <span role="status" className="u-meta text-success-ink">
+            {notice}
+          </span>
+        )}
       </div>
     );
   }
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-1.5 min-w-[14rem]" aria-label="Adjust on-hand quantity">
-      <div className="flex items-center gap-1.5">
-        <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+    // The whole correction is one recessed well: it is all input, and it sits
+    // visibly inside the row rather than floating over it.
+    <form
+      onSubmit={submit}
+      data-rung={1}
+      className="flex min-w-[15rem] flex-col gap-1.5 border border-border p-2 text-start"
+      aria-label="Adjust on-hand quantity"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <label className="u-meta flex items-center gap-1.5 text-ink-2">
           New on-hand
           <input
+            data-rung={1}
             autoFocus
             type="number"
             inputMode="numeric"
@@ -93,14 +104,23 @@ export function AdjustStock({ stockId, qty, reservedQty }: Props) {
             onChange={(event) => setNewQty(event.target.value)}
             disabled={pending}
             aria-invalid={error?.field === "newQty" || undefined}
-            className={`${FIELD} w-20 ${error?.field === "newQty" ? "border-red-500" : ""}`}
+            className={`${CONTROL_SM} fig w-20 text-end ${error?.field === "newQty" ? "border-danger" : ""}`}
           />
         </label>
-        <button type="button" onClick={close} disabled={pending} aria-label="Cancel adjustment" className="text-muted-foreground hover:text-foreground">
-          <X className="h-3.5 w-3.5" />
-        </button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          onClick={close}
+          disabled={pending}
+          aria-label="Cancel adjustment"
+          className="px-1"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden="true" />
+        </Button>
       </div>
       <input
+        data-rung={1}
         value={reason}
         onChange={(event) => setReason(event.target.value)}
         placeholder="Reason (required)"
@@ -108,25 +128,27 @@ export function AdjustStock({ stockId, qty, reservedQty }: Props) {
         disabled={pending}
         aria-label="Adjustment reason"
         aria-invalid={error?.field === "reason" || undefined}
-        className={`${FIELD} w-full ${error?.field === "reason" ? "border-red-500" : ""}`}
+        className={`${CONTROL_SM} ${error?.field === "reason" ? "border-danger" : ""}`}
       />
       <input
+        data-rung={1}
         value={reference}
         onChange={(event) => setReference(event.target.value)}
         placeholder="Reference, e.g. stocktake sheet (optional)"
         maxLength={120}
         disabled={pending}
         aria-label="Adjustment reference"
-        className={`${FIELD} w-full`}
+        className={CONTROL_SM}
       />
       <div className="flex items-center gap-2">
-        <button type="submit" disabled={pending} className={`${BTN} border-primary bg-primary text-primary-foreground hover:bg-primary/90`}>
-          {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : null} Save
-        </button>
-        <span className="text-[11px] text-muted-foreground">{reservedQty} reserved</span>
+        <Button type="submit" variant="secondary" size="xs" loading={pending} disabled={pending}>
+          Save
+        </Button>
+        {/* The floor the service enforces, stated where the number is typed. */}
+        <Eyebrow>{reservedQty} reserved</Eyebrow>
       </div>
       {error && (
-        <span role="alert" className="text-[11px] text-red-600">
+        <span role="alert" className="u-meta text-danger-ink">
           {error.message}
         </span>
       )}

@@ -5,6 +5,7 @@ import { getMessages } from "next-intl/server";
 import { cookies } from "next/headers";
 import { AuthProvider } from "@/components/auth-provider";
 import { NavigationProgress } from "@/components/navigation-progress";
+import { AmbientField, RevealRoot } from "@avenick/ui";
 import { platformName } from "@avenick/utils/portal-config";
 import "./globals.css";
 
@@ -24,13 +25,28 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const dir = locale === "ar" ? "rtl" : "ltr";
 
   return (
-    <html lang={locale} dir={dir} suppressHydrationWarning>
+    // data-portal is what selects this app's posture in the shared token file:
+    // radius, row height, motion scale, ambient-field intensity and the type
+    // steps. Without it the stylesheet can only apply the density half, because
+    // moving the type half into the app's own stylesheet would let it beat the
+    // [dir="rtl"] block and shrink Arabic.
+    <html lang={locale} dir={dir} data-portal="customer" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('avenick-theme');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;if(t==='dark'||(!t&&m)){document.documentElement.classList.add('dark');}}catch(e){}})();` }} />
       </head>
       <body>
+        {/*
+          Mounted exactly once, here. AmbientField is the single permitted
+          gradient in the product — it is fixed, never animated, and it replaces
+          the pair of 384px blur-[120px] orbs the storefront used to paint on the
+          home page. RevealRoot is one IntersectionObserver for every staged
+          entrance on the page; if it never runs, the page is simply fully
+          visible, so no content depends on it.
+        */}
+        <AmbientField />
+        <RevealRoot />
         <Suspense fallback={null}>
           <NavigationProgress />
         </Suspense>

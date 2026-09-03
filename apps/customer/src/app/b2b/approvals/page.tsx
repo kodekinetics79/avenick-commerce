@@ -1,8 +1,18 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CheckSquare, Clock, CheckCircle, XCircle, FileText } from "lucide-react";
+import {
+  Button,
+  CellGrid,
+  Dateline,
+  EmptyState,
+  LedgerTable,
+  Stat,
+  StatusPill,
+  Surface,
+} from "@avenick/ui";
 import { B2BShell } from "@/components/b2b/b2b-shell";
-import { formatCurrency } from "@avenick/utils";
+import { Money } from "@/components/b2b/money";
 import { fetchB2BJson } from "@/lib/b2b";
 import { approvePO, rejectPO } from "../purchase-orders/actions";
 import { format, formatDistanceToNow } from "date-fns";
@@ -41,8 +51,13 @@ export default async function ApprovalsPage({ searchParams }: { searchParams?: {
   const pending = data.purchaseOrders
     .filter((po) => po.status === "PENDING_APPROVAL")
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  // Sorted by updatedAt before it is sliced. /api/b2b/purchase-orders returns
+  // rows ordered by createdAt, so slicing that order gave the ten most recently
+  // RAISED decided POs, not the ten most recent decisions — and the heading, the
+  // dates in the rows and the two counts below all claim decision order.
   const decided = data.purchaseOrders
     .filter((po) => ["APPROVED", "REJECTED", "ORDERED"].includes(po.status))
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 10);
   const policies = data.policies;
   const requesters = data.requesters;
@@ -51,111 +66,175 @@ export default async function ApprovalsPage({ searchParams }: { searchParams?: {
     return u ? `${u.firstName} ${u.lastName}` : "Unknown";
   };
 
+  const approvedCount = decided.filter((d) => ["APPROVED", "ORDERED"].includes(d.status)).length;
+  const rejectedCount = decided.filter((d) => d.status === "REJECTED").length;
+
   return (
     <B2BShell
+      eyebrow="Working"
       title="Approvals"
       description="Purchase orders routed to approvers by your company's approval policies."
+      // /api/b2b/purchase-orders returns the 100 most recent POs. Every count
+      // and every row on this page is drawn from that window, so the window is
+      // stated rather than left for the reader to assume it is the whole book.
+      dateline="Drawn from the 100 most recent purchase orders raised by this company"
     >
-      <div className="space-y-5">
+      <div className="space-y-block">
         <POActionBanner done={searchParams?.poDone} error={searchParams?.poError} />
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Awaiting approval", value: pending.length, color: "bg-amber-50 border-amber-200" },
-            { label: "Approved", value: decided.filter((d) => ["APPROVED", "ORDERED"].includes(d.status)).length, color: "bg-green-50 border-green-200" },
-            { label: "Rejected", value: decided.filter((d) => d.status === "REJECTED").length, color: "bg-red-50 border-red-200" },
-            { label: "Active policies", value: policies.length, color: "bg-white border-border" },
-          ].map((s) => (
-            <div key={s.label} className={`rounded-2xl border p-4 ${s.color}`}>
-              <span className="text-sm text-muted-foreground">{s.label}</span>
-              <p className="text-2xl font-bold mt-1">{s.value}</p>
-            </div>
-          ))}
-        </div>
+
+        {/* One panel, hairline-divided. The four amber/green/red/white boxes
+            this replaces used colour to say what the label already said. */}
+        <CellGrid cols={{ base: 2, lg: 4 }}>
+          <Stat
+            label="Awaiting approval"
+            value={pending.length}
+            rank="section"
+            chip={pending.length > 0 ? "warning" : "neutral"}
+            icon={Clock}
+          />
+          {/* A chip is a state, not a decoration: a green chip on a zero says
+              nothing happened is a good thing, so it stays neutral until there
+              is something to report. */}
+          <Stat
+            label="Approved"
+            value={approvedCount}
+            chip={approvedCount > 0 ? "success" : "neutral"}
+            icon={CheckCircle}
+          />
+          <Stat label="Rejected" value={rejectedCount} chip={rejectedCount > 0 ? "danger" : "neutral"} icon={XCircle} />
+          <Stat label="Active policies" value={policies.length} icon={CheckSquare} />
+        </CellGrid>
+        {/* The two decided counts are drawn from the ten most recent decisions
+            this page loads, not from the company's whole history. Say so. */}
+        <Dateline>Approved and rejected counts cover the ten most recent decisions shown below</Dateline>
 
         {!isApprover && (
-          <div className="flex items-center gap-2 rounded-xl bg-blue-50 border border-blue-200 p-3 text-sm text-primary">
-            <Clock className="h-4 w-4 shrink-0" />
-            You can view the approval queue; approving or rejecting requires an approver or admin role.
-          </div>
+          <Surface rung={1} tone="accent" className="flex items-start gap-2 p-3">
+            <Clock className="mt-0.5 h-4 w-4 shrink-0 text-accent-ink" aria-hidden="true" />
+            <p className="u-ui text-ink-1">
+              You can view the approval queue; approving or rejecting requires an approver or admin role.
+            </p>
+          </Surface>
         )}
 
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border">
-            <h2 className="font-semibold">Pending approval</h2>
-          </div>
-          {pending.length === 0 ? (
-            <div className="px-4 py-12 text-center">
-              <CheckSquare className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-              <p className="text-sm text-muted-foreground">
-                Nothing awaiting approval. POs above your policy thresholds appear here.
-              </p>
-            </div>
-          ) : (
-            <ul className="divide-y divide-border">
-              {pending.map((po) => (
-                <li key={po.id} className="px-5 py-4 flex flex-wrap items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium">{po.poNumber}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {po.notes ?? "—"} · requested by {nameOf(po.requesterId)} · {formatDistanceToNow(new Date(po.createdAt), { addSuffix: true })}
-                    </p>
+        <LedgerTable
+          title="Pending approval"
+          rows={pending}
+          getRowKey={(po) => po.id}
+          dateline="Oldest request first · each total in the currency the PO was raised in"
+          columns={[
+            {
+              key: "poNumber",
+              label: "Purchase order",
+              render: (po) => (
+                <div className="min-w-0 py-2">
+                  <p className="u-mono font-medium text-ink-1">{po.poNumber}</p>
+                  <p className="u-meta text-ink-2">
+                    {po.notes ?? "No note"} · requested by {nameOf(po.requesterId)}
+                  </p>
+                </div>
+              ),
+            },
+            {
+              key: "createdAt",
+              label: "Waiting",
+              render: (po) => (
+                <span className="u-meta whitespace-nowrap text-ink-2">
+                  {formatDistanceToNow(new Date(po.createdAt), { addSuffix: true })}
+                </span>
+              ),
+            },
+            {
+              key: "total",
+              label: "Total",
+              numeric: true,
+              render: (po) => <Money amount={Number(po.total)} currency={po.currency} />,
+            },
+            {
+              key: "actions",
+              label: "Decision",
+              align: "end",
+              render: (po) =>
+                isApprover ? (
+                  <div className="flex items-center justify-end gap-2">
+                    {/* Two forms, two server actions, unchanged. Only the
+                        controls they submit through have been restyled. */}
+                    <form action={approvePO.bind(null, po.id)}>
+                      <Button type="submit" variant="primary" size="sm">
+                        <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" /> Approve
+                      </Button>
+                    </form>
+                    <form action={rejectPO.bind(null, po.id)}>
+                      <Button type="submit" variant="ghost" size="sm" className="text-danger-ink hover:bg-danger-soft hover:text-danger-ink">
+                        <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> Reject
+                      </Button>
+                    </form>
                   </div>
-                  <p className="font-bold">{formatCurrency(Number(po.total), po.currency as never)}</p>
-                  {isApprover && (
-                    <div className="flex gap-2">
-                      <form action={approvePO.bind(null, po.id)}>
-                        <button type="submit" className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-2 rounded-xl transition-colors">
-                          <CheckCircle className="h-3.5 w-3.5" /> Approve
-                        </button>
-                      </form>
-                      <form action={rejectPO.bind(null, po.id)}>
-                        <button type="submit" className="inline-flex items-center gap-1.5 border border-red-200 text-red-600 hover:bg-red-50 text-xs font-semibold px-3 py-2 rounded-xl transition-colors">
-                          <XCircle className="h-3.5 w-3.5" /> Reject
-                        </button>
-                      </form>
-                    </div>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                ) : (
+                  <span className="u-meta text-ink-3">Approver only</span>
+                ),
+            },
+          ]}
+          empty={
+            <EmptyState
+              eyebrow="Queue clear"
+              headline="No purchase order is waiting for a decision."
+              body="A PO appears here once its value crosses one of your company's approval thresholds."
+            />
+          }
+        />
 
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-            <h2 className="font-semibold">Recent decisions</h2>
-            <Link href="/b2b/purchase-orders" className="text-xs text-primary hover:underline inline-flex items-center gap-1">
-              <FileText className="h-3 w-3" /> All purchase orders
-            </Link>
-          </div>
-          {decided.length === 0 ? (
-            <p className="px-5 py-8 text-sm text-muted-foreground text-center">No decisions yet.</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {decided.map((po) => (
-                <li key={po.id} className="px-5 py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium">{po.poNumber}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {nameOf(po.requesterId)} · {format(new Date(po.updatedAt), "MMM d, yyyy")}
-                      {po.rejectionReason ? ` · ${po.rejectionReason}` : ""}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-sm font-semibold">{formatCurrency(Number(po.total), po.currency as never)}</span>
-                    <span
-                      className={`text-xs font-medium px-2 py-1 rounded-full ${
-                        po.status === "REJECTED" ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
-                      }`}
-                    >
-                      {po.status === "ORDERED" ? "Approved · Ordered" : po.status.charAt(0) + po.status.slice(1).toLowerCase()}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <LedgerTable
+          title="Recent decisions"
+          rows={decided}
+          getRowKey={(po) => po.id}
+          density="compact"
+          toolbar={
+            <Button asChild variant="link" size="sm">
+              <Link href="/b2b/purchase-orders">
+                <FileText className="h-3 w-3" aria-hidden="true" /> All purchase orders
+              </Link>
+            </Button>
+          }
+          columns={[
+            {
+              key: "poNumber",
+              label: "Purchase order",
+              render: (po) => (
+                <div className="min-w-0">
+                  <p className="u-mono font-medium text-ink-1">{po.poNumber}</p>
+                  <p className="u-meta truncate text-ink-2">
+                    {nameOf(po.requesterId)} · {format(new Date(po.updatedAt), "MMM d, yyyy")}
+                    {po.rejectionReason ? ` · ${po.rejectionReason}` : ""}
+                  </p>
+                </div>
+              ),
+            },
+            {
+              key: "total",
+              label: "Total",
+              numeric: true,
+              render: (po) => <Money amount={Number(po.total)} currency={po.currency} />,
+            },
+            {
+              key: "status",
+              label: "Outcome",
+              align: "end",
+              render: (po) => (
+                <StatusPill tone={po.status === "REJECTED" ? "danger" : "success"}>
+                  {po.status === "ORDERED" ? "Approved · Ordered" : po.status.charAt(0) + po.status.slice(1).toLowerCase()}
+                </StatusPill>
+              ),
+            },
+          ]}
+          empty={
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline="No purchase order has been approved or rejected yet."
+              body="Decisions taken on this page are listed here, most recent first."
+            />
+          }
+        />
       </div>
     </B2BShell>
   );

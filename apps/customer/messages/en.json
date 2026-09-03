@@ -77,7 +77,8 @@
     "units": "units",
     "selectOptions": "Select options",
     "requestAvailability": "Request availability",
-    "noReviews": "No reviews yet"
+    "noReviews": "No reviews yet",
+    "availabilityUnconfirmed": "Availability unconfirmed"
   },
   "cart": {
     "title": "Your cart",

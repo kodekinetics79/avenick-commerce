@@ -2,8 +2,10 @@ import Link from "next/link";
 import { ArrowRight, ShieldCheck, Truck, BadgeCheck, Sparkles, PackageSearch } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
+import { Button, CellGrid, EmptyState, Eyebrow, Reveal, Surface } from "@avenick/ui";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
+import { ProductGrid } from "@/components/products/product-grid";
 import { categoryIcon } from "@/components/products/category-icon";
 import { fetchBackendJson } from "@/lib/backend";
 import { categoryLabel, getPublicCategories } from "@/lib/catalog-categories";
@@ -63,42 +65,51 @@ export default async function HomePage() {
 
   return (
     <MainLayout>
-      {/* ─── Hero ─────────────────────────────────────────── */}
-      <section className="relative overflow-hidden border-b border-border">
-        {/* backdrop */}
-        <div className="absolute inset-0 bg-grid mask-fade-b opacity-60" />
-        <div className="absolute -top-24 start-1/4 h-96 w-96 rounded-full bg-primary/20 blur-[120px]" />
-        <div className="absolute top-10 end-1/4 h-80 w-80 rounded-full bg-accent/20 blur-[120px]" />
+      {/*
+        No <AmbientField> here. The single permitted gradient in the product —
+        which replaced the two 384px blur-[120px] orbs that used to sit behind
+        this hero — is a fixed, full-viewport layer mounted exactly once in
+        app/layout.tsx. Mounting a second one on this page alone would stack two
+        translucent fields and double the ambient alpha on the home page only,
+        which is precisely the visible-orb failure the field was built to avoid.
+      */}
 
-        <div className="relative max-w-7xl mx-auto px-4 py-20 lg:py-28">
-          <div className="max-w-3xl animate-fade-up">
-            <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 backdrop-blur px-3 py-1 text-xs font-medium text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5 text-primary" /> {t("heroTagline")}
-            </span>
-            <h1 className="mt-6 text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tighter leading-[0.95]">
+      {/* ─── Hero ─────────────────────────────────────────── */}
+      {/* Nothing is claimed here that the catalog cannot support: no counts, no
+          logos, no delivery promise. The hero earns its space with light, space
+          and rank instead, which is the one currency that costs no truth. */}
+      <section className="border-b border-border">
+        <div className="mx-auto max-w-7xl px-4 py-section">
+          <Reveal className="max-w-3xl">
+            <Eyebrow tone="accent" className="flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> {t("heroTagline")}
+            </Eyebrow>
+
+            {/* Display tops out at 52px / weight 600. The old 72px / weight 800
+                with tracking-tighter was the loudest amateur signal on the page,
+                and the second line was a .text-gradient — unselectable, and
+                invisible under forced-colors. One accent word does the same job. */}
+            <h1 className="u-display mt-5 text-ink-1">
               {t("heroTitle1")}
               <br />
-              <span className="text-gradient">{t("heroTitle2")}</span>
+              <span className="text-accent-ink">{t("heroTitle2")}</span>
             </h1>
-            <p className="mt-6 text-lg text-muted-foreground max-w-xl">
-              {t("heroDesc")}
-            </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link
-                href="/products"
-                className="inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 hover:shadow-glow transition-all active:scale-[0.98]"
-              >
-                {t("startBuying")} <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/b2b/rfq/new"
-                className="inline-flex items-center gap-2 h-12 px-6 rounded-xl border border-border bg-card/60 backdrop-blur font-semibold hover:bg-secondary transition-colors"
-              >
-                {t("requestQuote")}
-              </Link>
-            </div>
 
-          </div>
+            <p className="u-lead mt-6 max-w-desc text-ink-2">{t("heroDesc")}</p>
+
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              {/* The page's one primary fill. Everything else on this page is
+                  raised or flat, which is what keeps this button meaning "commit". */}
+              <Button variant="primary" size="lg" asChild>
+                <Link href="/products">
+                  {t("startBuying")} <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                </Link>
+              </Button>
+              <Button variant="secondary" size="lg" asChild>
+                <Link href="/b2b/rfq/new">{t("requestQuote")}</Link>
+              </Button>
+            </div>
+          </Reveal>
         </div>
       </section>
 
@@ -106,106 +117,181 @@ export default async function HomePage() {
       {/* Categories come from the catalog API (active, with discoverable
           products), never a list typed into this page. An empty catalog gets a
           plain link to all products rather than a decorative strip. */}
-      <section className="max-w-7xl mx-auto px-4 py-10">
-        <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
+      <section className="mx-auto max-w-7xl px-4 pt-block">
+        <div className="mb-3 flex items-baseline justify-between gap-4">
+          <Eyebrow as="h2">Shop by category</Eyebrow>
+          <ViewAllLink href="/products" label="All products" />
+        </div>
+        {/* A <nav>, not a <div>. This strip is the storefront's primary category
+            navigation — the brief's "reads as navigation rather than decoration"
+            has to be true in the accessibility tree as well as on screen, and
+            /deals already wraps its identical chip row in a labelled nav. */}
+        <nav aria-label="Shop by category" className="-mx-4 flex gap-3 overflow-x-auto scrollbar-hide px-4 pb-2">
           {categories.length === 0 ? (
-            <Link href="/products" className="inline-flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-semibold">
-              <PackageSearch className="h-4 w-4 text-primary" /> Browse all products
-            </Link>
+            <Surface rung={2} interactive className="shrink-0">
+              <Link
+                href="/products"
+                className="u-focus flex items-center gap-2.5 rounded-[inherit] px-4 py-3"
+              >
+                <PackageSearch className="h-4 w-4 text-ink-3" aria-hidden="true" />
+                <span className="u-ui font-medium text-ink-1">Browse all products</span>
+              </Link>
+            </Surface>
           ) : (
             categories.map((category) => {
               const Icon = categoryIcon(category.iconName);
               return (
-                <Link
-                  key={category.slug}
-                  href={`/products?category=${encodeURIComponent(category.slug)}`}
-                  className="group shrink-0 flex items-center gap-2.5 rounded-2xl border border-border bg-card px-4 py-3 hover:border-primary/40 hover:shadow-card transition-all"
-                >
-                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-secondary text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <span className="text-sm font-semibold whitespace-nowrap">{categoryLabel(category, locale)}</span>
-                </Link>
+                <Surface key={category.slug} rung={2} interactive className="group shrink-0">
+                  <Link
+                    href={`/products?category=${encodeURIComponent(category.slug)}`}
+                    className="u-focus flex items-center gap-2.5 rounded-[inherit] px-4 py-3"
+                  >
+                    {/* A neutral chip, not a coloured one. Ten hues of icon tile
+                        carrying zero information is the loudest amateur signal in
+                        the product, and a primary fill per category would spend
+                        the page's whole indigo budget on decoration. */}
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-nested bg-surface-1 text-ink-2 transition-colors duration-hover ease-standard group-hover:bg-accent-soft group-hover:text-accent-ink">
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="u-ui whitespace-nowrap font-medium text-ink-1">
+                      {categoryLabel(category, locale)}
+                    </span>
+                  </Link>
+                </Surface>
               );
             })
           )}
-        </div>
+        </nav>
       </section>
 
-      {/* ─── Best sellers ─────────────────────────────────── */}
+      {/* ─── Catalog products ─────────────────────────────── */}
+      {/* No badge: "HOT" asserts demand ranking the catalog does not compute. */}
       <Section title={t("bestSellers")} subtitle={t("bestSellersSub")} href="/products">
-        {/* No badge: "HOT" asserts demand ranking the catalog does not compute. */}
-        <Grid>{productSections.catalog.map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>
+        {productSections.catalog.length === 0 ? (
+          // getFeaturedProducts swallows a failed fetch and returns [], and a
+          // brand-new catalogue returns [] legitimately. Either way this section
+          // used to render a heading, an underrule and a "View all" link over
+          // nothing at all, which reads as a grid that failed to paint. Law E:
+          // an empty surface has to say what is empty and why.
+          <EmptyState
+            eyebrow="Nothing published"
+            headline="The catalogue has no published listings to show yet."
+            body="A product appears here once a seller publishes it and it is discoverable in this storefront."
+            icon={<PackageSearch className="h-3.5 w-3.5" aria-hidden="true" />}
+            action={
+              <Button variant="secondary" size="sm" asChild>
+                <Link href="/products">Browse all products</Link>
+              </Button>
+            }
+          />
+        ) : (
+          <ProductGrid columns={5}>
+            {productSections.catalog.map((p, i) => (
+              // h-full on the wrapper, not just on the card: Reveal introduces a
+              // div between the grid and the card, and without it the card stops
+              // stretching to the row height and the row loses its baseline.
+              <Reveal key={p.id} index={i} className="h-full">
+                <ProductCard {...p} locale={locale} />
+              </Reveal>
+            ))}
+          </ProductGrid>
+        )}
       </Section>
 
-      {/* ─── Value props ──────────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 py-12">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* ─── What the platform actually does ──────────────── */}
+      {/* One hairline-divided panel, not four independently bordered, shadowed,
+          hoverable cards. These are statements of fact, not actions: they are
+          flat content inside a single object, and nothing about them lifts. */}
+      <section className="mx-auto max-w-7xl px-4 py-block">
+        <CellGrid cols={{ base: 1, sm: 2, lg: 4 }}>
           {[
             { icon: BadgeCheck, titleKey: "prop1Title", descKey: "prop1Desc" },
             { icon: ShieldCheck, titleKey: "prop2Title", descKey: "prop2Desc" },
             { icon: Truck, titleKey: "prop3Title", descKey: "prop3Desc" },
             { icon: Sparkles, titleKey: "prop4Title", descKey: "prop4Desc" },
           ].map(({ icon: Icon, titleKey, descKey }) => (
-            <div key={titleKey} className="rounded-2xl border border-border bg-card p-5 hover:border-primary/40 hover:shadow-card transition-all">
-              <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary mb-4">
-                <Icon className="h-5 w-5" />
-              </span>
-              <h3 className="font-semibold">{t(titleKey)}</h3>
-              <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">{t(descKey)}</p>
+            <div key={titleKey}>
+              <Icon className="mb-3 h-5 w-5 text-ink-3" aria-hidden="true" />
+              <h3 className="u-ui font-medium text-ink-1">{t(titleKey)}</h3>
+              <p className="u-meta mt-1.5 text-ink-2">{t(descKey)}</p>
             </div>
           ))}
-        </div>
+        </CellGrid>
       </section>
 
-      {/* ─── Featured ─────────────────────────────────────── */}
+      {/* ─── More products ────────────────────────────────── */}
       {/* No badge: "NEW" was stamped on every product regardless of age. The
           section is dropped entirely when the feed holds nothing the catalog
           strip above did not already show. */}
       {productSections.more.length > 0 && (
         <Section title={t("featuredProducts")} subtitle={t("featuredProductsSub")} href="/products">
-          <Grid>{productSections.more.map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>
+          <ProductGrid columns={5}>
+            {productSections.more.map((p, i) => (
+              <Reveal key={p.id} index={i} className="h-full">
+                <ProductCard {...p} locale={locale} />
+              </Reveal>
+            ))}
+          </ProductGrid>
         </Section>
       )}
 
-      {/* ─── B2B CTA band ─────────────────────────────────── */}
-      <section className="max-w-7xl mx-auto px-4 pb-16 pt-6">
-        <div className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-primary-600 to-accent-700 p-10 lg:p-14 text-white">
-          <div className="absolute -bottom-20 -end-10 h-64 w-64 rounded-full bg-white/10 blur-3xl" />
-          <div className="relative max-w-xl">
-            <h2 className="text-3xl lg:text-4xl font-extrabold tracking-tight">{t("b2bTitle")}</h2>
-            <p className="mt-3 text-white/80">{t("b2bDesc")}</p>
-            <Link
-              href="/b2b/rfq/new"
-              className="mt-7 inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-white text-primary-700 font-semibold hover:bg-white/90 transition-colors active:scale-[0.98]"
-            >
-              {t("b2bCta")} <ArrowRight className="h-4 w-4" />
-            </Link>
+      {/* ─── B2B band ─────────────────────────────────────── */}
+      <section className="mx-auto max-w-7xl px-4 pb-section pt-block">
+        {/* Recessed, because law A says recessed is context — and the raised
+            button on top of it is the action. The old version was an
+            indigo→violet gradient panel with a white blur orb and white text,
+            which is three banned things in one element and had no dark value. */}
+        <Surface rung={1} className="p-8 lg:p-12">
+          <div className="max-w-xl">
+            <Eyebrow tone="accent">B2B sourcing</Eyebrow>
+            <h2 className="u-h2 mt-2 text-ink-1">{t("b2bTitle")}</h2>
+            <p className="u-body mt-3 max-w-desc text-ink-2">{t("b2bDesc")}</p>
+            <Button variant="primary" size="lg" className="mt-7" asChild>
+              <Link href="/b2b/rfq/new">
+                {t("b2bCta")} <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+              </Link>
+            </Button>
           </div>
-        </div>
+        </Surface>
       </section>
     </MainLayout>
   );
 }
 
 /* ── local layout helpers ─────────────────────────────── */
+
+/**
+ * The "View all" affordance, in one place so it is the same gesture everywhere.
+ * The arrow travels 2px on hover — the icon alone, by transform. The old version
+ * animated `gap-1 → gap-2` through `transition-all`, i.e. it animated a layout
+ * property on every frame of every hover on the page.
+ */
+function ViewAllLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="u-focus u-ui group inline-flex items-center gap-1.5 rounded-nested font-medium text-primary-ink"
+    >
+      {label}
+      <ArrowRight
+        className="h-4 w-4 transition-transform duration-hover ease-standard group-hover:translate-x-[calc(2px*var(--dir))] rtl:rotate-180"
+        aria-hidden="true"
+      />
+    </Link>
+  );
+}
+
 function Section({ title, subtitle, href, children }: { title: string; subtitle?: string; href: string; children: React.ReactNode }) {
   return (
-    <section className="max-w-7xl mx-auto px-4 py-8">
-      <div className="flex items-end justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
-          {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
+    <section className="mx-auto max-w-7xl px-4 py-block">
+      <div className="mb-5 flex items-end justify-between gap-4 border-b-2 border-border-strong pb-3">
+        <div className="min-w-0">
+          <h2 className="u-h2 text-ink-1">{title}</h2>
+          {subtitle && <p className="u-meta mt-0.5 text-ink-2">{subtitle}</p>}
         </div>
-        <Link href={href} className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:gap-2 transition-all">
-          View all <ArrowRight className="h-4 w-4" />
-        </Link>
+        <ViewAllLink href={href} label="View all" />
       </div>
       {children}
     </section>
   );
-}
-
-function Grid({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">{children}</div>;
 }

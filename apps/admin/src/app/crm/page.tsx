@@ -4,14 +4,23 @@ import { getCrmOverview } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
 import { Users, Activity, Store, Crown, Eye, ShoppingCart, FileQuestion } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+import {
+  PageHeader, CellGrid, LedgerTable, EmptyState, Surface, Num, Eyebrow, Dateline, StatusPill,
+} from "@avenick/ui";
+import { CountStat } from "@/app/finance/money-figures";
 
 export const metadata = { title: "CRM & Accounts" };
 export const dynamic = "force-dynamic";
 
-const ACTIVITY_CONFIG: Record<string, { label: string; icon: typeof Eye; color: string }> = {
-  VIEW: { label: "Viewed product", icon: Eye, color: "bg-slate-100 text-muted-foreground" },
-  ORDER: { label: "Placed order", icon: ShoppingCart, color: "bg-green-100 text-green-700" },
-  RFQ: { label: "Requested quote", icon: FileQuestion, color: "bg-purple-100 text-purple-700" },
+/**
+ * Three activity kinds, three neutral chips. The old map painted them slate,
+ * green and purple, which read as three severities where there is only one:
+ * these are all just things a buyer did.
+ */
+const ACTIVITY_CONFIG: Record<string, { label: string; icon: typeof Eye }> = {
+  VIEW: { label: "Viewed product", icon: Eye },
+  ORDER: { label: "Placed order", icon: ShoppingCart },
+  RFQ: { label: "Requested quote", icon: FileQuestion },
 };
 
 // Spend is SUM(order total) per buyer as recorded in each order's own currency;
@@ -25,163 +34,179 @@ export default async function CrmPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">CRM & Accounts</h1>
-          <p className="text-muted-foreground text-sm">
-            Buyer relationships, purchase history, and recent account activity — live from the order ledger.
-          </p>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          eyebrow="CRM"
+          title="CRM & accounts"
+          description="Buyer relationships, purchase history, and recent account activity — live from the order ledger."
+          dateline="Buyer spend is the sum of order totals as recorded, each in its own currency · no conversion applied, so it carries no currency symbol"
+        />
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Buyers with purchases", value: topBuyers.length },
-            { label: "Seller–buyer relationships", value: relationships.length },
-            { label: "Activities (recent)", value: activities.length },
-            { label: "Top buyer spend (as recorded)", value: topBuyers[0] ? amount(topBuyers[0].spent) : "—" },
-          ].map((s) => (
-            <div key={s.label} className="rounded-2xl border border-border bg-white p-4">
-              <span className="text-sm text-muted-foreground">{s.label}</span>
-              <p className="text-xl font-bold mt-1">{s.value}</p>
-            </div>
-          ))}
-        </div>
+        <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
+          <CountStat label="Buyers with purchases" value={topBuyers.length} rank="section" />
+          <CountStat label="Seller–buyer relationships" value={relationships.length} />
+          <CountStat label="Activities" value={activities.length} dateline="The recent window loaded below" />
+          <CountStat
+            label="Top buyer spend"
+            value={topBuyers[0] ? amount(topBuyers[0].spent) : "—"}
+            dateline="As recorded, unconverted — so it carries no currency"
+          />
+        </CellGrid>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Top buyers */}
-          <div className="bg-white rounded-2xl border border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-              <Crown className="h-4 w-4 text-amber-500" />
-              <h2 className="font-semibold">Top buyers by lifetime spend</h2>
+          <Surface className="overflow-hidden">
+            <div className="border-b-2 border-border-strong px-5 py-3">
+              <h2 className="u-h3 inline-flex items-center gap-2 text-ink-1">
+                {/* Brass, used as a rank mark — one of its three permitted uses. */}
+                <Crown className="h-4 w-4 text-brass-ink" aria-hidden="true" /> Top buyers by lifetime spend
+              </h2>
+              <Dateline className="mt-0.5">Order totals as recorded, unconverted</Dateline>
             </div>
             {topBuyers.length === 0 ? (
-              <div className="px-4 py-12 text-center">
-                <Users className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                <p className="text-sm text-muted-foreground">No paid orders yet — buyers appear here after their first purchase.</p>
-              </div>
+              <EmptyState
+                eyebrow="Nothing recorded"
+                headline="No order has been paid yet."
+                body="A buyer appears here after their first purchase."
+                icon={<Users className="h-3.5 w-3.5" aria-hidden="true" />}
+              />
             ) : (
-              <ul className="divide-y divide-border">
+              <ol>
                 {topBuyers.map((b, i) => (
-                  <li key={b.id} className="px-5 py-3 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="h-7 w-7 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
+                  <li key={b.id} className="flex items-center justify-between gap-3 border-b border-hairline px-5 py-3 last:border-b-0">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="fig flex h-6 w-6 shrink-0 items-center justify-center rounded-pill bg-neutral-soft text-micro font-medium text-ink-3">
                         {i + 1}
                       </span>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{b.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">
+                        <p className="u-ui truncate font-medium text-ink-1">{b.name}</p>
+                        <p className="u-meta truncate text-ink-3">
                           {b.email} · {b.role === "CONSUMER" ? "B2C" : "B2B"}
                         </p>
                       </div>
                     </div>
-                    <div className="text-end shrink-0">
-                      <p className="text-sm font-semibold">{amount(b.spent)}</p>
-                      <p className="text-[11px] text-muted-foreground">
+                    <div className="shrink-0 text-end">
+                      <p className="fig u-ui font-medium text-ink-1">{amount(b.spent)}</p>
+                      <Eyebrow>
                         {b.orders} order{b.orders === 1 ? "" : "s"}
                         {b.lastorder ? ` · last ${format(b.lastorder, "MMM d")}` : ""}
-                      </p>
+                      </Eyebrow>
                     </div>
                   </li>
                 ))}
-              </ul>
+              </ol>
             )}
-          </div>
+          </Surface>
 
           {/* Recent activity */}
-          <div className="bg-white rounded-2xl border border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-              <Activity className="h-4 w-4 text-primary" />
-              <h2 className="font-semibold">Recent buyer activity</h2>
+          <Surface className="overflow-hidden">
+            <div className="border-b-2 border-border-strong px-5 py-3">
+              <h2 className="u-h3 inline-flex items-center gap-2 text-ink-1">
+                <Activity className="h-4 w-4 text-ink-3" aria-hidden="true" /> Recent buyer activity
+              </h2>
             </div>
             {activities.length === 0 ? (
-              <div className="px-4 py-12 text-center">
-                <Activity className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                <p className="text-sm text-muted-foreground">No tracked activity yet.</p>
-              </div>
+              <EmptyState
+                eyebrow="Nothing recorded"
+                headline="No buyer activity has been tracked."
+                body="Views, orders and quote requests appear here as they are recorded."
+                icon={<Activity className="h-3.5 w-3.5" aria-hidden="true" />}
+              />
             ) : (
-              <ul className="divide-y divide-border">
+              <ul>
                 {activities.map((a) => {
-                  const cfg = ACTIVITY_CONFIG[a.type] ?? { label: a.type, icon: Activity, color: "bg-slate-100 text-muted-foreground" };
+                  const cfg = ACTIVITY_CONFIG[a.type] ?? { label: a.type, icon: Activity };
                   const Icon = cfg.icon;
                   return (
-                    <li key={a.id} className="px-5 py-3 flex items-center gap-3">
-                      <span className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${cfg.color}`}>
-                        <Icon className="h-4 w-4" />
+                    <li key={a.id} className="flex items-center gap-3 border-b border-hairline px-5 py-3 last:border-b-0">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-nested bg-neutral-soft text-ink-3">
+                        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm">
+                        <p className="u-ui text-ink-1">
                           <span className="font-medium">{a.buyer.firstName} {a.buyer.lastName}</span>
-                          <span className="text-muted-foreground"> · {cfg.label}</span>
+                          <span className="text-ink-2"> · {cfg.label}</span>
                         </p>
-                        <p className="text-xs text-muted-foreground">{formatDistanceToNow(a.createdAt, { addSuffix: true })}</p>
+                        <p className="u-meta text-ink-3">{formatDistanceToNow(a.createdAt, { addSuffix: true })}</p>
                       </div>
                     </li>
                   );
                 })}
               </ul>
             )}
-          </div>
+          </Surface>
         </div>
 
         {/* Seller–buyer relationships */}
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-            <Store className="h-4 w-4 text-orange-600" />
-            <h2 className="font-semibold">Seller–buyer relationships</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
-                <tr>
-                  {["Buyer", "Seller", "Orders", "Lifetime spend", "Last order", "Tags"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {relationships.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center">
-                      <Users className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                      <p className="text-sm text-muted-foreground">No seller–buyer relationships recorded yet.</p>
-                    </td>
-                  </tr>
-                )}
-                {relationships.map((r) => (
-                  <tr key={r.id} className="hover:bg-slate-50/60">
-                    <td className="px-4 py-3">
-                      {r.buyer ? (
-                        <>
-                          <p className="font-medium">{r.buyer.firstName} {r.buyer.lastName}</p>
-                          <p className="text-xs text-muted-foreground">{r.buyer.email}</p>
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground">Unknown buyer</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{r.seller.businessNameEn}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{r.totalOrders}</td>
-                    <td className="px-4 py-3 font-semibold">{formatCurrency(Number(r.totalSpent), r.currency as never)}</td>
-                    <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                      {r.lastOrderAt ? format(r.lastOrderAt, "MMM d, yyyy") : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      {r.tags.length > 0 ? (
-                        <span className="flex flex-wrap gap-1">
-                          {r.tags.map((t) => (
-                            <span key={t} className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-muted-foreground">{t}</span>
-                          ))}
-                        </span>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <LedgerTable
+          title="Seller–buyer relationships"
+          dateline="Lifetime spend per pair, in the currency recorded on the relationship · no conversion applied"
+          rows={relationships}
+          getRowKey={(r) => r.id}
+          stickyHead
+          columns={[
+            {
+              key: "buyer",
+              label: "Buyer",
+              render: (r) =>
+                r.buyer ? (
+                  <div className="min-w-0 py-1">
+                    <p className="truncate font-medium text-ink-1">{r.buyer.firstName} {r.buyer.lastName}</p>
+                    <p className="u-meta truncate text-ink-3">{r.buyer.email}</p>
+                  </div>
+                ) : (
+                  <span className="text-ink-3">Unknown buyer</span>
+                ),
+            },
+            {
+              key: "seller",
+              label: "Seller",
+              render: (r) => (
+                <span className="inline-flex items-center gap-2 text-ink-2">
+                  <Store className="h-3.5 w-3.5 shrink-0 text-ink-3" aria-hidden="true" /> {r.seller.businessNameEn}
+                </span>
+              ),
+            },
+            { key: "totalOrders", label: "Orders", numeric: true, render: (r) => r.totalOrders },
+            {
+              key: "totalSpent",
+              label: "Lifetime spend",
+              numeric: true,
+              render: (r) => <Num value={formatCurrency(Number(r.totalSpent), r.currency as never)} className="whitespace-nowrap" />,
+            },
+            {
+              key: "lastOrderAt",
+              label: "Last order",
+              hideOnMobile: true,
+              render: (r) => (
+                <span className="whitespace-nowrap text-ink-2">{r.lastOrderAt ? format(r.lastOrderAt, "MMM d, yyyy") : "—"}</span>
+              ),
+            },
+            {
+              key: "tags",
+              label: "Tags",
+              hideOnMobile: true,
+              render: (r) =>
+                r.tags.length > 0 ? (
+                  <span className="flex flex-wrap gap-1 py-1">
+                    {r.tags.map((t) => (
+                      <StatusPill key={t} tone="neutral">{t}</StatusPill>
+                    ))}
+                  </span>
+                ) : (
+                  <span className="text-ink-3">—</span>
+                ),
+            },
+          ]}
+          empty={
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline="No seller–buyer relationship has been recorded."
+              body="A relationship row is written the first time a buyer orders from a seller."
+              icon={<Users className="h-3.5 w-3.5" aria-hidden="true" />}
+            />
+          }
+        />
       </div>
     </AdminLayout>
   );

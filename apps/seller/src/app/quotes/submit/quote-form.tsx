@@ -2,7 +2,18 @@
 
 import { useState } from "react";
 import { AlertCircle, Send } from "lucide-react";
-import { Input, Textarea } from "@avenick/ui";
+import {
+  Button,
+  EmptyState,
+  Eyebrow,
+  Field,
+  Input,
+  LedgerTable,
+  Meter,
+  Num,
+  Surface,
+  Textarea,
+} from "@avenick/ui";
 import { submitQuoteAction, type QuoteActionState } from "../actions";
 
 interface RFQItemView {
@@ -22,6 +33,15 @@ export function QuoteForm({ rfqId, items, currency }: { rfqId: string; items: RF
     const p = Number(prices[item.id]);
     return sum + (Number.isFinite(p) && p > 0 ? p * item.quantity : 0);
   }, 0);
+
+  // How much of the quote is written. This is the one thing a supplier wants to
+  // know while filling the form, and it is derived from what they have typed —
+  // nothing here claims anything the inputs do not already say.
+  const pricedCount = items.filter((item) => {
+    const p = Number(prices[item.id]);
+    return Number.isFinite(p) && p > 0;
+  }).length;
+  const complete = pricedCount === items.length && items.length > 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,58 +74,70 @@ export function QuoteForm({ rfqId, items, currency }: { rfqId: string; items: RF
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="border border-border rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-secondary/50 border-b border-border">
-            <tr>
-              {["Item", "Qty", `Unit price (${currency})`, "Line total"].map((h) => (
-                <th key={h} className="px-3 py-2 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border">
-            {items.map((item) => {
+      <LedgerTable
+        rows={items}
+        getRowKey={(item) => item.id}
+        columns={[
+          {
+            key: "item",
+            label: "Item",
+            render: (item) => (
+              <div className="min-w-0 py-1.5">
+                <p className="u-ui font-medium text-ink-1">{item.nameEn}</p>
+                {item.notes && <p className="u-meta text-ink-2">{item.notes}</p>}
+              </div>
+            ),
+          },
+          { key: "quantity", label: "Qty", numeric: true, width: "80px" },
+          {
+            key: "unit",
+            label: `Unit price (${currency})`,
+            numeric: true,
+            width: "170px",
+            render: (item) => (
+              <Input
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                required
+                placeholder="0.00"
+                value={prices[item.id] ?? ""}
+                onChange={(e) => setPrices((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                aria-label={`Unit price for ${item.nameEn}`}
+                className="text-end"
+              />
+            ),
+          },
+          {
+            key: "line",
+            label: "Line total",
+            numeric: true,
+            width: "140px",
+            render: (item) => {
               const p = Number(prices[item.id]);
               const line = Number.isFinite(p) && p > 0 ? p * item.quantity : null;
-              return (
-                <tr key={item.id}>
-                  <td className="px-3 py-2.5">
-                    <p className="font-medium">{item.nameEn}</p>
-                    {item.notes && <p className="text-xs text-muted-foreground">{item.notes}</p>}
-                  </td>
-                  <td className="px-3 py-2.5 text-muted-foreground">{item.quantity}</td>
-                  <td className="px-3 py-2.5 w-40">
-                    <Input
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      required
-                      placeholder="0.00"
-                      value={prices[item.id] ?? ""}
-                      onChange={(e) => setPrices((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                      aria-label={`Unit price for ${item.nameEn}`}
-                    />
-                  </td>
-                  <td className="px-3 py-2.5 font-semibold">
-                    {line !== null ? line.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "—"}
-                  </td>
-                </tr>
+              return line !== null ? (
+                <span className="text-ink-1">{line.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              ) : (
+                <span className="text-ink-3">—</span>
               );
-            })}
-          </tbody>
-          <tfoot className="bg-secondary/50 border-t border-border">
-            <tr>
-              <td colSpan={3} className="px-3 py-2.5 text-end font-semibold">Quote total</td>
-              <td className="px-3 py-2.5 font-bold">
-                {total > 0 ? `${total.toLocaleString(undefined, { minimumFractionDigits: 2 })} ${currency}` : "—"}
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+            },
+          },
+        ]}
+        empty={
+          // Every list, table and grid in the system passes a real EmptyState —
+          // including this one, so a request that arrived with no lines reads as
+          // a deliberate blank rather than as a table that failed to render.
+          <EmptyState
+            eyebrow="Nothing to price"
+            headline="This request has no line items."
+            body="Nothing can be quoted until the buyer adds at least one line to it."
+          />
+        }
+      />
 
-      <div>
-        <label htmlFor="quote-notes" className="block text-sm font-medium mb-1">Notes to the buyer (optional)</label>
+      <Field label="Notes to the buyer (optional)" htmlFor="quote-notes">
         <Textarea
           id="quote-notes"
           rows={3}
@@ -113,21 +145,49 @@ export function QuoteForm({ rfqId, items, currency }: { rfqId: string; items: RF
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Lead time, delivery terms, validity period, payment terms…"
         />
-      </div>
+      </Field>
 
       {state.error && (
-        <p className="flex items-center gap-1.5 text-sm text-danger">
-          <AlertCircle className="h-4 w-4 shrink-0" /> {state.error}
-        </p>
+        <Surface role="alert" rung={2} tone="danger" className="flex items-start gap-2 px-3 py-2">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger-ink" aria-hidden="true" />
+          <p className="u-ui text-danger-ink">{state.error}</p>
+        </Surface>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="inline-flex items-center gap-2 bg-primary text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
-      >
-        <Send className="h-4 w-4" /> {pending ? "Submitting…" : "Submit quote"}
-      </button>
+      {/* The quote as it currently stands, and the meter is what turns a grid of
+          inputs into something that reads as a quote being written.
+
+          Rung 2, not 3. LAW A reads "raised = actionable", and this bar is not
+          clickable — the button on it is. Putting the bar itself on rung 3 also
+          flattened the primary CTA, which carries elev-3 of its own, against the
+          surface it was supposed to stand off. Recessed table well, rung-2
+          summary, raised button: the ladder does the separating. */}
+      <Surface rung={2} className="flex flex-wrap items-end justify-between gap-4 p-4">
+        <div className="min-w-0 flex-1">
+          <Eyebrow className="mb-1">Quote total</Eyebrow>
+          <Num
+            value={total > 0 ? total.toLocaleString(undefined, { minimumFractionDigits: 2 }) : "—"}
+            currency={total > 0 ? currency : undefined}
+            rank="section"
+          />
+          <div className="mt-2 max-w-xs">
+            <Meter
+              value={pricedCount}
+              max={items.length}
+              tone={complete ? "success" : "neutral"}
+              label="Line items priced"
+            />
+            <p className="u-meta mt-1 text-ink-3">
+              {pricedCount} of {items.length} line{items.length === 1 ? "" : "s"} priced
+            </p>
+          </div>
+        </div>
+
+        <Button type="submit" loading={pending}>
+          {!pending && <Send className="h-4 w-4" aria-hidden="true" />}
+          {pending ? "Submitting…" : "Submit quote"}
+        </Button>
+      </Surface>
     </form>
   );
 }

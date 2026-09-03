@@ -1,9 +1,18 @@
 import { maskIban, parseSellerBankDetails } from "@avenick/database";
 import { platformContacts } from "@avenick/utils/portal-config";
 import { format } from "date-fns";
-import { Building2, CreditCard, Settings, ShieldCheck } from "lucide-react";
+import { Building2, CreditCard, ShieldCheck } from "lucide-react";
 import { requireSellerPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
+import {
+  Dateline,
+  Eyebrow,
+  FieldWell,
+  PageHeader,
+  SectionHeader,
+  Surface,
+  TierMark,
+} from "@avenick/ui";
 import { BusinessProfileForm, PayoutAccountForm } from "./settings-form";
 
 export const metadata = { title: "Settings" };
@@ -35,123 +44,130 @@ export default async function SettingsPage() {
 
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
-      <div className="space-y-6 max-w-3xl">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Settings className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">Settings</h1>
-            <p className="text-sm text-muted-foreground">How your store presents itself and where it is paid</p>
-          </div>
-        </div>
+      <div className="max-w-3xl space-y-block">
+        <PageHeader
+          eyebrow="Account"
+          title="Settings"
+          description="How your store presents itself to buyers, and where the platform pays you."
+        />
 
         {/* Profile summary — re-read from the database after every save */}
-        <div className="bg-card rounded-2xl border border-border p-5">
-          <div className="flex items-center gap-4">
-            <div className="h-14 w-14 rounded-full bg-gradient-to-br from-primary-500 to-accent-600 flex items-center justify-center text-white font-bold text-xl shrink-0">
-              {seller.businessNameEn.charAt(0).toUpperCase()}
-            </div>
-            <div className="min-w-0">
-              <p className="font-bold text-lg truncate">{seller.businessNameEn}</p>
-              {seller.businessNameAr && <p className="text-sm text-muted-foreground" dir="rtl">{seller.businessNameAr}</p>}
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">{seller.tier}</span>
-                <span className="text-xs text-muted-foreground">ID: {seller.id.slice(0, 8)}…</span>
-              </div>
+        <Surface rung={2} className="flex items-center gap-4 p-5">
+          <span
+            aria-hidden="true"
+            className="u-h3 grid h-14 w-14 shrink-0 place-items-center rounded-pill bg-neutral-soft text-ink-2"
+          >
+            {seller.businessNameEn.charAt(0).toUpperCase()}
+          </span>
+          <div className="min-w-0">
+            <p className="u-h3 truncate text-ink-1">{seller.businessNameEn}</p>
+            {seller.businessNameAr && (
+              <p className="u-ui text-ink-2" dir="rtl" lang="ar">
+                {seller.businessNameAr}
+              </p>
+            )}
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <TierMark tier={seller.tier} />
+              <span className="u-meta u-mono text-ink-3">ID: {seller.id.slice(0, 8)}…</span>
             </div>
           </div>
-        </div>
+        </Surface>
 
         {/* Business profile — seller-editable */}
-        <section className="bg-card rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center gap-3">
-            <Building2 className="h-4 w-4 text-primary" />
-            <div>
-              <h2 className="font-semibold text-sm">Business Profile</h2>
-              <p className="text-xs text-muted-foreground">Names, description and city shown to buyers</p>
-            </div>
-          </div>
-          <div className="p-5">
-            <BusinessProfileForm
-              initial={{
-                businessNameEn: seller.businessNameEn,
-                businessNameAr: seller.businessNameAr,
-                description: seller.description,
-                descriptionAr: seller.descriptionAr,
-                city: seller.city,
-              }}
-            />
-          </div>
-        </section>
+        <Surface as="section" rung={2} className="p-5">
+          <SectionHeader
+            icon={Building2}
+            eyebrow="Seller-editable"
+            title="Business profile"
+            description="Names, description and city shown to buyers"
+          />
+          <BusinessProfileForm
+            initial={{
+              businessNameEn: seller.businessNameEn,
+              businessNameAr: seller.businessNameAr,
+              description: seller.description,
+              descriptionAr: seller.descriptionAr,
+              city: seller.city,
+            }}
+          />
+        </Surface>
 
         {/* Registration — read-only */}
-        <section className="bg-card rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center gap-3">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            <div>
-              <h2 className="font-semibold text-sm">Registration &amp; Platform Terms</h2>
-              <p className="text-xs text-muted-foreground">Verified at onboarding and set by the platform — not editable here</p>
-            </div>
-          </div>
-          <div className="divide-y divide-border">
+        <Surface as="section" rung={2} className="p-5">
+          <SectionHeader
+            icon={ShieldCheck}
+            eyebrow="Read-only"
+            title="Registration & platform terms"
+            description="Verified at onboarding and set by the platform — not editable here"
+          />
+          {/* Recessed, because this block is context rather than something to act on. */}
+          <FieldWell className="divide-y divide-hairline overflow-hidden">
             {registration.map((item) => (
-              <div key={item.label} className="flex items-center justify-between px-5 py-3">
-                <span className="text-sm text-muted-foreground">{item.label}</span>
-                <span className="text-sm font-medium">{item.value}</span>
+              <div key={item.label} className="flex items-center justify-between gap-4 px-4 py-2.5">
+                <Eyebrow>{item.label}</Eyebrow>
+                <span className="u-ui fig text-end font-medium text-ink-1">{item.value}</span>
               </div>
             ))}
-          </div>
-          <p className="px-5 py-3 border-t border-border text-xs text-muted-foreground">
+          </FieldWell>
+          <Dateline className="mt-3">
             Contact support to change registration details.
             {support && (
               <>
                 {" "}
-                <a href={`mailto:${support}`} className="text-primary hover:underline">{support}</a>
+                <a href={`mailto:${support}`} className="u-focus rounded-nested text-primary-ink hover:underline">
+                  {support}
+                </a>
               </>
             )}
-          </p>
-        </section>
+          </Dateline>
+        </Surface>
 
         {/* Payout account — seller-editable, IBAN shown masked */}
-        <section className="bg-card rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center gap-3">
-            <CreditCard className="h-4 w-4 text-primary" />
-            <div>
-              <h2 className="font-semibold text-sm">Banking &amp; Payouts</h2>
-              <p className="text-xs text-muted-foreground">Bank account details held on file for payouts</p>
-            </div>
-          </div>
-          <div className="px-5 py-4 border-b border-border">
+        <Surface as="section" rung={2} className="p-5">
+          <SectionHeader
+            icon={CreditCard}
+            eyebrow="Seller-editable"
+            title="Banking & payouts"
+            description="Bank account details held on file for payouts"
+          />
+          <FieldWell className="mb-5 p-4">
             {bank ? (
-              <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                <div>
-                  <dt className="text-xs text-muted-foreground">IBAN</dt>
-                  <dd className="font-mono font-medium" dir="ltr">{maskIban(bank.iban)}</dd>
+              <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="min-w-0">
+                  <dt>
+                    <Eyebrow as="span">IBAN</Eyebrow>
+                  </dt>
+                  <dd className="u-ui u-mono mt-0.5 truncate font-medium text-ink-1" dir="ltr">
+                    {maskIban(bank.iban)}
+                  </dd>
                 </div>
-                <div>
-                  <dt className="text-xs text-muted-foreground">Bank</dt>
-                  <dd className="font-medium truncate">{bank.bankName}</dd>
+                <div className="min-w-0">
+                  <dt>
+                    <Eyebrow as="span">Bank</Eyebrow>
+                  </dt>
+                  <dd className="u-ui mt-0.5 truncate font-medium text-ink-1">{bank.bankName}</dd>
                 </div>
-                <div>
-                  <dt className="text-xs text-muted-foreground">Account holder</dt>
-                  <dd className="font-medium truncate">{bank.accountName}</dd>
+                <div className="min-w-0">
+                  <dt>
+                    <Eyebrow as="span">Account holder</Eyebrow>
+                  </dt>
+                  <dd className="u-ui mt-0.5 truncate font-medium text-ink-1">{bank.accountName}</dd>
                 </div>
                 {bank.updatedAt && !Number.isNaN(Date.parse(bank.updatedAt)) && (
                   <div className="sm:col-span-3">
                     <dt className="sr-only">Last changed</dt>
-                    <dd className="text-xs text-muted-foreground">Last changed {format(new Date(bank.updatedAt), "MMM d, yyyy")}</dd>
+                    <dd>
+                      <Dateline>Last changed {format(new Date(bank.updatedAt), "MMM d, yyyy")}</Dateline>
+                    </dd>
                   </div>
                 )}
               </dl>
             ) : (
-              <p className="text-sm text-muted-foreground">No payout account on file.</p>
+              <p className="u-ui text-ink-2">No payout account on file.</p>
             )}
-          </div>
-          <div className="p-5">
-            <PayoutAccountForm configured={bank !== null} />
-          </div>
-        </section>
+          </FieldWell>
+          <PayoutAccountForm configured={bank !== null} />
+        </Surface>
       </div>
     </SellerLayout>
   );

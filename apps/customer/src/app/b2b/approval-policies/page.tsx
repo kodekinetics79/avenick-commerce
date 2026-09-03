@@ -1,11 +1,13 @@
 import { B2BShell } from "@/components/b2b/b2b-shell";
-import { formatCurrency } from "@avenick/utils";
+import { Money } from "@/components/b2b/money";
+import { SelectField, TextField } from "@/components/b2b/controls";
+import { Button, Dateline, EmptyState, Eyebrow, Field, StatusPill, Surface } from "@avenick/ui";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
 import { createPolicy, togglePolicy } from "./actions";
 import { ValidatedForm } from "@/components/b2b/validated-form";
-import { CheckSquare, ShieldCheck, Building2 } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { platformName } from "@avenick/utils/portal-config";
 
 export const metadata = { title: `Approval Policies — ${platformName()} for Business` };
@@ -20,11 +22,13 @@ export default async function ApprovalPoliciesPage() {
   if (!ctx) {
     return (
       <B2BShell title="Approval Policies">
-        <div className="rounded-2xl border border-border bg-card p-10 text-center">
-          <Building2 className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-          <p className="font-semibold">No company account</p>
-          <p className="text-sm text-muted-foreground mt-1">Sign in with a company account to configure approvals.</p>
-        </div>
+        <Surface rung={2}>
+          <EmptyState
+            eyebrow="No company context"
+            headline="This session is not attached to a company account."
+            body="Approval thresholds are configured per company. Sign in with a company account to change them."
+          />
+        </Surface>
       </B2BShell>
     );
   }
@@ -38,58 +42,87 @@ export default async function ApprovalPoliciesPage() {
 
   return (
     <B2BShell
+      eyebrow="Administration"
       title="Approval Policies"
       description="Require sign-off when an order exceeds a spend threshold."
     >
-      {isAdmin && (
-        <ValidatedForm action={createPolicy} className="rounded-2xl border border-border bg-card p-5 mb-6">
-          <div className="flex items-center gap-2 text-sm font-semibold mb-4"><ShieldCheck className="h-4 w-4 text-primary" /> New policy</div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
-            <input name="name" required placeholder="Policy name (e.g. High-value orders)" className="lg:col-span-2 h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            <input name="threshold" type="number" required placeholder={`Threshold (${companyCurrency})`} className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            <div className="flex gap-2">
-              <select name="approverRole" aria-label="Approver role" className="flex-1 h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border focus:outline-none focus:ring-2 focus:ring-ring">
-                <option value="COMPANY_APPROVER">Approver signs off</option>
-                <option value="COMPANY_ADMIN">Admin signs off</option>
-              </select>
-              <button type="submit" className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">Add</button>
+      <div className="space-y-block">
+        {isAdmin && (
+          <ValidatedForm action={createPolicy} rung={1} className="p-5">
+            <Eyebrow className="mb-4 flex items-center gap-1.5">
+              <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" /> New policy
+            </Eyebrow>
+            <div className="grid gap-x-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="Policy name" htmlFor="policy-name" required className="lg:col-span-2">
+                <TextField id="policy-name" name="name" required placeholder="e.g. High-value orders" />
+              </Field>
+              <Field label={`Threshold (${companyCurrency})`} htmlFor="policy-threshold" required>
+                <TextField id="policy-threshold" name="threshold" type="number" required min="0" />
+              </Field>
+              <Field label="Who signs off" htmlFor="policy-approver">
+                <SelectField id="policy-approver" name="approverRole" defaultValue="COMPANY_APPROVER">
+                  <option value="COMPANY_APPROVER">Approver signs off</option>
+                  <option value="COMPANY_ADMIN">Admin signs off</option>
+                </SelectField>
+              </Field>
             </div>
-          </div>
-        </ValidatedForm>
-      )}
-
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        {policies.length === 0 ? (
-          <div className="p-10 text-center">
-            <CheckSquare className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-            <p className="font-semibold">No approval policies yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Orders won&apos;t require sign-off until you add a threshold.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-border">
-            {policies.map((p) => (
-              <div key={p.id} className="flex items-center justify-between px-5 py-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary shrink-0"><ShieldCheck className="h-5 w-5" /></span>
-                  <div className="min-w-0">
-                    <p className="font-semibold truncate">{p.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Orders over <span className="font-mono font-medium text-foreground">{formatCurrency(Number(p.thresholdAmount), p.currency)}</span> · {ROLE_LABEL[p.approverRole] ?? "Approver"} approval
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className={`text-xs font-semibold ${p.isActive ? "text-success" : "text-muted-foreground"}`}>{p.isActive ? "Active" : "Off"}</span>
-                  {isAdmin && (
-                    <form action={togglePolicy.bind(null, p.id, !p.isActive)}>
-                      <button type="submit" className="text-xs font-medium text-primary hover:underline">{p.isActive ? "Disable" : "Enable"}</button>
-                    </form>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+            <Button type="submit" variant="primary">Add policy</Button>
+          </ValidatedForm>
         )}
+
+        {policies.length === 0 ? (
+          <Surface rung={2}>
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline="No approval policy is configured for this company."
+              body="Until a threshold exists, every purchase order this company raises can be placed without a second pair of eyes."
+            />
+          </Surface>
+        ) : (
+          <Surface rung={2} className="overflow-hidden">
+            <ul>
+              {policies.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between gap-3 border-b border-hairline px-5 py-4 last:border-b-0"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-nested bg-neutral-soft text-ink-2">
+                      <ShieldCheck className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="u-ui truncate font-medium text-ink-1">{p.name}</p>
+                      {/* The threshold is a figure, so it gets a figure's own
+                          baseline rather than being dropped inline into a 12px
+                          sentence, where a 20px numeral breaks the line box and
+                          outweighs the policy it belongs to. */}
+                      <p className="u-meta text-ink-2">
+                        {ROLE_LABEL[p.approverRole] ?? "Approver"} approval required above
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-3">
+                    <Money amount={Number(p.thresholdAmount)} currency={p.currency} />
+                    <StatusPill tone={p.isActive ? "success" : "neutral"} dot>
+                      {p.isActive ? "Active" : "Off"}
+                    </StatusPill>
+                    {isAdmin && (
+                      <form action={togglePolicy.bind(null, p.id, !p.isActive)}>
+                        <Button type="submit" variant="ghost" size="xs" className="text-primary-ink hover:text-primary-ink">
+                          {p.isActive ? "Disable" : "Enable"}
+                        </Button>
+                      </form>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </Surface>
+        )}
+        <Dateline>
+          Thresholds are recorded in the currency each policy stores · a PO is routed by the policy whose threshold it
+          crosses
+        </Dateline>
       </div>
     </B2BShell>
   );

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Package, Truck, Navigation, CheckCircle, Ban, MessageSquare, Loader2 } from "lucide-react";
+import { Package, Truck, Navigation, CheckCircle, Ban, MessageSquare } from "lucide-react";
+import { Button, FieldWell, Surface } from "@avenick/ui";
+import { CONTROL, CONTROL_SM } from "@/app/finance/console-chrome";
 import { addOrderNoteAction, advanceOrderAction, cancelOrderAction } from "./actions";
 
 type Target = "PROCESSING" | "SHIPPED" | "OUT_FOR_DELIVERY" | "DELIVERED";
@@ -20,30 +22,33 @@ interface Props {
 interface Step {
   to: Target;
   label: string;
+  /** The verb on the compact row control, where there is no room for the sentence. */
+  short: string;
   icon: typeof Package;
-  className: string;
 }
 
 /**
  * The next step(s) an operator may take from a given order status. Mirrors the
  * chain in adminAdvanceOrder; the service is the authority and refuses
  * anything else, this map only decides which buttons to draw.
+ *
+ * These carried four saturated fills — purple, cyan, amber, green — one per
+ * step, which taught the operator nothing except that the buttons were
+ * different. They are all the same kind of act (advance this order one notch),
+ * so they are all the same control; the step is named on the button.
  */
 const NEXT_STEPS: Record<string, Step[]> = {
-  CONFIRMED: [{ to: "PROCESSING", label: "Mark as Processing", icon: Package, className: "bg-purple-600 text-white hover:bg-purple-700" }],
-  PROCESSING: [{ to: "SHIPPED", label: "Mark as Shipped", icon: Truck, className: "bg-cyan-600 text-white hover:bg-cyan-700" }],
+  CONFIRMED: [{ to: "PROCESSING", label: "Mark as Processing", short: "Process", icon: Package }],
+  PROCESSING: [{ to: "SHIPPED", label: "Mark as Shipped", short: "Ship", icon: Truck }],
   SHIPPED: [
-    { to: "OUT_FOR_DELIVERY", label: "Out for Delivery", icon: Navigation, className: "bg-amber-600 text-white hover:bg-amber-700" },
-    { to: "DELIVERED", label: "Mark as Delivered", icon: CheckCircle, className: "bg-green-600 text-white hover:bg-green-700" },
+    { to: "OUT_FOR_DELIVERY", label: "Out for Delivery", short: "Dispatch", icon: Navigation },
+    { to: "DELIVERED", label: "Mark as Delivered", short: "Deliver", icon: CheckCircle },
   ],
-  OUT_FOR_DELIVERY: [{ to: "DELIVERED", label: "Mark as Delivered", icon: CheckCircle, className: "bg-green-600 text-white hover:bg-green-700" }],
+  OUT_FOR_DELIVERY: [{ to: "DELIVERED", label: "Mark as Delivered", short: "Deliver", icon: CheckCircle }],
 };
 
 const CANCELLABLE = new Set(["PENDING_PAYMENT", "PAYMENT_CONFIRMED"]);
 const CLOSED = new Set(["CANCELLED", "REFUNDED", "RETURNED", "DELIVERED"]);
-
-const BTN = "inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
-const FIELD = "h-8 rounded-lg border border-border bg-background px-2.5 text-xs outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50";
 
 export function OrderControls({ orderId, status, paymentStatus, governed = false, variant }: Props) {
   const router = useRouter();
@@ -52,6 +57,7 @@ export function OrderControls({ orderId, status, paymentStatus, governed = false
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const blockedId = useId();
 
   const steps = NEXT_STEPS[status] ?? [];
   const unpaid = paymentStatus === "UNPAID" || paymentStatus === "FAILED";
@@ -87,11 +93,23 @@ export function OrderControls({ orderId, status, paymentStatus, governed = false
     if (!step) return null;
     const Icon = step.icon;
     return (
-      <div className="flex flex-col gap-1">
-        <button type="button" disabled={pending} onClick={() => advance(step)} className={`${BTN} px-2 py-0.5 ${step.className}`}>
-          {pending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" />} {step.to === "PROCESSING" ? "Process" : "Ship"}
-        </button>
-        {error && <span role="alert" className="text-[11px] text-red-600">{error}</span>}
+      <div className="flex flex-col items-end gap-1">
+        <Button
+          type="button"
+          variant="secondary"
+          size="xs"
+          loading={pending}
+          disabled={pending}
+          onClick={() => advance(step)}
+          title={step.label}
+        >
+          {!pending && <Icon className="h-3 w-3" aria-hidden="true" />} {step.short}
+        </Button>
+        {error && (
+          <span role="alert" className="u-meta text-end text-danger-ink">
+            {error}
+          </span>
+        )}
       </div>
     );
   }
@@ -102,107 +120,148 @@ export function OrderControls({ orderId, status, paymentStatus, governed = false
         {steps.map((step) => {
           const Icon = step.icon;
           return (
-            <button
+            <Button
               key={step.to}
               type="button"
+              variant="secondary"
+              size="sm"
               disabled={pending}
               onClick={() => setPanel({ kind: "advance", step })}
-              className={`${BTN} ${step.className}`}
             >
-              <Icon className="h-3.5 w-3.5" /> {step.label}
-            </button>
+              <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {step.label}
+            </Button>
           );
         })}
         {!CLOSED.has(status) && (
-          <span className="inline-flex flex-col">
-            <button
-              type="button"
-              disabled={pending || !cancellable}
-              onClick={() => setPanel({ kind: "cancel" })}
-              className={`${BTN} border border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/10`}
-              title={cancelBlockedReason ?? undefined}
-            >
-              <Ban className="h-3.5 w-3.5" /> Cancel Order
-            </button>
-          </span>
+          // Disabled controls are not reachable by a screen reader, and a title
+          // attribute on one is announced by almost nothing — so the reason a
+          // cancellation is refused is a real sentence below, and this button
+          // points at it rather than hiding it in a tooltip.
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-danger-ink hover:bg-danger-soft"
+            disabled={pending || !cancellable}
+            onClick={() => setPanel({ kind: "cancel" })}
+            aria-describedby={cancelBlockedReason ? blockedId : undefined}
+          >
+            <Ban className="h-3.5 w-3.5" aria-hidden="true" /> Cancel Order
+          </Button>
         )}
-        <button type="button" disabled={pending} onClick={() => setPanel({ kind: "note" })} className={`${BTN} border border-border text-muted-foreground hover:bg-muted`}>
-          <MessageSquare className="h-3.5 w-3.5" /> Add internal note
-        </button>
+        <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setPanel({ kind: "note" })}>
+          <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" /> Add internal note
+        </Button>
       </div>
       {!CLOSED.has(status) && cancelBlockedReason && (
-        <p className="text-xs text-muted-foreground">{cancelBlockedReason}</p>
+        <p id={blockedId} className="u-meta max-w-prose text-ink-2">{cancelBlockedReason}</p>
       )}
 
       {panel?.kind === "advance" && (
-        <form
-          className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-background p-3"
-          onSubmit={(event) => {
+        <FieldWell
+          as="form"
+          className="flex flex-wrap items-end gap-2 p-3"
+          onSubmit={(event: FormEvent) => {
             event.preventDefault();
             advance(panel.step, text.trim() || undefined);
           }}
         >
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground flex-1 min-w-[16rem]">
+          <label className="u-meta flex min-w-[16rem] flex-1 flex-col gap-1 text-ink-2">
             Message shown to the customer (optional)
-            <input value={text} onChange={(event) => setText(event.target.value)} maxLength={500} disabled={pending} className={FIELD} />
+            <input
+              data-rung={1}
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              maxLength={500}
+              disabled={pending}
+              className={CONTROL_SM}
+            />
           </label>
-          <button type="submit" disabled={pending} className={`${BTN} ${panel.step.className}`}>
-            {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null} Confirm: {panel.step.label}
-          </button>
-          <button type="button" disabled={pending} onClick={() => setPanel(null)} className={`${BTN} border border-border text-muted-foreground hover:bg-muted`}>
+          <Button type="submit" variant="secondary" size="sm" loading={pending} disabled={pending}>
+            Confirm: {panel.step.label}
+          </Button>
+          <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setPanel(null)}>
             Back
-          </button>
-        </form>
+          </Button>
+        </FieldWell>
       )}
 
       {panel?.kind === "cancel" && (
-        <form
-          className="flex flex-wrap items-end gap-2 rounded-xl border border-red-500/20 bg-red-500/5 p-3"
-          onSubmit={(event) => {
+        // An irreversible act gets a toned surface of its own, so the operator
+        // cannot mistake this panel for the fulfilment panel above it.
+        <Surface
+          as="form"
+          rung={1}
+          tone="danger"
+          className="flex flex-wrap items-end gap-2 p-3"
+          onSubmit={(event: FormEvent) => {
             event.preventDefault();
             run(() => cancelOrderAction({ orderId, expectedFrom: status, reason: text }));
           }}
         >
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground flex-1 min-w-[16rem]">
+          <p className="u-meta w-full text-danger-ink">
+            Cancelling releases the order and tells the customer why. It cannot be undone here.
+          </p>
+          <label className="u-meta flex min-w-[16rem] flex-1 flex-col gap-1 text-ink-2">
             Reason (shown to the customer)
-            <input autoFocus value={text} onChange={(event) => setText(event.target.value)} maxLength={500} required disabled={pending} className={FIELD} />
+            <input
+              data-rung={1}
+              autoFocus
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              maxLength={500}
+              required
+              disabled={pending}
+              className={CONTROL_SM}
+            />
           </label>
-          <button type="submit" disabled={pending} className={`${BTN} bg-red-600 text-white hover:bg-red-700`}>
-            {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Ban className="h-3.5 w-3.5" />} Confirm cancellation
-          </button>
-          <button type="button" disabled={pending} onClick={() => setPanel(null)} className={`${BTN} border border-border text-muted-foreground hover:bg-muted`}>
+          <Button type="submit" variant="destructive" size="sm" loading={pending} disabled={pending}>
+            {!pending && <Ban className="h-3.5 w-3.5" aria-hidden="true" />} Confirm cancellation
+          </Button>
+          <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setPanel(null)}>
             Back
-          </button>
-        </form>
+          </Button>
+        </Surface>
       )}
 
       {panel?.kind === "note" && (
-        <form
-          className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-background p-3"
-          onSubmit={(event) => {
+        <FieldWell
+          as="form"
+          className="flex flex-wrap items-end gap-2 p-3"
+          onSubmit={(event: FormEvent) => {
             event.preventDefault();
             run(() => addOrderNoteAction({ orderId, note: text }));
           }}
         >
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground flex-1 min-w-[16rem]">
+          <label className="u-meta flex min-w-[16rem] flex-1 flex-col gap-1 text-ink-2">
             Internal note (staff only; the customer never sees it)
-            <textarea autoFocus value={text} onChange={(event) => setText(event.target.value)} maxLength={2000} rows={2} required disabled={pending} className={`${FIELD} h-auto py-1.5`} />
+            <textarea
+              data-rung={1}
+              autoFocus
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              maxLength={2000}
+              rows={2}
+              required
+              disabled={pending}
+              className={`${CONTROL} h-auto py-1.5`}
+            />
           </label>
-          <button type="submit" disabled={pending} className={`${BTN} bg-primary text-primary-foreground hover:bg-primary/90`}>
-            {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageSquare className="h-3.5 w-3.5" />} Save note
-          </button>
-          <button type="button" disabled={pending} onClick={() => setPanel(null)} className={`${BTN} border border-border text-muted-foreground hover:bg-muted`}>
+          <Button type="submit" variant="secondary" size="sm" loading={pending} disabled={pending}>
+            {!pending && <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />} Save note
+          </Button>
+          <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setPanel(null)}>
             Back
-          </button>
-        </form>
+          </Button>
+        </FieldWell>
       )}
 
       {error && (
-        <p role="alert" className="text-xs text-red-600">
+        <p role="alert" className="u-ui text-danger-ink">
           {error}
         </p>
       )}
-      {notice && <p className="text-xs text-muted-foreground">{notice}</p>}
+      {notice && <p role="status" className="u-ui text-success-ink">{notice}</p>}
     </div>
   );
 }

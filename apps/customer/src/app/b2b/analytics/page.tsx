@@ -1,10 +1,11 @@
 import { B2BShell } from "@/components/b2b/b2b-shell";
-import { formatCurrency } from "@avenick/utils";
+import { Money } from "@/components/b2b/money";
+import { CellGrid, Dateline, EmptyState, Eyebrow, Meter, Surface } from "@avenick/ui";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
 import { platformName } from "@avenick/utils/portal-config";
-import { TrendingUp, Wallet, Clock, Building2, BarChart3 } from "lucide-react";
+import { TrendingUp, Wallet, Clock } from "lucide-react";
 
 export const metadata = { title: `Spend Analytics — ${platformName()} for Business` };
 
@@ -15,11 +16,13 @@ export default async function SpendAnalyticsPage() {
   if (!ctx) {
     return (
       <B2BShell title="Spend Analytics">
-        <div className="rounded-2xl border border-border bg-card p-10 text-center">
-          <Building2 className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-          <p className="font-semibold">No company account</p>
-          <p className="text-sm text-muted-foreground mt-1">Sign in with a company account to view spend.</p>
-        </div>
+        <Surface rung={2}>
+          <EmptyState
+            eyebrow="No company context"
+            headline="This session is not attached to a company account."
+            body="Spend is measured across a company's purchase orders. Sign in with a company account to see it."
+          />
+        </Surface>
       </B2BShell>
     );
   }
@@ -63,73 +66,105 @@ export default async function SpendAnalyticsPage() {
   }
   const trendMax = Math.max(1, ...trend.map((t) => t.value));
 
-  const kpis = [
-    { label: "Committed spend", value: formatCurrency(totalSpend, currency), icon: Wallet },
-    { label: "This month", value: formatCurrency(monthSpend, currency), icon: TrendingUp },
-    { label: "Awaiting approval", value: formatCurrency(pendingValue, currency), icon: Clock },
-  ];
-
   const empty = committed.length === 0;
 
+  // The disclosure that used to be an 11px grey line above the figures. It is
+  // the reason the numbers can be trusted, so it is set as provenance and
+  // attached to the page rather than dropped above it.
+  const excluded =
+    excludedCount > 0
+      ? `${excludedCount} purchase order${excludedCount === 1 ? "" : "s"} raised in other currencies ${excludedCount === 1 ? "is" : "are"} not included`
+      : "All of this company's purchase orders are raised in this currency";
+
   return (
-    <B2BShell title="Spend Analytics" description={`Approved & ordered purchasing across ${ctx.company.nameEn}, in ${currency}.`}>
-      {excludedCount > 0 && (
-        <p className="text-xs text-muted-foreground mb-4">
-          {excludedCount} purchase order{excludedCount === 1 ? "" : "s"} raised in other currencies {excludedCount === 1 ? "is" : "are"} not included in these figures.
-        </p>
-      )}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        {kpis.map((k) => (
-          <div key={k.label} className="rounded-2xl border border-border bg-card p-5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary/10 text-primary"><k.icon className="h-4 w-4" /></span>
-            <p className="mt-4 text-2xl font-bold font-mono tracking-tight">{k.value}</p>
-            <p className="text-xs text-muted-foreground mt-1">{k.label}</p>
+    <B2BShell
+      eyebrow="Money"
+      title="Spend Analytics"
+      description={`Approved & ordered purchasing across ${ctx.company.nameEn}, in ${currency}.`}
+      dateline={`Approved and ordered purchase orders, in ${currency} · ${excluded}`}
+    >
+      <div className="space-y-block">
+        <CellGrid cols={{ base: 1, sm: 3 }}>
+          <div>
+            <Eyebrow className="flex items-center gap-1.5">
+              <Wallet className="h-3.5 w-3.5" aria-hidden="true" /> Committed spend
+            </Eyebrow>
+            <div className="mt-1.5">
+              <Money amount={totalSpend} currency={currency} rank="section" />
+            </div>
           </div>
-        ))}
+          <div>
+            <Eyebrow className="flex items-center gap-1.5">
+              <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" /> This month
+            </Eyebrow>
+            <div className="mt-1.5">
+              <Money amount={monthSpend} currency={currency} />
+            </div>
+            {/* No prior-month figure is computed here, so none is shown. */}
+            <Dateline className="mt-1">Calendar month to date</Dateline>
+          </div>
+          <div>
+            <Eyebrow className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" aria-hidden="true" /> Awaiting approval
+            </Eyebrow>
+            <div className="mt-1.5">
+              <Money amount={pendingValue} currency={currency} />
+            </div>
+            <Dateline className="mt-1">Not yet committed</Dateline>
+          </div>
+        </CellGrid>
+
+        {empty ? (
+          <Surface rung={2}>
+            <EmptyState
+              eyebrow="Nothing committed"
+              headline="No purchase order has been approved or placed yet."
+              body="Spend is measured from approved and ordered POs, so this page fills in as your first approvals go through."
+            />
+          </Surface>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* By department. A recessed track with a raised fill: the reading
+                is carried by depth, not by a traffic light. */}
+            <Surface rung={2} className="p-5">
+              <h2 className="u-h3 mb-1 text-ink-1">Spend by department</h2>
+              <Dateline className="mb-4">Department is taken from each requester&apos;s company membership</Dateline>
+              <ul className="space-y-4">
+                {deptRows.map((d, i) => (
+                  <li key={d.name}>
+                    <div className="mb-1.5 flex items-center justify-between gap-3">
+                      <span className="u-ui font-medium text-ink-1">{d.name}</span>
+                      <Money amount={d.spend} currency={currency} className="text-ink-2" />
+                    </div>
+                    <Meter value={d.spend} max={deptMax} index={i} label={`${d.name} committed spend`} />
+                  </li>
+                ))}
+              </ul>
+            </Surface>
+
+            {/* Monthly trend. The vertical gradient columns this replaces were
+                unreadable without hovering — the amount lived in a `title`
+                attribute, which no keyboard or screen reader surfaces — and
+                cropped every value to a height. Each month now prints its own
+                figure next to its own bar. */}
+            <Surface rung={2} className="p-5">
+              <h2 className="u-h3 mb-1 text-ink-1">Monthly spend</h2>
+              <Dateline className="mb-4">Last six calendar months, by the date each PO was raised</Dateline>
+              <ul className="space-y-4">
+                {trend.map((m, i) => (
+                  <li key={m.label}>
+                    <div className="mb-1.5 flex items-center justify-between gap-3">
+                      <span className="u-ui font-medium text-ink-1">{m.label}</span>
+                      <Money amount={m.value} currency={currency} className="text-ink-2" />
+                    </div>
+                    <Meter value={m.value} max={trendMax} index={i} tone="accent" label={`${m.label} committed spend`} />
+                  </li>
+                ))}
+              </ul>
+            </Surface>
+          </div>
+        )}
       </div>
-
-      {empty ? (
-        <div className="rounded-2xl border border-border bg-card p-10 text-center">
-          <BarChart3 className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-          <p className="font-semibold">No committed spend yet</p>
-          <p className="text-sm text-muted-foreground mt-1">Approve and place purchase orders to see analytics here.</p>
-        </div>
-      ) : (
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* By department */}
-          <div className="rounded-2xl border border-border bg-card p-5">
-            <p className="text-sm font-semibold mb-4">Spend by department</p>
-            <div className="space-y-4">
-              {deptRows.map((d) => (
-                <div key={d.name}>
-                  <div className="flex items-center justify-between text-xs mb-1.5">
-                    <span className="font-medium">{d.name}</span>
-                    <span className="font-mono text-muted-foreground">{formatCurrency(d.spend, currency)}</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-secondary overflow-hidden">
-                    <div className="h-full rounded-full bg-gradient-to-r from-primary-500 to-accent-500" style={{ width: `${(d.spend / deptMax) * 100}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Monthly trend */}
-          <div className="rounded-2xl border border-border bg-card p-5">
-            <p className="text-sm font-semibold mb-4">Monthly spend trend</p>
-            <div className="flex items-end justify-between gap-3 h-40">
-              {trend.map((m, i) => (
-                <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                  <div className="w-full flex items-end justify-center" style={{ height: "100%" }}>
-                    <div className="w-full max-w-[44px] rounded-t-lg bg-gradient-to-t from-primary-600 to-accent-500" style={{ height: `${Math.max(4, (m.value / trendMax) * 100)}%` }} title={formatCurrency(m.value, currency)} />
-                  </div>
-                  <span className="text-xs text-muted-foreground">{m.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </B2BShell>
   );
 }

@@ -1,10 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle, Send, Plus, Trash2, AlertCircle, Building2 } from "lucide-react";
+import { CheckCircle, Send, Plus, Trash2, AlertCircle } from "lucide-react";
 import { B2BShell } from "@/components/b2b/b2b-shell";
-import { Button, Input, Textarea } from "@avenick/ui";
+import {
+  Button,
+  Dateline,
+  Eyebrow,
+  Field,
+  PageHeader,
+  Surface,
+  Textarea,
+} from "@avenick/ui";
+import { SelectField, TextField } from "@/components/b2b/controls";
 import { submitRFQ } from "../actions";
 
 type Priority = "NORMAL" | "URGENT" | "CRITICAL";
@@ -28,11 +37,17 @@ export interface RFQCategoryOption {
  * Nothing routes or times an RFQ by priority, so the descriptions describe
  * what the buyer is telling the supplier — not a response window.
  */
-const PRIORITY_CONFIG: Record<Priority, { label: string; color: string; desc: string }> = {
-  NORMAL:   { label: "Normal",   color: "border-border",       desc: "Routine purchase" },
-  URGENT:   { label: "Urgent",   color: "border-amber-400",    desc: "Needed soon — flagged to the supplier" },
-  CRITICAL: { label: "Critical", color: "border-red-500",      desc: "Blocking — flagged to the supplier" },
+const PRIORITY_CONFIG: Record<Priority, { label: string; rule: string; desc: string }> = {
+  NORMAL:   { label: "Normal",   rule: "border-b-border-strong", desc: "Routine purchase" },
+  URGENT:   { label: "Urgent",   rule: "border-b-warning",       desc: "Needed soon — flagged to the supplier" },
+  CRITICAL: { label: "Critical", rule: "border-b-danger",        desc: "Blocking — flagged to the supplier" },
 };
+
+/** The order the options are presented and arrowed through, least to most urgent. */
+const PRIORITY_KEYS: Priority[] = ["NORMAL", "URGENT", "CRITICAL"];
+
+/** Units the RFQ form offers. Free text is not accepted by the API. */
+const UNITS = ["pcs", "boxes", "kg", "liters", "sets", "meters", "bags", "pallets"];
 
 export function NewRFQForm({
   categories,
@@ -50,6 +65,32 @@ export function NewRFQForm({
   const [items, setItems] = useState<RFQItem[]>([
     { id: "1", description: "", quantity: "", unit: "pcs", targetPrice: "", specs: "" },
   ]);
+
+  const priorityRefs = useRef<Partial<Record<Priority, HTMLButtonElement | null>>>({});
+
+  /**
+   * Arrow-key travel inside the priority radiogroup.
+   *
+   * Selection follows focus, which is the expected behaviour for a radio group
+   * whose options carry no further consequence. The inline arrows are read
+   * against the element's own computed direction rather than assumed to be
+   * left-is-previous, so ArrowRight still means "the next option" in Arabic.
+   */
+  function movePriority(event: React.KeyboardEvent<HTMLButtonElement>, key: Priority) {
+    const rtl = typeof window !== "undefined" && getComputedStyle(event.currentTarget).direction === "rtl";
+    let step = 0;
+    if (event.key === "ArrowDown") step = 1;
+    else if (event.key === "ArrowUp") step = -1;
+    else if (event.key === "ArrowRight") step = rtl ? -1 : 1;
+    else if (event.key === "ArrowLeft") step = rtl ? 1 : -1;
+    else return;
+
+    event.preventDefault();
+    const index = PRIORITY_KEYS.indexOf(key);
+    const next = PRIORITY_KEYS[(index + step + PRIORITY_KEYS.length) % PRIORITY_KEYS.length]!;
+    setPriority(next);
+    priorityRefs.current[next]?.focus();
+  }
 
   function addItem() {
     setItems((prev) => [...prev, { id: String(Date.now()), description: "", quantity: "", unit: "pcs", targetPrice: "", specs: "" }]);
@@ -131,30 +172,42 @@ export function NewRFQForm({
   if (submitted) {
     return (
       <B2BShell>
-        <div className="bg-slate-50 min-h-screen">
-          <div className="max-w-lg mx-auto px-4 py-20 text-center">
-            <div className="w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-5">
-              <CheckCircle className="h-10 w-10 text-primary" />
-            </div>
-            <h1 className="text-2xl font-bold mb-2">RFQ Submitted!</h1>
-            <p className="text-muted-foreground mb-1">Your Request for Quotation has been recorded.</p>
-            <p className="text-sm text-muted-foreground mb-6">Response times are not guaranteed. Track this RFQ from your quotes list.</p>
-            <div className="bg-white border border-border rounded-2xl p-4 mb-6 text-sm text-start">
-              {/* Steps describe the implemented single-supplier RFQ flow. Automatic
-                  distribution to matching suppliers and side-by-side comparison are
-                  not implemented — an RFQ carries at most one supplier. */}
-              <p className="font-semibold mb-2">What happens next?</p>
-              <ol className="space-y-1.5 text-muted-foreground">
-                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</span> RFQ recorded against your company</li>
-                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</span> A supplier is assigned to the request</li>
-                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span> You review the quote when it is submitted</li>
-                <li className="flex items-start gap-2"><span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">4</span> Accept the quote → convert to order</li>
-              </ol>
-            </div>
-            <div className="flex gap-3 justify-center">
-              <Button asChild variant="primary"><Link href="/b2b">Back to Dashboard</Link></Button>
-              <Button asChild variant="ghost"><Link href="/b2b/quotes">View Quotes</Link></Button>
-            </div>
+        <div className="max-w-xl space-y-block">
+          <div>
+            <Eyebrow className="mb-1 flex items-center gap-1.5 text-success-ink">
+              <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" /> Recorded
+            </Eyebrow>
+            <h1 className="u-h1 text-ink-1">Your request for quotation has been recorded.</h1>
+            <Dateline className="mt-1.5">
+              Response times are not guaranteed and no reminder is sent · track it from your quotes list
+            </Dateline>
+          </div>
+
+          {/* Steps describe the implemented single-supplier RFQ flow. Automatic
+              distribution to matching suppliers and side-by-side comparison are
+              not implemented — an RFQ carries at most one supplier. */}
+          <Surface rung={1} className="p-5">
+            <Eyebrow className="mb-3">What happens next</Eyebrow>
+            <ol className="space-y-2">
+              {[
+                "RFQ recorded against your company",
+                "A supplier is assigned to the request",
+                "You review the quote when it is submitted",
+                "Accepting the quote closes the RFQ; the order is raised separately",
+              ].map((step, i) => (
+                <li key={step} className="u-ui flex items-start gap-2.5 text-ink-1">
+                  <span className="u-meta mt-px grid h-5 w-5 shrink-0 place-items-center rounded-pill bg-neutral-soft font-medium text-ink-2">
+                    {i + 1}
+                  </span>
+                  {step}
+                </li>
+              ))}
+            </ol>
+          </Surface>
+
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="primary"><Link href="/b2b/quotes">View quotes</Link></Button>
+            <Button asChild variant="ghost"><Link href="/b2b">Back to overview</Link></Button>
           </div>
         </div>
       </B2BShell>
@@ -163,147 +216,229 @@ export function NewRFQForm({
 
   return (
     <B2BShell>
-      <div className="bg-slate-50 min-h-screen">
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          <Link href="/b2b" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Back to B2B Dashboard
-          </Link>
+      <div className="max-w-3xl">
+        <PageHeader
+          breadcrumbs={[{ label: "Overview", href: "/b2b" }, { label: "New RFQ" }]}
+          eyebrow="Request for quotation"
+          title="Create a request for quotation"
+          description="Describe what you need and in what quantity. A supplier prices it; nothing is committed by sending it."
+          linkComponent={Link}
+        />
 
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold">Create Request for Quotation</h1>
-            <p className="text-muted-foreground text-sm mt-1">Submit an RFQ to request a supplier quote.</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-
-            {/* Header info */}
-            <div className="bg-white rounded-2xl border border-border p-5">
-              <h2 className="font-semibold mb-4 flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-primary/100" /> RFQ Details
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="block text-sm font-medium mb-1">RFQ Title / Subject <span className="text-red-500">*</span></label>
-                  <Input name="title" placeholder="e.g. Safety equipment for a construction site" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Category <span className="text-red-500">*</span></label>
-                  {/* Options are the catalog's own categories. When none loaded,
-                      the buyer types one — the category is free text in the RFQ
-                      notes either way, so no list is invented here. */}
-                  {categories.length > 0 ? (
-                    <select name="category" aria-label="Category" required className="w-full h-10 px-3 text-sm border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary">
-                      <option value="">Select category...</option>
-                      {categories.map((c) => <option key={c.slug} value={c.label}>{c.label}</option>)}
-                      <option value="Other">Other</option>
-                    </select>
-                  ) : (
-                    <Input name="category" placeholder="e.g. Safety & PPE" required />
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Required By <span className="text-red-500">*</span></label>
-                  <Input name="requiredBy" type="date" required />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Delivery City</label>
-                  <Input name="city" placeholder="City, country" />
-                </div>
-                {/* No "Preferred supplier" field: the RFQ API accepts none, so an
-                    input here would silently discard what the buyer typed. */}
-              </div>
+        <form onSubmit={handleSubmit} className="space-y-block">
+          {/* Header info */}
+          <Surface rung={2} className="p-5">
+            <h2 className="u-h3 mb-4 text-ink-1">The request</h2>
+            <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
+              <Field label="Subject" htmlFor="rfq-title" required className="sm:col-span-2">
+                <TextField
+                  id="rfq-title"
+                  name="title"
+                  placeholder="e.g. Safety equipment for a construction site"
+                  required
+                />
+              </Field>
+              {/* Options are the catalog's own categories. When none loaded,
+                  the buyer types one — the category is free text in the RFQ
+                  notes either way, so no list is invented here. */}
+              <Field label="Category" htmlFor="rfq-category" required>
+                {categories.length > 0 ? (
+                  <SelectField id="rfq-category" name="category" required defaultValue="">
+                    <option value="" disabled>Select a category</option>
+                    {categories.map((c) => <option key={c.slug} value={c.label}>{c.label}</option>)}
+                    <option value="Other">Other</option>
+                  </SelectField>
+                ) : (
+                  <TextField id="rfq-category" name="category" placeholder="e.g. Safety & PPE" required />
+                )}
+              </Field>
+              <Field label="Required by" htmlFor="rfq-required-by" required>
+                <TextField id="rfq-required-by" name="requiredBy" type="date" required />
+              </Field>
+              <Field
+                label="Delivery city"
+                htmlFor="rfq-city"
+                hint="Optional — helps the supplier quote freight."
+              >
+                <TextField id="rfq-city" name="city" placeholder="City, country" />
+              </Field>
+              {/* No "Preferred supplier" field: the RFQ API accepts none, so an
+                  input here would silently discard what the buyer typed. */}
             </div>
+          </Surface>
 
-            {/* Priority */}
-            <div className="bg-white rounded-2xl border border-border p-5">
-              <h2 className="font-semibold mb-3">Priority</h2>
-              <div className="grid grid-cols-3 gap-3">
-                {(Object.entries(PRIORITY_CONFIG) as [Priority, typeof PRIORITY_CONFIG[Priority]][]).map(([key, cfg]) => (
-                  <button key={key} type="button" onClick={() => setPriority(key)}
-                    className={`text-start p-3 rounded-xl border-2 transition-all ${priority === key ? `${cfg.color} bg-primary/10` : "border-border hover:border-slate-300"}`}>
-                    <p className="font-semibold text-sm">{cfg.label}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{cfg.desc}</p>
+          {/* Priority. The selected card is RAISED and carries a coloured
+              underrule; the unselected ones are flat. Depth says "chosen"
+              before colour does. */}
+          <Surface rung={2} className="p-5">
+            <h2 className="u-h3 mb-1 text-ink-1">Priority</h2>
+            <Dateline className="mb-3">
+              Recorded in the request notes for the supplier to read · nothing routes or times an RFQ by priority
+            </Dateline>
+            <div
+              role="radiogroup"
+              aria-label="Priority"
+              className="grid grid-cols-1 gap-2 sm:grid-cols-3"
+            >
+              {PRIORITY_KEYS.map((key) => {
+                const cfg = PRIORITY_CONFIG[key];
+                const selected = priority === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    // A radiogroup is ONE tab stop with arrow keys inside it, not
+                    // three tab stops. Declaring role="radio" and then leaving
+                    // every option tabbable and the arrow keys dead promises a
+                    // keyboard contract the widget does not honour, which is
+                    // worse for a screen-reader user than plain buttons would be.
+                    tabIndex={selected ? 0 : -1}
+                    ref={(node) => {
+                      priorityRefs.current[key] = node;
+                    }}
+                    onKeyDown={(event) => movePriority(event, key)}
+                    // data-rung carries the whole surface treatment: the selected
+                    // option is raised off the card, the others are pressed into
+                    // it. Depth says "chosen" before the coloured underrule does.
+                    data-rung={selected ? 3 : 1}
+                    // data-focus-lift rather than u-focus: on an element that
+                    // already carries a rung, the plain focus utility REPLACES
+                    // the box-shadow, so focusing the chosen option flattened it.
+                    // The focus-lift rule keeps the elevation under the ring.
+                    data-focus-lift=""
+                    onClick={() => setPriority(key)}
+                    className={`border border-border p-3 text-start outline-none ${selected ? `border-b-2 ${cfg.rule}` : ""}`}
+                  >
+                    <p className="u-ui font-medium text-ink-1">{cfg.label}</p>
+                    <p className="u-meta mt-0.5 text-ink-2">{cfg.desc}</p>
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
+          </Surface>
 
-            {/* Line items */}
-            <div className="bg-white rounded-2xl border border-border p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-semibold">Line Items</h2>
-                <button type="button" onClick={addItem}
-                  className="flex items-center gap-1.5 text-sm text-primary hover:text-primary font-medium border border-primary/30 px-3 py-1.5 rounded-lg hover:bg-primary/10 transition-colors">
-                  <Plus className="h-3.5 w-3.5" /> Add Item
-                </button>
-              </div>
-              <div className="space-y-4">
-                {items.map((item, idx) => (
-                  <div key={item.id} className="border border-border rounded-xl p-4 relative">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Item {idx + 1}</span>
-                      {items.length > 1 && (
-                        <button type="button" aria-label="Remove item" onClick={() => removeItem(item.id)} className="text-muted-foreground hover:text-red-500 transition-colors p-1">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="sm:col-span-2">
-                        <label className="block text-xs font-medium mb-1">Description <span className="text-red-500">*</span></label>
-                        <Input value={item.description} onChange={(e) => updateItem(item.id, "description", e.target.value)} placeholder="e.g. Safety Helmet EN397, Hard Shell, Various Sizes" required />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Quantity <span className="text-red-500">*</span></label>
-                        <Input type="number" value={item.quantity} onChange={(e) => updateItem(item.id, "quantity", e.target.value)} placeholder="100" min={1} required />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Unit</label>
-                        <select aria-label="Unit" value={item.unit} onChange={(e) => updateItem(item.id, "unit", e.target.value)}
-                          className="w-full h-10 px-3 text-sm border border-border rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-primary">
-                          {["pcs", "boxes", "kg", "liters", "sets", "meters", "bags", "pallets"].map(u => <option key={u}>{u}</option>)}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Target Unit Price{currency ? ` (${currency})` : ""}</label>
-                        <Input type="number" value={item.targetPrice} onChange={(e) => updateItem(item.id, "targetPrice", e.target.value)} placeholder="0.00" min={0} step="0.01" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Specifications</label>
-                        <Input value={item.specs} onChange={(e) => updateItem(item.id, "specs", e.target.value)} placeholder="Brand, certifications, color..." />
-                      </div>
-                    </div>
+          {/* Line items */}
+          <Surface rung={2} className="p-5">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="u-h3 text-ink-1">Line items</h2>
+              <Button type="button" variant="secondary" size="sm" onClick={addItem}>
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Add item
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {items.map((item, idx) => (
+                <fieldset key={item.id} className="border-s-2 border-hairline ps-4">
+                  <legend className="sr-only">Item {idx + 1}</legend>
+                  <div className="mb-2 flex items-center justify-between">
+                    <Eyebrow as="span">Item {idx + 1}</Eyebrow>
+                    {items.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        aria-label={`Remove item ${idx + 1}`}
+                        onClick={() => removeItem(item.id)}
+                        className="hover:text-danger-ink"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                      </Button>
+                    )}
                   </div>
-                ))}
-              </div>
+                  <div className="grid grid-cols-1 gap-x-3 sm:grid-cols-2">
+                    <Field label="Description" htmlFor={`item-${item.id}-description`} required className="sm:col-span-2">
+                      <TextField
+                        id={`item-${item.id}-description`}
+                        value={item.description}
+                        onChange={(e) => updateItem(item.id, "description", e.target.value)}
+                        placeholder="e.g. Safety Helmet EN397, Hard Shell, Various Sizes"
+                        required
+                      />
+                    </Field>
+                    <Field label="Quantity" htmlFor={`item-${item.id}-quantity`} required>
+                      <TextField
+                        id={`item-${item.id}-quantity`}
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(item.id, "quantity", e.target.value)}
+                        placeholder="100"
+                        min={1}
+                        required
+                      />
+                    </Field>
+                    <Field label="Unit" htmlFor={`item-${item.id}-unit`}>
+                      <SelectField
+                        id={`item-${item.id}-unit`}
+                        value={item.unit}
+                        onChange={(e) => updateItem(item.id, "unit", e.target.value)}
+                      >
+                        {UNITS.map((u) => <option key={u}>{u}</option>)}
+                      </SelectField>
+                    </Field>
+                    <Field
+                      label={`Target unit price${currency ? ` (${currency})` : ""}`}
+                      htmlFor={`item-${item.id}-target`}
+                      hint={currency ? undefined : "No company currency is set, so a target is recorded per unit only."}
+                    >
+                      <TextField
+                        id={`item-${item.id}-target`}
+                        type="number"
+                        value={item.targetPrice}
+                        onChange={(e) => updateItem(item.id, "targetPrice", e.target.value)}
+                        placeholder="0.00"
+                        min={0}
+                        step="0.01"
+                      />
+                    </Field>
+                    <Field label="Specifications" htmlFor={`item-${item.id}-specs`}>
+                      <TextField
+                        id={`item-${item.id}-specs`}
+                        value={item.specs}
+                        onChange={(e) => updateItem(item.id, "specs", e.target.value)}
+                        placeholder="Brand, certifications, colour…"
+                      />
+                    </Field>
+                  </div>
+                </fieldset>
+              ))}
             </div>
+          </Surface>
 
-            {/* Additional notes — no attachment control: RFQs carry no documents,
-                and a "coming soon" button is a promise, not a feature. */}
-            <div className="bg-white rounded-2xl border border-border p-5">
-              <h2 className="font-semibold mb-3">Additional Notes</h2>
-              <Textarea name="notes" placeholder="Any special delivery requirements, packaging instructions, compliance certifications (e.g. SASO, Halal), payment preference, etc." rows={3} />
-            </div>
+          {/* Additional notes — no attachment control: RFQs carry no documents,
+              and a "coming soon" button is a promise, not a feature. */}
+          <Surface rung={2} className="p-5">
+            <Field label="Additional notes" htmlFor="rfq-notes">
+              <Textarea
+                id="rfq-notes"
+                name="notes"
+                placeholder="Any special delivery requirements, packaging instructions, compliance certifications (e.g. SASO, Halal), payment preference, etc."
+                rows={3}
+              />
+            </Field>
+          </Surface>
 
-            {/* Info callout */}
-            <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-primary">
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-              <p>Your RFQ is recorded against your company and tracked in your quotes list. No review or response time is guaranteed.</p>
-            </div>
+          <Dateline>
+            Recorded against your company and tracked in your quotes list · no review or response time is guaranteed
+          </Dateline>
 
-            {error && (
-              <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
-                <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                <p>{error}</p>
-              </div>
-            )}
+          {error && (
+            <Surface
+              rung={2}
+              tone="danger"
+              role="alert"
+              className="flex items-start gap-2 p-3"
+            >
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger-ink" aria-hidden="true" />
+              <p className="u-ui text-ink-1">{error}</p>
+            </Surface>
+          )}
 
-            <Button type="submit" variant="primary" size="lg" className="w-full" loading={loading}>
-              <Send className="h-4 w-4 me-2" />
-              Submit RFQ
-            </Button>
-          </form>
-        </div>
+          <Button type="submit" variant="primary" size="lg" className="w-full" loading={loading}>
+            <Send className="h-4 w-4" aria-hidden="true" />
+            Submit RFQ
+          </Button>
+        </form>
       </div>
     </B2BShell>
   );

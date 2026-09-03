@@ -1,9 +1,11 @@
 import { B2BShell } from "@/components/b2b/b2b-shell";
+import { Button, EmptyState, Eyebrow, Field, StatusPill, Surface } from "@avenick/ui";
+import { SelectField, TextField } from "@/components/b2b/controls";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
 import { createAddress, setDefaultAddress, deleteAddress } from "./actions";
 import { ValidatedForm } from "@/components/b2b/validated-form";
-import { MapPin, Plus, Building2, Star } from "lucide-react";
+import { MapPin, Plus, Star } from "lucide-react";
 import { platformName } from "@avenick/utils/portal-config";
 
 export const metadata = { title: `Delivery Sites — ${platformName()} for Business` };
@@ -15,11 +17,13 @@ export default async function AddressesPage() {
   if (!ctx) {
     return (
       <B2BShell title="Delivery Sites">
-        <div className="rounded-2xl border border-border bg-card p-10 text-center">
-          <Building2 className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-          <p className="font-semibold">No company account</p>
-          <p className="text-sm text-muted-foreground mt-1">Sign in with a company account to manage delivery sites.</p>
-        </div>
+        <Surface rung={2}>
+          <EmptyState
+            eyebrow="No company context"
+            headline="This session is not attached to a company account."
+            body="Delivery sites are recorded against a company. Sign in with a company account to manage them."
+          />
+        </Surface>
       </B2BShell>
     );
   }
@@ -32,67 +36,98 @@ export default async function AddressesPage() {
 
   return (
     <B2BShell
+      eyebrow="Administration"
       title="Delivery Sites"
       description="Manage the locations orders can be shipped to across your organization."
     >
-      {isAdmin && (
-        <ValidatedForm action={createAddress} className="rounded-2xl border border-border bg-card p-5 mb-6">
-          <div className="flex items-center gap-2 text-sm font-semibold mb-4"><Plus className="h-4 w-4 text-primary" /> Add a site</div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            <input name="label" required placeholder="Site name (e.g. Main warehouse)" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            <input name="line1" required placeholder="Address line 1" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            <input name="line2" placeholder="Address line 2 (optional)" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            <input name="city" required placeholder="City" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            <select name="country" aria-label="Country" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border focus:outline-none focus:ring-2 focus:ring-ring">
-              {Object.entries(COUNTRY_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-            <div className="flex gap-2">
-              <input name="postalCode" placeholder="Postal code" className="flex-1 h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-              <button type="submit" className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">Add</button>
+      <div className="space-y-block">
+        {isAdmin && (
+          <ValidatedForm action={createAddress} rung={1} className="p-5">
+            <Eyebrow className="mb-4 flex items-center gap-1.5">
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Add a site
+            </Eyebrow>
+            {/* Every control here used to be a placeholder with no label, so a
+                half-filled form gave no way to tell which box was which. */}
+            <div className="grid gap-x-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Field label="Site name" htmlFor="site-label" required>
+                <TextField id="site-label" name="label" required placeholder="e.g. Main warehouse" />
+              </Field>
+              <Field label="Address line 1" htmlFor="site-line1" required>
+                <TextField id="site-line1" name="line1" required autoComplete="address-line1" />
+              </Field>
+              <Field label="Address line 2" htmlFor="site-line2" hint="Optional.">
+                <TextField id="site-line2" name="line2" autoComplete="address-line2" />
+              </Field>
+              <Field label="City" htmlFor="site-city" required>
+                <TextField id="site-city" name="city" required autoComplete="address-level2" />
+              </Field>
+              <Field label="Country" htmlFor="site-country">
+                <SelectField id="site-country" name="country">
+                  {Object.entries(COUNTRY_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </SelectField>
+              </Field>
+              <Field label="Postal code" htmlFor="site-postal" hint="Optional.">
+                <TextField id="site-postal" name="postalCode" autoComplete="postal-code" />
+              </Field>
             </div>
-          </div>
-        </ValidatedForm>
-      )}
+            <Button type="submit" variant="primary">Add site</Button>
+          </ValidatedForm>
+        )}
 
-      {addresses.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card p-10 text-center">
-          <MapPin className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-          <p className="font-semibold">No delivery sites yet</p>
-          <p className="text-sm text-muted-foreground mt-1">Add your first location to ship orders to it.</p>
-        </div>
-      ) : (
-        <div className="grid sm:grid-cols-2 gap-4">
-          {addresses.map((a) => (
-            <div key={a.id} className={`rounded-2xl border p-5 ${a.isDefault ? "border-primary/40 bg-primary/5" : "border-border bg-card"}`}>
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/10 text-primary shrink-0"><MapPin className="h-5 w-5" /></span>
+        {addresses.length === 0 ? (
+          <Surface rung={2}>
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline="No delivery site has been added for this company."
+              body="An order ships to a recorded site, so at least one is needed before an order can be placed."
+            />
+          </Surface>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {addresses.map((a) => (
+              <Surface key={a.id} rung={2} tone={a.isDefault ? "accent" : "default"} className="p-5">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-nested bg-neutral-soft text-ink-2">
+                    <MapPin className="h-4 w-4" aria-hidden="true" />
+                  </span>
                   <div className="min-w-0">
-                    <p className="font-semibold truncate flex items-center gap-1.5">{a.label}{a.isDefault && <Star className="h-3.5 w-3.5 text-primary fill-current shrink-0" />}</p>
-                    <p className="text-xs text-muted-foreground">{COUNTRY_LABEL[a.country] ?? a.country}</p>
+                    <h2 className="u-h3 truncate text-ink-1">{a.label}</h2>
+                    <p className="u-meta text-ink-3">{COUNTRY_LABEL[a.country] ?? a.country}</p>
                   </div>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground mt-3 leading-relaxed">
-                {a.line1}{a.line2 ? `, ${a.line2}` : ""}<br />
-                {a.city}{a.postalCode ? ` ${a.postalCode}` : ""}
-              </p>
-              {isAdmin && (
-                <div className="flex items-center gap-3 mt-4 pt-3 border-t border-border">
-                  {!a.isDefault && (
-                    <form action={setDefaultAddress.bind(null, a.id)}>
-                      <button type="submit" className="text-xs font-medium text-primary hover:underline">Set default</button>
-                    </form>
+                  {a.isDefault && (
+                    <StatusPill tone="accent" className="ms-auto shrink-0">
+                      <Star className="h-3 w-3 fill-current" aria-hidden="true" /> Default
+                    </StatusPill>
                   )}
-                  <form action={deleteAddress.bind(null, a.id)} className="ms-auto">
-                    <button type="submit" className="text-xs font-medium text-muted-foreground hover:text-danger">Remove</button>
-                  </form>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+                <p className="u-ui mt-3 text-ink-2">
+                  {a.line1}
+                  {a.line2 ? `, ${a.line2}` : ""}
+                  <br />
+                  {a.city}
+                  {a.postalCode ? ` ${a.postalCode}` : ""}
+                </p>
+                {isAdmin && (
+                  <div className="mt-4 flex items-center gap-2 border-t border-hairline pt-3">
+                    {!a.isDefault && (
+                      <form action={setDefaultAddress.bind(null, a.id)}>
+                        <Button type="submit" variant="ghost" size="xs" className="text-primary-ink hover:text-primary-ink">
+                          Set as default
+                        </Button>
+                      </form>
+                    )}
+                    <form action={deleteAddress.bind(null, a.id)} className="ms-auto">
+                      <Button type="submit" variant="ghost" size="xs" className="hover:text-danger-ink">
+                        Remove
+                      </Button>
+                    </form>
+                  </div>
+                )}
+              </Surface>
+            ))}
+          </div>
+        )}
+      </div>
     </B2BShell>
   );
 }

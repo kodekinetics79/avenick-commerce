@@ -77,7 +77,8 @@
     "units": "وحدات",
     "selectOptions": "اختر الخيارات",
     "requestAvailability": "اطلب توفر المنتج",
-    "noReviews": "لا توجد تقييمات بعد"
+    "noReviews": "لا توجد تقييمات بعد",
+    "availabilityUnconfirmed": "لم يتم تأكيد التوفر"
   },
   "cart": {
     "title": "سلتك",

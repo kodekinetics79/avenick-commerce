@@ -5,17 +5,23 @@ import { formatCurrency } from "@avenick/utils";
 import { CreditCard, CheckCircle, Clock, XCircle, RotateCcw, Building2, Smartphone, Search, Beaker, Banknote, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+import {
+  PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Surface,
+  Num, Eyebrow, Dateline, Button, type PillTone,
+} from "@avenick/ui";
+import { MoneyStat } from "@/app/finance/money-figures";
+import { FilterTabs, Pager, CONTROL, CONTROL_SM } from "@/app/finance/console-chrome";
 import { confirmBankTransfer } from "./actions";
 
 export const metadata = { title: "Payments" };
 export const dynamic = "force-dynamic";
 
-const STATUS_CONFIG: Record<PaymentStatus, { label: string; color: string; icon: typeof CheckCircle }> = {
-  PAID: { label: "Paid", color: "bg-green-100 text-green-700", icon: CheckCircle },
-  UNPAID: { label: "Unpaid", color: "bg-amber-100 text-amber-700", icon: Clock },
-  PARTIALLY_PAID: { label: "Partially Paid", color: "bg-blue-100 text-primary", icon: Clock },
-  FAILED: { label: "Failed", color: "bg-red-100 text-red-700", icon: XCircle },
-  REFUNDED: { label: "Refunded", color: "bg-slate-100 text-muted-foreground", icon: RotateCcw },
+const STATUS_CONFIG: Record<PaymentStatus, { label: string; tone: PillTone; icon: typeof CheckCircle }> = {
+  PAID: { label: "Paid", tone: "success", icon: CheckCircle },
+  UNPAID: { label: "Unpaid", tone: "warning", icon: Clock },
+  PARTIALLY_PAID: { label: "Partially Paid", tone: "warning", icon: Clock },
+  FAILED: { label: "Failed", tone: "danger", icon: XCircle },
+  REFUNDED: { label: "Refunded", tone: "neutral", icon: RotateCcw },
 };
 
 const METHOD_LABEL: Record<string, { label: string; icon: typeof CreditCard }> = {
@@ -31,8 +37,6 @@ const METHOD_LABEL: Record<string, { label: string; icon: typeof CreditCard }> =
 // The service is the authority; this list only decides whether a control is
 // worth rendering, so a divergence costs a refused submission, never a wrong write.
 const CLOSED_ORDER_STATUSES = new Set(["CANCELLED", "REFUNDED", "RETURNED"]);
-
-const cellField = "rounded-lg border border-border bg-white px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary/30";
 
 interface OrderFact {
   id: string;
@@ -203,225 +207,298 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
     return { tone: "ok" as const, title, detail: shared };
   })();
 
+  // The four positions of the whole ledger, in the order an operator reads them:
+  // what came in, what has not, what broke, what went back out.
   const tiles = [
-    { label: "Collected", statuses: [PaymentStatus.PAID], color: "bg-green-50 border-green-200" },
-    { label: "Awaiting settlement", statuses: [PaymentStatus.UNPAID, PaymentStatus.PARTIALLY_PAID], color: "bg-amber-50 border-amber-200" },
-    { label: "Failed", statuses: [PaymentStatus.FAILED], color: "bg-red-50 border-red-200" },
-    { label: "Refunded", statuses: [PaymentStatus.REFUNDED], color: "bg-white border-border" },
+    { label: "Collected", statuses: [PaymentStatus.PAID] },
+    { label: "Awaiting settlement", statuses: [PaymentStatus.UNPAID, PaymentStatus.PARTIALLY_PAID] },
+    { label: "Failed", statuses: [PaymentStatus.FAILED] },
+    { label: "Refunded", statuses: [PaymentStatus.REFUNDED] },
   ];
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Payments</h1>
-            <p className="text-muted-foreground text-sm">
-              Every payment attempt in the ledger. Bank transfers are confirmed here from the bank statement; card, mada,
-              Apple&nbsp;Pay and STC&nbsp;Pay settle through their signed gateway webhook and cannot be confirmed by hand.
-            </p>
-          </div>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          eyebrow="Money in"
+          title="Payments"
+          description="Every payment attempt in the ledger. Bank transfers are confirmed here from the bank statement; card, mada, Apple Pay and STC Pay settle through their signed gateway webhook and cannot be confirmed by hand."
+          dateline="Totals cover the whole ledger, grouped by currency · no conversion applied"
+        />
 
         {outcome && (
-          <div
+          // The outcome of the last confirmation. Toned, because the difference
+          // between "recorded", "already recorded" and "refused" is the whole
+          // message and it must not be carried by an icon alone.
+          <Surface
             role="status"
-            className={`rounded-2xl border p-4 text-sm ${outcome.tone === "refused" ? "border-red-200 bg-red-50 text-red-900" : outcome.detail ? "border-amber-200 bg-amber-50 text-slate-800" : "border-green-200 bg-green-50 text-slate-800"}`}
+            tone={outcome.tone === "refused" ? "danger" : outcome.detail ? "warning" : "success"}
+            className="p-4"
           >
-            <p className="font-semibold inline-flex items-center gap-2">
-              {outcome.tone === "refused" ? <XCircle className="h-4 w-4" /> : outcome.detail ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle className="h-4 w-4" />}
+            <p className="u-ui inline-flex items-center gap-2 font-medium text-ink-1">
+              {outcome.tone === "refused" ? (
+                <XCircle className="h-4 w-4 shrink-0 text-danger-ink" aria-hidden="true" />
+              ) : outcome.detail ? (
+                <AlertTriangle className="h-4 w-4 shrink-0 text-warning-ink" aria-hidden="true" />
+              ) : (
+                <CheckCircle className="h-4 w-4 shrink-0 text-success-ink" aria-hidden="true" />
+              )}
               {outcome.title}
             </p>
-            {outcome.detail && <p className="text-xs mt-1">{outcome.detail}</p>}
-          </div>
+            {outcome.detail && <p className="u-meta mt-1 max-w-prose text-ink-2">{outcome.detail}</p>}
+          </Surface>
         )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
           {tiles.map((tile) => {
             const ledger = ledgerFor(tile.statuses);
             return (
-              <div key={tile.label} className={`rounded-2xl border p-4 ${tile.color}`}>
-                <span className="text-sm text-muted-foreground">{tile.label}</span>
-                {ledger.amounts.length === 0 ? (
-                  <p className="text-xl font-bold mt-1">—</p>
-                ) : (
-                  ledger.amounts.map(([currency, amount]) => (
-                    <p key={currency} className="text-xl font-bold mt-1">
-                      {formatCurrency(Number(amount), currency as never)}
-                    </p>
-                  ))
-                )}
-                <p className="text-xs text-muted-foreground mt-0.5">{ledger.count} payments</p>
-              </div>
+              <MoneyStat
+                key={tile.label}
+                label={tile.label}
+                lines={ledger.amounts.map(([currency, amount]) => ({
+                  currency,
+                  formatted: formatCurrency(Number(amount), currency as never),
+                }))}
+                note={`${ledger.count} payment${ledger.count === 1 ? "" : "s"}`}
+              />
             );
           })}
-        </div>
+        </CellGrid>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {([undefined, ...Object.values(PaymentStatus)] as const).map((s) => {
-            const active = status === s || (!status && !s);
-            return (
-              <Link
-                key={s ?? "all"}
-                href={filterHref({ status: s })}
-                className={`text-xs px-3 py-1.5 rounded-lg border ${active ? "bg-primary text-white border-primary" : "border-border hover:bg-muted"}`}
-              >
-                {s ? STATUS_CONFIG[s].label : "All"}
-              </Link>
-            );
-          })}
-        </div>
-
-        <form method="get" action="/payments" className="relative max-w-sm">
-          {status && <input type="hidden" name="status" value={status} />}
-          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            type="search"
-            name="search"
-            defaultValue={search ?? ""}
-            placeholder="Search by order # or gateway ref…"
-            className="w-full ps-9 pe-3 py-2 text-sm rounded-xl border border-border bg-white focus:outline-none focus:ring-2 focus:ring-primary/30"
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-start">
+          <FilterTabs
+            label="Filter payments by status"
+            className="min-w-0 flex-1"
+            tabs={([undefined, ...Object.values(PaymentStatus)] as const).map((s) => ({
+              href: filterHref({ status: s }),
+              label: s ? STATUS_CONFIG[s].label : "All",
+              active: status === s || (!status && !s),
+            }))}
           />
-        </form>
 
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-border">
-                <tr>
-                  {["Order", "Customer", "Method", "Amount", "Status", "Gateway Ref", "Date", "Settlement"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {payments.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center">
-                      <CreditCard className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        {search || status ? "No payments match the current filters." : "No payments recorded yet."}
-                      </p>
-                    </td>
-                  </tr>
-                )}
-                {payments.map((p) => {
-                  const cfg = STATUS_CONFIG[p.status];
-                  const method = METHOD_LABEL[p.method] ?? { label: p.method, icon: CreditCard };
-                  const MethodIcon = method.icon;
-                  const StatusIcon = cfg.icon;
-                  const order = orderById.get(p.order.id);
-                  const settlement = settlementFor(p, order, receiptsByOrder.get(p.order.id));
-                  const highlighted = searchParams.payment === p.id;
-                  return (
-                    <tr key={p.id} className={`hover:bg-slate-50/60 align-top ${highlighted ? "bg-red-50/60" : ""}`}>
-                      <td className="px-4 py-3">
-                        <Link href={`/orders/${p.order.id}`} className="font-medium text-primary hover:underline">
-                          {p.order.orderNumber}
-                        </Link>
-                        <p className="text-[11px] text-muted-foreground">{p.order.type}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="font-medium">{p.order.user.firstName} {p.order.user.lastName}</p>
-                        <p className="text-xs text-muted-foreground">{p.order.user.email}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                          <MethodIcon className="h-3.5 w-3.5" /> {method.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 font-semibold">{formatCurrency(Number(p.amount), p.currency as never)}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full ${cfg.color}`}>
-                          <StatusIcon className="h-3 w-3" /> {cfg.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{p.gatewayRef ?? "—"}</td>
-                      <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                        {format(p.paidAt ?? p.createdAt, "MMM d, yyyy HH:mm")}
-                      </td>
-                      <td className="px-4 py-3">
-                        {settlement.kind === "confirmable" ? (
-                          <form action={confirmBankTransfer.bind(null, p.id)} className="flex flex-col gap-1.5 min-w-[240px]">
-                            <input type="hidden" name="returnTo" value={returnTo} />
-                            <div className="flex gap-1.5">
-                              <input
-                                name="bankReference"
-                                required
-                                maxLength={64}
-                                placeholder="Bank reference"
-                                aria-label={`Bank reference for order ${p.order.orderNumber}`}
-                                className={`${cellField} flex-1 min-w-0`}
-                              />
-                              <input
-                                name="amount"
-                                type="number"
-                                inputMode="decimal"
-                                step="0.01"
-                                min="0.01"
-                                max={settlement.outstanding.toFixed(2)}
-                                defaultValue={settlement.suggested.toFixed(2)}
-                                required
-                                aria-label={`Amount credited for order ${p.order.orderNumber}`}
-                                className={`${cellField} w-24`}
-                              />
-                            </div>
-                            <div className="flex gap-1.5">
-                              {/* A credit cannot predate the order it settles; the service
-                                  enforces this, the picker just stops the obvious typo. */}
-                              <input
-                                name="valueDate"
-                                type="date"
-                                required
-                                min={order ? order.createdAt.toISOString().slice(0, 10) : undefined}
-                                max={todayIso}
-                                aria-label={`Bank value date for order ${p.order.orderNumber}`}
-                                className={`${cellField} flex-1 min-w-0`}
-                              />
-                              <button
-                                type="submit"
-                                className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs font-semibold text-white hover:bg-primary/90"
-                              >
-                                <Banknote className="h-3.5 w-3.5" /> Confirm
-                              </button>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground">
-                              Outstanding {formatCurrency(Number(settlement.outstanding), p.currency as never)}
-                            </p>
-                          </form>
-                        ) : settlement.kind === "blocked" ? (
-                          <span className="text-[11px] text-muted-foreground">{settlement.reason}</span>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-border text-sm">
-              <span className="text-muted-foreground">Page {page} of {totalPages} · {total} payments</span>
-              <div className="flex gap-2">
-                {page > 1 && (
-                  <Link href={filterHref({ page: String(page - 1), search })} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs">Previous</Link>
-                )}
-                {page < totalPages && (
-                  <Link href={filterHref({ page: String(page + 1), search })} className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-xs">Next</Link>
-                )}
-              </div>
-            </div>
-          )}
+          <form method="get" action="/payments" role="search" className="relative w-full lg:max-w-xs">
+            {status && <input type="hidden" name="status" value={status} />}
+            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+            <input
+              data-rung={1}
+              type="search"
+              name="search"
+              defaultValue={search ?? ""}
+              aria-label="Search payments by order number or gateway reference"
+              placeholder="Order # or gateway ref…"
+              className={`${CONTROL} ps-9`}
+            />
+          </form>
         </div>
 
-        <p className="text-xs text-muted-foreground">
+        <LedgerTable
+          rows={payments}
+          getRowKey={(p) => p.id}
+          stickyHead
+          dateline="Every payment attempt, in the currency it was taken in · no conversion applied"
+          rowProps={(p) => ({
+            // The row the last refusal was about, carried back in the URL so the
+            // operator lands on it rather than hunting for it.
+            // Hover is a plain background-color and would otherwise replace
+            // this wash outright; the hover state deepens the same hue instead.
+            className: searchParams.payment === p.id ? "bg-danger-soft hover:bg-danger/10" : undefined,
+            "aria-current": searchParams.payment === p.id ? "true" : undefined,
+          })}
+          columns={[
+            {
+              key: "order",
+              label: "Order",
+              render: (p) => (
+                <div className="py-1">
+                  <Link
+                    href={`/orders/${p.order.id}`}
+                    className="u-focus u-mono rounded-nested text-meta font-medium text-primary-ink hover:underline"
+                  >
+                    {p.order.orderNumber}
+                  </Link>
+                  <p className="u-meta text-ink-3">{p.order.type}</p>
+                </div>
+              ),
+            },
+            {
+              key: "customer",
+              label: "Customer",
+              hideOnMobile: true,
+              render: (p) => (
+                <div className="min-w-0 py-1">
+                  <p className="truncate font-medium text-ink-1">{p.order.user.firstName} {p.order.user.lastName}</p>
+                  <p className="u-meta truncate text-ink-3">{p.order.user.email}</p>
+                </div>
+              ),
+            },
+            {
+              key: "method",
+              label: "Method",
+              render: (p) => {
+                const method = METHOD_LABEL[p.method] ?? { label: p.method, icon: CreditCard };
+                const MethodIcon = method.icon;
+                return (
+                  <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-ink-2">
+                    <MethodIcon className="h-3.5 w-3.5 text-ink-3" aria-hidden="true" /> {method.label}
+                  </span>
+                );
+              },
+            },
+            {
+              key: "amount",
+              label: "Amount",
+              numeric: true,
+              render: (p) => (
+                <Num value={formatCurrency(Number(p.amount), p.currency as never)} className="whitespace-nowrap" />
+              ),
+            },
+            {
+              key: "status",
+              label: "Status",
+              render: (p) => {
+                const cfg = STATUS_CONFIG[p.status];
+                const StatusIcon = cfg.icon;
+                return (
+                  <StatusPill tone={cfg.tone}>
+                    <StatusIcon className="h-3 w-3" aria-hidden="true" /> {cfg.label}
+                  </StatusPill>
+                );
+              },
+            },
+            {
+              key: "gatewayRef",
+              label: "Gateway ref",
+              hideOnMobile: true,
+              render: (p) => <span className="u-mono text-meta text-ink-3">{p.gatewayRef ?? "—"}</span>,
+            },
+            {
+              key: "date",
+              label: "Date",
+              hideOnMobile: true,
+              render: (p) => (
+                <span className="whitespace-nowrap text-ink-2">{format(p.paidAt ?? p.createdAt, "MMM d, yyyy HH:mm")}</span>
+              ),
+            },
+            {
+              key: "settlement",
+              label: "Settlement",
+              width: "300px",
+              render: (p) => {
+                const order = orderById.get(p.order.id);
+                const settlement = settlementFor(p, order, receiptsByOrder.get(p.order.id));
+                if (settlement.kind === "confirmable") {
+                  return (
+                    // The whole confirmation is one recessed well: everything you
+                    // type is pressed into the row, and the outstanding figure —
+                    // the number the operator is trying to match against the bank
+                    // statement — leads it rather than trailing it.
+                    <form
+                      action={confirmBankTransfer.bind(null, p.id)}
+                      data-rung={1}
+                      className="my-1 flex flex-col gap-1.5 border border-border p-2"
+                    >
+                      <input type="hidden" name="returnTo" value={returnTo} />
+                      <div className="flex items-baseline justify-between gap-2">
+                        <Eyebrow>Outstanding</Eyebrow>
+                        <Num
+                          value={formatCurrency(Number(settlement.outstanding), p.currency as never)}
+                          className="whitespace-nowrap text-meta"
+                        />
+                      </div>
+                      <div className="flex gap-1.5">
+                        <input
+                          data-rung={1}
+                          name="bankReference"
+                          required
+                          maxLength={64}
+                          placeholder="Bank reference"
+                          aria-label={`Bank reference for order ${p.order.orderNumber}`}
+                          className={`${CONTROL_SM} min-w-0 flex-1`}
+                        />
+                        <input
+                          data-rung={1}
+                          name="amount"
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          min="0.01"
+                          max={settlement.outstanding.toFixed(2)}
+                          defaultValue={settlement.suggested.toFixed(2)}
+                          required
+                          aria-label={`Amount credited for order ${p.order.orderNumber}`}
+                          className={`${CONTROL_SM} fig w-24 shrink-0 text-end`}
+                        />
+                      </div>
+                      <div className="flex gap-1.5">
+                        {/* A credit cannot predate the order it settles; the service
+                            enforces this, the picker just stops the obvious typo. */}
+                        <input
+                          data-rung={1}
+                          name="valueDate"
+                          type="date"
+                          required
+                          min={order ? order.createdAt.toISOString().slice(0, 10) : undefined}
+                          max={todayIso}
+                          aria-label={`Bank value date for order ${p.order.orderNumber}`}
+                          className={`${CONTROL_SM} min-w-0 flex-1`}
+                        />
+                        <Button type="submit" variant="secondary" size="xs" className="shrink-0">
+                          <Banknote className="h-3.5 w-3.5" aria-hidden="true" /> Confirm
+                        </Button>
+                      </div>
+                    </form>
+                  );
+                }
+                if (settlement.kind === "blocked") {
+                  return <span className="u-meta text-ink-3">{settlement.reason}</span>;
+                }
+                return <span className="text-ink-3">—</span>;
+              },
+            },
+          ]}
+          empty={
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline={
+                search || status
+                  ? "No payment matches the current filters."
+                  : "No payment has been attempted yet."
+              }
+              body={
+                search || status
+                  ? "Clear the status filter or the search to see the whole ledger."
+                  : "A payment row is written the moment a buyer reaches checkout, whether or not it succeeds."
+              }
+              action={
+                search || status ? (
+                  <Button variant="secondary" size="sm" asChild>
+                    <Link href="/payments">Show every payment</Link>
+                  </Button>
+                ) : undefined
+              }
+              icon={<CreditCard className="h-3.5 w-3.5" aria-hidden="true" />}
+            />
+          }
+          footer={
+            <Pager
+              page={page}
+              totalPages={totalPages}
+              hrefFor={(target) => filterHref({ page: String(target), search })}
+              summary={
+                <>
+                  <span className="fig text-ink-2">{total}</span> payment{total === 1 ? "" : "s"} in the current filter
+                </>
+              }
+            />
+          }
+        />
+
+        <Dateline className="max-w-prose">
           Confirming a transfer records the bank reference, the amount credited, the value date and the confirming
           administrator against the payment, and derives the order&apos;s payment status from the sum of confirmed
           receipts. A short credit leaves the order partially paid and opens a fresh instruction for the balance.
-        </p>
+        </Dateline>
       </div>
     </AdminLayout>
   );

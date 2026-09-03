@@ -3,6 +3,7 @@ import type { ComponentType, ReactNode } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertTriangle, ArrowRight, Ban, Clock, LogOut, XCircle } from "lucide-react";
+import { Button, Eyebrow, FieldWell, Surface } from "@avenick/ui";
 import { db } from "@avenick/database";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
 import { getSellerAccountState } from "@/lib/auth";
@@ -63,19 +64,22 @@ export default async function PendingPage() {
   const brand = platformName();
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4 py-10">
+    <div className="flex min-h-screen items-center justify-center bg-surface-0 px-4 py-10">
       <div className="w-full max-w-lg space-y-4">
         <div className="text-center">
-          <span className="inline-grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-primary-500 to-accent-600 text-white font-black text-lg mb-3">
+          {/* The brand mark is a material, not a fill: the seller portal's single
+              primary fill belongs to whatever the page's action is, and this page
+              has no action beyond signing out. */}
+          <Surface as="span" rung={2} className="mb-3 inline-grid h-12 w-12 place-items-center rounded-lg text-lead font-medium text-ink-1">
             {brand.charAt(0).toUpperCase()}
-          </span>
-          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">Seller Central</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Signed in as <span className="font-medium text-foreground">{user.email}</span>
+          </Surface>
+          <h1 className="u-h2 text-ink-1">Seller Central</h1>
+          <p className="u-ui mt-1 text-ink-2">
+            Signed in as <span className="font-medium text-ink-1">{user.email}</span>
           </p>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-6 space-y-4">
+        <Surface rung={2} className="space-y-4 p-6">
           {!seller ? (
             <StatusBlock icon={AlertTriangle} tone="warning" title="Your account is not attached to a seller organisation.">
               <p>
@@ -84,7 +88,7 @@ export default async function PendingPage() {
                   <>
                     {" "}
                     If you were invited to a store, ask its owner to add you; otherwise contact support at{" "}
-                    <a href={`mailto:${support}`} className="text-primary hover:underline">{support}</a>.
+                    <a href={`mailto:${support}`} className="u-focus rounded-nested font-medium text-primary-ink underline">{support}</a>.
                   </>
                 ) : (
                   " If you were invited to a store, ask its owner to add you; otherwise contact support."
@@ -94,15 +98,17 @@ export default async function PendingPage() {
           ) : seller.status === "PENDING_REVIEW" ? (
             <StatusBlock icon={Clock} tone="info" title="Your application is being reviewed.">
               <p>
-                <span className="font-medium text-foreground">{seller.businessNameEn}</span> applied on{" "}
+                <span className="font-medium text-ink-1">{seller.businessNameEn}</span> applied on{" "}
                 {fmtDate(seller.createdAt)}. You will not receive an email — sign in to check status.
               </p>
               {canOpenDocuments ? (
                 <Link
                   href="/documents"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                  className="u-focus u-ui inline-flex items-center gap-1.5 rounded-nested font-medium text-primary-ink hover:underline"
                 >
-                  Upload your registration documents to speed up review <ArrowRight className="h-3.5 w-3.5" />
+                  Upload your registration documents to speed up review
+                  {/* A direction-implying icon must flip in Arabic. */}
+                  <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />
                 </Link>
               ) : (
                 <p>Registration documents are uploaded by the store owner or staff with the documents permission.</p>
@@ -111,22 +117,22 @@ export default async function PendingPage() {
           ) : seller.status === "REJECTED" ? (
             <StatusBlock icon={XCircle} tone="danger" title="Your seller application was not approved.">
               <p>
-                The application for <span className="font-medium text-foreground">{seller.businessNameEn}</span> was
+                The application for <span className="font-medium text-ink-1">{seller.businessNameEn}</span> was
                 reviewed and declined.
               </p>
               {rejectionReason && (
-                <blockquote className="rounded-xl border border-border bg-secondary/40 px-4 py-3 text-sm text-foreground">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-                    Reason given by the reviewer
-                  </p>
+                // Recessed: the reviewer's words are context quoted into the page,
+                // and a well is what this system uses to say so.
+                <FieldWell as="blockquote" className="u-ui px-4 py-3 text-ink-1">
+                  <Eyebrow className="mb-1">Reason given by the reviewer</Eyebrow>
                   {rejectionReason}
-                </blockquote>
+                </FieldWell>
               )}
               <p>
                 If you believe this is an error, contact support
                 {support ? (
                   <>
-                    {" "}at <a href={`mailto:${support}`} className="text-primary hover:underline">{support}</a>
+                    {" "}at <a href={`mailto:${support}`} className="u-focus rounded-nested font-medium text-primary-ink underline">{support}</a>
                   </>
                 ) : null}
                 .
@@ -135,13 +141,13 @@ export default async function PendingPage() {
           ) : (
             <StatusBlock icon={Ban} tone="danger" title="Your seller account is suspended.">
               <p>
-                <span className="font-medium text-foreground">{seller.businessNameEn}</span> cannot use Seller Central
+                <span className="font-medium text-ink-1">{seller.businessNameEn}</span> cannot use Seller Central
                 while the suspension is in place.
                 {support ? (
                   <>
                     {" "}
                     To discuss it, contact support at{" "}
-                    <a href={`mailto:${support}`} className="text-primary hover:underline">{support}</a>.
+                    <a href={`mailto:${support}`} className="u-focus rounded-nested font-medium text-primary-ink underline">{support}</a>.
                   </>
                 ) : (
                   " To discuss it, contact support."
@@ -155,25 +161,25 @@ export default async function PendingPage() {
               "use server";
               await signOut({ redirectTo: "/login" });
             }}
-            className="pt-2 border-t border-border"
+            className="border-t border-hairline pt-3"
           >
-            <button
-              type="submit"
-              className="inline-flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-            >
-              <LogOut className="h-4 w-4" /> Sign out
-            </button>
+            <Button type="submit" variant="ghost" size="sm">
+              <LogOut className="h-4 w-4" aria-hidden="true" /> Sign out
+            </Button>
           </form>
-        </div>
+        </Surface>
       </div>
     </div>
   );
 }
 
+// Soft wash plus its own ink, both of which have real dark values. The previous
+// `bg-primary/10 text-primary` triple used the FILL hue as text, which measures
+// about 4.0:1 at this size on a light ground.
 const TONE_CLASS = {
-  info: "bg-primary/10 text-primary",
-  warning: "bg-warning/10 text-warning",
-  danger: "bg-danger/10 text-danger",
+  info: "bg-primary-soft text-primary-ink",
+  warning: "bg-warning-soft text-warning-ink",
+  danger: "bg-danger-soft text-danger-ink",
 } as const;
 
 function StatusBlock({
@@ -189,11 +195,13 @@ function StatusBlock({
 }) {
   return (
     <div className="flex gap-4">
-      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${TONE_CLASS[tone]}`}>
-        <Icon className="h-5 w-5" />
+      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-nested ${TONE_CLASS[tone]}`}>
+        <Icon className="h-5 w-5" aria-hidden="true" />
       </span>
-      <div className="space-y-3 text-sm text-muted-foreground">
-        <h2 className="text-base font-semibold text-foreground">{title}</h2>
+      {/* ink-2, not ink-3: ink-3 is for labels and metadata, and these are
+          sentences the seller has to be able to read. */}
+      <div className="u-ui space-y-3 text-ink-2">
+        <h2 className="u-h3 text-ink-1">{title}</h2>
         {children}
       </div>
     </div>

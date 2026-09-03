@@ -5,6 +5,12 @@ import { formatCurrency } from "@avenick/utils";
 import Link from "next/link";
 import { format } from "date-fns";
 import { Quote, CheckCircle, Clock, XCircle, MessageSquare, Ban, CircleOff, FileText, FileQuestion, Search } from "lucide-react";
+import {
+  PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Surface, Num, Button,
+  type PillTone,
+} from "@avenick/ui";
+import { CountStat, MoneyStat } from "@/app/finance/money-figures";
+import { FilterTabs, Pager, CONTROL } from "@/app/finance/console-chrome";
 
 export const metadata = { title: "Quotes" };
 export const dynamic = "force-dynamic";
@@ -22,16 +28,21 @@ export const dynamic = "force-dynamic";
  */
 const QUOTED: Prisma.RFQRequestWhereInput = { quoteVersion: { gt: 0 } };
 
-const STATUS_CONFIG: Record<RFQStatus, { label: string; color: string; icon: typeof CheckCircle }> = {
-  DRAFT:        { label: "Draft",       color: "bg-slate-500/10 text-muted-foreground",             icon: FileText },
-  SUBMITTED:    { label: "Submitted",   color: "bg-blue-500/10 text-blue-700 dark:text-blue-400",   icon: FileText },
-  UNDER_REVIEW: { label: "Under review", color: "bg-purple-500/10 text-purple-700 dark:text-purple-400", icon: FileText },
-  QUOTED:       { label: "Awaiting buyer", color: "bg-amber-500/10 text-amber-700 dark:text-amber-400", icon: Clock },
-  NEGOTIATING:  { label: "Negotiating", color: "bg-orange-500/10 text-orange-700 dark:text-orange-400", icon: MessageSquare },
-  ACCEPTED:     { label: "Accepted",    color: "bg-green-500/10 text-green-700 dark:text-green-400", icon: CheckCircle },
-  REJECTED:     { label: "Rejected",    color: "bg-red-500/10 text-red-700 dark:text-red-400",       icon: XCircle },
-  EXPIRED:      { label: "Expired",     color: "bg-slate-500/10 text-muted-foreground",              icon: CircleOff },
-  CANCELLED:    { label: "Cancelled",   color: "bg-slate-500/10 text-muted-foreground",              icon: Ban },
+/**
+ * Nine statuses, four tones. The old map spent seven hues on nine states, which
+ * left "under review" (purple) and "negotiating" (orange) looking like different
+ * kinds of thing when they are both simply "still open".
+ */
+const STATUS_CONFIG: Record<RFQStatus, { label: string; tone: PillTone; icon: typeof CheckCircle }> = {
+  DRAFT:        { label: "Draft",         tone: "neutral", icon: FileText },
+  SUBMITTED:    { label: "Submitted",     tone: "neutral", icon: FileText },
+  UNDER_REVIEW: { label: "Under review",  tone: "neutral", icon: FileText },
+  QUOTED:       { label: "Awaiting buyer", tone: "warning", icon: Clock },
+  NEGOTIATING:  { label: "Negotiating",   tone: "warning", icon: MessageSquare },
+  ACCEPTED:     { label: "Accepted",      tone: "success", icon: CheckCircle },
+  REJECTED:     { label: "Rejected",      tone: "danger",  icon: XCircle },
+  EXPIRED:      { label: "Expired",       tone: "neutral", icon: CircleOff },
+  CANCELLED:    { label: "Cancelled",     tone: "neutral", icon: Ban },
 };
 
 /** Statuses a quoted RFQ can legitimately sit in, in lifecycle order. */
@@ -131,196 +142,226 @@ export default async function QuotesPage({ searchParams }: PageProps) {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Quotes</h1>
-          <p className="text-sm text-muted-foreground">
-            Supplier quotes submitted against marketplace RFQs, live from the RFQ workflow.
-          </p>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          eyebrow="B2B trade"
+          title="Quotes"
+          description="Supplier quotes submitted against marketplace RFQs, live from the RFQ workflow."
+          dateline="A quote is an RFQ a seller has priced · there is no margin column, because the platform never records what the goods cost the seller"
+        />
 
         {totalQuotes === 0 ? (
-          <section className="rounded-2xl border border-border bg-card p-8 text-center shadow-card">
-            <Quote className="mx-auto h-9 w-9 text-muted-foreground/50" />
-            <h2 className="mt-4 text-lg font-semibold">No supplier quotes have been submitted yet</h2>
-            <p className="mx-auto mt-2 max-w-2xl text-sm text-muted-foreground">
-              A quote appears here the moment a seller prices an open RFQ — that is the only way one is created.
-              No quote has been submitted on this environment, so there is nothing to report: no accepted value and
-              no win rate can be computed yet.
-            </p>
-            <Link
-              href="/rfqs"
-              className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-xs font-medium hover:bg-secondary"
-            >
-              <FileQuestion className="h-3.5 w-3.5" /> Open the RFQ register
-            </Link>
-          </section>
+          <Surface>
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline="No supplier quote has ever been submitted."
+              body="A quote appears here the moment a seller prices an open RFQ — that is the only way one is created. Until then there is nothing to report: no accepted value and no win rate can be computed."
+              icon={<Quote className="h-3.5 w-3.5" aria-hidden="true" />}
+              action={
+                <Button variant="secondary" size="sm" asChild>
+                  <Link href="/rfqs">
+                    <FileQuestion className="h-3.5 w-3.5" aria-hidden="true" /> Open the RFQ register
+                  </Link>
+                </Button>
+              }
+            />
+          </Surface>
         ) : (
           <>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="rounded-2xl border border-border bg-card p-4">
-                <p className="text-xl font-bold text-foreground">{totalQuotes}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Quoted RFQs</p>
-              </div>
-              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
-                <p className="text-xl font-bold text-amber-600 dark:text-amber-400">
-                  {countFor(["QUOTED", "NEGOTIATING"])}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">Awaiting buyer decision</p>
-              </div>
-              <div className="rounded-2xl border border-green-500/20 bg-green-500/10 p-4">
-                {/* Win rate is only meaningful over decided quotes; with none decided
-                    it is undefined and is shown as such rather than as 0%. */}
-                <p className="text-xl font-bold text-green-600 dark:text-green-400">
-                  {decidedCount > 0 ? `${Math.round((acceptedCount / decidedCount) * 100)}%` : "—"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {decidedCount > 0
-                    ? `Win rate · ${acceptedCount} of ${decidedCount} decided`
-                    : "Win rate · none decided yet"}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-border bg-card p-4">
-                {acceptedTotals.length === 0 ? (
-                  <p className="text-xl font-bold text-muted-foreground">—</p>
-                ) : (
-                  <div className="flex flex-col gap-0.5">
-                    {acceptedTotals.map((t) => (
-                      <p key={t.currency} className="text-xl font-bold text-green-700 dark:text-green-400">
-                        {formatCurrency(t.amount, t.currency as never)}
-                      </p>
-                    ))}
-                  </div>
-                )}
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Accepted value{acceptedTotals.length > 1 ? " · per currency, not converted" : ""}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              {tabs.map((s) => {
-                const active = status === s || (!status && !s);
-                const count = s ? countFor([s]) : totalQuotes;
-                return (
-                  <Link
-                    key={s ?? "all"}
-                    href={filterHref({ status: s })}
-                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                      active
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "border-border text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    }`}
-                  >
-                    {/* Counts are platform-wide (they must be, so the zero-quote
-                        empty state stays honest), so they are hidden while a search
-                        narrows the table rather than shown against unrelated rows. */}
-                    {s ? STATUS_CONFIG[s].label : "All"}{search ? "" : ` (${count})`}
-                  </Link>
-                );
-              })}
-            </div>
-
-            <form method="get" action="/quotes" className="relative max-w-sm">
-              {status && <input type="hidden" name="status" value={status} />}
-              <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                type="search"
-                name="search"
-                defaultValue={search ?? ""}
-                placeholder="Search by RFQ #, buyer or supplier…"
-                className="w-full ps-9 pe-3 py-2 text-sm rounded-xl border border-border bg-card focus:outline-none focus:ring-2 focus:ring-primary/30"
+            <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
+              <CountStat label="Quoted RFQs" value={totalQuotes} rank="section" />
+              <CountStat
+                label="Awaiting buyer decision"
+                value={countFor(["QUOTED", "NEGOTIATING"])}
+                tone={countFor(["QUOTED", "NEGOTIATING"]) > 0 ? "warning" : "default"}
               />
-            </form>
+              {/* Win rate is only meaningful over decided quotes; with none decided
+                  it is undefined and is shown as such rather than as 0%. */}
+              <CountStat
+                label="Win rate"
+                value={decidedCount > 0 ? `${Math.round((acceptedCount / decidedCount) * 100)}%` : "—"}
+                note={
+                  decidedCount > 0
+                    ? `${acceptedCount} of ${decidedCount} decided`
+                    : undefined
+                }
+                dateline={decidedCount > 0 ? undefined : "No quote has been decided yet, so a rate cannot be computed"}
+              />
+              <MoneyStat
+                label="Accepted value"
+                lines={acceptedTotals.map((t) => ({
+                  currency: t.currency,
+                  formatted: formatCurrency(t.amount, t.currency as never),
+                }))}
+                dateline={
+                  acceptedTotals.length > 1
+                    ? "One line per currency · no conversion applied"
+                    : "Total quoted on accepted RFQs, as recorded"
+                }
+              />
+            </CellGrid>
 
-            <div className="bg-card rounded-2xl border border-border shadow-card overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-secondary/50 border-b border-border">
-                    <tr>
-                      {["RFQ", "Buyer", "Quoting supplier", "Quoted items", "Quoted total", "Rev", "Status", "Last updated"].map((h) => (
-                        <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {quotes.length === 0 && (
-                      <tr>
-                        <td colSpan={8} className="px-4 py-12 text-center">
-                          <FileQuestion className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                          <p className="text-sm text-muted-foreground">No quotes match the current filters.</p>
-                        </td>
-                      </tr>
-                    )}
-                    {quotes.map((q) => {
-                      const cfg = STATUS_CONFIG[q.status];
-                      const StatusIcon = cfg.icon;
-                      const buyer = buyerMap.get(q.buyerId);
-                      const buyerName = [buyer?.firstName, buyer?.lastName].filter(Boolean).join(" ");
-                      const itemSummary = q.items
-                        .slice(0, 2)
-                        .map((i) => {
-                          const unit = i.unitQuoted ? formatCurrency(Number(i.unitQuoted), q.currency as never) : null;
-                          return `${i.quantity}× ${i.nameEn}${unit ? ` @ ${unit}` : ""}`;
-                        })
-                        .join(", ");
-                      return (
-                        <tr key={q.id} className="hover:bg-secondary/40 transition-colors">
-                          <td className="px-4 py-3">
-                            <Link href={`/rfqs?search=${encodeURIComponent(q.rfqNumber)}`} className="font-mono text-xs font-semibold text-primary hover:underline">
-                              {q.rfqNumber}
-                            </Link>
-                            <p className="text-[11px] text-muted-foreground mt-0.5">
-                              Raised {format(q.createdAt, "MMM d, yyyy")}
-                              {q._count.messages > 0 && (
-                                <span className="ms-2 inline-flex items-center gap-1">
-                                  <MessageSquare className="h-3 w-3" /> {q._count.messages}
-                                </span>
-                              )}
-                            </p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <p className="font-medium">{q.company?.nameEn ?? (buyerName || "Individual buyer")}</p>
-                            {buyer && <p className="text-xs text-muted-foreground">{buyer.email}</p>}
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground">{q.seller?.businessNameEn ?? "Unassigned"}</td>
-                          <td className="px-4 py-3 text-muted-foreground max-w-xs">
-                            <p className="truncate">{itemSummary || "—"}</p>
-                            {q.items.length > 2 && <p className="text-[11px]">+{q.items.length - 2} more</p>}
-                          </td>
-                          <td className="px-4 py-3 font-bold text-green-700 dark:text-green-400 whitespace-nowrap">
-                            {q.totalQuoted !== null ? formatCurrency(Number(q.totalQuoted), q.currency as never) : "—"}
-                          </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">v{q.quoteVersion}</td>
-                          <td className="px-4 py-3">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${cfg.color}`}>
-                              <StatusIcon className="h-3 w-3" /> {cfg.label}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                            {format(q.updatedAt, "MMM d, yyyy")}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-start">
+              <FilterTabs
+                label="Filter quotes by status"
+                className="min-w-0 flex-1"
+                tabs={tabs.map((s) => ({
+                  href: filterHref({ status: s }),
+                  label: s ? STATUS_CONFIG[s].label : "All",
+                  // Counts are platform-wide (they must be, so the zero-quote
+                  // empty state stays honest), so they are hidden while a search
+                  // narrows the table rather than shown against unrelated rows.
+                  count: search ? undefined : s ? countFor([s]) : totalQuotes,
+                  active: status === s || (!status && !s),
+                }))}
+              />
 
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-3 border-t border-border text-sm">
-                  <span className="text-muted-foreground">Page {page} of {totalPages} · {total} quotes</span>
-                  <div className="flex gap-2">
-                    {page > 1 && (
-                      <Link href={filterHref({ page: String(page - 1), search })} className="px-3 py-1.5 rounded-lg border border-border hover:bg-secondary text-xs">Previous</Link>
-                    )}
-                    {page < totalPages && (
-                      <Link href={filterHref({ page: String(page + 1), search })} className="px-3 py-1.5 rounded-lg border border-border hover:bg-secondary text-xs">Next</Link>
-                    )}
-                  </div>
-                </div>
-              )}
+              <form method="get" action="/quotes" role="search" className="relative w-full lg:max-w-xs">
+                {status && <input type="hidden" name="status" value={status} />}
+                <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+                <input
+                  data-rung={1}
+                  type="search"
+                  name="search"
+                  defaultValue={search ?? ""}
+                  aria-label="Search quotes by RFQ number, buyer or supplier"
+                  placeholder="RFQ #, buyer or supplier…"
+                  className={`${CONTROL} ps-9`}
+                />
+              </form>
             </div>
+
+            <LedgerTable
+              rows={quotes}
+              getRowKey={(q) => q.id}
+              stickyHead
+              dateline="Ordered by most recent quote activity · quoted totals in the currency of the RFQ, no conversion applied"
+              columns={[
+                {
+                  key: "rfq",
+                  label: "RFQ",
+                  render: (q) => (
+                    <div className="py-1">
+                      <Link
+                        href={`/rfqs?search=${encodeURIComponent(q.rfqNumber)}`}
+                        className="u-focus u-mono rounded-nested text-meta font-medium text-primary-ink hover:underline"
+                      >
+                        {q.rfqNumber}
+                      </Link>
+                      <p className="u-meta mt-0.5 text-ink-3">
+                        Raised {format(q.createdAt, "MMM d, yyyy")}
+                        {q._count.messages > 0 && (
+                          <span className="ms-2 inline-flex items-center gap-1">
+                            <MessageSquare className="h-3 w-3" aria-hidden="true" /> {q._count.messages}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  ),
+                },
+                {
+                  key: "buyer",
+                  label: "Buyer",
+                  render: (q) => {
+                    const buyer = buyerMap.get(q.buyerId);
+                    const buyerName = [buyer?.firstName, buyer?.lastName].filter(Boolean).join(" ");
+                    return (
+                      <div className="min-w-0 py-1">
+                        <p className="truncate font-medium text-ink-1">{q.company?.nameEn ?? (buyerName || "Individual buyer")}</p>
+                        {buyer && <p className="u-meta truncate text-ink-3">{buyer.email}</p>}
+                      </div>
+                    );
+                  },
+                },
+                {
+                  key: "seller",
+                  label: "Quoting supplier",
+                  hideOnMobile: true,
+                  render: (q) => <span className="text-ink-2">{q.seller?.businessNameEn ?? "Unassigned"}</span>,
+                },
+                {
+                  key: "items",
+                  label: "Quoted items",
+                  hideOnMobile: true,
+                  render: (q) => {
+                    const itemSummary = q.items
+                      .slice(0, 2)
+                      .map((i) => {
+                        const unit = i.unitQuoted ? formatCurrency(Number(i.unitQuoted), q.currency as never) : null;
+                        return `${i.quantity}× ${i.nameEn}${unit ? ` @ ${unit}` : ""}`;
+                      })
+                      .join(", ");
+                    return (
+                      <div className="max-w-xs py-1 text-ink-2">
+                        <p className="truncate">{itemSummary || "—"}</p>
+                        {q.items.length > 2 && <p className="u-meta text-ink-3">+{q.items.length - 2} more</p>}
+                      </div>
+                    );
+                  },
+                },
+                {
+                  key: "totalQuoted",
+                  label: "Quoted total",
+                  numeric: true,
+                  render: (q) =>
+                    q.totalQuoted !== null ? (
+                      <Num value={formatCurrency(Number(q.totalQuoted), q.currency as never)} className="whitespace-nowrap" />
+                    ) : (
+                      <span className="text-ink-3">—</span>
+                    ),
+                },
+                {
+                  key: "quoteVersion",
+                  label: "Rev",
+                  numeric: true,
+                  render: (q) => <span className="text-ink-3">v{q.quoteVersion}</span>,
+                },
+                {
+                  key: "status",
+                  label: "Status",
+                  render: (q) => {
+                    const cfg = STATUS_CONFIG[q.status];
+                    const StatusIcon = cfg.icon;
+                    return (
+                      <StatusPill tone={cfg.tone}>
+                        <StatusIcon className="h-3 w-3" aria-hidden="true" /> {cfg.label}
+                      </StatusPill>
+                    );
+                  },
+                },
+                {
+                  key: "updatedAt",
+                  label: "Last updated",
+                  hideOnMobile: true,
+                  render: (q) => <span className="whitespace-nowrap text-ink-2">{format(q.updatedAt, "MMM d, yyyy")}</span>,
+                },
+              ]}
+              empty={
+                <EmptyState
+                  eyebrow="Nothing matches"
+                  headline="No quote matches the current filters."
+                  body="Clear the status filter or the search to see every quote on record."
+                  icon={<FileQuestion className="h-3.5 w-3.5" aria-hidden="true" />}
+                  action={
+                    <Button variant="secondary" size="sm" asChild>
+                      <Link href="/quotes">Show every quote</Link>
+                    </Button>
+                  }
+                />
+              }
+              footer={
+                <Pager
+                  page={page}
+                  totalPages={totalPages}
+                  hrefFor={(target) => filterHref({ page: String(target), search })}
+                  summary={
+                    <>
+                      <span className="fig text-ink-2">{total}</span> quote{total === 1 ? "" : "s"} in the current filter
+                    </>
+                  }
+                />
+              }
+            />
           </>
         )}
       </div>

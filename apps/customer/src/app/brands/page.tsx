@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Building2, ArrowRight } from "lucide-react";
+import { Building2 } from "lucide-react";
+import { Button, Eyebrow, EmptyState, FieldWell, Num, PageHeader, Surface } from "@avenick/ui";
 import { MainLayout } from "@/components/layout/main-layout";
 import { fetchBackendJson } from "@/lib/backend";
 import { platformName } from "@avenick/utils/portal-config";
@@ -16,38 +17,72 @@ export default async function BrandsPage() {
 
   return (
     <MainLayout>
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Shop by brand</h1>
-          <p className="text-muted-foreground">Browse products from GCC suppliers and global brands.</p>
-        </div>
+      <div className="mx-auto max-w-7xl px-4 py-block">
+        <PageHeader
+          eyebrow="Discovery"
+          title="Shop by brand"
+          description="Browse products from GCC suppliers and global brands."
+          // LAW E. The figure on each tile is a count of catalogue listings, not
+          // a count of everything the brand makes — worth stating once here
+          // rather than qualifying twenty tiles.
+          //
+          // It is also wider than what the catalogue will show. /api/brands
+          // counts products with status ACTIVE and deletedAt null; public
+          // browsing additionally requires publiclyDiscoverable and an active,
+          // non-deleted seller (PUBLIC_CATALOG_SELLER in the catalog service).
+          // The count can therefore exceed the number of listings a visitor can
+          // reach, so the line says which population it counts.
+          dateline="Counts are of active products recorded against each brand · the catalogue shows only those a seller has published for public discovery"
+          linkComponent={Link}
+        />
 
         {brands.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-card p-12 text-center">
-            <Building2 className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-            <p className="font-semibold">No brands yet</p>
-            <p className="text-sm text-muted-foreground mt-1">Brands will appear here as sellers list products.</p>
-          </div>
+          <EmptyState
+            eyebrow="Nothing recorded"
+            headline="No brand has a listing in the catalogue yet."
+            body="A brand appears here once a seller publishes a product against it."
+            icon={<Building2 className="h-3.5 w-3.5" aria-hidden="true" />}
+            action={
+              <Button variant="secondary" size="sm" asChild>
+                <Link href="/products">Browse all products</Link>
+              </Button>
+            }
+          />
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {brands.map((brand) => (
-              <Link
-                key={brand.id}
-                href={`/products?brand=${brand.slug}`}
-                className="group flex flex-col items-center gap-3 p-5 bg-card rounded-2xl border border-border hover:border-primary/40 hover:shadow-elevated hover:-translate-y-0.5 transition-all text-center"
-              >
-                <div className="h-14 w-14 rounded-2xl flex items-center justify-center font-black text-lg text-white bg-gradient-to-br from-primary-500 to-accent-600 group-hover:scale-110 transition-transform shadow-glow-sm">
-                  {brand.nameEn.charAt(0)}
-                </div>
-                <div>
-                  <p className="font-semibold text-sm">{brand.nameEn}</p>
-                  <p className="text-xs text-muted-foreground">{brand._count.products} product{brand._count.products !== 1 ? "s" : ""}</p>
-                  {brand.country && <p className="text-xs text-muted-foreground">{COUNTRY_LABEL[brand.country] ?? brand.country}</p>}
-                </div>
-                <span className="text-xs text-primary flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Browse <ArrowRight className="h-3 w-3" />
-                </span>
-              </Link>
+              <Surface key={brand.id} rung={2} interactive>
+                <Link
+                  // /products reads this through listProducts' brandSlug filter.
+                  href={`/products?brand=${encodeURIComponent(brand.slug)}`}
+                  className="u-focus flex items-start gap-3 rounded-[inherit] p-4"
+                >
+                  {/* A neutral initial, not an indigo→violet gradient disc with a
+                      900-weight glyph and a glow. The old one was three banned
+                      things at once, and it scaled 10% on hover, which repainted
+                      every tile in the grid. */}
+                  <span
+                    aria-hidden="true"
+                    className="u-h3 grid h-11 w-11 shrink-0 place-items-center rounded-nested bg-surface-1 text-ink-2"
+                  >
+                    {brand.nameEn.charAt(0)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="u-ui block truncate font-medium text-ink-1">{brand.nameEn}</span>
+                    <span className="mt-1 flex items-baseline gap-1.5">
+                      <Num value={brand._count.products} rank="inline" />
+                      <Eyebrow as="span">
+                        {brand._count.products === 1 ? "listing" : "listings"}
+                      </Eyebrow>
+                    </span>
+                    {brand.country && (
+                      <span className="u-meta block text-ink-3">
+                        {COUNTRY_LABEL[brand.country] ?? brand.country}
+                      </span>
+                    )}
+                  </span>
+                </Link>
+              </Surface>
             ))}
           </div>
         )}
@@ -59,20 +94,25 @@ export default async function BrandsPage() {
           correct target, so the whole card is omitted rather than linked to a
           guess. The old copy also promised "thousands of B2B buyers" — a
           number nothing measures — so it now says only what the button does.
+
+          Recessed, because law A says recessed is context: the band is the
+          context and the raised button on it is the action.
         */}
         {SELLER_REGISTER_URL && (
-          <div className="mt-12 bg-primary/10 border border-primary/30 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Building2 className="h-8 w-8 text-primary shrink-0" />
+          <FieldWell className="mt-section flex flex-col items-start justify-between gap-4 p-6 md:flex-row md:items-center">
+            <div className="flex items-start gap-3">
+              <Building2 className="mt-0.5 h-5 w-5 shrink-0 text-ink-3" aria-hidden="true" />
               <div>
-                <p className="font-semibold">Are you a brand or distributor?</p>
-                <p className="text-sm text-muted-foreground">Apply to sell on {platformName()}. Applications are reviewed before a storefront goes live.</p>
+                <p className="u-ui font-medium text-ink-1">Are you a brand or distributor?</p>
+                <p className="u-meta mt-1 max-w-prose text-ink-2">
+                  Apply to sell on {platformName()}. Applications are reviewed before a storefront goes live.
+                </p>
               </div>
             </div>
-            <a href={SELLER_REGISTER_URL} className="inline-flex items-center gap-1.5 h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98] shrink-0 whitespace-nowrap">
-              Become a seller <ArrowRight className="h-4 w-4" />
-            </a>
-          </div>
+            <Button variant="secondary" size="md" className="shrink-0" asChild>
+              <a href={SELLER_REGISTER_URL}>Become a seller</a>
+            </Button>
+          </FieldWell>
         )}
       </div>
     </MainLayout>

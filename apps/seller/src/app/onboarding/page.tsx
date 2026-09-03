@@ -4,6 +4,22 @@ import { requireSellerAnyPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { sellerNavigationAllows } from "@/lib/seller-permissions";
 import { documentIsInDate, selectGoverningDocuments } from "./document-selection";
+import { hasPayoutDetails, missingProfileFields } from "./readiness";
+import { cn } from "@avenick/utils";
+import {
+  Button,
+  Dateline,
+  EmptyState,
+  Eyebrow,
+  FieldWell,
+  Meter,
+  Num,
+  PageHeader,
+  SectionHeader,
+  StatusPill,
+  Surface,
+  type PillTone,
+} from "@avenick/ui";
 import {
   AlertTriangle,
   ArrowRight,
@@ -12,7 +28,6 @@ import {
   Circle,
   Clock,
   CreditCard,
-  FileText,
   Package,
   RefreshCw,
   ShieldCheck,
@@ -65,63 +80,27 @@ type EffectiveDocumentStatus = DocumentStatus | "MISSING" | "SUPERSEDED";
 
 type StepState = "COMPLETE" | "IN_PROGRESS" | "BLOCKED" | "PENDING";
 
+// Status → tone, not status → hue. Every one of these used to be a hand-written
+// light-only wash (bg-green-500/10, bg-amber-500/10, bg-muted) with no dark
+// counterpart; the tones below resolve to token triples that have real values in
+// both themes.
 const DOC_STATUS_CONFIG: Record<
   EffectiveDocumentStatus,
-  { label: string; className: string; icon: typeof CheckCircle }
+  { label: string; tone: PillTone; icon: typeof CheckCircle }
 > = {
-  APPROVED: {
-    label: "Approved",
-    className: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20",
-    icon: CheckCircle,
-  },
-  PENDING_REVIEW: {
-    label: "Under review",
-    className: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
-    icon: Clock,
-  },
-  REJECTED: {
-    label: "Rejected",
-    className: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
-    icon: XCircle,
-  },
-  EXPIRED: {
-    label: "Expired",
-    className: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20",
-    icon: AlertTriangle,
-  },
-  MISSING: {
-    label: "Not on file",
-    className: "bg-muted text-muted-foreground border-border",
-    icon: Circle,
-  },
-  SUPERSEDED: {
-    label: "Replaced",
-    className: "bg-muted text-muted-foreground border-border",
-    icon: RefreshCw,
-  },
+  APPROVED: { label: "Approved", tone: "success", icon: CheckCircle },
+  PENDING_REVIEW: { label: "Under review", tone: "warning", icon: Clock },
+  REJECTED: { label: "Rejected", tone: "danger", icon: XCircle },
+  EXPIRED: { label: "Expired", tone: "danger", icon: AlertTriangle },
+  MISSING: { label: "Not on file", tone: "neutral", icon: Circle },
+  SUPERSEDED: { label: "Replaced", tone: "neutral", icon: RefreshCw },
 };
 
-const STEP_STATE_CONFIG: Record<StepState, { label: string; badgeClass: string; ringClass: string }> = {
-  COMPLETE: {
-    label: "Complete",
-    badgeClass: "bg-green-500/10 text-green-600 dark:text-green-400",
-    ringClass: "bg-green-500/10",
-  },
-  IN_PROGRESS: {
-    label: "In progress",
-    badgeClass: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
-    ringClass: "bg-orange-500/10",
-  },
-  BLOCKED: {
-    label: "Blocked by platform",
-    badgeClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-    ringClass: "bg-amber-500/10",
-  },
-  PENDING: {
-    label: "Not started",
-    badgeClass: "bg-muted text-muted-foreground",
-    ringClass: "bg-muted",
-  },
+const STEP_STATE_CONFIG: Record<StepState, { label: string; tone: PillTone; ink: string }> = {
+  COMPLETE: { label: "Complete", tone: "success", ink: "text-success-ink" },
+  IN_PROGRESS: { label: "In progress", tone: "warning", ink: "text-warning-ink" },
+  BLOCKED: { label: "Blocked by platform", tone: "warning", ink: "text-warning-ink" },
+  PENDING: { label: "Not started", tone: "neutral", ink: "text-ink-3" },
 };
 
 const SELLER_STATUS_LABEL: Record<string, string> = {
@@ -129,6 +108,14 @@ const SELLER_STATUS_LABEL: Record<string, string> = {
   ACTIVE: "Active",
   SUSPENDED: "Suspended",
   REJECTED: "Rejected",
+};
+
+/** Enum → tone. The pill states the status; it never grades it. */
+const SELLER_STATUS_TONE: Record<string, PillTone> = {
+  PENDING_REVIEW: "warning",
+  ACTIVE: "success",
+  SUSPENDED: "danger",
+  REJECTED: "danger",
 };
 
 /**
@@ -161,26 +148,12 @@ function effectiveDocumentStatus(
 function renewalNote(status: EffectiveDocumentStatus): { text: string; className: string } {
   switch (status) {
     case "PENDING_REVIEW":
-      return { text: "Renewal pending review", className: "text-amber-600 dark:text-amber-400" };
+      return { text: "Renewal pending review", className: "text-warning-ink" };
     case "REJECTED":
-      return { text: "Renewal rejected", className: "text-red-600 dark:text-red-400" };
+      return { text: "Renewal rejected", className: "text-danger-ink" };
     default:
-      return { text: `Renewal ${DOC_STATUS_CONFIG[status].label.toLowerCase()}`, className: "text-muted-foreground" };
+      return { text: `Renewal ${DOC_STATUS_CONFIG[status].label.toLowerCase()}`, className: "text-ink-3" };
   }
-}
-
-/**
- * Prisma surfaces both SQL NULL and JSON null as `null`, and an empty object is
- * not usable settlement information either — so require at least one key before
- * claiming payout details exist.
- */
-function hasPayoutDetails(bankDetails: unknown): boolean {
-  return (
-    bankDetails !== null &&
-    typeof bankDetails === "object" &&
-    !Array.isArray(bankDetails) &&
-    Object.keys(bankDetails as Record<string, unknown>).length > 0
-  );
 }
 
 function humaniseDocumentType(type: string): string {
@@ -265,15 +238,11 @@ export default async function OnboardingPage() {
       ? "IN_PROGRESS"
       : "PENDING";
 
-  // Fields the schema already guarantees (business name, CR number, country, city)
-  // cannot be absent, so the only honest profile signal is the nullable columns a
-  // storefront actually needs. The missing ones are named so the basis is visible.
-  const missingProfileFields = [
-    seller.businessNameAr?.trim() ? null : "Arabic business name",
-    seller.description?.trim() ? null : "Business description",
-    seller.logo ? null : "Store logo",
-  ].filter((field): field is string => field !== null);
-  const profileComplete = missingProfileFields.length === 0;
+  // The profile and payout tests live in ./readiness because the dashboard's
+  // checklist renders the same two claims and used to disagree with this page
+  // about both of them.
+  const missingProfile = missingProfileFields(seller);
+  const profileComplete = missingProfile.length === 0;
 
   const payoutReady = hasPayoutDetails(seller.bankDetails);
 
@@ -291,7 +260,7 @@ export default async function OnboardingPage() {
       state: (profileComplete ? "COMPLETE" : "IN_PROGRESS") as StepState,
       desc: profileComplete
         ? "Arabic name, description, and logo are all on file."
-        : `Still missing: ${missingProfileFields.join(", ")}.`,
+        : `Still missing: ${missingProfile.join(", ")}.`,
     },
     {
       id: "documents",
@@ -353,42 +322,47 @@ export default async function OnboardingPage() {
 
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
-      <div className="max-w-2xl space-y-6">
-        <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold">Onboarding</h1>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+      <div className="max-w-2xl space-y-block">
+        <PageHeader
+          className="mb-0"
+          eyebrow="Store readiness"
+          title="Onboarding"
+          description={`Every item below reflects what is recorded for ${seller.businessNameEn} right now. Nothing on this page is an example.`}
+          actions={
+            <StatusPill tone={SELLER_STATUS_TONE[seller.status] ?? "neutral"} dot>
               Account status: {SELLER_STATUS_LABEL[seller.status] ?? seller.status}
-            </span>
-          </div>
-          <p className="text-muted-foreground text-sm mt-1">
-            Every item below reflects what is recorded for {seller.businessNameEn} right now. Nothing on this page is
-            an example.
-          </p>
-        </div>
+            </StatusPill>
+          }
+        />
 
-        {/* Progress — computed from the step states, which are computed from rows. */}
-        <div className="bg-card rounded-2xl border border-border p-5">
-          <div className="flex items-center justify-between mb-2">
-            <div>
-              <p className="font-semibold text-sm">Overall progress</p>
-              <p className="text-xs text-muted-foreground">
-                {completedSteps} of {steps.length} steps complete
-                {blockedSteps > 0 ? ` · ${blockedSteps} blocked by the platform` : ""}
-              </p>
+        {/* Progress — computed from the step states, which are computed from rows.
+            Recessed, because progress is context for the steps below it rather
+            than an object in its own right. */}
+        <FieldWell className="p-4 sm:p-5">
+          <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+            <div className="min-w-0">
+              <Eyebrow>Overall progress</Eyebrow>
+              <div className="mt-1">
+                <Num value={progress} unit="%" rank="section" />
+              </div>
             </div>
-            <span className="text-sm font-bold text-orange-600 dark:text-orange-400">{progress}%</span>
-          </div>
-          <div className="h-2 rounded-full bg-secondary overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-primary-500 to-accent-500 transition-all"
-              style={{ width: `${progress}%` }}
+            <Meter
+              className="min-w-[12rem] flex-1"
+              value={completedSteps}
+              max={steps.length}
+              tone="accent"
+              size="lg"
+              label={`Onboarding progress: ${completedSteps} of ${steps.length} steps complete`}
             />
           </div>
-        </div>
+          <Dateline className="mt-2">
+            {completedSteps} of {steps.length} steps complete
+            {blockedSteps > 0 ? ` · ${blockedSteps} blocked by the platform` : ""}
+          </Dateline>
+        </FieldWell>
 
         {/* Step list */}
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <Surface rung={2} className="overflow-hidden">
           {steps.map((step, idx) => {
             const isLast = idx === steps.length - 1;
             const Icon = step.icon;
@@ -399,35 +373,46 @@ export default async function OnboardingPage() {
             // member on an error boundary, so an unreachable step is rendered as
             // plain text instead — the same rule the sidebar already applies.
             const canOpen = sellerNavigationAllows(grantedPermissions, step.permissions);
-            const rowClass = `flex items-start gap-4 p-5 ${!isLast ? "border-b border-border" : ""}`;
+            const rowClass = cn("flex items-start gap-4 p-4", !isLast && "border-b border-hairline");
+            // The system's :focus-visible ring is an OUTWARD two-stop box-shadow
+            // and these rows are full-bleed children of an overflow-hidden panel,
+            // so that ring is clipped away to nothing and a keyboard user sees no
+            // focus at all. An outline at a negative offset draws the same --ring
+            // token inside the row, where the panel cannot clip it.
+            const rowFocus =
+              "focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring";
             const body = (
               <>
-                <div className={`h-10 w-10 rounded-full flex items-center justify-center shrink-0 ${cfg.ringClass}`}>
+                {/* One neutral chip carrying the state's ink, rather than four
+                    background hues. Ten colours carrying zero information is the
+                    loudest amateur signal in the product. */}
+                <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-pill bg-neutral-soft", cfg.ink)}>
                   {step.state === "COMPLETE" ? (
-                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    <CheckCircle className="h-4 w-4" aria-hidden="true" />
                   ) : step.state === "BLOCKED" ? (
-                    <Ban className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    <Ban className="h-4 w-4" aria-hidden="true" />
                   ) : step.state === "IN_PROGRESS" ? (
-                    <Icon className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+                    <Icon className="h-4 w-4" aria-hidden="true" />
                   ) : (
-                    <Circle className="h-5 w-5 text-muted-foreground" />
+                    <Circle className="h-4 w-4" aria-hidden="true" />
                   )}
-                </div>
-                <div className="flex-1">
+                </span>
+                <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="font-semibold text-sm">{step.label}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cfg.badgeClass}`}>{cfg.label}</span>
+                    <p className="u-ui font-medium text-ink-1">{step.label}</p>
+                    <StatusPill tone={cfg.tone}>{cfg.label}</StatusPill>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{step.desc}</p>
+                  <p className="u-meta mt-0.5 text-ink-2">{step.desc}</p>
                 </div>
-                {canOpen && <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />}
+                {/* A direction-implying icon must flip in Arabic. */}
+                {canOpen && <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-ink-3 rtl:rotate-180" aria-hidden="true" />}
               </>
             );
             return canOpen ? (
               <Link
                 key={step.id}
                 href={step.href}
-                className={`${rowClass} hover:bg-muted/30 transition-colors`}
+                className={cn(rowClass, rowFocus, "u-focus transition-colors duration-hover ease-standard hover:bg-ink-1/[0.03]")}
               >
                 {body}
               </Link>
@@ -437,36 +422,36 @@ export default async function OnboardingPage() {
               </div>
             );
           })}
-        </div>
+        </Surface>
 
         {/* Required documents — one row per required DocumentType, status from the database. */}
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
-            <div>
-              <h2 className="font-semibold">Required documents</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Status is read from your document records. A type with no record shows as “Not on file”.
-              </p>
-            </div>
-            <Link
-              href={DOCUMENT_CENTER_HREF}
-              className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:underline shrink-0"
-            >
-              Document Center
-            </Link>
+        <Surface rung={2} className="overflow-hidden">
+          <div className="border-b border-hairline px-4 pt-4 pb-3">
+            <SectionHeader
+              className="mb-0"
+              title="Required documents"
+              dateline="Status is read from your document records · a type with no record shows as “Not on file”"
+              action={
+                <Button variant="link" size="sm" asChild>
+                  <Link href={DOCUMENT_CENTER_HREF}>Document Center</Link>
+                </Button>
+              }
+            />
           </div>
 
           {missingRequiredCount > 0 && (
-            <div className="border-b border-border bg-muted/30 px-5 py-3 text-xs text-muted-foreground">
-              A document shown as “Not on file” can be submitted from the{" "}
-              <Link href={DOCUMENT_UPLOAD_HREF} className="underline font-semibold text-foreground">
-                Document Center
-              </Link>
-              . Each upload is reviewed before it counts as approved.
-            </div>
+            <FieldWell className="rounded-none border-x-0 border-t-0 border-b-hairline px-4 py-3">
+              <p className="u-meta text-ink-2">
+                A document shown as “Not on file” can be submitted from the{" "}
+                <Link href={DOCUMENT_UPLOAD_HREF} className="u-focus rounded-nested font-medium text-primary-ink underline">
+                  Document Center
+                </Link>
+                . Each upload is reviewed before it counts as approved.
+              </p>
+            </FieldWell>
           )}
 
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-hairline">
             {documentRows.map((doc) => {
               const cfg = DOC_STATUS_CONFIG[doc.status];
               const StatusIcon = cfg.icon;
@@ -487,31 +472,27 @@ export default async function OnboardingPage() {
                     }
                   : null;
               return (
-                <div key={doc.type} className="flex items-start justify-between gap-3 px-5 py-3">
+                <div key={doc.type} className="flex items-start justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium">{doc.label}</p>
-                      {!doc.applicable && (
-                        <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
-                          Not required
-                        </span>
-                      )}
+                      <p className="u-ui font-medium text-ink-1">{doc.label}</p>
+                      {!doc.applicable && <StatusPill tone="neutral">Not required</StatusPill>}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">{doc.why}</p>
+                    <p className="u-meta mt-0.5 text-ink-2">{doc.why}</p>
                     {doc.row && (
-                      <p className="text-xs text-muted-foreground mt-1 truncate">
-                        {doc.row.fileName} · filed {doc.row.uploadedAt.toISOString().slice(0, 10)}
+                      <p className="u-meta mt-1 truncate text-ink-3">
+                        <span className="u-mono">{doc.row.fileName}</span> · filed {doc.row.uploadedAt.toISOString().slice(0, 10)}
                         {doc.row.expiryDate ? ` · expires ${doc.row.expiryDate.toISOString().slice(0, 10)}` : ""}
                       </p>
                     )}
                     {/* A supersession reason is not a refusal; the "Replaced" badge already says what happened. */}
                     {doc.status === "REJECTED" && doc.row?.rejectionReason && (
-                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">{doc.row.rejectionReason}</p>
+                      <p className="u-meta mt-1 text-danger-ink">{doc.row.rejectionReason}</p>
                     )}
                     {/* Not truncated: a rejection reason is the actionable part and must not be clipped. */}
                     {renewal && (
-                      <p className={`text-xs mt-1 flex items-start gap-1 ${renewal.className}`}>
-                        <renewal.Icon className="h-3 w-3 shrink-0 mt-0.5" />
+                      <p className={cn("u-meta mt-1 flex items-start gap-1", renewal.className)}>
+                        <renewal.Icon className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
                         <span className="min-w-0 break-words">
                           {renewal.text} · {renewal.fileName} filed {renewal.filed}
                           {renewal.reason}
@@ -519,41 +500,35 @@ export default async function OnboardingPage() {
                       </p>
                     )}
                   </div>
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold shrink-0 ${cfg.className}`}
-                  >
-                    <StatusIcon className="h-3.5 w-3.5" />
+                  <StatusPill tone={cfg.tone} className="shrink-0">
+                    <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
                     {cfg.label}
-                  </span>
+                  </StatusPill>
                 </div>
               );
             })}
           </div>
 
           {additionalDocuments.length > 0 && (
-            <div className="border-t border-border">
-              <div className="px-5 py-3 bg-muted/30">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Other documents on file
-                </p>
-              </div>
-              <div className="divide-y divide-border">
+            <div className="border-t border-hairline">
+              <FieldWell className="rounded-none border-x-0 border-t-0 border-b-hairline px-4 py-2">
+                <Eyebrow>Other documents on file</Eyebrow>
+              </FieldWell>
+              <div className="divide-y divide-hairline">
                 {additionalDocuments.map((doc) => {
                   const status = effectiveDocumentStatus(doc, now);
                   const cfg = DOC_STATUS_CONFIG[status];
                   const StatusIcon = cfg.icon;
                   return (
-                    <div key={doc.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                    <div key={doc.id} className="flex items-center justify-between gap-3 px-4 py-3">
                       <div className="min-w-0">
-                        <p className="text-sm font-medium">{humaniseDocumentType(doc.type)}</p>
-                        <p className="text-xs text-muted-foreground truncate">{doc.fileName}</p>
+                        <p className="u-ui font-medium text-ink-1">{humaniseDocumentType(doc.type)}</p>
+                        <p className="u-meta u-mono truncate text-ink-3">{doc.fileName}</p>
                       </div>
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-semibold shrink-0 ${cfg.className}`}
-                      >
-                        <StatusIcon className="h-3.5 w-3.5" />
+                      <StatusPill tone={cfg.tone} className="shrink-0">
+                        <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
                         {cfg.label}
-                      </span>
+                      </StatusPill>
                     </div>
                   );
                 })}
@@ -562,16 +537,20 @@ export default async function OnboardingPage() {
           )}
 
           {documents.length === 0 && (
-            <div className="px-5 py-6 text-center border-t border-border">
-              <FileText className="mx-auto h-7 w-7 text-muted-foreground" />
-              <p className="text-sm font-medium mt-2">No documents are recorded for this account</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Nothing has ever been filed against {seller.businessNameEn}. Your compliance obligations are not yet
-                satisfied.
-              </p>
+            <div className="border-t border-hairline">
+              <EmptyState
+                eyebrow="Nothing filed"
+                headline="No document has ever been filed against this account."
+                body={`Nothing is recorded for ${seller.businessNameEn}, so your compliance obligations are not yet satisfied.`}
+                action={
+                  <Button variant="primary" size="sm" asChild>
+                    <Link href={DOCUMENT_UPLOAD_HREF}>Upload a document</Link>
+                  </Button>
+                }
+              />
             </div>
           )}
-        </div>
+        </Surface>
       </div>
     </SellerLayout>
   );
