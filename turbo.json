@@ -45,7 +45,10 @@
       "cache": false
     },
     "db:seed": {
-      "cache": false
+      "cache": false,
+      "env": [
+        "SEED_PASSWORD"
+      ]
     },
     "db:studio": {
       "cache": false,

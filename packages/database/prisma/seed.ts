@@ -44,6 +44,24 @@ const HASH = (pw: string) => bcrypt.hash(pw, 12);
  * the seed finishes.
  */
 const SEED_PASSWORD_WAS_GENERATED = !process.env.SEED_PASSWORD?.trim();
+
+// Generating a password is a convenience for a developer seeding locally. In CI
+// it is a trap: the browser suite signs the seeded personas in with
+// E2E_SEED_PASSWORD, so a generated one guarantees every login fails, and the
+// only symptom is "Invalid email or password" on a screenshot. That is exactly
+// what happened — turbo runs tasks in a sanitized environment and SEED_PASSWORD
+// was not declared, so it never reached this process. Refuse instead of
+// diverging silently.
+if (SEED_PASSWORD_WAS_GENERATED && process.env.CI === "true") {
+  console.error(
+    "SEED_PASSWORD is not set and this is CI.\n" +
+      "The browser suite types E2E_SEED_PASSWORD, so a generated password makes every\n" +
+      "seeded login fail. Set SEED_PASSWORD, and make sure turbo passes it through:\n" +
+      "turbo.json -> tasks -> db:seed -> env must list SEED_PASSWORD.",
+  );
+  process.exit(1);
+}
+
 const SEED_PASSWORD =
   process.env.SEED_PASSWORD?.trim() || randomBytes(18).toString("base64url");
 
