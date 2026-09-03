@@ -90,7 +90,7 @@ function HealthBar({ score }: { score: number }) {
   );
 }
 
-export function ProductsTable({ rows }: { rows: ProductRow[] }) {
+export function ProductsTable({ rows, canManage }: { rows: ProductRow[]; canManage: boolean }) {
   const router = useRouter();
   const { toast } = useToast();
   const fileRef = React.useRef<HTMLInputElement>(null);
@@ -202,14 +202,14 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
         <p className="text-xs text-muted-foreground">{selected.size > 0 ? `${selected.size} selected` : `${rows.length} product${rows.length !== 1 ? "s" : ""}`}</p>
         <div className="flex items-center gap-2">
           <input ref={fileRef} type="file" accept=".csv,text/csv" onChange={onImportFile} className="hidden" />
-          <button
+          {canManage && <button
             type="button"
             disabled={pending}
             onClick={() => fileRef.current?.click()}
             className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-border text-xs font-medium hover:bg-secondary transition-colors disabled:opacity-50"
           >
             {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Import CSV
-          </button>
+          </button>}
           <button
             type="button"
             onClick={() => exportCsv(selected.size > 0 ? selectedRows : rows, `products-${new Date().toISOString().slice(0, 10)}.csv`)}
@@ -225,7 +225,7 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
           <thead className="bg-secondary/50 border-b border-border">
             <tr>
               <th className="ps-4 pe-2 py-3 w-8">
-                <input type="checkbox" aria-label="Select all" checked={allSelected} onChange={toggleAll} className="rounded border-border accent-[hsl(var(--primary))]" />
+                {canManage && <input type="checkbox" aria-label="Select all" checked={allSelected} onChange={toggleAll} className="rounded border-border accent-[hsl(var(--primary))]" />}
               </th>
               {["Product", "SKU", "Status", "Health", "Stock", "Price", "Issues", ""].map((h) => (
                 <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
@@ -235,7 +235,7 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
           <tbody className="divide-y divide-border">
             {rows.map((p) => (
               <tr key={p.id} className={`transition-colors ${selected.has(p.id) ? "bg-primary/5" : "hover:bg-secondary/40"}`}>
-                <td className="ps-4 pe-2 py-3"><input type="checkbox" aria-label={`Select ${p.nameEn}`} checked={selected.has(p.id)} onChange={() => toggle(p.id)} className="rounded border-border accent-[hsl(var(--primary))]" /></td>
+                <td className="ps-4 pe-2 py-3">{canManage && <input type="checkbox" aria-label={`Select ${p.nameEn}`} checked={selected.has(p.id)} onChange={() => toggle(p.id)} className="rounded border-border accent-[hsl(var(--primary))]" />}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 shrink-0 rounded-lg overflow-hidden bg-secondary">
@@ -266,7 +266,7 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
                     <Link href="/issues" className="flex items-center gap-1 text-danger hover:underline text-xs"><AlertTriangle className="h-3.5 w-3.5" />{p.issueCount}</Link>
                   ) : <span className="text-success text-xs">✓</span>}
                 </td>
-                <td className="px-4 py-3"><Link href={`/products/${p.id}/edit`} className="text-xs text-primary hover:underline font-medium">Edit</Link></td>
+                <td className="px-4 py-3">{canManage ? <Link href={`/products/${p.id}/edit`} className="text-xs text-primary hover:underline font-medium">Edit</Link> : <span className="text-xs text-muted-foreground">View only</span>}</td>
               </tr>
             ))}
           </tbody>
@@ -275,13 +275,13 @@ export function ProductsTable({ rows }: { rows: ProductRow[] }) {
           <div className="text-center py-16">
             <Package className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
             <p className="font-semibold text-muted-foreground">No products yet.</p>
-            <Link href="/products/new" className="text-primary hover:underline text-sm mt-2 inline-block">Add your first product →</Link>
+            {canManage && <Link href="/products/new" className="text-primary hover:underline text-sm mt-2 inline-block">Add your first product →</Link>}
           </div>
         )}
       </div>
 
       {/* Floating bulk action bar */}
-      {selected.size > 0 && (
+      {canManage && selected.size > 0 && (
         <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-border bg-card/95 backdrop-blur">
           <span className="text-sm font-medium">{selected.size} selected</span>
           <div className="flex items-center gap-2">

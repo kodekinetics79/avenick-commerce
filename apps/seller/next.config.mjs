@@ -24,6 +24,7 @@ const nextConfig = {
       { protocol: "https", hostname: "*.avenick.com" },
       { protocol: "http", hostname: "localhost" },
       { protocol: "https", hostname: "placehold.co" },
+      { protocol: "https", hostname: "www.mennekes.org", pathname: "/fileadmin/products_media/**" },
     ],
   },
   // Baseline security headers for every route. Policy lives in

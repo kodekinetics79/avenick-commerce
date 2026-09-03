@@ -70,7 +70,7 @@ export default async function B2BTeamPage() {
               <option value="COMPANY_APPROVER">Approver</option>
               <option value="COMPANY_ADMIN">Admin</option>
             </select>
-            <input name="spendLimit" type="number" placeholder={`Spend limit (${currency})`} className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
+            <input name="spendLimit" type="number" min="0" placeholder={`Spend limit (${currency})`} aria-label={`Spend limit in ${currency}`} className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
             <button type="submit" className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">Send invite</button>
           </div>
           <p className="text-xs text-muted-foreground mt-2">Department is optional — invited members join with a pending status until they set a password.</p>

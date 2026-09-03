@@ -63,6 +63,9 @@ jobs:
       - name: Unit and integration tests
         run: pnpm test
 
+      - name: Frontend route and availability contracts
+        run: pnpm test:frontend-contracts
+
       - name: Build all apps
         run: pnpm build
 

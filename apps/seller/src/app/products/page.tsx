@@ -6,8 +6,10 @@ import { Plus } from "lucide-react";
 import { AiAssist } from "@/components/ai-assist";
 import { ProductsTable, type ProductRow } from "@/components/products-table";
 
-export default async function ProductsPage() {
+export default async function ProductsPage({ searchParams }: { searchParams?: { submitted?: string } }) {
   const { seller, membership } = await requireSellerAnyPermission(["catalog.view", "catalog.manage"]);
+  const permissions = membership.permissions ?? [];
+  const canManage = permissions.includes("*") || (permissions.includes("catalog.manage") && permissions.includes("pricing.manage"));
 
   const products = await db.product.findMany({
     where: { sellerId: seller.id, deletedAt: null },
@@ -42,17 +44,22 @@ export default async function ProductsPage() {
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={products.flatMap((p) => p.issues).length} permissions={membership.permissions}>
       <div className="space-y-4">
+        {searchParams?.submitted && (
+          <div role="status" className="rounded-xl border border-success/30 bg-success/5 px-4 py-3 text-sm text-success">
+            Listing {searchParams.submitted === "updated" ? "changes were" : "was"} submitted for review. It will not become active until an administrator approves it.
+          </div>
+        )}
         <div className="flex items-center justify-between gap-3">
           <h1 className="text-2xl font-bold tracking-tight">Products <span className="text-muted-foreground font-medium">({products.length})</span></h1>
           <div className="flex items-center gap-2">
-            <AiAssist kind="listing" label="AI listing copy" />
-            <Link href="/products/new" className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">
+            {canManage && <AiAssist kind="listing" label="AI listing copy" />}
+            {canManage && <Link href="/products/new" className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-xl text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">
               <Plus className="h-4 w-4" /> Add product
-            </Link>
+            </Link>}
           </div>
         </div>
 
-        <ProductsTable rows={rows} />
+        <ProductsTable rows={rows} canManage={canManage} />
       </div>
     </SellerLayout>
   );

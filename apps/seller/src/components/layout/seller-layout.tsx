@@ -68,7 +68,9 @@ export const NAV_GROUPS = [
     label: "Documents",
     items: [
       { href: "/documents", icon: FolderOpen, label: "Document Center", permissions: ["documents.view", "documents.manage"] },
-      // /compliance renders "Compliance"; onboarding is the dashboard checklist, not this page.
+      // The onboarding page is the seller's own readiness checklist; nothing
+      // else links to it, so removing this entry orphaned the route.
+      { href: "/onboarding", icon: CheckSquare, label: "Onboarding", permissions: ["documents.view", "documents.manage"] },
       { href: "/compliance", icon: CheckSquare, label: "Compliance", permissions: ["documents.view", "documents.manage"] },
     ],
   },
@@ -324,7 +326,7 @@ export function SellerLayout({
 
   return (
     <ToastProvider>
-      <CommandPalette />
+      <CommandPalette permissions={permissions} />
       <div className="flex h-screen bg-background overflow-hidden">
       {/* Desktop sidebar */}
       <aside className={cn("hidden lg:flex flex-col shrink-0 transition-all duration-200", collapsed ? "w-14" : "w-56")}>

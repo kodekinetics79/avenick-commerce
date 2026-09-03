@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, ShieldCheck, Truck, BadgeCheck, Sparkles } from "lucide-react";
+import { ArrowRight, ShieldCheck, Truck, BadgeCheck, Sparkles, PackageSearch } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import { MainLayout } from "@/components/layout/main-layout";
@@ -7,6 +7,7 @@ import { ProductCard } from "@/components/products/product-card";
 import { categoryIcon } from "@/components/products/category-icon";
 import { fetchBackendJson } from "@/lib/backend";
 import { categoryLabel, getPublicCategories } from "@/lib/catalog-categories";
+import { partitionHomeProducts } from "@/lib/home-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -49,11 +50,16 @@ export default async function HomePage() {
       hasVariants: p.hasVariants === true,
       priceTiered: p.priceTiered === true,
       moq: p.moq,
-      // No fallback label: a product whose category is unknown is shown without
-      // one rather than filed under a category it may not belong to.
-      category: p.category?.nameEn ?? undefined,
+      // Locale-aware, and no fallback label: a product whose category is
+      // unknown is shown without one rather than filed under a category it may
+      // not belong to.
+      category: (locale === "ar" ? p.category?.nameAr || p.category?.nameEn : p.category?.nameEn) ?? undefined,
     };
   });
+  // Two headings over one ten-item feed used to render the same five products
+  // twice. The catalog API exposes no sales ranking, so the sections are simply
+  // made disjoint rather than labelled with a ranking nobody computes.
+  const productSections = partitionHomeProducts(mapped);
 
   return (
     <MainLayout>
@@ -97,12 +103,17 @@ export default async function HomePage() {
       </section>
 
       {/* ─── Category strip ───────────────────────────────── */}
-      {/* Rendered only when the catalog reports categories with products to
-          browse; an empty catalog gets no strip rather than a decorative one. */}
-      {categories.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 py-10">
-          <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
-            {categories.map((category) => {
+      {/* Categories come from the catalog API (active, with discoverable
+          products), never a list typed into this page. An empty catalog gets a
+          plain link to all products rather than a decorative strip. */}
+      <section className="max-w-7xl mx-auto px-4 py-10">
+        <div className="flex gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
+          {categories.length === 0 ? (
+            <Link href="/products" className="inline-flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm font-semibold">
+              <PackageSearch className="h-4 w-4 text-primary" /> Browse all products
+            </Link>
+          ) : (
+            categories.map((category) => {
               const Icon = categoryIcon(category.iconName);
               return (
                 <Link
@@ -116,15 +127,15 @@ export default async function HomePage() {
                   <span className="text-sm font-semibold whitespace-nowrap">{categoryLabel(category, locale)}</span>
                 </Link>
               );
-            })}
-          </div>
-        </section>
-      )}
+            })
+          )}
+        </div>
+      </section>
 
       {/* ─── Best sellers ─────────────────────────────────── */}
       <Section title={t("bestSellers")} subtitle={t("bestSellersSub")} href="/products">
         {/* No badge: "HOT" asserts demand ranking the catalog does not compute. */}
-        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>
+        <Grid>{productSections.catalog.map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>
       </Section>
 
       {/* ─── Value props ──────────────────────────────────── */}
@@ -148,11 +159,14 @@ export default async function HomePage() {
       </section>
 
       {/* ─── Featured ─────────────────────────────────────── */}
-      <Section title={t("featuredProducts")} subtitle={t("featuredProductsSub")} href="/products">
-        {/* No badge: "NEW" was stamped on every product regardless of age, and on
-            the same five products already shown above under Best sellers. */}
-        <Grid>{mapped.slice(0, 5).map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>
-      </Section>
+      {/* No badge: "NEW" was stamped on every product regardless of age. The
+          section is dropped entirely when the feed holds nothing the catalog
+          strip above did not already show. */}
+      {productSections.more.length > 0 && (
+        <Section title={t("featuredProducts")} subtitle={t("featuredProductsSub")} href="/products">
+          <Grid>{productSections.more.map((p) => <ProductCard key={p.id} {...p} locale={locale} />)}</Grid>
+        </Section>
+      )}
 
       {/* ─── B2B CTA band ─────────────────────────────────── */}
       <section className="max-w-7xl mx-auto px-4 pb-16 pt-6">

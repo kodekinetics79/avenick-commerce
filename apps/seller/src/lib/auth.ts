@@ -176,3 +176,13 @@ export async function requireSellerAnyPermission(required: readonly string[], op
   }
   return context;
 }
+
+/** Require every listed capability. Product publication combines catalog and pricing authority. */
+export async function requireSellerPermissions(required: readonly string[]) {
+  const context = await requireSellerSession();
+  const permissions = context.membership.permissions ?? [];
+  if (!permissions.includes("*") && !required.every((permission) => permissions.includes(permission))) {
+    throw new Error(`Seller permissions required: ${required.join(" and ")}`);
+  }
+  return context;
+}
