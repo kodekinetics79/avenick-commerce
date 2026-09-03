@@ -26,6 +26,7 @@ export * from "./environment-flags";
    premium commerce, not effects, and it is entirely truthful: it is framing,
    not fiction. */
 export * from "./image-frame";
+export * from "./specimen-glyph";
 export * from "./hero-stage";
 export * from "./display-plate";
 export * from "./edge-fade";

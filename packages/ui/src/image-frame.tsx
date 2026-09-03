@@ -1,6 +1,6 @@
 import * as React from "react";
-import { PackageSearch } from "lucide-react";
 import { cn } from "@avenick/utils";
+import { SpecimenGlyph } from "./specimen-glyph";
 
 /**
  * ImageFrame — the single highest-impact component in the system, and it is not
@@ -100,8 +100,15 @@ export const ImageFrame = React.forwardRef<HTMLDivElement, ImageFrameProps>(func
         ) : null)}
 
       {!hasImage && (
+        /*
+          Most of this catalogue is unphotographed — 383 live products carry no
+          image — so this is the common case, not the rare one. An icon over a
+          SKU read as a broken tile; a drawn plate reads as a record awaiting its
+          photograph, which is exactly what it is. The SKU stays: it is the one
+          true identifier the frame can show.
+        */
         <div className="u-imgframe__void" aria-hidden="true">
-          <PackageSearch className="h-6 w-6" strokeWidth={1.25} />
+          <SpecimenGlyph seed={sku ?? alt ?? ""} className="h-full w-full max-h-[78%] max-w-[78%] text-ink-1/80" />
           {sku && <span className="u-mono u-meta">{sku}</span>}
         </div>
       )}

@@ -130,7 +130,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
                */}
               <LightGrid className="grid grid-cols-2 gap-stack sm:grid-cols-3 lg:grid-cols-4">
                 {categories.map((cat: PublicCategory, index: number) => {
-                  const Icon = categoryIcon(cat.iconName);
+                  const Icon = categoryIcon(cat.iconName, cat.slug);
                   return (
                     <Reveal key={cat.slug} index={index} className="h-full">
                       <Surface
