@@ -42,15 +42,40 @@ async function fixture(label: string, b2b: boolean) {
   return { buyer, admin, platformAdmin, product, stock, company, member };
 }
 
+/**
+ * Block until the checkout under test actually holds the user's commerce fence.
+ *
+ * What these cases assert is ORDER — that a transaction which took the fence
+ * first commits, and the revocation racing it does not overtake it. They do not
+ * assert speed. The budget was 100 attempts at 10ms, which is a wall-clock
+ * assumption dressed as a loop count, and it was tuned against a local
+ * database. This suite runs against a REMOTE Postgres at roughly 12ms per
+ * round trip, in parallel with the other pg suites on the same instance, so
+ * under contention the fence could be taken later than the budget allowed and
+ * the revocation would start first — failing an assertion about ordering for a
+ * reason that has nothing to do with ordering.
+ *
+ * A deadline says the same thing without pretending to know how fast the
+ * database is. If the fence is genuinely never taken this still throws, so
+ * nothing is weakened: a real ordering failure fails exactly as before.
+ */
+const FENCE_WAIT_MS = 15_000;
+
 async function waitForUserFence(userId: string) {
-  for (let attempt = 0; attempt < 100; attempt += 1) {
+  const deadline = Date.now() + FENCE_WAIT_MS;
+  while (Date.now() < deadline) {
     const [row] = await db.$queryRaw<Array<{ acquired: boolean }>>`
       SELECT pg_try_advisory_xact_lock(hashtext(${`user-commerce:${userId}`})) AS acquired
     `;
+    // acquired === false means someone else holds it — that someone is the
+    // checkout we are waiting for.
     if (row?.acquired === false) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error("Timed out waiting for user commerce fence");
+  throw new Error(
+    `Timed out after ${FENCE_WAIT_MS}ms waiting for the user commerce fence on ${userId}. ` +
+      "The checkout never took the fence, so the ordering this test asserts never began.",
+  );
 }
 
 afterEach(async () => {
