@@ -84,6 +84,35 @@ export default async function HomePage() {
   // catalogue is empty the slot renders the certificate empty state instead,
   // which is the whole point of the slot.
   const specimen = mapped[0];
+  /*
+    The hero's supporting shelf. A single framed object reads as a trade
+    catalogue's frontispiece; a shop is recognised by several products with
+    prices, immediately. These two sit under the lead specimen at a smaller
+    rank, from the same fetch the page already does — still real products, still
+    real prices, no placeholder and no stock photography.
+
+    Two, not four: they must not compete with the lead or push the call to
+    action under the fold on a 1366x768 laptop, which is a large share of Gulf
+    desktop traffic.
+  */
+  const heroShelf = (() => {
+    /*
+      Distinct NAMES, not just distinct rows. The pilot catalogue carries the
+      same product name across several SKUs — the first six rows of the live
+      feed are three "Wire & Cable Lubricants" and two "Twist-on Wire
+      Connectors" — so slicing the first three put the same words under three
+      different photographs and made the hero read as a rendering fault rather
+      than a shelf. Falling back to whatever is left keeps the shelf populated
+      on a catalogue too small to offer three distinct names.
+    */
+    const seen = new Set<string>([specimen?.nameEn ?? ""]);
+    const distinct = mapped.slice(1).filter((item) => {
+      if (seen.has(item.nameEn)) return false;
+      seen.add(item.nameEn);
+      return true;
+    });
+    return (distinct.length >= 2 ? distinct : mapped.slice(1)).slice(0, 2);
+  })();
   // Two headings over one ten-item feed used to render the same five products
   // twice. The catalog API exposes no sales ranking, so the sections are simply
   // made disjoint rather than labelled with a ranking nobody computes.
@@ -248,6 +277,7 @@ export default async function HomePage() {
           <HeroSpecimen>
             <Reveal index={2}>
               {specimen ? (
+                <div className="grid gap-3">
                 <Surface rung={3} className="group overflow-hidden">
                   <Link
                     href={storefrontProductHref(specimen.slug, { currency: specimen.currency })}
@@ -314,6 +344,60 @@ export default async function HomePage() {
                     </div>
                   </Link>
                 </Surface>
+
+                {/*
+                  The shelf. Two more real products at a smaller rank, so the
+                  first thing above the fold says "shop" rather than "brochure".
+                  Each is a whole link — image, name and price — because a price
+                  a visitor cannot click is a price they have to hunt for.
+                */}
+                {heroShelf.length > 0 && (
+                  <ul className="grid grid-cols-2 gap-3">
+                    {heroShelf.map((item) => {
+                      const name = locale === "ar" ? item.nameAr : item.nameEn;
+                      const money =
+                        item.price != null && item.currency && isSupportedCurrency(item.currency)
+                          ? formatCurrency(item.price, item.currency, locale)
+                          : null;
+                      return (
+                        <li key={item.id}>
+                          <Surface rung={2} interactive className="group h-full overflow-hidden">
+                            <Link
+                              href={storefrontProductHref(item.slug, { currency: item.currency })}
+                              className="u-focus flex h-full flex-col rounded-[inherit]"
+                            >
+                              <ImageFrame
+                                sku={item.sku}
+                                ratio="card"
+                                state={item.inStock ? "available" : "unconfirmed"}
+                              >
+                                {item.imageUrl ? (
+                                  <Image
+                                    src={item.imageUrl}
+                                    alt={name}
+                                    fill
+                                    sizes="(max-width: 1024px) 45vw, 15vw"
+                                  />
+                                ) : undefined}
+                              </ImageFrame>
+                              <div className="flex flex-1 flex-col gap-1 p-3">
+                                <p className="u-meta line-clamp-2 text-ink-1">{name}</p>
+                                {/* VAT-exclusive, stated — the same basis as
+                                    every other price on the storefront. */}
+                                {money && (
+                                  <p className="u-mono u-meta mt-auto font-medium tabular-nums text-ink-1">
+                                    {item.priceIsFrom ? `${tp("priceFrom")} ` : ""}{money}
+                                  </p>
+                                )}
+                              </div>
+                            </Link>
+                          </Surface>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                </div>
               ) : (
                 /*
                   THE RULE THAT OUTRANKS EVERYTHING ELSE ON THIS PAGE: when a
