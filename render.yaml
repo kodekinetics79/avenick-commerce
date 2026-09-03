@@ -85,8 +85,17 @@ services:
         sync: false
       - key: NEXTAUTH_SECRET
         sync: false
+      # Each service's OWN public origin, set per service in the dashboard.
+      #
+      # This was pinned to a Vercel host — so a Render-hosted portal was told its
+      # auth origin lived on another provider's deployment. NextAuth builds its
+      # callback and redirect URLs from this value, and resolveRemotePortalSession
+      # reads it first when deciding where to verify a session, which means a
+      # local decode failure would have forwarded the visitor's session cookie to
+      # a deployment this service does not own. Unset is the safe state: session
+      # verification fails closed rather than trusting a guessed host.
       - key: NEXTAUTH_URL
-        value: "https://avenick.vercel.app"
+        sync: false
       - key: AUTH_TRUST_HOST
         value: "true"
       # Public origin of EACH portal (scheme + host, no path), inlined at build
@@ -132,8 +141,17 @@ services:
         sync: false
       - key: NEXTAUTH_SECRET
         sync: false
+      # Each service's OWN public origin, set per service in the dashboard.
+      #
+      # This was pinned to a Vercel host — so a Render-hosted portal was told its
+      # auth origin lived on another provider's deployment. NextAuth builds its
+      # callback and redirect URLs from this value, and resolveRemotePortalSession
+      # reads it first when deciding where to verify a session, which means a
+      # local decode failure would have forwarded the visitor's session cookie to
+      # a deployment this service does not own. Unset is the safe state: session
+      # verification fails closed rather than trusting a guessed host.
       - key: NEXTAUTH_URL
-        value: "https://avenick-commerce-seller.vercel.app"
+        sync: false
       - key: AUTH_TRUST_HOST
         value: "true"
       # Cross-portal origins + support contact — same rules as avenick-customer.
@@ -175,8 +193,17 @@ services:
         sync: false
       - key: NEXTAUTH_SECRET
         sync: false
+      # Each service's OWN public origin, set per service in the dashboard.
+      #
+      # This was pinned to a Vercel host — so a Render-hosted portal was told its
+      # auth origin lived on another provider's deployment. NextAuth builds its
+      # callback and redirect URLs from this value, and resolveRemotePortalSession
+      # reads it first when deciding where to verify a session, which means a
+      # local decode failure would have forwarded the visitor's session cookie to
+      # a deployment this service does not own. Unset is the safe state: session
+      # verification fails closed rather than trusting a guessed host.
       - key: NEXTAUTH_URL
-        value: "https://avenick-commerce-admin.vercel.app"
+        sync: false
       - key: AUTH_TRUST_HOST
         value: "true"
       # Cross-portal origins + support contact — same rules as avenick-customer.

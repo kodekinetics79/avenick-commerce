@@ -51,7 +51,15 @@ so splits JWT issuance and validation across independently configured secrets.
      [portal origins table](#portal-origins-sender-and-contacts) below.
    - customer: `RESEND_API_KEY` + `RESEND_FROM_EMAIL`. There is no default
      sender: without `RESEND_FROM_EMAIL` every email refuses to send.
-   - any: `NEXTAUTH_URL` is optional on Render. The app's own origin (used in
+   - any: `NEXTAUTH_URL` is optional on Render, but if you set it, set it to
+     **that service's own origin**. The blueprint used to pin it to a Vercel
+     host, which pointed a Render-hosted portal's auth callbacks at another
+     provider's deployment and — because `resolveRemotePortalSession` reads it
+     first when deciding where to verify a session — could have forwarded a
+     visitor's session cookie to a deployment the service does not own. Unset is
+     safe; a cross-deployment value is not.
+
+     The app's own origin (used in
      invitation and already-registered links) resolves as
      `NEXT_PUBLIC_<PORTAL>_PORTAL_URL` → `NEXTAUTH_URL` → `RENDER_EXTERNAL_URL`
      → `VERCEL_PROJECT_PRODUCTION_URL`; when none is set the email is refused
