@@ -6,6 +6,18 @@ import { type badgeVariants } from "./badge";
 
 type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>["variant"]>;
 
+/**
+ * StatusBadge — enum→variant and enum→label maps.
+ *
+ * Unchanged in behaviour: same statuses, same labels, same fallbacks. What
+ * changed is that the variants it selects now resolve to token triples with real
+ * dark values, so a "Paid" chip is legible on a dark ground for the first time.
+ *
+ * GOLD and PLATINUM stay on the warning/success variants here rather than
+ * borrowing brass: brass has three permitted uses in the whole system and a 2%
+ * viewport budget, and a tier chip in a dense table is not one of them. Use
+ * <TierMark> where a tier genuinely deserves the mark.
+ */
 const STATUS_VARIANT_MAP: Record<string, BadgeVariant> = {
   // Order status
   PENDING_PAYMENT: "warning",

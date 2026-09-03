@@ -2,12 +2,16 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   CheckCircle, Package, Truck, Home, AlertCircle, ArrowLeft,
-  MapPin, RotateCcw, ShieldCheck, Clock,
+  MapPin, RotateCcw, Clock,
 } from "lucide-react";
 import { MainLayout } from "@/components/layout/main-layout";
+import {
+  Button, CellGrid, Dateline, Eyebrow, FieldWell, Num, StatusPill, Surface,
+  type PillTone,
+} from "@avenick/ui";
 import { auth } from "@/lib/auth-instance";
 import { db } from "@avenick/database";
-import { formatCurrency, isRecordId } from "@avenick/utils";
+import { cn, formatCurrency, isRecordId } from "@avenick/utils";
 
 const MACRO_STEPS = [
   // "Confirmed" is an order state, not a payment state: bank-transfer and
@@ -25,12 +29,21 @@ const RANK: Record<string, number> = {
   CANCELLED: -1, REFUNDED: -1,
 };
 
-const STATUS_BADGE: Record<string, string> = {
-  CONFIRMED: "bg-primary/15 text-primary",
-  PROCESSING: "bg-accent/15 text-accent",
-  SHIPPED: "bg-primary/15 text-primary",
-  DELIVERED: "bg-success/15 text-success",
-  CANCELLED: "bg-danger/15 text-danger",
+/**
+ * Status to pill tone. The colours are the design system's semantic set rather
+ * than hand-mixed alphas of the brand hue, which is what gives them a dark-mode
+ * value and keeps a "delivered" order and a "verified" seller distinguishable.
+ */
+const STATUS_TONE: Record<string, PillTone> = {
+  CONFIRMED: "primary",
+  PROCESSING: "accent",
+  SHIPPED: "primary",
+  DELIVERED: "success",
+  CANCELLED: "danger",
+  REFUNDED: "danger",
+  RETURN_REQUESTED: "warning",
+  RETURNED: "warning",
+  PENDING_PAYMENT: "warning",
 };
 
 const fmt = (d: Date) => d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -105,52 +118,69 @@ export default async function OrderDetailPage({ params }: { params: { id: string
   const addr = (order.shippingAddress as { line1?: string; city?: string; country?: string } | null) ?? {};
   const subtotal = Number(order.subtotal);
   const vat = Number(order.vatAmount);
-  const badge = STATUS_BADGE[order.status] ?? STATUS_BADGE.CONFIRMED;
+  const statusTone = STATUS_TONE[order.status] ?? "neutral";
   const isDelivered = order.status === "DELIVERED";
   const currency = order.currency as never;
 
   return (
     <MainLayout>
-      <div className="bg-background min-h-screen">
-        <div className="max-w-3xl mx-auto px-4 py-8">
-          <Link href="/account/orders" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Back to my orders
-          </Link>
+      <div className="mx-auto max-w-3xl px-4 py-block">
+        <Link
+          href="/account/orders"
+          className="u-focus mb-6 inline-flex items-center gap-1.5 rounded-nested text-meta text-ink-3 transition-colors duration-press ease-standard hover:text-ink-1"
+        >
+          {/* A direction-implying icon has to flip, or the page reads backwards
+              in Arabic. */}
+          <ArrowLeft className="h-4 w-4 rtl:rotate-180" aria-hidden="true" /> Back to my orders
+        </Link>
 
-          {/* Header */}
-          <div className="rounded-2xl border border-border bg-card p-5 mb-5">
-            <div className="flex items-start justify-between flex-wrap gap-3 mb-4">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <h1 className="text-xl font-bold font-mono">{order.orderNumber}</h1>
-                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${badge}`}>{order.status.replace(/_/g, " ")}</span>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${order.type === "B2B" ? "bg-accent/15 text-accent" : "bg-primary/15 text-primary"}`}>{order.type}</span>
-                </div>
-                <p className="text-sm text-muted-foreground">Placed on {order.createdAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</p>
+        <header className="mb-block border-b border-border-strong pb-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <Eyebrow>Order</Eyebrow>
+              {/* Mono is for identifiers — an order reference is the canonical
+                  one. Money below it is not mono. */}
+              <h1 className="u-mono mt-1 text-h2 text-ink-1">{order.orderNumber}</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <StatusPill tone={statusTone} dot>{order.status.replace(/_/g, " ")}</StatusPill>
+                <StatusPill tone={order.type === "B2B" ? "accent" : "neutral"}>{order.type}</StatusPill>
               </div>
-              <div className="text-end">
-                <p className="text-2xl font-bold font-mono text-foreground">{formatCurrency(Number(order.total), currency)}</p>
-                <p className="text-xs text-muted-foreground">incl. VAT</p>
-              </div>
+              <p className="mt-2 text-meta text-ink-3">
+                Placed on {order.createdAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+              </p>
             </div>
-            <div className="grid grid-cols-3 gap-3 text-center text-sm">
-              {[
-                { label: "Items", value: String(order.items.length) },
-                { label: "Payment", value: paymentLabel(order) },
-                { label: "Delivery", value: deliveryLabel(order.status, currentRank, isDelivered) },
-              ].map(({ label, value }) => (
-                <div key={label} className="bg-secondary/60 rounded-xl p-2.5">
-                  <p className="font-bold capitalize">{value.toLowerCase()}</p>
-                  <p className="text-xs text-muted-foreground">{label}</p>
-                </div>
-              ))}
+            <div className="text-end">
+              <Eyebrow>Order total</Eyebrow>
+              <Num rank="section" value={formatCurrency(Number(order.total), currency)} className="mt-1" />
+              {/* LAW E: what the figure is, in the order's own currency, with no
+                  conversion — the same statement the finance surfaces make. */}
+              <Dateline className="mt-1">Including VAT · as recorded on the order in {order.currency}</Dateline>
             </div>
           </div>
+        </header>
+
+        <div className="space-y-stack">
+          {/* One hairline-divided panel rather than three tinted boxes: these are
+              three readings of the same order, not three objects. */}
+          <CellGrid cols={{ base: 1, sm: 3 }}>
+            {[
+              { label: "Items", value: String(order.items.length) },
+              { label: "Payment", value: paymentLabel(order) },
+              { label: "Delivery", value: deliveryLabel(order.status, currentRank, isDelivered) },
+            ].map(({ label, value }) => (
+              <div key={label}>
+                <Eyebrow>{label}</Eyebrow>
+                {/* No `capitalize`: it title-cased every word, so "On terms · net
+                    30 days" came out as "On Terms · Net 30 Days". */}
+                <p className="mt-1 text-lead text-ink-1">{value}</p>
+              </div>
+            ))}
+          </CellGrid>
 
           {/* Macro status stepper */}
-          <div className="rounded-2xl border border-border bg-card p-5 mb-5">
-            <h2 className="font-semibold mb-5">Order status</h2>
-            <div>
+          <Surface rung={2} className="p-5">
+            <h2 className="text-h3 text-ink-1">Order status</h2>
+            <ol className="mt-5">
               {MACRO_STEPS.map((step, idx) => {
                 const reached = currentRank >= step.rank;
                 const isCurrent = currentRank === step.rank;
@@ -158,99 +188,144 @@ export default async function OrderDetailPage({ params }: { params: { id: string
                 const Icon = step.icon;
                 const entry = order.statusHistory.find((h: OrderStatusHistoryEntry) => h.status === step.key);
                 return (
-                  <div key={step.key} className="flex gap-4">
+                  <li key={step.key} className="flex gap-4" aria-current={isCurrent ? "step" : undefined}>
                     <div className="flex flex-col items-center">
-                      <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${reached ? "bg-primary shadow-glow-sm" : "bg-secondary"}`}>
-                        <Icon className={`h-4 w-4 ${reached ? "text-primary-foreground" : "text-muted-foreground"}`} />
-                      </div>
-                      {!isLast && <div className={`w-0.5 h-10 my-0.5 ${currentRank > step.rank ? "bg-primary/40" : "bg-border"}`} />}
+                      {/* Reached steps are filled and carry the light seam; the
+                          ones ahead are recessed. The ladder does the work the
+                          old indigo glow was doing — but NOT with rung 3: an
+                          order can have four reached steps, and four raised
+                          objects that cannot be pressed would outnumber the two
+                          buttons on this page that can. Raised means actionable
+                          or it means nothing. */}
+                      <span
+                        className={cn(
+                          "grid h-9 w-9 shrink-0 place-items-center rounded-pill",
+                          reached ? "bg-primary text-primary-foreground shadow-seam" : "bg-surface-1 text-ink-3 shadow-elev-1",
+                        )}
+                      >
+                        <Icon className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      {!isLast && <span className={cn("my-0.5 w-0.5 flex-1", currentRank > step.rank ? "bg-primary/40" : "bg-hairline")} aria-hidden="true" />}
                     </div>
-                    <div className={`pb-8 flex-1 ${isLast ? "pb-0" : ""}`}>
-                      <p className={`font-semibold text-sm ${reached ? "" : "text-muted-foreground"}`}>
+                    <div className={cn("flex-1", isLast ? "pb-0" : "pb-8")}>
+                      <p className={cn("flex flex-wrap items-center gap-2 text-ui font-medium", reached ? "text-ink-1" : "text-ink-3")}>
                         {step.label}
-                        {isCurrent && <span className="ms-2 text-[10px] bg-primary/15 text-primary px-1.5 py-0.5 rounded-full font-bold uppercase">Current</span>}
+                        {isCurrent && <StatusPill tone="primary">Current</StatusPill>}
                       </p>
-                      <p className="text-xs mt-0.5 text-muted-foreground">{entry ? fmt(entry.createdAt) : reached ? step.desc : "Upcoming"}</p>
+                      <p className="mt-0.5 text-meta text-ink-3">{entry ? fmt(entry.createdAt) : reached ? step.desc : "Upcoming"}</p>
                     </div>
-                  </div>
+                  </li>
                 );
               })}
-            </div>
-          </div>
+            </ol>
+          </Surface>
 
           {/* Real activity timeline (status history) */}
           {order.statusHistory.length > 0 && (
-            <div className="rounded-2xl border border-border bg-card p-5 mb-5">
-              <div className="flex items-center gap-2 mb-4"><Clock className="h-4 w-4 text-muted-foreground" /><h2 className="font-semibold">Order activity</h2></div>
-              <div className="space-y-3">
+            <Surface rung={2} className="p-5">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-ink-3" aria-hidden="true" />
+                <h2 className="text-h3 text-ink-1">Order activity</h2>
+              </div>
+              <Dateline className="mt-1">Status changes as written to this order, newest first</Dateline>
+              <ol className="mt-4 space-y-3">
                 {[...order.statusHistory].reverse().map((h, i) => (
-                  <div key={h.id} className="flex gap-3">
+                  <li key={h.id} className="flex gap-3">
                     <div className="flex flex-col items-center">
-                      <span className={`h-2.5 w-2.5 rounded-full mt-1 shrink-0 ${i === 0 ? "bg-primary" : "bg-border"}`} />
-                      {i < order.statusHistory.length - 1 && <div className="w-0.5 flex-1 bg-border mt-1" />}
+                      <span className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-pill", i === 0 ? "bg-primary" : "bg-border-strong")} aria-hidden="true" />
+                      {i < order.statusHistory.length - 1 && <span className="mt-1 w-0.5 flex-1 bg-hairline" aria-hidden="true" />}
                     </div>
                     <div className="pb-2">
-                      <p className={`text-sm font-medium ${i === 0 ? "text-foreground" : "text-muted-foreground"}`}>{h.message ?? h.status.replace(/_/g, " ")}</p>
-                      <p className="text-xs text-muted-foreground">{fmt(h.createdAt)}</p>
+                      <p className={cn("text-ui", i === 0 ? "font-medium text-ink-1" : "text-ink-2")}>{h.message ?? h.status.replace(/_/g, " ")}</p>
+                      <p className="text-meta text-ink-3">{fmt(h.createdAt)}</p>
                     </div>
-                  </div>
+                  </li>
                 ))}
-              </div>
-            </div>
+              </ol>
+            </Surface>
           )}
 
           {/* Items */}
-          <div className="rounded-2xl border border-border bg-card overflow-hidden mb-5">
-            <div className="px-5 py-4 border-b border-border"><h2 className="font-semibold">Items ({order.items.length})</h2></div>
-            <div className="divide-y divide-border">
+          <Surface rung={2} className="overflow-hidden">
+            <div className="border-b-2 border-border-strong px-5 py-4">
+              <h2 className="text-h3 text-ink-1">Items</h2>
+              <p className="mt-0.5 text-meta text-ink-3">{order.items.length} line{order.items.length !== 1 ? "s" : ""} on this order</p>
+            </div>
+            <ul className="divide-y divide-hairline">
               {order.items.map((item) => (
-                <div key={item.id} className="flex items-center justify-between px-5 py-3.5">
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-secondary grid place-items-center shrink-0"><Package className="h-4 w-4 text-muted-foreground" /></div>
-                    <div>
-                      <p className="text-sm font-medium">{item.nameEn}</p>
-                      <p className="text-xs text-muted-foreground">Qty {item.quantity} × {formatCurrency(Number(item.unitPrice), currency)}</p>
+                <li key={item.id} className="flex items-center justify-between gap-4 px-5 py-3.5">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="grid h-10 w-10 shrink-0 place-items-center rounded-nested bg-surface-1 text-ink-3">
+                      <Package className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-ui font-medium text-ink-1">{item.nameEn}</p>
+                      <p className="text-meta text-ink-3">
+                        Qty <span className="tnum">{item.quantity}</span> × <span className="tnum">{formatCurrency(Number(item.unitPrice), currency)}</span>
+                      </p>
                     </div>
                   </div>
-                  <p className="font-bold font-mono text-sm">{formatCurrency(Number(item.total), currency)}</p>
-                </div>
+                  <span className="tnum shrink-0 text-ui text-ink-1">{formatCurrency(Number(item.total), currency)}</span>
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          </Surface>
 
           {/* Delivery + summary */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <div className="flex items-center gap-2 mb-3"><MapPin className="h-4 w-4 text-muted-foreground" /><h2 className="font-semibold text-sm">Delivery address</h2></div>
-              <p className="text-sm font-medium">{addr.line1 ?? "—"}</p>
-              <p className="text-sm text-muted-foreground">{[addr.city, addr.country].filter(Boolean).join(", ")}</p>
-            </div>
-            <div className="rounded-2xl border border-border bg-card p-5">
-              <h2 className="font-semibold text-sm mb-3">Summary</h2>
-              <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="font-mono">{formatCurrency(subtotal, currency)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">VAT</span><span className="font-mono">{formatCurrency(vat, currency)}</span></div>
-                <div className="flex justify-between font-bold text-base pt-2 border-t border-border"><span>Total</span><span className="font-mono">{formatCurrency(Number(order.total), currency)}</span></div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Surface rung={2} className="p-5">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-ink-3" aria-hidden="true" />
+                <h2 className="text-h3 text-ink-1">Delivery address</h2>
               </div>
-            </div>
+              <p className="mt-3 text-ui text-ink-1">{addr.line1 ?? "—"}</p>
+              <p className="text-ui text-ink-2">{[addr.city, addr.country].filter(Boolean).join(", ")}</p>
+            </Surface>
+
+            <Surface rung={2} className="p-5">
+              <h2 className="text-h3 text-ink-1">Summary</h2>
+              <FieldWell className="mt-3 space-y-2 p-4">
+                <div className="flex items-baseline justify-between gap-4">
+                  <span className="text-ui text-ink-2">Subtotal</span>
+                  <span className="tnum text-ui text-ink-1">{formatCurrency(subtotal, currency)}</span>
+                </div>
+                <div className="flex items-baseline justify-between gap-4">
+                  <span className="text-ui text-ink-2">VAT</span>
+                  <span className="tnum text-ui text-ink-1">{formatCurrency(vat, currency)}</span>
+                </div>
+              </FieldWell>
+              <div className="mt-4 flex items-baseline justify-between gap-4 border-t-2 border-border-strong pt-4">
+                <span className="text-ui font-medium text-ink-1">Total</span>
+                <Num value={formatCurrency(Number(order.total), currency)} />
+              </div>
+            </Surface>
           </div>
 
           {/* Actions */}
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row">
             {isDelivered && (
-              <Link href="/returns" className="flex-1 flex items-center justify-center gap-2 bg-card border border-border text-muted-foreground hover:border-primary/40 hover:text-primary font-medium px-4 py-2.5 rounded-xl text-sm transition-colors">
-                <RotateCcw className="h-4 w-4" /> Return / exchange
-              </Link>
+              <Button asChild variant="secondary" className="flex-1">
+                <Link href="/returns">
+                  <RotateCcw className="h-4 w-4" aria-hidden="true" /> Return / exchange
+                </Link>
+              </Button>
             )}
-            <Link href="/support" className="flex-1 flex items-center justify-center gap-2 bg-card border border-border text-muted-foreground hover:border-danger/40 hover:text-danger font-medium px-4 py-2.5 rounded-xl text-sm transition-colors">
-              <AlertCircle className="h-4 w-4" /> Report an issue
-            </Link>
+            <Button asChild variant="secondary" className="flex-1">
+              <Link href="/support">
+                <AlertCircle className="h-4 w-4" aria-hidden="true" /> Report an issue
+              </Link>
+            </Button>
             {/* No "Invoice" button: nothing issues TaxInvoice rows yet, and the button it replaced did nothing when clicked. */}
           </div>
 
-          <div className="mt-5 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-            <ShieldCheck className="h-4 w-4 text-primary" /> Price, tax and availability are revalidated when an order is submitted
-          </div>
+          {/* The old trust line read "…are re-validated when an order is
+              submitted" — present tense, on a page whose order was submitted
+              some time ago. The fact it was standing in for is the one worth
+              stating: every figure here was read back off the order, and none of
+              it is recomputed in the browser. */}
+          <Dateline className="text-center">
+            Every figure on this page is as recorded on the order · price, tax and availability were re-validated by the server when it was submitted, and nothing here is recalculated in the browser
+          </Dateline>
         </div>
       </div>
     </MainLayout>

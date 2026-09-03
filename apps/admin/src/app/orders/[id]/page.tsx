@@ -5,23 +5,29 @@ import { formatCurrency, isRecordId } from "@avenick/utils";
 import { format } from "date-fns";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MapPin, Package, CheckCircle, Truck, Navigation, Home, AlertTriangle, User, Building2, StickyNote } from "lucide-react";
+import { MapPin, Package, CheckCircle, Truck, Navigation, Home, AlertTriangle, User, Building2, StickyNote } from "lucide-react";
+import {
+  PageHeader, Surface, FieldWell, StatusPill, Num, Eyebrow, Dateline, Divider,
+  type PillTone,
+} from "@avenick/ui";
+import { CountStat, MoneyStat } from "@/app/finance/money-figures";
 import { OrderControls } from "../order-controls";
 
 export const metadata = { title: "Order Detail" };
 
-const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string }> = {
-  PENDING_PAYMENT:   { label: "Pending Payment",   color: "bg-muted text-muted-foreground" },
-  PAYMENT_CONFIRMED: { label: "Payment Confirmed", color: "bg-muted text-muted-foreground" },
-  CONFIRMED:         { label: "Confirmed",         color: "bg-primary/10 text-primary" },
-  PROCESSING:        { label: "Processing",        color: "bg-purple-500/10 text-purple-700 dark:text-purple-400" },
-  SHIPPED:           { label: "Shipped",           color: "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400" },
-  OUT_FOR_DELIVERY:  { label: "Out for Delivery",  color: "bg-amber-500/10 text-amber-700 dark:text-amber-400" },
-  DELIVERED:         { label: "Delivered",         color: "bg-green-500/10 text-green-700 dark:text-green-400" },
-  CANCELLED:         { label: "Cancelled",         color: "bg-red-500/10 text-red-700 dark:text-red-400" },
-  REFUNDED:          { label: "Refunded",          color: "bg-orange-500/10 text-orange-700 dark:text-orange-400" },
-  RETURN_REQUESTED:  { label: "Return Requested",  color: "bg-orange-500/10 text-orange-700 dark:text-orange-400" },
-  RETURNED:          { label: "Returned",          color: "bg-orange-500/10 text-orange-700 dark:text-orange-400" },
+/** Same four-state tone vocabulary as the orders register. See the note there. */
+const STATUS_CONFIG: Record<OrderStatus, { label: string; tone: PillTone }> = {
+  PENDING_PAYMENT:   { label: "Pending Payment",   tone: "warning" },
+  PAYMENT_CONFIRMED: { label: "Payment Confirmed", tone: "accent" },
+  CONFIRMED:         { label: "Confirmed",         tone: "accent" },
+  PROCESSING:        { label: "Processing",        tone: "neutral" },
+  SHIPPED:           { label: "Shipped",           tone: "neutral" },
+  OUT_FOR_DELIVERY:  { label: "Out for Delivery",  tone: "neutral" },
+  DELIVERED:         { label: "Delivered",         tone: "success" },
+  CANCELLED:         { label: "Cancelled",         tone: "danger" },
+  REFUNDED:          { label: "Refunded",          tone: "warning" },
+  RETURN_REQUESTED:  { label: "Return Requested",  tone: "warning" },
+  RETURNED:          { label: "Returned",          tone: "neutral" },
 };
 
 const TIMELINE_STEPS: Array<{ status: OrderStatus; label: string; icon: typeof Package }> = [
@@ -66,50 +72,63 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
 
   return (
     <AdminLayout>
-      <div className="space-y-5">
-        <div className="flex items-center gap-3">
-          <Link href="/orders" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Orders
-          </Link>
-          <span className="text-muted-foreground">/</span>
-          <span className="text-sm font-medium">{order.orderNumber}</span>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          linkComponent={Link}
+          breadcrumbs={[{ label: "Orders", href: "/orders" }, { label: order.orderNumber }]}
+          eyebrow="Order"
+          title={order.orderNumber}
+          dateline={`Placed ${format(order.createdAt, "MMM d, yyyy 'at' h:mm a")}`}
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusPill tone={sc.tone}>{sc.label}</StatusPill>
+              <StatusPill tone={order.type === "B2B" ? "accent" : "neutral"}>{order.type}</StatusPill>
+            </div>
+          }
+        />
 
-        {/* Header */}
-        <div className="bg-card rounded-2xl border border-border p-5">
-          <div className="flex items-start justify-between flex-wrap gap-4">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <h1 className="text-xl font-bold">{order.orderNumber}</h1>
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${sc.color}`}>{sc.label}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${order.type === "B2B" ? "bg-purple-500/10 text-purple-700 dark:text-purple-400" : "bg-primary/10 text-primary"}`}>{order.type}</span>
-              </div>
-              <p className="text-sm text-muted-foreground">Placed {format(order.createdAt, "MMM d, yyyy 'at' h:mm a")}</p>
-            </div>
-            <div className="text-end">
-              <p className="text-2xl font-bold text-green-700 dark:text-green-400">{formatCurrency(Number(order.total), order.currency)}</p>
-              <p className="text-xs text-muted-foreground">{order.currency} · incl. VAT · payment {order.paymentStatus.toLowerCase().replace(/_/g, " ")}</p>
-            </div>
+        {/* The money band. Recessed, because it is context — and the controls
+            raised on top of it are the actions. That is the whole of law A in
+            one object. */}
+        <FieldWell className="p-4">
+          {/* A plain grid, not a CellGrid: the well IS the object here, and a
+              bordered panel inside a bordered panel is the boxes-inside-boxes
+              read the hairline rules exist to prevent. */}
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <MoneyStat
+              label="Order total"
+              lines={[{ currency: order.currency, formatted: formatCurrency(Number(order.total), order.currency) }]}
+              rank="section"
+              dateline={`Billed in ${order.currency}, VAT included · no conversion applied`}
+            />
+            <CountStat label="Subtotal" value={formatCurrency(subtotal, order.currency)} />
+            <CountStat label="VAT" value={formatCurrency(vatAmount, order.currency)} />
+            <CountStat
+              label="Payment"
+              value={order.paymentStatus.toLowerCase().replace(/_/g, " ")}
+              note={order.paymentMethod ?? "no method recorded"}
+            />
           </div>
 
           {/* Status actions. There is no invoice download here: nothing in the
               system writes TaxInvoice rows yet, so a button would only ever fail. */}
-          <div className="mt-4 pt-4 border-t border-border">
-            <OrderControls orderId={order.id} status={order.status} paymentStatus={order.paymentStatus} governed={Boolean(order.purchaseOrderId)} variant="detail" />
-          </div>
-        </div>
+          <Divider className="my-4" />
+          <OrderControls orderId={order.id} status={order.status} paymentStatus={order.paymentStatus} governed={Boolean(order.purchaseOrderId)} variant="detail" />
+        </FieldWell>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* Main column */}
-          <div className="lg:col-span-2 space-y-5">
+          <div className="space-y-4 lg:col-span-2">
 
             {/* Order timeline */}
-            <div className="bg-card rounded-2xl border border-border p-5">
-              <h2 className="font-semibold mb-5">Order Timeline</h2>
+            <Surface className="p-5">
+              <h2 className="u-h3 text-ink-1">Order timeline</h2>
               {terminal && (
-                <p className="text-xs text-muted-foreground mb-4">This order is {sc.label.toLowerCase()}; the fulfilment steps below stop where it left the chain.</p>
+                <Dateline className="mt-1">
+                  This order is {sc.label.toLowerCase()}; the fulfilment steps below stop where it left the chain.
+                </Dateline>
               )}
-              <div>
+              <div className="mt-5">
                 {TIMELINE_STEPS.map((step, idx) => {
                   const entry     = order.statusHistory.find(h => h.status === step.status);
                   const isReached = !!entry || (currentRank !== undefined && idx <= currentRank);
@@ -119,17 +138,31 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                   return (
                     <div key={step.status} className="flex gap-4">
                       <div className="flex flex-col items-center">
-                        <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 ${isCurrent ? "bg-primary ring-4 ring-primary/20" : isReached ? "bg-green-500" : "bg-muted"}`}>
-                          <Icon className={`h-4 w-4 ${isReached || isCurrent ? "text-white" : "text-muted-foreground"}`} />
+                        {/* Three states, three tones: where the order is now,
+                            where it has been, and where it has not reached. */}
+                        <div
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-pill ${
+                            isCurrent
+                              ? "bg-accent text-accent-foreground ring-4 ring-accent/20"
+                              : isReached
+                                ? "bg-success text-success-foreground"
+                                : "border border-border bg-surface-1 text-ink-3"
+                          }`}
+                        >
+                          <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                         </div>
-                        {!isLast && <div className={`w-0.5 h-10 my-0.5 ${isReached && !isCurrent ? "bg-green-300 dark:bg-green-600" : "bg-muted"}`} />}
+                        {!isLast && (
+                          <div className={`my-1 w-0.5 flex-1 ${isReached && !isCurrent ? "bg-success/40" : "bg-hairline"}`} />
+                        )}
                       </div>
-                      <div className={`pb-8 flex-1 ${isLast ? "pb-0" : ""}`}>
-                        <p className={`font-semibold text-sm ${!isReached && !isCurrent ? "text-muted-foreground" : ""}`}>
+                      <div className={`flex-1 ${isLast ? "pb-0" : "pb-6"}`}>
+                        <p className={`u-ui font-medium ${!isReached && !isCurrent ? "text-ink-3" : "text-ink-1"}`}>
                           {step.label}
-                          {isCurrent && <span className="ms-2 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold">CURRENT</span>}
+                          {isCurrent && (
+                            <StatusPill tone="accent" className="ms-2 align-middle">Current</StatusPill>
+                          )}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
+                        <p className="u-meta mt-0.5 text-ink-3">
                           {entry ? `${format(entry.createdAt, "MMM d, h:mm a")}${entry.message ? ` · ${entry.message}` : ""}` : isReached ? "No timestamp recorded" : "Not yet"}
                         </p>
                       </div>
@@ -138,89 +171,109 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                 })}
               </div>
               {order.statusHistory.some((h) => CHAIN_RANK.get(h.status) === undefined) && (
-                <div className="mt-5 pt-4 border-t border-border">
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Other status events</p>
+                <div className="mt-5 border-t border-hairline pt-4">
+                  <Eyebrow className="mb-2">Other status events</Eyebrow>
                   <ul className="space-y-1">
                     {order.statusHistory.filter((h) => CHAIN_RANK.get(h.status) === undefined).map((h) => (
-                      <li key={h.id} className="text-xs text-muted-foreground">
+                      <li key={h.id} className="u-meta text-ink-2">
                         {format(h.createdAt, "MMM d, h:mm a")} · {STATUS_CONFIG[h.status].label}{h.message ? ` · ${h.message}` : ""}
                       </li>
                     ))}
                   </ul>
                 </div>
               )}
-            </div>
+            </Surface>
 
             {/* Items */}
-            <div className="bg-card rounded-2xl border border-border overflow-hidden">
-              <div className="px-5 py-4 border-b border-border">
-                <h2 className="font-semibold">Order Items ({order.items.length})</h2>
+            <Surface className="overflow-hidden">
+              <div className="flex items-baseline justify-between gap-3 border-b-2 border-border-strong px-5 py-3">
+                <h2 className="u-h3 text-ink-1">Order items</h2>
+                <span className="fig u-meta text-ink-3">{order.items.length}</span>
               </div>
-              <div className="divide-y divide-border">
+              <div>
                 {order.items.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between px-5 py-3.5">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center shrink-0"><Package className="h-4 w-4 text-muted-foreground" /></div>
-                      <div>
-                        <p className="text-sm font-medium">{item.nameEn}</p>
-                        <p className="text-xs text-muted-foreground">SKU: {item.sku} · Supplier: {item.product?.seller?.businessNameEn ?? "—"}</p>
-                        <p className="text-xs text-muted-foreground">Qty: {item.quantity} × {formatCurrency(Number(item.unitPrice), order.currency)}</p>
+                  <div key={item.id} className="flex items-start justify-between gap-4 border-b border-hairline px-5 py-3 last:border-b-0">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-nested bg-neutral-soft text-ink-3">
+                        <Package className="h-4 w-4" aria-hidden="true" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="u-ui font-medium text-ink-1">{item.nameEn}</p>
+                        <p className="u-meta text-ink-3">
+                          SKU <span className="u-mono">{item.sku}</span> · Supplier: {item.product?.seller?.businessNameEn ?? "—"}
+                        </p>
+                        <p className="u-meta text-ink-3">
+                          Qty {item.quantity} × {formatCurrency(Number(item.unitPrice), order.currency)}
+                        </p>
                       </div>
                     </div>
-                    <div className="text-end">
-                      <p className="font-bold text-sm text-green-700 dark:text-green-400">{formatCurrency(Number(item.total), order.currency)}</p>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${STATUS_CONFIG[item.status].color}`}>{STATUS_CONFIG[item.status].label}</span>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <Num value={formatCurrency(Number(item.total), order.currency)} />
+                      <StatusPill tone={STATUS_CONFIG[item.status].tone}>{STATUS_CONFIG[item.status].label}</StatusPill>
                     </div>
                   </div>
                 ))}
               </div>
-              <div className="px-5 py-4 border-t border-border bg-muted space-y-1.5 text-sm">
-                <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>{formatCurrency(subtotal, order.currency)}</span></div>
-                <div className="flex justify-between text-muted-foreground"><span>VAT</span><span>{formatCurrency(vatAmount, order.currency)}</span></div>
-                <div className="flex justify-between font-bold text-base pt-1.5 border-t border-border"><span>Total</span><span className="text-green-700 dark:text-green-400">{formatCurrency(Number(order.total), order.currency)}</span></div>
-              </div>
-            </div>
+              {/* The reconciliation: subtotal, VAT and total in one column so a
+                  discrepancy between them is a straight vertical read. */}
+              <FieldWell className="rounded-none border-x-0 border-b-0 px-5 py-4">
+                <dl className="ms-auto flex max-w-xs flex-col gap-1.5">
+                  <div className="flex items-baseline justify-between gap-6">
+                    <dt className="u-ui text-ink-2">Subtotal</dt>
+                    <dd className="fig u-ui text-ink-1">{formatCurrency(subtotal, order.currency)}</dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-6">
+                    <dt className="u-ui text-ink-2">VAT</dt>
+                    <dd className="fig u-ui text-ink-1">{formatCurrency(vatAmount, order.currency)}</dd>
+                  </div>
+                  <div className="mt-1 flex items-baseline justify-between gap-6 border-t border-border-strong pt-2">
+                    <dt className="u-ui font-medium text-ink-1">Total</dt>
+                    <dd><Num value={formatCurrency(Number(order.total), order.currency)} /></dd>
+                  </div>
+                </dl>
+              </FieldWell>
+            </Surface>
           </div>
 
           {/* Right column */}
           <div className="space-y-4">
             {/* Customer */}
-            <div className="bg-card rounded-2xl border border-border p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <h3 className="font-semibold text-sm">Customer</h3>
-              </div>
-              <p className="font-medium text-sm">{order.user.firstName} {order.user.lastName}</p>
-              <p className="text-xs text-muted-foreground">{order.user.email}</p>
+            <Surface className="p-4">
+              <Eyebrow className="mb-3 flex items-center gap-1.5">
+                <User className="h-3.5 w-3.5" aria-hidden="true" /> Customer
+              </Eyebrow>
+              <p className="u-ui font-medium text-ink-1">{order.user.firstName} {order.user.lastName}</p>
+              <p className="u-meta text-ink-3">{order.user.email}</p>
               {order.company && (
-                <div className="mt-2 pt-2 border-t border-border flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Building2 className="h-3.5 w-3.5" />
-                  <span>{order.company.nameEn}</span>
+                <div className="mt-2 flex items-center gap-1.5 border-t border-hairline pt-2">
+                  <Building2 className="h-3.5 w-3.5 text-ink-3" aria-hidden="true" />
+                  <span className="u-meta text-ink-2">{order.company.nameEn}</span>
                 </div>
               )}
-            </div>
+            </Surface>
 
             {/* Shipping address */}
-            <div className="bg-card rounded-2xl border border-border p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <MapPin className="h-4 w-4 text-muted-foreground" />
-                <h3 className="font-semibold text-sm">Delivery Address</h3>
-              </div>
+            <Surface className="p-4">
+              <Eyebrow className="mb-3 flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5" aria-hidden="true" /> Delivery address
+              </Eyebrow>
               {order.shippingAddress && typeof order.shippingAddress === "object" ? (
-                Object.entries(order.shippingAddress as Record<string, unknown>)
-                  .filter(([, v]) => typeof v === "string" && v.trim().length > 0)
-                  .map(([k, v]) => (
-                    <p key={k} className="text-sm text-muted-foreground">{String(v)}</p>
-                  ))
+                <address className="u-ui not-italic text-ink-2">
+                  {Object.entries(order.shippingAddress as Record<string, unknown>)
+                    .filter(([, v]) => typeof v === "string" && v.trim().length > 0)
+                    .map(([k, v]) => (
+                      <span key={k} className="block">{String(v)}</span>
+                    ))}
+                </address>
               ) : (
-                <p className="text-sm text-muted-foreground">Not specified</p>
+                <p className="u-ui text-ink-3">Not specified</p>
               )}
-            </div>
+            </Surface>
 
             {/* Order meta */}
-            <div className="bg-card rounded-2xl border border-border p-4">
-              <h3 className="font-semibold text-sm mb-3">Order Info</h3>
-              <div className="space-y-2 text-sm">
+            <Surface className="p-4">
+              <Eyebrow className="mb-3">Order info</Eyebrow>
+              <dl className="space-y-2">
                 {[
                   ["Order #", order.orderNumber],
                   ["Type", order.type],
@@ -229,48 +282,46 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                   ["Payment status", order.paymentStatus.replace(/_/g, " ")],
                   ["Created", format(order.createdAt, "MMM d, yyyy")],
                 ].map(([k, v]) => (
-                  <div key={k} className="flex justify-between">
-                    <span className="text-muted-foreground">{k}</span>
-                    <span className="font-medium text-xs">{v}</span>
+                  <div key={k} className="flex items-baseline justify-between gap-3">
+                    <dt className="u-meta text-ink-3">{k}</dt>
+                    <dd className="u-meta text-end font-medium text-ink-1">{v}</dd>
                   </div>
                 ))}
-              </div>
-            </div>
+              </dl>
+            </Surface>
 
             {/* Customer's checkout note — written by the buyer, shown to the buyer */}
             {order.notes && (
-              <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  <h3 className="font-semibold text-sm text-amber-800 dark:text-amber-400">Customer note</h3>
-                </div>
-                <p className="text-sm text-amber-700 dark:text-amber-400 whitespace-pre-wrap">{order.notes}</p>
-              </div>
+              <Surface tone="warning" className="p-4">
+                <Eyebrow className="mb-2 flex items-center gap-1.5 text-warning-ink">
+                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> Customer note
+                </Eyebrow>
+                <p className="u-ui whitespace-pre-wrap text-ink-1">{order.notes}</p>
+              </Surface>
             )}
 
             {/* Internal notes — staff only */}
-            <div className="bg-card rounded-2xl border border-border p-4">
-              <div className="flex items-center gap-2 mb-3">
-                <StickyNote className="h-4 w-4 text-muted-foreground" />
-                <h3 className="font-semibold text-sm">Internal notes</h3>
-              </div>
+            <Surface className="p-4">
+              <Eyebrow className="mb-3 flex items-center gap-1.5">
+                <StickyNote className="h-3.5 w-3.5" aria-hidden="true" /> Internal notes
+              </Eyebrow>
               {internalNotes.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No internal notes yet.</p>
+                <p className="u-meta text-ink-3">No internal note has been written on this order.</p>
               ) : (
                 <ul className="space-y-3">
                   {internalNotes.map((entry) => {
                     const note = (entry.after as { note?: unknown } | null)?.note;
                     const author = entry.actor ? `${entry.actor.firstName} ${entry.actor.lastName}`.trim() || entry.actor.email : "Unknown staff member";
                     return (
-                      <li key={entry.id} className="text-sm">
-                        <p className="whitespace-pre-wrap">{typeof note === "string" ? note : ""}</p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">{author} · {format(entry.createdAt, "MMM d, yyyy h:mm a")}</p>
+                      <li key={entry.id} className="border-b border-hairline pb-3 last:border-b-0 last:pb-0">
+                        <p className="u-ui whitespace-pre-wrap text-ink-1">{typeof note === "string" ? note : ""}</p>
+                        <Dateline className="mt-0.5">{author} · {format(entry.createdAt, "MMM d, yyyy h:mm a")}</Dateline>
                       </li>
                     );
                   })}
                 </ul>
               )}
-            </div>
+            </Surface>
           </div>
         </div>
       </div>

@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Loader2, Upload, X } from "lucide-react";
-import { Button } from "@avenick/ui";
+import { AlertTriangle, Upload, X } from "lucide-react";
+import { Button, Eyebrow, Field, Input, Surface, type ButtonProps } from "@avenick/ui";
 import type { DocumentType } from "@avenick/database";
 import { useToast } from "@/components/toast";
 import { recordSellerDocumentAction } from "./actions";
@@ -106,6 +106,9 @@ export function DocumentUploader({
 export interface UploadDocumentButtonProps {
   /** Preset the type picker — the "Renew" affordance on an expiring row. */
   type?: DocumentType | null;
+  /** Button language, so a trigger never hand-rolls its own fill. */
+  variant?: ButtonProps["variant"];
+  size?: ButtonProps["size"];
   className?: string;
   children: React.ReactNode;
 }
@@ -114,12 +117,20 @@ export interface UploadDocumentButtonProps {
  * Renders nothing when the member cannot upload or the environment cannot
  * store files: a control that could only fail is not a control.
  */
-export function UploadDocumentButton({ type = null, className, children }: UploadDocumentButtonProps) {
+export function UploadDocumentButton({
+  type = null,
+  variant = "secondary",
+  size = "sm",
+  className,
+  children,
+}: UploadDocumentButtonProps) {
   const uploader = useUploader();
   if (!uploader.canManage || !uploader.enabled) return null;
   return (
-    <button
+    <Button
       type="button"
+      variant={variant}
+      size={size}
       className={className}
       onClick={() => {
         uploader.openWith(type);
@@ -128,12 +139,16 @@ export function UploadDocumentButton({ type = null, className, children }: Uploa
       }}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
-const FIELD =
-  "flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+/* The native select, wearing the same recessed rung-1 material as <Input> and
+   <Textarea>: everywhere you can type or choose is pressed into the page, and
+   everywhere you can click stands off it. The focus ring is the shared two-stop
+   .u-focus utility rather than a hand-written shadow. */
+const SELECT_FIELD =
+  "u-focus w-full border border-input bg-surface-1 px-3 text-ui text-ink-1 outline-none transition-[border-color,box-shadow] duration-press ease-standard disabled:cursor-not-allowed disabled:opacity-50";
 
 type Phase = "idle" | "presign" | "put" | "record";
 
@@ -161,6 +176,8 @@ export function UploadDocumentPanel() {
   const router = useRouter();
   const { toast } = useToast();
   const fileRef = React.useRef<HTMLInputElement>(null);
+  const typeFieldId = React.useId();
+  const fileFieldId = React.useId();
 
   const [type, setType] = React.useState<DocumentType | "">(uploader.presetType ?? "");
   const [file, setFile] = React.useState<File | null>(null);
@@ -178,13 +195,13 @@ export function UploadDocumentPanel() {
 
   if (!uploader.enabled) {
     return (
-      <div className="bg-card rounded-2xl border border-border p-4 flex items-start gap-3 text-sm text-muted-foreground">
-        <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-        <p>
+      <Surface rung={1} className="flex items-start gap-3 p-4">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
+        <p className="u-ui text-ink-2">
           Document uploads are not enabled in this environment — file storage is not configured, so no upload could
           be stored. Existing records are listed below.
         </p>
-      </div>
+      </Surface>
     );
   }
 
@@ -298,16 +315,19 @@ export function UploadDocumentPanel() {
   }
 
   return (
-    <form
+    <Surface
+      as="form"
+      rung={2}
       id="upload-document-panel"
       onSubmit={submit}
-      className="bg-card rounded-2xl border border-border p-5 space-y-4"
+      className="space-y-4 p-5"
       aria-busy={busy}
     >
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="font-semibold">Upload a document</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
+        <div className="min-w-0">
+          <Eyebrow className="mb-1">New filing</Eyebrow>
+          <h2 className="u-h3 text-ink-1">Upload a document</h2>
+          <p className="u-meta u-measure-desc mt-1 text-ink-2">
             One review is open per document type: uploading a type that is already awaiting review replaces that
             upload. A document that has been approved stays approved until the admin decides on the new one.
           </p>
@@ -319,18 +339,20 @@ export function UploadDocumentPanel() {
             uploader.close();
           }}
           disabled={busy}
-          className="h-8 w-8 grid place-items-center rounded-lg text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+          className="u-focus grid h-8 w-8 shrink-0 place-items-center rounded-nested text-ink-3 transition-colors duration-press ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1 disabled:opacity-50"
           aria-label="Close uploader"
         >
-          <X className="h-4 w-4" />
+          <X className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-medium text-foreground">Document type</span>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Document type" htmlFor={typeFieldId} required>
           <select
-            className={FIELD}
+            id={typeFieldId}
+            data-rung={1}
+            className={SELECT_FIELD}
+            style={{ height: "var(--control-h-md)" }}
             value={type}
             onChange={(event) => setType(event.target.value as DocumentType | "")}
             disabled={busy}
@@ -343,52 +365,49 @@ export function UploadDocumentPanel() {
               </option>
             ))}
           </select>
-        </label>
+        </Field>
 
         {selected?.expires && (
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-medium text-foreground">Expiry date (optional)</span>
-            <input
-              type="date"
-              className={FIELD}
-              value={expiryDate}
-              min={tomorrowIso()}
-              onChange={(event) => setExpiryDate(event.target.value)}
-              disabled={busy}
-            />
-            <span className="mt-1 block text-xs text-muted-foreground">
-              Used to warn you before this document lapses. Leave blank if the document does not state one.
-            </span>
-          </label>
+          <Input
+            type="date"
+            label="Expiry date (optional)"
+            value={expiryDate}
+            min={tomorrowIso()}
+            onChange={(event) => setExpiryDate(event.target.value)}
+            disabled={busy}
+            hint="Used to warn you before this document lapses. Leave blank if the document does not state one."
+          />
         )}
       </div>
 
-      <label className="block">
-        <span className="mb-1.5 block text-sm font-medium text-foreground">File</span>
+      <Field
+        label="File"
+        htmlFor={fileFieldId}
+        required
+        hint={`Accepted: ${uploader.accept.split(",").join(", ")} · up to ${formatBytes(uploader.maxBytes)}. The file is stored privately and is only visible to you and the review team.`}
+      >
         <input
+          id={fileFieldId}
           ref={fileRef}
           type="file"
           accept={uploader.accept}
-          className="block w-full text-sm text-muted-foreground file:me-3 file:rounded-lg file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-secondary-foreground hover:file:bg-secondary/70"
+          className="u-focus block w-full rounded-nested text-ui text-ink-2 file:me-3 file:rounded-nested file:border-0 file:bg-surface-1 file:px-3 file:py-1.5 file:text-ui file:font-medium file:text-ink-1 hover:file:bg-surface-sunken"
           onChange={(event) => setFile(event.target.files?.[0] ?? null)}
           disabled={busy}
           required
         />
-        <span className="mt-1 block text-xs text-muted-foreground">
-          Accepted: {uploader.accept.split(",").join(", ")} · up to {formatBytes(uploader.maxBytes)}. The file is
-          stored privately and is only visible to you and the review team.
-        </span>
-      </label>
+      </Field>
 
       {notice && (
-        <p className="flex items-start gap-1.5 text-sm text-amber-600 dark:text-amber-400">
-          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" /> {notice}
-        </p>
+        <Surface role="alert" rung={2} tone="warning" className="flex items-start gap-2 px-3 py-2">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-ink" aria-hidden="true" />
+          <p className="u-ui text-warning-ink">{notice}</p>
+        </Surface>
       )}
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" disabled={busy || !selected || !file}>
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+        <Button type="submit" loading={busy} disabled={!selected || !file}>
+          {!busy && <Upload className="h-4 w-4" aria-hidden="true" />}
           {busy ? PHASE_LABEL[phase as Exclude<Phase, "idle">] : "Upload for review"}
         </Button>
         <Button
@@ -402,7 +421,14 @@ export function UploadDocumentPanel() {
         >
           Cancel
         </Button>
+        {/* The upload is three steps that can each fail on their own, so which
+            one is in flight is announced rather than only implied by a spinner. */}
+        {busy && (
+          <p role="status" className="u-meta text-ink-3">
+            {PHASE_LABEL[phase as Exclude<Phase, "idle">]}
+          </p>
+        )}
       </div>
-    </form>
+    </Surface>
   );
 }

@@ -18,6 +18,8 @@ import {
 import { db } from "@avenick/database";
 import type { CompanySize, Country, Industry, Language } from "@avenick/database";
 import { COMPANY_SIZE_VALUES, INDUSTRY_VALUES, LANGUAGE_VALUES } from "@avenick/types";
+import { Button, CellGrid, Dateline, Eyebrow, Surface, type SurfaceTone } from "@avenick/ui";
+import { SelectField, TextField } from "@/components/b2b/controls";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ValidatedForm } from "@/components/b2b/validated-form";
 import { auth, signOut } from "@/lib/auth-instance";
@@ -83,9 +85,6 @@ const LANGUAGE_LABELS: Record<Language, string> = {
 // `Country` — a typo, or a market added without the matching enum value — a
 // typecheck error rather than a 500 on INSERT.
 const COUNTRY_OPTIONS: readonly (readonly [Country, string])[] = SUPPORTED_COUNTRIES;
-
-const FIELD_CLASS =
-  "h-10 w-full px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring";
 
 type RegisterResponse = {
   success?: boolean;
@@ -192,16 +191,32 @@ async function registerBusinessAction(_prev: B2BActionState, formData: FormData)
   };
 }
 
+/**
+ * A labelled control. The label WRAPS its control, which is what associates the
+ * two here — there is no htmlFor because there is no id to point at, and an
+ * implicit association is as valid as an explicit one so long as exactly one
+ * control sits inside.
+ */
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs font-medium text-muted-foreground">{label}</span>
+      <span className="u-ui mb-1.5 block font-medium text-ink-1">{label}</span>
       {children}
-      {hint ? <span className="mt-1 block text-[11px] text-muted-foreground">{hint}</span> : null}
+      {/* A hint is an instruction to the person filling the box, not provenance:
+          the Dateline voice is reserved for statements about where a FIGURE came
+          from, and spending it on "at least 8 characters" is what makes it stop
+          meaning anything. It is also a <span>, because <label> takes phrasing
+          content and a <p> nested inside one is invalid. */}
+      {hint ? <span className="u-meta mt-1 block text-ink-3">{hint}</span> : null}
     </label>
   );
 }
 
+/**
+ * A stated fact about this account, at rung 2. The amber and emerald washes it
+ * used to carry were light-only pairs with no dark counterpart — cream text on
+ * cream in the dark theme — and are now semantic tones with real dark values.
+ */
 function Notice({
   icon: Icon,
   tone,
@@ -209,25 +224,22 @@ function Notice({
   children,
 }: {
   icon: typeof Building2;
-  tone: "info" | "warning" | "success";
+  tone: SurfaceTone;
   title: string;
   children: React.ReactNode;
 }) {
-  const tones = {
-    info: "border-border bg-card text-foreground",
-    warning: "border-amber-200 bg-amber-50 text-amber-900",
-    success: "border-emerald-200 bg-emerald-50 text-emerald-900",
-  } as const;
+  const ink =
+    tone === "warning" ? "text-warning-ink" : tone === "success" ? "text-success-ink" : "text-ink-3";
   return (
-    <div className={`rounded-2xl border p-6 ${tones[tone]}`}>
+    <Surface rung={2} tone={tone} className="p-6">
       <div className="flex items-start gap-3">
-        <Icon className="h-5 w-5 shrink-0 mt-0.5" />
-        <div className="space-y-2 text-sm">
-          <p className="font-semibold text-base">{title}</p>
-          {children}
+        <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${ink}`} aria-hidden="true" />
+        <div className="space-y-2">
+          <h2 className="u-h3 text-ink-1">{title}</h2>
+          <div className="u-body space-y-2 text-ink-2">{children}</div>
         </div>
       </div>
-    </div>
+    </Surface>
   );
 }
 
@@ -305,13 +317,9 @@ export default async function B2BRegisterPage({
             </Notice>
           )}
 
-          <div className="flex flex-wrap gap-3 text-sm">
-            <Link href="/products" className="rounded-xl border border-border px-4 py-2 font-semibold hover:border-primary/40">
-              Browse the catalogue
-            </Link>
-            <Link href="/support" className="rounded-xl border border-border px-4 py-2 font-semibold hover:border-primary/40">
-              Ask support about this account
-            </Link>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="secondary"><Link href="/products">Browse the catalogue</Link></Button>
+            <Button asChild variant="ghost"><Link href="/support">Ask support about this account</Link></Button>
           </div>
         </div>
       </MainLayout>
@@ -329,13 +337,9 @@ export default async function B2BRegisterPage({
             </p>
             <p>Sign in to see the current verification status of your company.</p>
           </Notice>
-          <div className="flex flex-wrap gap-3 text-sm">
-            <Link href="/login" className="rounded-xl bg-primary px-4 py-2 font-semibold text-primary-foreground hover:bg-primary/90">
-              Sign in
-            </Link>
-            <Link href="/products" className="rounded-xl border border-border px-4 py-2 font-semibold hover:border-primary/40">
-              Browse the catalogue
-            </Link>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="primary"><Link href="/login">Sign in</Link></Button>
+            <Button asChild variant="secondary"><Link href="/products">Browse the catalogue</Link></Button>
           </div>
         </div>
       </MainLayout>
@@ -344,36 +348,40 @@ export default async function B2BRegisterPage({
 
   return (
     <MainLayout>
-      <div className="max-w-5xl mx-auto px-4 py-12">
-        {/* Hero */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-sm mb-4">
-            <Building2 className="h-4 w-4" />
-            B2B Marketplace — للشركات
-          </div>
-          <h1 className="text-4xl font-bold mb-4">
-            Grow Your Business with {platformName()}
-            <span className="block text-2xl font-normal text-muted-foreground mt-2">طوّر أعمالك مع {platformName()}</span>
-          </h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
+      <div className="max-w-5xl mx-auto px-4 py-section">
+        {/* Hero. Display rank at weight 600 rather than 36px bold: the size does
+            the shouting, so the weight does not have to. */}
+        <div className="mb-block max-w-prose">
+          <Eyebrow className="mb-3 flex items-center gap-1.5">
+            <Building2 className="h-3.5 w-3.5" aria-hidden="true" /> B2B marketplace
+          </Eyebrow>
+          <h1 className="u-display text-ink-1">Grow your business with {platformName()}</h1>
+          {/* lang and dir are set so the Arabic line is shaped by the Arabic
+              face and laid out right-to-left even inside an English page. */}
+          <p lang="ar" dir="rtl" className="u-h2 mt-2 font-normal text-ink-2">
+            طوّر أعمالك مع {platformName()}
+          </p>
+          <p className="u-lead mt-4 text-ink-2">
             Source from GCC suppliers with B2B pricing, purchase orders, and approval workflows built in.
           </p>
         </div>
 
-        {/* Features */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+        {/* Features. One panel divided by hairlines: four capabilities, one
+            object, rather than four cards floating at the same weight as the
+            registration form itself. */}
+        <CellGrid cols={{ base: 1, sm: 2, lg: 4 }} className="mb-block">
           {FEATURES.map((f) => (
-            <div key={f.title} className="bg-white rounded-2xl border border-border p-6 text-center">
-              <f.icon className="h-8 w-8 mx-auto text-primary/100 mb-3" />
-              <h3 className="font-semibold mb-1">{f.title}</h3>
-              <p className="text-sm text-muted-foreground">{f.desc}</p>
+            <div key={f.title}>
+              <f.icon className="mb-2 h-5 w-5 text-ink-3" aria-hidden="true" />
+              <h2 className="u-ui font-medium text-ink-1">{f.title}</h2>
+              <p className="u-meta mt-1 text-ink-2">{f.desc}</p>
             </div>
           ))}
-        </div>
+        </CellGrid>
 
         {userId ? (
           <div className="mb-6">
-            <Notice icon={AlertCircle} tone="info" title="You are signed in to a personal account">
+            <Notice icon={AlertCircle} tone="accent" title="You are signed in to a personal account">
               <p>
                 Registering a business creates a new company and a new administrator login, so it needs
                 an email address that is not already in use. Sign out first to continue.
@@ -384,113 +392,116 @@ export default async function B2BRegisterPage({
                   await signOut({ redirectTo: "/b2b/register" });
                 }}
               >
-                <button type="submit" className="mt-1 rounded-xl border border-border px-4 py-2 text-sm font-semibold hover:border-primary/40">
+                <Button type="submit" variant="secondary" size="sm" className="mt-1">
                   Sign out
-                </button>
+                </Button>
               </form>
             </Notice>
           </div>
         ) : null}
 
         {/* Registration */}
-        <div id="register" className="bg-card rounded-2xl border border-border p-6 shadow-sm">
-          <div className="mb-5">
-            <h2 className="text-xl font-bold">Create a business account</h2>
-            <p className="text-sm text-muted-foreground mt-1">
+        <Surface rung={2} id="register" className="p-6">
+          <div className="mb-5 border-b border-border-strong pb-4">
+            <h2 className="u-h2 text-ink-1">Create a business account</h2>
+            <p className="u-body mt-1 max-w-prose text-ink-2">
               You become the company administrator. Every field marked optional can be added later from
               the company profile.
             </p>
           </div>
 
-          <ValidatedForm action={registerBusinessAction} className="space-y-6">
-            <section className="space-y-3">
-              <p className="text-sm font-semibold flex items-center gap-2"><Building2 className="h-4 w-4 text-primary" /> Company</p>
-              <div className="grid sm:grid-cols-2 gap-3">
+          <ValidatedForm action={registerBusinessAction} className="space-y-block">
+            <section>
+              <Eyebrow className="mb-3 flex items-center gap-1.5">
+                <Building2 className="h-3.5 w-3.5" aria-hidden="true" /> Company
+              </Eyebrow>
+              <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Company name (English)">
-                  <input name="companyNameEn" required minLength={2} maxLength={100} autoComplete="organization" placeholder="Gulf Industrial Trading LLC" className={FIELD_CLASS} />
+                  <TextField name="companyNameEn" required minLength={2} maxLength={100} autoComplete="organization" placeholder="Gulf Industrial Trading LLC" />
                 </Field>
                 <Field label="Company name (Arabic) — optional">
-                  <input name="companyNameAr" minLength={2} maxLength={100} dir="rtl" placeholder="اسم الشركة بالعربي" className={FIELD_CLASS} />
+                  <TextField name="companyNameAr" minLength={2} maxLength={100} lang="ar" dir="rtl" placeholder="اسم الشركة بالعربي" />
                 </Field>
                 <Field label="Commercial registration number">
-                  <input name="crNumber" required minLength={5} maxLength={30} placeholder="CN-1234567" className={FIELD_CLASS} />
+                  <TextField name="crNumber" required minLength={5} maxLength={30} placeholder="CN-1234567" />
                 </Field>
                 <Field label="VAT number — optional" hint="Add it now to have tax invoices issued against it.">
-                  <input name="vatNumber" maxLength={30} placeholder="100123456700003" className={FIELD_CLASS} />
+                  <TextField name="vatNumber" maxLength={30} placeholder="100123456700003" />
                 </Field>
                 <Field label="Industry">
-                  <select name="industry" required defaultValue="" className={FIELD_CLASS}>
+                  <SelectField name="industry" required defaultValue="">
                     <option value="" disabled>Select an industry</option>
                     {INDUSTRY_VALUES.map((v) => (
                       <option key={v} value={v}>{INDUSTRY_LABELS[v]}</option>
                     ))}
-                  </select>
+                  </SelectField>
                 </Field>
                 <Field label="Company size">
-                  <select name="companySize" required defaultValue="" className={FIELD_CLASS}>
+                  <SelectField name="companySize" required defaultValue="">
                     <option value="" disabled>Select a company size</option>
                     {COMPANY_SIZE_VALUES.map((v) => (
                       <option key={v} value={v}>{COMPANY_SIZE_LABELS[v]}</option>
                     ))}
-                  </select>
+                  </SelectField>
                 </Field>
                 <Field label="Country">
-                  <select name="country" required defaultValue="" className={FIELD_CLASS}>
+                  <SelectField name="country" required defaultValue="">
                     <option value="" disabled>Select a country</option>
                     {COUNTRY_OPTIONS.map(([code, name]) => (
                       <option key={code} value={code}>{name}</option>
                     ))}
-                  </select>
+                  </SelectField>
                 </Field>
                 <Field label="City">
-                  <input name="city" required minLength={2} maxLength={50} autoComplete="address-level2" placeholder="Dubai" className={FIELD_CLASS} />
+                  <TextField name="city" required minLength={2} maxLength={50} autoComplete="address-level2" placeholder="Dubai" />
                 </Field>
               </div>
             </section>
 
-            <section className="space-y-3">
-              <p className="text-sm font-semibold flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Company administrator</p>
-              <div className="grid sm:grid-cols-2 gap-3">
+            <section>
+              <Eyebrow className="mb-3 flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5" aria-hidden="true" /> Company administrator
+              </Eyebrow>
+              <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="First name">
-                  <input name="firstName" required minLength={2} maxLength={50} autoComplete="given-name" className={FIELD_CLASS} />
+                  <TextField name="firstName" required minLength={2} maxLength={50} autoComplete="given-name" />
                 </Field>
                 <Field label="Last name">
-                  <input name="lastName" required minLength={2} maxLength={50} autoComplete="family-name" className={FIELD_CLASS} />
+                  <TextField name="lastName" required minLength={2} maxLength={50} autoComplete="family-name" />
                 </Field>
                 <Field label="Work email">
-                  <input type="email" name="email" required autoComplete="email" placeholder="you@company.com" className={FIELD_CLASS} />
+                  <TextField type="email" name="email" required autoComplete="email" placeholder="you@company.com" />
                 </Field>
                 <Field label="Phone — optional" hint="International format, e.g. +9715xxxxxxx.">
-                  <input type="tel" name="phone" pattern="\+[1-9][0-9]{7,14}" autoComplete="tel" placeholder="+9715xxxxxxx" className={FIELD_CLASS} />
+                  <TextField type="tel" name="phone" pattern="\+[1-9][0-9]{7,14}" autoComplete="tel" placeholder="+9715xxxxxxx" />
                 </Field>
                 <Field label="Password" hint="At least 8 characters, with one uppercase letter and one number.">
-                  <input type="password" name="password" required minLength={8} autoComplete="new-password" className={FIELD_CLASS} />
+                  <TextField type="password" name="password" required minLength={8} autoComplete="new-password" />
                 </Field>
                 <Field label="Preferred language">
-                  <select name="language" defaultValue="EN" className={FIELD_CLASS}>
+                  <SelectField name="language" defaultValue="EN">
                     {LANGUAGE_VALUES.map((v) => (
                       <option key={v} value={v}>{LANGUAGE_LABELS[v]}</option>
                     ))}
-                  </select>
+                  </SelectField>
                 </Field>
               </div>
             </section>
 
             <div className="flex flex-wrap items-center gap-3">
-              <button type="submit" className="h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors active:scale-[0.98]">
-                Create business account
-              </button>
-              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <CheckCircle className="h-3.5 w-3.5" />
-                Accounts are reviewed before B2B pricing and credit terms are enabled.
-              </p>
+              <Button type="submit" variant="primary">Create business account</Button>
+              <Dateline className="flex items-center gap-1.5">
+                <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                Accounts are reviewed before B2B pricing and credit terms are enabled
+              </Dateline>
             </div>
           </ValidatedForm>
 
-          <p className="text-center text-sm text-muted-foreground mt-5">
-            Already have an account? <Link href="/login" className="text-primary hover:underline">Sign in</Link>
+          <p className="u-ui mt-5 text-ink-2">
+            Already have an account?{" "}
+            <Link href="/login" className="u-focus rounded-nested text-primary-ink hover:underline">Sign in</Link>
           </p>
-        </div>
+        </Surface>
       </div>
     </MainLayout>
   );

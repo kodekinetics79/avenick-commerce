@@ -16,8 +16,18 @@ export function ThemeToggle({ className }: { className?: string }) {
   }, []);
 
   function toggle() {
-    const next = !document.documentElement.classList.contains("dark");
-    document.documentElement.classList.toggle("dark", next);
+    const root = document.documentElement;
+    const next = !root.classList.contains("dark");
+
+    // The old stylesheet transitioned `body, .glass, [class*="bg-card"],
+    // [class*="border-"]` permanently — an attribute-substring selector matching
+    // nearly every element in the tree, which made hover mushy and would visibly
+    // stutter now that real multi-layer shadows exist. The transition is scoped
+    // to a class that is only present for the 200ms of the actual swap.
+    root.classList.add("theme-transition");
+    window.setTimeout(() => root.classList.remove("theme-transition"), 200);
+
+    root.classList.toggle("dark", next);
     try {
       localStorage.setItem("avenick-theme", next ? "dark" : "light");
     } catch {
@@ -31,13 +41,14 @@ export function ThemeToggle({ className }: { className?: string }) {
       type="button"
       onClick={toggle}
       aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+      style={{ height: "var(--control-h-md)", width: "var(--control-h-md)" }}
       className={cn(
-        "relative inline-flex h-9 w-9 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
+        "u-focus relative inline-flex items-center justify-center rounded-nested border border-border bg-surface-2 text-ink-3 shadow-elev-2 transition-colors duration-hover ease-standard hover:bg-surface-1 hover:text-ink-1",
         className,
       )}
     >
-      <Sun className="h-[1.05rem] w-[1.05rem] rotate-0 scale-100 transition-all duration-300 dark:-rotate-90 dark:scale-0" />
-      <Moon className="absolute h-[1.05rem] w-[1.05rem] rotate-90 scale-0 transition-all duration-300 dark:rotate-0 dark:scale-100" />
+      <Sun className="h-[1.05rem] w-[1.05rem] rotate-0 scale-100 transition-transform duration-panel ease-standard dark:-rotate-90 dark:scale-0" />
+      <Moon className="absolute h-[1.05rem] w-[1.05rem] rotate-90 scale-0 transition-transform duration-panel ease-standard dark:rotate-0 dark:scale-100" />
     </button>
   );
 }

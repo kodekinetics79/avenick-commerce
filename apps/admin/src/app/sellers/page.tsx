@@ -3,6 +3,76 @@ import { db } from "@avenick/database";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import Link from "next/link";
 import { format } from "date-fns";
+import {
+  Button,
+  EmptyState,
+  FieldWell,
+  LedgerTable,
+  NavItem,
+  PageHeader,
+  StatusPill,
+  TierMark,
+  type PillTone,
+} from "@avenick/ui";
+
+export const metadata = { title: "Sellers" };
+
+/** Enum → tone. Four semantic states, which is all an operator distinguishes. */
+const STATUS_TONE: Record<string, PillTone> = {
+  ACTIVE: "success",
+  PENDING_REVIEW: "warning",
+  SUSPENDED: "danger",
+  REJECTED: "neutral",
+};
+
+/** The queues an operator works, in the order they are worked. */
+const STATUS_FILTERS: Array<{ value?: string; label: string }> = [
+  { label: "All" },
+  { value: "PENDING_REVIEW", label: "Pending review" },
+  { value: "ACTIVE", label: "Active" },
+  { value: "SUSPENDED", label: "Suspended" },
+];
+
+type SellerRow = {
+  id: string;
+  businessNameEn: string;
+  crNumber: string;
+  type: string;
+  tier: string;
+  status: string;
+  createdAt: Date;
+  user: { email: string };
+  documents: { status: string }[];
+  _count: { products: number };
+};
+
+/**
+ * The tier column.
+ *
+ * Brass has a hard budget — it is the whole GCC gesture and it dies the moment
+ * it becomes a fill on a hundred rows — so only the two earned tiers get the
+ * mark. VERIFIED is the accent verdigris, which is the token reserved for trade
+ * and verification, and STANDARD is what everyone is by default: it is a fact,
+ * not a badge, so it is set as one.
+ */
+function Tier({ tier }: { tier: string }) {
+  if (tier === "PLATINUM" || tier === "GOLD") return <TierMark tier={tier} />;
+  if (tier === "VERIFIED") return <StatusPill tone="accent">Verified</StatusPill>;
+  return <span className="u-meta text-ink-3">{tier.replace(/_/g, " ")}</span>;
+}
+
+/**
+ * The document column. "No documents filed" and "every document decided" are
+ * different facts and the old ✓ collapsed them into one — which, in a console
+ * where approval rests on filed evidence, is the one place that must not be
+ * ambiguous. A bare check mark also announced as "check mark" and nothing else.
+ */
+function Docs({ documents }: { documents: { status: string }[] }) {
+  if (documents.length === 0) return <span className="u-meta text-ink-3">None filed</span>;
+  const pending = documents.filter((doc) => doc.status === "PENDING_REVIEW").length;
+  if (pending > 0) return <StatusPill tone="warning">{pending} pending</StatusPill>;
+  return <span className="u-meta text-ink-2">All decided</span>;
+}
 
 export default async function SellersPage({ searchParams }: { searchParams: { status?: string } }) {
   await requireAdminSession();
@@ -19,74 +89,121 @@ export default async function SellersPage({ searchParams }: { searchParams: { st
     },
   });
 
-  const STATUS_COLORS: Record<string, string> = {
-    ACTIVE: "bg-green-500/10 text-green-700 dark:text-green-400", PENDING_REVIEW: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
-    SUSPENDED: "bg-red-500/10 text-red-700 dark:text-red-400", REJECTED: "bg-muted text-muted-foreground",
-  };
-  const TIER_COLORS: Record<string, string> = {
-    PLATINUM: "bg-purple-500/10 text-purple-700 dark:text-purple-400", GOLD: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
-    VERIFIED: "bg-primary/10 text-primary", STANDARD: "bg-muted text-muted-foreground",
-  };
+  const activeFilter = STATUS_FILTERS.find((f) => f.value === searchParams.status) ?? STATUS_FILTERS[0];
 
   return (
     <AdminLayout pendingCount={pendingCount}>
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Sellers ({sellers.length})</h1>
-          <div className="flex gap-2">
-            {[undefined, "PENDING_REVIEW", "ACTIVE", "SUSPENDED"].map((s) => (
-              <Link key={s ?? "all"} href={s ? `/sellers?status=${s}` : "/sellers"}
-                className={`text-xs px-3 py-1.5 rounded-lg border ${searchParams.status === s || (!searchParams.status && !s) ? "bg-primary text-white border-primary" : "border-border hover:bg-muted"}`}>
-                {s ? s.replace(/_/g, " ") : "All"}
-              </Link>
-            ))}
-          </div>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          eyebrow="Supply base"
+          title="Sellers"
+          // LAW E. The query takes 100, so this counts what was LOADED, never how
+          // many accounts match. "N accounts match this filter" said of a
+          // truncated page is a claim about the size of the supply base that the
+          // page has no basis for.
+          description={
+            sellers.length === 1
+              ? "1 supplier account is loaded for this filter."
+              : `${sellers.length.toLocaleString()} supplier accounts are loaded for this filter.`
+          }
+          // The query takes 100. Saying so is the difference between a count and
+          // a claim about the size of the supply base.
+          dateline={`Filter: ${activeFilter.label} · newest first · at most 100 loaded`}
+        />
 
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted border-b border-border">
-                <tr>
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Seller</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">CR</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Type</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Tier</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Status</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Products</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Docs</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Created</th>
-                  <th className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {sellers.map((s) => {
-                  const pendingDocs = s.documents.filter((d) => d.status === "PENDING_REVIEW").length;
-                  return (
-                    <tr key={s.id} className="hover:bg-muted/20">
-                      <td className="px-4 py-3">
-                        <p className="font-medium">{s.businessNameEn}</p>
-                        <p className="text-xs text-muted-foreground">{s.user.email}</p>
-                      </td>
-                      <td className="px-4 py-3 text-xs font-mono text-muted-foreground">{s.crNumber}</td>
-                      <td className="px-4 py-3 text-xs">{s.type}</td>
-                      <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${TIER_COLORS[s.tier] ?? ""}`}>{s.tier}</span></td>
-                      <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[s.status] ?? ""}`}>{s.status.replace(/_/g, " ")}</span></td>
-                      <td className="px-4 py-3">{s._count.products}</td>
-                      <td className="px-4 py-3">
-                        {pendingDocs > 0 ? <span className="text-yellow-600 dark:text-yellow-400 font-semibold text-xs">{pendingDocs} pending</span> : <span className="text-green-600 dark:text-green-400 text-xs">✓</span>}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground">{format(s.createdAt, "MMM d, yyyy")}</td>
-                      <td className="px-4 py-3">
-                        <Link href={`/sellers/${s.id}`} className="text-xs text-primary hover:underline">View</Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        {/* Recessed strip, raised current item: the same gesture as the sidebar,
+            so a filter reads as "where you are" rather than as a coloured chip. */}
+        <FieldWell as="nav" aria-label="Filter sellers by status" className="flex flex-wrap gap-1 p-1">
+          {STATUS_FILTERS.map((filter) => (
+            <NavItem
+              key={filter.value ?? "all"}
+              href={filter.value ? `/sellers?status=${filter.value}` : "/sellers"}
+              label={filter.label}
+              orientation="horizontal"
+              active={filter.value === activeFilter.value}
+              linkComponent={Link}
+            />
+          ))}
+        </FieldWell>
+
+        <LedgerTable<SellerRow>
+          rows={sellers}
+          getRowKey={(seller) => seller.id}
+          stickyHead
+          columns={[
+            {
+              key: "seller",
+              label: "Seller",
+              render: (seller) => (
+                <div className="min-w-0">
+                  <p className="font-medium text-ink-1">{seller.businessNameEn}</p>
+                  <p className="u-meta truncate text-ink-3">{seller.user.email}</p>
+                </div>
+              ),
+            },
+            {
+              key: "cr",
+              label: "CR",
+              hideOnMobile: true,
+              // Mono is for identifiers. A commercial registration number is one.
+              render: (seller) => <span className="u-meta u-mono text-ink-2">{seller.crNumber}</span>,
+            },
+            {
+              key: "type",
+              label: "Type",
+              hideOnMobile: true,
+              render: (seller) => <span className="u-meta text-ink-2">{seller.type.replace(/_/g, " ")}</span>,
+            },
+            { key: "tier", label: "Tier", render: (seller) => <Tier tier={seller.tier} /> },
+            {
+              key: "status",
+              label: "Status",
+              render: (seller) => (
+                <StatusPill tone={STATUS_TONE[seller.status] ?? "neutral"}>
+                  {seller.status.replace(/_/g, " ")}
+                </StatusPill>
+              ),
+            },
+            { key: "products", label: "Products", numeric: true, render: (seller) => seller._count.products },
+            { key: "docs", label: "Documents", render: (seller) => <Docs documents={seller.documents} /> },
+            {
+              key: "created",
+              label: "Applied",
+              hideOnMobile: true,
+              render: (seller) => <span className="u-meta tnum text-ink-3">{format(seller.createdAt, "MMM d, yyyy")}</span>,
+            },
+            {
+              key: "actions",
+              label: "Record",
+              align: "end",
+              render: (seller) => (
+                <Button variant="ghost" size="xs" asChild>
+                  <Link href={`/sellers/${seller.id}`}>
+                    Open<span className="sr-only"> the record for {seller.businessNameEn}</span>
+                  </Link>
+                </Button>
+              ),
+            },
+          ]}
+          empty={
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline={
+                activeFilter.value
+                  ? `No supplier account is currently ${activeFilter.label.toLowerCase()}.`
+                  : "No supplier accounts have been created yet."
+              }
+              body="Supplier accounts appear here as soon as a business registers."
+              action={
+                activeFilter.value ? (
+                  <Button variant="secondary" size="sm" asChild>
+                    <Link href="/sellers">Show every supplier</Link>
+                  </Button>
+                ) : undefined
+              }
+            />
+          }
+        />
       </div>
     </AdminLayout>
   );

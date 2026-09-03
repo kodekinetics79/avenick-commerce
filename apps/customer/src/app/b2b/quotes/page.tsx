@@ -1,26 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FileText, Plus, Clock } from "lucide-react";
+import { Clock, Plus } from "lucide-react";
+import { Button, CellGrid, EmptyState, LedgerTable, Stat, StatusPill } from "@avenick/ui";
 import { B2BShell } from "@/components/b2b/b2b-shell";
+import { Money } from "@/components/b2b/money";
+import { RFQ_STATUS } from "@/components/b2b/rfq-status";
 import type { RFQStatus } from "@avenick/database";
-import { formatCurrency } from "@avenick/utils";
 import { fetchB2BJson } from "@/lib/b2b";
 import { format } from "date-fns";
 
 export const metadata = { title: "Quotes & RFQs" };
 export const dynamic = "force-dynamic";
-
-const STATUS_CONFIG: Record<RFQStatus, { label: string; color: string }> = {
-  DRAFT: { label: "Draft", color: "bg-slate-100 text-muted-foreground" },
-  SUBMITTED: { label: "Submitted", color: "bg-blue-100 text-primary" },
-  UNDER_REVIEW: { label: "Under Review", color: "bg-purple-100 text-purple-700" },
-  QUOTED: { label: "Quote Received", color: "bg-amber-100 text-amber-700" },
-  NEGOTIATING: { label: "Negotiating", color: "bg-orange-100 text-orange-700" },
-  ACCEPTED: { label: "Accepted", color: "bg-green-100 text-green-700" },
-  REJECTED: { label: "Rejected", color: "bg-red-100 text-red-700" },
-  EXPIRED: { label: "Expired", color: "bg-slate-100 text-muted-foreground" },
-  CANCELLED: { label: "Cancelled", color: "bg-slate-100 text-muted-foreground" },
-};
 
 export default async function QuotesPage() {
   type RFQRow = {
@@ -47,85 +37,120 @@ export default async function QuotesPage() {
 
   return (
     <B2BShell
+      eyebrow="Working"
       title="Quotes & RFQs"
       description="Track your requests for quotation and supplier responses."
-      actions={
-        <Link href="/b2b/rfq/new" className="inline-flex items-center gap-1.5 bg-primary text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-primary/90 transition-colors">
-          <Plus className="h-4 w-4" /> New RFQ
-        </Link>
-      }
+      // getRFQsForBuyer takes the 50 most recent rows. Every count in the panel
+      // below and every row in the table is drawn from that window, so no
+      // figure on this page may be described as a lifetime total.
+      dateline="The 50 most recent requests raised by your company, newest first"
     >
-      <div className="space-y-5">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Total RFQs", value: rfqs.length, color: "bg-white border-border" },
-            { label: "Awaiting quotes", value: awaiting, color: "bg-blue-50 border-blue-200" },
-            { label: "Quotes to review", value: quoted, color: "bg-amber-50 border-amber-200" },
-            { label: "Accepted", value: accepted, color: "bg-green-50 border-green-200" },
-          ].map((s) => (
-            <div key={s.label} className={`rounded-2xl border p-4 ${s.color}`}>
-              <span className="text-sm text-muted-foreground">{s.label}</span>
-              <p className="text-2xl font-bold mt-1">{s.value}</p>
-            </div>
-          ))}
-        </div>
+      <div className="space-y-block">
+        {/* "Quotes to review" leads at section rank because it is the only one
+            of the four that is a queue of work rather than a count of history. */}
+        <CellGrid cols={{ base: 2, lg: 4 }}>
+          <Stat
+            label="Quotes to review"
+            value={quoted}
+            rank="section"
+            chip={quoted > 0 ? "warning" : "neutral"}
+          />
+          <Stat label="Awaiting quotes" value={awaiting} />
+          <Stat label="Accepted" value={accepted} chip={accepted > 0 ? "success" : "neutral"} />
+          {/* "Listed", not "Total": this is the length of a 50-row window, and
+              a company past its fiftieth RFQ would read a cap as a total. */}
+          <Stat label="Requests listed" value={rfqs.length} />
+        </CellGrid>
 
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          {rfqs.length === 0 ? (
-            <div className="px-4 py-16 text-center">
-              <FileText className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-              <p className="text-sm text-muted-foreground mb-4">No RFQs yet — request quotes from suppliers for bulk purchases.</p>
-              <Link href="/b2b/rfq/new" className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
-                <Plus className="h-4 w-4" /> Create your first RFQ
-              </Link>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b border-border">
-                  <tr>
-                    {["RFQ", "Items", "Supplier", "Quoted total", "Status", "Created"].map((h) => (
-                      <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {rfqs.map((r) => {
-                    const cfg = STATUS_CONFIG[r.status];
-                    return (
-                      <tr key={r.id} className="hover:bg-slate-50/60">
-                        <td className="px-4 py-3">
-                          <Link href={`/b2b/rfq/${r.id}`} className="font-medium text-primary hover:underline">
-                            {r.rfqNumber}
-                          </Link>
-                          {r.requiredBy && (
-                            <p className="text-[11px] text-muted-foreground inline-flex items-center gap-1 mt-0.5">
-                              <Clock className="h-3 w-3" /> needed {format(new Date(r.requiredBy), "MMM d")}
-                            </p>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground max-w-xs">
-                          <p className="truncate">
-                            {r.items.slice(0, 2).map((i) => `${i.quantity}× ${i.nameEn}`).join(", ")}
-                            {r.items.length > 2 ? ` +${r.items.length - 2} more` : ""}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">{r.seller?.businessNameEn ?? "—"}</td>
-                        <td className="px-4 py-3 font-semibold">
-                          {r.totalQuoted ? formatCurrency(Number(r.totalQuoted), r.currency as never) : "—"}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-xs font-medium px-2 py-1 rounded-full ${cfg.color}`}>{cfg.label}</span>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">{format(new Date(r.createdAt), "MMM d, yyyy")}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <LedgerTable
+          rows={rfqs}
+          getRowKey={(r) => r.id}
+          stickyHead
+          dateline="Quoted totals in the currency the supplier priced in · no conversion applied"
+          columns={[
+            {
+              key: "rfqNumber",
+              label: "RFQ",
+              render: (r) => (
+                <div className="py-1">
+                  <Link
+                    href={`/b2b/rfq/${r.id}`}
+                    className="u-focus u-mono rounded-nested font-medium text-primary-ink hover:underline"
+                  >
+                    {r.rfqNumber}
+                  </Link>
+                  {r.requiredBy && (
+                    <p className="u-meta mt-0.5 inline-flex items-center gap-1 text-ink-3">
+                      <Clock className="h-3 w-3" aria-hidden="true" /> needed{" "}
+                      {format(new Date(r.requiredBy), "MMM d")}
+                    </p>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: "items",
+              label: "Items",
+              hideOnMobile: true,
+              render: (r) => (
+                <p className="max-w-xs truncate text-ink-2">
+                  {r.items.slice(0, 2).map((i) => `${i.quantity}× ${i.nameEn}`).join(", ")}
+                  {r.items.length > 2 ? ` +${r.items.length - 2} more` : ""}
+                </p>
+              ),
+            },
+            {
+              key: "seller",
+              label: "Supplier",
+              hideOnMobile: true,
+              render: (r) => <span className="text-ink-2">{r.seller?.businessNameEn ?? "Not yet assigned"}</span>,
+            },
+            {
+              key: "totalQuoted",
+              label: "Quoted total",
+              numeric: true,
+              render: (r) =>
+                r.totalQuoted ? (
+                  <Money amount={Number(r.totalQuoted)} currency={r.currency} />
+                ) : (
+                  <span className="u-meta text-ink-3">Not quoted</span>
+                ),
+            },
+            {
+              key: "status",
+              label: "Status",
+              render: (r) => {
+                const cfg = RFQ_STATUS[r.status];
+                return <StatusPill tone={cfg.tone}>{cfg.label}</StatusPill>;
+              },
+            },
+            {
+              key: "createdAt",
+              label: "Created",
+              align: "end",
+              hideOnMobile: true,
+              render: (r) => (
+                <span className="u-meta whitespace-nowrap text-ink-3">
+                  {format(new Date(r.createdAt), "MMM d, yyyy")}
+                </span>
+              ),
+            },
+          ]}
+          empty={
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline="This company has not raised a request for quotation yet."
+              body="An RFQ asks a supplier to price a specific list of items and quantities. Nothing is committed by sending one."
+              action={
+                <Button asChild variant="primary" size="sm">
+                  <Link href="/b2b/rfq/new">
+                    <Plus className="h-4 w-4" aria-hidden="true" /> Create your first RFQ
+                  </Link>
+                </Button>
+              }
+            />
+          }
+        />
       </div>
     </B2BShell>
   );

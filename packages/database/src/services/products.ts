@@ -16,6 +16,14 @@ export interface ProductListParams {
   b2b?: boolean;
   publiclyDiscoverable?: boolean;
   inStock?: boolean;
+  /**
+   * Restrict to one brand, by slug. The /brands page links every tile here;
+   * without this the link landed on the unfiltered catalogue while presenting
+   * itself as that brand's listings. Search cannot stand in for it — the brand
+   * tier there matches only identifier-shaped terms against the slug, so it
+   * returns a different set rather than this one.
+   */
+  brandSlug?: string;
   sort?: "newest" | "name_asc";
   currency?: Currency;
 }
@@ -268,7 +276,7 @@ function searchTiers(outcome: CatalogSearchOutcome): Prisma.ProductWhereInput[] 
 }
 
 export async function listProducts(params: ProductListParams) {
-  const { page = 1, limit = 20, search, categoryId, categorySlug, sellerId, status, b2c, b2b, publiclyDiscoverable, inStock, sort } = params;
+  const { page = 1, limit = 20, search, categoryId, categorySlug, sellerId, status, b2c, b2b, publiclyDiscoverable, inStock, brandSlug, sort } = params;
   const skip = (page - 1) * limit;
   const searchOutcome = classifyCatalogSearch(search);
 
@@ -312,6 +320,9 @@ export async function listProducts(params: ProductListParams) {
     ...(b2c !== undefined && { isB2CEnabled: b2c }),
     ...(b2b !== undefined && { isB2BEnabled: b2b }),
     ...(inStock && { inventory: { some: { qty: { gt: 0 } } } }),
+    // `is` rather than a bare relation filter: Product.brandId is nullable, and
+    // a product with no brand must not match a brand filter.
+    ...(brandSlug && { brand: { is: { slug: brandSlug } } }),
   };
 
   // Each tier subtracts every tier above it, so the tiers partition the result

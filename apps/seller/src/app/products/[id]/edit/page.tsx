@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
-import { db, type ProductStatus } from "@avenick/database";
+import { db } from "@avenick/database";
+import { Dateline, Eyebrow, PageHeader, StatusPill, Surface } from "@avenick/ui";
 import { RECORD_ID } from "@avenick/utils";
 import { browserDirectUploadsEnabled } from "@avenick/utils/browser-upload-policy";
 import { requireSellerPermission } from "@/lib/auth";
@@ -9,22 +10,16 @@ import { sellerHasPermission } from "@/lib/seller-permissions";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { ProductForm, type ProductFormOption, type ProductFormValues } from "@/components/products/product-form";
 import { loadStatutoryVatTable } from "@/app/products/actions";
+// One status vocabulary for the whole catalog surface: the list and this page
+// used to carry separate maps, which is how the same state got two names and
+// two colours. The map is typed against the enum, so a new status still fails
+// the build instead of rendering raw.
+import { statusMeta } from "@/components/products/status-meta";
 
 export const metadata = { title: "Edit product" };
 
 // Everything on this page is one seller's own row, read at request time.
 export const dynamic = "force-dynamic";
-
-/** Typed against the enum so a new status fails the build instead of rendering raw. */
-const STATUS_LABEL: Record<ProductStatus, { label: string; className: string }> = {
-  DRAFT: { label: "Draft", className: "bg-muted text-muted-foreground border-border" },
-  PENDING_REVIEW: { label: "Pending review", className: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20" },
-  ACTIVE: { label: "Active", className: "bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20" },
-  SUPPRESSED: { label: "Suppressed", className: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20" },
-  SUSPENDED: { label: "Suspended by platform", className: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20" },
-  REJECTED: { label: "Rejected", className: "bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20" },
-  INACTIVE: { label: "Inactive", className: "bg-muted text-muted-foreground border-border" },
-};
 
 type CategoryRow = { id: string; nameEn: string; parentId: string | null; isActive: boolean };
 
@@ -141,47 +136,50 @@ export default async function EditProductPage({ params }: { params: { id: string
     product.brand && !product.brand.isActive ? `Its brand “${product.brand.nameEn}” has been deactivated — choose another brand or leave the brand blank.` : null,
   ].filter((notice): notice is string => notice !== null);
 
-  const status = STATUS_LABEL[product.status];
+  const status = statusMeta(product.status);
 
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
-      <div className="space-y-5">
-        <div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">Edit product</h1>
-            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${status.className}`}>
-              {status.label}
-            </span>
-            {product.isPubliclyDiscoverable && (
-              <span className="inline-flex items-center rounded-full border border-border bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                On public storefront
-              </span>
-            )}
-          </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            <span className="font-mono text-xs">{product.sku}</span> · {product.nameEn}
-          </p>
-        </div>
+      <div className="space-y-4">
+        <PageHeader
+          eyebrow="Catalog"
+          title="Edit product"
+          linkComponent={Link}
+          breadcrumbs={[{ label: "Products", href: "/products" }, { label: product.nameEn }]}
+          // The record being edited, cited rather than repeated as a subtitle.
+          dateline={`${product.sku} · ${product.nameEn}`}
+          actions={
+            <>
+              <StatusPill tone={status.tone}>{status.label}</StatusPill>
+              {product.isPubliclyDiscoverable && <StatusPill tone="accent">On public storefront</StatusPill>}
+            </>
+          }
+        />
 
         {staleReferences.length > 0 && (
-          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 flex items-start gap-3 text-sm">
-            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <ul className="space-y-1">
-              {staleReferences.map((notice) => (
-                <li key={notice}>{notice}</li>
-              ))}
-            </ul>
-          </div>
+          // Recessed and toned: this is context about why a field looks empty,
+          // not an object to act on.
+          <Surface rung={1} tone="warning" className="flex items-start gap-3 p-4">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-ink" aria-hidden="true" />
+            <div>
+              <Eyebrow className="mb-1">Needs a new choice</Eyebrow>
+              <ul className="u-ui max-w-prose space-y-1 text-ink-1">
+                {staleReferences.map((notice) => (
+                  <li key={notice}>{notice}</li>
+                ))}
+              </ul>
+            </div>
+          </Surface>
         )}
 
         {stockIsSplit && (
-          <p className="text-sm text-muted-foreground">
-            Stock for this product is recorded in {product.inventory.length} locations
-            {reservedQty > 0 ? `, with ${reservedQty} unit(s) reserved by open orders` : ""}. It cannot be changed from
-            this form, and the seller portal has no per-location stock adjustment yet — the{" "}
-            <Link href="/inventory" className="text-primary hover:underline">Inventory</Link> page shows the figures
-            read-only.
-          </p>
+          <Dateline>
+            Stock is recorded in {product.inventory.length} locations
+            {reservedQty > 0 ? `, with ${reservedQty} unit(s) reserved by open orders` : ""} · not settable from this
+            form ·{" "}
+            <Link href="/inventory" className="u-focus rounded-nested text-primary-ink hover:underline">Inventory</Link>{" "}
+            shows the figures read-only
+          </Dateline>
         )}
 
         <ProductForm

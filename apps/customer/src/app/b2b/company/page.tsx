@@ -1,9 +1,21 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Building2, MapPin, Users, CreditCard, FileText, ShieldCheck } from "lucide-react";
+import { MapPin, Users, ShieldCheck } from "lucide-react";
+import {
+  Button,
+  CellGrid,
+  Dateline,
+  EmptyState,
+  Eyebrow,
+  Num,
+  Stat,
+  StatusPill,
+  Surface,
+  type PillTone,
+} from "@avenick/ui";
 import { B2BShell } from "@/components/b2b/b2b-shell";
+import { Money, MoneyStack } from "@/components/b2b/money";
 import { db } from "@avenick/database";
-import { formatCurrency } from "@avenick/utils";
 import { getB2BContext } from "@/lib/b2b";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
 import { format } from "date-fns";
@@ -11,10 +23,10 @@ import { format } from "date-fns";
 export const metadata = { title: "Company Profile" };
 export const dynamic = "force-dynamic";
 
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  ACTIVE: { label: "Verified & Active", color: "bg-green-100 text-green-700" },
-  PENDING_VERIFICATION: { label: "Pending Verification", color: "bg-amber-100 text-amber-700" },
-  SUSPENDED: { label: "Suspended", color: "bg-red-100 text-red-700" },
+const STATUS_CONFIG: Record<string, { label: string; tone: PillTone }> = {
+  ACTIVE: { label: "Verified & active", tone: "success" },
+  PENDING_VERIFICATION: { label: "Pending verification", tone: "warning" },
+  SUSPENDED: { label: "Suspended", tone: "danger" },
 };
 
 const ROLE_LABEL: Record<string, string> = {
@@ -51,8 +63,7 @@ export default async function CompanyPage() {
   const lifetimeSpend = orderAgg
     .filter((row) => Number(row._sum.total ?? 0) > 0)
     .sort((a, b) => a.currency.localeCompare(b.currency))
-    .map((row) => formatCurrency(Number(row._sum.total ?? 0), row.currency))
-    .join(" · ");
+    .map((row) => ({ currency: row.currency as string, total: Number(row._sum.total ?? 0) }));
 
   const memberUsers = await db.user.findMany({
     where: { id: { in: company.members.map((m) => m.userId) } },
@@ -63,106 +74,143 @@ export default async function CompanyPage() {
   const statusCfg = STATUS_CONFIG[company.status] ?? STATUS_CONFIG["PENDING_VERIFICATION"]!;
 
   return (
-    <B2BShell title="Company Profile" description="Your organization's registration, credit, and team.">
-      <div className="space-y-5">
-        <div className="bg-white rounded-2xl border border-border p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="h-14 w-14 rounded-2xl bg-indigo-50 flex items-center justify-center">
-                <Building2 className="h-7 w-7 text-indigo-600" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">{company.nameEn}</h1>
-                {company.nameAr && <p className="text-sm text-muted-foreground">{company.nameAr}</p>}
-                <p className="text-xs text-muted-foreground mt-1 inline-flex items-center gap-1">
-                  <MapPin className="h-3 w-3" /> {company.city}, {company.country} · member since {format(company.createdAt, "MMM yyyy")}
-                </p>
-              </div>
-            </div>
-            <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${statusCfg.color}`}>
-              <ShieldCheck className="h-3 w-3" /> {statusCfg.label}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+    <B2BShell
+      eyebrow="Administration"
+      title={company.nameEn}
+      description={company.nameAr ?? undefined}
+      dateline={`${company.city}, ${company.country} · company account opened ${format(company.createdAt, "MMMM yyyy")}`}
+      actions={<StatusPill tone={statusCfg.tone} dot>{statusCfg.label}</StatusPill>}
+    >
+      <div className="space-y-block">
+        {/* Registration. Recessed, because it is the reference data every other
+            figure on the page is read against — and the four bordered boxes it
+            replaces are now one panel divided by hairlines. */}
+        <Surface rung={1} className="p-5">
+          <Eyebrow className="mb-3 flex items-center gap-1.5">
+            <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" /> Registration
+          </Eyebrow>
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
             {[
-              { label: "CR number", value: company.crNumber ?? "—" },
-              { label: "VAT number", value: company.vatNumber ?? "—" },
-              { label: "Industry", value: company.industry.replace(/_/g, " ") },
-              { label: "Company size", value: company.size.replace(/_/g, " ") },
+              { label: "CR number", value: company.crNumber, mono: true },
+              { label: "VAT number", value: company.vatNumber, mono: true },
+              { label: "Industry", value: company.industry.replace(/_/g, " ").toLowerCase(), mono: false },
+              { label: "Company size", value: company.size.replace(/_/g, " ").toLowerCase(), mono: false },
             ].map((f) => (
-              <div key={f.label} className="rounded-xl border border-border p-3">
-                <p className="text-xs text-muted-foreground">{f.label}</p>
-                <p className="text-sm font-semibold mt-0.5 font-mono">{f.value}</p>
+              <div key={f.label}>
+                <dt><Eyebrow as="span">{f.label}</Eyebrow></dt>
+                <dd className={`u-ui mt-0.5 ${f.mono ? "u-mono" : ""} ${f.value ? "text-ink-1" : "text-ink-3"}`}>
+                  {f.value ?? "Not recorded"}
+                </dd>
               </div>
             ))}
+          </dl>
+        </Surface>
+
+        <CellGrid cols={{ base: 2, lg: 4 }}>
+          <div>
+            <Eyebrow>Credit limit</Eyebrow>
+            <div className="mt-1.5">
+              {company.creditLimit ? (
+                <Money amount={Number(company.creditLimit)} currency={companyCurrency} />
+              ) : (
+                <span className="u-body text-ink-2">Not set</span>
+              )}
+            </div>
+            {/* Company.creditLimit has no currency column; it is read in the
+                company's jurisdiction currency, the same assumption the billing
+                page states. */}
+            <Dateline className="mt-1">Recorded without a currency · read as {companyCurrency}</Dateline>
           </div>
-        </div>
+          <Stat
+            label="Payment terms"
+            value={company.paymentTerms > 0 ? company.paymentTerms : "Prepaid"}
+            unit={company.paymentTerms > 0 ? "days net" : undefined}
+          />
+          <div>
+            <Eyebrow>Lifetime spend</Eyebrow>
+            <div className="mt-1.5">
+              {/* Grouped by currency: a sum across currencies is not a sum of
+                  anything, so each one keeps its own line. */}
+              <MoneyStack
+                rows={lifetimeSpend}
+                dateline="Paid orders only, each in its own currency · no conversion applied"
+              />
+            </div>
+          </div>
+          <div>
+            <Eyebrow>Orders · POs · RFQs</Eyebrow>
+            {/* <Num>, not a hand-rolled `fig` span with an inline font-weight:
+                the rank sizes and the tabular figures are the primitive's job,
+                and a local copy is exactly how a fourth figure style appears. */}
+            <div className="mt-1.5">
+              <Num value={`${company._count.orders} · ${company._count.purchaseOrders} · ${company._count.rfqRequests}`} />
+            </div>
+          </div>
+        </CellGrid>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Credit limit", value: company.creditLimit ? formatCurrency(Number(company.creditLimit), companyCurrency) : "Not set", icon: CreditCard },
-            { label: "Payment terms", value: company.paymentTerms > 0 ? `Net ${company.paymentTerms} days` : "Prepaid", icon: FileText },
-            { label: "Lifetime spend", value: lifetimeSpend || "—", icon: CreditCard },
-            { label: "Orders / POs / RFQs", value: `${company._count.orders} / ${company._count.purchaseOrders} / ${company._count.rfqRequests}`, icon: FileText },
-          ].map((s) => {
-            const Icon = s.icon;
-            return (
-              <div key={s.label} className="bg-white rounded-2xl border border-border p-4">
-                <Icon className="h-4 w-4 text-muted-foreground mb-2" />
-                <p className="text-base font-bold">{s.value}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="bg-white rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-            <h2 className="font-semibold inline-flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" /> Team ({company.members.length})
+        <Surface rung={2} className="overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3">
+            <h2 className="u-h3 inline-flex items-center gap-2 text-ink-1">
+              <Users className="h-4 w-4 text-ink-3" aria-hidden="true" /> Team ({company.members.length})
             </h2>
-            <Link href="/b2b/team" className="text-xs text-primary hover:underline">Manage team →</Link>
+            <Button asChild variant="link" size="sm">
+              <Link href="/b2b/team">Manage team</Link>
+            </Button>
           </div>
-          <ul className="divide-y divide-border">
+          <ul className="border-t border-hairline">
             {company.members.map((m) => {
               const u = userOf(m.userId);
               return (
-                <li key={m.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                <li
+                  key={m.id}
+                  className="flex items-center justify-between gap-3 border-b border-hairline px-5 py-3 last:border-b-0"
+                >
                   <div className="min-w-0">
-                    <p className="text-sm font-medium">
+                    <p className="u-ui font-medium text-ink-1">
                       {u ? `${u.firstName} ${u.lastName}` : "Unknown member"}
-                      {m.userId === ctx.userId && <span className="ms-1.5 text-[10px] text-muted-foreground">(you)</span>}
+                      {m.userId === ctx.userId && <span className="u-meta ms-1.5 text-ink-3">(you)</span>}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">{u?.email ?? ""}{m.department ? ` · ${m.department}` : ""}</p>
+                    <p className="u-meta truncate text-ink-3">
+                      {u?.email ?? "No email recorded"}
+                      {m.department ? ` · ${m.department}` : ""}
+                    </p>
                   </div>
-                  <span className="text-xs font-medium px-2 py-1 rounded-full bg-slate-100 text-muted-foreground shrink-0">
-                    {ROLE_LABEL[m.role] ?? m.role}
-                  </span>
+                  <StatusPill className="shrink-0">{ROLE_LABEL[m.role] ?? m.role}</StatusPill>
                 </li>
               );
             })}
           </ul>
-        </div>
+        </Surface>
 
-        {company.addresses.length > 0 && (
-          <div className="bg-white rounded-2xl border border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <h2 className="font-semibold inline-flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-muted-foreground" /> Addresses ({company.addresses.length})
-              </h2>
-              <Link href="/b2b/addresses" className="text-xs text-primary hover:underline">Manage addresses →</Link>
-            </div>
-            <ul className="divide-y divide-border">
+        <Surface rung={2} className="overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-5 pt-5 pb-3">
+            <h2 className="u-h3 inline-flex items-center gap-2 text-ink-1">
+              <MapPin className="h-4 w-4 text-ink-3" aria-hidden="true" /> Delivery sites ({company.addresses.length})
+            </h2>
+            <Button asChild variant="link" size="sm">
+              <Link href="/b2b/addresses">Manage sites</Link>
+            </Button>
+          </div>
+          {company.addresses.length === 0 ? (
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline="No delivery site has been added for this company."
+              body="Orders are shipped to a recorded site, so at least one is needed before an order can be placed."
+            />
+          ) : (
+            <ul className="border-t border-hairline">
               {company.addresses.map((a) => (
-                <li key={a.id} className="px-5 py-3">
-                  <p className="text-sm font-medium">{a.label}</p>
-                  <p className="text-xs text-muted-foreground">{a.line1}{a.line2 ? `, ${a.line2}` : ""}, {a.city}, {a.country}</p>
+                <li key={a.id} className="border-b border-hairline px-5 py-3 last:border-b-0">
+                  <p className="u-ui font-medium text-ink-1">{a.label}</p>
+                  <p className="u-meta text-ink-3">
+                    {a.line1}
+                    {a.line2 ? `, ${a.line2}` : ""}, {a.city}, {a.country}
+                  </p>
                 </li>
               ))}
             </ul>
-          </div>
-        )}
+          )}
+        </Surface>
       </div>
     </B2BShell>
   );

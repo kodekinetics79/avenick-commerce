@@ -1,7 +1,26 @@
 import { requireSellerPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
-import { computeSellerPerformanceScore, db } from "@avenick/database";
-import { TrendingUp, RotateCcw, MessageSquare, Star, Award, Truck } from "lucide-react";
+import {
+  computeSellerPerformanceScore,
+  db,
+  MIN_ORDER_ITEMS_FOR_SCORE,
+  MIN_RFQS_FOR_SCORE,
+  PERFORMANCE_WINDOW_DAYS,
+} from "@avenick/database";
+import {
+  CellGrid,
+  Dateline,
+  EmptyState,
+  Eyebrow,
+  Meter,
+  Num,
+  PageHeader,
+  SectionHeader,
+  Stat,
+  Surface,
+} from "@avenick/ui";
+import { TrendingUp, RotateCcw, MessageSquare, Star, Truck } from "lucide-react";
+import { ColumnChart } from "../analytics/column-chart";
 
 export const metadata = { title: "Performance" };
 
@@ -59,8 +78,6 @@ export default async function PerformancePage() {
     const count = sellerOrders.filter((o) => o.createdAt.getMonth() === d.getMonth() && o.createdAt.getFullYear() === d.getFullYear()).length;
     trend.push({ label: MONTHS[d.getMonth()]!, count });
   }
-  const trendMax = Math.max(1, ...trend.map((t) => t.count));
-
   const metrics = [
     {
       label: "On-time delivery",
@@ -90,80 +107,107 @@ export default async function PerformancePage() {
 
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions} performance={performance}>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Performance</h1>
-          <p className="text-sm text-muted-foreground">Measured from your own orders, shipments, returns, and messages</p>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          className="mb-0"
+          eyebrow="Overview"
+          title="Performance"
+          description="Measured from your own orders, shipments, returns, and messages"
+          dateline="No target, no platform average and no colouring by threshold — the platform publishes no benchmark"
+        />
 
-        {/* Score hero — the computed score or an honest "not enough data" */}
-        <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-accent/5 p-6">
-          <div className="absolute -top-10 end-8 h-40 w-40 rounded-full bg-primary/15 blur-[80px]" />
-          <div className="relative flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground"><Award className="h-4 w-4 text-primary" /> Performance score</div>
-              {performance ? (
-                <>
-                  <p className="mt-2 text-5xl font-bold font-mono tracking-tighter">{performance.score}<span className="text-2xl text-muted-foreground">/100</span></p>
-                  <p className="text-sm text-muted-foreground mt-1">Last {performance.windowDays} days. The score has no effect on commission or ranking.</p>
-                </>
-              ) : (
-                <>
-                  <p className="mt-2 text-2xl font-semibold text-muted-foreground">Not enough data yet</p>
-                  <p className="text-sm text-muted-foreground mt-1">Ship a few paid orders or quote a few RFQs and a score will appear here.</p>
-                </>
-              )}
-            </div>
-            <div className="text-end">
-              <p className="text-xs text-muted-foreground">Reviews</p>
-              <p className="text-2xl font-bold font-mono">{reviewCount}</p>
-              {rating !== null && <p className="text-sm flex items-center gap-1 justify-end"><Star className="h-3.5 w-3.5 text-amber-400 fill-current" /> {rating.toFixed(1)}</p>}
-            </div>
-          </div>
-          {performance && (
-            <div className="relative mt-5 grid gap-2 sm:grid-cols-3">
-              {performance.components.map((component) => (
-                <div key={component.key} className="rounded-xl border border-border/60 bg-card/60 px-3 py-2">
-                  <p className="text-xs text-muted-foreground">{component.label}</p>
-                  <p className="text-sm font-semibold font-mono">
-                    {component.share === null ? "—" : `${Math.round(component.share * 100)}%`}
-                    <span className="ms-1 text-xs font-normal text-muted-foreground">
-                      {component.share === null ? "no data in window" : `${component.good} of ${component.total}`}
-                    </span>
-                  </p>
+        {/* Score — the computed score or an honest "not enough data". The old
+            hero was a gradient panel with a blurred orb behind it; the figure is
+            now carried by rank and by a recessed meter instead. */}
+        <Surface rung={2} className="p-5 sm:p-6">
+          {performance === null ? (
+            <EmptyState
+              eyebrow="Not enough data"
+              headline="There is no performance score for this account yet."
+              body={`A score needs at least ${MIN_ORDER_ITEMS_FOR_SCORE} paid order lines or ${MIN_RFQS_FOR_SCORE} quoted RFQs in the last ${PERFORMANCE_WINDOW_DAYS} days. Everything further down this page is measured and shown regardless; the score is the only figure that waits.`}
+            />
+          ) : (
+            <>
+              <div className="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+                <div className="min-w-0">
+                  <Eyebrow>Performance score</Eyebrow>
+                  <div className="mt-1">
+                    <Num value={performance.score} unit="/100" rank="hero" />
+                  </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Metric cards — value plus the exact basis it was computed from */}
-        <div className="grid sm:grid-cols-2 gap-4">
-          {metrics.map((m) => (
-            <div key={m.label} className="rounded-2xl border border-border bg-card p-5">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2"><m.icon className="h-4 w-4 text-muted-foreground" /><span className="text-sm font-medium">{m.label}</span></div>
-                <span className="text-lg font-bold font-mono">{m.value}</span>
+                {/* Recessed track, raised fill. No red/amber/green banding: the
+                    platform publishes no threshold, so colouring the number
+                    would state a judgement nothing behind it supports. */}
+                <Meter
+                  className="min-w-[14rem] flex-1"
+                  value={performance.score}
+                  tone="accent"
+                  size="lg"
+                  label={`Performance score: ${performance.score} out of 100`}
+                />
               </div>
-              <p className="text-[11px] text-muted-foreground">{m.basis}</p>
-            </div>
-          ))}
-        </div>
+              <Dateline className="mt-3">
+                Orders from the last {performance.windowDays} days; listings and documents as they stand now
+              </Dateline>
+              <p className="u-ui mt-1 text-ink-2">The score has no effect on commission or ranking.</p>
+
+              <div className="mt-6 grid gap-x-6 gap-y-4 sm:grid-cols-3">
+                {performance.components.map((component, index) => (
+                  <div key={component.key}>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <Eyebrow className="truncate">{component.label}</Eyebrow>
+                      <span className="fig u-meta shrink-0 text-ink-1">
+                        {component.share === null ? "—" : `${Math.round(component.share * 100)}%`}
+                      </span>
+                    </div>
+                    <Meter
+                      className="mt-1.5"
+                      value={component.share ?? 0}
+                      max={1}
+                      tone="accent"
+                      index={index}
+                      label={`${component.label}: ${component.share === null ? "no data in this window" : `${component.good} of ${component.total}`}`}
+                    />
+                    <p className="u-meta mt-1 text-ink-3">
+                      {component.share === null ? "No data in this window" : `${component.good} of ${component.total}`}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </Surface>
+
+        {/* Metric cells — each value with the exact basis it was computed from,
+            as a Dateline rather than as 11px grey fine print. A metric with no
+            basis reads "—" and says why underneath. */}
+        <section aria-label="Service metrics">
+          <SectionHeader title="Service metrics" description="Each figure is either measured or shown as “—”. None of them feeds the score above." />
+          <CellGrid cols={{ base: 1, sm: 2, lg: 4 }}>
+            {metrics.map((m) => (
+              <Stat key={m.label} label={m.label} value={m.value} rank="section" icon={m.icon} dateline={m.basis} />
+            ))}
+          </CellGrid>
+        </section>
 
         {/* Monthly order trend */}
-        <div className="rounded-2xl border border-border bg-card p-5">
-          <div className="flex items-center gap-2 mb-4"><TrendingUp className="h-4 w-4 text-muted-foreground" /><h2 className="font-semibold">Monthly orders</h2></div>
-          <div className="flex items-end justify-between gap-3 h-36">
-            {trend.map((m, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                <div className="w-full flex items-end justify-center" style={{ height: "100%" }}>
-                  <div className="w-full max-w-[44px] rounded-t-lg bg-gradient-to-t from-primary-600 to-accent-500" style={{ height: `${Math.max(6, (m.count / trendMax) * 100)}%` }} title={`${m.count} orders`} />
-                </div>
-                <span className="text-xs text-muted-foreground">{m.label}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Surface rung={2} className="p-5">
+          <SectionHeader
+            icon={TrendingUp}
+            title="Monthly orders"
+            dateline="Orders containing a line of yours, by the month they were placed · last six calendar months"
+          />
+          <ColumnChart
+            label="Orders by month"
+            plotHeight="h-36"
+            data={trend.map((m) => ({
+              label: m.label,
+              value: m.count,
+              caption: m.count > 0 ? m.count.toLocaleString() : "—",
+              exact: `${m.count} order${m.count === 1 ? "" : "s"}`,
+            }))}
+          />
+        </Surface>
       </div>
     </SellerLayout>
   );

@@ -4,23 +4,36 @@ import { formatCurrency, isRecordId, isSupportedCurrency } from "@avenick/utils"
 import { groupAcceptedValueByCurrency } from "./accepted-value";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { FileText, CheckCircle, Clock, XCircle, TrendingUp } from "lucide-react";
+import { FileText, CheckCircle, Clock, XCircle, TrendingUp, Inbox } from "lucide-react";
+import {
+  Button,
+  CellGrid,
+  EmptyState,
+  LedgerTable,
+  PageHeader,
+  Stat,
+  StatusPill,
+  type PillTone,
+} from "@avenick/ui";
 import { SELLER_QUOTE_HISTORY_LIMIT } from "@avenick/database";
 import { requireSellerPermission } from "@/lib/auth";
 import { sellerHasPermission } from "@/lib/seller-permissions";
 
 export const metadata = { title: "Quote History" };
 
-const STATUS: Record<string, { label: string; cls: string; icon: typeof CheckCircle }> = {
-  QUOTED: { label: "Awaiting response", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400", icon: Clock },
-  NEGOTIATING: { label: "Negotiating", cls: "bg-primary/15 text-primary", icon: Clock },
-  UNDER_REVIEW: { label: "Under review", cls: "bg-secondary text-muted-foreground", icon: Clock },
-  SUBMITTED: { label: "Submitted", cls: "bg-secondary text-muted-foreground", icon: Clock },
-  ACCEPTED: { label: "Accepted", cls: "bg-success/15 text-success", icon: CheckCircle },
-  REJECTED: { label: "Declined", cls: "bg-danger/15 text-danger", icon: XCircle },
-  EXPIRED: { label: "Expired", cls: "bg-secondary text-muted-foreground", icon: Clock },
-  CANCELLED: { label: "Cancelled", cls: "bg-secondary text-muted-foreground", icon: XCircle },
-  DRAFT: { label: "Draft", cls: "bg-secondary text-muted-foreground", icon: Clock },
+// Enum → label map. The tone is one of the four semantic states, not a hue per
+// status: only "the buyer still owes you a decision" is warning, and only a
+// refusal is danger.
+const STATUS: Record<string, { label: string; tone: PillTone; icon: typeof CheckCircle }> = {
+  QUOTED: { label: "Awaiting response", tone: "warning", icon: Clock },
+  NEGOTIATING: { label: "Negotiating", tone: "primary", icon: Clock },
+  UNDER_REVIEW: { label: "Under review", tone: "neutral", icon: Clock },
+  SUBMITTED: { label: "Submitted", tone: "neutral", icon: Clock },
+  ACCEPTED: { label: "Accepted", tone: "success", icon: CheckCircle },
+  REJECTED: { label: "Declined", tone: "danger", icon: XCircle },
+  EXPIRED: { label: "Expired", tone: "neutral", icon: Clock },
+  CANCELLED: { label: "Cancelled", tone: "neutral", icon: XCircle },
+  DRAFT: { label: "Draft", tone: "neutral", icon: Clock },
 };
 
 const fmt = (d: string | null) => (d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
@@ -77,85 +90,129 @@ export default async function QuoteHistoryPage({ searchParams }: { searchParams?
           .join(" · ");
   const winRate = responded.length > 0 ? Math.round((accepted.length / responded.length) * 100) : 0;
 
-  const stats = [
-    { label: capped ? `Listed (newest ${SELLER_QUOTE_HISTORY_LIMIT})` : "Total submitted", value: rfqs.length, icon: FileText, color: "text-primary", bg: "bg-primary/5 border-primary/20" },
-    { label: "Accepted", value: accepted.length, icon: CheckCircle, color: "text-success", bg: "bg-success/5 border-success/20" },
-    { label: "Win rate", value: `${winRate}%`, icon: TrendingUp, color: "text-accent", bg: "bg-accent/5 border-accent/20" },
-    { label: acceptedTotals.length > 1 ? "Accepted value by currency" : "Accepted value", value: acceptedValueLabel, icon: TrendingUp, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/5 border-amber-500/20" },
-  ];
+  // What the whole page is a view of. The cap is stated once, at page rank,
+  // rather than as a grey strip apologising above the table.
+  const pageDateline = capped
+    ? `Your ${SELLER_QUOTE_HISTORY_LIMIT} most recently updated quotations · every figure below describes these rows, not your lifetime total`
+    : "Every quotation you have submitted to buyers";
 
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
-      <div className="space-y-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Quote history</h1>
-            <p className="text-sm text-muted-foreground">
-              {capped ? `Your ${SELLER_QUOTE_HISTORY_LIMIT} most recently updated quotations` : "All quotations you have submitted to buyers"}
-            </p>
-          </div>
-          <Link href="/messages" className="bg-primary text-primary-foreground hover:bg-primary/90 hover:shadow-glow-sm text-sm font-semibold px-4 py-2 rounded-xl transition-all active:scale-[0.98] flex items-center gap-1.5">
-            <FileText className="h-3.5 w-3.5" /> RFQ inbox
-          </Link>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          eyebrow="RFQ / Quotes"
+          title="Quote history"
+          dateline={pageDateline}
+          actions={
+            <Button variant="secondary" size="sm" asChild>
+              <Link href="/messages">
+                <Inbox className="h-3.5 w-3.5" aria-hidden="true" /> RFQ inbox
+              </Link>
+            </Button>
+          }
+        />
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {stats.map(({ label, value, icon: Icon, color, bg }) => (
-            <div key={label} className={`rounded-2xl border p-4 ${bg}`}>
-              <Icon className={`h-4 w-4 ${color} mb-2`} />
-              <p className={`text-xl font-bold ${color}`}>{value}</p>
-              <p className="text-xs text-muted-foreground mt-0.5">{label}</p>
-            </div>
-          ))}
-        </div>
+        {/* One panel divided by hairlines. Four independently tinted boxes in
+            four different hues carried no information the labels did not. */}
+        <CellGrid cols={{ base: 2, lg: 4 }}>
+          <Stat
+            label={capped ? `Listed (newest ${SELLER_QUOTE_HISTORY_LIMIT})` : "Total submitted"}
+            value={rfqs.length}
+            rank="section"
+            icon={FileText}
+            chip="neutral"
+          />
+          <Stat label="Accepted" value={accepted.length} icon={CheckCircle} chip={accepted.length > 0 ? "success" : "neutral"} />
+          <Stat
+            label="Win rate"
+            value={responded.length > 0 ? winRate : "—"}
+            unit={responded.length > 0 ? "%" : undefined}
+            icon={TrendingUp}
+            chip="neutral"
+            dateline={responded.length > 0 ? `Accepted out of the ${responded.length} that received a decision` : undefined}
+            // No decision has come back on anything listed, so there is nothing
+            // to take a ratio of — say that rather than print a confident 0%.
+            deltaWithheld={responded.length === 0 ? "No listed quote has received a decision yet" : undefined}
+          />
+          <Stat
+            label={acceptedTotals.length > 1 ? "Accepted value by currency" : "Accepted value"}
+            value={acceptedValueLabel}
+            icon={TrendingUp}
+            chip="neutral"
+            dateline={acceptedTotals.length > 1 ? "Each currency as recorded · no conversion applied" : undefined}
+          />
+        </CellGrid>
 
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          {rfqs.length === 0 ? (
-            <div className="p-10 text-center">
-              <FileText className="h-10 w-10 mx-auto text-muted-foreground/30 mb-3" />
-              <p className="font-semibold">No quotes yet</p>
-              <p className="text-sm text-muted-foreground mt-1">RFQs routed to you appear in your inbox — quotes you submit show here.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              {capped && (
-                <p className="px-4 py-2 text-xs text-muted-foreground bg-secondary/40 border-b border-border">
-                  Showing the {SELLER_QUOTE_HISTORY_LIMIT} most recently updated quotes; older quotes are not listed here yet.
-                </p>
-              )}
-              <table className="w-full text-sm">
-                <thead className="bg-secondary/50 border-b border-border">
-                  <tr>
-                    {["RFQ #", "Buyer", "Items", "Quoted total", "Required by", "Status"].map((h) => (
-                      <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {rfqs.map((r) => {
-                    const st = STATUS[r.status] ?? STATUS.SUBMITTED!;
-                    return (
-                      <tr key={r.id} className="hover:bg-secondary/40 transition-colors">
-                        <td className="px-4 py-3 font-mono text-xs font-semibold text-primary whitespace-nowrap">{r.rfqNumber}</td>
-                        <td className="px-4 py-3 font-medium max-w-[180px] truncate">{r.company?.nameEn ?? "Direct buyer"}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{r._count.items}</td>
-                        <td className="px-4 py-3 font-mono font-semibold">
-                          {r.totalQuoted
-                            ? isSupportedCurrency(r.currency)
-                              ? formatCurrency(Number(r.totalQuoted), r.currency)
-                              : `${r.currency} ${Number(r.totalQuoted).toFixed(2)}`
-                            : "—"}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{fmt(r.requiredBy)}</td>
-                        <td className="px-4 py-3"><span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold whitespace-nowrap ${st.cls}`}><st.icon className="h-3 w-3" />{st.label}</span></td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <LedgerTable
+          rows={rfqs}
+          getRowKey={(r) => r.id}
+          stickyHead
+          dateline={
+            capped
+              ? `The ${SELLER_QUOTE_HISTORY_LIMIT} most recently updated quotes; older quotes are not listed here yet.`
+              : undefined
+          }
+          columns={[
+            {
+              key: "rfqNumber",
+              label: "RFQ #",
+              width: "140px",
+              render: (r) => <span className="u-mono u-meta text-ink-2">{r.rfqNumber}</span>,
+            },
+            {
+              key: "buyer",
+              label: "Buyer",
+              render: (r) => <span className="block max-w-[220px] truncate">{r.company?.nameEn ?? "Direct buyer"}</span>,
+            },
+            { key: "items", label: "Items", numeric: true, render: (r) => r._count.items },
+            {
+              key: "total",
+              label: "Quoted total",
+              numeric: true,
+              // Each quote in the currency it was written in. A supported
+              // currency formats; anything else prints its raw code so a
+              // reader is never shown a figure under the wrong symbol.
+              render: (r) =>
+                r.totalQuoted
+                  ? isSupportedCurrency(r.currency)
+                    ? formatCurrency(Number(r.totalQuoted), r.currency)
+                    : `${r.currency} ${Number(r.totalQuoted).toFixed(2)}`
+                  : "—",
+            },
+            {
+              key: "requiredBy",
+              label: "Required by",
+              hideOnMobile: true,
+              render: (r) => <span className="u-meta whitespace-nowrap text-ink-2">{fmt(r.requiredBy)}</span>,
+            },
+            {
+              key: "status",
+              label: "Status",
+              align: "end",
+              render: (r) => {
+                const st = STATUS[r.status] ?? STATUS.SUBMITTED!;
+                return (
+                  <StatusPill tone={st.tone} className="whitespace-nowrap">
+                    <st.icon className="h-3 w-3" aria-hidden="true" />
+                    {st.label}
+                  </StatusPill>
+                );
+              },
+            },
+          ]}
+          empty={
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline="You have not submitted a quotation yet."
+              body="RFQs routed to you arrive in your inbox; every quote you send from there is listed here."
+              action={
+                <Button variant="secondary" size="sm" asChild>
+                  <Link href="/messages">Open the RFQ inbox</Link>
+                </Button>
+              }
+            />
+          }
+        />
       </div>
     </SellerLayout>
   );

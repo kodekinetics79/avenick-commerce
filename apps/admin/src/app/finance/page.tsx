@@ -5,6 +5,10 @@ import { formatCurrency, type SupportedCurrency } from "@avenick/utils";
 import { TrendingUp, Clock, Receipt, CreditCard, FileSpreadsheet, ArrowRight, Percent, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+import {
+  PageHeader, CellGrid, Surface, Bar, Eyebrow, EmptyState, StatusPill, Button,
+} from "@avenick/ui";
+import { MoneyStat } from "./money-figures";
 
 export const metadata = { title: "Finance Overview" };
 export const dynamic = "force-dynamic";
@@ -24,7 +28,7 @@ const records = (rows: ReadonlyArray<{ count: number }>) =>
   rows.reduce((sum, row) => sum + row.count, 0);
 
 /**
- * Bar width as a percentage of the largest month *in the same currency*. Scales
+ * Bar value as a percentage of the largest month *in the same currency*. Scales
  * are per currency for the same reason the amounts are: nothing here can be
  * compared across them. Negative months (refunds exceeding sales) draw the
  * minimum stub rather than an inverted bar.
@@ -45,11 +49,13 @@ export default async function FinancePage() {
   const pendingPayoutCount = records(overview.pendingPayouts);
   const refundsPendingCount = records(overview.refundsPending);
 
+  // Four positions. GMV leads at section rank because it is the figure the page
+  // is about; the other three qualify it.
   const kpis = [
-    { label: "GMV (month)", rows: overview.gmvMonth, sub: `${inline(overview.gmvYear)} YTD`, icon: TrendingUp, color: "bg-green-50 border-green-200 text-green-600" },
-    { label: "Commission revenue (month)", rows: overview.commissionMonth, sub: `${inline(overview.commissionYear)} YTD`, icon: Percent, color: "bg-blue-50 border-blue-200 text-primary" },
-    { label: "Pending payouts", rows: overview.pendingPayouts, sub: `${pendingPayoutCount} payout${pendingPayoutCount === 1 ? "" : "s"} awaiting settlement`, icon: Clock, color: "bg-amber-50 border-amber-200 text-amber-600" },
-    { label: "Refunds in flight", rows: overview.refundsPending, sub: `${refundsPendingCount} open refund${refundsPendingCount === 1 ? "" : "s"}`, icon: RotateCcw, color: "bg-red-50 border-red-200 text-red-600" },
+    { label: "GMV (month)", rows: overview.gmvMonth, sub: `${inline(overview.gmvYear)} year to date`, icon: TrendingUp, lead: true },
+    { label: "Commission revenue (month)", rows: overview.commissionMonth, sub: `${inline(overview.commissionYear)} year to date`, icon: Percent, lead: false },
+    { label: "Pending payouts", rows: overview.pendingPayouts, sub: `${pendingPayoutCount} payout${pendingPayoutCount === 1 ? "" : "s"} awaiting settlement`, icon: Clock, lead: false },
+    { label: "Refunds in flight", rows: overview.refundsPending, sub: `${refundsPendingCount} open refund${refundsPendingCount === 1 ? "" : "s"}`, icon: RotateCcw, lead: false },
   ];
 
   // One chart series per currency, each with its own scale.
@@ -69,69 +75,72 @@ export default async function FinancePage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-start justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Finance Overview</h1>
-            <p className="text-muted-foreground text-sm">
-              Live revenue, commissions, payouts, and VAT from the order ledger. Every figure is reported in the
-              currency it was billed in — the platform holds no exchange rates, so amounts are never combined.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Link href="/payments" className="flex items-center gap-1.5 text-sm border border-border bg-white text-muted-foreground hover:bg-slate-50 px-3 py-2 rounded-xl font-medium transition-colors">
-              <CreditCard className="h-3.5 w-3.5" /> Payments
-            </Link>
-            <Link href="/settlements" className="flex items-center gap-1.5 text-sm bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl font-semibold transition-colors">
-              <Receipt className="h-3.5 w-3.5" /> Settlements
-            </Link>
-          </div>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          eyebrow="Finance"
+          title="Finance overview"
+          description="Live revenue, commissions, payouts and VAT from the order ledger."
+          dateline="Every figure in the currency it was billed in · the platform holds no exchange rates, so amounts are never combined"
+          actions={
+            <>
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/payments">
+                  <CreditCard className="h-3.5 w-3.5" aria-hidden="true" /> Payments
+                </Link>
+              </Button>
+              <Button variant="secondary" size="sm" asChild>
+                <Link href="/settlements">
+                  <Receipt className="h-3.5 w-3.5" aria-hidden="true" /> Settlements
+                </Link>
+              </Button>
+            </>
+          }
+        />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          {kpis.map((k) => {
-            const Icon = k.icon;
-            return (
-              <div key={k.label} className={`rounded-2xl border p-4 ${k.color.split(" ").slice(0, 2).join(" ")}`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">{k.label}</span>
-                  <Icon className={`h-4 w-4 ${k.color.split(" ")[2]}`} />
-                </div>
-                {k.rows.length === 0 ? (
-                  <p className="text-xl font-bold mt-1">—</p>
-                ) : (
-                  k.rows.map((row) => (
-                    <p key={row.currency} className="text-xl font-bold mt-1">{money(row.amount, row.currency)}</p>
-                  ))
-                )}
-                <p className="text-xs text-muted-foreground mt-0.5">{k.sub}</p>
-              </div>
-            );
-          })}
-        </div>
+        <CellGrid cols={{ base: 1, sm: 2, lg: 4 }} density="compact">
+          {kpis.map((k) => (
+            <MoneyStat
+              key={k.label}
+              label={k.label}
+              rank={k.lead ? "section" : "inline"}
+              lines={k.rows.map((row) => ({ currency: row.currency, formatted: money(row.amount, row.currency) }))}
+              note={k.sub}
+            />
+          ))}
+        </CellGrid>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* Monthly GMV bars, one block per currency */}
-          <div className="bg-white rounded-2xl border border-border p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold">Paid GMV by month ({new Date().getFullYear()})</h2>
-              <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
+          <Surface className="flex flex-col p-5">
+            <div className="mb-4 flex items-center justify-between gap-3 border-b-2 border-border-strong pb-2">
+              <h2 className="u-h3 text-ink-1">Paid GMV by month ({new Date().getFullYear()})</h2>
+              <FileSpreadsheet className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
             </div>
             {series.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">No paid orders yet this year.</p>
+              <EmptyState
+                eyebrow="Nothing recorded"
+                headline="No paid order has been placed this year."
+                body="A month appears here once an order in that month reaches paid."
+              />
             ) : (
               <div className="space-y-5">
                 {series.map((s) => (
                   <div key={s.currency}>
-                    <p className="text-xs font-semibold text-muted-foreground mb-2">{s.currency}</p>
+                    {/* One scale per currency — the bars in one block are only
+                        comparable with each other, never across blocks. */}
+                    <Eyebrow className="mb-2">{s.currency}</Eyebrow>
                     <div className="space-y-2">
-                      {s.rows.map((m) => (
+                      {s.rows.map((m, index) => (
                         <div key={`${s.currency}-${String(m.month)}`} className="flex items-center gap-3">
-                          <span className="text-xs text-muted-foreground w-8">{format(m.month, "MMM")}</span>
-                          <div className="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
-                            <div className="bg-primary h-full rounded-full" style={{ width: `${barWidth(m.gmv, s.max)}%` }} />
-                          </div>
-                          <span className="text-xs font-medium w-28 text-end">{money(m.gmv, s.currency)}</span>
+                          <span className="u-meta w-8 shrink-0 text-ink-3">{format(m.month, "MMM")}</span>
+                          <Bar
+                            value={barWidth(m.gmv, s.max)}
+                            max={100}
+                            index={index}
+                            label={`${format(m.month, "MMMM")} paid GMV, ${money(m.gmv, s.currency)}`}
+                            className="flex-1"
+                          />
+                          <span className="fig u-meta w-28 shrink-0 text-end text-ink-1">{money(m.gmv, s.currency)}</span>
                         </div>
                       ))}
                     </div>
@@ -139,58 +148,73 @@ export default async function FinancePage() {
                 ))}
               </div>
             )}
-            <p className="text-xs text-muted-foreground mt-4">
-              VAT collected YTD: <span className="font-semibold text-foreground">{inline(overview.vatCollectedYear)}</span>
-              {" · "}
-              <Link href="/vat" className="text-primary hover:underline">VAT summary →</Link>
-            </p>
-          </div>
+            <div className="mt-4 flex flex-wrap items-baseline gap-x-2 border-t border-hairline pt-3">
+              <Eyebrow>VAT collected, year to date</Eyebrow>
+              <span className="fig u-ui text-ink-1">{inline(overview.vatCollectedYear)}</span>
+              <Button variant="link" size="xs" asChild className="ms-auto">
+                <Link href="/vat">
+                  VAT summary <ArrowRight className="h-3 w-3 rtl:rotate-180" aria-hidden="true" />
+                </Link>
+              </Button>
+            </div>
+          </Surface>
 
           {/* Recent commissions */}
-          <div className="bg-white rounded-2xl border border-border p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-semibold">Recent commissions</h2>
-              <span className="text-xs text-muted-foreground">
-                {unsettledCommissionCount} unsettled · {inline(overview.unsettledCommissions)}
+          <Surface className="flex flex-col p-5">
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-border-strong pb-2">
+              <h2 className="u-h3 text-ink-1">Recent commissions</h2>
+              <span className="u-meta text-ink-2">
+                <span className="fig">{unsettledCommissionCount}</span> unsettled · {inline(overview.unsettledCommissions)}
               </span>
             </div>
             {commissions.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">No commissions recorded yet.</p>
+              <EmptyState
+                eyebrow="Nothing recorded"
+                headline="No commission has been accrued yet."
+                body="Commission accrues when an order containing a seller's items is paid."
+              />
             ) : (
-              <ul className="divide-y divide-border">
+              <ul>
                 {commissions.map((c) => (
-                  <li key={c.id} className="py-2.5 flex items-center justify-between gap-3">
+                  <li key={c.id} className="flex items-center justify-between gap-3 border-b border-hairline py-2.5 last:border-b-0">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{c.seller.businessNameEn}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {c.order.orderNumber} · {Number(c.rate)}% of {money(c.order.total, c.order.currency)}
+                      <p className="u-ui truncate font-medium text-ink-1">{c.seller.businessNameEn}</p>
+                      <p className="u-meta text-ink-3">
+                        <span className="u-mono">{c.order.orderNumber}</span> · {Number(c.rate)}% of {money(c.order.total, c.order.currency)}
                       </p>
                     </div>
-                    <div className="text-end shrink-0">
-                      <p className="text-sm font-semibold">{money(c.amount, c.currency)}</p>
-                      <p className={`text-[11px] ${c.settledAt ? "text-green-600" : "text-amber-600"}`}>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <span className="fig u-ui font-medium text-ink-1">{money(c.amount, c.currency)}</span>
+                      <StatusPill tone={c.settledAt ? "success" : "warning"}>
                         {c.settledAt ? `Settled ${format(c.settledAt, "MMM d")}` : "Unsettled"}
-                      </p>
+                      </StatusPill>
                     </div>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
+          </Surface>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* The three places this page hands off to. Raised, because each one is
+            a thing you press. */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[
             { href: "/payments", label: "Payments ledger", desc: "Every gateway transaction with status and reference" },
-            { href: "/settlements", label: "Supplier settlements", desc: `${pendingPayoutCount} payouts awaiting processing` },
+            { href: "/settlements", label: "Supplier settlements", desc: `${pendingPayoutCount} payout${pendingPayoutCount === 1 ? "" : "s"} awaiting processing` },
             { href: "/vat", label: "VAT summary", desc: "Output VAT by month and currency" },
           ].map((l) => (
-            <Link key={l.href} href={l.href} className="group bg-white rounded-2xl border border-border p-4 hover:border-primary/40 transition-colors">
-              <div className="flex items-center justify-between">
-                <p className="font-semibold text-sm">{l.label}</p>
-                <ArrowRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">{l.desc}</p>
+            <Link key={l.href} href={l.href} className="group u-focus block rounded-lg">
+              <Surface interactive className="h-full p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="u-ui font-medium text-ink-1">{l.label}</p>
+                  <ArrowRight
+                    className="h-4 w-4 shrink-0 text-ink-3 transition-transform duration-hover ease-standard group-hover:translate-x-[calc(2px*var(--dir))] rtl:rotate-180"
+                    aria-hidden="true"
+                  />
+                </div>
+                <p className="u-meta mt-1 text-ink-2">{l.desc}</p>
+              </Surface>
             </Link>
           ))}
         </div>

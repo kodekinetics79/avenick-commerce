@@ -1,7 +1,11 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { getCustomerSegments } from "@avenick/database";
-import { PieChart, Users, Crown, Moon, Zap } from "lucide-react";
+import { PieChart, Users, Crown } from "lucide-react";
+import {
+  PageHeader, CellGrid, Surface, Bar, EmptyState, Eyebrow, Dateline,
+} from "@avenick/ui";
+import { CountStat } from "@/app/finance/money-figures";
 
 export const metadata = { title: "Customer Segments" };
 export const dynamic = "force-dynamic";
@@ -25,92 +29,89 @@ export default async function SegmentsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">Customer Segments</h1>
-          <p className="text-muted-foreground text-sm">
-            Segments computed live from user roles and purchase behaviour — no manual lists to maintain.
-          </p>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          eyebrow="CRM"
+          title="Customer segments"
+          description="Segments computed live from user roles and purchase behaviour — no manual lists to maintain."
+          dateline="Spend is the sum of order totals as recorded, each in its own currency · no conversion applied, so it carries no currency symbol"
+        />
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Buyer accounts", value: totalUsers, icon: Users, color: "bg-white border-border text-muted-foreground" },
-            { label: "Active (30d)", value: s.activeLast30d, icon: Zap, color: "bg-green-50 border-green-200 text-green-700" },
-            { label: "High value (top 20%)", value: s.highValue.length, icon: Crown, color: "bg-amber-50 border-amber-200 text-amber-700" },
-            { label: "Dormant (60d+)", value: s.dormant60d, icon: Moon, color: "bg-slate-50 border-border text-muted-foreground" },
-          ].map((k) => {
-            const Icon = k.icon;
-            return (
-              <div key={k.label} className={`rounded-2xl border p-4 ${k.color.split(" ").slice(0, 2).join(" ")}`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">{k.label}</span>
-                  <Icon className={`h-4 w-4 ${k.color.split(" ")[2]}`} />
-                </div>
-                <p className="text-2xl font-bold mt-1">{k.value}</p>
-              </div>
-            );
-          })}
-        </div>
+        <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
+          <CountStat label="Buyer accounts" value={totalUsers} rank="section" />
+          <CountStat label="Active (30d)" value={s.activeLast30d} />
+          <CountStat label="High value (top 20%)" value={s.highValue.length} />
+          <CountStat label="Dormant (60d+)" value={s.dormant60d} />
+        </CellGrid>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* By role */}
-          <div className="bg-white rounded-2xl border border-border p-5">
-            <h2 className="font-semibold mb-4 inline-flex items-center gap-2">
-              <PieChart className="h-4 w-4 text-primary" /> Buyer accounts by role
+          <Surface className="p-5">
+            <h2 className="u-h3 inline-flex items-center gap-2 border-b-2 border-border-strong pb-2 text-ink-1">
+              <PieChart className="h-4 w-4 text-ink-3" aria-hidden="true" /> Buyer accounts by role
             </h2>
             {s.byRole.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">No buyer accounts yet.</p>
+              <EmptyState
+                eyebrow="Nothing recorded"
+                headline="No buyer account exists yet."
+                body="A role appears here as soon as one account carries it."
+                icon={<Users className="h-3.5 w-3.5" aria-hidden="true" />}
+              />
             ) : (
-              <ul className="space-y-3">
-                {s.byRole.map((r) => (
+              <ul className="mt-4 space-y-3">
+                {s.byRole.map((r, index) => (
                   <li key={r.role} className="flex items-center gap-3">
-                    <span className="text-sm w-40 shrink-0">{ROLE_LABEL[r.role] ?? r.role}</span>
-                    <div className="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
-                      <div
-                        className="bg-primary h-full rounded-full"
-                        style={{ width: `${Math.max(3, (r.count / Math.max(1, totalUsers)) * 100)}%` }}
-                      />
-                    </div>
-                    <span className="text-sm font-semibold w-10 text-end">{r.count}</span>
+                    <span className="u-ui w-40 shrink-0 text-ink-1">{ROLE_LABEL[r.role] ?? r.role}</span>
+                    <Bar
+                      value={Math.max(3, (r.count / Math.max(1, totalUsers)) * 100)}
+                      max={100}
+                      index={index}
+                      label={`${ROLE_LABEL[r.role] ?? r.role}: ${r.count} of ${totalUsers} accounts`}
+                      className="flex-1"
+                    />
+                    <span className="fig u-ui w-10 shrink-0 text-end font-medium text-ink-1">{r.count}</span>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
+          </Surface>
 
           {/* High value buyers */}
-          <div className="bg-white rounded-2xl border border-border overflow-hidden">
-            <div className="px-5 py-4 border-b border-border">
-              <h2 className="font-semibold inline-flex items-center gap-2">
-                <Crown className="h-4 w-4 text-amber-500" /> High-value buyers
+          <Surface className="overflow-hidden">
+            <div className="border-b-2 border-border-strong px-5 py-3">
+              <h2 className="u-h3 inline-flex items-center gap-2 text-ink-1">
+                {/* The one brass mark on this page — a tier marker, which is one
+                    of its three permitted uses. */}
+                <Crown className="h-4 w-4 text-brass-ink" aria-hidden="true" /> High-value buyers
               </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Top 20% by lifetime spend ({s.totalWithPurchases} buyers with purchases)
-              </p>
+              <Dateline className="mt-0.5">
+                Top 20% by lifetime spend · {s.totalWithPurchases} buyer{s.totalWithPurchases === 1 ? "" : "s"} with purchases
+              </Dateline>
             </div>
             {s.highValue.length === 0 ? (
-              <div className="px-4 py-12 text-center">
-                <Crown className="h-8 w-8 mx-auto text-muted-foreground/40 mb-2" />
-                <p className="text-sm text-muted-foreground">No purchases yet — high-value buyers appear after first orders.</p>
-              </div>
+              <EmptyState
+                eyebrow="Nothing recorded"
+                headline="No purchase has been made yet."
+                body="A high-value buyer appears here once orders exist to rank."
+                icon={<Crown className="h-3.5 w-3.5" aria-hidden="true" />}
+              />
             ) : (
-              <ul className="divide-y divide-border">
+              <ul>
                 {s.highValue.map((b) => (
-                  <li key={b.id} className="px-5 py-3 flex items-center justify-between gap-3">
+                  <li key={b.id} className="flex items-center justify-between gap-3 border-b border-hairline px-5 py-3 last:border-b-0">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{b.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{b.email}</p>
+                      <p className="u-ui truncate font-medium text-ink-1">{b.name}</p>
+                      <p className="u-meta truncate text-ink-3">{b.email}</p>
                     </div>
-                    <div className="text-end shrink-0">
-                      <p className="text-sm font-semibold">{amount(b.spent)}</p>
-                      <p className="text-[11px] text-muted-foreground">{b.orders} order{b.orders === 1 ? "" : "s"}</p>
+                    <div className="shrink-0 text-end">
+                      <p className="fig u-ui font-medium text-ink-1">{amount(b.spent)}</p>
+                      <Eyebrow>{b.orders} order{b.orders === 1 ? "" : "s"}</Eyebrow>
                     </div>
                   </li>
                 ))}
               </ul>
             )}
-          </div>
+          </Surface>
         </div>
       </div>
     </AdminLayout>

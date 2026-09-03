@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { MainLayout } from "@/components/layout/main-layout";
 import { passwordResetTtlLabel } from "@/lib/password-reset";
+import { AuthShell } from "../auth-shell";
 import { ForgotForm } from "./forgot-form";
 
 /**
@@ -11,26 +11,23 @@ import { ForgotForm } from "./forgot-form";
  */
 export default function ForgotPasswordPage() {
   return (
-    <MainLayout>
-      <div className="relative min-h-[78vh] flex items-center justify-center overflow-hidden px-4 py-16">
-        <div className="absolute inset-0 bg-grid mask-fade-b opacity-50" />
-        <div className="absolute -top-10 start-1/3 h-80 w-80 rounded-full bg-primary/15 blur-[120px]" />
-        <div className="absolute bottom-0 end-1/3 h-72 w-72 rounded-full bg-accent/15 blur-[120px]" />
-
-        <div className="relative w-full max-w-sm animate-fade-up">
-          <div className="text-center mb-8">
-            <span className="inline-grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-primary-500 to-accent-600 text-white font-black text-lg shadow-glow mb-4">A</span>
-            <h1 className="text-2xl font-extrabold tracking-tight">Forgot your password?</h1>
-            <p className="text-muted-foreground text-sm mt-1">Enter your email and we will send you a link to choose a new one.</p>
-          </div>
-          <div className="glass-strong rounded-2xl p-6 shadow-elevated">
-            <ForgotForm expiresIn={passwordResetTtlLabel()} />
-            <div className="mt-4 text-center text-sm text-muted-foreground">
-              <p>Remembered it? <Link href="/login" className="text-primary font-medium hover:underline">Sign in</Link></p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </MainLayout>
+    <AuthShell
+      eyebrow="Password reset"
+      title="Forgot your password?"
+      subtitle="Enter your email and we will send you a link to choose a new one."
+      // The TTL is read from the constant the verifier enforces, so this line is
+      // a fact about the system rather than a reassuring guess.
+      note={`A reset link is valid for ${passwordResetTtlLabel()} from the moment it is requested.`}
+      footer={
+        <p className="u-meta text-ink-3">
+          Remembered it?{" "}
+          <Link href="/login" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
+            Sign in
+          </Link>
+        </p>
+      }
+    >
+      <ForgotForm expiresIn={passwordResetTtlLabel()} />
+    </AuthShell>
   );
 }

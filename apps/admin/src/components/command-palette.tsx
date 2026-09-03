@@ -5,11 +5,19 @@ import { useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import { Search, CornerDownLeft } from "lucide-react";
 import { cn } from "@avenick/utils";
+import { EmptyState, Eyebrow, FieldWell, StatusPill, Surface } from "@avenick/ui";
+
+/** Mirrors the availability states in ops/release/frontend-availability.json. */
+export type PaletteAvailability = "simulated" | "unavailable" | "read_only";
 
 export interface PaletteItem {
   href: string;
   label: string;
   icon?: LucideIcon;
+  /** Absent for an operational screen. */
+  availability?: PaletteAvailability;
+  /** The registry's own sentence, shown on the highlighted row. */
+  availabilityNote?: string;
 }
 
 export interface PaletteGroup {
@@ -28,6 +36,12 @@ interface Scored {
   item: PaletteItem;
   score: number;
 }
+
+const AVAILABILITY_LABEL: Record<PaletteAvailability, string> = {
+  simulated: "Example data",
+  unavailable: "Not configured",
+  read_only: "Read only",
+};
 
 /**
  * Rank a navigation entry against the query. Substring hits on the label win,
@@ -76,12 +90,17 @@ const FOCUSABLE = 'input, button:not([disabled]), [href], [tabindex]:not([tabind
  * Keyboard jump-to-page over the sidebar's routes. Deliberately not a data
  * search: it never queries anything, so it can never show a stale or
  * partial record and it needs no server round-trip.
+ *
+ * Each row carries the screen's availability contract, because knowing that
+ * /quotes is a static example before you navigate to it is the difference
+ * between a console and a demo. The state comes from the same registry CI
+ * validates every href against.
  */
 export function CommandPalette({ groups, open, onOpenChange }: Props) {
   const router = useRouter();
   const [query, setQuery] = React.useState("");
   const [active, setActive] = React.useState(0);
-  const dialogRef = React.useRef<HTMLDivElement>(null);
+  const dialogRef = React.useRef<HTMLElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const listRef = React.useRef<HTMLUListElement>(null);
   const restoreRef = React.useRef<HTMLElement | null>(null);
@@ -135,7 +154,7 @@ export function CommandPalette({ groups, open, onOpenChange }: Props) {
     router.push(item.href);
   }
 
-  function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+  function onKeyDown(event: React.KeyboardEvent<HTMLElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
       close();
@@ -178,24 +197,37 @@ export function CommandPalette({ groups, open, onOpenChange }: Props) {
   if (!open) return null;
 
   let lastGroup: string | null = null;
+  const activeItem = results[active]?.item;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[12vh] px-4">
+    <div className="fixed inset-0 z-layer flex items-start justify-center px-4 pt-[12vh]">
       {/* The overlay is the element that actually receives a click outside the dialog. */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" onMouseDown={close} />
-      <div
+      <div className="u-layer-scrim" data-state="open" aria-hidden="true" onMouseDown={close} />
+      <Surface
         ref={dialogRef}
+        rung={5}
+        glass
         role="dialog"
         aria-modal="true"
         aria-label="Jump to a page"
         onKeyDown={onKeyDown}
-        className="relative w-full max-w-lg rounded-2xl border border-border bg-popover text-popover-foreground shadow-elevated overflow-hidden"
+        // z-[51] matches what .u-layer-panel carries in the system stylesheet,
+        // and it is load-bearing rather than cosmetic: .u-layer-scrim is
+        // z-index 50, so a panel left at z-index auto paints UNDERNEATH its own
+        // scrim — dimmed, blurred, and with every click on a result swallowed by
+        // the scrim's dismiss handler instead of navigating.
+        className="animate-fade-up relative z-[51] w-full max-w-lg overflow-hidden"
       >
-        <div className="flex items-center gap-2 px-4 h-12 border-b border-border">
-          <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+        {/* The query row is recessed: it is an input, and in this system that is
+            what rung 1 means. */}
+        <FieldWell className="flex h-12 items-center gap-2 rounded-none border-0 border-b border-border px-4">
+          <Search className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
           <input
             ref={inputRef}
             role="combobox"
+            // A combobox needs a real accessible name. A placeholder is not one:
+            // it disappears the moment a character is typed.
+            aria-label="Jump to a page"
             aria-expanded="true"
             aria-controls={listId}
             aria-autocomplete="list"
@@ -203,50 +235,95 @@ export function CommandPalette({ groups, open, onOpenChange }: Props) {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Jump to a page…"
-            className="flex-1 min-w-0 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            // u-focus, not a bare outline-none: this is the one text field in
+            // the palette and it is inside the Tab cycle, so without a ring a
+            // keyboard user shift-tabbing back into it has no indication of
+            // where focus went. The ring's inner stop resolves to the well's own
+            // surface, so it reads as the field lighting up rather than as a
+            // floating outline.
+            className="u-focus u-ui min-w-0 flex-1 rounded-nested bg-transparent text-ink-1 outline-none placeholder:text-ink-3"
           />
-          <kbd className="text-[10px] text-muted-foreground border border-border rounded px-1.5 py-0.5">Esc</kbd>
-        </div>
-        <ul ref={listRef} id={listId} role="listbox" aria-label="Pages" className="max-h-[50vh] overflow-y-auto py-1">
+        </FieldWell>
+
+        {/* The result count is announced without being drawn: a combobox that
+            silently empties is the most common screen-reader failure here. */}
+        <p className="sr-only" role="status" aria-live="polite">
+          {results.length} {results.length === 1 ? "page matches" : "pages match"}
+        </p>
+
+        <ul ref={listRef} id={listId} role="listbox" aria-label="Pages" className="scrollbar-thin max-h-[50vh] overflow-y-auto py-1">
           {results.length === 0 && (
-            <li className="px-4 py-6 text-center text-sm text-muted-foreground" role="presentation">
-              No page matches “{query.trim()}”
+            // The system's own empty state rather than a local imitation of it,
+            // so the palette's blank reads as the same designed object as an
+            // empty table. Padding is trimmed because this one sits inside a
+            // 50vh scroller, not on a page.
+            <li role="presentation">
+              <EmptyState
+                className="px-6 py-10"
+                eyebrow="No match"
+                headline={`No page is named “${query.trim()}”.`}
+                body="This searches the console's own pages, not your data."
+              />
             </li>
           )}
           {results.map((result, index) => {
             const heading = result.group !== lastGroup && !query.trim() ? result.group : null;
             lastGroup = result.group;
             const Icon = result.item.icon;
+            const availability = result.item.availability;
+            const isActive = index === active;
             return (
               <React.Fragment key={`${result.group}:${result.item.href}`}>
                 {heading && (
-                  <li role="presentation" className="px-4 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/70">
-                    {heading}
+                  <li role="presentation" className="px-4 pb-1 pt-3">
+                    <Eyebrow>{heading}</Eyebrow>
                   </li>
                 )}
                 <li
                   id={`${listId}-${index}`}
                   role="option"
-                  aria-selected={index === active}
+                  aria-selected={isActive}
                   data-index={index}
                   onMouseEnter={() => setActive(index)}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => go(result.item)}
                   className={cn(
-                    "mx-1 flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm cursor-pointer",
-                    index === active ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-secondary",
+                    "u-ui mx-1 flex cursor-pointer items-center gap-2.5 rounded-nested px-3 py-2 transition-colors duration-press ease-standard",
+                    // A soft wash and a ring, never a primary fill: this console
+                    // spends zero primary fills per view — colour here is state.
+                    isActive ? "bg-primary-soft text-ink-1 ring-1 ring-primary/30" : "text-ink-2 hover:bg-ink-1/[0.04]",
                   )}
                 >
-                  {Icon && <Icon className="h-4 w-4 shrink-0" />}
+                  {Icon && <Icon className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />}
                   <span className="flex-1 truncate">{result.item.label}</span>
-                  {query.trim() && <span className={cn("text-[11px] truncate", index === active ? "text-primary-foreground/80" : "text-muted-foreground")}>{result.group}</span>}
-                  {index === active && <CornerDownLeft className="h-3.5 w-3.5 shrink-0 opacity-70" />}
+                  {availability && (
+                    <StatusPill tone={availability === "unavailable" ? "danger" : availability === "simulated" ? "warning" : "neutral"}>
+                      {AVAILABILITY_LABEL[availability]}
+                    </StatusPill>
+                  )}
+                  {query.trim() && <span className="u-meta shrink-0 truncate text-ink-3">{result.group}</span>}
+                  {isActive && <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-ink-3" aria-hidden="true" />}
                 </li>
               </React.Fragment>
             );
           })}
         </ul>
-      </div>
+
+        {/* The footer earns its line twice: it teaches the three keys the palette
+            answers to, and it carries the highlighted screen's availability
+            sentence — so the caveat arrives before the navigation, not after. */}
+        <div className="flex items-center gap-3 border-t border-hairline px-4 py-2">
+          <p className="u-meta min-w-0 flex-1 truncate text-ink-3">
+            {activeItem?.availabilityNote ?? "Navigates the console. It does not search your data."}
+          </p>
+          <span className="u-meta hidden shrink-0 items-center gap-1 text-ink-3 sm:flex" aria-hidden="true">
+            <kbd className="rounded-nested border border-border px-1">↑</kbd>
+            <kbd className="rounded-nested border border-border px-1">↓</kbd>
+            <kbd className="rounded-nested border border-border px-1.5">Enter</kbd>
+            <kbd className="rounded-nested border border-border px-1.5">Esc</kbd>
+          </span>
+        </div>
+      </Surface>
     </div>
   );
 }

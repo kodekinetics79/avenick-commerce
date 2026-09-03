@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { Tag, ArrowRight } from "lucide-react";
+import { PageHeader, Surface, EmptyState, Button } from "@avenick/ui";
 
 export const metadata = { title: "Deals" };
 
@@ -18,31 +19,28 @@ export default async function DealsPage() {
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted">
-            <Tag className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">Deals</h1>
-            <p className="text-sm text-muted-foreground">Promotional pricing and campaigns</p>
-          </div>
-        </div>
+      <div className="space-y-block">
+        <PageHeader
+          eyebrow="Commerce"
+          title="Deals"
+          description="Promotional pricing and campaigns."
+        />
 
-        <div className="rounded-2xl border border-border bg-card p-10 text-center">
-          <Tag className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
-          <p className="font-semibold">Promotions are managed in Campaigns</p>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
-            Governed promotions, coupons and their redemption rules live in the campaigns
-            workspace, backed by the promotions engine. This page held no data of its own.
-          </p>
-          <Link
-            href="/campaigns"
-            className="mt-5 inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
-          >
-            Go to Campaigns <ArrowRight className="h-4 w-4" />
-          </Link>
-        </div>
+        <Surface>
+          <EmptyState
+            eyebrow="Moved"
+            headline="Promotions are managed in Campaigns."
+            body="Governed promotions, coupons and their redemption rules live in the campaigns workspace, backed by the promotions engine. This page holds no data of its own."
+            icon={<Tag className="h-3.5 w-3.5" aria-hidden="true" />}
+            action={
+              <Button variant="secondary" size="sm" asChild>
+                <Link href="/campaigns">
+                  Go to Campaigns <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                </Link>
+              </Button>
+            }
+          />
+        </Surface>
       </div>
     </AdminLayout>
   );

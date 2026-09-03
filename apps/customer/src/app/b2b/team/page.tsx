@@ -1,19 +1,32 @@
 import { B2BShell } from "@/components/b2b/b2b-shell";
-import { formatCurrency } from "@avenick/utils";
+import { Money } from "@/components/b2b/money";
+import { SelectField, TextField } from "@/components/b2b/controls";
+import {
+  Button,
+  CellGrid,
+  Dateline,
+  EmptyState,
+  Eyebrow,
+  Field,
+  LedgerTable,
+  StatusPill,
+  Surface,
+  type PillTone,
+} from "@avenick/ui";
 import { db } from "@avenick/database";
 import { getB2BContext } from "@/lib/b2b";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
 import { platformName } from "@avenick/utils/portal-config";
 import { inviteMember, setMemberActive } from "./actions";
 import { ValidatedForm } from "@/components/b2b/validated-form";
-import { Shield, ShoppingBag, CheckSquare, UserPlus, Building2 } from "lucide-react";
+import { Shield, ShoppingBag, CheckSquare, UserPlus } from "lucide-react";
 
 export const metadata = { title: `Team & Roles — ${platformName()} for Business` };
 
-const ROLES: Record<string, { label: string; cls: string; icon: typeof Shield; desc: string }> = {
-  COMPANY_ADMIN: { label: "Admin", cls: "bg-accent/15 text-accent", icon: Shield, desc: "Full access — manage team, billing, approvals & ordering." },
-  COMPANY_APPROVER: { label: "Approver", cls: "bg-amber-500/15 text-amber-600 dark:text-amber-400", icon: CheckSquare, desc: "Reviews and approves orders above buyers' spend limits." },
-  COMPANY_BUYER: { label: "Buyer", cls: "bg-primary/15 text-primary", icon: ShoppingBag, desc: "Creates RFQs and orders within an assigned spend limit." },
+const ROLES: Record<string, { label: string; tone: PillTone; icon: typeof Shield; desc: string }> = {
+  COMPANY_ADMIN: { label: "Admin", tone: "accent", icon: Shield, desc: "Full access — manage team, billing, approvals & ordering." },
+  COMPANY_APPROVER: { label: "Approver", tone: "warning", icon: CheckSquare, desc: "Reviews and approves orders above buyers' spend limits." },
+  COMPANY_BUYER: { label: "Buyer", tone: "primary", icon: ShoppingBag, desc: "Creates RFQs and orders within an assigned spend limit." },
 };
 
 export default async function B2BTeamPage() {
@@ -22,11 +35,13 @@ export default async function B2BTeamPage() {
   if (!ctx) {
     return (
       <B2BShell title="Team & Roles">
-        <div className="rounded-2xl border border-border bg-card p-10 text-center">
-          <Building2 className="h-10 w-10 mx-auto text-muted-foreground/40 mb-3" />
-          <p className="font-semibold">No company account</p>
-          <p className="text-sm text-muted-foreground mt-1">Sign in with a company account to manage your team.</p>
-        </div>
+        <Surface rung={2}>
+          <EmptyState
+            eyebrow="No company context"
+            headline="This session is not attached to a company account."
+            body="Team membership and spend limits belong to a company. Sign in with a company account to manage them."
+          />
+        </Surface>
       </B2BShell>
     );
   }
@@ -43,97 +58,163 @@ export default async function B2BTeamPage() {
 
   return (
     <B2BShell
+      eyebrow="Administration"
       title="Team & Roles"
       description={`Manage who can buy on behalf of ${ctx.company.nameEn}.`}
     >
-      {/* Role legend */}
-      <div className="grid sm:grid-cols-3 gap-3 mb-6">
-        {Object.values(ROLES).map((r) => (
-          <div key={r.label} className="rounded-2xl border border-border bg-card p-4">
-            <span className={`inline-flex items-center gap-1.5 text-xs font-bold px-2 py-0.5 rounded-full ${r.cls}`}>
-              <r.icon className="h-3.5 w-3.5" /> {r.label}
-            </span>
-            <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{r.desc}</p>
-          </div>
-        ))}
-      </div>
+      <div className="space-y-block">
+        {/* Role legend. One panel divided by hairlines: three roles, three
+            tones, and no fourth colour invented to fill a slot. */}
+        <CellGrid cols={{ base: 1, sm: 3 }}>
+          {Object.values(ROLES).map((r) => (
+            <div key={r.label}>
+              <StatusPill tone={r.tone}>
+                <r.icon className="h-3.5 w-3.5" aria-hidden="true" /> {r.label}
+              </StatusPill>
+              <p className="u-meta mt-2 text-ink-2">{r.desc}</p>
+            </div>
+          ))}
+        </CellGrid>
 
-      {/* Invite form (admins only) */}
-      {isAdmin && (
-        <ValidatedForm action={inviteMember} className="rounded-2xl border border-border bg-card p-5 mb-6">
-          <div className="flex items-center gap-2 text-sm font-semibold mb-4"><UserPlus className="h-4 w-4 text-primary" /> Invite a member</div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-2">
-            <input name="name" required placeholder="Full name" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            <input name="email" type="email" required placeholder="Email" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            <select name="role" aria-label="Role" className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border focus:outline-none focus:ring-2 focus:ring-ring">
-              <option value="COMPANY_BUYER">Buyer</option>
-              <option value="COMPANY_APPROVER">Approver</option>
-              <option value="COMPANY_ADMIN">Admin</option>
-            </select>
-            <input name="spendLimit" type="number" min="0" placeholder={`Spend limit (${currency})`} aria-label={`Spend limit in ${currency}`} className="h-10 px-3 text-sm rounded-xl bg-secondary/60 border border-border placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring" />
-            <button type="submit" className="h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 hover:shadow-glow-sm transition-all active:scale-[0.98]">Send invite</button>
-          </div>
-          <p className="text-xs text-muted-foreground mt-2">Department is optional — invited members join with a pending status until they set a password.</p>
-        </ValidatedForm>
-      )}
+        {/* Invite form (admins only). Recessed, because a form is the canonical
+            recessed thing, with the one commit action raised on top of it.
+            Every control now has a real associated label; before this they had
+            placeholders only, which vanish the moment a value is typed. */}
+        {isAdmin && (
+          <ValidatedForm action={inviteMember} rung={1} className="p-5">
+            <Eyebrow className="mb-4 flex items-center gap-1.5">
+              <UserPlus className="h-3.5 w-3.5" aria-hidden="true" /> Invite a member
+            </Eyebrow>
+            <div className="grid items-start gap-x-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Field label="Full name" htmlFor="invite-name" required>
+                <TextField id="invite-name" name="name" required autoComplete="name" />
+              </Field>
+              <Field label="Work email" htmlFor="invite-email" required>
+                <TextField id="invite-email" name="email" type="email" required autoComplete="email" />
+              </Field>
+              <Field label="Role" htmlFor="invite-role">
+                <SelectField id="invite-role" name="role" defaultValue="COMPANY_BUYER">
+                  <option value="COMPANY_BUYER">Buyer</option>
+                  <option value="COMPANY_APPROVER">Approver</option>
+                  <option value="COMPANY_ADMIN">Admin</option>
+                </SelectField>
+              </Field>
+              <Field label={`Spend limit (${currency})`} htmlFor="invite-spend-limit" hint="Blank means unlimited.">
+                <TextField id="invite-spend-limit" name="spendLimit" type="number" min="0" />
+              </Field>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Dateline>
+                Department is optional · an invited member joins with a pending status until they set a password
+              </Dateline>
+              <Button type="submit" variant="primary">Send invite</Button>
+            </div>
+          </ValidatedForm>
+        )}
 
-      {/* Members table */}
-      <div className="rounded-2xl border border-border bg-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-secondary/50 border-b border-border">
-              <tr>
-                {["Member", "Role", "Department", "Spend limit", "Status", ""].map((h) => (
-                  <th key={h} className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {members.map((m) => {
-                const role = ROLES[m.role] ?? ROLES.COMPANY_BUYER!;
-                const active = m.isActive && m.user.status !== "SUSPENDED";
+        <LedgerTable
+          title="Members"
+          dateline={`Spend limits are recorded without a currency and read as ${currency}, your company's jurisdiction currency`}
+          rows={members}
+          getRowKey={(m) => m.id}
+          columns={[
+            {
+              key: "member",
+              label: "Member",
+              render: (m) => {
                 const name = `${m.user.firstName} ${m.user.lastName}`.trim();
                 return (
-                  <tr key={m.id} className="hover:bg-secondary/40 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-primary-500 to-accent-600 text-white text-xs font-bold shrink-0">
-                          {name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{m.user.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full ${role.cls}`}>
-                        <role.icon className="h-3 w-3" /> {role.label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">{m.department ?? "—"}</td>
-                    <td className="px-4 py-3 font-mono">{m.spendLimit ? formatCurrency(Number(m.spendLimit), currency) : <span className="text-muted-foreground">Unlimited</span>}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${active ? "text-success" : "text-muted-foreground"}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${active ? "bg-success" : "bg-muted-foreground"}`} />
-                        {m.user.status === "PENDING" ? "Invited" : active ? "Active" : "Suspended"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-end">
-                      {isAdmin && m.userId !== ctx.userId && (
-                        <form action={setMemberActive.bind(null, m.id, !active)}>
-                          <button type="submit" className={`text-xs font-medium ${active ? "text-muted-foreground hover:text-danger" : "text-primary hover:underline"}`}>
-                            {active ? "Suspend" : "Reactivate"}
-                          </button>
-                        </form>
-                      )}
-                    </td>
-                  </tr>
+                  <div className="flex min-w-0 items-center gap-3 py-1">
+                    {/* Initials on a neutral plate. The indigo→verdigris
+                        gradient disc this replaces was the only gradient on the
+                        page and said nothing about the person. */}
+                    <span className="u-meta grid h-8 w-8 shrink-0 place-items-center rounded-pill bg-neutral-soft font-medium text-ink-2">
+                      {name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-medium text-ink-1">
+                        {name}
+                        {m.userId === ctx.userId && <span className="u-meta ms-1.5 text-ink-3">(you)</span>}
+                      </p>
+                      <p className="u-meta truncate text-ink-3">{m.user.email}</p>
+                    </div>
+                  </div>
                 );
-              })}
-            </tbody>
-          </table>
-        </div>
+              },
+            },
+            {
+              key: "role",
+              label: "Role",
+              render: (m) => {
+                const role = ROLES[m.role] ?? ROLES.COMPANY_BUYER!;
+                return (
+                  <StatusPill tone={role.tone} className="whitespace-nowrap">
+                    <role.icon className="h-3 w-3" aria-hidden="true" /> {role.label}
+                  </StatusPill>
+                );
+              },
+            },
+            {
+              key: "department",
+              label: "Department",
+              hideOnMobile: true,
+              render: (m) => <span className="text-ink-2">{m.department ?? "Unassigned"}</span>,
+            },
+            {
+              key: "spendLimit",
+              label: "Spend limit",
+              numeric: true,
+              render: (m) =>
+                m.spendLimit ? (
+                  <Money amount={Number(m.spendLimit)} currency={currency} />
+                ) : (
+                  <span className="u-meta text-ink-3">Unlimited</span>
+                ),
+            },
+            {
+              key: "status",
+              label: "Status",
+              render: (m) => {
+                const active = m.isActive && m.user.status !== "SUSPENDED";
+                return (
+                  <StatusPill tone={active ? "success" : "neutral"} dot>
+                    {m.user.status === "PENDING" ? "Invited" : active ? "Active" : "Suspended"}
+                  </StatusPill>
+                );
+              },
+            },
+            {
+              key: "actions",
+              label: "Access",
+              align: "end",
+              render: (m) => {
+                const active = m.isActive && m.user.status !== "SUSPENDED";
+                // The permission gate is unchanged: only an admin sees this,
+                // and never against their own membership.
+                if (!isAdmin || m.userId === ctx.userId) return <span className="u-meta text-ink-3">—</span>;
+                return (
+                  <form action={setMemberActive.bind(null, m.id, !active)} className="flex justify-end">
+                    <Button
+                      type="submit"
+                      variant="ghost"
+                      size="xs"
+                      className={active ? "hover:text-danger-ink" : "text-primary-ink"}
+                    >
+                      {active ? "Suspend" : "Reactivate"}
+                    </Button>
+                  </form>
+                );
+              },
+            },
+          ]}
+          empty={
+            <EmptyState
+              eyebrow="Nothing recorded"
+              headline="This company has no members yet."
+              body="Invite a colleague above; they join with a pending status until they set a password."
+            />
+          }
+        />
       </div>
     </B2BShell>
   );

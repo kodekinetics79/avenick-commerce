@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
-import { ArrowLeft, Building2, FileText, Lock, MessageSquare, Package } from "lucide-react";
+import { Building2, FileText, Lock, Package } from "lucide-react";
 import { isRecordId } from "@avenick/utils";
 import {
   countSellerUnreadMessages,
@@ -11,6 +11,17 @@ import {
   sellerRfqPosture,
   SELLER_MESSAGING_PERMISSION,
 } from "@avenick/database";
+import {
+  Button,
+  Dateline,
+  EmptyState,
+  Eyebrow,
+  FieldWell,
+  PageHeader,
+  SectionHeader,
+  StatusPill,
+  Surface,
+} from "@avenick/ui";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { requireSellerPermission } from "@/lib/auth";
 import { sellerHasPermission } from "@/lib/seller-permissions";
@@ -81,103 +92,157 @@ export default async function SellerThreadPage({ params }: { params: { id: strin
     }
   };
 
+  const subject = thread.subject ?? "Inquiry";
+  const messageCount = thread.messages.length;
+
+  // Group the thread by calendar day so the conversation carries a dateline per
+  // day rather than repeating the full date on every bubble. The messages come
+  // back ascending, so a single pass preserves their order exactly.
+  const days: Array<{ key: string; label: string; items: typeof thread.messages }> = [];
+  for (const m of thread.messages) {
+    const label = format(m.createdAt, "EEEE, MMM d, yyyy");
+    const last = days[days.length - 1];
+    if (last && last.label === label) last.items.push(m);
+    else days.push({ key: m.id, label, items: [m] });
+  }
+
   return (
     <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} unreadMessages={unreadElsewhere} permissions={membership.permissions}>
-      <div className="space-y-6 max-w-3xl">
-        <div>
-          <Link href="/messages" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Messages & RFQs
-          </Link>
-          <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold tracking-tight truncate">{thread.subject ?? "Inquiry"}</h1>
-              <p className="text-sm text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-                <span>{buyerLabel}</span>
-                {thread.buyer?.companyName && (
-                  <span className="inline-flex items-center gap-1"><Building2 className="h-3.5 w-3.5" /> {thread.buyer.companyName}</span>
-                )}
-                <span>· Opened {format(thread.createdAt, "MMM d, yyyy")}</span>
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {thread.isOpen ? (
-                <span className="rounded-full bg-success/15 px-2.5 py-1 text-xs font-semibold text-success">Open</span>
-              ) : (
-                <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs font-semibold text-muted-foreground"><Lock className="h-3 w-3" /> Closed</span>
-              )}
-            </div>
-          </div>
-        </div>
+      <div className="max-w-3xl space-y-block">
+        <PageHeader
+          breadcrumbs={[{ label: "Messages & RFQs", href: "/messages" }, { label: subject }]}
+          linkComponent={Link}
+          title={subject}
+          dateline={`Opened ${format(thread.createdAt, "MMM d, yyyy")} · ${messageCount} message${messageCount === 1 ? "" : "s"} on record`}
+          actions={
+            thread.isOpen ? (
+              <StatusPill tone="success" dot>
+                Open
+              </StatusPill>
+            ) : (
+              <StatusPill tone="neutral">
+                <Lock className="h-3 w-3" aria-hidden="true" /> Closed
+              </StatusPill>
+            )
+          }
+        />
 
+        {/* Who this conversation is with. Recessed, because it is context. */}
+        <FieldWell className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3">
+          <span className="u-ui font-medium text-ink-1">{buyerLabel}</span>
+          {thread.buyer?.companyName && (
+            <span className="u-meta inline-flex items-center gap-1.5 text-ink-2">
+              <Building2 className="h-3.5 w-3.5" aria-hidden="true" /> {thread.buyer.companyName}
+            </span>
+          )}
+        </FieldWell>
+
+        {/* What the conversation hangs off — also context, so also recessed. */}
         {(rfq || thread.order) && (
-          <div className="flex flex-wrap gap-2">
+          <FieldWell className="divide-y divide-hairline">
             {rfq && (
-              <div className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm">
-                <FileText className="h-4 w-4 text-primary" />
-                <span className="font-mono text-xs font-semibold">{rfq.rfqNumber}</span>
-                <span className="text-xs text-muted-foreground">{RFQ_STATUS_LABEL[rfq.status] ?? rfq.status}</span>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
+                <FileText className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
+                <Eyebrow className="me-1">Request</Eyebrow>
+                <span className="u-mono u-ui font-medium text-ink-1">{rfq.rfqNumber}</span>
+                <StatusPill tone="neutral">{RFQ_STATUS_LABEL[rfq.status] ?? rfq.status}</StatusPill>
                 {rfqHref && (
-                  <Link href={rfqHref} className="text-xs text-primary hover:underline font-medium">
-                    {rfqPosture === "quoted" ? (canQuote ? "View quote" : "Quote history") : "Quote this RFQ"}
-                  </Link>
+                  <Button variant="link" size="sm" asChild className="ms-auto">
+                    <Link href={rfqHref}>
+                      {rfqPosture === "quoted" ? (canQuote ? "View quote" : "Quote history") : "Quote this RFQ"}
+                    </Link>
+                  </Button>
                 )}
+                {/* The gate is stated in the row, not in a title attribute that
+                    no keyboard or touch reader can reach. */}
                 {rfqPosture === "open" && !canQuote && (
-                  <span className="text-xs text-muted-foreground inline-flex items-center gap-1" title="Ask your seller owner for the quotes.submit permission">
-                    <Lock className="h-3 w-3" /> Quoting needs the quotes.submit permission
+                  <span className="u-meta ms-auto inline-flex items-center gap-1 text-ink-3">
+                    <Lock className="h-3 w-3" aria-hidden="true" /> Quoting needs the quotes.submit permission
                   </span>
                 )}
               </div>
             )}
             {thread.order && (
-              <div className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm">
-                <Package className="h-4 w-4 text-primary" />
-                <span className="font-mono text-xs font-semibold">{thread.order.orderNumber}</span>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
+                <Package className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
+                <Eyebrow className="me-1">Order</Eyebrow>
+                <span className="u-mono u-ui font-medium text-ink-1">{thread.order.orderNumber}</span>
                 {thread.order.sellerHasLines ? (
-                  <Link href={`/orders/${encodeURIComponent(thread.order.id)}`} className="text-xs text-primary hover:underline font-medium">View order</Link>
+                  <Button variant="link" size="sm" asChild className="ms-auto">
+                    <Link href={`/orders/${encodeURIComponent(thread.order.id)}`}>View order</Link>
+                  </Button>
                 ) : (
-                  <span className="text-xs text-muted-foreground">No lines of yours on this order</span>
+                  <span className="u-meta ms-auto text-ink-3">No lines of yours on this order</span>
                 )}
               </div>
             )}
-          </div>
+          </FieldWell>
         )}
 
-        <div className="bg-card rounded-2xl border border-border overflow-hidden">
-          <div className="px-5 py-4 border-b border-border flex items-center gap-2">
-            <MessageSquare className="h-4 w-4 text-primary" />
-            <h2 className="font-semibold">Conversation</h2>
-            <span className="ms-auto text-xs text-muted-foreground">{thread.messages.length} message{thread.messages.length === 1 ? "" : "s"}</span>
-          </div>
-          {thread.messages.length === 0 ? (
-            <div className="px-5 py-10 text-center text-sm text-muted-foreground">No messages on this thread yet.</div>
+        {/* The conversation itself: a recessed well the messages sit on, so a
+            message reads as a thing said rather than as another page panel. */}
+        <section aria-label="Conversation">
+          <SectionHeader title="Conversation" count={messageCount} />
+          {messageCount === 0 ? (
+            <Surface rung={1}>
+              <EmptyState
+                eyebrow="Nothing recorded"
+                headline="No messages have been written on this thread."
+                body="The buyer opened it, but nothing has been said yet. Your reply below would be the first."
+              />
+            </Surface>
           ) : (
-            <ol className="p-5 space-y-3">
-              {thread.messages.map((m) => {
-                const mine = m.senderType === "SELLER";
-                return (
-                  <li key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${mine ? "bg-primary/10" : "bg-secondary/60"}`}>
-                      <p className="text-xs text-muted-foreground mb-1">
-                        <span className="font-semibold text-foreground">{senderLabel(m)}</span> · {format(m.createdAt, "MMM d, yyyy HH:mm")}
-                      </p>
-                      <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                      {m.attachments.length > 0 && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          {m.attachments.length} attachment{m.attachments.length === 1 ? "" : "s"} — attachment viewing is not available in this portal yet.
-                        </p>
-                      )}
+            <Surface rung={1} className="px-4 py-4">
+              <div className="space-y-4">
+                {days.map((day) => (
+                  <div key={day.key}>
+                    {/* The day rule, not a date stamped on every bubble. */}
+                    <div className="flex items-center gap-3 pb-3">
+                      <span className="h-px flex-1 bg-hairline" />
+                      <span className="u-micro text-ink-3">{day.label}</span>
+                      <span className="h-px flex-1 bg-hairline" />
                     </div>
-                  </li>
-                );
-              })}
-            </ol>
+                    <ol className="space-y-2">
+                      {day.items.map((m, i) => {
+                        const prev = i > 0 ? day.items[i - 1] : null;
+                        const label = senderLabel(m);
+                        // Consecutive messages in the same voice do not repeat
+                        // the name — that is what makes a list of rows read as a
+                        // conversation rather than as an audit log.
+                        const showSender = !prev || senderLabel(prev) !== label;
+                        const mine = m.senderType === "SELLER";
+                        return (
+                          <li key={m.id} className={mine ? "flex justify-end" : "flex justify-start"}>
+                            <Surface rung={2} tone={mine ? "accent" : "default"} className="max-w-[85%] px-4 py-2.5">
+                              {showSender && (
+                                <Eyebrow tone={mine ? "accent" : "muted"} className="mb-1">
+                                  {label}
+                                </Eyebrow>
+                              )}
+                              <p className="u-body whitespace-pre-wrap break-words text-ink-1">{m.body}</p>
+                              <p className="u-meta mt-1 text-ink-3">{format(m.createdAt, "HH:mm")}</p>
+                              {m.attachments.length > 0 && (
+                                <Dateline className="mt-2">
+                                  {m.attachments.length} attachment{m.attachments.length === 1 ? "" : "s"} — attachment
+                                  viewing is not available in this portal yet.
+                                </Dateline>
+                              )}
+                            </Surface>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </div>
+                ))}
+              </div>
+            </Surface>
           )}
-        </div>
+        </section>
 
-        <div className="bg-card rounded-2xl border border-border p-5">
-          <h2 className="font-semibold text-sm mb-3">Reply</h2>
+        <Surface rung={2} className="p-5">
+          <SectionHeader title="Reply" className="mb-3" />
           <ReplyForm threadId={thread.id} isOpen={thread.isOpen} hasRfq={rfq !== null} maxLength={MESSAGE_BODY_MAX_LENGTH} />
-        </div>
+        </Surface>
       </div>
     </SellerLayout>
   );
