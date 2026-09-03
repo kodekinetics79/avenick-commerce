@@ -26,7 +26,8 @@
     "db:reset": "prisma migrate reset --force",
     "integration:worker": "tsx scripts/integration-worker.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "verify:personas": "node prisma/verify-seed-personas.mjs"
   },
   "dependencies": {
     "@avenick/observability": "workspace:*",

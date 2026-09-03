@@ -267,7 +267,12 @@
     "catalogEmptyBody": "Listings appear here once a supplier publishes one and it becomes discoverable. A quote request reaches suppliers directly in the meantime.",
     "propsEyebrow": "How the platform works",
     "propsTitle": "What happens between a requirement and a delivered order",
-    "b2bEyebrow": "B2B sourcing"
+    "b2bEyebrow": "B2B sourcing",
+    "shopByCategory": "Shop by category",
+    "browseAllProducts": "Browse all products",
+    "emptyEyebrow": "Nothing published",
+    "emptyHeadline": "The catalogue has no published listings to show yet.",
+    "emptyBody": "A product appears here once a seller publishes it and it is discoverable in this storefront."
   },
   "footer": {
     "helpTitle": "Need a hand?",
