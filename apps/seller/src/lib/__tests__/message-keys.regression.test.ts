@@ -94,4 +94,47 @@ describe("translation keys", () => {
     expect([...inEn].filter((k) => !inAr.has(k))).toEqual([]);
     expect([...inAr].filter((k) => !inEn.has(k))).toEqual([]);
   });
+
+  /**
+   * Dynamic keys — t(`stock.${state}`) — are invisible to the scan above,
+   * because it only matches string literals. That blind spot shipped:
+   * `catalogue.stock` did not exist, the product card asked for
+   * `stock.${availability}` on every tile, and the production build died with
+   * MISSING_MESSAGE — after typecheck, lint and the whole unit suite had passed.
+   *
+   * The group cannot be resolved member by member without evaluating the
+   * expression, but its PARENT can: if the card interpolates into `stock.`,
+   * then `stock` must exist and must be a group of messages. That catches the
+   * failure that actually happened — an entire group missing — in both
+   * languages.
+   */
+  it.each([
+    ["en", en as Tree],
+    ["ar", ar as Tree],
+  ])("every dynamically-built key has its group in %s", (_locale, tree) => {
+    const missing = sourceFiles(srcRoot).flatMap((file) => {
+      const source = readFileSync(file, "utf8");
+      const namespacesFor = new Map<string, string[]>();
+      for (const [, variable, namespace] of source.matchAll(BIND)) {
+        namespacesFor.set(variable, [...(namespacesFor.get(variable) ?? []), namespace!]);
+      }
+      const dynamic = [...source.matchAll(/\b(\w+)\(\s*`([A-Za-z0-9_.]*?)\$\{/g)];
+      return dynamic.flatMap(([, variable, prefix]) => {
+        const namespaces = namespacesFor.get(variable!);
+        if (!namespaces || !prefix) return [];
+        const group = prefix.replace(/\.$/, "");
+        const found = namespaces.some((namespace) => {
+          let node: unknown = tree;
+          for (const part of `${namespace}.${group}`.split(".")) {
+            if (typeof node !== "object" || node === null || !(part in (node as Tree))) return false;
+            node = (node as Tree)[part];
+          }
+          return typeof node === "object" && node !== null;
+        });
+        return found ? [] : [`${namespaces[0]}.${group}.* (${file.replace(appRoot + "/", "")})`];
+      });
+    });
+    expect([...new Set(missing)]).toEqual([]);
+  });
+
 });
