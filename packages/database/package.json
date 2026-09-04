@@ -13,6 +13,7 @@
   "scripts": {
     "postinstall": "prisma generate",
     "db:generate": "prisma generate",
+    "db:manifest": "node scripts/write-migration-manifest.mjs",
     "db:push": "prisma db push",
     "db:deploy": "bash scripts/migrate-deploy.sh",
     "db:migrate": "prisma migrate dev",

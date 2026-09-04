@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { checkDatabaseHealth, dbCircuitState, getIntegrationRuntimeReadiness } from "@avenick/database";
+import { checkDatabaseHealth, checkMigrationState, dbCircuitState, getIntegrationRuntimeReadiness } from "@avenick/database";
 import { readiness } from "@avenick/observability";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +13,13 @@ export const dynamic = "force-dynamic";
  * amplify into ten database round trips per hit.
  */
 const INTEGRATION_READINESS_CACHE_MS = 15_000;
+
+/**
+ * Migration state changes at most once per deployment, so the probe is cached
+ * well past the health checker's interval. A drifted deploy is still caught
+ * within a minute of going live, which is far inside the window that matters.
+ */
+const MIGRATION_READINESS_CACHE_MS = 30_000;
 
 /**
  * Readiness probe: verifies the database — the one dependency this portal
@@ -37,6 +44,29 @@ export async function GET(request: Request) {
       // Queue/worker health is operational evidence, not a serving dependency
       // (see getIntegrationRuntimeReadiness). Non-critical, so an integration
       // backlog never 503s the portal out of the load balancer.
+      // Reachability is not the same question as "does this database carry the
+      // schema this build was compiled against". Migrations are applied by the
+      // deploying platform's pre-deploy step, and these portals deploy from
+      // more than one place — so a build can go live ahead of its own migration
+      // and answer 200 here while every query naming a new column fails.
+      //
+      // NON-CRITICAL, deliberately. Taking an instance out of rotation is only
+      // useful when there is a healthy instance to send the traffic to, and
+      // there is not: every portal instance shares one database, so a missing
+      // migration is missing for all of them at once. Making this critical
+      // would convert "some pages are broken" into "the whole platform is
+      // down", which is a worse outcome, not a safer one. Rolling back is an
+      // operator's decision; this probe's job is to make sure that decision is
+      // never made against a green light. Drift is reported in the body and
+      // logged as `readiness ok, non-critical dependency failing`.
+      //
+      // Cached: migration state changes at most once per deploy, and this route
+      // is public.
+      migrations: {
+        run: () => checkMigrationState(),
+        critical: false,
+        cacheMs: MIGRATION_READINESS_CACHE_MS,
+      },
       integration: {
         run: async () => {
           const started = Date.now();

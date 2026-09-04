@@ -25,6 +25,7 @@ export * from "./services/inventory";
 export * from "./services/admin";
 export * from "./services/audit";
 export * from "./services/health";
+export * from "./services/migration-state";
 export * from "./services/finance";
 export * from "./services/settlements";
 export * from "./services/workflow";
