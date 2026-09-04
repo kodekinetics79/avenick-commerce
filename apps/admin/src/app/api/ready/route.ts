@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { checkDatabaseHealth, checkMigrationState, dbCircuitState, getIntegrationRuntimeReadiness } from "@avenick/database";
+import { checkDatabaseHealth, checkMigrationState, DB_HEALTH_PROBE_TIMEOUT_MS, dbCircuitState, getIntegrationRuntimeReadiness } from "@avenick/database";
 import { readiness } from "@avenick/observability";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +40,19 @@ export async function GET(request: Request) {
     {
       // The serving dependency: never cached, so an outage is caught on the
       // very next probe.
-      database: { run: () => checkDatabaseHealth(), critical: true },
+      //
+      // timeoutMs must accommodate the probe's own cold-start budget. runProbe
+      // races every dependency against this ceiling, so leaving it at the 3s
+      // default would abort the first probe after boot — while Neon's compute
+      // is still resuming — and answer 503. Render gates the deploy on this
+      // route, so that 503 does not read as "slow start", it reads as "failed
+      // deploy", and the rollback restores a version that is already warm and
+      // therefore passes instantly. See checkDatabaseHealth.
+      database: {
+        run: () => checkDatabaseHealth(),
+        critical: true,
+        timeoutMs: DB_HEALTH_PROBE_TIMEOUT_MS,
+      },
       // Queue/worker health is operational evidence, not a serving dependency
       // (see getIntegrationRuntimeReadiness). Non-critical, so an integration
       // backlog never 503s the portal out of the load balancer.
