@@ -8,6 +8,7 @@ import {
   lockInventoryStockRows,
   lockProductCommercialRows,
   lockSellerCommercialRows,
+  composeOrderTotals,
   lockUserCommerceRows,
 } from "./checkout-invariants";
 import { resolveCompanyOrderIntegration } from "./integration-routing";
@@ -398,8 +399,10 @@ export async function createOrder(input: CreateOrderInput) {
         });
         subtotal = money(subtotal);
         const discountAmount = money(promotion.discountAmount);
-        const vatAmount = money(vatTotal);
-        const merchandiseTotal = money(subtotal - discountAmount + vatAmount);
+        // Goods VAT only. Freight is not priced yet, and it is taxable too —
+        // the order's final vatAmount is assembled once both parts are known.
+        const goodsVatAmount = money(vatTotal);
+        const merchandiseTotal = money(subtotal - discountAmount + goodsVatAmount);
 
         // The snapshot approved GOODS, so it is compared against the goods
         // total. Freight is added after this check and never to a governed
@@ -447,7 +450,40 @@ export async function createOrder(input: CreateOrderInput) {
           }
         }
 
-        const total = money(merchandiseTotal + shippingAmount);
+        /*
+          VAT ON DELIVERY.
+
+          The total used to be `merchandiseTotal + shippingAmount`, which added
+          freight AFTER tax and so never taxed it. Delivery this platform prices
+          and charges is part of the consideration for the supply, not a
+          separate untaxed fee, so it carries the destination's VAT at the same
+          statutory rate the goods on the order do — 5% in AE, 15% in SA, 0% in
+          the zero-rated jurisdictions, which falls out of the rate table
+          without a special case.
+
+          The old arithmetic was a SILENT wrong answer: every figure on the
+          order looked consistent, the buyer was charged less than the invoice
+          legally owes, and the understated vatAmount is persisted and read
+          downstream by invoicing and settlement. It scales with the freight
+          bill, so the heaviest orders were the most wrong.
+
+          A governed purchase order never reaches this with a non-zero freight
+          figure (shipping is skipped entirely above), so its approved total is
+          unaffected and the snapshot comparison above still governs it.
+
+          `jurisdiction.rate` is used rather than any per-line rate on purpose:
+          the delivery is a supply by the PLATFORM to the buyer, so it follows
+          the order's place of supply, not whatever rate a seller configured on
+          a product.
+        */
+        const totals = composeOrderTotals({
+          subtotal,
+          discountAmount,
+          goodsVatAmount,
+          shippingAmount,
+          vatRatePercent: jurisdiction.rate,
+        });
+        const { vatAmount, total } = totals;
 
         const initialStockRows = await Promise.all(input.items.map((item) => tx.inventoryStock.findMany({
           where: inventoryStockIdentityWhere(item.productId, item.variantId),
