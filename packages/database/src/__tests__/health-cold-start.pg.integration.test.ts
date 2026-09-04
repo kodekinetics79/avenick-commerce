@@ -4,63 +4,84 @@ import {
   dbHealthTimeoutMs,
   resetDbHealthWarmState,
   DB_HEALTH_PROBE_TIMEOUT_MS,
+  DB_HEALTH_FIRST_ANSWER_MS,
 } from "../services/health";
 
 /**
- * The defect these cover: a 2s budget applied to a database that suspends its
- * compute and takes seconds to resume. /api/ready answered 503 on the first
- * probe after boot, Render gates deploys on /api/ready, and so a perfectly
- * healthy release was rolled back in favour of the already-warm version that
- * passed instantly — a deploy that "keeps failing" with nothing in the logs
- * saying timeout, because the timeout was one the probe imposed on itself.
+ * The defect: a 2s budget applied to a database that suspends its compute and
+ * takes seconds to resume. /api/ready answered 503 on the first probe after
+ * boot, and Render gates deploys on /api/ready.
+ *
+ * The fix has two halves, and the second is easy to get wrong: give the cold
+ * process a real budget, but never make a health check WAIT for it. A probe
+ * that blocks for the whole cold budget can exceed the platform's own
+ * per-request timeout, and then it never answers at all — worse than the tight
+ * budget it replaced, and failing for a reason no log would name.
  */
 describe("database health cold start", () => {
   beforeEach(() => resetDbHealthWarmState());
 
   it("allows a cold process far longer than a warm one", () => {
-    const cold = dbHealthTimeoutMs();
-    expect(cold).toBeGreaterThanOrEqual(15_000);
+    expect(dbHealthTimeoutMs()).toBeGreaterThanOrEqual(15_000);
   });
 
   /**
-   * The bug is only fixed if the CALLER also allows the budget. runProbe races
-   * each dependency against the spec's own ceiling, so a ceiling below the cold
-   * budget cuts the warm-up short and restores the 503 one layer up — the fix
-   * would look present in this file and be absent in production.
+   * The ceiling the readiness route must allow. runProbe races each dependency
+   * against the spec's ceiling, so it has to exceed the longest this probe can
+   * take when called without an explicit budget — which is the first-answer
+   * bound, NOT the cold budget, because the cold budget is served in the
+   * background and never awaited by a request.
    */
-  it("publishes a probe ceiling that accommodates the cold budget", () => {
-    expect(DB_HEALTH_PROBE_TIMEOUT_MS).toBeGreaterThan(dbHealthTimeoutMs());
+  it("publishes a ceiling that exceeds the longest possible answer", () => {
+    expect(DB_HEALTH_PROBE_TIMEOUT_MS).toBeGreaterThan(DB_HEALTH_FIRST_ANSWER_MS);
   });
 
-  it("tightens to the warm budget only after a completed round trip", async () => {
+  /**
+   * The property that protects the deploy: no single call blocks longer than
+   * the ceiling the route allows, cold or warm. This is the assertion that
+   * would have caught the 20s blocking version.
+   */
+  it("never blocks longer than its published ceiling, cold or warm", async () => {
+    const coldStarted = Date.now();
+    await checkDatabaseHealth();
+    expect(Date.now() - coldStarted).toBeLessThan(DB_HEALTH_PROBE_TIMEOUT_MS);
+
+    const warmStarted = Date.now();
+    await checkDatabaseHealth();
+    expect(Date.now() - warmStarted).toBeLessThan(DB_HEALTH_PROBE_TIMEOUT_MS);
+  });
+
+  /**
+   * Convergence, asserted as convergence rather than as "the first call
+   * succeeds". Whether probe one returns ready or "starting" depends on how
+   * fast the database wakes, which is the machine's business, not this test's —
+   * pinning it is how a timing test starts failing in CI while nothing is
+   * wrong. What must be true is that repeated probing reaches warm and stays
+   * there, which is exactly what the platform's health check does.
+   */
+  it("converges to warm, and reports the cold probe honestly", async () => {
     expect(dbHealthTimeoutMs()).toBeGreaterThanOrEqual(15_000);
 
     const first = await checkDatabaseHealth();
-    expect(first.ok).toBe(true);
-    // The first probe reports itself as having run cold, which is what lets an
-    // operator tell a slow start apart from a slow database.
+    // Either answer is legitimate; neither may claim to be warm.
     expect(first.warm).toBe(false);
+    if (!first.ok) expect(first.error).toMatch(/cold start/i);
 
-    expect(dbHealthTimeoutMs()).toBe(2_000);
-    const second = await checkDatabaseHealth();
-    expect(second.ok).toBe(true);
-    expect(second.warm).toBe(true);
+    let attempts = 0;
+    while (!hasWarmed() && attempts < 40) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      await checkDatabaseHealth();
+      attempts += 1;
+    }
+    expect(hasWarmed(), "database never became reachable").toBe(true);
+
+    const settled = await checkDatabaseHealth();
+    expect(settled.ok).toBe(true);
+    expect(settled.warm).toBe(true);
   });
-
-  /**
-   * "A failed probe must not earn the tight budget" is a real invariant and is
-   * deliberately NOT asserted here.
-   *
-   * The only way to fail this probe on demand is to give it a budget so small
-   * the round trip cannot finish — and that is a race, not a test. It was
-   * written as `checkDatabaseHealth(1)` and it passed locally and failed in CI,
-   * where a loaded runner delayed the 1ms timer past a warm query. A test that
-   * pins timing tells you about the machine it ran on.
-   *
-   * The invariant is structural instead: `hasEverConnected = true` is the line
-   * after the `await` inside the try, so it is unreachable unless the round trip
-   * resolved. There is no path from the catch to a promotion. The case below
-   * proves the promotion happens when it should; nothing can make it happen
-   * when it should not without editing that line, which is visible in review.
-   */
 });
+
+/** Warm state is observable only through the budget it selects. */
+function hasWarmed() {
+  return dbHealthTimeoutMs() === 2_000;
+}
