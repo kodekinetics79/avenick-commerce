@@ -223,3 +223,73 @@ export function assertMinimumOrderQuantity(productName: string, quantity: number
     throw new Error(`Minimum order quantity for "${productName}" is ${Math.max(1, moq)}`);
   }
 }
+
+const money = (value: number) => Number(value.toFixed(2));
+
+export interface OrderTotals {
+  /** Goods, net of VAT, before discount. */
+  subtotal: number;
+  discountAmount: number;
+  /** VAT on the goods, after discount. */
+  goodsVatAmount: number;
+  /** Delivery, net of VAT. */
+  shippingAmount: number;
+  /** VAT on the delivery, at the order's place-of-supply rate. */
+  shippingVatAmount: number;
+  /** What the invoice declares as tax: goods VAT plus delivery VAT. */
+  vatAmount: number;
+  total: number;
+}
+
+/**
+ * Assemble the money on an order, in one place, as arithmetic that needs no
+ * database to check.
+ *
+ * This lives here rather than inline in createOrder because it is the figure
+ * the buyer is charged and the figure the VAT return is built from, and it was
+ * wrong: the total was `goods + goodsVat + shipping`, which adds delivery AFTER
+ * tax and so never taxes it. Delivery this platform prices and charges is part
+ * of the consideration for the supply, so it carries the destination's VAT at
+ * the same statutory rate the goods do.
+ *
+ * That was a silent wrong answer — every figure on the order agreed with every
+ * other, the buyer was undercharged, and the understated vatAmount was
+ * persisted for invoicing and settlement to read. Arithmetic with that
+ * consequence should not be reachable only through a live checkout, so it is a
+ * pure function with its own cases.
+ *
+ * A zero-rated jurisdiction needs no special case: the rate table carries 0 for
+ * QA and KW, and 0% of the freight is 0.
+ */
+export function composeOrderTotals(input: {
+  subtotal: number;
+  discountAmount: number;
+  goodsVatAmount: number;
+  shippingAmount: number;
+  /** The order's place-of-supply VAT rate, as a percentage (5 means 5%). */
+  vatRatePercent: number;
+}): OrderTotals {
+  const subtotal = money(input.subtotal);
+  const discountAmount = money(input.discountAmount);
+  const goodsVatAmount = money(input.goodsVatAmount);
+  const shippingAmount = money(input.shippingAmount);
+  const shippingVatAmount = money(shippingAmount * (input.vatRatePercent / 100));
+  const vatAmount = money(goodsVatAmount + shippingVatAmount);
+  return {
+    subtotal,
+    discountAmount,
+    goodsVatAmount,
+    shippingAmount,
+    shippingVatAmount,
+    vatAmount,
+    // Rounded once at the end from already-rounded parts, so the total always
+    // equals the sum of the lines an invoice prints. Rounding the sum of
+    // unrounded parts is how a receipt ends up a fil off from its own rows.
+    total: money(subtotal - discountAmount + goodsVatAmount + shippingAmount + shippingVatAmount),
+  };
+}
+
+/** The goods half of an order, which is what a governed PO snapshot approves. */
+export function merchandiseTotalOf(totals: OrderTotals): number {
+  return money(totals.subtotal - totals.discountAmount + totals.goodsVatAmount);
+}
