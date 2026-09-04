@@ -174,10 +174,34 @@ export default async function HomePage() {
         the first and doubles the cost.
       */}
       <section className="border-b border-hairline">
+        {/* The rail and the hero share one row on desktop: the taxonomy is
+            visible without interaction, which is the whole point of it. Below
+            lg the rail is absent and the horizontal strip below takes over.
+
+            The grid is applied ONLY when there is a rail to put in it. With an
+            empty catalogue CategoryRail renders nothing, and a two-column grid
+            with an absent first child promotes the hero into the 15rem rail
+            column — a 92px headline reflowing inside 240px, clipped, with the
+            display plate laid across the copy. An empty catalogue is a real
+            state (it is what a fresh environment looks like), so the layout has
+            to survive it rather than assume the happy path. */}
+        <div
+          className={
+            categories.length > 0
+              ? "mx-auto w-full max-w-7xl px-4 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6"
+              : "mx-auto w-full max-w-7xl px-4"
+          }
+        >
+          <CategoryRail
+            categories={categories}
+            locale={locale}
+            label={t("categoriesTitle")}
+            allLabel={t("allProducts")}
+          />
         <HeroStage
           as="div"
           planes={3}
-          className="mx-auto w-full max-w-7xl px-4 py-block"
+          className="w-full min-w-0 py-block"
           backPlane={
             /*
               The lit object behind the specimen, bleeding off the stage edge.
@@ -190,7 +214,35 @@ export default async function HomePage() {
             <DisplayPlate
               grain={false}
               className="absolute bottom-[6%] top-[6%] end-[-12%] w-[54%] max-lg:hidden"
-            />
+            >
+              {/*
+                The photographic ground, taken from the reference design.
+
+                It sits INSIDE the display plate — beside the headline, never
+                under it. The reference puts its photograph full-bleed with no
+                text on it at all; laying our headline over the same photograph
+                would be a new composition and a new problem, because contrast
+                over supplier imagery is not deterministic and no scrim floor
+                can be measured for an image that might change. Here the copy
+                keeps the ruled ground it was designed for and the plate carries
+                the material. Nothing overlaps, so nothing needs a scrim.
+
+                Decorative, so alt="" and aria-hidden: it depicts no specific
+                product, seller or facility, and says nothing the headline does
+                not already say. Captioning it would be inventing a claim.
+
+                priority, because this is the LCP element on the busiest route.
+              */}
+              <Image
+                src="/hero/workshop-1600.jpg"
+                alt=""
+                aria-hidden="true"
+                fill
+                priority
+                sizes="(min-width: 1024px) 54vw, 0px"
+                className="rounded-[inherit] object-cover"
+              />
+            </DisplayPlate>
           }
           midPlane={
             /*
@@ -231,7 +283,7 @@ export default async function HomePage() {
               couplet.
             */}
             <Reveal index={1} as="h1" className="u-hero text-ink-1">
-              {t("heroTitle1")} <span className="text-accent-ink">{t("heroTitle2")}</span>
+              {t("heroTitle1")} <span className="text-primary-ink">{t("heroTitle2")}</span>
             </Reveal>
 
             <Reveal index={2}>
@@ -278,7 +330,21 @@ export default async function HomePage() {
             <Reveal index={2}>
               {specimen ? (
                 <div className="grid gap-3">
-                <Surface rung={3} className="group overflow-hidden">
+                {/*
+                  GLASS, and this is the one place on the page that earns it.
+                  This card sits directly on the workshop photograph, so the
+                  backdrop filter has something to refract: the image blurs and
+                  saturates behind the panel instead of being covered by it,
+                  which is what makes the card read as a pane in front of a
+                  scene rather than a rectangle pasted over one. Glass over a
+                  flat ground is just a lighter box, which is why it is not used
+                  on the product tiles below.
+
+                  Rung 4 because the system permits backdrop-filter at the
+                  floating rungs only, and the budget is 2-3 per viewport — this
+                  is one, the sticky header is the other.
+                */}
+                <Surface rung={4} glass className="group overflow-hidden">
                   <Link
                     href={storefrontProductHref(specimen.slug, { currency: specimen.currency })}
                     aria-label={t("specimenView", { name: specimenName })}
@@ -425,13 +491,14 @@ export default async function HomePage() {
             </Reveal>
           </HeroSpecimen>
         </HeroStage>
+        </div>
       </section>
 
       {/* ─── Category strip ───────────────────────────────── */}
       {/* Categories come from the catalog API (active, with discoverable
           products), never a list typed into this page. An empty catalog gets a
           plain link to all products rather than a decorative strip. */}
-      <section className="mx-auto max-w-7xl px-4 pt-block">
+      <section className="mx-auto max-w-7xl px-4 pt-block lg:hidden">
         <SectionHead
           eyebrow={t("categoriesEyebrow")}
           title={t("categoriesTitle")}
@@ -597,6 +664,73 @@ export default async function HomePage() {
 }
 
 /* ── local layout helpers ─────────────────────────────── */
+
+/**
+ * The persistent category rail — the one structural idea worth taking from the
+ * Qantara design.
+ *
+ * The taxonomy is the most useful thing a sourcing buyer can be shown first,
+ * and a horizontal strip only ever exposes as many categories as fit the
+ * viewport. A vertical rail beside the hero shows the whole shape of the
+ * catalogue without a single interaction, which is exactly what the reference
+ * design gets right and what a carousel cannot do.
+ *
+ * DELIBERATELY NOT A FLYOUT MENU. The reference opens a panel on hover over
+ * each row. useDisclosure attaches hover handlers only under
+ * `(hover: hover) and (pointer: fine)` — on a touch screen they are absent
+ * entirely — so a hover-revealed subtree would be unreachable on a phone and
+ * invisible to a keyboard. These are plain links. Every row goes somewhere on
+ * one activation, from any input device.
+ *
+ * Desktop only, and the horizontal strip below is hidden at the same
+ * breakpoint: one taxonomy surface per viewport, never two saying the same
+ * thing. Logical properties throughout, so it mirrors in Arabic without a
+ * second rule.
+ */
+function CategoryRail({
+  categories,
+  locale,
+  label,
+  allLabel,
+}: {
+  categories: PublicCategory[];
+  locale: "en" | "ar";
+  label: string;
+  allLabel: string;
+}) {
+  if (categories.length === 0) return null;
+  return (
+    <nav aria-label={label} className="hidden lg:block">
+      <Surface rung={3} className="sticky top-24 overflow-hidden">
+        <p className="u-meta border-b border-hairline px-3.5 py-2.5 font-medium text-ink-2">{label}</p>
+        <ul className="py-1">
+          {categories.map((category) => {
+            const Icon = categoryIcon(category.iconName, category.slug);
+            return (
+              <li key={category.slug}>
+                <Link
+                  href={`/products?category=${encodeURIComponent(category.slug)}`}
+                  className="u-focus group flex items-center gap-2.5 rounded-nested px-3.5 py-2 text-start transition-colors duration-hover ease-standard hover:bg-surface-2"
+                >
+                  <Icon
+                    className="h-4 w-4 shrink-0 text-ink-3 transition-colors duration-hover ease-standard group-hover:text-primary-ink"
+                    aria-hidden="true"
+                  />
+                  <span className="u-ui truncate text-ink-1">{categoryLabel(category, locale)}</span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+        <div className="border-t border-hairline px-3.5 py-2.5">
+          <Link href="/products" className="u-meta u-focus rounded-nested font-medium text-primary-ink hover:underline">
+            {allLabel}
+          </Link>
+        </div>
+      </Surface>
+    </nav>
+  );
+}
 
 /**
  * The category strip.

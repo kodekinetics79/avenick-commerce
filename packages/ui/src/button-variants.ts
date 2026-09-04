@@ -20,7 +20,10 @@ export const buttonVariants = cva(
     "font-medium outline-none",
     // Enumerated, never `all`.
     "transition-[background-color,border-color,color,transform,box-shadow] duration-press ease-standard",
-    "active:translate-y-[var(--press-y)]",
+    // The filled variants travel by their own edge height (.u-key), so the
+    // generic press applies to the flat ones only — two transforms on one
+    // element would compound into a 3.5px drop nobody designed.
+    "[&:not(.u-key)]:active:translate-y-[var(--press-y)]",
     "focus-visible:shadow-[0_0_0_2px_hsl(var(--ring-offset-surface)),0_0_0_4px_hsl(var(--ring))]",
     "disabled:pointer-events-none disabled:opacity-50",
     "[&_svg]:pointer-events-none [&_svg]:shrink-0",
@@ -30,20 +33,20 @@ export const buttonVariants = cva(
       variant: {
         // The commit action. Rung 3 at rest, rung 4 on hover.
         primary:
-          "bg-primary text-primary-foreground shadow-elev-3 hover:bg-primary/90 hover:shadow-elev-4 active:bg-primary/80",
+          "u-key [--key-edge:var(--primary-edge)] bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/90",
         // Trade / verified / settled actions.
         accent:
-          "bg-accent text-accent-foreground shadow-elev-3 hover:bg-accent/90 hover:shadow-elev-4 active:bg-accent/80",
+          "u-key [--key-edge:var(--accent-edge)] bg-accent text-accent-foreground hover:bg-accent/90 active:bg-accent/90",
         secondary:
           "bg-surface-3 text-ink-1 border border-border shadow-elev-2 hover:shadow-elev-3 hover:bg-surface-2",
         ghost: "text-ink-2 hover:bg-ink-1/[0.06] hover:text-ink-1",
         outline:
           "border border-border bg-surface-2 text-ink-1 shadow-elev-2 hover:shadow-elev-3",
         destructive:
-          "bg-danger text-danger-foreground shadow-elev-3 hover:bg-danger/90 hover:shadow-elev-4 active:bg-danger/80",
+          "u-key [--key-edge:var(--danger-edge)] bg-danger text-danger-foreground hover:bg-danger/90 active:bg-danger/90",
         /** Alias of `destructive`, matching the tone vocabulary used elsewhere. */
         danger:
-          "bg-danger text-danger-foreground shadow-elev-3 hover:bg-danger/90 hover:shadow-elev-4 active:bg-danger/80",
+          "u-key [--key-edge:var(--danger-edge)] bg-danger text-danger-foreground hover:bg-danger/90 active:bg-danger/90",
         // primary-ink, not primary: indigo fill as 11–13px text measures about
         // 4.0:1 on a light ground, and this variant ships on every "View →".
         link: "text-primary-ink underline-offset-4 hover:underline",

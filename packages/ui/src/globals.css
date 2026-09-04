@@ -181,14 +181,16 @@
   --chrome-pad: 14px;
 
   /* ═══ BRAND ═══ */
-  --primary:            248 62% 52%;
+  --primary:            150 92% 26%;
   --primary-foreground:   0  0% 100%;
-  --primary-ink:        248 58% 44%;   /* indigo TEXT — the fill hue fails 4.5:1 at 11px */
-  --primary-soft:       248 60% 96%;
-  --accent:             184 62% 30%;   /* deep verdigris — trade / verified / settled */
+  --primary-ink:        150 90% 24%;   /* green TEXT — the fill hue fails 4.5:1 at 11px */
+  --primary-soft:       150 52% 95%;
+  --primary-edge:       150 92% 17%;   /* the solid rim under a pressed key */
+  --accent:             200 62% 30%;   /* deep verdigris — trade / verified / settled */
   --accent-foreground:    0  0% 100%;
-  --accent-ink:         184 66% 26%;
-  --accent-soft:        184 44% 94%;
+  --accent-ink:         200 66% 26%;
+  --accent-soft:        200 44% 94%;
+  --accent-edge:        200 62% 19%;
   --brass:               36 56% 42%;   /* rule + tier + verification ONLY. Never a fill. */
   --brass-ink:           34 60% 34%;
 
@@ -205,6 +207,7 @@
   --danger:         2 62% 42%;  --danger-soft:    2 62% 96%;
   --danger-ink:     2 66% 36%;  --danger-rule:    2 42% 84%;
   --danger-foreground: 0 0% 100%;
+  --danger-edge:    2 62% 28%;
   --neutral-soft:  36 14% 93%;  --neutral-rule:  34 12% 85%;
   --neutral-ink: var(--ink-2);
 
@@ -215,7 +218,7 @@
      half of why the product read as a flat document.
 
      THREE hues, never four: overlapping lobes past three mix to brown rather
-     than glow. Indigo is the brand, verdigris is trade, brass is the register.
+     than glow. Green is the brand, verdigris is trade, brass is the register.
 
      EVERY ALPHA HERE IS A CEILING, not a preference. They are derived from the
      composited contrast at the WORST overlap of all three lobes, in both
@@ -225,8 +228,8 @@
      --ink-3 holds 5.27:1 and dark --ink-2 6.53:1. Raise one because the hero
      looked thin on your monitor and every label in three portals fails, in a
      state that only appears seventeen seconds into a thirty-four second cycle. */
-  --field-a: 248 66% 58%;   --field-a-alpha: .075;   /* indigo — brand */
-  --field-b: 184 64% 44%;   --field-b-alpha: .052;   /* verdigris — trade */
+  --field-a: 150 66% 40%;   --field-a-alpha: .075;   /* green — brand */
+  --field-b: 200 64% 44%;   --field-b-alpha: .052;   /* verdigris — trade */
   --field-c:  36 56% 42%;   --field-c-alpha: .026;   /* brass — the register */
   /* The ruling: horizontal hairlines at exactly one body line-height, masked so
      they dissolve long before they reach a word. Measured delta against the
@@ -390,6 +393,16 @@
   --lift-y: -2px;
   --press-y: 0.5px;
 
+  /* THE KEY EDGE — part of the light model, not a decoration.
+     A filled control sits on a solid darker rim rather than only a blurred
+     shadow, so it reads as an object with THICKNESS that a press compresses.
+     The travel equals the depth exactly: pressing moves the face down by the
+     height of its own edge and the edge goes to zero, which is what makes it
+     read as bottoming out rather than sliding. Reduced motion zeroes the
+     travel below and the edge simply stays put — the depth is still legible
+     when nothing is allowed to move. */
+  --key-depth: 3px;
+
   /* transform-origin has no logical keyword in CSS, so the inline start is a
      token that the RTL block flips — same mechanism as --dir. */
   --origin-inline-start: left;
@@ -505,14 +518,16 @@
   --blur-display: 30px;
   --sat-display: 1.10;
 
-  --primary:            250 84% 72%;
-  --primary-foreground: 248 40% 10%;
-  --primary-ink:        250 90% 80%;
-  --primary-soft:       248 40% 16%;
-  --accent:             184 56% 56%;
-  --accent-foreground:  184 60% 10%;
-  --accent-ink:         184 60% 62%;
-  --accent-soft:        184 38% 15%;
+  --primary:            150 60% 62%;
+  --primary-foreground: 150 45% 8%;
+  --primary-ink:        150 70% 70%;
+  --primary-soft:       150 30% 15%;
+  --primary-edge:       150 55% 40%;
+  --accent:             200 56% 56%;
+  --accent-foreground:  200 60% 10%;
+  --accent-ink:         200 60% 62%;
+  --accent-soft:        200 38% 15%;
+  --accent-edge:        200 45% 34%;
   --brass:               38 62% 60%;
   --brass-ink:           38 66% 68%;
 
@@ -525,6 +540,7 @@
   --danger:         4 78% 66%;  --danger-soft:    2 42% 14%;
   --danger-ink:     4 84% 74%;  --danger-rule:    2 38% 27%;
   --danger-foreground: 2 60% 8%;
+  --danger-edge:    4 50% 44%;
   --neutral-soft: 232 12% 15%;  --neutral-rule: 232 12% 20%;
 
   /* Dark tolerates far more field before contrast bites, and needs it: an
@@ -803,6 +819,32 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 /* The lift is 2px. The old product card used 4px, which reads as a jolt. */
 [data-lift]:hover  { transform: translateY(var(--lift-y)); }
 [data-lift]:active { transform: translateY(var(--press-y)); }
+
+/* ─── THE KEY ─────────────────────────────────────────────────────────────
+   A filled control with real thickness. `--key-edge` is set by the variant,
+   so one rule serves primary, accent and destructive without knowing any of
+   their hues.
+
+   Depth here is Z-POSITION, never rotation: the face travels straight down by
+   the height of its own edge. Nothing tilts, in keeping with the rest of the
+   composition — a button that rotates under the cursor is a toy, and it breaks
+   the single overhead light source every other surface is lit by.
+
+   The blurred elevation stays underneath the solid edge. The edge says how
+   THICK the object is; the shadow says how far it floats. They are different
+   facts and the object needs both. */
+.u-key {
+  box-shadow: 0 var(--key-depth) 0 hsl(var(--key-edge)), var(--elev-3);
+}
+.u-key:hover:not(:disabled) {
+  box-shadow: 0 var(--key-depth) 0 hsl(var(--key-edge)), var(--elev-4);
+}
+.u-key:active:not(:disabled) {
+  /* Bottomed out: the edge is gone and the face has taken its place. */
+  transform: translateY(var(--key-travel, var(--key-depth)));
+  box-shadow: 0 0 0 hsl(var(--key-edge)), var(--elev-1);
+}
+
 
 /*
  * PART 2 OF THE LIGHT MODEL — the fresnel shoulder.
@@ -2107,6 +2149,9 @@ p, .u-lead, .u-body { text-wrap: pretty; }
     --press-y: 0px;
     --stagger: 0ms;
     --blur-scrim: 0px;
+    /* The key stops travelling but keeps its thickness: depth is information,
+       motion is decoration, and only one of those is opted out of here. */
+    --key-travel: 0px;
   }
   [data-lift], [data-reveal], [data-layer] { transform: none !important; }
   [data-specular]::before,
