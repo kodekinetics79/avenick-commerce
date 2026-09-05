@@ -1,3 +1,11 @@
+/*
+ * The barrel is deliberately LIGHT. s3, crypto, browser-upload-policy and
+ * portal-config each have their own subpath export so that a "use client"
+ * component importing `cn` does not drag a server-only module into the browser
+ * bundle — and gcc-identifiers (a 550-line country table) and hijri (an Intl
+ * wrapper) are on that list for the same reason. Import them as
+ * "@avenick/utils/gcc-identifiers" and "@avenick/utils/hijri".
+ */
 export * from "./currency";
 export * from "./date";
 export * from "./arabic";

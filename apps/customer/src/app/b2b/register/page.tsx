@@ -28,14 +28,17 @@ import {
   Surface,
   type SurfaceTone,
 } from "@avenick/ui";
-import { SelectField, TextField } from "@/components/b2b/controls";
 import { MainLayout } from "@/components/layout/main-layout";
-import { ValidatedForm } from "@/components/b2b/validated-form";
+import {
+  ValidatedForm,
+  ValidatedSelectField,
+  ValidatedTextField,
+  type ValidatedFormState,
+} from "@/components/b2b/validated-form";
 import { getB2B, b2bMetadata } from "@/components/b2b/i18n";
 import { b2bT, type B2BKey, type B2BT } from "@/components/b2b/messages";
 import { auth, signOut } from "@/lib/auth-instance";
 import { isDurableB2BMember } from "@/lib/b2b-access";
-import type { B2BActionState } from "@/lib/b2b";
 import { backendUrl, requestBaseUrl } from "@/lib/backend";
 import { SUPPORTED_COUNTRIES } from "@/lib/market-context";
 import { platformName } from "@avenick/utils/portal-config";
@@ -116,8 +119,22 @@ const COUNTRY_OPTIONS: readonly (readonly [Country, string])[] = SUPPORTED_COUNT
 type RegisterResponse = {
   success?: boolean;
   error?: string;
+  /** Keyed by the control's `name`; see describeValidationFailure in the route. */
+  fieldErrors?: Record<string, string>;
   data?: { companyStatus?: string };
 };
+
+/**
+ * Where "Sign in" goes from this page.
+ *
+ * The callbackUrl is the buyer workspace, not the account area: everyone who
+ * reads this page is here about a COMPANY account, and an approved member who
+ * mistook this for the sign-in page should land where they were trying to get
+ * to. /login validates the parameter with safeReturnTo before using it, and a
+ * user with no durable membership is bounced from /b2b back here — a loop that
+ * ends on this page's own "awaiting verification" notice rather than nowhere.
+ */
+const SIGN_IN_HREF = "/login?callbackUrl=%2Fb2b";
 
 /**
  * Submit the company + admin-user registration.
@@ -126,7 +143,10 @@ type RegisterResponse = {
  * that the transaction, the rate limit and the duplicate handling have exactly
  * one implementation — the same endpoint /register uses.
  */
-async function registerBusinessAction(_prev: B2BActionState, formData: FormData): Promise<B2BActionState> {
+async function registerBusinessAction(
+  _prev: ValidatedFormState,
+  formData: FormData,
+): Promise<ValidatedFormState> {
   "use server";
 
   // The locale is read from the same cookie next-intl's request config reads,
@@ -210,7 +230,17 @@ async function registerBusinessAction(_prev: B2BActionState, formData: FormData)
 
   if (!res.ok || json?.success !== true) {
     // The endpoint names the field and the reason; show that, not a stand-in.
-    return { error: json?.error ?? t("register.error.http", { status: res.status }) };
+    //
+    // `fieldErrors` is carried through untouched so each message can be shown
+    // against the box that produced it. It was being dropped here, which is why
+    // fourteen inputs shared one sentence at the foot of the form. The values
+    // are the SERVER's own text — a Zod message that names the accepted enum
+    // values, or the length a password must reach — and are shown verbatim for
+    // the same reason the flat error is: a translated stand-in would say less.
+    return {
+      error: json?.error ?? t("register.error.http", { status: res.status }),
+      fieldErrors: json?.fieldErrors,
+    };
   }
 
   // The confirmation screen describes a company awaiting verification. If the
@@ -225,26 +255,18 @@ async function registerBusinessAction(_prev: B2BActionState, formData: FormData)
   };
 }
 
-/**
- * A labelled control. The label WRAPS its control, which is what associates the
- * two here — there is no htmlFor because there is no id to point at, and an
- * implicit association is as valid as an explicit one so long as exactly one
- * control sits inside.
+/*
+ * The local <Field> that used to live here is gone.
+ *
+ * It wrapped its control in a <label> — a valid association, and the only one
+ * available to it, because it minted no id. What it could not do is tell a
+ * screen reader WHICH field a submission rejected or WHY: there was no error
+ * slot at all, so the endpoint's per-field messages had nowhere to land and the
+ * whole form shared one sentence at the bottom. <ValidatedTextField> and
+ * <ValidatedSelectField> are packages/ui's <Field> with its function child,
+ * which is the same fix checkout made, plus the lookup that finds this field's
+ * message in the last response.
  */
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="u-ui mb-1.5 block font-medium text-ink-1">{label}</span>
-      {children}
-      {/* A hint is an instruction to the person filling the box, not provenance:
-          the Dateline voice is reserved for statements about where a FIGURE came
-          from, and spending it on "at least 8 characters" is what makes it stop
-          meaning anything. It is also a <span>, because <label> takes phrasing
-          content and a <p> nested inside one is invalid. */}
-      {hint ? <span className="u-meta mt-1 block text-ink-3">{hint}</span> : null}
-    </label>
-  );
-}
 
 /**
  * A stated fact about this account, at rung 2. The amber and emerald washes it
@@ -361,7 +383,43 @@ export default async function B2BRegisterPage({
             <p>{t("register.submitted.body2")}</p>
           </Notice>
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="primary"><Link href="/login">{t("register.signIn")}</Link></Button>
+            <Button asChild variant="primary"><Link href={SIGN_IN_HREF}>{t("register.signIn")}</Link></Button>
+            <Button asChild variant="secondary"><Link href="/products">{t("common.browseCatalogue")}</Link></Button>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  /*
+   * Signed in, but on no company at all — a personal account holder who followed
+   * a "for business" link.
+   *
+   * The form used to be rendered to them anyway, under a notice explaining that
+   * they would have to sign out. It could not do what they were about to ask of
+   * it: the endpoint creates a NEW user as the company administrator, so the
+   * only submission that succeeds is one made with an email address that is not
+   * the one they are signed in with, and it leaves them signed in as themselves
+   * with no visible connection to the company they just created. Fourteen boxes
+   * that end somewhere nobody wanted is worse than no boxes, so the page states
+   * the position and offers the one action that unblocks it.
+   */
+  if (userId) {
+    return (
+      <MainLayout>
+        <div className="max-w-2xl mx-auto px-4 py-16 space-y-4">
+          <Notice icon={AlertCircle} tone="accent" title={t("register.signedIn.title")}>
+            <p>{t("register.signedIn.body")}</p>
+          </Notice>
+          <div className="flex flex-wrap items-center gap-2">
+            <form
+              action={async () => {
+                "use server";
+                await signOut({ redirectTo: "/b2b/register" });
+              }}
+            >
+              <Button type="submit" variant="primary">{t("register.signOut")}</Button>
+            </form>
             <Button asChild variant="secondary"><Link href="/products">{t("common.browseCatalogue")}</Link></Button>
           </div>
         </div>
@@ -416,6 +474,20 @@ export default async function B2BRegisterPage({
                 <Link href="/products?b2b=true">{t("common.browseCatalogue")}</Link>
               </Button>
             </div>
+            {/* The way back in.
+                This page offered "Create business account" and nothing else, so
+                an existing buyer who arrived here — from a marketing link, or
+                from /b2b bouncing them — had no visible route to signing in and
+                the only thing on the screen to press was a second registration.
+                It is stated here as well as beside the submit because a reader
+                who is in the wrong place needs to find that out at the TOP of a
+                long page, not after filling it in. */}
+            <p className="u-ui mt-4 text-ink-2">
+              {t("register.haveAccount")}{" "}
+              <Link href={SIGN_IN_HREF} className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
+                {t("register.signIn")}
+              </Link>
+            </p>
           </div>
 
           <DisplayPlate className="grid min-h-[260px] content-end p-6 lg:col-span-5 lg:min-h-[340px]">
@@ -453,24 +525,6 @@ export default async function B2BRegisterPage({
           ))}
         </CellGrid>
 
-        {userId ? (
-          <div className="mb-6">
-            <Notice icon={AlertCircle} tone="accent" title={t("register.signedIn.title")}>
-              <p>{t("register.signedIn.body")}</p>
-              <form
-                action={async () => {
-                  "use server";
-                  await signOut({ redirectTo: "/b2b/register" });
-                }}
-              >
-                <Button type="submit" variant="secondary" size="sm" className="mt-1">
-                  {t("register.signOut")}
-                </Button>
-              </form>
-            </Notice>
-          </div>
-        ) : null}
-
         {/* Registration */}
         <Surface rung={2} id="register" className="overflow-hidden">
           <div className="u-drawn w-14" data-on="true" aria-hidden="true" />
@@ -486,47 +540,31 @@ export default async function B2BRegisterPage({
                   <Building2 className="h-3.5 w-3.5" aria-hidden="true" /> {t("register.section.company")}
                 </Eyebrow>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label={t("register.field.nameEn")}>
-                    <TextField name="companyNameEn" required minLength={2} maxLength={100} autoComplete="organization" />
-                  </Field>
-                  <Field label={t("register.field.nameAr")}>
-                    <TextField name="companyNameAr" minLength={2} maxLength={100} lang="ar" dir="rtl" placeholder={t("register.field.nameAr.placeholder")} />
-                  </Field>
-                  <Field label={t("register.field.cr")}>
-                    <TextField name="crNumber" required minLength={5} maxLength={30} />
-                  </Field>
-                  <Field label={t("register.field.vat")} hint={t("register.field.vat.hint")}>
-                    <TextField name="vatNumber" maxLength={30} />
-                  </Field>
-                  <Field label={t("register.field.industry")}>
-                    <SelectField name="industry" required defaultValue="">
-                      <option value="" disabled>{t("register.field.industry.select")}</option>
-                      {INDUSTRY_VALUES.map((v) => (
-                        <option key={v} value={v}>{t(INDUSTRY_LABELS[v])}</option>
-                      ))}
-                    </SelectField>
-                  </Field>
-                  <Field label={t("register.field.size")}>
-                    <SelectField name="companySize" required defaultValue="">
-                      <option value="" disabled>{t("register.field.size.select")}</option>
-                      {COMPANY_SIZE_VALUES.map((v) => (
-                        <option key={v} value={v}>{t(COMPANY_SIZE_LABELS[v])}</option>
-                      ))}
-                    </SelectField>
-                  </Field>
-                  <Field label={t("register.field.country")}>
-                    <SelectField name="country" required defaultValue="">
-                      <option value="" disabled>{t("register.field.country.select")}</option>
-                      {COUNTRY_OPTIONS.map(([code, name]) => (
-                        <option key={code} value={code}>
-                          {COUNTRY_LABELS[code] ? t(COUNTRY_LABELS[code]!) : name}
-                        </option>
-                      ))}
-                    </SelectField>
-                  </Field>
-                  <Field label={t("register.field.city")}>
-                    <TextField name="city" required minLength={2} maxLength={50} autoComplete="address-level2" />
-                  </Field>
+                  <ValidatedTextField name="companyNameEn" label={t("register.field.nameEn")} required minLength={2} maxLength={100} autoComplete="organization" />
+                  <ValidatedTextField name="companyNameAr" label={t("register.field.nameAr")} minLength={2} maxLength={100} lang="ar" dir="rtl" placeholder={t("register.field.nameAr.placeholder")} />
+                  <ValidatedTextField name="crNumber" label={t("register.field.cr")} required minLength={5} maxLength={30} />
+                  <ValidatedTextField name="vatNumber" label={t("register.field.vat")} hint={t("register.field.vat.hint")} maxLength={30} />
+                  <ValidatedSelectField name="industry" label={t("register.field.industry")} required defaultValue="">
+                    <option value="" disabled>{t("register.field.industry.select")}</option>
+                    {INDUSTRY_VALUES.map((v) => (
+                      <option key={v} value={v}>{t(INDUSTRY_LABELS[v])}</option>
+                    ))}
+                  </ValidatedSelectField>
+                  <ValidatedSelectField name="companySize" label={t("register.field.size")} required defaultValue="">
+                    <option value="" disabled>{t("register.field.size.select")}</option>
+                    {COMPANY_SIZE_VALUES.map((v) => (
+                      <option key={v} value={v}>{t(COMPANY_SIZE_LABELS[v])}</option>
+                    ))}
+                  </ValidatedSelectField>
+                  <ValidatedSelectField name="country" label={t("register.field.country")} required defaultValue="">
+                    <option value="" disabled>{t("register.field.country.select")}</option>
+                    {COUNTRY_OPTIONS.map(([code, name]) => (
+                      <option key={code} value={code}>
+                        {COUNTRY_LABELS[code] ? t(COUNTRY_LABELS[code]!) : name}
+                      </option>
+                    ))}
+                  </ValidatedSelectField>
+                  <ValidatedTextField name="city" label={t("register.field.city")} required minLength={2} maxLength={50} autoComplete="address-level2" />
                 </div>
               </section>
 
@@ -535,44 +573,40 @@ export default async function B2BRegisterPage({
                   <Users className="h-3.5 w-3.5" aria-hidden="true" /> {t("register.section.admin")}
                 </Eyebrow>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label={t("register.field.firstName")}>
-                    <TextField name="firstName" required minLength={2} maxLength={50} autoComplete="given-name" />
-                  </Field>
-                  <Field label={t("register.field.lastName")}>
-                    <TextField name="lastName" required minLength={2} maxLength={50} autoComplete="family-name" />
-                  </Field>
-                  <Field label={t("register.field.email")}>
-                    <TextField type="email" name="email" required autoComplete="email" />
-                  </Field>
-                  <Field label={t("register.field.phone")} hint={t("register.field.phone.hint")}>
-                    <TextField type="tel" name="phone" pattern="\+[1-9][0-9]{7,14}" autoComplete="tel" />
-                  </Field>
-                  <Field label={t("register.field.password")} hint={t("register.field.password.hint")}>
-                    <TextField type="password" name="password" required minLength={8} autoComplete="new-password" />
-                  </Field>
-                  <Field label={t("register.field.language")}>
-                    <SelectField name="language" defaultValue={locale === "ar" ? "AR" : "EN"}>
-                      {LANGUAGE_VALUES.map((v) => (
-                        <option key={v} value={v}>{t(LANGUAGE_LABELS[v])}</option>
-                      ))}
-                    </SelectField>
-                  </Field>
+                  <ValidatedTextField name="firstName" label={t("register.field.firstName")} required minLength={2} maxLength={50} autoComplete="given-name" />
+                  <ValidatedTextField name="lastName" label={t("register.field.lastName")} required minLength={2} maxLength={50} autoComplete="family-name" />
+                  <ValidatedTextField type="email" name="email" label={t("register.field.email")} required autoComplete="email" />
+                  <ValidatedTextField type="tel" name="phone" label={t("register.field.phone")} hint={t("register.field.phone.hint")} pattern="\+[1-9][0-9]{7,14}" autoComplete="tel" />
+                  <ValidatedTextField type="password" name="password" label={t("register.field.password")} hint={t("register.field.password.hint")} required minLength={8} autoComplete="new-password" />
+                  <ValidatedSelectField name="language" label={t("register.field.language")} defaultValue={locale === "ar" ? "AR" : "EN"}>
+                    {LANGUAGE_VALUES.map((v) => (
+                      <option key={v} value={v}>{t(LANGUAGE_LABELS[v])}</option>
+                    ))}
+                  </ValidatedSelectField>
                 </div>
               </section>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <Button type="submit" variant="primary">{t("register.submit")}</Button>
-                <Dateline className="flex items-center gap-1.5">
+              <div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <Button type="submit" variant="primary">{t("register.submit")}</Button>
+                  {/* The alternative to pressing the button, beside the button.
+                      This line used to sit outside the form entirely, below it;
+                      the moment a reader realises they already have an account
+                      is the moment they are looking at the submit, so that is
+                      where the other route has to be. */}
+                  <p className="u-ui text-ink-2">
+                    {t("register.haveAccount")}{" "}
+                    <Link href={SIGN_IN_HREF} className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
+                      {t("register.signInInstead")}
+                    </Link>
+                  </p>
+                </div>
+                <Dateline className="mt-3 flex items-center gap-1.5">
                   <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
                   {t("register.submit.basis")}
                 </Dateline>
               </div>
             </ValidatedForm>
-
-            <p className="u-ui mt-5 text-ink-2">
-              {t("register.haveAccount")}{" "}
-              <Link href="/login" className="u-focus rounded-nested text-primary-ink hover:underline">{t("register.signIn")}</Link>
-            </p>
           </div>
         </Surface>
       </div>

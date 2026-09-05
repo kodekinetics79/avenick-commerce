@@ -38,26 +38,48 @@ export const IDENTITY_LABEL_CLASS = "u-ui mb-1.5 block font-medium text-ink-1";
 
 export interface IdentitySelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label: string;
-  /** Sits under the control, and is the line an error would occupy. */
+  /** Guidance. Shown only when there is no error to show instead. */
   hint?: string;
+  /**
+   * The server's refusal for THIS control.
+   *
+   * It is a separate prop from `hint` deliberately. Routing an error into the
+   * hint slot is how the registration form used to show one: the sentence
+   * appeared in the muted instruction colour, carried no id, and the control it
+   * described said nothing about being invalid — so a screen-reader user was
+   * told the field was fine and a sighted user read the refusal as advice.
+   */
+  error?: string | null;
 }
 
-export function IdentitySelect({ label, hint, id, className, children, ...props }: IdentitySelectProps) {
+export function IdentitySelect({ label, hint, error, id, className, children, ...props }: IdentitySelectProps) {
+  const generated = React.useId();
+  const controlId = id ?? generated;
+  // One line, one id: the message is either the error or the hint, and the
+  // control points at whichever is showing. Reserved either way, so a refusal
+  // appearing does not push the rest of the form down the page.
+  const messageId = `${controlId}-msg`;
+  const message = error ?? hint ?? "";
+
   return (
     <div className="w-full">
-      <label htmlFor={id} className={IDENTITY_LABEL_CLASS}>
+      <label htmlFor={controlId} className={IDENTITY_LABEL_CLASS}>
         {label}
       </label>
       <select
-        id={id}
+        id={controlId}
         data-rung={1}
-        className={cn(IDENTITY_CONTROL_CLASS, className)}
+        aria-describedby={messageId}
+        aria-invalid={error ? true : undefined}
+        className={cn(IDENTITY_CONTROL_CLASS, error && "border-danger-edge", className)}
         style={{ height: "var(--control-h-md)" }}
         {...props}
       >
         {children}
       </select>
-      {hint && <p className="u-meta mt-1 text-ink-3">{hint}</p>}
+      <p id={messageId} className={cn("u-meta mt-1 min-h-[18px]", error ? "text-danger-ink" : "text-ink-3")}>
+        {message}
+      </p>
     </div>
   );
 }

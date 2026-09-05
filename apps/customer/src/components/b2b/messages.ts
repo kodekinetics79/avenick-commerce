@@ -711,6 +711,10 @@ const en = {
   "register.submit.basis": "Every account is reviewed before B2B pricing and credit terms are enabled",
   "register.haveAccount": "Already have an account?",
   "register.signIn": "Sign in",
+  // A second link to the same place, next to the form. It needs its own name:
+  // two links with an identical accessible name and href read to a screen
+  // reader as one control repeated, with nothing to choose between them.
+  "register.signInInstead": "Sign in instead",
   "register.pending.title": "{company} is awaiting verification",
   "register.pending.body": "The company account was created on {date} and is in review. {platform} checks the commercial registration before B2B pricing, purchase orders, credit terms and team accounts are switched on, so the buyer workspace stays closed until then.",
   "register.pending.body2": "There is nothing further to submit and no need to register again — this page opens the workspace as soon as the company is approved.",
@@ -1410,6 +1414,7 @@ const ar: Record<B2BKey, string> = {
   "register.submit.basis": "تُراجَع كل الحسابات قبل تفعيل أسعار الأعمال والشروط الائتمانية",
   "register.haveAccount": "لديك حساب بالفعل؟",
   "register.signIn": "تسجيل الدخول",
+  "register.signInInstead": "تسجيل الدخول بدلاً من ذلك",
   "register.pending.title": "{company} بانتظار التوثيق",
   "register.pending.body": "أُنشئ حساب الشركة في {date} وهو قيد المراجعة. تتحقق {platform} من السجل التجاري قبل تفعيل أسعار الأعمال وأوامر الشراء والشروط الائتمانية وحسابات الفريق، فتبقى مساحة عمل المشتري مغلقة حتى ذلك الحين.",
   "register.pending.body2": "لا شيء آخر لتقديمه ولا حاجة للتسجيل مرة أخرى — تفتح هذه الصفحة مساحة العمل فور اعتماد الشركة.",

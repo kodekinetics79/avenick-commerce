@@ -31,20 +31,42 @@ export default function RegisterPage() {
   const [mode, setMode] = useState<Mode>("select");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  /**
+   * The server's per-field reasons from the last attempt, keyed by the same
+   * names this form posts.
+   *
+   * /api/auth/register/business has always returned a `fieldErrors` map beside
+   * the flat sentence, and this page threw it away: an applicant who typed a
+   * password without a digit was shown one line under the submit button and had
+   * to work out for themselves which of thirteen boxes it was about.
+   */
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   // `companySize` is required by RegisterBusinessSchema and was absent from this
   // object entirely, so every business registration was rejected 400 before it
   // reached the database. `industry` was present but hardcoded to
   // INDUSTRIAL_SUPPLIES, which meant the platform recorded a classification the
   // applicant never gave. Both are now asked for; both start empty so nothing is
   // submitted on the applicant's behalf.
-  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", password: "", companyNameEn: "", companyNameAr: "", crNumber: "", vatNumber: "", industry: "", companySize: "", country: "", city: "" });
+  //
+  // `language` was absent too, and absence is not neutral here: both register
+  // schemas declare `.default("AR")`, so every account this page ever created —
+  // personal and business alike — was recorded as preferring Arabic, whatever
+  // language its owner had been reading. The product is English-only by the
+  // owner's decision, so the honest value is the locale the applicant is
+  // actually in, which is what /b2b/register already sends.
+  const [form, setForm] = useState({ firstName: "", lastName: "", email: "", phone: "", password: "", companyNameEn: "", companyNameAr: "", crNumber: "", vatNumber: "", industry: "", companySize: "", country: "", city: "", language: locale === "ar" ? "AR" : "EN" });
 
-  function set(key: string, val: string) { setForm((f) => ({ ...f, [key]: val })); }
+  function set(key: string, val: string) {
+    setForm((f) => ({ ...f, [key]: val }));
+    // A message about what was typed stops being true the moment it is retyped.
+    setFieldErrors((prev) => (key in prev ? Object.fromEntries(Object.entries(prev).filter(([k]) => k !== key)) : prev));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setFieldErrors({});
     const endpoint = mode === "consumer" ? "/api/auth/register/consumer" : "/api/auth/register/business";
     // THE FAILED STATE IS A DESIGNED STATE. The endpoint, the payload, the
     // success branch and the server's own `error` string are exactly what they
@@ -61,6 +83,12 @@ export default function RegisterPage() {
         router.push("/login?registered=1");
       } else {
         setError(data.error ?? t.failed);
+        // The summary stays as well as the per-field lines: it is what the
+        // alert region announces, and it says how many fields there are when
+        // some of them are scrolled off the screen. Guarded because only the
+        // business endpoint returns the map, and only for a validation failure
+        // — a 409 or a 500 carries the sentence alone.
+        setFieldErrors(data.fieldErrors && typeof data.fieldErrors === "object" ? data.fieldErrors : {});
       }
     } catch {
       setError(t.failed);
@@ -156,6 +184,7 @@ export default function RegisterPage() {
                 autoComplete="given-name"
                 value={form.firstName}
                 onChange={(e) => set("firstName", e.target.value)}
+                error={fieldErrors.firstName}
                 required
               />
               <Input
@@ -164,6 +193,7 @@ export default function RegisterPage() {
                 autoComplete="family-name"
                 value={form.lastName}
                 onChange={(e) => set("lastName", e.target.value)}
+                error={fieldErrors.lastName}
                 required
               />
             </div>
@@ -175,6 +205,7 @@ export default function RegisterPage() {
               placeholder={t.emailPlaceholder}
               value={form.email}
               onChange={(e) => set("email", e.target.value)}
+              error={fieldErrors.email}
               required
             />
             {/* The password rule used to live in the placeholder, where it
@@ -189,6 +220,7 @@ export default function RegisterPage() {
               hint={t.passwordHint}
               value={form.password}
               onChange={(e) => set("password", e.target.value)}
+              error={fieldErrors.password}
               required
             />
             <Input
@@ -199,6 +231,7 @@ export default function RegisterPage() {
               hint={t.phoneHint}
               value={form.phone}
               onChange={(e) => set("phone", e.target.value)}
+              error={fieldErrors.phone}
             />
 
             {isBusiness && (
@@ -213,6 +246,7 @@ export default function RegisterPage() {
                   dir="ltr"
                   value={form.companyNameEn}
                   onChange={(e) => set("companyNameEn", e.target.value)}
+                  error={fieldErrors.companyNameEn}
                   required
                 />
                 <Input
@@ -221,6 +255,7 @@ export default function RegisterPage() {
                   dir="rtl"
                   value={form.companyNameAr}
                   onChange={(e) => set("companyNameAr", e.target.value)}
+                  error={fieldErrors.companyNameAr}
                 />
                 <Input
                   id="reg-cr"
@@ -228,6 +263,7 @@ export default function RegisterPage() {
                   inputMode="numeric"
                   value={form.crNumber}
                   onChange={(e) => set("crNumber", e.target.value)}
+                  error={fieldErrors.crNumber}
                   required
                 />
                 <Input
@@ -237,16 +273,31 @@ export default function RegisterPage() {
                   hint={t.optional}
                   value={form.vatNumber}
                   onChange={(e) => set("vatNumber", e.target.value)}
+                  error={fieldErrors.vatNumber}
                 />
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {/* One shared recessed control instead of three copies of a
-                      CONTROL_CLASS string in three files. */}
+                      CONTROL_CLASS string in three files.
+
+                      The server's reason goes into `hint`, because IdentitySelect
+                      has no `error` prop of its own — that control belongs to the
+                      identity track and is not this change's to alter — so the
+                      message is carried on the line the hint already occupies,
+                      with `aria-invalid` and the danger rule saying it is a
+                      refusal rather than an instruction. Both selects are also
+                      `required` enums, so the browser stops an empty one long
+                      before the server ever sees it; this path is reached only
+                      when a value that is not in the enum arrives, which is a
+                      hand-built request or a schema that has moved. */}
                   <IdentitySelect
                     id="reg-industry"
                     label={t.industry}
                     required
                     value={form.industry}
                     onChange={(e) => set("industry", e.target.value)}
+                    error={fieldErrors.industry}
+                    aria-invalid={fieldErrors.industry ? true : undefined}
+                    className={fieldErrors.industry ? "border-danger-rule" : undefined}
                   >
                     <option value="" disabled>{t.industryPlaceholder}</option>
                     {/* The VALUES come from @avenick/types/schemas; this map only
@@ -262,6 +313,9 @@ export default function RegisterPage() {
                     required
                     value={form.companySize}
                     onChange={(e) => set("companySize", e.target.value)}
+                    error={fieldErrors.companySize}
+                    aria-invalid={fieldErrors.companySize ? true : undefined}
+                    className={fieldErrors.companySize ? "border-danger-rule" : undefined}
                   >
                     <option value="" disabled>{t.companySizePlaceholder}</option>
                     {COMPANY_SIZE_VALUES.map((value) => (
@@ -276,6 +330,9 @@ export default function RegisterPage() {
                     required
                     value={form.country}
                     onChange={(e) => set("country", e.target.value)}
+                    error={fieldErrors.country}
+                    aria-invalid={fieldErrors.country ? true : undefined}
+                    className={fieldErrors.country ? "border-danger-rule" : undefined}
                   >
                     <option value="" disabled>{t.countryPlaceholder}</option>
                     {SUPPORTED_COUNTRIES.map(([code, name]) => (
@@ -288,6 +345,7 @@ export default function RegisterPage() {
                     autoComplete="address-level2"
                     value={form.city}
                     onChange={(e) => set("city", e.target.value)}
+                    error={fieldErrors.city}
                     required
                   />
                 </div>

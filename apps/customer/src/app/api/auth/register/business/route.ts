@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@avenick/database";
 import bcrypt from "bcryptjs";
 import { RegisterBusinessSchema } from "@avenick/types";
-import { checkRateLimit, clientIpFrom, RATE_LIMITS } from "@avenick/auth";
+// Subpath, not the barrel: the table is 550 lines and this route is the only
+// thing that needs it.
+import { checkIdentifier, describeIdentifier } from "@avenick/utils/gcc-identifiers";
+// Narrow subpath on purpose, the same reason /api/products gives: the package
+// barrel pulls in next-auth, which this route never touches, and which drags
+// the whole credentials provider — and therefore Prisma — into any test or
+// bundle that imports it.
+import { checkRateLimit, clientIpFrom, RATE_LIMITS } from "@avenick/auth/rate-limit";
 import { log } from "@avenick/observability";
 import { sendAlreadyRegisteredNotice } from "@/lib/email";
 
@@ -82,6 +89,41 @@ export async function POST(req: NextRequest) {
     }
 
     const { email, password, firstName, lastName, phone, language, companyNameEn, companyNameAr, crNumber, vatNumber, industry, companySize, country, city } = parsed.data;
+
+    /*
+      The registry identifiers, checked against the country that issued them.
+
+      RegisterBusinessSchema can only say "5 to 30 characters", because it does
+      not know the country until the same payload is parsed. That is generic
+      enough to accept a plainly wrong number and, worse, to refuse nothing —
+      an applicant who transposes a digit learns it from a rejected order weeks
+      later. The table in @avenick/utils holds the per-country rule and the
+      sentence that explains it, in one entry, so what is enforced and what is
+      shown cannot drift apart. The reference implementation this was modelled
+      on drifted exactly there: its helper said "14 digits" while its validator
+      refused fourteen.
+
+      Only REFUSE blocks. The table's warn level covers conventions that are
+      usually true and occasionally not — a Saudi VAT ending "03", a CR that
+      looks like a unified number — and refusing a legitimate business over a
+      convention is the worse failure by far. Warnings are for the form to show,
+      never for this route to act on.
+    */
+    for (const [field, kind] of [["crNumber", "commercialRegistration"], ["vatNumber", "vatNumber"]] as const) {
+      const value = field === "crNumber" ? crNumber : vatNumber;
+      if (!value) continue;
+      const outcome = checkIdentifier(country, kind, value);
+      if (outcome.level !== "refuse") continue;
+      const described = describeIdentifier(country, kind);
+      return NextResponse.json(
+        {
+          success: false,
+          error: outcome.message ?? `${labelFor(field)} is not valid for the selected country.`,
+          fieldErrors: { [field]: outcome.message ?? described?.helper ?? `${labelFor(field)} is not valid for the selected country.` },
+        },
+        { status: 400 },
+      );
+    }
 
     const normalisedEmail = email.toLowerCase();
     raceEmail = normalisedEmail;
