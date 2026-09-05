@@ -1,12 +1,11 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, BadgeCheck, PackageSearch, ShieldCheck, Sparkles, Truck } from "lucide-react";
+import { ArrowRight, BadgeCheck, CreditCard, PackageSearch, ShieldCheck, Sparkles, Undo2 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import {
   AvailabilityDot,
   Button,
-  CellGrid,
   DisplayPlate,
   EmptyState,
   Eyebrow,
@@ -27,18 +26,44 @@ import { ProductGrid } from "@/components/products/product-grid";
 import { categoryIcon } from "@/components/products/category-icon";
 import { fetchBackendJson } from "@/lib/backend";
 import { categoryLabel, getPublicCategories, type PublicCategory } from "@/lib/catalog-categories";
+import { getStorefrontSections, listBrandsWithLogos } from "@avenick/database";
+import { toCatalogListDto } from "@/lib/catalog-list-dto";
 import { partitionHomeProducts } from "@/lib/home-catalog";
 import { productCardPricePresentation, storefrontProductHref } from "@/lib/product-card-commerce";
 
 export const dynamic = "force-dynamic";
 
-async function getFeaturedProducts() {
+/**
+ * Every rail on this page, from one call.
+ *
+ * The rows go through toCatalogListDto exactly as /api/products does, and that
+ * is not a convenience — the DTO is where catalogue PRICE PRIVACY lives. It
+ * decides which prices a channel may see and what the card is allowed to quote.
+ * Reading the rows straight out of the service and shaping them here would
+ * route around that rule, and the page would leak B2B pricing to an anonymous
+ * visitor without anything failing.
+ *
+ * `rating` is re-attached after the DTO because the DTO builds a fresh object
+ * and knows nothing about reviews.
+ */
+async function getHomeRails() {
   try {
-    const result = await fetchBackendJson<{ products?: any[] }>("/api/products?limit=10&b2c=true");
-    return Array.isArray(result.products) ? result.products : [];
+    const [sections, brands] = await Promise.all([
+      getStorefrontSections({ limit: 10 }),
+      listBrandsWithLogos({ limit: 12 }),
+    ]);
+    const shape = (rows: Array<Record<string, any>>) =>
+      rows.map((row) => ({ ...toCatalogListDto(row as any, "B2C"), rating: row["rating"] ?? null }));
+    return {
+      bestSellers: shape(sections.bestSellers),
+      newArrivals: shape(sections.newArrivals),
+      topRated: shape(sections.topRated),
+      featured: shape(sections.featured),
+      brands,
+    };
   } catch (error) {
-    console.error("Unable to load featured products", error);
-    return [];
+    console.error("Unable to load storefront rails", error);
+    return { bestSellers: [], newArrivals: [], topRated: [], featured: [], brands: [] };
   }
 }
 
@@ -49,9 +74,12 @@ export default async function HomePage() {
   const tp = await getTranslations("products");
   // The category strip comes from the catalog, not from a list typed into this
   // page: a typed list kept advertising categories with nothing to sell.
-  const [products, categories] = await Promise.all([getFeaturedProducts(), getPublicCategories()]);
+  const [rails, categories] = await Promise.all([getHomeRails(), getPublicCategories()]);
+  // The hero's specimen and shelf come from the same rails the page already
+  // loaded, so the page makes no extra round trip to fill its own header.
+  const products = [...rails.featured, ...rails.bestSellers, ...rails.newArrivals];
 
-  const mapped = products.map((p) => {
+  function toCard(p: any) {
     const stock = p.inventory?.[0];
     const available = stock?.inStock ? 1 : 0;
     return {
@@ -72,12 +100,15 @@ export default async function HomePage() {
       hasVariants: p.hasVariants === true,
       priceTiered: p.priceTiered === true,
       moq: p.moq,
+      rating: p.rating ?? null,
       // Locale-aware, and no fallback label: a product whose category is
       // unknown is shown without one rather than filed under a category it may
       // not belong to.
       category: (locale === "ar" ? p.category?.nameAr || p.category?.nameEn : p.category?.nameEn) ?? undefined,
     };
-  });
+  }
+
+  const mapped = products.map(toCard);
 
   // The hero's specimen slot holds ONE REAL PRODUCT from the fetch this page
   // already does — never a placeholder, never stock photography. If the
@@ -123,6 +154,15 @@ export default async function HomePage() {
   // underneath a product this same page is showing in its hero would be a lie,
   // and a lie delivered by a layout decision is still the unsurvivable one.
   const productSections = partitionHomeProducts(mapped.length > 5 ? mapped.slice(1) : mapped);
+
+  // The rails, in card shape. Same mapping the hero's specimen uses, so a
+  // product cannot describe itself one way in the header and another in a grid.
+  const railFor = {
+    bestSellers: rails.bestSellers.map(toCard),
+    newArrivals: rails.newArrivals.map(toCard),
+    featured: rails.featured.map(toCard),
+    topRated: rails.topRated.map(toCard),
+  };
 
   const specimenName = specimen
     ? locale === "ar"
@@ -538,22 +578,26 @@ export default async function HomePage() {
         )}
       </section>
 
-      {/* ─── Catalog products ─────────────────────────────── */}
-      {/* No badge: "HOT" asserts demand ranking the catalog does not compute. */}
-      <Section
-        eyebrow={t("catalogEyebrow")}
-        title={t("bestSellers")}
-        subtitle={t("bestSellersSub")}
-        href="/products"
-        linkLabel={t("viewAll")}
-      >
-        {productSections.catalog.length === 0 ? (
-          // getFeaturedProducts swallows a failed fetch and returns [], and a
-          // brand-new catalogue returns [] legitimately. Either way this section
-          // used to render a heading, an underrule and a "View all" link over
-          // nothing at all, which reads as a grid that failed to paint. The
-          // certificate says exactly what is empty and gives one real thing to
-          // do next.
+      {/* ─── The named rails ──────────────────────────────
+          The certificate belongs to an EMPTY CATALOGUE, not to an empty rail.
+          Binding it to Best Sellers alone printed "No supplier lists a product
+          in this storefront yet" above three hundred listed products, because
+          only a handful of paid orders exist to rank from — a true sentence
+          about the ranking, rendered as a false one about the catalogue.
+
+          So: the certificate shows when every rail is empty, and each rail
+          otherwise renders only when it has rows. */}
+      {railFor.bestSellers.length === 0 &&
+      railFor.newArrivals.length === 0 &&
+      railFor.featured.length === 0 &&
+      railFor.topRated.length === 0 ? (
+        <Section
+          eyebrow={t("catalogEyebrow")}
+          title={t("bestSellers")}
+          subtitle={t("bestSellersSub")}
+          href="/products"
+          linkLabel={t("viewAll")}
+        >
           <EmptyState
             variant="certificate"
             glyph={<PackageSearch />}
@@ -568,62 +612,194 @@ export default async function HomePage() {
               </Button>
             }
           />
-        ) : (
-          <ProductGrid columns={5}>
-            {productSections.catalog.map((p, i) => (
-              // h-full on the wrapper, not just on the card: Reveal introduces a
-              // div between the grid and the card, and without it the card stops
-              // stretching to the row height and the row loses its baseline.
-              <Reveal key={p.id} index={i} className="h-full">
-                <ProductCard {...p} locale={locale} />
-              </Reveal>
-            ))}
-          </ProductGrid>
-        )}
-      </Section>
+        </Section>
+      ) : (
+        <ProductRail
+          rows={railFor.bestSellers}
+          eyebrow={t("catalogEyebrow")}
+          title={t("bestSellers")}
+          subtitle={t("bestSellersSub")}
+          viewAll={t("viewAll")}
+          locale={locale}
+        />
+      )}
 
-      {/* ─── What the platform actually does ──────────────── */}
-      {/* One hairline-divided panel, not four independently bordered, shadowed,
-          hoverable cards. These are statements of fact, not actions: they are
-          flat content inside a single object, and nothing about them lifts. */}
+      {/* ─── Buyer protection ─────────────────────────────
+          The reference's layout: four assurances beside a photograph, with a
+          percentage badge over its lower corner. The CONTENT is Avenick's, and
+          each line is checkable —
+
+            verified sellers   SellerProfile reaches ACTIVE only through the
+                               approval gate in services/admin.ts
+            payment options    the real PaymentMethod enum: MADA, Apple Pay,
+                               card, bank transfer, STC Pay. The reference says
+                               "PayPal", which is neither offered here nor the
+                               right rail for the Gulf.
+            priced up front    VAT and delivery are computed at checkout before
+                               the order is placed (services/orders.ts)
+            returns            the ReturnRequest lifecycle, REQUESTED through
+                               REFUNDED
+
+          The badge reads 100% rather than the reference's 99.8%. 99.8% of what
+          is the question it cannot answer — twelve orders exist, so any success
+          rate quoted from them is noise dressed as evidence. "Every seller is
+          verified before listing" is a different KIND of claim: it is true by
+          construction, because listing requires approval. It fills the same
+          slot and survives being asked about. */}
       <section className="mx-auto max-w-7xl px-4 py-block">
-        <SectionHead eyebrow={t("propsEyebrow")} title={t("propsTitle")} />
-        <CellGrid cols={{ base: 1, sm: 2, lg: 4 }}>
-          {[
-            { icon: BadgeCheck, titleKey: "prop1Title", descKey: "prop1Desc" },
-            { icon: ShieldCheck, titleKey: "prop2Title", descKey: "prop2Desc" },
-            { icon: Truck, titleKey: "prop3Title", descKey: "prop3Desc" },
-            { icon: Sparkles, titleKey: "prop4Title", descKey: "prop4Desc" },
-          ].map(({ icon: Icon, titleKey, descKey }) => (
-            <div key={titleKey}>
-              <Icon className="mb-3 h-5 w-5 text-ink-3" aria-hidden="true" />
-              <h3 className="u-ui font-medium text-ink-1">{t(titleKey)}</h3>
-              <p className="u-meta mt-1.5 text-ink-2">{t(descKey)}</p>
+        <Surface rung={2} className="overflow-hidden">
+          <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+            <div className="p-6 sm:p-8">
+              <Eyebrow tone="brass">{t("protectEyebrow")}</Eyebrow>
+              <h2 className="u-h2 mt-2 text-ink-1">{t("protectTitle")}</h2>
+              <p className="u-ui mt-1.5 text-ink-2">{t("protectSub")}</p>
+
+              <ul className="mt-6 space-y-4">
+                {[
+                  { icon: ShieldCheck, titleKey: "protect1Title", descKey: "protect1Desc" },
+                  { icon: CreditCard, titleKey: "protect2Title", descKey: "protect2Desc" },
+                  { icon: BadgeCheck, titleKey: "protect3Title", descKey: "protect3Desc" },
+                  { icon: Undo2, titleKey: "protect4Title", descKey: "protect4Desc" },
+                ].map(({ icon: Icon, titleKey, descKey }) => (
+                  <li key={titleKey} className="flex items-start gap-3">
+                    {/* The reference's soft-green icon chip, taken from our own
+                        primary-soft token rather than its raw #e4fff1 — the raw
+                        hex has no dark counterpart and this panel has to work on
+                        both grounds. */}
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-nested bg-primary-soft text-primary-ink">
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0">
+                      <h3 className="u-ui font-medium text-ink-1">{t(titleKey)}</h3>
+                      <p className="u-meta mt-0.5 text-ink-2">{t(descKey)}</p>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              <Button variant="primary" size="md" className="mt-7" asChild>
+                <Link href="/support">{t("propsEyebrow")}</Link>
+              </Button>
             </div>
-          ))}
-        </CellGrid>
+
+            {/* The photograph, and the badge standing on its corner. Hidden
+                below lg: at phone width it would be a 200px letterbox carrying
+                no information the four lines above have not already given. */}
+            <div className="relative hidden min-h-[22rem] lg:block">
+              <Image
+                src="/hero/workshop-1600.jpg"
+                alt=""
+                aria-hidden="true"
+                fill
+                sizes="(min-width: 1024px) 45vw, 0px"
+                className="object-cover"
+              />
+              <Surface rung={4} className="absolute bottom-6 end-6 w-40 p-4 text-center">
+                <p className="u-display text-primary-ink">{t("protectStat")}</p>
+                <p className="u-meta mt-1 text-ink-2">{t("protectStatLabel")}</p>
+              </Surface>
+            </div>
+          </div>
+        </Surface>
       </section>
 
       {/* ─── More products ────────────────────────────────── */}
       {/* No badge: "NEW" was stamped on every product regardless of age. The
           section is dropped entirely when the feed holds nothing the catalog
           strip above did not already show. */}
-      {productSections.more.length > 0 && (
-        <Section
-          eyebrow={t("catalogEyebrow")}
-          title={t("featuredProducts")}
-          subtitle={t("featuredProductsSub")}
-          href="/products"
-          linkLabel={t("viewAll")}
-        >
-          <ProductGrid columns={5}>
-            {productSections.more.map((p, i) => (
-              <Reveal key={p.id} index={i} className="h-full">
-                <ProductCard {...p} locale={locale} />
-              </Reveal>
+      {/* ─── The named rails ──────────────────────────────
+          The reference stacks eight to twelve product carousels. Four ship,
+          because four is how many this catalogue can NAME truthfully:
+
+            New Arrivals  — newest by createdAt
+            Featured      — a slice of the catalogue feed, deduplicated against
+                            the other rails, which is exactly what /deals
+                            already says it is
+            Top Rated     — real review averages, minimum three reviews
+
+          "Best Sellers" is the fourth and is ranked from actual paid order
+          lines (see storefront-sections.ts). The rails the reference also draws
+          — "Tools & Hardware", "Vehicle Parts" — are category feeds, and the
+          category rail beside the hero already routes there without spending a
+          screen apiece on them.
+
+          Each rail renders only when it has rows. A heading and a "View all"
+          link over an empty grid reads as a section that failed to paint. */}
+      <ProductRail
+        rows={railFor.newArrivals}
+        eyebrow={t("catalogEyebrow")}
+        title={t("newArrivals")}
+        subtitle={t("newArrivalsSub")}
+        viewAll={t("viewAll")}
+        locale={locale}
+      />
+
+      <ProductRail
+        rows={railFor.featured}
+        eyebrow={t("catalogEyebrow")}
+        title={t("featuredProducts")}
+        subtitle={t("featuredProductsSub")}
+        viewAll={t("viewAll")}
+        locale={locale}
+      />
+
+      <ProductRail
+        rows={railFor.topRated}
+        eyebrow={t("catalogEyebrow")}
+        title={t("topRated")}
+        subtitle={t("topRatedSub")}
+        viewAll={t("viewAll")}
+        locale={locale}
+      />
+
+      {/* ─── Brands ───────────────────────────────────────
+          The reference calls this strip "Our Partners" and fills it with
+          manufacturer logos. That word is the problem, not the row: a partner
+          is a commercial relationship, and Avenick has none of the ones those
+          logos would imply. The same row is completely true under its real
+          name — these are brands whose products sellers list here, which is a
+          fact about the catalogue rather than a claim about a boardroom.
+
+          Backed by listBrandsWithLogos, which returns only brands that are
+          active, HAVE a logo, and have at least one visible product. So the
+          strip cannot show a brand nothing is listed under, and it renders
+          nothing at all rather than a row of gaps when no logo is set. */}
+      {rails.brands.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 py-block">
+          <SectionHead
+            eyebrow={t("brandsEyebrow")}
+            title={t("brandsTitle")}
+            subtitle={t("brandsSub")}
+            href="/brands"
+            linkLabel={t("brandsAll")}
+          />
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {rails.brands.map((brand) => (
+              <li key={brand.slug}>
+                <Surface rung={2} interactive className="h-full">
+                  <Link
+                    href={`/products?brand=${encodeURIComponent(brand.slug)}`}
+                    className="u-focus flex h-full flex-col items-center justify-center gap-2 rounded-[inherit] p-4"
+                  >
+                    {/* The logo is decorative and the NAME is the label right
+                        beside it, so the image takes an empty alt rather than
+                        repeating the text to a screen reader twice. */}
+                    <img
+                      src={brand.logoUrl}
+                      alt=""
+                      aria-hidden="true"
+                      loading="lazy"
+                      className="h-10 w-auto max-w-full object-contain"
+                    />
+                    <span className="u-meta text-center text-ink-2">
+                      {locale === "ar" ? brand.nameAr || brand.nameEn : brand.nameEn}
+                    </span>
+                  </Link>
+                </Surface>
+              </li>
             ))}
-          </ProductGrid>
-        </Section>
+          </ul>
+        </section>
       )}
 
       {/* ─── B2B band ─────────────────────────────────────── */}
@@ -664,6 +840,41 @@ export default async function HomePage() {
 }
 
 /* ── local layout helpers ─────────────────────────────── */
+
+/**
+ * One product rail. Four of these replace the reference's eight-to-twelve
+ * carousels, and it renders nothing at all when it has no rows — a heading over
+ * an empty grid reads as a grid that failed to paint, which is worse than the
+ * section being absent.
+ */
+function ProductRail({
+  rows,
+  eyebrow,
+  title,
+  subtitle,
+  viewAll,
+  locale,
+}: {
+  rows: Array<Record<string, any>>;
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  viewAll: string;
+  locale: "en" | "ar";
+}) {
+  if (rows.length === 0) return null;
+  return (
+    <Section eyebrow={eyebrow} title={title} subtitle={subtitle} href="/products" linkLabel={viewAll}>
+      <ProductGrid columns={5}>
+        {rows.map((p, i) => (
+          <Reveal key={p["id"] as string} index={i} className="h-full">
+            <ProductCard {...(p as any)} locale={locale} />
+          </Reveal>
+        ))}
+      </ProductGrid>
+    </Section>
+  );
+}
 
 /**
  * The persistent category rail — the one structural idea worth taking from the

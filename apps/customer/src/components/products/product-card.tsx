@@ -16,6 +16,7 @@ import {
   StatusPill,
   Surface,
 } from "@avenick/ui";
+import { Stars } from "@/components/product/stars";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
 import { useLocale, useTranslations } from "next-intl";
@@ -79,6 +80,21 @@ interface ProductCardProps {
    * makes a bilingual product read as a translated one.
    */
   sellerNameAr?: string;
+  /**
+   * The review aggregate for this product, straight off the list DTO.
+   *
+   * ONE OBJECT, NOT TWO LOOSE NUMBERS. A `rating` without its `count` is a
+   * score with no basis, and the typechecker is the only place that mistake is
+   * ever visible.
+   *
+   * `null` is NOT YET REVIEWED, and it is emphatically not a zero: nothing has
+   * been measured, so nothing is shown. The row is omitted entirely rather than
+   * rendered as five empty stars — five empty stars IS a score, and it is the
+   * one score this catalogue has never taken. `undefined` means the same thing
+   * for a caller that has not been updated to forward the field yet, which is
+   * why the prop is optional rather than required.
+   */
+  rating?: { average: number; count: number } | null;
   inStock?: boolean;
   availabilityStatus?: "IN_STOCK" | "OUT_OF_STOCK" | "UNCONFIRMED";
   hasVariants?: boolean;
@@ -99,15 +115,25 @@ interface ProductCardProps {
  * does not return. Leaving the props in place left a working, typed doorway back
  * to all three. Do not re-add them.
  *
- * The `rating` and `reviewCount` props went the same way, and for a sharper
- * reason: they were real fields, but the catalogue holds no reviews, so every
+ * `rating` and `reviewCount` went the same way at the time, for a sharper
+ * reason: they were real fields, but the catalogue held no reviews, so every
  * card printed "No reviews yet" — twenty-four times per screen. That is
  * technically true and it turns the grid into a wall of absence: the loudest
- * signal on the page becomes "nobody has bought anything here." Truth does not
- * require printing the same null twenty-four times. The line is spent on the
- * SKU instead, which is a first-class comparison attribute for a procurement
- * buyer and was shown nowhere in the product. Reviews return to the tile the
- * day reviews exist.
+ * signal on the page becomes "nobody has bought anything here."
+ *
+ * "Reviews return to the tile the day reviews exist" was the condition, and it
+ * is now met: the list DTO carries a `rating` AGGREGATE. So the star row is
+ * back — as one object rather than two loose numbers, and still never as an
+ * absence. `rating: null` renders nothing at all, so a grid of unreviewed
+ * listings looks exactly as it did and the SKU keeps its line; only the tiles
+ * with a real basis gain a row.
+ *
+ * `badge` and `originalPrice` do NOT come back with it, and the reference
+ * design's red "SALE" mark and struck-through figure are the reason to say so
+ * again: there is still no compare-at price anywhere in the schema, so both
+ * would be inventing the discount they announce. The reference's top-start
+ * badge slot is filled by the B2B channel mark instead, which is a fact the
+ * card is already given.
  */
 
 /**
@@ -119,7 +145,7 @@ const LADDER_BANDS_ON_TILE = 3;
 
 export function ProductCard({
   id, slug, nameEn, nameAr, imageUrl, price, currency, vatRate, priceIsFrom = false, priceTiered,
-  priceBands, sku, sellerId, sellerName, sellerNameAr, inStock = true, availabilityStatus, moq = 1, hasVariants = false,
+  priceBands, sku, sellerId, sellerName, sellerNameAr, rating, inStock = true, availabilityStatus, moq = 1, hasVariants = false,
   locale, isB2B = false, category, index = 0,
 }: ProductCardProps) {
   const tp = useTranslations("products");
@@ -158,6 +184,22 @@ export function ProductCard({
     category ??
     (activeLocale === "ar" && sellerNameAr?.trim() ? sellerNameAr : sellerName) ??
     undefined;
+
+  /*
+   * THE RATING FIGURE, and why it is a string.
+   *
+   * One decimal, rounded exactly as the product page rounds it, so the tile and
+   * the page it links to never disagree by a tenth. It is built here as a
+   * STRING and handed to the message tree as one, for the same reason the VAT
+   * rate and the MOQ are: a number given to an ICU formatter renders in the
+   * locale's own numeral system, and the Arabic build would print ٤٫٢ beside a
+   * Western-digit price. One numeral system, Western, everywhere.
+   *
+   * `count` goes in as a number ALONGSIDE its formatted string, because ICU
+   * needs the number to pick the Arabic plural category and the string to print
+   * the digits.
+   */
+  const ratingValue = rating ? String(Math.round(rating.average * 10) / 10) : null;
 
   /*
    * THE COMMIT, on the one control this card owns.
@@ -251,6 +293,18 @@ export function ProductCard({
          * and the same overhead light on its top shoulder. That consistency
          * ACROSS the grid is the measured lever in premium commerce — not
          * effects — and it is entirely truthful, because it is framing.
+         *
+         * IT STAYS 4:5 EVEN THOUGH THE REFERENCE IS SQUARE. `--img-ratio-card`
+         * is a portal token, not a card decision: customer is 4/5, seller and
+         * admin are 1/1, and the same <ImageFrame> renders the cart line, the
+         * wishlist tile, the RFQ line, the order line and the PDP related rail.
+         * Overriding it here would make the product grid the one surface in the
+         * storefront whose frames do not agree with the rest — the exact
+         * failure the shared frame exists to prevent, where one tile out of
+         * nine announces that the system is not actually a system. Everything
+         * else the reference does to its image — the light plate, the contained
+         * product, the generous inset, the identical treatment across the grid
+         * — this frame already does.
          */}
         <ImageFrame
           sku={sku}
@@ -281,7 +335,20 @@ export function ProductCard({
             inline start on hover. It sits between the frame and the record. */}
         <div className="u-drawn" aria-hidden="true" />
 
-        <div className="flex flex-col gap-1.5 p-4">
+        {/* THE REFERENCE'S DENSITY, CARRYING FOUR MORE FACTS THAN THE REFERENCE
+            TILE HAS. p-3.5 and gap-1 rather than p-4 and gap-1.5: this tile has
+            to read at 5-up as well as 2-up, and the reference earns its
+            tightness by carrying a name, a rating and a price and nothing else.
+            This one additionally carries the supplier, the SKU, the VAT basis,
+            the MOQ, the channel and the availability — so the spacing has to
+            work harder rather than the tile growing taller.
+
+            THE INFORMATION ORDER IS THE REFERENCE'S: frame, rating, name,
+            price, then the one action. The trade facts are threaded into that
+            order rather than appended after it — the record line rides above
+            the rating where the reference has nothing, and availability rides
+            the end of the price row where the reference puts its stock mark. */}
+        <div className="flex flex-col gap-1 p-3.5">
           {/* The record line: what it is filed under, and what it is called in a
               purchase order. Two facts, one row, at the lowest rank on the card.
 
@@ -308,6 +375,64 @@ export function ProductCard({
             </span>
           </div>
 
+          {/*
+            THE RATING ROW — present only when there is something to rate.
+            `rating: null` is NOT YET REVIEWED, so this renders nothing at all:
+            no row, no reserved gap, and above all not five empty stars, which
+            would state a score of zero the catalogue never measured.
+
+            <Stars> is the product's ONE rating mark, shared with the product
+            page, the review panel and the supplier card. Reusing it is not
+            tidiness, it is the two properties this row would otherwise have to
+            re-derive:
+
+              IT IS RTL-SAFE BY CONSTRUCTION. It draws five whole glyphs and
+              fills a whole number of them. There is no percentage-width mask
+              and therefore no physical direction to get wrong — the failure
+              mode the system names explicitly, where a `width: 84%` overlay
+              fills from the left in a script that reads from the right and
+              every Arabic rating silently inverts. A mask here would have
+              needed `* var(--dir)`; having no mask is better than having a
+              correct one.
+
+              THE GLYPHS ARE INK, NOT BRASS OR AMBER. The reference's stars are
+              gold; brass in this system has exactly three permitted uses and a
+              rating is not one of them, so a gold star row would make "4.6
+              stars" and "GOLD supplier" read as the same class of claim.
+
+            AND IT IS NEVER CARRIED BY THE GLYPHS. A star row is colour plus
+            shape and nothing else, so the whole row is hidden from assistive
+            technology and the fact is stated once, in words, in the sr-only
+            line: the score, the scale it is out of, and how many reviews it
+            rests on.
+
+            `count > 0` is belt AND braces. The contract says `null` is the
+            not-yet-reviewed signal, but an aggregate that arrives as
+            `{ average: 0, count: 0 }` — which is what a naive SQL AVG/COUNT
+            over an empty set tends to produce — means exactly the same thing,
+            and it is the one shape that would print "Rated 0 out of 5" across
+            a whole grid. A score with no basis is not shown. */}
+          {rating && rating.count > 0 && ratingValue && (
+            <p className="flex items-center gap-1.5">
+              <Stars value={rating.average} className="h-3.5 w-3.5" />
+              <span className="fig u-meta font-medium text-ink-1" aria-hidden="true">
+                {ratingValue}
+              </span>
+              {/* U+200E before a parenthesised numeral run, the same fix the
+                  ladder's band labels use. Brackets are neutral characters and
+                  a neutral at the edge of a run inherits the paragraph
+                  direction, so an unmarked "(750)" is one Arabic paragraph away
+                  from rendering as ")750(". Invisible in both directions. */}
+              <span className="u-meta truncate text-ink-3" aria-hidden="true">
+                {"\u200E"}
+                {tc("rating.count", { formatted: String(rating.count) })}
+              </span>
+              <span className="sr-only">
+                {tc("rating.aria", { value: ratingValue, count: rating.count })}
+              </span>
+            </p>
+          )}
+
           {/* Exactly two lines of the ACTIVE script's own body leading, not a
               hardcoded 3rem. Latin body is 15/24 and Arabic is 16/26, so a fixed
               48px reserves two Latin lines and one-and-a-bit Arabic ones — and
@@ -316,78 +441,104 @@ export function ProductCard({
               never sees. */}
           <h3 className="u-body line-clamp-2 min-h-[calc(2*var(--lh-body))] font-medium text-ink-1">{name}</h3>
 
-          {money ? (
-            <PriceStack
-              className="mt-0.5"
-              amount={money}
-              // "From" is a qualifier ON the figure, not part of it. Baked into
-              // the formatted string it rendered at the figure's own rank, so a
-              // tiered product's price line was one flat run of text — the
-              // figure-to-label ratio collapsing at exactly the place a shopper
-              // looks first.
-              qualifier={priceIsRange ? tc("from") : undefined}
-              // The stored unit price is VAT-EXCLUSIVE, so the card says so.
-              // A bare figure a consumer reads as the amount they will pay, when
-              // it is not, is the quiet kind of untruth this codebase spent a
-              // programme removing. The figure itself is unchanged: which number
-              // a shopper is shown is a money decision, not a design one.
-              //
-              // KNOWN DISAGREEMENT, RAISED RATHER THAN PAPERED OVER: the cart
-              // line and the checkout summary are exclusive like this card, but
-              // the product page now renders `unitPrice + vatPerUnit` with
-              // "Incl. VAT" for B2C. So a consumer sees one figure here and a
-              // larger one after the click. That is not a defect this surface
-              // can fix on its own — aligning it either way changes what a
-              // number means on three other pages — and it is in the handover.
-              //
-              // The rate goes in as a STRING on purpose: a number handed to the
-              // formatter renders in the locale's own numeral system, so the
-              // Arabic build would print ٥ beside a Western-digit price. One
-              // numeral system, Western, everywhere — the same policy <Num>
-              // states for money.
-              vat={vatRate != null ? tc("vatExcl", { rate: String(vatRate) }) : undefined}
-            />
-          ) : hasVariants ? (
-            // Deliberately NOT a <Num>. "See options" is an instruction, and
-            // setting an instruction at figure rank in tabular numerals told
-            // the reader it was a price they had failed to parse.
-            <p className="u-ui mt-0.5 font-medium text-ink-2">{tc("seeOptions")}</p>
-          ) : (
-            /*
-              No price in this channel, and no variants to choose between — so
-              there is nothing for a consumer to buy at any figure. Every one of
-              the 385 live listings is B2B-only, and "See options" sent those
-              shoppers to a page with no options and no price, which reads as a
-              storefront that is broken rather than one that quotes.
-              Naming the actual route is both the honest answer and the
-              commercially correct one: this catalogue is quoted, not carted.
-            */
-            <p className="u-ui mt-0.5 font-medium text-primary-ink">{tc("quoteOnRequest")}</p>
-          )}
-
-          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-            {/* One stock language across three portals, and colour is never the
-                only channel — the dot always carries its own label in words. */}
-            <AvailabilityDot state={availability} label={tc(`stock.${availability}`)} />
-            {moq > 1 && (
-              // ONE message, not `{label}: {n} {noun}` assembled in JSX. A
-              // sentence built out of two keys and a hardcoded colon cannot be
-              // reordered by a translator, and Arabic needs the count to select
-              // the noun (وحدتان / وحدات / وحدة) rather than to sit beside it.
-              // The quantity goes in as a pre-formatted string so the digits
-              // stay Western in both locales, exactly as the price does; `count`
-              // is there only to choose the plural category.
-              <span className="u-meta text-ink-3">
-                {tc("minOrder", { count: moq, qty: String(moq) })}
-              </span>
+          {/* THE PRICE ROW. The reference sets its stock mark on the same line
+              as the figure, and that is right: "what it costs" and "can I have
+              it" are one question a buyer asks once. flex-wrap rather than a
+              fixed two-column split, because "Availability unconfirmed" beside
+              a four-figure price does not fit a 5-up tile at any type size —
+              when it does not fit it drops to its own line instead of
+              compressing the figure, which is the one thing on the card that
+              must never be squeezed. */}
+          <div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
+            {money ? (
+              <PriceStack
+                className="min-w-0"
+                amount={money}
+                // "From" is a qualifier ON the figure, not part of it. Baked into
+                // the formatted string it rendered at the figure's own rank, so a
+                // tiered product's price line was one flat run of text — the
+                // figure-to-label ratio collapsing at exactly the place a shopper
+                // looks first.
+                qualifier={priceIsRange ? tc("from") : undefined}
+                // The stored unit price is VAT-EXCLUSIVE, so the card says so.
+                // A bare figure a consumer reads as the amount they will pay, when
+                // it is not, is the quiet kind of untruth this codebase spent a
+                // programme removing. The figure itself is unchanged: which number
+                // a shopper is shown is a money decision, not a design one.
+                //
+                // KNOWN DISAGREEMENT, RAISED RATHER THAN PAPERED OVER: the cart
+                // line and the checkout summary are exclusive like this card, but
+                // the product page now renders `unitPrice + vatPerUnit` with
+                // "Incl. VAT" for B2C. So a consumer sees one figure here and a
+                // larger one after the click. That is not a defect this surface
+                // can fix on its own — aligning it either way changes what a
+                // number means on three other pages — and it is in the handover.
+                //
+                // The rate goes in as a STRING on purpose: a number handed to the
+                // formatter renders in the locale's own numeral system, so the
+                // Arabic build would print ٥ beside a Western-digit price. One
+                // numeral system, Western, everywhere — the same policy <Num>
+                // states for money.
+                vat={vatRate != null ? tc("vatExcl", { rate: String(vatRate) }) : undefined}
+              />
+            ) : hasVariants ? (
+              // Deliberately NOT a <Num>. "See options" is an instruction, and
+              // setting an instruction at figure rank in tabular numerals told
+              // the reader it was a price they had failed to parse.
+              <p className="u-ui font-medium text-ink-2">{tc("seeOptions")}</p>
+            ) : (
+              /*
+                No price in this channel, and no variants to choose between — so
+                there is nothing for a consumer to buy at any figure. Every one of
+                the 385 live listings is B2B-only, and "See options" sent those
+                shoppers to a page with no options and no price, which reads as a
+                storefront that is broken rather than one that quotes.
+                Naming the actual route is both the honest answer and the
+                commercially correct one: this catalogue is quoted, not carted.
+              */
+              <p className="u-ui font-medium text-primary-ink">{tc("quoteOnRequest")}</p>
             )}
+
+            {/* Availability and MOQ travel together at the end of the price
+                row as ONE block, so they wrap as one rather than splitting
+                across two lines with the figure stranded between them.
+                items-end is the inline END in both scripts — no `text-right`
+                anywhere, which is the class of thing that ships English-correct
+                and Arabic-wrong. */}
+            <div className="flex shrink-0 flex-col items-end gap-0.5">
+              {/* One stock language across three portals, and colour is never
+                  the only channel — the dot always carries its own label in
+                  words. */}
+              <AvailabilityDot state={availability} label={tc(`stock.${availability}`)} />
+              {moq > 1 && (
+                // ONE message, not `{label}: {n} {noun}` assembled in JSX. A
+                // sentence built out of two keys and a hardcoded colon cannot be
+                // reordered by a translator, and Arabic needs the count to select
+                // the noun (وحدتان / وحدات / وحدة) rather than to sit beside it.
+                // The quantity goes in as a pre-formatted string so the digits
+                // stay Western in both locales, exactly as the price does; `count`
+                // is there only to choose the plural category.
+                <span className="u-meta text-ink-3">
+                  {tc("minOrder", { count: moq, qty: String(moq) })}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </Link>
 
-      {/* The channel mark sits on the card rather than inside the frame: the
-          frame's only job is to hold a photograph on a lit plate, and anything
-          floated inside it competes with the product for the same 4:5 box. */}
+      {/* THE BADGE SLOT, FILLED WITH SOMETHING TRUE.
+
+          The reference puts a red "SALE" mark and a yellow "-30%" chip in the
+          frame's two top corners. Neither can be built: there is no compare-at
+          price in the schema, so a discount mark would be announcing a saving
+          against a figure that does not exist. The slot is not left empty
+          either — the channel mark takes it, which is a fact the card is
+          already handed and one a buyer sorts on.
+
+          It sits on the card rather than inside the frame: the frame's only job
+          is to hold a photograph on a lit plate, and anything floated inside it
+          competes with the product for the same 4:5 box. */}
       {isB2B && (
         <StatusPill tone="accent" className="absolute start-2.5 top-2.5">
           {tc("b2bMark")}
@@ -426,7 +577,7 @@ export function ProductCard({
           the gate leaks silently. Renders nothing for a single-price product —
           an empty ladder is worse than no ladder. */}
       {ladderTiers.length > 1 && (
-        <div className="mt-auto border-t border-hairline px-4 pt-2.5">
+        <div className="mt-auto border-t border-hairline px-3.5 pt-2.5">
           <QuantityLadder
             tiers={ladderTiers}
             activeQty={moq}
@@ -449,16 +600,35 @@ export function ProductCard({
         </div>
       )}
 
-      <div className="mt-auto p-4 pt-3">
-        {/* Secondary, not primary. The customer portal's budget is one indigo
-            fill per view plus the page's single call to action, and a grid of
-            twenty-four indigo buttons spends it twenty-four times over — after
-            which nothing on the page reads as the commit action. The card's
-            action is raised (law A: raised = actionable), which is what makes it
-            legible as a button without the fill. */}
+      <div className="mt-auto p-3.5 pt-2.5">
+        {/* ACCENT, WHICH IS WHERE THE KEY-EDGE LIVES ON THIS TILE.
+
+            The reference gives every tile a filled "Add to Cart", and the
+            filled variants are the ones that carry `.u-key` — a solid
+            `--key-edge` band under the face that says how THICK the control is,
+            with the blurred elevation underneath saying how far it floats. On
+            press the face travels straight DOWN by the height of its own edge
+            and the edge disappears. That is the whole 3D budget this tile
+            spends, and it is spent on the one thing a finger actually touches.
+
+            Accent rather than primary, which is the correction to the note this
+            replaces. That note was right that a grid must not spend the commit
+            fill twenty-four times — after which nothing on the page reads as
+            THE call to action — and wrong only in calling it indigo; --primary
+            has been a deep green for a while. Accent is the documented "trade /
+            verified / settled" fill, and adding a trade line or opening an RFQ
+            is exactly a trade action. So the tile gets the reference's filled
+            affordance and its real thickness, and the page's single commit fill
+            stays unspent.
+
+            Depth here is Z-POSITION and nothing else. No tilt, no perspective,
+            no pointer rotation on the card: past a few degrees horizontal type
+            picks up colour fringing, and a rotated cast shadow stops agreeing
+            with the single overhead light every other surface is lit by — which
+            is the invariant that makes this system free in Arabic. */}
         <Button
           type="button"
-          variant="secondary"
+          variant="accent"
           size="md"
           className="w-full"
           onClick={handleAddToCart}

@@ -218,10 +218,35 @@ function freeTextWhere(term: string): Prisma.ProductWhereInput {
  * `deletedAt` and the client applies no guard of its own, so the predicate has
  * to be written out on every public path; it is defined once here so the rows,
  * the counts that paginate them, and the detail read cannot drift apart.
+ *
+ * Exported so the storefront home sections reuse this exact predicate rather
+ * than restating it. A second copy is how a section starts advertising products
+ * behind a withdrawn seller after this one is tightened.
  */
-const PUBLIC_CATALOG_SELLER: Prisma.SellerProfileRelationFilter = {
+export const PUBLIC_CATALOG_SELLER: Prisma.SellerProfileRelationFilter = {
   is: { deletedAt: null, status: "ACTIVE" },
 };
+
+/**
+ * Every relation a catalog tile renders, in one place.
+ *
+ * Exported because the storefront home sections render through the SAME tile
+ * component and must therefore return the same row shape. A hand-copied second
+ * include would diverge the first time a field is added here, and the divergence
+ * would show up as a tile that renders on one row of the page and not another.
+ */
+export const PRODUCT_LIST_INCLUDE = {
+  images: { where: { isPrimary: true }, take: 1 },
+  prices: { where: { isActive: true } },
+  inventory: { select: { variantId: true, qty: true, reservedQty: true } },
+  variants: {
+    where: { isActive: true },
+    select: { id: true, prices: { where: { isActive: true } } },
+  },
+  category: { select: { nameEn: true, nameAr: true, slug: true } },
+  brand: { select: { nameEn: true, nameAr: true } },
+  seller: { select: { businessNameEn: true, businessNameAr: true, tier: true, rating: true } },
+} satisfies Prisma.ProductInclude;
 
 /**
  * The one place the catalog list shape is defined. Hoisted out of listProducts so
@@ -234,27 +259,75 @@ function findProductPage(
   take: number,
   orderBy: Prisma.ProductOrderByWithRelationInput,
 ) {
-  return db.product.findMany({
-    where,
-    skip,
-    take,
-    orderBy,
-    include: {
-      images: { where: { isPrimary: true }, take: 1 },
-      prices: { where: { isActive: true } },
-      inventory: { select: { variantId: true, qty: true, reservedQty: true } },
-      variants: {
-        where: { isActive: true },
-        select: { id: true, prices: { where: { isActive: true } } },
-      },
-      category: { select: { nameEn: true, nameAr: true, slug: true } },
-      brand: { select: { nameEn: true, nameAr: true } },
-      seller: { select: { businessNameEn: true, businessNameAr: true, tier: true, rating: true } },
-    },
+  return db.product.findMany({ where, skip, take, orderBy, include: PRODUCT_LIST_INCLUDE });
+}
+
+/** A tile as the database returns it, before the review aggregate is attached. */
+export type ProductListRowBase = Awaited<ReturnType<typeof findProductPage>>[number];
+
+/**
+ * A product's standing, as the star rating on a tile.
+ *
+ * `average` is rounded to two decimals for display; the ranking that orders the
+ * "Top Rated" section is done on the unrounded aggregate in SQL, so rounding
+ * here can never change which products are chosen — only how the chosen ones
+ * are printed.
+ */
+export interface ProductRating {
+  average: number;
+  count: number;
+}
+
+/**
+ * Shape one grouped aggregate into a rating, or into NOTHING.
+ *
+ * null and 0 are different claims. "0 stars" says buyers rated this product and
+ * hated it; "no rating" says nobody has rated it yet. A tile that renders an
+ * empty five-star row for an unreviewed product is stating the first while
+ * meaning the second, which is a lie about a seller's goods. So: no reviews, no
+ * rating object, and the UI decides what to draw in its place.
+ *
+ * A non-finite average with a positive count is a data fault, not a rating —
+ * it is refused for the same reason, rather than printed as NaN stars.
+ */
+export function shapeProductRating(average: number | null | undefined, count: number): ProductRating | null {
+  if (!Number.isFinite(count) || count <= 0) return null;
+  if (average == null || !Number.isFinite(average)) return null;
+  return { average: Math.round(average * 100) / 100, count };
+}
+
+/**
+ * Attach each row's review aggregate using ONE grouped query for the whole page.
+ *
+ * Not a per-row aggregate: this runs on the busiest route in the storefront, and
+ * a rating lookup per tile is twenty round trips per page view. `groupBy` returns
+ * only products that actually have reviews, so every id missing from the result
+ * is genuinely unreviewed and gets `rating: null` — the absence is the answer,
+ * not a failure to look.
+ *
+ * No visibility filter on the reviews themselves: ProductReview has no status or
+ * moderation column, and the product detail page counts them unfiltered too. If
+ * one is ever added, it must be added in both places or the tile and the detail
+ * page will disagree about the same product.
+ */
+export async function attachProductRatings<T extends { id: string }>(
+  rows: T[],
+): Promise<Array<T & { rating: ProductRating | null }>> {
+  if (rows.length === 0) return [];
+  const groups = await db.productReview.groupBy({
+    by: ["productId"],
+    where: { productId: { in: rows.map((row) => row.id) } },
+    _avg: { rating: true },
+    _count: { rating: true },
+  });
+  const byProduct = new Map(groups.map((group) => [group.productId, group]));
+  return rows.map((row) => {
+    const group = byProduct.get(row.id);
+    return { ...row, rating: group ? shapeProductRating(group._avg.rating, group._count.rating) : null };
   });
 }
 
-type ProductListRow = Awaited<ReturnType<typeof findProductPage>>[number];
+export type ProductListRow = ProductListRowBase & { rating: ProductRating | null };
 
 /**
  * The relevance tiers, most relevant first. In a B2B marketplace an exact part
@@ -356,20 +429,21 @@ export async function listProducts(params: ProductListParams) {
       const countsPromise: Promise<number[]> = Promise.all(
         tierWheres.map((tierWhere) => db.product.count({ where: tierWhere })),
       );
-      const singleTierPromise: Promise<ProductListRow[] | null> =
+      const singleTierPromise: Promise<ProductListRowBase[] | null> =
         tierWheres.length === 1
           ? Promise.resolve(findProductPage(tierWheres[0], skip, limit, orderBy))
           : Promise.resolve(null);
       const [counts, singleTierRows] = await Promise.all([countsPromise, singleTierPromise]);
       const total = counts.reduce((sum, count) => sum + count, 0);
       if (singleTierRows) {
-        return { products: singleTierRows, total, page, limit, totalPages: Math.ceil(total / limit), search: searchOutcome };
+        const products = await attachProductRatings(singleTierRows);
+        return { products, total, page, limit, totalPages: Math.ceil(total / limit), search: searchOutcome };
       }
 
       // Walk the tiers in rank order, consuming `skip` against each tier's size
       // before reading from it, so a page can straddle a tier boundary without
       // repeating or dropping a row.
-      const products: ProductListRow[] = [];
+      const collected: ProductListRowBase[] = [];
       let offset = skip;
       let remaining = limit;
       for (const [index, tierWhere] of tierWheres.entries()) {
@@ -380,11 +454,14 @@ export async function listProducts(params: ProductListParams) {
           continue;
         }
         const rows = await findProductPage(tierWhere, offset, remaining, orderBy);
-        products.push(...rows);
+        collected.push(...rows);
         remaining -= rows.length;
         offset = 0;
       }
 
+      // One aggregate for the whole page, after the tiers have been assembled —
+      // not one per tier, which would put a query inside the loop.
+      const products = await attachProductRatings(collected);
       return { products, total, page, limit, totalPages: Math.ceil(total / limit), search: searchOutcome };
     },
     { name: "products.list", cache: { key: cacheKey, ttlMs: 60_000 } },

@@ -56,9 +56,15 @@ export function ProductGrid({
  * assembles itself in front of you cannot look expensive no matter what it
  * assembles into.
  *
- * It deliberately has NO rating row, because the card has no rating row. A
- * skeleton that promises an element the loaded state does not have is a layout
- * shift with extra steps.
+ * IT STILL HAS NO RATING ROW, EVEN THOUGH THE CARD NOW HAS ONE. The card's
+ * star row is conditional on a real review aggregate and this catalogue has
+ * almost none, so the overwhelmingly common loaded state is a tile with no
+ * rating row at all. Reserving the line here would therefore GUARANTEE a shift
+ * on the majority of tiles in order to avoid one on the minority — a skeleton
+ * that promises an element the loaded state usually does not have is a layout
+ * shift with extra steps. The card's own layout is what absorbs the variance:
+ * the action block is `mt-auto`, so a rated and an unrated tile in the same row
+ * still land their buttons on the same line.
  *
  * `label` is required rather than defaulted, because the one thing this
  * component says out loud has to come from the message tree: a Suspense fallback
@@ -97,7 +103,7 @@ export function ProductGridSkeleton({
             {/* The 2px slot the brass rule occupies on the loaded card. Without
                 it every tile jumps 2px the moment the products land. */}
             <div className="h-0.5" />
-            <div className="flex flex-col gap-1.5 p-4">
+            <div className="flex flex-col gap-1 p-3.5">
               <div className="flex items-baseline justify-between gap-2">
                 <Skeleton className="h-2.5 w-16" />
                 <Skeleton className="h-2.5 w-12" />
@@ -113,9 +119,11 @@ export function ProductGridSkeleton({
               <Skeleton className="mt-0.5 h-[var(--lh-fig-card)] w-28" />
               <Skeleton className="h-2.5 w-20" />
             </div>
-            {/* p-4 pt-3, exactly as the card's action block is. It was pt-0,
-                which is a twelve-pixel shift under every control on the page. */}
-            <div className="mt-auto p-4 pt-3">
+            {/* p-3.5 pt-2.5, exactly as the card's action block is. It was
+                pt-0 once, which is a twelve-pixel shift under every control on
+                the page; it then tracked the card at p-4 pt-3, and it tracks it
+                again now that the tile has taken the reference's density. */}
+            <div className="mt-auto p-3.5 pt-2.5">
               <Skeleton className="h-control-md w-full rounded-nested" />
             </div>
           </div>
