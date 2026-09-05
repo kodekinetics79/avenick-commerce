@@ -139,7 +139,8 @@
       "mixed": "Lines differ in currency or sales channel · review them in the cart before checkout",
       "viewCart": "View cart",
       "purchaseOrder": "Create purchase order",
-      "alsoNeed": "You might also need"
+      "alsoNeed": "You might also need",
+      "alsoRelated": "Related to what you added"
     },
     "completions": {
       "title": "Complete your order"
