@@ -246,7 +246,7 @@ export default async function HomePage() {
           />
 
           <div
-            className="relative min-w-0 overflow-hidden rounded-lifted p-8 sm:p-12 lg:p-14"
+            className="u-sheen relative min-w-0 overflow-hidden rounded-lifted p-8 sm:p-12 lg:p-14"
             style={{
               backgroundImage:
                 "linear-gradient(107deg, hsl(150 62% 30%) 22%, hsl(150 92% 20%) 99%)",
@@ -325,7 +325,7 @@ export default async function HomePage() {
                     aria-label={t("specimenView", { name: specimenName })}
                     className="u-focus group block rounded-lifted"
                   >
-                    <div className="relative aspect-square w-full">
+                    <div className="u-float relative aspect-square w-full">
                       {specimen.imageUrl ? (
                         <Image
                           src={specimen.imageUrl}
@@ -334,7 +334,7 @@ export default async function HomePage() {
                           fill
                           priority
                           sizes="(min-width: 1024px) 20rem, 0px"
-                          className="object-contain drop-shadow-2xl transition-transform duration-hover ease-standard group-hover:scale-[1.03]"
+                          className="object-contain drop-shadow-2xl transition-transform duration-hover ease-standard group-hover:-translate-y-1 group-hover:scale-[1.03]"
                         />
                       ) : null}
                     </div>
@@ -517,7 +517,11 @@ export default async function HomePage() {
                 sizes="(min-width: 1024px) 45vw, 0px"
                 className="object-cover"
               />
-              <Surface rung={4} className="absolute bottom-6 end-6 w-40 p-4 text-center">
+              {/* Glass, because this badge is lying on a photograph — the image
+                      blurs and saturates behind it rather than being covered.
+                      The same panel on a flat ground would just be a lighter
+                      box, which is why the four rows opposite do not get it. */}
+              <Surface rung={4} glass className="absolute bottom-6 end-6 w-40 p-4 text-center">
                 <p className="u-display text-primary-ink">{t("protectStat")}</p>
                 <p className="u-meta mt-1 text-ink-2">{t("protectStatLabel")}</p>
               </Surface>
@@ -602,7 +606,7 @@ export default async function HomePage() {
                 <Surface rung={2} interactive className="h-full">
                   <Link
                     href={`/products?brand=${encodeURIComponent(brand.slug)}`}
-                    className="u-focus flex h-full flex-col items-center justify-center gap-2 rounded-[inherit] p-4"
+                    className="u-logo u-focus flex h-full flex-col items-center justify-center gap-2.5 rounded-[inherit] px-4 py-5"
                   >
                     {/* The logo is decorative and the NAME is the label right
                         beside it, so the image takes an empty alt rather than
@@ -612,7 +616,7 @@ export default async function HomePage() {
                       alt=""
                       aria-hidden="true"
                       loading="lazy"
-                      className="h-10 w-auto max-w-full object-contain"
+                      className="h-14 w-full max-w-[9rem] object-contain"
                     />
                     <span className="u-meta text-center text-ink-2">
                       {locale === "ar" ? brand.nameAr || brand.nameEn : brand.nameEn}
@@ -744,7 +748,7 @@ function CategoryRail({
               <li key={category.slug}>
                 <Link
                   href={`/products?category=${encodeURIComponent(category.slug)}`}
-                  className="u-focus group flex items-center gap-2.5 rounded-nested px-3.5 py-2 text-start transition-colors duration-hover ease-standard hover:bg-surface-2"
+                  className="u-focus group flex items-center gap-2.5 rounded-nested px-3.5 py-2 text-start transition-[background-color,padding-inline-start] duration-hover ease-standard hover:bg-surface-2 hover:ps-4"
                 >
                   <Icon
                     className="h-4 w-4 shrink-0 text-ink-3 transition-colors duration-hover ease-standard group-hover:text-primary-ink"

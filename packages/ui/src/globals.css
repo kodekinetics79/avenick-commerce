@@ -845,6 +845,96 @@ p, .u-lead, .u-body { text-wrap: pretty; }
   box-shadow: 0 0 0 hsl(var(--key-edge)), var(--elev-1);
 }
 
+/* ─── SHEEN ───────────────────────────────────────────────────────────────
+   A single specular pass across a large filled surface — the highlight a
+   physical panel catches from the room's light source. It is a ::before at low
+   alpha, not a second background, so the surface underneath keeps the exact
+   colour every contrast figure was measured against.
+
+   Positioned toward the upper end rather than the centre, because the object on
+   these panels sits at the end and the light has to agree with the drop shadow
+   already under it. Two lights pointing different ways is the thing that makes
+   a composition read as pasted together. */
+.u-sheen { position: relative; isolation: isolate; }
+.u-sheen::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background:
+    radial-gradient(120% 90% at 78% 12%, hsl(var(--rim) / .16), transparent 62%),
+    radial-gradient(80% 60% at 8% 100%, hsl(var(--shadow) / .18), transparent 70%);
+  pointer-events: none;
+}
+
+/* ─── IDLE FLOAT ──────────────────────────────────────────────────────────
+   A slow rise and fall on a single hero object. 6s and 6px — long enough and
+   small enough that it reads as the object being ALIVE rather than as something
+   animating, which is the line between a hero and a banner ad. It is applied to
+   exactly one element per page; a second floating object turns a composition
+   into a screensaver.
+
+   The drop shadow stays put deliberately. A shadow that tracked the object
+   would be more "correct" and would double the motion on screen for no
+   information; a fixed shadow reads as a fixed light, which is the same light
+   every other surface in this system is lit by. */
+@keyframes u-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+.u-float { animation: u-float 6s var(--ease-standard) infinite; will-change: transform; }
+
+/* ─── SHEEN DRIFT ─────────────────────────────────────────────────────────
+   The specular pass crawls across the panel over 18s. Slow enough that it is
+   never caught moving — it is noticed only as the surface not being flat. */
+@keyframes u-sheen-drift {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%      { transform: translate3d(-2.5%, 1.5%, 0); }
+}
+.u-sheen::before { animation: u-sheen-drift 18s var(--ease-standard) infinite; }
+
+/* ─── ARROW ───────────────────────────────────────────────────────────────
+   The arrow in a button travels toward where it is sending you. 2px, on hover
+   only, and multiplied by --dir so it points and travels the same way in
+   Arabic — an arrow that slides right inside a right-to-left sentence is
+   pointing back at the text it came from. */
+.u-arrow svg:last-child {
+  transition: transform var(--t-hover) var(--ease-standard);
+}
+.u-arrow:hover svg:last-child {
+  transform: translateX(calc(2px * var(--dir, 1)));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .u-float,
+  .u-sheen::before { animation: none; }
+  .u-arrow svg:last-child { transition: none; }
+  .u-arrow:hover svg:last-child { transform: none; }
+}
+
+/* ─── LOGO PLATE ──────────────────────────────────────────────────────────
+   A logo wall reads as a wall when the marks are one tone and resolve to colour
+   under the cursor. Desaturated at rest so nine different brand palettes do not
+   fight each other or the page's own hue; full colour on hover and on
+   keyboard focus — `:focus-within`, so the state is reachable without a
+   pointer, which is the half of this pattern most implementations drop. */
+.u-logo img {
+  filter: saturate(0) contrast(1.05);
+  opacity: .72;
+  transition: filter var(--t-hover) var(--ease-standard),
+              opacity var(--t-hover) var(--ease-standard);
+}
+.u-logo:hover img,
+.u-logo:focus-within img { filter: none; opacity: 1; }
+
+/* Reduced motion keeps the resting state legible rather than freezing it grey:
+   the transition goes, the hover still resolves. */
+@media (prefers-reduced-motion: reduce) {
+  .u-logo img { transition: none; }
+}
+
+
 
 /*
  * PART 2 OF THE LIGHT MODEL — the fresnel shoulder.
