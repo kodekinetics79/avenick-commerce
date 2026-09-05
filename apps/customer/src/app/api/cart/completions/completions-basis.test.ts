@@ -15,6 +15,12 @@ vi.mock("@avenick/auth/rate-limit", () => ({
   checkRateLimit: mocks.checkRateLimit,
   clientIpFrom: () => "127.0.0.1",
 }));
+// The route resolves its channel through @/lib/catalog-channel, which reads the
+// session. These cases are all public-channel, so the context is never
+// consulted — but the module still has to load, and next-auth cannot in this
+// environment. Channel authority itself is covered in
+// catalog-channel-authority.security.test.ts.
+vi.mock("@/lib/b2b-server", () => ({ getServerB2BContext: async () => null }));
 
 import { POST } from "./route";
 

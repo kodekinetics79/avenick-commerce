@@ -4,7 +4,7 @@ import type { Currency, ProductStatus } from "@avenick/database";
 // Narrow subpath on purpose: the package barrel pulls in next-auth, which is
 // unnecessary here and breaks tests that never touch authentication.
 import { checkRateLimit, clientIpFrom, RATE_LIMITS } from "@avenick/auth/rate-limit";
-import { getServerB2BContext } from "@/lib/b2b-server";
+import { resolveCatalogChannel } from "@/lib/catalog-channel";
 import { toCatalogListDto } from "@/lib/catalog-list-dto";
 
 const CURRENCIES = new Set<Currency>(["AED", "SAR", "QAR", "KWD", "OMR", "BHD", "USD"]);
@@ -97,13 +97,10 @@ export async function GET(req: NextRequest) {
     }
 
     // B2B catalog and prices are never public-cacheable. This is the boundary
-    // that future ERP/account-specific pricing will also sit behind.
-    if (wantsB2B) {
-      const ctx = await getServerB2BContext();
-      if (!ctx) {
-        return NextResponse.json({ success: false, error: "Active company account required for B2B pricing" }, { status: 401 });
-      }
-    }
+    // that future ERP/account-specific pricing will also sit behind, and it now
+    // lives in resolveCatalogChannel so every route crosses it the same way.
+    const resolved = await resolveCatalogChannel(wantsB2B);
+    if (!resolved.ok) return resolved.response;
 
     const categorySlug = searchParams.get("categorySlug") ?? undefined;
     const categoryId = searchParams.get("categoryId") ?? undefined;
@@ -152,7 +149,7 @@ export async function GET(req: NextRequest) {
       sort: sortParam && SORTS.has(sortParam) ? (sortParam as "newest" | "name_asc" | "moq_asc" | "rating") : "newest",
     });
 
-    const channel = wantsB2B ? "B2B" : "B2C";
+    const channel = resolved.channel;
     const products = result.products.map((product) => toCatalogListDto(product, channel, currencyParam));
 
     return NextResponse.json(

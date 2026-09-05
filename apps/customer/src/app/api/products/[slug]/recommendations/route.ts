@@ -7,6 +7,7 @@ import {
   type Currency,
 } from "@avenick/database";
 import { toCatalogListDto } from "@/lib/catalog-list-dto";
+import { resolveCatalogChannel } from "@/lib/catalog-channel";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,10 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
     if (currencyParam && !CURRENCIES.has(currencyParam)) {
       return NextResponse.json({ success: false, error: "Unsupported currency" }, { status: 400 });
     }
-    const channel = wantsB2B ? "B2B" : "B2C";
+    // A flag is a request; only the session can grant the channel.
+    const resolved = await resolveCatalogChannel(wantsB2B);
+    if (!resolved.ok) return resolved.response;
+    const channel = resolved.channel;
 
     const product = await getProductBySlug(params.slug, channel, currencyParam);
     if (!product || (!wantsB2B && !product.isPubliclyDiscoverable)) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCartCompletions, getRelatedProducts, type Currency } from "@avenick/database";
 import { checkRateLimit, clientIpFrom, type RateLimitRule } from "@avenick/auth/rate-limit";
 import { toCatalogListDto } from "@/lib/catalog-list-dto";
+import { resolveCatalogChannel } from "@/lib/catalog-channel";
 
 export const dynamic = "force-dynamic";
 
@@ -55,7 +56,11 @@ export async function POST(req: NextRequest) {
     if (currencyParam && !CURRENCIES.has(currencyParam)) {
       return NextResponse.json({ success: false, error: "Unsupported currency" }, { status: 400 });
     }
-    const channel = wantsB2B ? "B2B" : "B2C";
+    // A flag is a request; only the session can grant the channel. A basket is
+    // not a credential: anyone can POST one.
+    const resolved = await resolveCatalogChannel(wantsB2B);
+    if (!resolved.ok) return resolved.response;
+    const channel = resolved.channel;
     const inBasket = new Set(ids);
 
     const shape = (rows: unknown[]) =>
