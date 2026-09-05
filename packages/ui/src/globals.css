@@ -1564,6 +1564,27 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 .u-layer-panel[data-side="bottom"][data-state="open"]   { animation: layer-in-bottom  var(--t-layer) var(--ease-out) both; }
 .u-layer-panel[data-side="bottom"][data-state="closed"] { animation: layer-out-bottom var(--t-panel) var(--ease-exit) both; }
 
+/* ─── ROUTE ARRIVAL ──────────────────────────────────────────────────────
+   One short settle as a new page's content arrives, applied by <RouteFade> to
+   the contents of <main> and to nothing else: the header and footer hold still,
+   because chrome that re-animates on every navigation reads as a full page load.
+
+   OPACITY ONLY. A transform on this wrapper would make it the containing block
+   for every `position: fixed` descendant of <main> and would clip the sticky
+   ones — the failure that put every dialog in the product at the end of the
+   document. `.u-route` is named in the containing-block guard test for exactly
+   that reason. Opacity creates a stacking context and nothing else.
+
+   --t-panel, not --t-layer: a page is not a drawer. It should be over before
+   anyone has finished deciding whether they saw it. */
+.u-route { animation: u-route-in var(--t-panel) var(--ease-out) both; }
+@keyframes u-route-in { from { opacity: 0 } to { opacity: 1 } }
+@media (prefers-reduced-motion: reduce) {
+  /* No fade at all: the content is simply there, which is what reduced motion
+     asks for. Nothing here conveys meaning that the fade was carrying. */
+  .u-route { animation: none; }
+}
+
 /* Staged reveal. The base state is VISIBLE. The hidden state is applied only by
    <RevealRoot> once it has confirmed the element is below the fold, so nothing
    above the fold ever flashes and nothing is hidden if JS never runs. */
