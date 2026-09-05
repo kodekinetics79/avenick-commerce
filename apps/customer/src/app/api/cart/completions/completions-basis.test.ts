@@ -14,6 +14,9 @@ vi.mock("@avenick/database", () => ({
 vi.mock("@avenick/auth/rate-limit", () => ({
   checkRateLimit: mocks.checkRateLimit,
   clientIpFrom: () => "127.0.0.1",
+  // catalog-throttle reads the shared rule; an undefined RATE_LIMITS
+  // makes every route under test answer 500 for the wrong reason.
+  RATE_LIMITS: { catalogRead: { name: "catalog-read", limit: 120, windowMs: 60_000 } },
 }));
 // The route resolves its channel through @/lib/catalog-channel, which reads the
 // session. These cases are all public-channel, so the context is never

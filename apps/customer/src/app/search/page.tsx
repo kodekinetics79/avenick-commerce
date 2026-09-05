@@ -34,6 +34,7 @@ import {
   type RecoveryVerification,
   type VerifiedBrandMatch,
 } from "@/lib/search-recovery";
+import { readPublicBrands } from "@/lib/public-brands";
 
 // No platform-name suffix. The root layout declares
 // `title.template: "%s | <platform>"`, so appending it here rendered
@@ -80,7 +81,7 @@ interface CountResponse {
  */
 async function getRecoveryBrands(): Promise<RecoveryBrand[]> {
   try {
-    const result = await fetchBackendJson<unknown>("/api/brands");
+    const result = (await readPublicBrands()) as unknown;
     if (!Array.isArray(result)) return [];
     return result.flatMap((brand) => {
       if (!brand || typeof brand !== "object") return [];

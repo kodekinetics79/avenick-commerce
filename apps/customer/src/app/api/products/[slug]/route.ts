@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProductBySlug, type Currency } from "@avenick/database";
 import { resolveCatalogChannel } from "@/lib/catalog-channel";
 import { toCatalogDetailDto } from "@/lib/catalog-detail-dto";
+import { catalogThrottle } from "@/lib/catalog-throttle";
 
 const CURRENCIES = new Set<Currency>(["AED", "SAR", "QAR", "KWD", "OMR", "BHD", "USD"]);
 
 export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
   try {
+    const throttled = await catalogThrottle(req.headers);
+    if (throttled) return throttled;
+
     const wantsB2B = req.nextUrl.searchParams.get("b2b") === "true";
     const currencyParam = req.nextUrl.searchParams.get("currency")?.toUpperCase() as Currency | undefined;
     if (currencyParam && !CURRENCIES.has(currencyParam)) {

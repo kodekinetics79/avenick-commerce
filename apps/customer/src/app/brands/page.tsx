@@ -5,6 +5,7 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { fetchBackendJson } from "@/lib/backend";
 import { platformName } from "@avenick/utils/portal-config";
 import { SELLER_REGISTER_URL } from "@/lib/portal-urls";
+import { readPublicBrands } from "@/lib/public-brands";
 
 export const metadata = { title: "Brands" };
 // Live catalog data — must not prerender at build time (no DB on build machines).
@@ -13,7 +14,7 @@ export const dynamic = "force-dynamic";
 const COUNTRY_LABEL: Record<string, string> = { AE: "UAE", SA: "Saudi Arabia", QA: "Qatar", KW: "Kuwait", OM: "Oman", BH: "Bahrain" };
 
 export default async function BrandsPage() {
-  const brands = await fetchBackendJson<any[]>("/api/brands");
+  const brands = (await readPublicBrands()) as any[];
 
   return (
     <MainLayout>
