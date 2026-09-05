@@ -120,7 +120,7 @@ export function Footer() {
             */}
             <span
               aria-hidden="true"
-              className="grid h-8 w-8 place-items-center rounded-nested bg-ink-1 text-ui font-semibold text-ink-inv shadow-elev-2"
+              className="u-mark-flat grid h-8 w-8 place-items-center rounded-nested bg-ink-1 text-ui font-semibold text-ink-inv"
             >
               {brand.charAt(0).toUpperCase()}
             </span>

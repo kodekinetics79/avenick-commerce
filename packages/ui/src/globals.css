@@ -186,6 +186,7 @@
   --primary-ink:        150 90% 24%;   /* green TEXT — the fill hue fails 4.5:1 at 11px */
   --primary-soft:       150 52% 95%;
   --primary-edge:       150 92% 17%;   /* the solid rim under a pressed key */
+  --ink-edge:           224 34% 4%;    /* the rim under the ink monogram */
   --accent:             200 62% 30%;   /* deep verdigris — trade / verified / settled */
   --accent-foreground:    0  0% 100%;
   --accent-ink:         200 66% 26%;
@@ -523,6 +524,7 @@
   --primary-ink:        150 70% 70%;
   --primary-soft:       150 30% 15%;
   --primary-edge:       150 55% 40%;
+  --ink-edge:            40 10% 72%;
   --accent:             200 56% 56%;
   --accent-foreground:  200 60% 10%;
   --accent-ink:         200 60% 62%;
@@ -911,6 +913,110 @@ p, .u-lead, .u-body { text-wrap: pretty; }
   .u-sheen::before { animation: none; }
   .u-arrow svg:last-child { transition: none; }
   .u-arrow:hover svg:last-child { transform: none; }
+}
+
+/* ─── GRADIENT DRIFT ──────────────────────────────────────────────────────
+   The hero's fill is oversized and its position crawls, so the light across the
+   panel changes without anything on it moving. 24s, and the travel is small
+   enough that the two stops never leave the positions their contrast was
+   measured at — the copy sits on the darker half throughout.
+
+   Cross-browser on purpose. Scroll-driven parallax would be the fashionable
+   answer and `animation-timeline` is unsupported in Firefox, which is the
+   browser this was reviewed in; an effect that exists for some visitors and not
+   others is not a design decision, it is two designs. */
+@keyframes u-drift {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+.u-drift {
+  background-size: 160% 160%;
+  animation: u-drift 24s var(--ease-standard) infinite;
+}
+
+/* ─── SHINE ───────────────────────────────────────────────────────────────
+   A light pass that crosses a filled control once on hover — the reflection a
+   physical key catches when a hand moves over it. It runs ONCE per hover rather
+   than looping: a control that shines forever is advertising, a control that
+   shines when you approach it is responding.
+
+   `--dir` again, so the pass crosses the way the language reads. */
+@keyframes u-shine {
+  from { transform: translateX(calc(-140% * var(--dir, 1))); }
+  to   { transform: translateX(calc( 140% * var(--dir, 1))); }
+}
+.u-shine { position: relative; overflow: hidden; }
+.u-shine::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inline-size: 45%;
+  inset-inline-start: 0;
+  background: linear-gradient(100deg, transparent, hsl(var(--rim) / .55), transparent);
+  transform: translateX(calc(-140% * var(--dir, 1)));
+  pointer-events: none;
+}
+.u-shine:hover::after { animation: u-shine .7s var(--ease-out) 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .u-drift { animation: none; background-size: 100% 100%; }
+  .u-shine:hover::after { animation: none; }
+}
+
+/* ─── THE MARK ────────────────────────────────────────────────────────────
+   The monogram gets the same thickness the filled buttons have: a solid rim
+   beneath it that the face compresses into on press. It is the one place in the
+   chrome that is allowed to be an OBJECT rather than a label, so it is the one
+   place the key edge belongs outside a control.
+
+   And it hops. Once on arrival and once per hover — NOT on a loop. A mark that
+   moves forever is a banner ad and the eye learns to skip it inside a minute;
+   a mark that moves when you arrive, and again when you reach for it, is
+   noticed both times. Two animation names rather than one, because a CSS
+   animation only restarts if the name it is bound to changes.
+
+   Squash and stretch, not a bare translate: it crouches before it leaves and
+   compresses when it lands, which is the difference between something jumping
+   and something being moved. Volume is roughly conserved — it widens as it
+   flattens — or it reads as rubber. */
+@keyframes u-hop-in {
+  0%   { transform: translateY(0)     scale(1, 1); }
+  18%  { transform: translateY(0)     scale(1.08, .9); }
+  48%  { transform: translateY(-24%)  scale(.95, 1.07); }
+  72%  { transform: translateY(0)     scale(1.05, .94); }
+  86%  { transform: translateY(-6%)   scale(.99, 1.02); }
+  100% { transform: translateY(0)     scale(1, 1); }
+}
+@keyframes u-hop-over {
+  0%   { transform: translateY(0)     scale(1, 1); }
+  18%  { transform: translateY(0)     scale(1.08, .9); }
+  48%  { transform: translateY(-24%)  scale(.95, 1.07); }
+  72%  { transform: translateY(0)     scale(1.05, .94); }
+  86%  { transform: translateY(-6%)   scale(.99, 1.02); }
+  100% { transform: translateY(0)     scale(1, 1); }
+}
+.u-mark {
+  box-shadow: 0 var(--key-depth) 0 hsl(var(--ink-edge)), var(--elev-2);
+  transform-origin: 50% 100%;   /* it pushes off its own base, not its centre */
+  animation: u-hop-in .95s var(--ease-out) .35s 1 both;
+}
+.group:hover .u-mark { animation: u-hop-over .8s var(--ease-out) 1; }
+
+/* The same object, standing still. The footer carries the mark too, and an
+   entrance animation below the fold is one nobody sees, while a second hopping
+   mark on the page competes with the first for the attention the first exists
+   to get. Thickness is shared; the motion is not. */
+.u-mark-flat { box-shadow: 0 var(--key-depth) 0 hsl(var(--ink-edge)), var(--elev-2); }
+.group:active .u-mark {
+  animation: none;
+  transform: translateY(var(--key-travel, var(--key-depth)));
+  box-shadow: 0 0 0 hsl(var(--ink-edge)), var(--elev-1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The hop goes; the thickness stays. Depth is information. */
+  .u-mark,
+  .group:hover .u-mark { animation: none; }
 }
 
 /* ─── LOGO PLATE ──────────────────────────────────────────────────────────
