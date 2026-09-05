@@ -16,7 +16,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 export const buttonVariants = cva(
   [
-    "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-nested",
+    "u-arrow inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-nested",
     "font-medium outline-none",
     // Enumerated, never `all`.
     "transition-[background-color,border-color,color,transform,box-shadow] duration-press ease-standard",

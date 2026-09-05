@@ -466,7 +466,12 @@ export interface BrandWithLogo {
  */
 export async function listBrandsWithLogos(opts: { limit?: number; b2c?: boolean } = {}): Promise<BrandWithLogo[]> {
   const take = opts.limit == null ? undefined : Math.max(1, Math.floor(opts.limit));
-  const visible = publicProductWhere(opts.b2c ?? true);
+  // `?? true` here was the same defect getStorefrontSections had: it filters on
+  // isB2CEnabled, nothing in this catalogue sets it, so `products: { some }`
+  // matched nothing and the strip rendered as absent rather than as empty —
+  // indistinguishable from "no brand has a logo", which was not the reason.
+  // Undefined means both channels, exactly as listProducts reads it.
+  const visible = publicProductWhere(opts.b2c);
 
   const { data } = await read(
     async () => {
@@ -488,7 +493,7 @@ export async function listBrandsWithLogos(opts: { limit?: number; b2c?: boolean 
     },
     {
       name: "storefront.brandStrip",
-      cache: { key: `storefront:brands:${JSON.stringify({ take: take ?? null, b2c: opts.b2c ?? true })}`, ttlMs: 300_000 },
+      cache: { key: `storefront:brands:${JSON.stringify({ take: take ?? null, b2c: opts.b2c ?? null })}`, ttlMs: 300_000 },
     },
   );
 
