@@ -85,7 +85,9 @@
     "companyName": "Company name",
     "crNumber": "Commercial Registration (CR) number",
     "industry": "Industry",
-    "termsAgree": "I agree to the Terms of Service and Privacy Policy."
+    "termsAgree": "I agree to the Terms of Service and Privacy Policy.",
+    "signInTitle": "Sign in",
+    "registerTitle": "Create an account"
   },
   "products": {
     "addToCart": "Add to cart",
@@ -119,7 +121,29 @@
     "total": "Total",
     "remove": "Remove",
     "quantity": "Quantity",
-    "items": "items"
+    "items": "items",
+    "addMore": "Add more items",
+    "addMoreNote": "Your cart is kept in this browser while you browse",
+    "drawer": {
+      "title": "Added to cart",
+      "close": "Close",
+      "lineCount": "{count, plural, =0 {Your cart is empty} one {1 line in your cart} other {{qty} lines in your cart}}",
+      "justAdded": "Just added",
+      "decrease": "Decrease quantity",
+      "increase": "Increase quantity",
+      "repriceAt": "{count, plural, one {Reprice at 1 unit} other {Reprice at {qty} units}}",
+      "tiered": "Quantity-tiered · repriced on the product page",
+      "eachUnit": "{amount} each",
+      "exclVat": "Excl. VAT",
+      "basis": "Prices as recorded when each line was added · price, VAT and availability are re-validated by the server when the order is placed",
+      "mixed": "Lines differ in currency or sales channel · review them in the cart before checkout",
+      "viewCart": "View cart",
+      "purchaseOrder": "Create purchase order",
+      "alsoNeed": "You might also need"
+    },
+    "completions": {
+      "title": "Complete your order"
+    }
   },
   "checkout": {
     "title": "Checkout",
@@ -130,7 +154,186 @@
     "creditCard": "Credit or debit card",
     "bankTransfer": "Bank transfer",
     "addAddress": "Add new address",
-    "selectAddress": "Select address"
+    "selectAddress": "Select address",
+    "eyebrow": "Checkout",
+    "dateline": "Three steps · nothing is charged and no order exists until you submit the last one",
+    "back": "Back",
+    "browse": "Browse products",
+    "continueToPayment": "Continue to payment",
+    "reviewOrder": "Review order",
+    "reviewTitle": "Review your order",
+    "reviewProvenance": "Lines as held in this browser · the server re-resolves each product, its price and its VAT before the order is written",
+    "reviewCart": "Review cart",
+    "discount": "Discount",
+    "coupon": "Coupon / event code",
+    "couponHint": "Validated against current eligibility, usage limits and stacking rules when you submit. The browser does not calculate or authorize the discount.",
+    "couponPlaceholder": "Optional code",
+    "mixedCurrency": "Remove items in other currencies before checkout.",
+    "notEnabled": "Not enabled",
+    "orderFailed": "Order failed",
+    "orderFailedRetry": "Order failed. Please try again.",
+    "pilotNotice": "Pilot mode is explicitly enabled. Test payment records are simulation-only and never represent a card charge.",
+    "vatMissing": "VAT rate not recorded",
+    "step": {
+      "address": "Address",
+      "payment": "Payment",
+      "review": "Review",
+      "completed": "completed",
+      "current": "current step",
+      "notStarted": "not started"
+    },
+    "countries": {
+      "AE": "United Arab Emirates",
+      "SA": "Saudi Arabia",
+      "QA": "Qatar",
+      "KW": "Kuwait",
+      "BH": "Bahrain",
+      "OM": "Oman"
+    },
+    "address": {
+      "hint": "Where the supplier ships this order.",
+      "label": "Address label",
+      "labelHint": "For example Home or Office.",
+      "line1": "Street address",
+      "line1Placeholder": "Building, street",
+      "city": "City",
+      "country": "Country",
+      "selectCountry": "Select country",
+      "countryHint": "VAT and delivery follow this country.",
+      "served": "Delivered by {zone} · quoted by weight when you submit",
+      "unserved": "We don’t deliver to {country} yet.",
+      "unservedBody": "No delivery tariff covers this country, so the order would be refused. A request for quotation reaches suppliers who can arrange delivery there, or choose another delivery country.",
+      "ambiguous": "Delivery to {country} can’t be priced right now — the tariff for it needs attention.",
+      "ambiguousBody": "More than one delivery tariff claims this country and the platform refuses to choose between them. Contact support, or choose another delivery country.",
+      "error": {
+        "required": "This field is required.",
+        "tooShort": "Enter at least {min} characters.",
+        "tooLong": "Use at most {max} characters.",
+        "unsupportedCountry": "Orders can be delivered within the GCC only."
+      }
+    },
+    "pay": {
+      "mada": "mada",
+      "applePay": "Apple Pay",
+      "stcPay": "STC Pay",
+      "mock": "Test payment (pilot)",
+      "mockDesc": "Pilot simulation — no card is charged",
+      "bankDesc": "Creates an unpaid order for finance confirmation",
+      "certification": "Requires certified payment initiation"
+    },
+    "review": {
+      "deliveringTo": "Delivering to"
+    },
+    "preflight": {
+      "title": "Before you submit",
+      "body": "The server would refuse this order as it stands. Each point names where to fix it; your cart and address are kept."
+    },
+    "refusal": {
+      "b2bLines": "{count, plural, one {{n} line is B2B-priced. B2B orders are placed through a purchase order, not this checkout.} other {{n} lines are B2B-priced. B2B orders are placed through a purchase order, not this checkout.}}",
+      "rateUnavailable": "Delivery by {zone} isn’t priced in {currency}. Ask for a quote instead.",
+      "belowMoq": "Minimum order quantity for {name} is {moq}; you have {qty}.",
+      "variantRequired": "{name} needs a variant chosen before it can be ordered.",
+      "variantUnavailable": "The chosen variant of {name} is no longer available.",
+      "channelNotB2c": "{name} isn’t available for consumer ordering.",
+      "stockUnconfirmed": "Stock for {name} hasn’t been confirmed by the seller, so this order would be refused.",
+      "insufficientStock": "Only {available} of {name} available; you have {qty}."
+    },
+    "notice": {
+      "fallbackRate": "{names}: no recorded weight, so delivery is charged at the zone’s flat rate of {price} rather than by weight.",
+      "catalogueMiss": "{name} couldn’t be found in the catalogue. If it has been withdrawn the order will be refused — remove it in the cart to be sure.",
+      "unverified": "{count, plural, one {{n} line couldn’t be re-checked against the catalogue; the server checks it when you submit.} other {{n} lines couldn’t be re-checked against the catalogue; the server checks them when you submit.}}"
+    },
+    "action": {
+      "editCart": "Edit cart",
+      "removeInCart": "Remove in cart",
+      "changeQuantity": "Change quantity",
+      "chooseVariant": "Choose a variant",
+      "chooseAnother": "Choose another",
+      "changeAddress": "Change address",
+      "requestQuote": "Request a quote",
+      "contactSupport": "Contact support",
+      "createPurchaseOrder": "Create purchase order"
+    },
+    "summary": {
+      "currencyOnly": "All figures in {currency}",
+      "currencyAndVat": "All figures in {currency} · VAT at {rate}%, {country} being the place of supply",
+      "estimateLabel": "Estimate before delivery",
+      "estimateProvenance": "Goods and their estimated VAT, from the lines in your cart · delivery, VAT on delivery and any discount are added by the server, and the recorded total is shown on your confirmation before any payment is taken",
+      "onSubmission": "On submission",
+      "subtotal": "Subtotal (excl. VAT)",
+      "subtotalNote": "{count, plural, one {{n} line} other {{n} lines}} · unit prices as displayed in your cart",
+      "discountPending": "Code {code} · validated and applied by the server when you submit",
+      "goodsVat": "Estimated VAT on goods",
+      "goodsVatRate": "At {rate}% · {country} is the place of supply",
+      "goodsVatDiffers": "Estimated at the displayed lines’ rates · the order is taxed at {rate}% ({country})",
+      "goodsVatUnknown": "Estimated at the rates on the displayed lines",
+      "delivery": "Delivery",
+      "deliveryByWeight": "{zone} · quoted by weight when you submit",
+      "deliveryByWeightOrFree": "{zone} · quoted by weight when you submit · free at or above {threshold} before VAT",
+      "deliveryFallback": "{zone} · flat rate, as an item has no recorded weight",
+      "deliveryFallbackOrFree": "{zone} · flat rate, as an item has no recorded weight · free at or above {threshold} before VAT",
+      "deliveryNotConfigured": "No delivery tariff is configured — nothing is added for delivery",
+      "deliveryQuoted": "Quoted by the server when you submit",
+      "deliveryUnserved": "Not delivered to {country}",
+      "deliveryAmbiguous": "The delivery tariff for this country needs attention — see the address step",
+      "deliveryVat": "VAT on delivery",
+      "deliveryVatRate": "At {rate}% of the delivery charge",
+      "deliveryVatNone": "No delivery charge, so no VAT on it",
+      "deliveryVatUnknown": "At the destination’s statutory rate",
+      "vatRateDiffers": "Your delivery country taxes at {rate}%; the displayed lines carry a different rate, so the VAT recorded on the order will differ from this estimate."
+    },
+    "missed": {
+      "title": "Missed something?",
+      "body": "Go back to your cart to add or change lines. Your cart, this address, the payment choice and any code stay exactly as they are — nothing is submitted until the last step.",
+      "action": "Back to cart"
+    },
+    "trust": {
+      "eyebrow": "Buyer protection",
+      "verifiedSellers": "Verified sellers",
+      "verifiedSellersDesc": "Business documentation is reviewed before a seller can list.",
+      "paymentOptions": "Payment methods on this platform",
+      "paymentOptionsDesc": "{methods}. Which of these are enabled today is stated at the payment step.",
+      "pricedFirst": "Priced before you pay",
+      "pricedFirstDesc": "VAT is stated on every line here; delivery and its VAT are quoted by the server and recorded on the order before any payment is taken.",
+      "returns": "Returns you can track",
+      "returnsDesc": "Raise a return against a delivered order and follow it to refund."
+    },
+    "empty": {
+      "eyebrow": "Nothing to check out",
+      "headline": "There is nothing in your cart to check out.",
+      "body": "Add items from the marketplace and they will be waiting here."
+    },
+    "unpriceable": {
+      "eyebrow": "Checkout unavailable",
+      "headline": "This cart cannot be priced.",
+      "body": "Cart items must have one currency and complete VAT facts. No estimate or order has been submitted."
+    },
+    "success": {
+      "eyebrow": "Order recorded",
+      "headline": "Your order has been submitted.",
+      "idempotent": "This order had already been recorded; nothing was submitted twice.",
+      "reference": "Order reference",
+      "recordedEyebrow": "As recorded on the order",
+      "deliveringTo": "Delivering to",
+      "totalRecorded": "Total recorded",
+      "recordedProvenance": "As recorded on the order in {currency} · VAT at {rate}%, {country} being the place of supply · nothing here is recalculated in the browser",
+      "recordedProvenanceNoRate": "As recorded on the order in {currency} · nothing here is recalculated in the browser",
+      "recordLoading": "Recorded by the server · the full breakdown is loading",
+      "recordUnavailable": "Recorded by the server · the full breakdown is on the order record",
+      "goodsVat": "VAT on goods",
+      "goodsVatNote": "The VAT recorded on each line, added up",
+      "deliveryNote": "As quoted by the server for this destination and weight",
+      "deliveryNone": "No delivery charge was recorded",
+      "deliveryVatNote": "The remainder of the order’s VAT after the line rows",
+      "vatCombined": "VAT (goods and delivery)",
+      "vatCombinedNote": "Declared as one figure on this order",
+      "nextTitle": "What happens next",
+      "bankPending": "Payment is pending finance confirmation. The order is not marked paid until funds are verified.",
+      "pilotRecorded": "Pilot test payment recorded — no card was charged.",
+      "statusAtSubmission": "Status as at submission · the order record carries the current one",
+      "viewOrder": "View this order",
+      "viewOrders": "My orders"
+    }
   },
   "orders": {
     "title": "Your orders",
@@ -140,7 +343,34 @@
     "total": "Total",
     "trackOrder": "Track order",
     "reorder": "Reorder",
-    "noOrders": "No orders yet. Your purchases will appear here."
+    "noOrders": "No orders yet. Your purchases will appear here.",
+    "stage": {
+      "PENDING_PAYMENT": "Pending payment",
+      "PAYMENT_CONFIRMED": "Payment confirmed",
+      "CONFIRMED": "Confirmed",
+      "PROCESSING": "Processing",
+      "SHIPPED": "Shipped",
+      "OUT_FOR_DELIVERY": "Out for delivery",
+      "DELIVERED": "Delivered",
+      "CANCELLED": "Cancelled",
+      "REFUNDED": "Refunded",
+      "RETURN_REQUESTED": "Return requested",
+      "RETURNED": "Returned"
+    },
+    "next": {
+      "AWAIT_BANK_TRANSFER": "Awaiting your bank transfer. Finance verifies the funds, and only then does the order move to Payment confirmed — nothing is prepared or shipped before that.",
+      "AWAIT_PAYMENT": "Awaiting payment. The order moves to Payment confirmed once the payment is verified.",
+      "PAYMENT_CONFIRMED": "Payment is confirmed. The seller confirms the order next.",
+      "CONFIRMED": "Confirmed with the seller. The seller prepares the items next.",
+      "PROCESSING": "The seller is preparing the items for dispatch.",
+      "SHIPPED": "Dispatched. It moves to Out for delivery on the carrier’s final leg.",
+      "OUT_FOR_DELIVERY": "With the carrier for delivery.",
+      "DELIVERED": "Delivered. A return can be raised against this order from Returns and followed to refund.",
+      "CANCELLED": "This order was cancelled. Nothing further happens to it.",
+      "REFUNDED": "This order was refunded.",
+      "RETURN_REQUESTED": "A return has been requested against this order and is being reviewed.",
+      "RETURNED": "This order was returned."
+    }
   },
   "deals": {
     "title": "Marketplace offers",
@@ -251,6 +481,15 @@
     "heroProvenance": "{count, plural, one {{n} category currently listed} other {{n} categories currently listed}}",
     "specimenEyebrow": "From the catalogue",
     "specimenView": "View {name}",
+    "heroCarouselLabel": "Products from the catalogue",
+    "heroCarouselRole": "carousel",
+    "heroSlideRole": "slide",
+    "heroSlidePosition": "{n} of {total}",
+    "heroSlideGoTo": "Show {name}",
+    "heroSlidePrev": "Previous product",
+    "heroSlideNext": "Next product",
+    "heroCarouselPause": "Pause automatic rotation",
+    "heroCarouselPlay": "Resume automatic rotation",
     "specimenEmptyEyebrow": "Nothing published",
     "specimenEmptyHeadline": "No supplier has published a listing for this storefront yet.",
     "specimenEmptyBody": "A product appears here the moment one is published. Until then, describe what you need and suppliers answer with quotes.",
@@ -405,7 +644,10 @@
       "description": "Description",
       "specs": "Specifications",
       "reviews": "Reviews",
-      "shipping": "Shipping & returns"
+      "shipping": "Shipping & returns",
+      "related": "Related products",
+      "boughtTogether": "Others also bought",
+      "trending": "Moving in the catalogue"
     },
     "description": {
       "none": "No description has been published for this product"
@@ -478,6 +720,11 @@
       "returnsBody": "Return eligibility and any applicable window are confirmed against the published returns policy when a return is requested.",
       "business": "Business orders",
       "businessBody": "Bulk quantities are priced from the bands the supplier has published. Terms beyond those bands are agreed on a quotation."
+    },
+    "railReason": {
+      "related": "Same category, brand or specification as this product.",
+      "boughtTogether": "Ordered together with this product by other buyers.",
+      "trending": "Ranked from catalogue activity, not from your browsing."
     }
   },
   "catalogue": {
@@ -577,6 +824,19 @@
         "eyebrow": "Nothing to browse",
         "headline": "No categories carry a published listing yet.",
         "body": "A category appears here once a seller publishes a product into it."
+      },
+      "listingCount": "{count, plural, one {1 listing} other {# listings}}",
+      "pivot": {
+        "eyebrow": "Browse what matched"
+      },
+      "recovery": {
+        "eyebrow": "Where to go next",
+        "categories": "Categories named like “{query}”",
+        "brands": "Brands named like “{query}”",
+        "identifier": "No listing carries the part number “{query}”.",
+        "identifierAction": "Request a quote for it",
+        "relaxed": "Dropping the last word finds {count, plural, one {1 listing} other {# listings}}.",
+        "relaxedAction": "Search for “{query}”"
       }
     },
     "category": {
@@ -589,6 +849,15 @@
         "headline": "No published listings in {category} yet.",
         "body": "A product appears here once a seller publishes it and it is discoverable in this storefront."
       }
+    },
+    "context": {
+      "browseWithin": "Browse within {category}",
+      "browseWithinBasis": "Only subcategories carrying a published listing are offered.",
+      "topCategories": "Top categories",
+      "topCategoriesBasis": "Ranked by published listings, most first.",
+      "movingEyebrow": "Catalogue activity",
+      "moving": "Moving in {category}",
+      "movingBasis": "Ranked from catalogue activity over the last {days, plural, one {day} other {# days}}, not from your browsing."
     },
     "viewProduct": "View {name}",
     "skuLabel": "SKU",
@@ -657,5 +926,11 @@
     },
     "needsMoreSignal": "Not enough here yet to name a category or a brand. Open a few more listings and this panel will start pointing at what you keep returning to.",
     "noSignal": "Nothing opened in this browser yet, so there is nothing of your own to show."
+  },
+  "wishlist": {
+    "metaTitle": "Wishlist"
+  },
+  "status": {
+    "metaTitle": "Platform status"
   }
 }

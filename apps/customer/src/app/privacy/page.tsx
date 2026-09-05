@@ -5,7 +5,7 @@ import { Eyebrow, PageHeader, Surface } from "@avenick/ui";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
 
 export const metadata = {
-  title: `Privacy Policy — ${platformName()}`,
+  title: `Privacy Policy`,
   description: `${platformName()} privacy policy and data protection guidelines under GCC regulations.`,
 };
 

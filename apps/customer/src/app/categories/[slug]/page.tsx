@@ -4,16 +4,61 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { PackageSearch } from "lucide-react";
-import { Button, Dateline, EmptyState, Num, PageHeader } from "@avenick/ui";
+import { getTrendingProducts, TRENDING_WINDOW_DAYS } from "@avenick/database";
+import { Button, Dateline, EmptyState, Eyebrow, Num, PageHeader, SectionHeader } from "@avenick/ui";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
 import { ProductGrid } from "@/components/products/product-grid";
 import { fetchBackendJson } from "@/lib/backend";
+import { categoryLabel } from "@/lib/catalog-categories";
+import { toCatalogListDto } from "@/lib/catalog-list-dto";
 import { categoryTrail, findCategory, type CategoryNode } from "@/lib/category-tree";
+import { toCardRow, type CardRow } from "@/lib/product-card-row";
 
 interface Props { params: { slug: string } }
 
 const PAGE_LIMIT = 24;
+
+/** Tiles in the "Moving in" rail: one row of the grid beneath it. */
+const MOVING_LIMIT = 4;
+
+/**
+ * The "Moving in <category>" rail: the view signal ranked INSIDE this category
+ * and every category beneath it — the same subtree the grid below lists from.
+ *
+ * The thresholds are the home rail's, unchanged: a product needs the view
+ * floor inside the window, and three products must clear it before anything
+ * renders. So this is empty before any view has been recorded, empty on a
+ * quiet week, and empty in a category where only two products are being
+ * looked at. Each of those is the signal's own answer and the page draws no
+ * rail for it — there is no fallback ordering here and no "popular" label on
+ * a list nothing ranked.
+ *
+ * Rows go through toCatalogListDto exactly as /api/products does, because the
+ * DTO is where price privacy lives; and through toCardRow so this rail cannot
+ * drift from the tile every other rail draws. The channel is the grid's own:
+ * this page asks the catalogue for no channel, so neither does the rail.
+ *
+ * A failure is an empty rail, never a failed page: the rail is garnish on a
+ * result, and the result must not 500 because its garnish did.
+ */
+async function movingInCategory(category: CategoryNode, locale: "en" | "ar"): Promise<CardRow[]> {
+  try {
+    const rows = await getTrendingProducts({ limit: MOVING_LIMIT, categoryId: category.id });
+    return rows.map((row) => {
+      const dto = { ...toCatalogListDto(row as any, "B2C"), rating: row.rating ?? null };
+      const card = toCardRow(dto, locale);
+      // The tile's category eyebrow is kept only when it says more than the h1
+      // already does: a product filed under a child category names the child,
+      // one filed directly under this category falls through to its supplier,
+      // exactly as the grid below does for every tile.
+      return { ...card, category: dto.category?.slug === category.slug ? undefined : card.category };
+    });
+  } catch (error) {
+    console.error("Unable to load the category activity rail", error);
+    return [];
+  }
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const categories = await fetchBackendJson<CategoryNode[]>("/api/categories");
@@ -48,9 +93,16 @@ export default async function CategoryPage({ params }: Props) {
   // read `products.length`, which is capped at the page limit below — so a
   // category with 300 listings announced "24 products" and the visitor had no
   // way to know the other 276 existed.
-  const { products, total } = await fetchBackendJson<{ products: any[]; total: number }>(
-    `/api/products?limit=${PAGE_LIMIT}&categorySlug=${encodeURIComponent(params.slug)}`,
-  );
+  //
+  // The rail is fetched alongside the page, not after it: the two have no
+  // dependency and serialising them would add the signal's round trips to the
+  // time this page spends blank.
+  const [{ products, total }, moving] = await Promise.all([
+    fetchBackendJson<{ products: any[]; total: number }>(
+      `/api/products?limit=${PAGE_LIMIT}&categorySlug=${encodeURIComponent(params.slug)}`,
+    ),
+    movingInCategory(category, locale),
+  ]);
 
   // The heading follows the visitor's locale. It used to render nameAr as the h1
   // and nameEn as the subtitle for everyone, so an English visitor got an Arabic
@@ -60,7 +112,7 @@ export default async function CategoryPage({ params }: Props) {
 
   return (
     <MainLayout>
-      <div className="mx-auto max-w-7xl px-4 py-block">
+      <div className="mx-auto max-w-shell px-gutter py-block">
         <PageHeader
           eyebrow={t("category.eyebrow")}
           title={primaryName}
@@ -108,6 +160,56 @@ export default async function CategoryPage({ params }: Props) {
           />
         ) : (
           <>
+            {/*
+              BROWSE WITHIN. The category's own children, from the tree the API
+              already pruned to categories with a published listing beneath
+              them — so every chip leads to a populated page, and a leaf offers
+              nothing rather than an empty row. One click narrows without the
+              filter panel; the breadcrumb above is the way back up.
+            */}
+            {category.children.length > 0 && (
+              <nav aria-label={t("context.browseWithin", { category: primaryName })} className="mb-6">
+                <Eyebrow as="h2" className="mb-2">
+                  {t("context.browseWithin", { category: primaryName })}
+                </Eyebrow>
+                <ul className="flex flex-wrap gap-2">
+                  {category.children.map((child) => (
+                    <li key={child.slug}>
+                      <Link
+                        href={`/categories/${encodeURIComponent(child.slug)}`}
+                        className="u-focus u-state-wash u-meta inline-block rounded-pill bg-neutral-soft px-3 py-1 font-medium text-ink-2 ring-1 ring-neutral-rule"
+                      >
+                        {categoryLabel(child, locale)}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <Dateline className="mt-2">{t("context.browseWithinBasis")}</Dateline>
+              </nav>
+            )}
+
+            {/*
+              MOVING IN. Rendered only when the scoped signal has rows — see
+              movingInCategory for the three ways it is legitimately empty. The
+              dateline states the basis and the window the way the home page's
+              rails do; the window is the module's own constant, so the sentence
+              cannot drift from the measurement.
+            */}
+            {moving.length > 0 && (
+              <section className="mb-6 border-b border-hairline pb-6">
+                <SectionHeader
+                  eyebrow={t("context.movingEyebrow")}
+                  title={t("context.moving", { category: primaryName })}
+                  dateline={t("context.movingBasis", { days: TRENDING_WINDOW_DAYS })}
+                />
+                <ProductGrid>
+                  {moving.map((card, index) => (
+                    <ProductCard key={card.id} index={index} {...card} locale={locale} />
+                  ))}
+                </ProductGrid>
+              </section>
+            )}
+
             <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b-2 border-border-strong pb-3">
               <p className="u-ui flex flex-wrap items-baseline gap-x-1.5 text-ink-2">
                 <Num value={total} rank="inline" />

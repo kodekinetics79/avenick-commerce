@@ -17,6 +17,7 @@ import {
   Surface,
 } from "@avenick/ui";
 import { Stars } from "@/components/product/stars";
+import { useCartDrawerStore } from "@/components/cart/cart-drawer-store";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
 import { useLocale, useTranslations } from "next-intl";
@@ -154,6 +155,7 @@ export function ProductCard({
   const nextLocale = useLocale();
   const activeLocale = locale || (nextLocale as "en" | "ar");
   const addItem = useCartStore((s) => s.addItem);
+  const openCartDrawerFor = useCartDrawerStore((s) => s.openFor);
   const { toggle, has } = useWishlist();
   // Persisted wishlist state would mismatch on hydration — gate on mount.
   const [mounted, setMounted] = React.useState(false);
@@ -238,7 +240,7 @@ export function ProductCard({
       }));
   }, [isB2B, currency, priceBands, activeLocale]);
 
-  function handleAddToCart() {
+  function handleAddToCart(event: React.MouseEvent<HTMLButtonElement>) {
     const action = productCardPurchaseAction(hasVariants, inStock);
     if (action === "REQUEST_AVAILABILITY") {
       router.push(`/b2b/rfq/new?supplier=${encodeURIComponent(sellerId)}&product=${encodeURIComponent(id)}`);
@@ -250,6 +252,23 @@ export function ProductCard({
     }
     if (price == null || !currency || vatRate == null) return;
     addItem({ productId: id, slug, channel: isB2B ? "B2B" : "B2C", nameEn, nameAr, imageUrl, sku, qty: moq, moq, unitPrice: price, vatRate, priceTiered, sellerId, currency });
+    /*
+     * THE DRAWER OPENS; THE PAGE STAYS. Adding used to be the end of browsing —
+     * the line went in and the buyer was sent to the cart — so the biggest
+     * conversion leak on the storefront was the add-to-cart button itself.
+     * The drawer shows the line over the grid the buyer is still standing on.
+     *
+     * The control is focused first, on purpose. The drawer's focus scope
+     * returns focus to whatever element was active when it opened, and Safari
+     * does not focus a button on click — without this, "Continue shopping"
+     * would strand a Safari user on <body>. Programmatic focus after a pointer
+     * press does not draw the focus ring, so a mouse user sees nothing.
+     *
+     * Bands travel only from a B2B tile, mirroring the ladder's own gate: a
+     * consumer's drawer must never carry wholesale breaks.
+     */
+    event.currentTarget.focus({ preventScroll: true });
+    openCartDrawerFor({ productId: id, priceBands: isB2B ? priceBands : undefined });
     clearTimeout(commitTimer.current);
     setCommitted(true);
     commitTimer.current = setTimeout(() => setCommitted(false), 1800);

@@ -1,9 +1,9 @@
 import { Suspense } from "react";
-import { ScrollProgress } from "@avenick/ui";
 import { Header } from "./header";
 import { Footer } from "./footer";
 import { SkipLink } from "./skip-link";
 import { DiscoveryPanel, type TrendingProduct } from "@/components/discovery";
+import { CartDrawerConnected } from "@/components/cart/cart-drawer-connected";
 
 export interface MainLayoutProps {
   children: React.ReactNode;
@@ -38,7 +38,6 @@ export function MainLayout({ children, discoveryTrending }: MainLayoutProps) {
         and it is aria-hidden because the scrollbar already tells assistive
         technology this.
       */}
-      <ScrollProgress />
 
       <SkipLink />
       <Header />
@@ -46,6 +45,19 @@ export function MainLayout({ children, discoveryTrending }: MainLayoutProps) {
         {children}
       </main>
       <Footer />
+
+      {/*
+        The cart drawer — what an add-to-cart opens instead of navigating away.
+        Mounted once here so every route that adds to the cart has it, and
+        mounted CLOSED: its open flag is not persisted and only a real add sets
+        it. It renders no DOM at all until then. Rows for its "You might also
+        need" slot reach it as props or through its store; see
+        components/cart/completions.ts for the contract.
+      */}
+      {/* Wired to /api/cart/completions on the client side of the boundary —
+          a loader is a function, and a function cannot be passed from this
+          server component into a client one. */}
+      <CartDrawerConnected />
 
       {/*
         The discovery panel — a recommender driven by this browser's own trail,

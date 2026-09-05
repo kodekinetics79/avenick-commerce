@@ -6,6 +6,15 @@ import { AuthShell } from "../auth/auth-shell";
 import { identityCopy, LOCALE_COOKIE, toIdentityLocale } from "../auth/identity-copy";
 import { LoginForm } from "./login-form";
 
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+
+/** The tab read the bare platform name; a sign-in page deserves its own. */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("auth");
+  return { title: t("signInTitle") };
+}
+
 /**
  * Sign in.
  *

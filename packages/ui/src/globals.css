@@ -352,6 +352,16 @@
   --measure-prose: 68ch;
   --measure-desc:  60ch;
 
+  /* ═══ THE SHELL ═══
+     One container width for the storefront and one gutter. Every section
+     wrapper was Tailwind's max-w-7xl (1280px) inside a fixed 16px, which on a
+     1920 display is 320px of dead margin a side and on a phone is the same
+     16px it is on a laptop. 96rem with a fluid gutter, surfaced by the Tailwind
+     config as `max-w-shell` and `px-gutter`. The shell sets where the margins
+     are and never how long a sentence gets: prose stays on --measure-desc. */
+  --shell-max: 96rem;
+  --shell-gutter: clamp(1rem, 3vw, 3rem);
+
   /* ═══ MOTION ═══
      Assignment, not taste: entering and exiting → --ease-out. Moving or morphing
      on screen → --ease-in-out. Hover and colour → plain `ease`. Progress and
@@ -1551,9 +1561,15 @@ p, .u-lead, .u-body { text-wrap: pretty; }
   opacity: 0;
   transform: translateY(12px);
 }
+/* Tuned, not rebuilt: the entrance is the fade plus a 12px rise on --ease-out
+   with the 40ms stagger it always was, now at --t-layer (320ms) rather than
+   --t-panel (220ms) — the layer-enter duration, so an arriving block breathes
+   the way a drawer does instead of snapping in. The sixth item of a stagger
+   group lands at 520ms; the 480ms ceiling is per animation, and stagger is the
+   one place the system spends past it on purpose. */
 [data-reveal] {
-  transition: opacity var(--t-panel) var(--ease-out),
-              transform var(--t-panel) var(--ease-out);
+  transition: opacity var(--t-layer) var(--ease-out),
+              transform var(--t-layer) var(--ease-out);
   transition-delay: calc(var(--reveal-index, 0) * var(--stagger));
 }
 
@@ -1676,6 +1692,74 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 @keyframes plane-drift { from { translate: 0 -22px; } to { translate: 0 22px; } }
 [data-save-data] .u-plane[data-z="back"],
 [data-save-data] .u-plane[data-z="mid"] { display: none; }
+
+/* ═══ THE HERO CAROUSEL ═══
+   The hero's object as a turn of the products the page already loaded. Slides
+   are stacked with grid-area rather than absolute positioning, so the stack is
+   as tall as its tallest slide and the caption under the object never changes
+   the hero's height as the slides turn. Only the active slide is painted: the
+   rest are visibility: hidden, which also removes their link from the tab
+   order and from assistive technology — and the `visibility 0s` transition is
+   DELAYED by the exit fade so a leaving slide stays on screen until it has
+   actually gone.
+
+   ASYMMETRY IS THE RULE: the entrance is --dur-5 on --ease-out, the exit is
+   --t-layer on --ease-exit, and they overlap. The 1.02 → 1 settle is on the
+   OBJECT only, never on the caption — scaling text blurs it for the whole
+   duration. Both durations carry --motion-scale, so Save-Data halves them and
+   reduced motion zeroes the movement; the opacity crossfade is then given back
+   in §13 at 200ms, because which product is on screen is a state change.
+
+   NO VIDEO. There is no product video asset, and stock footage would be a
+   fabrication — a hero made of things the catalogue does not hold. The slides
+   are the products the page already loaded, and nothing else.
+   BUDGET: one per site. */
+.u-slides { display: grid; }
+.u-slides > .u-slide { grid-area: 1 / 1; }
+.u-slide {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--t-layer) var(--ease-exit),
+              visibility 0s linear var(--t-layer);
+}
+.u-slide[data-active="true"] {
+  opacity: 1;
+  visibility: visible;
+  z-index: 1;
+  transition: opacity calc(var(--dur-5) * var(--motion-scale)) var(--ease-out),
+              visibility 0s;
+}
+.u-slide__object {
+  transform: scale(1.02);
+  transition: transform calc(var(--dur-5) * var(--motion-scale)) var(--ease-out);
+}
+.u-slide[data-active="true"] .u-slide__object { transform: none; }
+
+/* PARALLAX ON THE HERO OBJECT ONLY — a decorative layer holding one image and
+   nothing else, which is the only thing a scroll-driven keyframe may move. The
+   independent `translate` property, never `transform`: the object's transform
+   is the settle above and .u-float's rise is on its child, so nothing fights.
+
+   `view()` resolves against the nearest SCROLL CONTAINER, which is why the hero
+   slab clips with `overflow: clip` rather than `hidden` — hidden makes a scroll
+   container, and inside one this timeline would never advance. Symmetric
+   −28px → +28px over the cover range, so at load the offset is near zero and
+   the object lags the page as the hero leaves.
+
+   Firefox has no scroll timelines and gets the static object. An effect only
+   some visitors see is two designs, so the travel is small enough that neither
+   of them is the wrong one: the hero reads as composed with or without it. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .u-slide__object {
+      animation: hero-object-parallax linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+    }
+  }
+}
+@keyframes hero-object-parallax { from { translate: 0 -28px; } to { translate: 0 28px; } }
+[data-save-data] .u-slide__object { animation: none; translate: none; }
 
 /* ═══ THE FRAME — <ImageFrame> ═══
    The highest-ROI change in the direction, and it is not an effect. Twenty-four
@@ -1999,12 +2083,21 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 .u-chrome {
   position: relative;
   --glass-alpha: .55;
+  /* THE UNCOMPRESSED STATE, set here rather than inherited from :root, and the
+     only state a browser without scroll timelines ever shows. The animation
+     below out-ranks it where it runs; where it does not, the bar simply keeps
+     this padding at every scroll position. */
+  --chrome-pad: 18px;
   padding-block: var(--chrome-pad);
   transition: background-color var(--t-panel) var(--ease-standard);
 }
 /* The IntersectionObserver fallback for browsers with no scroll timeline. With
-   JS off, no attribute is ever set and the bar is simply always glass at .55. */
-.u-chrome[data-at-top="false"] { --glass-alpha: .92; --chrome-pad: 10px; }
+   JS off, no attribute is ever set and the bar is simply always glass at .55.
+   ALPHA ONLY. It used to set --chrome-pad as well, which in Firefox was a
+   layout snap at the first pixel of scroll: with no timeline to spread it
+   over, a padding change is a jolt, not a settle — and a settle for some
+   visitors and a snap for the rest is two designs. */
+.u-chrome[data-at-top="false"] { --glass-alpha: .92; }
 .u-chrome::after {
   content: "";
   position: absolute;
@@ -2033,9 +2126,12 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 }
 /* animation-fill-mode is `both` above for a reason: without it, a bar already
    past the range at load sits at intermediate progress forever. */
+/* 18px → 8px is an 80px bar becoming a 60px one around the 44px search field
+   that is its floor — Apple's nav shrink, over the same 96px the alpha was
+   measured on, so no low-alpha frame exists that was not already measured. */
 @keyframes chrome-settle {
   from { --glass-alpha: .55; --chrome-pad: 18px; }
-  to   { --glass-alpha: .92; --chrome-pad: 10px; }
+  to   { --glass-alpha: .92; --chrome-pad: 8px; }
 }
 @keyframes chrome-shadow { from { opacity: 0; } to { opacity: 1; } }
 
@@ -2065,6 +2161,26 @@ p, .u-lead, .u-body { text-wrap: pretty; }
   }
 }
 @keyframes scroll-progress { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* THE SAME HAIRLINE, HOSTED BY THE CHROME. <StickyGlassBar progress> renders
+   <ScrollProgress> as its own last child, so the rule draws along the bar's
+   BOTTOM edge — under the glass, where the eye already is — rather than along
+   the viewport's top edge above it. The bar is the containing block, so the
+   hairline follows the settle without knowing the bar's height.
+
+   ONE PER DOCUMENT, kept in CSS rather than by review: while a layout still
+   mounts the document-level hairline as well, the bar-hosted one wins and the
+   other is hidden. `:has()` (Chrome 105, Safari 15.4, Firefox 121) predates
+   scroll-driven animations in every engine that ships them, so wherever a
+   hairline can actually be seen the guard is in force — and where it cannot,
+   both stand at scaleX(0) and there is nothing to double. */
+.u-chrome > .u-chrome__progress {
+  position: absolute;
+  inset-block: auto 0;
+  inset-inline: 0;
+  z-index: 1;
+}
+:root:has(.u-chrome__progress) .u-scroll-progress:not(.u-chrome__progress) { display: none; }
 
 /* ═══ THE COMMIT — press, badge, label ═══
    Phase 1 (0–160ms, before any network): the button travels on Y. NEVER scale a
@@ -2355,6 +2471,9 @@ p, .u-lead, .u-body { text-wrap: pretty; }
   .u-field__lobe { animation: none !important; will-change: auto; }
   .u-plane[data-z="back"] { animation: none !important; translate: none !important; }
   .u-chrome, .u-chrome::after, .u-scroll-progress { animation: none !important; }
+  /* The hero carousel: the settle and the parallax go; the crossfade is given
+     back below because which product is on screen is a state change. */
+  .u-slide__object { transform: none !important; translate: none !important; animation: none !important; }
   .u-imgframe img { transform: none !important; }
   .skeleton::after { animation: none; opacity: .5; }
   /* Each of these has a DESIGNED still state rather than merely `animation:
@@ -2368,6 +2487,12 @@ p, .u-lead, .u-body { text-wrap: pretty; }
   [data-reveal] {
     transition: opacity 200ms var(--ease-out) !important;
     transform: none !important;
+  }
+  .u-slide {
+    transition: opacity 200ms var(--ease-out), visibility 0s linear 200ms !important;
+  }
+  .u-slide[data-active="true"] {
+    transition: opacity 200ms var(--ease-out), visibility 0s !important;
   }
   .u-commit {
     transition: border-inline-start-color 200ms var(--ease-out),

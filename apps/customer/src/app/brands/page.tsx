@@ -17,7 +17,7 @@ export default async function BrandsPage() {
 
   return (
     <MainLayout>
-      <div className="mx-auto max-w-7xl px-4 py-block">
+      <div className="mx-auto max-w-shell px-gutter py-block">
         <PageHeader
           eyebrow="Discovery"
           title="Shop by brand"
