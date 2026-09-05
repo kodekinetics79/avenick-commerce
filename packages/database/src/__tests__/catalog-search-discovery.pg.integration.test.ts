@@ -3,7 +3,7 @@ import { db } from "../index";
 import { listProducts, normalizeCatalogSearch } from "../services/products";
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-const ids = { user: "", seller: "", category: "", middleCategory: "", parentCategory: "", product: "" };
+const ids = { user: "", seller: "", category: "", middleCategory: "", parentCategory: "", product: "", sparse: "", bare: "" };
 
 beforeAll(async () => {
   const user = await db.user.create({
@@ -45,10 +45,65 @@ beforeAll(async () => {
     },
   });
   ids.product = product.id;
+
+  /*
+    Two more products, in the shapes the LIVE catalogue is full of and this
+    fixture had none of.
+
+    The product above sets all four identifier columns, so nothing in its
+    metadata row is NULL. That is what hid the search defect for as long as it
+    existed: every tier below the first is "matches me AND NOT any tier above
+    me", Prisma compiles the metadata filter as a LEFT JOIN with column
+    comparisons, and `NULL IN (...)` is NULL — so `NOT (FALSE OR NULL)` is NULL
+    and the row is dropped. With every column populated the comparison is FALSE
+    rather than NULL and the exclusion behaves. Production is not like that:
+    an imported catalogue fills the columns it has and leaves the rest NULL.
+
+    `sparse` has a metadata row with the identifier columns NULL. `bare` has no
+    metadata row at all. Both must still be findable by a word from their name.
+  */
+  const sparse = await db.product.create({
+    data: {
+      sellerId: seller.id,
+      categoryId: category.id,
+      sku: `CAT-SPARSE-${stamp}`,
+      slug: `catalog-search-sparse-${stamp}`,
+      nameEn: `Beta Conduit Coupler ${stamp}`,
+      nameAr: "وصلة بيتا",
+      status: "ACTIVE",
+      isPubliclyDiscoverable: true,
+      isB2CEnabled: false,
+      isB2BEnabled: true,
+      commercialMetadata: {
+        create: {
+          sourceSystem: "CLIENT_PILOT_CATALOG",
+          sourceFingerprint: `fingerprint-sparse-${stamp}`,
+        },
+      },
+    },
+  });
+  ids.sparse = sparse.id;
+
+  const bare = await db.product.create({
+    data: {
+      sellerId: seller.id,
+      categoryId: category.id,
+      sku: `CAT-BARE-${stamp}`,
+      slug: `catalog-search-bare-${stamp}`,
+      nameEn: `Gamma Conduit Bracket ${stamp}`,
+      nameAr: "حامل غاما",
+      status: "ACTIVE",
+      isPubliclyDiscoverable: true,
+      isB2CEnabled: false,
+      isB2BEnabled: true,
+    },
+  });
+  ids.bare = bare.id;
 });
 
 afterAll(async () => {
-  if (ids.product) await db.product.deleteMany({ where: { id: ids.product } });
+  const productIds = [ids.product, ids.sparse, ids.bare].filter(Boolean);
+  if (productIds.length) await db.product.deleteMany({ where: { id: { in: productIds } } });
   if (ids.category) await db.category.deleteMany({ where: { id: ids.category } });
   if (ids.middleCategory) await db.category.deleteMany({ where: { id: ids.middleCategory } });
   if (ids.parentCategory) await db.category.deleteMany({ where: { id: ids.parentCategory } });
@@ -78,6 +133,48 @@ describe("catalog discovery search", () => {
     const result = await expectSearch(`811-${stamp}`);
     expect(JSON.stringify(result.products)).not.toContain("manufacturerPartNumber");
     expect(JSON.stringify(result.products)).not.toContain("sourceFingerprint");
+  });
+
+  /**
+   * THE DEFECT THIS FILE EXISTED FOR AND STILL MISSED.
+   *
+   * Any term without a space is identifier-shaped, so a single-word search runs
+   * the identifier tiers AND the free-text tier. The free-text tier then
+   * subtracts the identifier tiers, and that subtraction was poisoned by NULL
+   * for every product whose metadata columns are not all populated — which, in
+   * an imported catalogue, is most of them.
+   *
+   * Measured on the live catalogue before the fix: `cable` returned 0 products
+   * while 13 carried "Cable" in their name. `cable management` returned 10,
+   * because a term with a space is not identifier-shaped and skips the tiers
+   * that poisoned it. A storefront whose one-word searches all answer "nothing"
+   * is not a storefront.
+   */
+  it("finds every product by a single word from its name, whatever its metadata holds", async () => {
+    const result = await listProducts({ search: "Conduit", status: "ACTIVE", publiclyDiscoverable: true, limit: 50 });
+    const found = result.products.map((product) => product.id);
+
+    expect(found, "the product with a fully populated metadata row").toContain(ids.product);
+    expect(found, "the product whose identifier columns are NULL — the shape an import produces").toContain(ids.sparse);
+    expect(found, "the product with no metadata row at all").toContain(ids.bare);
+  });
+
+  it("answers a one-word search the same way it answers the same word inside a phrase", async () => {
+    // A term with a space is not identifier-shaped and therefore never ran the
+    // tiers that were broken. If these two disagree, the identifier path is
+    // discarding name matches again.
+    const [oneWord, phrase] = await Promise.all([
+      listProducts({ search: "Conduit", status: "ACTIVE", publiclyDiscoverable: true, limit: 50 }),
+      listProducts({ search: `Conduit Coupler ${stamp}`, status: "ACTIVE", publiclyDiscoverable: true, limit: 50 }),
+    ]);
+
+    expect(oneWord.products.map((p) => p.id)).toContain(ids.sparse);
+    expect(phrase.products.map((p) => p.id)).toContain(ids.sparse);
+  });
+
+  it("still ranks an exact identifier first, which is why the tiers exist", async () => {
+    const result = await listProducts({ search: `CAT-SKU-${stamp}`, status: "ACTIVE", publiclyDiscoverable: true, limit: 10 });
+    expect(result.products[0]?.id).toBe(ids.product);
   });
 
   it("returns no products for an unknown identifier", async () => {
