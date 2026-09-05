@@ -26,6 +26,26 @@ const PUBLIC_PATHS: Record<PortalType, string[]> = {
   admin: ["/login"],
 };
 
+/**
+ * Public at EXACTLY this path — never its subtree.
+ *
+ * PUBLIC_PATHS is prefix-matched, which is right for `/products` and would be
+ * a hole for `/b2b`: one entry there would unlock `/b2b/team`, `/b2b/billing`,
+ * `/b2b/purchase-orders` and every other company surface at once.
+ *
+ * `/b2b` itself is the workspace, and it already handles a visitor it cannot
+ * place: the dashboard fetch fails and the page redirects to `/b2b/register`,
+ * the door built for a prospect. Gating it in the middleware replaced that with
+ * a generic login — and `/b2b` is the header's own "For business" link, so the
+ * one visitor the door exists to catch was the one being turned away. Same
+ * reasoning as `/b2b/register` above; only the matching differs.
+ */
+const PUBLIC_EXACT_PATHS: Record<PortalType, string[]> = {
+  customer: ["/b2b"],
+  seller: [],
+  admin: [],
+};
+
 // API paths that must stay public: catalog browsing and externally-signed
 // webhooks (which authenticate via their own signature, not a session).
 //
@@ -72,6 +92,7 @@ function isPublicApiPath(pathname: string, portal: PortalType): boolean {
 }
 
 function isPublicPath(pathname: string, portal: PortalType): boolean {
+  if (PUBLIC_EXACT_PATHS[portal].includes(pathname)) return true;
   return PUBLIC_PATHS[portal].some(
     (p) =>
       pathname === p ||
