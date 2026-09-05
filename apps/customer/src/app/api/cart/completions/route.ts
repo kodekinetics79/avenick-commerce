@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCartCompletions, type Currency } from "@avenick/database";
+import { getCartCompletions, getRelatedProducts, type Currency } from "@avenick/database";
 import { checkRateLimit, clientIpFrom, type RateLimitRule } from "@avenick/auth/rate-limit";
 import { toCatalogListDto } from "@/lib/catalog-list-dto";
 
@@ -58,12 +58,35 @@ export async function POST(req: NextRequest) {
     const channel = wantsB2B ? "B2B" : "B2C";
     const inBasket = new Set(ids);
 
-    const rows = await getCartCompletions(ids, { limit: 8 });
-    const data = rows
-      .filter((row) => !inBasket.has(row.id))
-      .map((row) => ({ ...toCatalogListDto(row as any, channel, currencyParam), rating: (row as any).rating ?? null }));
+    const shape = (rows: unknown[]) =>
+      (rows as Array<Record<string, any>>)
+        .filter((row) => !inBasket.has(row["id"]))
+        .map((row) => ({ ...toCatalogListDto(row as any, channel, currencyParam), rating: row["rating"] ?? null }));
 
-    return NextResponse.json({ success: true, data }, { headers: { "Cache-Control": "no-store" } });
+    const bought = shape(await getCartCompletions(ids, { limit: 8 }));
+    if (bought.length > 0) {
+      return NextResponse.json(
+        { success: true, data: bought, basis: "co-purchase" },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
+
+    // NO CO-PURCHASE EVIDENCE YET. `getCartCompletions` requires two distinct
+    // buyers of the same pair before it will claim anything, which is right —
+    // "others also bought this" is a statement about other people and must not
+    // be invented. But an empty rail is a dead rail, and on a young catalogue
+    // it is empty for every basket. So the basket falls back to AFFINITY —
+    // same category, brand or specification as the most recently added line —
+    // and returns the basis alongside the rows so the drawer can head the
+    // section with the claim it can actually support. The rows are the same
+    // shape either way; only the sentence above them changes.
+    const anchor = ids[ids.length - 1];
+    const related = anchor ? shape(await getRelatedProducts(anchor, { limit: 8 })) : [];
+
+    return NextResponse.json(
+      { success: true, data: related, basis: "related" },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch {
     return NextResponse.json({ success: false, error: "Failed" }, { status: 500 });
   }

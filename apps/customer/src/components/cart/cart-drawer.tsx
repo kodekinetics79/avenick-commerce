@@ -250,7 +250,11 @@ export function CartDrawer({ completions, loadCompletions }: CartDrawerProps) {
         {suggested.length > 0 && (
           <section aria-labelledby={ALSO_NEED_ID}>
             <Eyebrow as="h3" id={ALSO_NEED_ID}>
-              {t("drawer.alsoNeed")}
+              {/* The heading follows the basis the route reported. "Others also
+                  bought" is a claim about other buyers and is only ever shown
+                  when the service found two distinct ones; affinity rows are
+                  headed as what they are. */}
+              {suggested[0]?.basis === "related" ? t("drawer.alsoRelated") : t("drawer.alsoNeed")}
             </Eyebrow>
             <ul className="mt-1 divide-y divide-hairline">
               {suggested.map((row) => (
