@@ -1,5 +1,22 @@
-"use client";
-
+/*
+ * NO "use client" HERE, deliberately.
+ *
+ * This component takes `icon` as a COMPONENT (React.ElementType), and server
+ * pages pass it one — `icon={Building2}`. A component reference cannot cross
+ * the server/client boundary: React tries to serialise it, finds
+ * {$$typeof, render, displayName}, and throws "Functions cannot be passed
+ * directly to Client Components". The page 500s.
+ *
+ * That is not hypothetical. The seller's /settings page returned 500 in
+ * production for exactly this reason, and the message names neither the prop
+ * nor the file, so it reads as a framework failure rather than a directive that
+ * should not have been added.
+ *
+ * There is nothing here that needs the client: no state, no effects, no
+ * handlers, no browser API. Without the directive this module is usable from
+ * BOTH sides — a client component importing it simply bundles it — so removing
+ * it costs nothing and restores the icon prop it advertises.
+ */
 import * as React from "react";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@avenick/utils";

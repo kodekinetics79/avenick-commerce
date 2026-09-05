@@ -137,4 +137,27 @@ describe("translation keys", () => {
     expect([...new Set(missing)]).toEqual([]);
   });
 
+
+  /*
+    A static check for LOOKUP-TABLE members was written here and removed.
+
+    `adminShell.nav.items.shippingZones` reached production and rendered
+    MISSING_MESSAGE on every admin page: the group existed with forty entries,
+    the member did not, and the group check above cannot see that. The obvious
+    fix is to read the `key: "..."` literals in a file and test each against the
+    group it interpolates into.
+
+    It does not work. A single file commonly holds two tables and two
+    interpolations — admin-layout.tsx has nav GROUPS and nav ITEMS — and a regex
+    cannot tell which table feeds which call, so every literal is measured
+    against every group. The attempt reported about eighty misses, of which one
+    was real. A guard at that signal-to-noise is deleted by the next person to
+    read it, and it takes the true finding with it.
+
+    The reliable check for this class is at RUNTIME, where next-intl actually
+    resolves the key: the browser journey that walks the authenticated portals
+    caught this defect in seconds. That is where it belongs, and asserting on
+    MISSING_MESSAGE there is worth more than a static scan that cannot be
+    trusted.
+  */
 });
