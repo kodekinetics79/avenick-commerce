@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { db, Prisma } from "@avenick/database";
 import { buildCategoryTree, type CategoryRow } from "@/lib/category-tree";
+import { catalogThrottle } from "@/lib/catalog-throttle";
 
 // Must not be statically executed at build time (no DB on build machines).
 export const dynamic = "force-dynamic";
@@ -35,8 +36,11 @@ export const dynamic = "force-dynamic";
  * `UNION` rather than `UNION ALL` in the recursive term dedups, so a malformed
  * parent chain that pointed at itself would terminate rather than spin.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const throttled = await catalogThrottle(req.headers);
+    if (throttled) return throttled;
+
     const rows = await db.$queryRaw<CategoryRow[]>(Prisma.sql`
       WITH RECURSIVE visible AS (
         SELECT c."id", c."parentId"
