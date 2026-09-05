@@ -19,53 +19,13 @@ import { ProductGrid } from "@/components/products/product-grid";
 import { categoryIcon } from "@/components/products/category-icon";
 import { fetchBackendJson } from "@/lib/backend";
 import { categoryLabel, getPublicCategories, type PublicCategory } from "@/lib/catalog-categories";
-import { getStorefrontSections, getTrendingProducts, listBrandsWithLogos } from "@avenick/database";
-import { toCatalogListDto } from "@/lib/catalog-list-dto";
+import { loadHomeRails } from "@/lib/home-rails";
 import { partitionHomeProducts } from "@/lib/home-catalog";
 import { productCardPricePresentation } from "@/lib/product-card-commerce";
 import { HeroCarousel } from "@/components/hero/hero-carousel";
 import { toHeroSlides } from "@/components/hero/hero-slides";
 
 export const dynamic = "force-dynamic";
-
-/**
- * Every rail on this page, from one call.
- *
- * The rows go through toCatalogListDto exactly as /api/products does, and that
- * is not a convenience — the DTO is where catalogue PRICE PRIVACY lives. It
- * decides which prices a channel may see and what the card is allowed to quote.
- * Reading the rows straight out of the service and shaping them here would
- * route around that rule, and the page would leak B2B pricing to an anonymous
- * visitor without anything failing.
- *
- * `rating` is re-attached after the DTO because the DTO builds a fresh object
- * and knows nothing about reviews.
- */
-async function getHomeRails() {
-  try {
-    const [sections, brands, trending] = await Promise.all([
-      getStorefrontSections({ limit: 10 }),
-      listBrandsWithLogos({ limit: 12 }),
-      // Legitimately empty until the view signal has something to say. The
-      // panel treats that as the normal case and shows the block only when it
-      // has rows — nothing here invents a trend from an empty table.
-      getTrendingProducts({ limit: 6 }),
-    ]);
-    const shape = (rows: Array<Record<string, any>>) =>
-      rows.map((row) => ({ ...toCatalogListDto(row as any, "B2C"), rating: row["rating"] ?? null }));
-    return {
-      bestSellers: shape(sections.bestSellers),
-      newArrivals: shape(sections.newArrivals),
-      topRated: shape(sections.topRated),
-      featured: shape(sections.featured),
-      trending: shape(trending),
-      brands,
-    };
-  } catch (error) {
-    console.error("Unable to load storefront rails", error);
-    return { bestSellers: [], newArrivals: [], topRated: [], featured: [], trending: [], brands: [] };
-  }
-}
 
 export default async function HomePage() {
   const cookieStore = await cookies();
@@ -75,7 +35,10 @@ export default async function HomePage() {
   const tc = await getTranslations("catalogue");
   // The category strip comes from the catalog, not from a list typed into this
   // page: a typed list kept advertising categories with nothing to sell.
-  const [rails, categories] = await Promise.all([getHomeRails(), getPublicCategories()]);
+  const [rails, categories] = await Promise.all([
+    loadHomeRails({ onError: (source, error) => console.error(`Unable to load storefront ${source}`, error) }),
+    getPublicCategories(),
+  ]);
   // The hero's specimen and shelf come from the same rails the page already
   // loaded, so the page makes no extra round trip to fill its own header.
   const products = [...rails.featured, ...rails.bestSellers, ...rails.newArrivals];

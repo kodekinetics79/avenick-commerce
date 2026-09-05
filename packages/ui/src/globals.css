@@ -1499,7 +1499,17 @@ p, .u-lead, .u-body { text-wrap: pretty; }
    already in its open state, so a transition would have nothing to travel from,
    and Radix's presence layer defers unmount for an animation but not for a
    transition — which is what lets the exit actually play. */
-.u-layer-root { perspective: 1000px; }
+/* This wrapper carries NO perspective, transform, filter or containment, and
+   must never carry one. Any of those makes it the containing block for its
+   `position: fixed` descendants — and it is a zero-height static div at the end
+   of the portal, so the panel's `top:0/bottom:0` would resolve against the END
+   OF THE DOCUMENT instead of the viewport. That shipped once: every dialog in
+   every portal opened correctly and invisibly, thousands of pixels below the
+   fold, behind a scrim that was positioned properly because it is a sibling.
+   The depth the perspective was here for lives in the keyframes instead, as a
+   `perspective()` transform function on the panel itself, where it affects the
+   panel's own children and not the panel's containing block. */
+.u-layer-root { display: contents; }
 
 @keyframes layer-scrim-in  { from { opacity: 0 } to { opacity: 1 } }
 @keyframes layer-scrim-out { from { opacity: 1 } to { opacity: 0 } }
@@ -1508,12 +1518,12 @@ p, .u-lead, .u-body { text-wrap: pretty; }
    overwrite it and the modal would land off-centre — and the translate is
    multiplied by --dir because the panel is positioned from the inline start. */
 @keyframes layer-in-center {
-  from { opacity: 0; transform: translate(calc(-50% * var(--dir)), -50%) translateZ(-40px) scale(.972) translateY(8px); }
-  to   { opacity: 1; transform: translate(calc(-50% * var(--dir)), -50%); }
+  from { opacity: 0; transform: perspective(1000px) translate(calc(-50% * var(--dir)), -50%) translateZ(-40px) scale(.972) translateY(8px); }
+  to   { opacity: 1; transform: perspective(1000px) translate(calc(-50% * var(--dir)), -50%) translateZ(0) scale(1) translateY(0); }
 }
 @keyframes layer-out-center {
-  from { opacity: 1; transform: translate(calc(-50% * var(--dir)), -50%); }
-  to   { opacity: 0; transform: translate(calc(-50% * var(--dir)), -50%) translateZ(-24px) scale(.98) translateY(4px); }
+  from { opacity: 1; transform: perspective(1000px) translate(calc(-50% * var(--dir)), -50%) translateZ(0) scale(1) translateY(0); }
+  to   { opacity: 0; transform: perspective(1000px) translate(calc(-50% * var(--dir)), -50%) translateZ(-24px) scale(.98) translateY(4px); }
 }
 /* The inline-direction slides multiply by --dir, so `end` is the right-hand edge
    in English and the left-hand edge in Arabic with no mirrored rule anywhere. */
