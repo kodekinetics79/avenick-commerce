@@ -9,14 +9,17 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
 import { ProductGrid } from "@/components/products/product-grid";
 import { fetchBackendJson } from "@/lib/backend";
+import { categoryTrail, findCategory, type CategoryNode } from "@/lib/category-tree";
 
 interface Props { params: { slug: string } }
 
 const PAGE_LIMIT = 24;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const categories = await fetchBackendJson<any[]>("/api/categories");
-  const cat = categories.find((c) => c.slug === params.slug);
+  const categories = await fetchBackendJson<CategoryNode[]>("/api/categories");
+  // Searched at any DEPTH. `Array.find` walks roots only, which is why every
+  // subcategory page in the storefront rendered the not-found body.
+  const cat = findCategory(categories, params.slug);
   // The unknown-slug fallback was the English literal "Category" for every
   // visitor. A tab title is a user-visible string, so it comes out of the tree
   // like every other one.
@@ -36,8 +39,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CategoryPage({ params }: Props) {
   const locale = (cookies().get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
   const t = await getTranslations("catalogue");
-  const categories = await fetchBackendJson<any[]>("/api/categories");
-  const category = categories.find((c) => c.slug === params.slug);
+  const categories = await fetchBackendJson<CategoryNode[]>("/api/categories");
+  const category = findCategory(categories, params.slug);
+  const trail = categoryTrail(categories, params.slug);
   if (!category) return notFound();
 
   // `total` is the database count across the whole category. The heading used to
@@ -45,7 +49,7 @@ export default async function CategoryPage({ params }: Props) {
   // category with 300 listings announced "24 products" and the visitor had no
   // way to know the other 276 existed.
   const { products, total } = await fetchBackendJson<{ products: any[]; total: number }>(
-    `/api/products?limit=${PAGE_LIMIT}&b2c=true&categorySlug=${encodeURIComponent(params.slug)}`,
+    `/api/products?limit=${PAGE_LIMIT}&categorySlug=${encodeURIComponent(params.slug)}`,
   );
 
   // The heading follows the visitor's locale. It used to render nameAr as the h1
@@ -61,9 +65,20 @@ export default async function CategoryPage({ params }: Props) {
           eyebrow={t("category.eyebrow")}
           title={primaryName}
           description={secondaryName}
+          /*
+            The FULL ancestor trail, not "All products › this one". The
+            catalogue is a tree of unlimited depth and this crumb was two fixed
+            entries, so a third-level category showed no path back to its
+            grandparent — the trail a buyer needs most is exactly the one a deep
+            catalogue makes longest. The last entry carries no href because it
+            is the page you are on.
+          */
           breadcrumbs={[
             { label: t("filters.allProducts"), href: "/products" },
-            { label: primaryName },
+            ...trail.map((node, index) => ({
+              label: locale === "ar" ? node.nameAr?.trim() || node.nameEn : node.nameEn,
+              ...(index < trail.length - 1 ? { href: `/categories/${node.slug}` } : {}),
+            })),
           ]}
           linkComponent={Link}
         />

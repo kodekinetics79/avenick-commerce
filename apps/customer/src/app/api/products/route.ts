@@ -73,6 +73,24 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const wantsB2B = searchParams.get("b2b") === "true";
+    /*
+      `b2c` is READ now. It never was: this route parsed `b2b` only, so every
+      caller that sent `?b2c=true` — the home page, /deals, /search and the
+      category pages, since each was written — was handed the entire catalogue
+      while believing it had asked for the consumer slice. A filter that is
+      silently ignored is the worst kind of defect, because the caller's code
+      reads as if the restriction is in force and every reviewer since has read
+      it that way too.
+
+      Honouring it is a real behaviour change and the callers were corrected in
+      the same commit: not one product in this catalogue has isB2CEnabled set,
+      so a page that genuinely asked for B2C would now render empty. Those pages
+      never wanted a channel restriction — they want the public catalogue — so
+      they no longer send one. The parameter now means what it says, and it will
+      do the right thing the day B2C pricing is switched on.
+    */
+    const b2cParam = searchParams.get("b2c");
+    const b2c = b2cParam === "true" ? true : b2cParam === "false" ? false : undefined;
     const currencyParam = searchParams.get("currency")?.toUpperCase() as Currency | undefined;
     if (currencyParam && !CURRENCIES.has(currencyParam)) {
       return NextResponse.json({ success: false, error: "Unsupported currency" }, { status: 400 });
@@ -123,6 +141,7 @@ export async function GET(req: NextRequest) {
       publiclyDiscoverable: wantsB2B ? undefined : true,
       b2b: wantsB2B ? true : undefined,
       inStock: searchParams.get("inStock") === "true",
+      b2c,
       // Bounded like every other free-text parameter here: a brand slug is a
       // short identifier, and an unbounded one becomes a query the index
       // cannot serve.

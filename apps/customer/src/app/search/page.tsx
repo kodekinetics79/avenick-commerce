@@ -62,7 +62,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
 
   const [{ products, total, search }, categories] = await Promise.all([
     query
-      ? fetchBackendJson<SearchResponse>(`/api/products?limit=${PAGE_SIZE}&search=${encodeURIComponent(query)}&b2c=true`)
+      ? fetchBackendJson<SearchResponse>(`/api/products?limit=${PAGE_SIZE}&search=${encodeURIComponent(query)}`)
       : Promise.resolve({ products: [] as any[], total: 0, search: { status: "none" } as CatalogSearchOutcome }),
     getPublicCategories(),
   ]);
