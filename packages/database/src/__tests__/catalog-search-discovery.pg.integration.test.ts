@@ -3,7 +3,8 @@ import { db } from "../index";
 import { listProducts, normalizeCatalogSearch } from "../services/products";
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-const ids = { user: "", seller: "", category: "", middleCategory: "", parentCategory: "", product: "", sparse: "", bare: "" };
+const ids = { user: "", seller: "", category: "", middleCategory: "", parentCategory: "", product: "", sparse: "", bare: "", brand: "" };
+const brandSlug = `search-brand-${stamp}`;
 
 beforeAll(async () => {
   const user = await db.user.create({
@@ -62,10 +63,14 @@ beforeAll(async () => {
     `sparse` has a metadata row with the identifier columns NULL. `bare` has no
     metadata row at all. Both must still be findable by a word from their name.
   */
+  const brand = await db.brand.create({ data: { nameEn: `Search Brand ${stamp}`, slug: brandSlug } });
+  ids.brand = brand.id;
+
   const sparse = await db.product.create({
     data: {
       sellerId: seller.id,
       categoryId: category.id,
+      brandId: brand.id,
       sku: `CAT-SPARSE-${stamp}`,
       slug: `catalog-search-sparse-${stamp}`,
       nameEn: `Beta Conduit Coupler ${stamp}`,
@@ -107,6 +112,7 @@ afterAll(async () => {
   if (ids.category) await db.category.deleteMany({ where: { id: ids.category } });
   if (ids.middleCategory) await db.category.deleteMany({ where: { id: ids.middleCategory } });
   if (ids.parentCategory) await db.category.deleteMany({ where: { id: ids.parentCategory } });
+  if (ids.brand) await db.brand.deleteMany({ where: { id: ids.brand } });
   if (ids.seller) await db.sellerProfile.deleteMany({ where: { id: ids.seller } });
   if (ids.user) await db.user.deleteMany({ where: { id: ids.user } });
 });
@@ -175,6 +181,18 @@ describe("catalog discovery search", () => {
   it("still ranks an exact identifier first, which is why the tiers exist", async () => {
     const result = await listProducts({ search: `CAT-SKU-${stamp}`, status: "ACTIVE", publiclyDiscoverable: true, limit: 10 });
     expect(result.products[0]?.id).toBe(ids.product);
+  });
+
+  /**
+   * The same NULL propagation, one tier further down. The free-text tier is
+   * subtracted from the brand tier, and `NULL ILIKE '%term%'` is NULL — so a
+   * product findable only by its brand was discarded for every row whose
+   * metadata carries a NULL identifier column, which on the live catalogue is
+   * 368 of 383.
+   */
+  it("finds a product by its brand when the product's metadata columns are NULL", async () => {
+    const result = await listProducts({ search: brandSlug, status: "ACTIVE", publiclyDiscoverable: true, limit: 50 });
+    expect(result.products.map((product) => product.id)).toContain(ids.sparse);
   });
 
   it("returns no products for an unknown identifier", async () => {

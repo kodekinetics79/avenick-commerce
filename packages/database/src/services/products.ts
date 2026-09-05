@@ -298,11 +298,17 @@ function freeTextWhere(term: string): Prisma.ProductWhereInput {
       { nameEn: { contains: term, mode: "insensitive" } },
       { nameAr: { contains: term, mode: "insensitive" } },
       { sku: { contains: term, mode: "insensitive" } },
+      // Guarded like the identifier tiers, and for the same reason one tier
+      // further down: this predicate is subtracted from the BRAND tier below
+      // it, and `NULL ILIKE '%term%'` is NULL. 368 of the 383 published
+      // products carry a metadata row whose externalItemNumber is NULL, so
+      // without the guard a brand-only match is discarded for almost the whole
+      // catalogue.
       { commercialMetadata: { is: { OR: [
-        { manufacturerPartNumber: { contains: term, mode: "insensitive" } },
-        { supplierPartNumber: { contains: term, mode: "insensitive" } },
-        { externalItemNumber: { contains: term, mode: "insensitive" } },
-        { erpCode: { contains: term, mode: "insensitive" } },
+        definedAnd("manufacturerPartNumber", { contains: term, mode: "insensitive" }),
+        definedAnd("supplierPartNumber", { contains: term, mode: "insensitive" }),
+        definedAnd("externalItemNumber", { contains: term, mode: "insensitive" }),
+        definedAnd("erpCode", { contains: term, mode: "insensitive" }),
       ] } } },
     ],
   };
