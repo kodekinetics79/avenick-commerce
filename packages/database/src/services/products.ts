@@ -192,15 +192,47 @@ function identifierCandidates(term: string) {
  * stays in the free-text tier, where it is genuinely indexed. Adding a btree
  * index would need a migration, which is out of scope here.
  */
+/**
+ * A nullable identifier column, compared so the result is never NULL.
+ *
+ * THIS IS THE WHOLE SEARCH BUG, and it is three-valued logic rather than a typo.
+ * Every tier below the first is "matches me AND NOT any tier above me", and
+ * Prisma compiles a to-one relation filter as a LEFT JOIN with column
+ * comparisons — not as NOT EXISTS. So for a product whose metadata columns are
+ * NULL, the emitted SQL reads
+ *
+ *   NOT ( sku IN (...) OR ((j1."manufacturerPartNumber" IN (...) OR ...) AND j1."id" IS NOT NULL) )
+ *
+ * and `NULL IN (...)` is NULL, `FALSE OR NULL` is NULL, `NOT NULL` is NULL —
+ * which a WHERE clause treats as "no". The row is dropped from the free-text
+ * tier by an exclusion that was only ever meant to stop it being counted twice.
+ *
+ * The effect on the storefront: ANY term without a space is identifier-shaped,
+ * so every single-word search — "cable", "gloves", "tape" — ran the name search
+ * and then threw its results away. Measured against the live catalogue, `cable`
+ * returned 0 of the 13 products with "Cable" in their name; the same SQL with
+ * the guard below returns all 13.
+ *
+ * The file already knew about this hazard: brandIdentifierWhere is ranked last
+ * precisely so its nullable FK never appears in another tier's exclusion. The
+ * metadata relation is nullable in exactly the same way and did appear.
+ */
+function definedAnd(
+  column: "manufacturerPartNumber" | "externalItemNumber" | "erpCode" | "supplierPartNumber",
+  match: Prisma.StringFilter,
+): Prisma.ProductCommercialMetadataWhereInput {
+  return { AND: [{ [column]: { not: null } }, { [column]: match }] } as Prisma.ProductCommercialMetadataWhereInput;
+}
+
 function exactIdentifierWhere(term: string): Prisma.ProductWhereInput {
   const values = identifierCandidates(term);
   return {
     OR: [
       { sku: { in: values } },
       { commercialMetadata: { is: { OR: [
-        { manufacturerPartNumber: { in: values } },
-        { externalItemNumber: { in: values } },
-        { erpCode: { in: values } },
+        definedAnd("manufacturerPartNumber", { in: values }),
+        definedAnd("externalItemNumber", { in: values }),
+        definedAnd("erpCode", { in: values }),
       ] } } },
     ],
   };
@@ -222,9 +254,12 @@ function prefixIdentifierWhere(term: string): Prisma.ProductWhereInput {
     OR: [
       ...prefixes.map((value) => ({ sku: { startsWith: value } })),
       { commercialMetadata: { is: { OR: prefixes.flatMap((value) => [
-        { manufacturerPartNumber: { startsWith: value } },
-        { externalItemNumber: { startsWith: value } },
-        { erpCode: { startsWith: value } },
+        // Guarded for the same reason as the exact tier: this predicate is
+        // subtracted from every tier below it, and an unguarded comparison
+        // against a NULL column poisons that subtraction.
+        definedAnd("manufacturerPartNumber", { startsWith: value }),
+        definedAnd("externalItemNumber", { startsWith: value }),
+        definedAnd("erpCode", { startsWith: value }),
       ]) } } },
     ],
   };
@@ -263,11 +298,17 @@ function freeTextWhere(term: string): Prisma.ProductWhereInput {
       { nameEn: { contains: term, mode: "insensitive" } },
       { nameAr: { contains: term, mode: "insensitive" } },
       { sku: { contains: term, mode: "insensitive" } },
+      // Guarded like the identifier tiers, and for the same reason one tier
+      // further down: this predicate is subtracted from the BRAND tier below
+      // it, and `NULL ILIKE '%term%'` is NULL. 368 of the 383 published
+      // products carry a metadata row whose externalItemNumber is NULL, so
+      // without the guard a brand-only match is discarded for almost the whole
+      // catalogue.
       { commercialMetadata: { is: { OR: [
-        { manufacturerPartNumber: { contains: term, mode: "insensitive" } },
-        { supplierPartNumber: { contains: term, mode: "insensitive" } },
-        { externalItemNumber: { contains: term, mode: "insensitive" } },
-        { erpCode: { contains: term, mode: "insensitive" } },
+        definedAnd("manufacturerPartNumber", { contains: term, mode: "insensitive" }),
+        definedAnd("supplierPartNumber", { contains: term, mode: "insensitive" }),
+        definedAnd("externalItemNumber", { contains: term, mode: "insensitive" }),
+        definedAnd("erpCode", { contains: term, mode: "insensitive" }),
       ] } } },
     ],
   };
