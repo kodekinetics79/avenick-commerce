@@ -16,6 +16,7 @@
     "db:manifest": "node scripts/write-migration-manifest.mjs",
     "db:push": "prisma db push",
     "db:deploy": "bash scripts/migrate-deploy.sh",
+    "db:deploy:vercel": "bash scripts/migrate-deploy-vercel.sh",
     "db:migrate": "prisma migrate dev",
     "db:migrate:prod": "bash scripts/migrate-deploy.sh",
     "db:seed": "tsx prisma/seed.ts",
