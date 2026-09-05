@@ -7,7 +7,9 @@
     "./s3": "./src/s3.ts",
     "./crypto": "./src/crypto.ts",
     "./browser-upload-policy": "./src/browser-upload-policy.ts",
-    "./portal-config": "./src/portal-config.ts"
+    "./portal-config": "./src/portal-config.ts",
+    "./gcc-identifiers": "./src/gcc-identifiers.ts",
+    "./hijri": "./src/hijri.ts"
   },
   "scripts": {
     "test": "vitest run"
