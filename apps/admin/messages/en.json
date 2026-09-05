@@ -1972,7 +1972,8 @@
         "users": "Users",
         "integrations": "Integrations",
         "auditTrail": "Audit Trail",
-        "settings": "Settings"
+        "settings": "Settings",
+        "shippingZones": "Shipping zones"
       },
       "shippingZones": "Shipping zones"
     },

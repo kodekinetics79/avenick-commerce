@@ -24,8 +24,73 @@ export interface ProductListParams {
    * returns a different set rather than this one.
    */
   brandSlug?: string;
-  sort?: "newest" | "name_asc";
+  /**
+   * Minimum AVERAGE ProductReview rating, on the 1–5 scale the reviews use.
+   *
+   * There is no rating column on Product: the number is an aggregate over
+   * ProductReview, and Prisma has no HAVING for `findMany`. So this is resolved
+   * the same way storefront-sections.ts resolves its Top Rated rail — one
+   * grouped aggregate with a `having`, whose product ids then become an
+   * ordinary `id: { in: ... }` predicate on the listing.
+   *
+   * CONSEQUENCE, which the UI must state rather than hide: a product with no
+   * reviews has no average, so it cannot satisfy ANY rating floor. Applying this
+   * filter narrows the catalogue to reviewed products first and rated-at-least-N
+   * products second. That is the honest meaning of the control, but it is not
+   * what a buyer assumes unless they are told.
+   */
+  minRating?: number;
+  /** Minimum order quantity floor — `Product.moq >= moqMin`. */
+  moqMin?: number;
+  /**
+   * Minimum order quantity ceiling — `Product.moq <= moqMax`. The one a
+   * procurement buyer actually reaches for: "I need forty of these, do not show
+   * me suppliers whose smallest lot is five hundred."
+   */
+  moqMax?: number;
+  sort?: "newest" | "name_asc" | "moq_asc" | "rating";
   currency?: Currency;
+}
+
+/**
+ * How deep the average-rating ranking goes.
+ *
+ * The ranking is a grouped aggregate over ProductReview on a public,
+ * unauthenticated route, and its output is spliced into the listing as an
+ * `id: { in: ... }` predicate — so its length is both a query cost and a SQL
+ * statement size. It is capped rather than left to grow with the review table.
+ *
+ * The cap cannot bind on today's data: it bounds the number of REVIEWED
+ * products, and the catalogue carries roughly seven hundred reviews spread over
+ * a few hundred products. If it ever does bind, `minRating` silently becomes
+ * "the best N rated products", which is why the honest fix at that point is a
+ * denormalised average on Product, not a bigger number here.
+ */
+export const MAX_RATING_RANKED_PRODUCTS = 1000;
+
+/**
+ * Take one page out of a precomputed ranking, keeping only the ids the listing's
+ * own filters matched.
+ *
+ * Pure, and separated from the query for that reason: this is the part that can
+ * silently drop or repeat a row across a page boundary, and it is the part no
+ * integration test would notice getting subtly wrong.
+ *
+ * `ranked` is the authority on ORDER; `matched` is the authority on MEMBERSHIP.
+ * The intersection is taken in ranked order, so `total` is the exact size of the
+ * filtered result set — not an estimate, and not the size of the ranking.
+ */
+export function pageRankedIds(
+  ranked: string[],
+  matched: Iterable<string>,
+  skip: number,
+  limit: number,
+): { total: number; ids: string[] } {
+  const members = matched instanceof Set ? matched : new Set(matched);
+  const ordered = ranked.filter((id) => members.has(id));
+  const from = Math.max(0, skip);
+  const take = Math.max(0, limit);
+  return { total: ordered.length, ids: ordered.slice(from, from + take) };
 }
 
 /**
@@ -257,7 +322,7 @@ function findProductPage(
   where: Prisma.ProductWhereInput,
   skip: number,
   take: number,
-  orderBy: Prisma.ProductOrderByWithRelationInput,
+  orderBy: Prisma.ProductOrderByWithRelationInput[],
 ) {
   return db.product.findMany({ where, skip, take, orderBy, include: PRODUCT_LIST_INCLUDE });
 }
@@ -349,7 +414,7 @@ function searchTiers(outcome: CatalogSearchOutcome): Prisma.ProductWhereInput[] 
 }
 
 export async function listProducts(params: ProductListParams) {
-  const { page = 1, limit = 20, search, categoryId, categorySlug, sellerId, status, b2c, b2b, publiclyDiscoverable, inStock, brandSlug, sort } = params;
+  const { page = 1, limit = 20, search, categoryId, categorySlug, sellerId, status, b2c, b2b, publiclyDiscoverable, inStock, brandSlug, minRating, moqMin, moqMax, sort } = params;
   const skip = (page - 1) * limit;
   const searchOutcome = classifyCatalogSearch(search);
 
@@ -375,6 +440,41 @@ export async function listProducts(params: ProductListParams) {
       `.then((rows) => rows.map(({ id }) => id))
     : undefined;
 
+  /**
+   * Products that carry a review average, best first — resolved BEFORE the
+   * listing, exactly as `categoryIds` above is, and for the same reason: the
+   * predicate the listing needs cannot be written without asking the database a
+   * question first.
+   *
+   * It is computed when a rating floor is asked for, and also when the caller
+   * sorts by rating, because an average is the only thing that can order that
+   * sort and an unreviewed product has none. `sort: "rating"` therefore restricts
+   * the catalogue to reviewed products rather than parking every unrated product
+   * at one end of the order under a heading that claims to rank them — the same
+   * refusal this file already makes for a search term it cannot run.
+   *
+   * `_avg >= 1` is a floor every real average clears (ratings are 1–5 integers),
+   * so the un-floored call is "has an average at all" and the query shape stays
+   * identical either way.
+   */
+  const ratingRanked = minRating != null || sort === "rating"
+    ? await db.productReview
+        .groupBy({
+          by: ["productId"],
+          // Soft-deleted products are excluded from every listing below, so
+          // ranking them would spend the cap on rows that can never be returned.
+          where: { product: { deletedAt: null } },
+          _avg: { rating: true },
+          _count: { rating: true },
+          having: { rating: { _avg: { gte: minRating ?? 1 } } },
+          // Ties break on review count then id, so the ranking is stable between
+          // requests and a page boundary lands in the same place each time.
+          orderBy: [{ _avg: { rating: "desc" } }, { _count: { rating: "desc" } }, { productId: "asc" }],
+          take: MAX_RATING_RANKED_PRODUCTS,
+        })
+        .then((groups) => groups.map((group) => group.productId))
+    : undefined;
+
   const baseWhere: Prisma.ProductWhereInput = {
     deletedAt: null,
     // In baseWhere on purpose: every tier predicate and every count() below is
@@ -396,6 +496,17 @@ export async function listProducts(params: ProductListParams) {
     // `is` rather than a bare relation filter: Product.brandId is nullable, and
     // a product with no brand must not match a brand filter.
     ...(brandSlug && { brand: { is: { slug: brandSlug } } }),
+    // moq is a non-nullable Int with a default of 1, so both bounds are plain
+    // comparisons with no null case to reason about. Written as one `moq` key
+    // rather than two spreads because a second `moq:` would overwrite the first.
+    ...((moqMin != null || moqMax != null) && {
+      moq: { ...(moqMin != null && { gte: moqMin }), ...(moqMax != null && { lte: moqMax }) },
+    }),
+    // In baseWhere with everything else, so the counts that paginate the rows
+    // are filtered by the rating floor too. An empty ranking is `in: []`, which
+    // matches nothing — the correct answer to "nothing is rated that highly",
+    // and NOT the same as omitting the filter.
+    ...(ratingRanked && { id: { in: ratingRanked } }),
   };
 
   // Each tier subtracts every tier above it, so the tiers partition the result
@@ -412,15 +523,78 @@ export async function listProducts(params: ProductListParams) {
 
   // The caller's sort is the tiebreak WITHIN a tier, so "Newest" and "Name A–Z"
   // keep working; they just no longer outrank an exact part-number match.
-  const orderBy: Prisma.ProductOrderByWithRelationInput =
-    sort === "name_asc" ? { nameEn: "asc" } : { createdAt: "desc" };
+  //
+  // `id` is appended to every ordering. Without it a sort with many ties —
+  // `moq_asc` above all, since moq defaults to 1 and most of the catalogue sits
+  // there — has no defined order in SQL, and pagination over an undefined order
+  // repeats rows on one page and drops them from another.
+  //
+  // `rating` is absent here on purpose: it is not expressible as an orderBy at
+  // all (see the ranked branch below), so it falls through to the default and is
+  // then overridden.
+  const orderBy: Prisma.ProductOrderByWithRelationInput[] = [
+    sort === "name_asc" ? { nameEn: "asc" } : sort === "moq_asc" ? { moq: "asc" } : { createdAt: "desc" },
+    { id: "asc" },
+  ];
 
   // Catalog listing is a "must stay up" read: run it through the resilience
   // layer with a short-lived, stale-on-failure cache so a DB blip degrades to
   // last-known-good results instead of a 500 on the browse/search path.
-  const cacheKey = `products:list:${JSON.stringify({ page, limit, sort, tierWheres })}`;
+  //
+  // The rating ranking is left OUT of the key by name and put back in by its
+  // input: `id: { in: [...] }` can hold a thousand ids, and a cache key is also
+  // a log field on every hit and refresh. `minRating` and `sort` together
+  // determine that array (the review table is the only other input, and the
+  // 60-second TTL already bounds how stale that may be), so naming them keeps
+  // the key both compact and complete.
+  const cacheKey = `products:list:${JSON.stringify({
+    page,
+    limit,
+    sort,
+    minRating: minRating ?? null,
+    tierWheres: ratingRanked ? tierWheres.map((tier) => ({ ...tier, id: undefined })) : tierWheres,
+  })}`;
   const { data } = await read(
     async () => {
+      /*
+       * ORDERED BY AVERAGE RATING.
+       *
+       * Prisma cannot express this as an orderBy: relation ordering supports
+       * `_count` and nothing else, and the average lives in a grouped aggregate
+       * over ProductReview. So the ranking IS `ratingRanked` — already computed,
+       * already ordered — and this branch does nothing but apply it.
+       *
+       * Paginating in application code is safe here for one specific reason, and
+       * it would not be safe without it: `ratingRanked` is already spliced into
+       * baseWhere as `id: { in: ... }`, so the id probe below can never read more
+       * rows than the ranking holds, and the ranking is capped. It is not a scan
+       * of the catalogue.
+       *
+       * `total` is the exact size of the filtered set, so the page count and the
+       * "showing N of M" line beneath the grid stay truthful.
+       */
+      if (sort === "rating" && ratingRanked) {
+        // Tiers partition the result set, so their union is simply "matches the
+        // filters and matches the search". Rating replaces the tier ranking here
+        // because the caller asked for it explicitly.
+        const matched = await db.product.findMany({
+          where: tierWheres.length === 1 ? tierWheres[0] : { OR: tierWheres },
+          select: { id: true },
+        });
+        const { total, ids } = pageRankedIds(ratingRanked, matched.map((row) => row.id), skip, limit);
+        const rows = ids.length === 0
+          ? []
+          : await db.product.findMany({ where: { id: { in: ids } }, include: PRODUCT_LIST_INCLUDE });
+        // findMany returns the database's order, not the ranking's.
+        const byId = new Map(rows.map((row) => [row.id, row]));
+        const ordered = ids.flatMap((id) => {
+          const row = byId.get(id);
+          return row ? [row] : [];
+        });
+        const products = await attachProductRatings(ordered);
+        return { products, total, page, limit, totalPages: Math.ceil(total / limit), search: searchOutcome };
+      }
+
       // With one tier — the un-searched catalog listing, the hottest read on the
       // site — the page query does not depend on the count: that tier is always
       // read at `skip`. Issue both in the same round trip, as this path did

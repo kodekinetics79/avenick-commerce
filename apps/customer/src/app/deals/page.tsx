@@ -24,7 +24,7 @@ export default async function DealsPage() {
   // Filter chips are the catalog's own top-level categories (those with
   // products to show), not a list typed into this page.
   const [{ products }, categories] = await Promise.all([
-    fetchBackendJson<{ products: any[] }>(`/api/products?limit=${FEED_LIMIT}&b2c=true`),
+    fetchBackendJson<{ products: any[] }>(`/api/products?limit=${FEED_LIMIT}`),
     getPublicCategories(),
   ]);
 

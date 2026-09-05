@@ -144,7 +144,7 @@ const NON_SALE_PAYMENT_STATUSES: PaymentStatus[] = ["REFUNDED", "FAILED"];
  * in the catalogue has isB2CEnabled set. A rail that silently shows nothing is
  * worse than one that shows what is actually for sale.
  */
-function publicProductWhere(b2c: boolean | undefined): Prisma.ProductWhereInput {
+export function publicProductWhere(b2c: boolean | undefined): Prisma.ProductWhereInput {
   return {
     deletedAt: null,
     status: "ACTIVE",

@@ -39,6 +39,7 @@ import { ProductGallery, type GalleryImage } from "@/components/product/product-
 import { ReviewPanel, type Review, type ReviewAccess } from "@/components/product/review-panel";
 import { SellerCard, type ProductSeller } from "@/components/product/seller-card";
 import { SpecList, type SpecRow } from "@/components/product/spec-list";
+import { ViewBeacon } from "@/components/product/view-beacon";
 import { attributeLabel, buildPriceLadder, BUTTON_TYPE, FOCUS_INSET } from "@/components/product/product-facts";
 import type { SubmittedReview } from "@/components/product/review-form";
 import { Stars } from "@/components/product/stars";
@@ -391,6 +392,12 @@ export default function ProductPage({
 
   return (
     <MainLayout>
+      {/* The one input the Trending rail has. Renders nothing; see ViewBeacon.
+          The id is narrowed rather than cast: this page's product comes from an
+          untyped fetch, and a cast here would send `undefined` to the beacon as
+          a string on any shape change, quietly poisoning the signal table with
+          rows the FK would then reject. */}
+      {typeof product.id === "string" && product.id ? <ViewBeacon productId={product.id} /> : null}
       {/* Bottom padding leaves room for the mobile buy bar, which is fixed. */}
       <div className="min-h-screen bg-background pb-24 lg:pb-0">
         <div className="mx-auto max-w-7xl px-4 py-8">

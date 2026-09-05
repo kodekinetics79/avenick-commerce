@@ -1972,7 +1972,8 @@
         "users": "المستخدمون",
         "integrations": "التكاملات",
         "auditTrail": "سجل التدقيق",
-        "settings": "الإعدادات"
+        "settings": "الإعدادات",
+        "shippingZones": "مناطق الشحن"
       },
       "shippingZones": "مناطق الشحن"
     },

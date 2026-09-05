@@ -28,7 +28,12 @@ const PUBLIC_PATHS: Record<PortalType, string[]> = {
 // from it. Without this entry an anonymous visitor loads a public route whose
 // own data call is rejected with a 401, and the page fails.
 const PUBLIC_API_PATHS: Record<PortalType, string[]> = {
-  customer: ["/api/products", "/api/categories", "/api/brands", "/api/payments/webhook"],
+  // "/api/signals" is the storefront's view beacon. It is public for the same
+  // reason the catalogue is: it is emitted by anonymous browsing, which is the
+  // majority of it, and an authenticated-only signal would measure logged-in
+  // attention and call it "trending". It carries no personal data and cannot
+  // read anything — the route only increments a per-product, per-day counter.
+  customer: ["/api/products", "/api/categories", "/api/brands", "/api/signals", "/api/payments/webhook"],
   seller: [],
   admin: ["/api/integrations/inbound"],
 };
