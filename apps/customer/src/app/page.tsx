@@ -4,17 +4,10 @@ import { ArrowRight, BadgeCheck, CreditCard, PackageSearch, ShieldCheck, Sparkle
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import {
-  AvailabilityDot,
   Button,
-  DisplayPlate,
   EmptyState,
   Eyebrow,
-  HeroCopy,
-  HeroSpecimen,
-  HeroStage,
-  ImageFrame,
   LightGrid,
-  PriceStack,
   Rail,
   Reveal,
   Surface,
@@ -72,6 +65,7 @@ export default async function HomePage() {
   const locale = (cookieStore.get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
   const t = await getTranslations("home");
   const tp = await getTranslations("products");
+  const tc = await getTranslations("catalogue");
   // The category strip comes from the catalog, not from a list typed into this
   // page: a typed list kept advertising categories with nothing to sell.
   const [rails, categories] = await Promise.all([getHomeRails(), getPublicCategories()]);
@@ -169,7 +163,23 @@ export default async function HomePage() {
       ? specimen.nameAr || specimen.nameEn
       : specimen.nameEn
     : "";
-  const specimenMoney =
+
+
+  /*
+    The hero's figure line. The reference prints a price in this slot; a number
+    there is read as an offer, so it may only ever be the product's own. When
+    the catalogue exposes no public price for it — which is every product today,
+    because nothing has isB2CEnabled set — it says "Price on request", the same
+    words the tile uses, rather than borrowing a figure from the B2B channel
+    that an anonymous visitor is not entitled to see.
+  */
+  const specimenHasPrice = Boolean(
+    specimen && specimen.price != null && specimen.currency && isSupportedCurrency(specimen.currency),
+  );
+  const specimenPriceLine =
+    specimen && specimen.price != null && specimen.currency && isSupportedCurrency(specimen.currency)
+      ? `${specimen.priceIsFrom ? `${tc("from")} ` : ""}${formatCurrency(specimen.price, specimen.currency, locale)}`
+      : tc("quoteOnRequest");  const specimenMoney =
     specimen && specimen.price != null && typeof specimen.currency === "string" && isSupportedCurrency(specimen.currency)
       ? formatCurrency(specimen.price, specimen.currency, locale)
       : null;
@@ -201,35 +211,31 @@ export default async function HomePage() {
         were derived from.
       */}
 
-      {/* ─── THE REGISTER — the hero ───────────────────────── */}
-      {/*
-        Nothing is claimed here that the catalogue cannot support: no counts of
-        suppliers, no logos, no delivery promise, no rating. The hero earns its
-        space with RANGE — a 92px display against 15px body, seven columns of
-        voice against four columns holding one real object, on a lit and ruled
-        ground with three planes of Z-depth behind it. Depth is Z-POSITION, never
-        rotation; there is no tilt anywhere in this composition.
+      {/* ─── THE HERO ─────────────────────────────────────
+        The reference's hero, taken structurally: a green gradient slab with a
+        two-line display headline in Light over SemiBold, an uppercase kicker, a
+        large figure, a white pill button, and one product photographed at scale
+        on the right over a soft glow. Node 2204:13035.
 
-        ONE STAGE PER SITE. This is it. A second instance halves the impact of
-        the first and doubles the cost.
+        THE GRADIENT IS DARKER THAN THE REFERENCE'S, and that is not a liberty.
+        Its stops measure 1.97:1 and 3.91:1 against white — the headline sits on
+        it, the kicker sits on it at 50% opacity, and none of that is readable.
+        The hue and the light-to-dark direction are kept exactly; the lightness
+        is taken down until white text passes, which is 5.2:1 at the near stop
+        and 7.5:1 at the far one. A hero nobody can read is not a hero.
+
+        THE FIGURE IS THE PRODUCT'S OWN. The reference prints $749.99 beside a
+        stock gear; this prints whatever the specimen actually costs, and when
+        the catalogue exposes no public price it says so instead. That is the
+        one substitution this hero cannot make — a number in this position is
+        read as an offer.
       */}
       <section className="border-b border-hairline">
-        {/* The rail and the hero share one row on desktop: the taxonomy is
-            visible without interaction, which is the whole point of it. Below
-            lg the rail is absent and the horizontal strip below takes over.
-
-            The grid is applied ONLY when there is a rail to put in it. With an
-            empty catalogue CategoryRail renders nothing, and a two-column grid
-            with an absent first child promotes the hero into the 15rem rail
-            column — a 92px headline reflowing inside 240px, clipped, with the
-            display plate laid across the copy. An empty catalogue is a real
-            state (it is what a fresh environment looks like), so the layout has
-            to survive it rather than assume the happy path. */}
         <div
           className={
             categories.length > 0
-              ? "mx-auto w-full max-w-7xl px-4 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6"
-              : "mx-auto w-full max-w-7xl px-4"
+              ? "mx-auto w-full max-w-7xl px-4 py-block lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6"
+              : "mx-auto w-full max-w-7xl px-4 py-block"
           }
         >
           <CategoryRail
@@ -238,299 +244,116 @@ export default async function HomePage() {
             label={t("categoriesTitle")}
             allLabel={t("allProducts")}
           />
-        <HeroStage
-          as="div"
-          planes={3}
-          className="w-full min-w-0 py-block"
-          backPlane={
-            /*
-              The lit object behind the specimen, bleeding off the stage edge.
-              `grain` is OFF deliberately: this plane sits at translateZ(-260)
-              with a 1.289 scale correction, which would stretch a 160px noise
-              tile to 206px and turn grain into visible speckle — and it keeps
-              the page inside the ≤3 grained-elements-per-viewport budget with
-              the field and the certificate.
-            */
-            <DisplayPlate
-              grain={false}
-              className="absolute bottom-[6%] top-[6%] end-[-12%] w-[54%] max-lg:hidden"
-            >
-              {/*
-                The photographic ground, taken from the reference design.
 
-                It sits INSIDE the display plate — beside the headline, never
-                under it. The reference puts its photograph full-bleed with no
-                text on it at all; laying our headline over the same photograph
-                would be a new composition and a new problem, because contrast
-                over supplier imagery is not deterministic and no scrim floor
-                can be measured for an image that might change. Here the copy
-                keeps the ruled ground it was designed for and the plate carries
-                the material. Nothing overlaps, so nothing needs a scrim.
-
-                Decorative, so alt="" and aria-hidden: it depicts no specific
-                product, seller or facility, and says nothing the headline does
-                not already say. Captioning it would be inventing a claim.
-
-                priority, because this is the LCP element on the busiest route.
-              */}
-              <Image
-                src="/hero/workshop-1600.jpg"
-                alt=""
-                aria-hidden="true"
-                fill
-                priority
-                sizes="(min-width: 1024px) 54vw, 0px"
-                className="rounded-[inherit] object-cover"
-              />
-            </DisplayPlate>
-          }
-          midPlane={
-            /*
-              The same brass rule as active nav, the section marks and the
-              certificate's top edge — one gesture in another posture, standing
-              at mid depth in the gutter between the voice and the object. It is
-              vertical, so it is direction-neutral by construction.
-            */
-            <span
-              className="u-drawn absolute bottom-[12%] top-[12%] end-[31%] opacity-40 max-lg:hidden"
-              data-orientation="vertical"
-              data-on="true"
+          <div
+            className="relative min-w-0 overflow-hidden rounded-lifted p-8 sm:p-12 lg:p-14"
+            style={{
+              backgroundImage:
+                "linear-gradient(107deg, hsl(150 62% 30%) 22%, hsl(150 92% 20%) 99%)",
+            }}
+          >
+            {/* The reference's blurred bloom behind the object. Decorative and
+                inert, and it sits UNDER everything — a blur over the copy would
+                take the contrast measured above straight back out. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -end-16 top-8 h-80 w-80 rounded-full opacity-30 blur-[64px]"
+              style={{ backgroundColor: "#eff6ff" }}
             />
-          }
-        >
-          <HeroCopy>
-            <Reveal index={0}>
-              <Eyebrow tone="brass" className="flex items-center gap-2">
-                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> {t("heroTagline")}
-              </Eyebrow>
-            </Reveal>
 
-            {/*
-              The hero rung: --fs-hero, weight 680, opsz 32, text-wrap balance.
-              Under [dir="rtl"] the same class resolves to Noto Kufi at 76/1.20,
-              so the Arabic headline occupies the SAME ~91px vertical band and
-              the CTA lands at the same fold in both languages.
+            <div className="relative grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
+              <div className="min-w-0">
+                <Reveal index={0}>
+                  <p className="u-meta font-medium uppercase tracking-[0.14em] text-white/80">
+                    {t("heroTagline")}
+                  </p>
+                </Reveal>
 
-              THE HARD <br> IS GONE, and that is the whole reason the type change
-              works rather than just being bigger. Two forced blocks of ~19
-              characters each wrap to two lines apiece at this size — four lines
-              of 88px, which pushes the CTA under the fold on the 1366×768
-              laptops that are a large share of Gulf desktop traffic. One block
-              lets `text-wrap: balance` set the same words as three even lines
-              and never leave a single-word last line, which is the loudest
-              amateur tell in a large headline. The accent then reads as an
-              emphasised clause inside one sentence rather than as a stacked
-              couplet.
-            */}
-            <Reveal index={1} as="h1" className="u-hero text-ink-1">
-              {t("heroTitle1")} <span className="text-primary-ink">{t("heroTitle2")}</span>
-            </Reveal>
+                {/* Light over SemiBold, the reference's exact device. Our own
+                    words: "THE NEW STANDARD" is Qantara's line, not Avenick's,
+                    and a slogan is the one thing in a design file that belongs
+                    to whoever wrote it. */}
+                <Reveal index={1} as="h1" className="mt-4 text-white">
+                  <span className="block text-[2.75rem] font-light leading-[1.05] tracking-[-0.02em] sm:text-[3.5rem] lg:text-[4.25rem]">
+                    {t("heroTitle1")}
+                  </span>
+                  <span className="block text-[2.75rem] font-semibold leading-[1.05] tracking-[-0.02em] sm:text-[3.5rem] lg:text-[4.25rem]">
+                    {t("heroTitle2")}
+                  </span>
+                </Reveal>
 
-            <Reveal index={2}>
-              <p className="u-lead max-w-desc text-ink-2">{t("heroDesc")}</p>
-            </Reveal>
+                <Reveal index={2}>
+                  <p className="u-ui mt-5 max-w-desc text-white/85">{t("heroDesc")}</p>
+                </Reveal>
 
-            <Reveal index={3} className="flex flex-wrap items-center gap-3 pt-tight">
-              {/* The page's one primary fill. Everything else on this page is
-                  raised or flat, which is what keeps this button meaning "commit". */}
-              <Button variant="primary" size="lg" asChild>
-                <Link href="/products">
-                  {t("startBuying")} <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
-                </Link>
-              </Button>
-              <Button variant="secondary" size="lg" asChild>
-                <Link href="/b2b/rfq/new">{t("requestQuote")}</Link>
-              </Button>
-            </Reveal>
+                {/* The reference's $749.99 sits here, between the copy and
+                    the button. It renders only when the catalogue actually
+                    exposes a price for the specimen — a figure this size in
+                    this position is read as an offer, and "Price on request"
+                    set at 60px would be a headline made out of an absence. The
+                    caption on the object carries that state instead. */}
+                {specimenHasPrice && (
+                  <Reveal index={3}>
+                    <p className="mt-6 text-[2.5rem] font-bold leading-none text-white">{specimenPriceLine}</p>
+                  </Reveal>
+                )}
 
-            {/*
-              Density of TRUE fact where a template would put white space. This
-              is a live count of the categories the catalogue API actually
-              returns — active, with discoverable products. It renders at all
-              only when there is something to count, and it is set in the
-              provenance voice because it is a citation, not a claim.
-            */}
-            {categories.length > 0 && (
-              <Reveal index={4}>
-                {/*
-                  THE COUNT IS PASSED TWICE ON PURPOSE. `count` selects the
-                  plural form; `n` is the digits, pre-stringified, because ICU's
-                  `#` formats through Intl for the active locale and the Arabic
-                  build would render ١٢ — a second numeral system on a page whose
-                  prices are Western. One numeral system, Western, everywhere.
-                */}
-                <p className="u-provenance">
-                  {t("heroProvenance", { count: categories.length, n: String(categories.length) })}
-                </p>
-              </Reveal>
-            )}
-          </HeroCopy>
+                <Reveal index={4}>
+                  <div className="mt-8 flex flex-wrap items-center gap-3">
+                    {/* White pill on the slab, exactly as the reference draws
+                        its primary action. `secondary` already renders a light
+                        fill with dark ink and carries the key edge, so it is the
+                        existing variant rather than a bespoke button. */}
+                    <Button variant="secondary" size="lg" asChild>
+                      <Link href="/products">
+                        {t("allProducts")} <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" size="lg" className="text-white hover:bg-white/10 hover:text-white" asChild>
+                      <Link href="/b2b/rfq/new">{t("requestQuote")}</Link>
+                    </Button>
+                  </div>
+                </Reveal>
+              </div>
 
-          <HeroSpecimen>
-            <Reveal index={2}>
+              {/* The object. One real listing at scale — the reference's stock
+                  gear replaced by something a buyer can actually click. */}
               {specimen ? (
-                <div className="grid gap-3">
-                {/*
-                  GLASS, and this is the one place on the page that earns it.
-                  This card sits directly on the workshop photograph, so the
-                  backdrop filter has something to refract: the image blurs and
-                  saturates behind the panel instead of being covered by it,
-                  which is what makes the card read as a pane in front of a
-                  scene rather than a rectangle pasted over one. Glass over a
-                  flat ground is just a lighter box, which is why it is not used
-                  on the product tiles below.
-
-                  Rung 4 because the system permits backdrop-filter at the
-                  floating rungs only, and the budget is 2-3 per viewport — this
-                  is one, the sticky header is the other.
-                */}
-                <Surface rung={4} glass className="group overflow-hidden">
+                <Reveal index={2} className="hidden lg:block">
                   <Link
                     href={storefrontProductHref(specimen.slug, { currency: specimen.currency })}
                     aria-label={t("specimenView", { name: specimenName })}
-                    className="u-focus block rounded-[inherit]"
+                    className="u-focus group block rounded-lifted"
                   >
-                    {/*
-                      ONE frame, the same one every product image in all three
-                      portals goes through: contained rather than cropped, inset
-                      so the product never touches its own frame, on a tinted
-                      plate with the cast floor pooled under it. This is the only
-                      image the page asks the browser to prioritise.
-                    */}
-                    <ImageFrame
-                      sku={specimen.sku}
-                      // The same three-state mapping every product card uses.
-                      // Collapsing UNCONFIRMED into "available" makes the frame
-                      // contradict the availability dot two lines beneath it.
-                      state={
-                        specimenAvailability === "OUT_OF_STOCK"
-                          ? "out"
-                          : specimenAvailability === "UNCONFIRMED"
-                            ? "unconfirmed"
-                            : "available"
-                      }
-                    >
+                    <div className="relative aspect-square w-full">
                       {specimen.imageUrl ? (
                         <Image
                           src={specimen.imageUrl}
-                          alt={specimenName}
+                          alt=""
+                          aria-hidden="true"
                           fill
                           priority
-                          fetchPriority="high"
-                          sizes="(max-width: 1024px) 100vw, 30vw"
+                          sizes="(min-width: 1024px) 20rem, 0px"
+                          className="object-contain drop-shadow-2xl transition-transform duration-hover ease-standard group-hover:scale-[1.03]"
                         />
-                      ) : undefined}
-                    </ImageFrame>
-
-                    <div className="flex flex-col gap-2 p-4">
-                      <Eyebrow>{t("specimenEyebrow")}</Eyebrow>
-                      <p className="u-body line-clamp-2 font-medium text-ink-1">{specimenName}</p>
-                      {specimenMoney && (
-                        <PriceStack
-                          amount={specimenMoney}
-                          qualifier={specimenPriceIsRange ? tp("priceFrom") : undefined}
-                          // The stored unit price is VAT-EXCLUSIVE, which every
-                          // product card and the product page state in as many
-                          // words. This figure is the largest and most prominent
-                          // price on the storefront, and it was the only one
-                          // printed bare — a figure a consumer reads as the
-                          // amount they will pay when it is not. The rate goes
-                          // in as a STRING because a number handed to the
-                          // formatter renders in the locale's own numeral
-                          // system, and the Arabic build would print ٥ beside a
-                          // Western-digit price.
-                          vat={
-                            specimen.vatRate != null
-                              ? tp("vatExcl", { rate: String(specimen.vatRate) })
-                              : undefined
-                          }
-                        />
-                      )}
-                      <AvailabilityDot state={specimenAvailability} label={specimenAvailabilityLabel} />
+                      ) : null}
                     </div>
+                    {/* Glass, over the photograph it actually refracts. */}
+                    <Surface rung={4} glass className="mt-3 p-3">
+                      {/* No fallback label: this page already states that a product whose
+                          category is unknown is shown WITHOUT one rather than filed
+                          under a category it may not belong to. */}
+                      {specimen.category ? (
+                        <p className="u-meta text-ink-3">{specimen.category}</p>
+                      ) : null}
+                      <p className="u-ui mt-0.5 font-medium text-ink-1">{specimenName}</p>
+                      <p className="u-meta mt-1 text-ink-2">{specimenPriceLine}</p>
+                    </Surface>
                   </Link>
-                </Surface>
-
-                {/*
-                  The shelf. Two more real products at a smaller rank, so the
-                  first thing above the fold says "shop" rather than "brochure".
-                  Each is a whole link — image, name and price — because a price
-                  a visitor cannot click is a price they have to hunt for.
-                */}
-                {heroShelf.length > 0 && (
-                  <ul className="grid grid-cols-2 gap-3">
-                    {heroShelf.map((item) => {
-                      const name = locale === "ar" ? item.nameAr : item.nameEn;
-                      const money =
-                        item.price != null && item.currency && isSupportedCurrency(item.currency)
-                          ? formatCurrency(item.price, item.currency, locale)
-                          : null;
-                      return (
-                        <li key={item.id}>
-                          <Surface rung={2} interactive className="group h-full overflow-hidden">
-                            <Link
-                              href={storefrontProductHref(item.slug, { currency: item.currency })}
-                              className="u-focus flex h-full flex-col rounded-[inherit]"
-                            >
-                              <ImageFrame
-                                sku={item.sku}
-                                ratio="card"
-                                state={item.inStock ? "available" : "unconfirmed"}
-                              >
-                                {item.imageUrl ? (
-                                  <Image
-                                    src={item.imageUrl}
-                                    alt={name}
-                                    fill
-                                    sizes="(max-width: 1024px) 45vw, 15vw"
-                                  />
-                                ) : undefined}
-                              </ImageFrame>
-                              <div className="flex flex-1 flex-col gap-1 p-3">
-                                <p className="u-meta line-clamp-2 text-ink-1">{name}</p>
-                                {/* VAT-exclusive, stated — the same basis as
-                                    every other price on the storefront. */}
-                                {money && (
-                                  <p className="u-mono u-meta mt-auto font-medium tabular-nums text-ink-1">
-                                    {item.priceIsFrom ? `${tp("priceFrom")} ` : ""}{money}
-                                  </p>
-                                )}
-                              </div>
-                            </Link>
-                          </Surface>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-                </div>
-              ) : (
-                /*
-                  THE RULE THAT OUTRANKS EVERYTHING ELSE ON THIS PAGE: when a
-                  layout has a hole in it, the answer is a better empty state,
-                  never a plausible number. The specimen slot holds a certificate
-                  — never a placeholder product, never a stock photograph, never
-                  a rating — and its one action is the RFQ route, which turns the
-                  emptiest surface in the product into its most differentiated
-                  one.
-                */
-                <EmptyState
-                  variant="certificate"
-                  scale="hero"
-                  glyph={<PackageSearch />}
-                  eyebrow={t("specimenEmptyEyebrow")}
-                  headline={t("specimenEmptyHeadline")}
-                  body={t("specimenEmptyBody")}
-                  action={
-                    <Button variant="secondary" size="md" asChild>
-                      <Link href="/b2b/rfq/new">{t("requestQuote")}</Link>
-                    </Button>
-                  }
-                />
-              )}
-            </Reveal>
-          </HeroSpecimen>
-        </HeroStage>
+                </Reveal>
+              ) : null}
+            </div>
+          </div>
         </div>
       </section>
 
