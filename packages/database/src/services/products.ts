@@ -288,7 +288,28 @@ function brandIdentifierWhere(term: string): Prisma.ProductWhereInput {
   const prefixes = term.length >= MIN_IDENTIFIER_PREFIX_LENGTH
     ? Array.from(new Set([term, term.toLowerCase()])).map((value) => ({ slug: { startsWith: value } }))
     : [];
-  return { brand: { is: { OR: [{ slug: { in: values } }, ...prefixes] } } };
+  // Slug AND name. The tier exists because "3M" is a two-character query with
+  // unmistakable intent — the comment above says exactly that — but it matched
+  // Brand.slug alone, and this catalogue's slugs came out of the import as
+  // "pilot-3m". So the one query the tier was written for returned nothing
+  // against 71 3M products. A term below MIN_CATALOG_SEARCH_LENGTH never
+  // reaches the free-text tier either, so the brand tier is its only chance.
+  //
+  // Equality on nameEn, never `contains`: Brand has no index on the column, and
+  // an equality against a table this small is a trivial scan, while an
+  // unanchored match across it is the shape the trigram floor exists to keep
+  // off a public route.
+  return {
+    brand: {
+      is: {
+        OR: [
+          { slug: { in: values } },
+          ...prefixes,
+          { nameEn: { equals: term, mode: "insensitive" } },
+        ],
+      },
+    },
+  };
 }
 
 /** Unanchored trigram search — the tier MIN_CATALOG_SEARCH_LENGTH guards. */
