@@ -200,7 +200,9 @@ export type PreflightRefusal =
   /** mirrors: ""{name}" is not available for B2C ordering" (409) */
   | { kind: "CHANNEL_NOT_B2C"; lineId: string }
   /** mirrors: "Insufficient stock for "{name}" ({available} available, {qty} requested)" (409) */
-  | { kind: "INSUFFICIENT_STOCK"; lineId: string; available: number; qty: number; unconfirmed: boolean };
+  | { kind: "INSUFFICIENT_STOCK"; lineId: string; available: number; qty: number; unconfirmed: boolean }
+  /** mirrors: CreateOrderSchema.couponCode — min 3 characters (400) */
+  | { kind: "COUPON_INVALID" };
 
 /** A fact worth stating that does not stop the order. */
 export type PreflightNotice =
@@ -240,6 +242,16 @@ export interface PreflightInput {
    * verified against the catalogue.
    */
   facts: Readonly<Record<string, LineFacts | undefined>>;
+  /** The code as typed; only its length is judged here, the server judges the rest. */
+  couponCode?: string;
+  /**
+   * How the server's own quote (POST /api/v1/checkout/quote) priced delivery,
+   * when one has answered for this basket and address. "unavailable" is the
+   * quote service's word for every tariff refusal — no zone, two zones, no
+   * band — and the order WILL be refused, so it is a refusal here whether or
+   * not the tariff read in the browser could tell.
+   */
+  quoteShipping?: "priced" | "unpriced_no_zones" | "unavailable" | null;
 }
 
 export interface PreflightResult {
@@ -270,6 +282,9 @@ export function preflightCheckout(input: PreflightInput): PreflightResult {
   const b2bLines = input.lines.filter((line) => line.channel === "B2B").map((line) => line.id);
   if (b2bLines.length > 0) refusals.push({ kind: "B2B_LINES", lineIds: b2bLines });
 
+  const coupon = (input.couponCode ?? "").trim();
+  if (coupon.length > 0 && coupon.length < 3) refusals.push({ kind: "COUPON_INVALID" });
+
   const country = input.address.country.trim().toUpperCase();
   const jurisdiction = vatJurisdictionFor(country);
   let destination: DestinationCoverage = { status: "UNKNOWN" };
@@ -280,6 +295,11 @@ export function preflightCheckout(input: PreflightInput): PreflightResult {
     if (destination.status === "UNSERVED") refusals.push({ kind: "DESTINATION_UNSERVED", country });
     if (destination.status === "AMBIGUOUS") {
       refusals.push({ kind: "DESTINATION_AMBIGUOUS", country, zoneCodes: destination.zoneCodes });
+    }
+    // The server's quote outranks the tariff read in the browser: it ran the
+    // real quoteShipping against the real weights.
+    if (input.quoteShipping === "unavailable" && !refusals.some((r) => r.kind === "DESTINATION_UNSERVED" || r.kind === "DESTINATION_AMBIGUOUS")) {
+      refusals.push({ kind: "DESTINATION_UNSERVED", country });
     }
   }
 

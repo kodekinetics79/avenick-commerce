@@ -249,6 +249,21 @@ describe("preflightCheckout", () => {
     expect(result.vatRateDiffers).toBe(true);
   });
 
+  it("mirrors the coupon length rule, and lets the server judge the rest", () => {
+    expect(kinds(run({ couponCode: "AB" }))).toEqual(["COUPON_INVALID"]);
+    expect(kinds(run({ couponCode: "ABC" }))).toEqual([]);
+    expect(kinds(run({ couponCode: "  " }))).toEqual([]);
+  });
+
+  it("lets the server's quote refuse a destination the tariff read in the browser could not judge", () => {
+    // Tariff unreadable: the browser alone would let this through.
+    expect(kinds(run({ coverage: null, quoteShipping: "unavailable" }))).toEqual(["DESTINATION_UNSERVED"]);
+    // Already refused from the tariff: no duplicate.
+    expect(kinds(run({ address: { ...address, country: "OM" }, quoteShipping: "unavailable" }))).toEqual(["DESTINATION_UNSERVED"]);
+    expect(kinds(run({ quoteShipping: "priced" }))).toEqual([]);
+    expect(kinds(run({ quoteShipping: "unpriced_no_zones" }))).toEqual([]);
+  });
+
   it("never lets an empty basket or an invalid address through", () => {
     expect(run({ lines: [] }).canSubmit).toBe(false);
     expect(run({ address: { ...address, line1: "" } }).canSubmit).toBe(false);

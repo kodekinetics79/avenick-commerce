@@ -6,11 +6,13 @@
  *  1. THE MONEY. composeOrderTotals (packages/database) builds an order as
  *     goods − discount + VAT on goods + delivery + VAT on delivery, and the
  *     order row persists subtotal, discountAmount, shippingAmount, vatAmount
- *     and total. It does NOT persist the goods/delivery split of the VAT — but
- *     each OrderItem row persists its own vatAmount, and createOrder's
- *     goodsVatAmount is, by construction, the sum of exactly those rows. So
- *     the split is recoverable from persisted figures alone: VAT on goods is
- *     the line rows added up, VAT on delivery is what remains of the persisted
+ *     and total. Two nullable columns for the goods/delivery split of the VAT
+ *     now exist on Order (migration order_vat_component_split) and are
+ *     preferred when written; until createOrder writes them they are null,
+ *     and null means "not recorded", never zero. Then the split is recovered
+ *     from persisted figures alone: each OrderItem row persists its own
+ *     vatAmount, createOrder's goodsVatAmount is by construction the sum of
+ *     exactly those rows, and VAT on delivery is what remains of the persisted
  *     VAT. No rate is applied in the browser; nothing is priced here.
  *
  *  2. THE STATUS. The Prisma OrderStatus enum is the only authority on what an
@@ -157,6 +159,13 @@ export interface PersistedOrder {
   vatAmount: number;
   shippingAmount: number;
   total: number;
+  /**
+   * The two halves of the VAT as the order recorded them, or null: the
+   * columns are nullable and unwritten for every order placed before they
+   * existed, and null there means "not recorded" — never zero.
+   */
+  goodsVatAmount: number | null;
+  shippingVatAmount: number | null;
   shippingAddress: PersistedAddress | null;
   items: PersistedOrderLine[];
 }
@@ -223,6 +232,8 @@ export function parsePersistedOrder(json: unknown): PersistedOrder | null {
     vatAmount,
     shippingAmount,
     total,
+    goodsVatAmount: num(o.goodsVatAmount),
+    shippingVatAmount: num(o.shippingVatAmount),
     shippingAddress: address
       ? { label: str(address.label), line1: str(address.line1), city: str(address.city), country: str(address.country) }
       : null,
@@ -237,10 +248,17 @@ export interface ReconciledTotals {
   shippingAmount: number;
   vatAmount: number;
   total: number;
-  /** The persisted line VAT rows added up — createOrder's goodsVatAmount by construction. Null when the split cannot be stated. */
+  /** VAT on goods. Null when the split cannot be stated. */
   goodsVatAmount: number | null;
-  /** The persisted order VAT less the line rows — createOrder's shippingVatAmount by construction. Null with goodsVatAmount. */
+  /** VAT on delivery. Null with goodsVatAmount. */
   shippingVatAmount: number | null;
+  /**
+   * Where the split came from: PERSISTED when the order recorded both halves
+   * and they sum to its VAT; LINE_ROWS when it did not, and the halves are the
+   * persisted line VAT added up (createOrder's goodsVatAmount by construction)
+   * and the remainder of the persisted VAT; null when neither holds.
+   */
+  splitSource: "PERSISTED" | "LINE_ROWS" | null;
   /** subtotal − discount + VAT + delivery equals the persisted total, to the cent. */
   reconciles: boolean;
 }
@@ -257,7 +275,10 @@ const fromCents = (value: number) => value / 100;
  * The split is withheld whenever it would not hold: no line rows, a remainder
  * below zero, or delivery VAT on an order that carried no delivery charge.
  */
-export function reconcilePersistedTotals(order: Pick<PersistedOrder, "subtotal" | "discountAmount" | "vatAmount" | "shippingAmount" | "total" | "items">): ReconciledTotals {
+export function reconcilePersistedTotals(
+  order: Pick<PersistedOrder, "subtotal" | "discountAmount" | "vatAmount" | "shippingAmount" | "total" | "items">
+    & Partial<Pick<PersistedOrder, "goodsVatAmount" | "shippingVatAmount">>,
+): ReconciledTotals {
   const subtotalC = cents(order.subtotal);
   const discountC = cents(order.discountAmount);
   const vatC = cents(order.vatAmount);
@@ -267,13 +288,21 @@ export function reconcilePersistedTotals(order: Pick<PersistedOrder, "subtotal" 
 
   let goodsVatAmount: number | null = null;
   let shippingVatAmount: number | null = null;
-  if (order.items.length > 0) {
+  let splitSource: ReconciledTotals["splitSource"] = null;
+  const recordedGoods = order.goodsVatAmount ?? null;
+  const recordedDelivery = order.shippingVatAmount ?? null;
+  if (recordedGoods != null && recordedDelivery != null && cents(recordedGoods) + cents(recordedDelivery) === vatC) {
+    goodsVatAmount = recordedGoods;
+    shippingVatAmount = recordedDelivery;
+    splitSource = "PERSISTED";
+  } else if (order.items.length > 0) {
     const goodsC = order.items.reduce((sum, item) => sum + cents(item.vatAmount), 0);
     const deliveryC = vatC - goodsC;
     const splitHolds = deliveryC >= 0 && (shippingC > 0 || deliveryC === 0);
     if (splitHolds) {
       goodsVatAmount = fromCents(goodsC);
       shippingVatAmount = fromCents(deliveryC);
+      splitSource = "LINE_ROWS";
     }
   }
 
@@ -285,6 +314,7 @@ export function reconcilePersistedTotals(order: Pick<PersistedOrder, "subtotal" 
     total: order.total,
     goodsVatAmount,
     shippingVatAmount,
+    splitSource,
     reconciles,
   };
 }

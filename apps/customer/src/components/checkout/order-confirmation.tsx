@@ -202,7 +202,11 @@ export function OrderConfirmation({
                     <>
                       <MoneyRow
                         label={c("checkout.success.goodsVat", "VAT on goods")}
-                        note={c("checkout.success.goodsVatNote", "The VAT recorded on each line, added up")}
+                        note={
+                          totals.splitSource === "PERSISTED"
+                            ? c("checkout.success.goodsVatRecorded", "As recorded on the order")
+                            : c("checkout.success.goodsVatNote", "The VAT recorded on each line, added up")
+                        }
                         value={money(totals.goodsVatAmount!)}
                       />
                       <MoneyRow
@@ -216,7 +220,11 @@ export function OrderConfirmation({
                       />
                       <MoneyRow
                         label={c("checkout.summary.deliveryVat", "VAT on delivery")}
-                        note={c("checkout.success.deliveryVatNote", "The remainder of the order’s VAT after the line rows")}
+                        note={
+                          totals.splitSource === "PERSISTED"
+                            ? c("checkout.success.deliveryVatRecorded", "As recorded on the order")
+                            : c("checkout.success.deliveryVatNote", "The remainder of the order’s VAT after the line rows")
+                        }
                         value={money(totals.shippingVatAmount!)}
                       />
                     </>

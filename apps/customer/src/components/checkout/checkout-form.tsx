@@ -16,17 +16,31 @@ import {
   ADDRESS_LIMITS,
   preflightCheckout,
   productFactsFromCatalogDetail,
+  validateShippingAddress,
   type AddressField,
   type AddressFieldError,
   type CheckoutAddress,
   type LineFacts,
+  type PreflightLine,
   type PreflightNotice,
   type PreflightRefusal,
   type PreflightResult,
 } from "@/lib/checkout-preflight";
+import {
+  QUOTE_ENDPOINT,
+  buildQuoteRequest,
+  canRequestQuote,
+  couponErrorFrom,
+  isQuoteFresh,
+  parseQuoteFailure,
+  parseServerQuote,
+  quoteSignature,
+  type QuoteFailure,
+  type ServerQuote,
+} from "@/lib/checkout-quote";
 import type { ShippingCoverage } from "@/lib/checkout-shipping-coverage";
 import { CheckoutField } from "./checkout-field";
-import { CheckoutSummary } from "./checkout-summary";
+import { CheckoutSummary, type QuoteStatus } from "./checkout-summary";
 import { CheckoutTrustStrip } from "./checkout-trust-strip";
 import { OrderConfirmation, type PostedOrderFigures } from "./order-confirmation";
 import { paymentMethodsFor } from "./payment-methods";
@@ -149,6 +163,15 @@ export function CheckoutForm({ coverage, mockPaymentsEnabled }: CheckoutFormProp
   // region, and focus moves to it — never a window.alert().
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [orderResult, setOrderResult] = useState<OrderResult | null>(null);
+  // The server's quote for one exact basket + address + code, keyed by the
+  // request's signature so a late answer is never shown for a changed basket.
+  const [quoteState, setQuoteState] = useState<{
+    signature: string;
+    status: "loading" | "ready" | "failed";
+    quote: ServerQuote | null;
+    failure: QuoteFailure | null;
+  } | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
   // The cart is persisted in localStorage, so the first render on both server
   // and client sees an empty one. Without this gate a buyer arriving with a
   // full cart is shown "nothing to check out" for a frame.
@@ -253,26 +276,104 @@ export function CheckoutForm({ coverage, mockPaymentsEnabled }: CheckoutFormProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, checkoutCurrency, factsSignature]);
 
+  const preflightLines = useMemo<PreflightLine[]>(
+    () =>
+      items.map((item) => ({
+        id: item.id,
+        productId: item.productId,
+        variantId: item.variantId,
+        qty: item.qty,
+        moq: item.moq,
+        currency: item.currency,
+        channel: item.channel,
+        vatRate: item.vatRate,
+      })),
+    [items],
+  );
+
+  /* ── THE SERVER'S QUOTE ────────────────────────────────────────────────
+     Asked for as soon as the request would pass the contract's validation,
+     debounced so typing an address does not spend the rate-limit budget, and
+     re-asked when the quote's own expiry passes. The answer is the server's
+     seven figures for exactly this basket; a refusal is the server's own
+     words, shown before submission instead of after. */
+  const addressErrorsNow = useMemo(() => validateShippingAddress(address), [address]);
+  const quoteRequest = useMemo(
+    () =>
+      checkoutCurrency && canRequestQuote({ lines: preflightLines, addressErrors: addressErrorsNow, currency: checkoutCurrency, couponCode })
+        ? buildQuoteRequest({ lines: preflightLines, address, currency: checkoutCurrency, couponCode })
+        : null,
+    [preflightLines, addressErrorsNow, checkoutCurrency, couponCode, address],
+  );
+  const signature = quoteRequest ? quoteSignature(quoteRequest) : null;
+
+  useEffect(() => {
+    // On success the cart is cleared, the request becomes null and no quote is
+    // asked for; `step` is deliberately not a dependency, so moving between
+    // steps never re-asks for an identical quote.
+    if (!hydrated || !quoteRequest || !signature) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setQuoteState({ signature, status: "loading", quote: null, failure: null });
+      try {
+        const res = await fetch(QUOTE_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify(quoteRequest),
+          signal: controller.signal,
+        });
+        const json: unknown = await res.json().catch(() => null);
+        if (controller.signal.aborted) return;
+        if (res.ok) {
+          const data = typeof json === "object" && json !== null ? (json as { data?: unknown }).data : null;
+          const quote = parseServerQuote(data);
+          setQuoteState({ signature, status: quote ? "ready" : "failed", quote, failure: quote ? null : { kind: "UNAVAILABLE", status: res.status } });
+        } else {
+          setQuoteState({ signature, status: "failed", quote: null, failure: parseQuoteFailure(res.status, json) });
+        }
+      } catch {
+        if (!controller.signal.aborted) setQuoteState({ signature, status: "failed", quote: null, failure: { kind: "UNAVAILABLE", status: null } });
+      }
+    }, 450);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+    // The signature captures the whole request; refreshTick re-asks at expiry.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, signature, refreshTick]);
+
+  const currentQuote = quoteState?.signature === signature && quoteState.status === "ready" && quoteState.quote && isQuoteFresh(quoteState.quote)
+    ? quoteState.quote
+    : null;
+  const currentFailure = quoteState?.signature === signature && quoteState.status === "failed" ? quoteState.failure : null;
+  const quoteStatus: QuoteStatus = !quoteRequest ? "idle" : quoteState?.signature !== signature ? "loading" : quoteState.status;
+
+  useEffect(() => {
+    if (!currentQuote) return;
+    const timer = setTimeout(() => setRefreshTick((tick) => tick + 1), Math.max(1_000, currentQuote.expiresAt - Date.now()));
+    return () => clearTimeout(timer);
+  }, [currentQuote]);
+
   const preflight = useMemo<PreflightResult>(
     () =>
       preflightCheckout({
-        lines: items.map((item) => ({
-          id: item.id,
-          productId: item.productId,
-          variantId: item.variantId,
-          qty: item.qty,
-          moq: item.moq,
-          currency: item.currency,
-          channel: item.channel,
-          vatRate: item.vatRate,
-        })),
+        lines: preflightLines,
         address,
         currency: checkoutCurrency ?? "",
         coverage,
         facts,
+        couponCode,
+        quoteShipping: currentQuote?.shipping.status ?? null,
       }),
-    [items, address, checkoutCurrency, coverage, facts],
+    [preflightLines, address, checkoutCurrency, coverage, facts, couponCode, currentQuote],
   );
+  /** The server's own refusal of this basket, in its own words, before submission. */
+  const serverRefusal = currentFailure?.kind === "REFUSED" ? currentFailure : null;
+  const couponError = couponErrorFrom(currentFailure)
+    ?? (preflight.refusals.some((refusal) => refusal.kind === "COUPON_INVALID")
+      ? c("checkout.refusal.couponTooShort", "A code is at least 3 characters.")
+      : null);
 
   const countryName = (code: string) =>
     c(`checkout.countries.${code}`, SUPPORTED_COUNTRIES.find(([iso]) => iso === code)?.[1] ?? code);
@@ -416,6 +517,11 @@ export function CheckoutForm({ coverage, mockPaymentsEnabled }: CheckoutFormProp
           action: { href: "/cart", label: c("checkout.action.removeInCart", "Remove in cart") },
         };
       }
+      case "COUPON_INVALID":
+        return {
+          message: c("checkout.refusal.couponTooShort", "A code is at least 3 characters."),
+          action: { onClick: () => setCouponCode(""), label: c("checkout.action.removeCode", "Remove the code") },
+        };
       case "INSUFFICIENT_STOCK": {
         const item = itemById(refusal.lineId);
         const name = item ? lineName(item) : refusal.lineId;
@@ -617,7 +723,14 @@ export function CheckoutForm({ coverage, mockPaymentsEnabled }: CheckoutFormProp
   }
 
   const stepIndex = STEPS.findIndex((s) => s.id === step);
-  const hasRefusals = preflight.refusals.length > 0;
+  const hasRefusals = preflight.refusals.length > 0 || serverRefusal != null;
+  const serverRefusalAction: Action | undefined = serverRefusal
+    ? Object.keys(serverRefusal.fieldErrors).some((path) => path.startsWith("shippingAddress"))
+      ? { onClick: () => setStep("address"), label: c("checkout.action.changeAddress", "Change address") }
+      : Object.keys(serverRefusal.fieldErrors).every((path) => path === "couponCode") && Object.keys(serverRefusal.fieldErrors).length > 0
+        ? { onClick: () => setCouponCode(""), label: c("checkout.action.removeCode", "Remove the code") }
+        : { href: "/cart", label: c("checkout.action.editCart", "Edit cart") }
+    : undefined;
 
   const renderAction = (action: Action | undefined) => {
     if (!action) return null;
@@ -960,6 +1073,7 @@ export function CheckoutForm({ coverage, mockPaymentsEnabled }: CheckoutFormProp
                       "checkout.couponHint",
                       "Validated against current eligibility, usage limits and stacking rules when you submit. The browser does not calculate or authorize the discount.",
                     )}
+                    error={couponError}
                   >
                     {(a11y) => (
                       <Input
@@ -990,6 +1104,12 @@ export function CheckoutForm({ coverage, mockPaymentsEnabled }: CheckoutFormProp
                               {c("checkout.preflight.body", "The server would refuse this order as it stands. Each point names where to fix it; your cart and address are kept.")}
                             </p>
                             <ul className="mt-2 space-y-2">
+                              {serverRefusal && (
+                                <li className="u-ui text-ink-1">
+                                  {serverRefusal.message}{" "}
+                                  {renderAction(serverRefusalAction)}
+                                </li>
+                              )}
                               {preflight.refusals.map((refusal, index) => {
                                 const described = describeRefusal(refusal);
                                 return (
@@ -1040,7 +1160,7 @@ export function CheckoutForm({ coverage, mockPaymentsEnabled }: CheckoutFormProp
                     className="flex-1"
                     size="lg"
                     loading={loading}
-                    disabled={!preflight.canSubmit}
+                    disabled={!preflight.canSubmit || serverRefusal != null}
                     aria-describedby={hasRefusals ? "checkout-preflight" : undefined}
                     onClick={placeOrder}
                   >
@@ -1066,6 +1186,8 @@ export function CheckoutForm({ coverage, mockPaymentsEnabled }: CheckoutFormProp
             couponCode={couponCode}
             preflight={preflight}
             countryName={address.country ? countryName(address.country) : null}
+            quote={currentQuote}
+            quoteStatus={quoteStatus}
           />
 
           {/* MISSED SOMETHING? The cart is client state and this draft is kept

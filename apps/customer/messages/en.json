@@ -236,7 +236,8 @@
       "variantUnavailable": "The chosen variant of {name} is no longer available.",
       "channelNotB2c": "{name} isn’t available for consumer ordering.",
       "stockUnconfirmed": "Stock for {name} hasn’t been confirmed by the seller, so this order would be refused.",
-      "insufficientStock": "Only {available} of {name} available; you have {qty}."
+      "insufficientStock": "Only {available} of {name} available; you have {qty}.",
+      "couponTooShort": "A code is at least 3 characters."
     },
     "notice": {
       "fallbackRate": "{names}: no recorded weight, so delivery is charged at the zone’s flat rate of {price} rather than by weight.",
@@ -252,7 +253,8 @@
       "changeAddress": "Change address",
       "requestQuote": "Request a quote",
       "contactSupport": "Contact support",
-      "createPurchaseOrder": "Create purchase order"
+      "createPurchaseOrder": "Create purchase order",
+      "removeCode": "Remove the code"
     },
     "summary": {
       "currencyOnly": "All figures in {currency}",
@@ -280,7 +282,16 @@
       "deliveryVatRate": "At {rate}% of the delivery charge",
       "deliveryVatNone": "No delivery charge, so no VAT on it",
       "deliveryVatUnknown": "At the destination’s statutory rate",
-      "vatRateDiffers": "Your delivery country taxes at {rate}%; the displayed lines carry a different rate, so the VAT recorded on the order will differ from this estimate."
+      "vatRateDiffers": "Your delivery country taxes at {rate}%; the displayed lines carry a different rate, so the VAT recorded on the order will differ from this estimate.",
+      "quotedLabel": "Total, as quoted",
+      "quotedProvenance": "Quoted by the server for these lines and this address · valid until {time} · the same arithmetic writes the order when you submit",
+      "quoting": "Asking the server for a quote…",
+      "quoteUnavailable": "A live quote is not available right now · every figure is priced by the server when you submit",
+      "subtotalQuoted": "{count, plural, one {{n} line} other {{n} lines}} · priced by the server",
+      "discountApplied": "{labels} · applied by the server",
+      "discountNone": "No discount applies to this basket",
+      "deliveryPriced": "{zone} · priced by the server for this destination and weight",
+      "deliveryPricedNoZone": "Priced by the server for this destination and weight"
     },
     "missed": {
       "title": "Missed something?",
@@ -332,7 +343,9 @@
       "pilotRecorded": "Pilot test payment recorded — no card was charged.",
       "statusAtSubmission": "Status as at submission · the order record carries the current one",
       "viewOrder": "View this order",
-      "viewOrders": "My orders"
+      "viewOrders": "My orders",
+      "goodsVatRecorded": "As recorded on the order",
+      "deliveryVatRecorded": "As recorded on the order"
     }
   },
   "orders": {
@@ -524,7 +537,7 @@
     "protect2Title": "Multiple payment options",
     "protect2Desc": "MADA, Apple Pay, card, bank transfer and STC Pay.",
     "protect3Title": "Priced before you commit",
-    "protect3Desc": "VAT and delivery are shown in full before you place the order.",
+    "protect3Desc": "VAT and delivery are computed and shown before you pay.",
     "protect4Title": "Returns you can track",
     "protect4Desc": "Raise a return against a delivered order and follow it to refund.",
     "protectStat": "100%",

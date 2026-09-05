@@ -236,7 +236,8 @@
       "variantUnavailable": "النوع المختار من {name} لم يعد متاحاً.",
       "channelNotB2c": "{name} غير متاح للطلب للأفراد.",
       "stockUnconfirmed": "لم يؤكد البائع مخزون {name}، لذا سيُرفض هذا الطلب.",
-      "insufficientStock": "المتاح من {name} هو {available} فقط؛ ولديك {qty}."
+      "insufficientStock": "المتاح من {name} هو {available} فقط؛ ولديك {qty}.",
+      "couponTooShort": "يتكوّن الرمز من 3 أحرف على الأقل."
     },
     "notice": {
       "fallbackRate": "{names}: لا يوجد وزن مسجّل، لذا تُحتسب رسوم التوصيل بالسعر الثابت للمنطقة وقدره {price} بدلاً من الوزن.",
@@ -252,7 +253,8 @@
       "changeAddress": "تغيير العنوان",
       "requestQuote": "طلب عرض سعر",
       "contactSupport": "التواصل مع الدعم",
-      "createPurchaseOrder": "إنشاء أمر شراء"
+      "createPurchaseOrder": "إنشاء أمر شراء",
+      "removeCode": "إزالة الرمز"
     },
     "summary": {
       "currencyOnly": "جميع المبالغ بعملة {currency}",
@@ -280,7 +282,16 @@
       "deliveryVatRate": "بنسبة {rate}٪ من رسوم التوصيل",
       "deliveryVatNone": "لا رسوم توصيل، وبالتالي لا ضريبة عليها",
       "deliveryVatUnknown": "بالنسبة القانونية لدولة الوجهة",
-      "vatRateDiffers": "تفرض دولة التوصيل ضريبة بنسبة {rate}٪؛ وتحمل الأسطر المعروضة نسبة مختلفة، لذا ستختلف الضريبة المسجَّلة في الطلب عن هذا التقدير."
+      "vatRateDiffers": "تفرض دولة التوصيل ضريبة بنسبة {rate}٪؛ وتحمل الأسطر المعروضة نسبة مختلفة، لذا ستختلف الضريبة المسجَّلة في الطلب عن هذا التقدير.",
+      "quotedLabel": "الإجمالي كما سعّره الخادم",
+      "quotedProvenance": "سعّره الخادم لهذه الأسطر وهذا العنوان · صالح حتى {time} · يُكتب الطلب بالحساب نفسه عند تقديمه",
+      "quoting": "جارٍ طلب التسعير من الخادم…",
+      "quoteUnavailable": "التسعير المباشر غير متاح حالياً · يسعّر الخادم كل رقم عند تقديم الطلب",
+      "subtotalQuoted": "{count, plural, one {سطر واحد} two {سطران} other {{n} أسطر}} · بتسعير الخادم",
+      "discountApplied": "{labels} · طبّقه الخادم",
+      "discountNone": "لا ينطبق خصم على هذه السلة",
+      "deliveryPriced": "{zone} · سعّره الخادم لهذه الوجهة وهذا الوزن",
+      "deliveryPricedNoZone": "سعّره الخادم لهذه الوجهة وهذا الوزن"
     },
     "missed": {
       "title": "هل نسيت شيئاً؟",
@@ -332,7 +343,9 @@
       "pilotRecorded": "سُجّلت دفعة اختبارية تجريبية — لم يُخصم من أي بطاقة.",
       "statusAtSubmission": "الحالة كما كانت عند التقديم · سجل الطلب يحمل الحالة الحالية",
       "viewOrder": "عرض هذا الطلب",
-      "viewOrders": "طلباتي"
+      "viewOrders": "طلباتي",
+      "goodsVatRecorded": "كما هو مسجَّل في الطلب",
+      "deliveryVatRecorded": "كما هو مسجَّل في الطلب"
     }
   },
   "orders": {
@@ -524,7 +537,7 @@
     "protect2Title": "خيارات دفع متعددة",
     "protect2Desc": "مدى، Apple Pay، البطاقة، التحويل البنكي، و STC Pay.",
     "protect3Title": "التسعير قبل الالتزام",
-    "protect3Desc": "تظهر الضريبة ورسوم التوصيل بالكامل قبل تأكيد الطلب.",
+    "protect3Desc": "تُحتسب الضريبة ورسوم التوصيل وتُعرض قبل الدفع.",
     "protect4Title": "إرجاع يمكن تتبعه",
     "protect4Desc": "قدّم طلب إرجاع لطلب مُسلَّم وتابعه حتى استرداد المبلغ.",
     "protectStat": "١٠٠٪",
