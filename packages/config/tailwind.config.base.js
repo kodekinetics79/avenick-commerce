@@ -328,11 +328,21 @@ module.exports = {
         stack: "var(--space-stack)",
         block: "var(--space-block)",
         section: "var(--space-section)",
+        // The shell's inline gutter — clamp(1rem, 3vw, 3rem) — so the margin
+        // reads as proportional at every width instead of the same 16px on a
+        // phone and on a 27-inch display. `px-gutter` beside `max-w-shell`.
+        gutter: "var(--shell-gutter)",
       },
 
       maxWidth: {
         prose: "var(--measure-prose)",
         desc: "var(--measure-desc)",
+        // THE SHELL. One container width for every storefront section wrapper,
+        // resolved from --shell-max (96rem) so the whole page widens or narrows
+        // from a single token. It pairs with `px-gutter` below. Prose inside a
+        // wider shell stays bounded by `max-w-desc` / `max-w-prose`: the shell
+        // sets where the margins are, never how long a sentence gets.
+        shell: "var(--shell-max)",
       },
 
       transitionTimingFunction: {

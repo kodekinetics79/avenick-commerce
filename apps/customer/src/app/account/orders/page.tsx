@@ -19,9 +19,11 @@ import {
   Surface,
   type PillTone,
 } from "@avenick/ui";
+import { getTranslations } from "next-intl/server";
 import { Package, Truck, CheckCircle, Clock, ChevronRight, RotateCcw, ScrollText } from "lucide-react";
 import { LOCALE_COOKIE, toIdentityLocale, type IdentityLocale } from "../../auth/identity-copy";
 import { accountCopy } from "../account-copy";
+import { ORDER_STATUS_VALUES, whatHappensNext, type OrderStatusValue } from "@/lib/checkout-order-record";
 
 /**
  * The tab title is a user-visible string like any other, and it was the last
@@ -37,26 +39,35 @@ export async function generateMetadata() {
 }
 
 /**
- * Status presentation. The old map carried six independent hues — purple, amber,
- * cyan, blue, red, green — which is ten colours carrying zero information, the
- * loudest amateur signal there was in this product. There are now four semantic
- * states plus accent, and the tone says what the buyer should do about it:
- * `warning` is the only one that means "this is waiting on you".
+ * Status presentation, keyed by the Prisma OrderStatus enum and NOTHING ELSE.
+ *
+ * The previous map carried READY_FOR_PICKUP, which the enum does not have, and
+ * lacked PAYMENT_CONFIRMED, OUT_FOR_DELIVERY, REFUNDED and RETURN_REQUESTED,
+ * which it does — so a paid order rendered its raw enum value in a pill. Every
+ * value is covered now, and checkout-order-record asserts at compile time that
+ * the list is exactly the enum. Four semantic tones plus accent; `warning` is
+ * the only one that means "this is waiting on you".
  *
  * THE KEY IS THE STORED VALUE and it never localises; only the label does, from
- * account-copy. A localised status written back to the column would be a data
- * defect wearing a translation.
+ * the `orders.stage` message group — the same words the checkout confirmation
+ * uses, so an order is called the same thing at both ends of the money path.
  */
-const STATUS_CONFIG: Record<string, { tone: PillTone; icon: typeof Clock }> = {
-  PENDING_PAYMENT:  { tone: "warning", icon: Clock },
-  CONFIRMED:        { tone: "accent",  icon: CheckCircle },
-  PROCESSING:       { tone: "neutral", icon: Package },
-  READY_FOR_PICKUP: { tone: "warning", icon: Package },
-  SHIPPED:          { tone: "accent",  icon: Truck },
-  DELIVERED:        { tone: "success", icon: CheckCircle },
-  CANCELLED:        { tone: "danger",  icon: Clock },
-  RETURNED:         { tone: "neutral", icon: RotateCcw },
+const STATUS_CONFIG: Record<OrderStatusValue, { tone: PillTone; icon: typeof Clock }> = {
+  PENDING_PAYMENT:   { tone: "warning", icon: Clock },
+  PAYMENT_CONFIRMED: { tone: "accent",  icon: CheckCircle },
+  CONFIRMED:         { tone: "accent",  icon: CheckCircle },
+  PROCESSING:        { tone: "neutral", icon: Package },
+  SHIPPED:           { tone: "accent",  icon: Truck },
+  OUT_FOR_DELIVERY:  { tone: "accent",  icon: Truck },
+  DELIVERED:         { tone: "success", icon: CheckCircle },
+  CANCELLED:         { tone: "danger",  icon: Clock },
+  REFUNDED:          { tone: "danger",  icon: RotateCcw },
+  RETURN_REQUESTED:  { tone: "warning", icon: RotateCcw },
+  RETURNED:          { tone: "neutral", icon: RotateCcw },
 };
+
+const isOrderStatus = (value: string): value is OrderStatusValue =>
+  (ORDER_STATUS_VALUES as readonly string[]).includes(value);
 
 const FILTER_VALUES = ["", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"] as const;
 
@@ -85,9 +96,13 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
 
   const locale = toIdentityLocale((await cookies()).get(LOCALE_COOKIE)?.value);
   const t = accountCopy(locale).orders;
+  // Stage labels and the "what happens next" line come from the message tree,
+  // shared with the checkout confirmation, rather than from account-copy.
+  const m = await getTranslations("orders");
+  const stage = (status: string) => (isOrderStatus(status) ? m(`stage.${status}`) : status);
   const fmt = dateFormatter(locale);
 
-  const statusFilter = searchParams.status && Object.hasOwn(STATUS_CONFIG, searchParams.status)
+  const statusFilter = searchParams.status && isOrderStatus(searchParams.status)
     ? searchParams.status as OrderStatus
     : undefined;
   const orders = await db.order.findMany({
@@ -99,8 +114,8 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
   const activeTab = statusFilter ?? "";
   const deliveredCount  = orders.filter(o => o.status === "DELIVERED").length;
   const shippedCount    = orders.filter(o => o.status === "SHIPPED").length;
-  const processingCount = orders.filter(o => ["CONFIRMED","PROCESSING"].includes(o.status)).length;
-  const activeLabel = statusFilter ? t.statusLabels[statusFilter] : undefined;
+  const processingCount = orders.filter(o => ["PAYMENT_CONFIRMED","CONFIRMED","PROCESSING"].includes(o.status)).length;
+  const activeLabel = statusFilter ? stage(statusFilter) : undefined;
 
   return (
     <MainLayout>
@@ -143,7 +158,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
         <nav aria-label={t.filterLabel} className="mb-stack flex gap-1 overflow-x-auto border-b border-hairline">
           {FILTER_VALUES.map((value) => {
             const active = activeTab === value;
-            const label = value ? t.statusLabels[value] ?? value : t.filterAll;
+            const label = value ? stage(value) : t.filterAll;
             return (
               <Link
                 key={value}
@@ -180,7 +195,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
         ) : (
           <ul className="space-y-3">
             {orders.map((order) => {
-              const sc = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.CONFIRMED;
+              const sc = isOrderStatus(order.status) ? STATUS_CONFIG[order.status] : STATUS_CONFIG.CONFIRMED;
               const StatusIcon = sc.icon;
               const preview = order.items.slice(0, ITEM_PREVIEW);
               const remaining = order.items.length - preview.length;
@@ -203,11 +218,16 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
                           <span className="u-mono u-meta text-ink-2" dir="ltr">{order.orderNumber}</span>
                           <StatusPill tone={sc.tone}>
                             <StatusIcon className="h-3 w-3" aria-hidden="true" />
-                            {t.statusLabels[order.status] ?? order.status}
+                            {stage(order.status)}
                           </StatusPill>
                           {order.type === "B2B" && <StatusPill tone="neutral">B2B</StatusPill>}
                         </div>
                         <p className="u-meta mt-1 text-ink-3">{fmt.format(order.createdAt)}</p>
+                        {/* What the platform does next with this order — the
+                            same sentence the confirmation showed, so the
+                            history never contradicts it. No dates: the
+                            platform computes none, so it promises none. */}
+                        <p className="u-meta mt-1 text-ink-2">{m(`next.${whatHappensNext(order.status, order.paymentMethod)}`)}</p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Num value={formatCurrency(Number(order.total), order.currency as never)} />

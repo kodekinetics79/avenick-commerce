@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { platformName } from "@avenick/utils/portal-config";
 import { cn } from "@avenick/utils";
 import {
@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { Button, Divider, Eyebrow, NavItem, StickyGlassBar, Surface, ThemeToggle } from "@avenick/ui";
 import { useCartStore } from "@/stores/cart";
+import { useSearchSuggest } from "@/lib/search-suggest-client";
 import { useSession, signOut } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { useDisclosure } from "./disclosure";
@@ -79,6 +80,7 @@ export function Header() {
   const t = useTranslations("nav");
   const tc = useTranslations("common");
   const pathname = usePathname();
+  const router = useRouter();
   const { data: session } = useSession();
   const storeCount = useCartStore((s) => s.itemCount());
   // Persisted (localStorage) cart count differs between server and client —
@@ -174,6 +176,16 @@ export function Header() {
     { href: "/b2b", label: t("forBusiness") },
   ];
 
+  // Live-suggest state. `searchValue` is the input's own text; the hook
+  // debounces, aborts superseded requests, and reports "too short" as its own
+  // status. The listbox is visible only when there is something to show.
+  const [searchValue, setSearchValue] = React.useState("");
+  const [suggestOpen, setSuggestOpen] = React.useState(false);
+  const [activeSuggestion, setActiveSuggestion] = React.useState(-1);
+  const suggestListId = React.useId();
+  const suggest = useSearchSuggest(searchValue, { limit: 8 });
+  const suggestVisible = suggestOpen && suggest.status === "ready" && suggest.suggestions.length > 0;
+
   const searchField = (
     <form role="search" action="/search" method="get" className="relative flex w-full items-center">
       <Search
@@ -189,7 +201,68 @@ export function Header() {
         // the field an opaque plate of its own inside the blurred bar.
         data-rung={1}
         className="u-focus u-body h-row w-full rounded-lg border border-border ps-10 pe-11 text-ink-1 placeholder:text-ink-3"
+        value={searchValue}
+        onChange={(e) => { setSearchValue(e.target.value); setSuggestOpen(true); setActiveSuggestion(-1); }}
+        onFocus={() => setSuggestOpen(true)}
+        onBlur={() => setTimeout(() => setSuggestOpen(false), 120)}
+        onKeyDown={(e) => {
+          if (!suggestVisible) return;
+          if (e.key === "ArrowDown") { e.preventDefault(); setActiveSuggestion((i) => Math.min(i + 1, suggest.suggestions.length - 1)); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); setActiveSuggestion((i) => Math.max(i - 1, -1)); }
+          else if (e.key === "Escape") { setSuggestOpen(false); }
+          else if (e.key === "Enter" && activeSuggestion >= 0) { e.preventDefault(); const s = suggest.suggestions[activeSuggestion]; if (s) router.push(s.href); }
+        }}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={suggestVisible}
+        aria-controls={suggestVisible ? suggestListId : undefined}
+        aria-activedescendant={activeSuggestion >= 0 ? `${suggestListId}-${activeSuggestion}` : undefined}
+        autoComplete="off"
       />
+      {/*
+        Live suggestions — an ENHANCEMENT on the GET form above, never a
+        replacement for it. The form still submits to /search?q= before
+        hydration and with scripting off; this listbox only shortens the trip
+        for a buyer who is typing. Categories and brands lead (they pivot a
+        text search into structured browsing in one click), then products by
+        SKU and name. Every row is a real link to a real page; "too short" is
+        stated rather than shown as "no matches", because they are different
+        facts. Rendered only with results, so nothing floats under an idle
+        field.
+      */}
+      {suggestVisible && (
+        <ul
+          id={suggestListId}
+          role="listbox"
+          aria-label={tc("search")}
+          className="u-pop absolute inset-x-0 top-full z-layer mt-1.5 max-h-96 overflow-auto rounded-lg border border-border bg-surface-3 p-1 shadow-elev-4"
+        >
+          {suggest.suggestions.map((sug, i) => (
+            <li
+              key={`${sug.kind}:${sug.href}`}
+              id={`${suggestListId}-${i}`}
+              role="option"
+              aria-selected={i === activeSuggestion}
+            >
+              <Link
+                href={sug.href}
+                className={cn(
+                  "u-focus flex items-center gap-2.5 rounded-nested px-2.5 py-2 text-start",
+                  i === activeSuggestion ? "bg-surface-2" : "hover:bg-surface-2",
+                )}
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                <span className="u-meta w-16 shrink-0 uppercase tracking-wide text-ink-3">{sug.kind}</span>
+                <span className="u-ui min-w-0 flex-1 truncate text-ink-1">
+                  {sug.parent ? <span className="text-ink-3">{sug.parent.label} › </span> : null}
+                  {sug.label}
+                </span>
+                {sug.sku ? <span className="u-mono u-meta shrink-0 text-ink-3">{sug.sku}</span> : null}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
       {/*
         A real GET form rather than a JS handler assigning location.href: the
         search works before hydration and with scripting off, and it lands on
@@ -223,7 +296,7 @@ export function Header() {
     */
     <>
       <div className="border-b border-hairline">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-1.5">
+        <div className="mx-auto flex max-w-shell items-center justify-between gap-4 px-gutter py-1.5">
           {/*
             LAW E. This sentence is the residue of a hardening pass that removed
             a delivery promise nothing could keep. It used to sit behind a
@@ -252,9 +325,26 @@ export function Header() {
         THE CHROME THAT SETTLES. The bar no longer snaps between two states at a
         threshold: across the first 96px of scroll it continuously gains weight —
         the glass fill deepens from .55 to .92, the vertical padding tightens
-        from 18px to 10px, and a cast shadow fades up beneath it. Zero JS and
-        zero scroll listeners; it is a CSS scroll-driven animation on the
-        compositor. The blur RADIUS never animates, only the alpha behind it.
+        from 18px to 8px (an 80px bar becoming a 60px one, Apple's nav shrink),
+        and a cast shadow fades up beneath it. Zero JS and zero scroll
+        listeners; it is a CSS scroll-driven animation on the compositor. The
+        blur RADIUS never animates, only the alpha behind it. The search field
+        is never hidden at any scroll position: it is the centre of a storefront
+        header, and the bar compresses AROUND it.
+
+        WHERE SCROLL TIMELINES DO NOT EXIST (Firefox), the bar stays at its
+        uncompressed 18px at every scroll position and only the alpha and the
+        shadow flip on the IntersectionObserver fallback. A padding change with
+        no timeline to spread it over is a layout jolt at the first pixel of
+        scroll, and the owner reviews in Firefox — a settle for some visitors
+        and a snap for the rest is two designs, so the padding half is timeline
+        or nothing.
+
+        `progress` draws the brass reading hairline along the bar's bottom edge,
+        under the glass: the same <ScrollProgress> rule the layout mounts at the
+        viewport's top edge, in a different posture, and CSS keeps it to one per
+        document. Absent (scaleX(0)) without scroll timelines and under reduced
+        motion.
 
         THE VERTICAL PADDING IS DELIBERATELY NOT A UTILITY HERE. `.u-chrome` sets
         `padding-block: var(--chrome-pad)` and that is the half of the settle that
@@ -275,8 +365,8 @@ export function Header() {
         they carry body text. With JS off, before hydration, or with no
         scroll-timeline support, the bar is simply always glass.
       */}
-      <StickyGlassBar as="header">
-        <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 sm:gap-3">
+      <StickyGlassBar as="header" progress>
+        <div className="mx-auto flex max-w-shell items-center gap-2 px-gutter sm:gap-3">
           <Link
             href="/"
             aria-label={brand}

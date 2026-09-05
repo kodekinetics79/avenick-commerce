@@ -11,6 +11,8 @@ import {
 } from "@avenick/ui";
 import { formatCurrency } from "@avenick/utils";
 import { cartLineNeedsRepricing, cartQuantityBounds, cartQuantityChangeHref, useCartStore, type CartItem } from "@/stores/cart";
+import { CartCompletionsRail } from "@/components/cart/cart-completions-rail";
+import { useCartDrawerStore } from "@/components/cart/cart-drawer-store";
 import { useWishlist } from "@/stores/wishlist";
 import { MainLayout } from "@/components/layout/main-layout";
 import { cartDestination, summarizeCartCommercial } from "@/lib/cart-commercial";
@@ -359,6 +361,13 @@ function CartLine({
 export default function CartPage() {
   const { items, removeItem, setQty, addItem } = useCartStore();
   const { toggle, has: wishlistHas } = useWishlist();
+  /*
+   * Rows for the "Complete your order" rail. They arrive in the drawer store
+   * — written by whoever fetches getCartCompletions for this cart's product
+   * ids and shapes the rows with toCardRow — because this is a client page
+   * and the cart's contents exist only in this browser. Empty means no rail.
+   */
+  const completions = useCartDrawerStore((s) => s.completions);
   const t = useTranslations();
   const c = copyFrom(t);
   const locale = useLocale() === "ar" ? "ar" : "en";
@@ -573,6 +582,7 @@ export default function CartPage() {
             read as a running list of what you are about to buy, and a receipt
             reads as one object; four bordered boxes read as four unrelated ones.
           */}
+          <div className="min-w-0">
           <Surface rung={2} as="section" aria-label={c("cart.linesLabel", "Cart lines")} className="overflow-hidden">
             <div className="flex flex-wrap items-baseline justify-between gap-3 border-b-2 border-border-strong px-4 py-3.5 sm:px-5">
               <h2 className="u-h3 text-ink-1">{c("cart.linesTitle", "Lines")}</h2>
@@ -592,7 +602,34 @@ export default function CartPage() {
                 />
               ))}
             </ul>
+            {/* THE WAY BACK TO THE SHELF, said plainly. The cart is a client
+                store, so leaving this page has never lost a line — but nothing
+                on the page said so, and a buyer who does not know that treats
+                the cart as a place to finish rather than a place to return to.
+                A secondary control, not the page's commit fill: adding more is
+                the alternative to checking out, not a rival to it. */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-hairline px-4 py-3.5 sm:px-5">
+              <p className="u-meta text-ink-3">{c("cart.addMoreNote", "Your cart is kept in this browser while you browse")}</p>
+              <Button asChild variant="secondary" size="sm">
+                <Link href="/products">
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  {c("cart.addMore", "Add more items")}
+                </Link>
+              </Button>
+            </div>
           </Surface>
+
+          {/* "Complete your order" — the catalogue's own tiles, minus anything
+              already in these lines, priced for this cart's channel. Absent
+              until rows are supplied; never padded. */}
+          <CartCompletionsRail
+            className="mt-block"
+            rows={completions}
+            cartItems={items}
+            channel={isPurchaseOrder ? "B2B" : "B2C"}
+            locale={locale}
+          />
+          </div>
 
           <aside className="lg:sticky lg:top-24 lg:self-start">
             <Receipt

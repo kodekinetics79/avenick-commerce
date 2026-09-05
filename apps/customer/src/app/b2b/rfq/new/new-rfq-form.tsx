@@ -72,11 +72,14 @@ const UNITS: Array<{ value: string; labelKey: B2BKey }> = [
 export function NewRFQForm({
   categories,
   currency,
+  initialDescription,
 }: {
   /** Catalog categories loaded by the server page; empty when none could be loaded. */
   categories: RFQCategoryOption[];
   /** The buyer's company currency, or null when the viewer has no company context. */
   currency: string | null;
+  /** Seeds the first line — the search page's "request a quote for this term" hand-off. */
+  initialDescription?: string;
 }) {
   const t = useB2BT();
   const [submitted, setSubmitted] = useState(false);
@@ -84,7 +87,7 @@ export function NewRFQForm({
   const [error, setError] = useState<string | null>(null);
   const [priority, setPriority] = useState<Priority>("NORMAL");
   const [items, setItems] = useState<RFQItem[]>([
-    { id: "1", description: "", quantity: "", unit: "pcs", targetPrice: "", specs: "" },
+    { id: "1", description: initialDescription ?? "", quantity: "", unit: "pcs", targetPrice: "", specs: "" },
   ]);
 
   const priorityRefs = useRef<Partial<Record<Priority, HTMLButtonElement | null>>>({});

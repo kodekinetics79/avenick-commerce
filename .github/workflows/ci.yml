@@ -100,6 +100,13 @@ jobs:
       E2E_CUSTOMER_URL: http://localhost:13100
       E2E_SELLER_URL: http://localhost:13101
       E2E_ADMIN_URL: http://localhost:13102
+      # This job seeds an empty Postgres with prisma/seed.ts, so the personas
+      # are the seed's addresses (seller@, company@, ...). The harness defaults
+      # to the `shared` set — the cert-* accounts on the shared database local
+      # development points at — and would sign in against accounts this
+      # database does not hold. `verify:personas` below reads the same table,
+      # so the seed and the suite are checked against one address book.
+      E2E_PERSONA_SET: seed
 
     steps:
       - uses: actions/checkout@v4
@@ -204,6 +211,29 @@ jobs:
       # skip, or narrow the forbidden list in packages/e2e/targets.mjs.
       - name: Playwright — security guardrails (D-01 regression guard)
         run: pnpm --filter @avenick/e2e exec playwright test playwright/security-guardrails.spec.ts
+
+      # The public half of the browser certification, on all three portals:
+      # a clean console and no CSP-refused resource on every public route
+      # (console-hygiene), the anonymous boundary in both directions — protected
+      # pages redirect with a callbackUrl, the view beacon and the category tree
+      # stay public (boundaries) — and the catalogue saying what its data says:
+      # subcategory pages found at depth with their own title, a filter the URL
+      # accepts, an h1 in a loaded web font (catalogue-truth). Each of these
+      # encodes a defect that reached the owner's hands after this job's
+      # typecheck, tests and build had all passed. Unauthenticated, read-only.
+      - name: Playwright — console hygiene, boundaries and catalogue truth
+        run: pnpm --filter @avenick/e2e exec playwright test playwright/console-hygiene.spec.ts playwright/boundaries.spec.ts playwright/catalogue-truth.spec.ts
+
+      # The signed-in half: buyer, seller owner and platform admin sign in
+      # through the real login form — locators scoped to the password form and
+      # a session cookie asserted, so the storefront's header-search button can
+      # never again produce a false "every page bounces" — and walk their
+      # portal's core pages, seller /settings and admin /shipping-zones among
+      # them. Its own project, with tracing off: every request carries a
+      # session cookie. Three more sign-ins against the 30-per-15-minutes budget
+      # the auth-setup project below also draws on.
+      - name: Playwright — signed-in journeys (buyer, seller owner, admin)
+        run: pnpm --filter @avenick/e2e exec playwright test --project=authenticated-journeys
 
       # The only tests that exercise a cross-tenant leak in a live session:
       # seller-A-vs-seller-B isolation, direct-ID access, buyer order isolation

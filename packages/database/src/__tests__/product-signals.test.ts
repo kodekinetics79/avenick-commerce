@@ -7,10 +7,14 @@ import {
   bucketAgeInDays,
   decayWeight,
   rankTrending,
+  trendingCategoryScope,
+  trendingParameters,
+  trendingProductWhere,
   trendingWindowStart,
   utcDayStart,
   type ViewBucket,
 } from "../services/product-signals";
+import { DEFAULT_SECTION_SIZE, publicProductWhere } from "../services/storefront-sections";
 
 /**
  * Pure unit tests: nothing here opens a connection. What is tested is every
@@ -279,5 +283,109 @@ describe("the thresholds themselves", () => {
     // oldest view in the rail would still be worth more than half a fresh one.
     expect(TRENDING_HALF_LIFE_DAYS).toBeLessThan(TRENDING_WINDOW_DAYS);
     expect(TRENDING_HALF_LIFE_DAYS).toBeGreaterThan(0);
+  });
+});
+
+describe("the category scope — the thresholds are not its business", () => {
+  it("resolves the same window, decay and thresholds with a category as without one", () => {
+    // The whole contract of scoping in one assertion: a category narrows what
+    // is counted and changes nothing about what counts. If a scope could reach
+    // these numbers, a category rail could be filled by lowering the bar.
+    const unscoped = trendingParameters({});
+    expect(trendingParameters({ categoryId: "cat_electronics" })).toEqual(unscoped);
+    expect(trendingParameters({ categoryIds: ["cat_a", "cat_b"] })).toEqual(unscoped);
+    expect(trendingParameters({ categoryId: "cat_a", categoryIds: ["cat_b"] })).toEqual(unscoped);
+    expect(trendingParameters({ categoryIds: [] })).toEqual(unscoped);
+  });
+
+  it("runs on the module's own constants, so a scoped rail inherits every bar", () => {
+    expect(trendingParameters({ categoryId: "cat_a" })).toEqual({
+      limit: DEFAULT_SECTION_SIZE,
+      windowDays: TRENDING_WINDOW_DAYS,
+      halfLifeDays: TRENDING_HALF_LIFE_DAYS,
+      minViews: MIN_VIEWS_FOR_TRENDING,
+      minProducts: MIN_TRENDING_PRODUCTS,
+    });
+  });
+
+  it("clamps a scoped call exactly as it clamps an unscoped one", () => {
+    const knobs = { limit: 1000, windowDays: 400, halfLifeDays: 0, minViews: 0, minProducts: -3 };
+    expect(trendingParameters({ ...knobs, categoryId: "cat_a" })).toEqual(trendingParameters(knobs));
+  });
+});
+
+describe("trendingCategoryScope", () => {
+  it("is absent when neither option is given — the catalogue-wide rail", () => {
+    expect(trendingCategoryScope({})).toBeUndefined();
+    expect(trendingCategoryScope({ categoryId: undefined, categoryIds: undefined })).toBeUndefined();
+  });
+
+  it("carries a root to expand and an explicit set to use verbatim", () => {
+    expect(trendingCategoryScope({ categoryId: " cat_a " })).toEqual({ rootId: "cat_a", ids: [] });
+    expect(trendingCategoryScope({ categoryIds: ["cat_b", "cat_a", "cat_b", " cat_c "] })).toEqual({
+      rootId: undefined,
+      ids: ["cat_a", "cat_b", "cat_c"],
+    });
+    expect(trendingCategoryScope({ categoryId: "cat_root", categoryIds: ["cat_x"] })).toEqual({
+      rootId: "cat_root",
+      ids: ["cat_x"],
+    });
+  });
+
+  it("is still a scope — never the absence of one — when it names nothing usable", () => {
+    // Each of these becomes an EMPTY rail in getTrendingProducts. The caller
+    // asked about a category; the whole catalogue under that heading is the
+    // one answer this module must not give.
+    expect(trendingCategoryScope({ categoryId: "" })).toEqual({ rootId: undefined, ids: [] });
+    expect(trendingCategoryScope({ categoryId: "not an id; DROP TABLE" })).toEqual({ rootId: undefined, ids: [] });
+    expect(trendingCategoryScope({ categoryIds: [] })).toEqual({ rootId: undefined, ids: [] });
+    expect(trendingCategoryScope({ categoryIds: ["", "bad id", "x".repeat(65)] })).toEqual({ rootId: undefined, ids: [] });
+  });
+});
+
+describe("trendingProductWhere", () => {
+  it("adds the category set to the visibility rule without touching the rule", () => {
+    const visible = publicProductWhere(undefined);
+    const scoped = trendingProductWhere(visible, ["cat_a", "cat_b"]);
+    expect(scoped).toEqual({ ...visible, categoryId: { in: ["cat_a", "cat_b"] } });
+    // Every visibility clause survives: a viewed product in the right category
+    // that the catalogue would hide is hidden here too.
+    for (const key of Object.keys(visible) as Array<keyof typeof visible>) {
+      expect(scoped[key]).toEqual(visible[key]);
+    }
+  });
+
+  it("keeps a channel restriction the caller stated", () => {
+    const visible = publicProductWhere(true);
+    expect(trendingProductWhere(visible, ["cat_a"])).toMatchObject({ isB2CEnabled: true, categoryId: { in: ["cat_a"] } });
+  });
+
+  it("is the visibility rule itself when there is no scope", () => {
+    const visible = publicProductWhere(undefined);
+    expect(trendingProductWhere(visible, undefined)).toBe(visible);
+  });
+});
+
+describe("rankTrending inside a category", () => {
+  it("measures the quorum on the category's own field, not on the catalogue's", () => {
+    // Catalogue-wide, seven products qualify and the rail renders. Inside
+    // "cables" only two of them are being looked at — so the category's rail
+    // is empty, for exactly the reason the catalogue-wide rail would be empty
+    // with two. The scope hands the ranking a smaller field; the field still
+    // has to be big enough to rank.
+    const catalogue = [...filler(5, 50), bucket("cable-1", 0, 40), bucket("cable-2", 0, 30)];
+    expect(rankTrending(catalogue, rankOpts({ limit: 10 }))).toHaveLength(7);
+
+    const inCables = new Set(["cable-1", "cable-2"]);
+    const cables = catalogue.filter((b) => inCables.has(b.productId));
+    expect(rankTrending(cables, rankOpts())).toEqual([]);
+  });
+
+  it("ranks a category that clears the bar on its own, in its own order", () => {
+    // Three products in the category, each at or above the view floor: a real
+    // selection, ordered by decayed attention — the category's own top product
+    // need not be anywhere near the catalogue's.
+    const buckets = [bucket("c1", 0, MIN_VIEWS_FOR_TRENDING), bucket("c2", 0, 9), bucket("c3", 1, 7)];
+    expect(rankTrending(buckets, rankOpts())).toEqual(["c2", "c3", "c1"]);
   });
 });
