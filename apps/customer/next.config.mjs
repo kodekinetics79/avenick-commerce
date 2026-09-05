@@ -1,6 +1,6 @@
 import createNextIntlPlugin from "next-intl/plugin";
 import { securityHeadersRoute } from "@avenick/config/security-headers";
-import { objectStorageRemotePatterns } from "@avenick/config/image-hosts";
+import { imageOriginsFrom, objectStorageRemotePatterns } from "@avenick/config/image-hosts";
 import { PrismaPlugin } from "@prisma/nextjs-monorepo-workaround-plugin";
 
 const spatialCommerceCsp = [
@@ -47,6 +47,25 @@ const spatialCommerceHeaders = [
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
+/**
+ * The image hosts this portal serves, declared ONCE.
+ *
+ * next/image needs them as remotePatterns; the Content-Security-Policy needs
+ * them as `img-src` origins. When those were two hand-kept lists they drifted,
+ * and the browser blocked images the config had already allowed. `imageOriginsFrom`
+ * derives the second from the first so they cannot disagree again.
+ */
+const remoteImagePatterns = [
+  // Uploaded media (S3/MinIO/R2), resolved from env at build time.
+  ...objectStorageRemotePatterns(),
+  { protocol: "https", hostname: "*.avenick.com", pathname: "/**" },
+  { protocol: "http", hostname: "localhost", pathname: "/**" },
+  { protocol: "https", hostname: "placehold.co", pathname: "/**" },
+  // Official manufacturer media used by the isolated, source-attributed
+  // demo enrichment. Commercial price/stock never comes from this host.
+  { protocol: "https", hostname: "www.mennekes.org", pathname: "/fileadmin/products_media/**" },
+];
+
 const nextConfig = {
   transpilePackages: ["@avenick/ui", "@avenick/utils", "@avenick/auth", "@avenick/types", "@avenick/database", "@avenick/observability"],
   // instrumentationHook: runs src/instrumentation.ts once at startup (OTel +
@@ -60,16 +79,7 @@ const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
   images: {
     unoptimized: true,
-    remotePatterns: [
-      // Uploaded media (S3/MinIO/R2), resolved from env at build time.
-      ...objectStorageRemotePatterns(),
-      { protocol: "https", hostname: "*.avenick.com", pathname: "/**" },
-      { protocol: "http", hostname: "localhost", pathname: "/**" },
-      { protocol: "https", hostname: "placehold.co", pathname: "/**" },
-      // Official manufacturer media used by the isolated, source-attributed
-      // demo enrichment. Commercial price/stock never comes from this host.
-      { protocol: "https", hostname: "www.mennekes.org", pathname: "/fileadmin/products_media/**" },
-    ],
+    remotePatterns: remoteImagePatterns,
   },
   // Baseline security headers for every route. Policy lives in
   // @avenick/config/security-headers so all three portals stay in step.
@@ -77,7 +87,7 @@ const nextConfig = {
     const backend = process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
     return [
       securityHeadersRoute({
-        imgSrc: ["https://www.mennekes.org"],
+        imgSrc: imageOriginsFrom(remoteImagePatterns, { isDev: process.env.NODE_ENV !== "production" }),
         connectSrc: backend ? [backend] : [],
         isDev: process.env.NODE_ENV !== "production",
       }),

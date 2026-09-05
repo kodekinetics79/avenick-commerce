@@ -58,7 +58,9 @@ export function securityHeaders({ imgSrc = [], connectSrc = [], isDev = false } 
     // typography needs and no further. Self-hosting the faces would remove the
     // exception entirely and is the better end state.
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    `img-src 'self' data: blob: ${[...BASE_IMG_SRC, ...imgSrc].join(" ")}`,
+    // Deduplicated: a portal derives its origins from its own remotePatterns
+    // (see imageOriginsFrom), which legitimately repeat the base entries.
+    `img-src 'self' data: blob: ${[...new Set([...BASE_IMG_SRC, ...imgSrc])].join(" ")}`,
     "font-src 'self' data: https://fonts.gstatic.com",
     `connect-src ${["'self'", ...(isDev ? ["ws:", "http://localhost:*"] : []), ...connectSrc].join(" ")}`,
     // No plugin content, no embedding, no nested browsing contexts.
