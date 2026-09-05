@@ -676,6 +676,7 @@ model Product {
   commercialMetadata    ProductCommercialMetadata?
   externalProductLinks  ExternalProductLink[]
   availabilitySnapshots AvailabilitySnapshot[]
+  viewSignals           ProductViewSignal[]
 
   @@index([sellerId, status])
   @@index([categoryId])
@@ -1919,4 +1920,57 @@ model ShippingRate {
 
   /// The lookup the quote performs: zone + currency, ordered by lower bound.
   @@index([zoneId, currency, isActive, minWeightKg])
+}
+
+/// One UTC day's view signal for ONE product — the only input "Trending" has.
+///
+/// A BUCKET, NOT AN EVENT LOG. The question this table exists to answer is
+/// "what is being looked at lately", which needs a count per product per day
+/// and nothing else. The alternatives were weighed and rejected:
+///
+///  · One row per view is the obvious shape and the wrong one. It is unbounded
+///    in TRAFFIC rather than in catalogue: 100k views a day is 36m rows a year
+///    for a table whose every reader immediately collapses it back to a count.
+///    It would need a retention job on day one, and the retention job is the
+///    thing that gets forgotten.
+///  · Rolling counters on Product (views7d, views30d) would be an ALTER of the
+///    busiest table in the schema, they cannot answer a window they were not
+///    built for, and they need a scheduled decay job that, if it stops running,
+///    leaves the storefront quietly reporting last month's attention as today's.
+///  · A day bucket is bounded by the CATALOGUE, not by traffic: at most one row
+///    per product per day it was actually viewed. 385 products viewed daily is
+///    ~385 rows/day, ~140k rows/year, single-digit MB with indexes — and a
+///    product viewed a million times that day is still that one row. It also
+///    keeps history, so a window is a predicate rather than a schema change.
+///
+/// NO PERSONAL DATA. There is no user id, no IP, no user-agent, no session id
+/// and no free text on this table — a row says "this product was looked at N
+/// times on this date" and cannot be attributed to a person even by whoever
+/// holds the database. De-duplication happens at the ingest edge, in the
+/// ephemeral rate-limit store, and the discriminator it uses is a salted hash
+/// that is never written here. See services/product-signals.ts.
+model ProductViewSignal {
+  id         String   @id @default(cuid())
+  productId  String
+  /// The UTC calendar day this bucket counts, as a DATE. Not a timestamp: the
+  /// bucket IS the day, and a time component would let two rows exist for one
+  /// day and silently split every count that reads them.
+  bucketDate DateTime @db.Date
+  /// Views accepted for this product on this day, AFTER de-duplication — at
+  /// most one per discriminator per product per day while the shared fence
+  /// store is available, degrading to per-instance damping when it is not. It
+  /// is a measure of attention, not an audited counter, and nothing financial
+  /// reads it.
+  views      Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  /// The upsert target. Concurrent views of the same product on the same day
+  /// must contend on one row and increment it, never insert a second bucket.
+  @@unique([productId, bucketDate])
+  /// The read: every bucket from the window start onward. bucketDate leads
+  /// because the window is the filter; the unique index above cannot serve it.
+  @@index([bucketDate, productId])
 }

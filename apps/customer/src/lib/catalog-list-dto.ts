@@ -17,6 +17,12 @@ export type CatalogListSource = {
   category: { nameEn: string; nameAr: string; slug: string };
   brand: { nameEn: string; nameAr: string | null } | null;
   seller: { businessNameEn: string; businessNameAr: string | null; tier: string; rating: unknown };
+  /**
+   * The buyer-review aggregate listProducts attaches. Null means NOT YET
+   * REVIEWED, which the tile renders differently from a zero score — five empty
+   * stars and "nobody has said anything yet" are different claims.
+   */
+  rating?: { average: number; count: number } | null;
 };
 
 /** Explicit storefront projection: no operational inventory, issues, health, or internal timestamps. */
@@ -63,6 +69,11 @@ export function toCatalogListDto(source: CatalogListSource, channel: "B2C" | "B2
     : bandsInCardCurrency(source.prices) > 1;
   return {
     id: source.id,
+    // Passed through deliberately. The catalogue can now FILTER and SORT by
+    // rating, and the DTO dropping it meant /products could rank tiles by a
+    // score it then refused to show them — the home page only had stars because
+    // it re-attached this by hand after calling here.
+    rating: source.rating ?? null,
     sellerId: source.sellerId,
     sku: source.sku,
     slug: source.slug,

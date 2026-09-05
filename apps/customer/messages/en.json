@@ -490,9 +490,17 @@
     "productsCount": "{count, plural, =0 {No products} one {1 product} other {# products}}",
     "forQuery": "for “{query}”",
     "showingAll": "Showing every published listing.",
+    "showingAllFiltered": "Showing every listing that matches these filters.",
     "showingPage": "Showing {shown} of {total} · page {page} of {pages}",
     "loadingProducts": "Loading products",
     "sort": "Sort",
+    "sortOptions": {
+      "newest": "Newest first",
+      "nameAsc": "Name A–Z",
+      "rating": "Highest rated",
+      "moqAsc": "Lowest minimum order",
+      "ratingNote": "Ranked by average buyer rating, so only products carrying reviews appear."
+    },
     "filters": {
       "label": "Filters",
       "categories": "Categories",
@@ -502,7 +510,24 @@
       "allProducts": "All products",
       "applied": "Applied filters",
       "remove": "Remove filter: {label}",
-      "clear": "Clear all"
+      "clear": "Clear all",
+      "brands": "Brands",
+      "anyBrand": "Any brand",
+      "allBrands": "See all brands",
+      "brandsShown": "The {shown} most-listed of {total} brands with listings.",
+      "rating": "Buyer rating",
+      "anyRating": "Any rating",
+      "ratingAtLeast": "{rating} and up",
+      "ratingNote": "A rating is the average of buyer reviews. A product nobody has reviewed has no average, so this filter also excludes every unreviewed listing.",
+      "moq": "Minimum order",
+      "anyMoq": "Any minimum order",
+      "moqSingle": "Single units",
+      "moqUpTo": "{count, plural, one {Up to 1 unit} other {Up to # units}}",
+      "moqOver": "More than {count} units",
+      "moqAtLeast": "{count, plural, one {1 unit or more} other {# units or more}}",
+      "chipCategory": "Category: {value}",
+      "chipBrand": "Brand: {value}",
+      "chipRating": "Rated {rating}+"
     },
     "pagination": {
       "label": "Pagination",
@@ -518,10 +543,13 @@
       },
       "filters": {
         "headline": "No products match these filters.",
-        "body": "Clear a filter to widen the search — the catalogue may still carry what you need."
+        "body": "Clear a filter to widen the search — the catalogue may still carry what you need.",
+        "reviewedOnly": "Only a product a buyer has reviewed carries a rating, so a rating filter — or the “Highest rated” sort — also removes every unreviewed listing. Relaxing that one is usually the widest step."
       },
       "browseAll": "Browse all products",
-      "requestQuote": "Request a quote"
+      "requestQuote": "Request a quote",
+      "clearFilters": "Clear filters",
+      "relax": "Relax one of these"
     },
     "refused": {
       "eyebrow": "Search not run",
@@ -590,5 +618,44 @@
       "OUT_OF_STOCK": "Out of stock",
       "UNCONFIRMED": "Availability unconfirmed"
     }
+  },
+  "discovery": {
+    "eyebrow": "Discovery",
+    "launcher": "Discovery",
+    "close": "Close the discovery panel",
+    "heading": {
+      "fromYourBrowsing": "Built from what you have opened in this browser",
+      "fromCatalogue": "Built from catalogue activity"
+    },
+    "basis": {
+      "views": "{count, plural, one {1 viewed} other {# viewed}}",
+      "local": "This list is held in this browser only. It is never sent to Avenick, it is not tied to an account, and clearing it below removes it."
+    },
+    "blocks": {
+      "recentlyViewed": "Recently viewed",
+      "moreIn": "More in {category}",
+      "moreFrom": "More from {brand}",
+      "resumeSearch": "Pick up your last search",
+      "trending": "Moving in the catalogue"
+    },
+    "reason": {
+      "recentViews": "{count, plural, one {The one product you have opened in this browser.} other {From the # products you have opened in this browser — most recent first.}}",
+      "categoryBrowsed": "Because you opened {category} {count, plural, one {once} other {# times}}.",
+      "categoryViewed": "Because {count, plural, one {1 product you opened is} other {# products you opened are}} filed under {category}.",
+      "categoryBoth": "Because you opened {category} {browseCount, plural, one {once} other {# times}} and viewed {viewCount, plural, one {1 product} other {# products}} in it.",
+      "brandViewed": "Because {count, plural, one {1 product you opened is} other {# products you opened are}} {brand}.",
+      "lastSearch": "You searched for “{term}”.",
+      "catalogueActivity": "Ranked from catalogue activity, not from your browsing."
+    },
+    "actions": {
+      "browseCategory": "Browse {category}",
+      "inStockOnly": "In stock only",
+      "browseBrand": "See {brand} products",
+      "runSearch": "Search “{term}” again",
+      "clear": "Clear this history",
+      "hide": "Hide for 30 days"
+    },
+    "needsMoreSignal": "Not enough here yet to name a category or a brand. Open a few more listings and this panel will start pointing at what you keep returning to.",
+    "noSignal": "Nothing opened in this browser yet, so there is nothing of your own to show."
   }
 }

@@ -1,9 +1,26 @@
+import { Suspense } from "react";
 import { ScrollProgress } from "@avenick/ui";
 import { Header } from "./header";
 import { Footer } from "./footer";
 import { SkipLink } from "./skip-link";
+import { DiscoveryPanel, type TrendingProduct } from "@/components/discovery";
 
-export function MainLayout({ children }: { children: React.ReactNode }) {
+export interface MainLayoutProps {
+  children: React.ReactNode;
+  /**
+   * Rows from getTrendingProducts() in packages/database/src/services/product-signals.ts.
+   *
+   * THIS IS A PROP RATHER THAN A FETCH, and the reason is structural: MainLayout
+   * is rendered from client pages too — /products/[slug], /cart, /checkout and
+   * /wishlist all carry "use client" — so it cannot be an async server
+   * component and cannot read the catalogue itself. A server page that has the
+   * rows passes them down; every other route renders the panel with no trending
+   * block, which the panel treats as the normal case rather than an error.
+   */
+  discoveryTrending?: TrendingProduct[];
+}
+
+export function MainLayout({ children, discoveryTrending }: MainLayoutProps) {
   return (
     <div className="min-h-screen flex flex-col">
       {/*
@@ -29,6 +46,22 @@ export function MainLayout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
       <Footer />
+
+      {/*
+        The discovery panel — a recommender driven by this browser's own trail,
+        not an assistant and not a model. It renders NOTHING at all when it has
+        nothing to say, and nothing before localStorage has been read, so it
+        cannot shift the page or mismatch on hydration.
+
+        The Suspense boundary is required, not decorative: the panel reads
+        useSearchParams() to see which category or search a visitor is on, and an
+        unbounded useSearchParams() forces every statically prerendered route in
+        this app to bail out. Same treatment <NavigationProgress> gets in
+        app/layout.tsx, for the same reason.
+      */}
+      <Suspense fallback={null}>
+        <DiscoveryPanel trending={discoveryTrending} />
+      </Suspense>
     </div>
   );
 }

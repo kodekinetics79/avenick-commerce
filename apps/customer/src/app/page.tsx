@@ -19,7 +19,7 @@ import { ProductGrid } from "@/components/products/product-grid";
 import { categoryIcon } from "@/components/products/category-icon";
 import { fetchBackendJson } from "@/lib/backend";
 import { categoryLabel, getPublicCategories, type PublicCategory } from "@/lib/catalog-categories";
-import { getStorefrontSections, listBrandsWithLogos } from "@avenick/database";
+import { getStorefrontSections, getTrendingProducts, listBrandsWithLogos } from "@avenick/database";
 import { toCatalogListDto } from "@/lib/catalog-list-dto";
 import { partitionHomeProducts } from "@/lib/home-catalog";
 import { productCardPricePresentation, storefrontProductHref } from "@/lib/product-card-commerce";
@@ -41,9 +41,13 @@ export const dynamic = "force-dynamic";
  */
 async function getHomeRails() {
   try {
-    const [sections, brands] = await Promise.all([
+    const [sections, brands, trending] = await Promise.all([
       getStorefrontSections({ limit: 10 }),
       listBrandsWithLogos({ limit: 12 }),
+      // Legitimately empty until the view signal has something to say. The
+      // panel treats that as the normal case and shows the block only when it
+      // has rows — nothing here invents a trend from an empty table.
+      getTrendingProducts({ limit: 6 }),
     ]);
     const shape = (rows: Array<Record<string, any>>) =>
       rows.map((row) => ({ ...toCatalogListDto(row as any, "B2C"), rating: row["rating"] ?? null }));
@@ -52,11 +56,12 @@ async function getHomeRails() {
       newArrivals: shape(sections.newArrivals),
       topRated: shape(sections.topRated),
       featured: shape(sections.featured),
+      trending: shape(trending),
       brands,
     };
   } catch (error) {
     console.error("Unable to load storefront rails", error);
-    return { bestSellers: [], newArrivals: [], topRated: [], featured: [], brands: [] };
+    return { bestSellers: [], newArrivals: [], topRated: [], featured: [], trending: [], brands: [] };
   }
 }
 
@@ -156,6 +161,7 @@ export default async function HomePage() {
     newArrivals: rails.newArrivals.map(toCard),
     featured: rails.featured.map(toCard),
     topRated: rails.topRated.map(toCard),
+    trending: rails.trending.map(toCard),
   };
 
   const specimenName = specimen
@@ -200,7 +206,7 @@ export default async function HomePage() {
         : tp("outOfStock");
 
   return (
-    <MainLayout>
+    <MainLayout discoveryTrending={railFor.trending}>
       {/*
         No <AmbientField> here. The single permitted ambient gradient in the
         product is a fixed, full-viewport layer mounted exactly once in
