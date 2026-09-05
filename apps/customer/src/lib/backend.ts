@@ -97,7 +97,21 @@ export async function fetchBackendJsonWithCookies<T>(
   init?: RequestInit,
   cookieHeader?: string,
 ): Promise<T> {
-  const url = backendUrl(path, incomingBaseUrl());
+  // The CONFIGURED origin wins, and the incoming one is consulted only if there
+  // is none. This used to read `backendUrl(path, incomingBaseUrl())`, and an
+  // argument is evaluated before the function that would have ignored it: a
+  // request arriving with a Host nobody listed threw here even when the origin
+  // to call was configured and known. On Render that shows up as
+  // "Unable to load catalog categories / Incoming application origin is not
+  // trusted" for the platform's own internal probes, and it is waiting for the
+  // first custom domain: add www.avenick.com, forget to add it to the trusted
+  // list, and every server-side read on it fails silently — the category
+  // navigation simply renders as nothing.
+  //
+  // The security property is unchanged: an untrusted incoming origin is still
+  // never used as a base. It is now only REQUIRED when nothing else can answer.
+  const configured = getBackendBaseUrl();
+  const url = configured ? backendUrl(path, configured) : backendUrl(path, incomingBaseUrl());
   if (!URL.canParse(url)) {
     throw new Error("Unable to resolve the current application origin");
   }
