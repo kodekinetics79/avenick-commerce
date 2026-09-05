@@ -626,9 +626,25 @@ export function ProductCard({
             picks up colour fringing, and a rotated cast shadow stops agreeing
             with the single overhead light every other surface is lit by — which
             is the invariant that makes this system free in Arabic. */}
+        {/*
+          PRIMARY, not accent. The accent fill measures 7.28:1 against its white
+          label and the primary measures 5.08:1, so this change did not fix a
+          contrast failure — there was not one. It fixed a COHERENCE failure: a
+          blue-teal action on a green storefront reads as belonging to a
+          different product, and an owner looking at a wall of them called it
+          unreadable, which is what "wrong colour" feels like from the outside.
+
+          It does put the brand fill on every tile, which the previous comment
+          here objected to on the grounds that a grid should not spend the page's
+          one commit colour twenty-four times. That objection is real and it is
+          overruled deliberately: this is the buyer's ONLY action on a tile, the
+          storefront is a shop rather than a register, and 5.08:1 is comfortably
+          AA. The rule it bends is a house preference; the thing it buys is a
+          page that looks like one product.
+        */}
         <Button
           type="button"
-          variant="accent"
+          variant="primary"
           size="md"
           className="w-full"
           onClick={handleAddToCart}

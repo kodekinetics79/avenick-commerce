@@ -280,7 +280,7 @@ export function Header() {
           <Link
             href="/"
             aria-label={brand}
-            className="u-focus flex shrink-0 items-center gap-2.5 rounded-nested px-1 py-1"
+            className="group u-focus flex shrink-0 items-center gap-2.5 rounded-nested px-1 py-1"
           >
             {/*
               The monogram is the configured name's first letter, and it is INK
@@ -290,7 +290,7 @@ export function Header() {
             */}
             <span
               aria-hidden="true"
-              className="grid h-8 w-8 place-items-center rounded-nested bg-ink-1 text-ui font-semibold text-ink-inv shadow-elev-2"
+              className="u-mark grid h-8 w-8 place-items-center rounded-nested bg-ink-1 text-ui font-semibold text-ink-inv"
             >
               {brand.charAt(0).toUpperCase()}
             </span>
