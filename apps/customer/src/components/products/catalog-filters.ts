@@ -248,7 +248,14 @@ export function catalogApiQuery(
   return new URLSearchParams({
     page: String(context.page),
     limit: String(context.limit),
-    ...(context.b2b ? { b2b: "true" } : { b2c: "true" }),
+    // B2B is a request for a channel and is checked against the session.
+    // The public side sends NO channel parameter at all: `b2c=true` means
+    // "only products flagged isB2CEnabled", the route now honours it, and not
+    // one product in this catalogue carries that flag — so the main catalogue
+    // page asked for the empty set and got it. Omitted, the route answers with
+    // every publicly discoverable product and the DTO withholds B2B pricing,
+    // which is what a public catalogue means.
+    ...(context.b2b ? { b2b: "true" } : {}),
     ...(context.currency ? { currency: context.currency } : {}),
     ...(context.search ? { search: context.search } : {}),
     ...(filters.category ? { categorySlug: filters.category } : {}),
