@@ -11,9 +11,21 @@ const spatialCommerceCsp = [
   "form-action 'self'",
   "script-src 'self' 'unsafe-inline'",
   "script-src-attr 'none'",
-  "style-src 'self' 'unsafe-inline'",
+  // fonts.googleapis.com serves the @font-face STYLESHEET and fonts.gstatic.com
+  // serves the font FILES it points at — two origins, two directives, and both
+  // are required. Without them this policy silently blocked every typeface the
+  // design system declares (Inter, IBM Plex Sans Arabic, IBM Plex Mono, Source
+  // Serif 4, Noto Kufi/Naskh) and the product rendered in system fallbacks,
+  // which is a whole visual identity lost to a header nobody was looking at.
+  // The failure is invisible in a screenshot — a fallback face is still a face
+  // — and shows up only as one CSP violation in the console.
+  //
+  // These two hosts are allowed for stylesheets and font files ONLY. They are
+  // deliberately absent from script-src and connect-src, so this widens the
+  // policy exactly as far as typography needs and no further.
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https://*.avenick.com https://placehold.co",
-  "font-src 'self' data:",
+  "font-src 'self' data: https://fonts.gstatic.com",
   "connect-src 'self'",
   "worker-src 'none'",
   "child-src 'none'",

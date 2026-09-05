@@ -39,9 +39,27 @@ export function securityHeaders({ imgSrc = [], connectSrc = [], isDev = false } 
     "default-src 'self'",
     `script-src ${scriptSrc.join(" ")}`,
     // Tailwind and styled-jsx emit inline style attributes.
-    "style-src 'self' 'unsafe-inline'",
+    //
+    // fonts.googleapis.com serves the @font-face STYLESHEET; fonts.gstatic.com
+    // serves the font FILES it points at. Two hosts, two directives, and both
+    // are needed — allowing only the first fetches the rules and then blocks
+    // every file they reference, which is the most confusing half-fix here
+    // because the stylesheet loads and not one glyph changes.
+    //
+    // Without these, this policy silently blocked every typeface the design
+    // system declares (Inter, IBM Plex Sans Arabic, IBM Plex Mono, Source Serif
+    // 4, Noto Kufi and Noto Naskh) across ALL THREE portals, and the product
+    // rendered in system fallbacks for as long as the header has existed. It is
+    // invisible in a screenshot — a fallback face is still a face — and shows
+    // up only as one CSP violation in a console nobody has open.
+    //
+    // Scoped to stylesheets and font files. These hosts are deliberately absent
+    // from script-src and connect-src, so the policy widens exactly as far as
+    // typography needs and no further. Self-hosting the faces would remove the
+    // exception entirely and is the better end state.
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     `img-src 'self' data: blob: ${[...BASE_IMG_SRC, ...imgSrc].join(" ")}`,
-    "font-src 'self' data:",
+    "font-src 'self' data: https://fonts.gstatic.com",
     `connect-src ${["'self'", ...(isDev ? ["ws:", "http://localhost:*"] : []), ...connectSrc].join(" ")}`,
     // No plugin content, no embedding, no nested browsing contexts.
     "object-src 'none'",
