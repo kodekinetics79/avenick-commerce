@@ -246,7 +246,7 @@ export default async function HomePage() {
           />
 
           <div
-            className="u-sheen relative min-w-0 overflow-hidden rounded-lifted p-8 sm:p-12 lg:p-14"
+            className="u-sheen u-drift relative min-w-0 overflow-hidden rounded-lifted p-8 sm:p-12 lg:p-14"
             style={{
               backgroundImage:
                 "linear-gradient(107deg, hsl(150 62% 30%) 22%, hsl(150 92% 20%) 99%)",
@@ -304,7 +304,7 @@ export default async function HomePage() {
                         its primary action. `secondary` already renders a light
                         fill with dark ink and carries the key edge, so it is the
                         existing variant rather than a bespoke button. */}
-                    <Button variant="secondary" size="lg" asChild>
+                    <Button variant="secondary" size="lg" className="u-shine" asChild>
                       <Link href="/products">
                         {t("allProducts")} <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
                       </Link>
@@ -739,7 +739,27 @@ function CategoryRail({
   if (categories.length === 0) return null;
   return (
     <nav aria-label={label} className="hidden lg:block">
-      <Surface rung={3} className="sticky top-24 overflow-hidden">
+      {/*
+        A FLOATING RAIL — raised to rung 4, and NOT glass.
+        
+        I tried glass here and took it back out after looking at it scrolled.
+        The rail lives inside the hero's grid, so its `sticky` has a containing
+        block only as tall as the hero: it leaves with the hero rather than
+        riding over the product grids. Nothing ever passes behind it, so a
+        backdrop-filter had nothing to filter — it was a lighter box costing a
+        compositing layer, which is exactly the case this file argues against
+        for the product tiles.
+
+        Making it genuinely persist is possible and it is a LAYOUT change, not a
+        finish: every section below would have to move into a second column so
+        the rail has something tall to stick within. That is the version where
+        glass earns itself. It is a decision about the page, not about the panel,
+        so it is not made here.
+
+        What it keeps is the float: rung 4 elevation, the fresnel shoulder, and
+        rows that press in when you point at them.
+      */}
+      <Surface rung={4} className="sticky top-24 overflow-hidden">
         <p className="u-meta border-b border-hairline px-3.5 py-2.5 font-medium text-ink-2">{label}</p>
         <ul className="py-1">
           {categories.map((category) => {
@@ -748,7 +768,7 @@ function CategoryRail({
               <li key={category.slug}>
                 <Link
                   href={`/products?category=${encodeURIComponent(category.slug)}`}
-                  className="u-focus group flex items-center gap-2.5 rounded-nested px-3.5 py-2 text-start transition-[background-color,padding-inline-start] duration-hover ease-standard hover:bg-surface-2 hover:ps-4"
+                  className="u-focus group flex items-center gap-2.5 rounded-nested px-3.5 py-2 text-start transition-[background-color,padding-inline-start] duration-hover ease-standard hover:bg-surface-2 hover:ps-4 active:bg-surface-1 active:shadow-elev-1"
                 >
                   <Icon
                     className="h-4 w-4 shrink-0 text-ink-3 transition-colors duration-hover ease-standard group-hover:text-primary-ink"

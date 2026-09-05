@@ -913,6 +913,54 @@ p, .u-lead, .u-body { text-wrap: pretty; }
   .u-arrow:hover svg:last-child { transform: none; }
 }
 
+/* ─── GRADIENT DRIFT ──────────────────────────────────────────────────────
+   The hero's fill is oversized and its position crawls, so the light across the
+   panel changes without anything on it moving. 24s, and the travel is small
+   enough that the two stops never leave the positions their contrast was
+   measured at — the copy sits on the darker half throughout.
+
+   Cross-browser on purpose. Scroll-driven parallax would be the fashionable
+   answer and `animation-timeline` is unsupported in Firefox, which is the
+   browser this was reviewed in; an effect that exists for some visitors and not
+   others is not a design decision, it is two designs. */
+@keyframes u-drift {
+  0%, 100% { background-position: 0% 50%; }
+  50%      { background-position: 100% 50%; }
+}
+.u-drift {
+  background-size: 160% 160%;
+  animation: u-drift 24s var(--ease-standard) infinite;
+}
+
+/* ─── SHINE ───────────────────────────────────────────────────────────────
+   A light pass that crosses a filled control once on hover — the reflection a
+   physical key catches when a hand moves over it. It runs ONCE per hover rather
+   than looping: a control that shines forever is advertising, a control that
+   shines when you approach it is responding.
+
+   `--dir` again, so the pass crosses the way the language reads. */
+@keyframes u-shine {
+  from { transform: translateX(calc(-140% * var(--dir, 1))); }
+  to   { transform: translateX(calc( 140% * var(--dir, 1))); }
+}
+.u-shine { position: relative; overflow: hidden; }
+.u-shine::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inline-size: 45%;
+  inset-inline-start: 0;
+  background: linear-gradient(100deg, transparent, hsl(var(--rim) / .55), transparent);
+  transform: translateX(calc(-140% * var(--dir, 1)));
+  pointer-events: none;
+}
+.u-shine:hover::after { animation: u-shine .7s var(--ease-out) 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .u-drift { animation: none; background-size: 100% 100%; }
+  .u-shine:hover::after { animation: none; }
+}
+
 /* ─── LOGO PLATE ──────────────────────────────────────────────────────────
    A logo wall reads as a wall when the marks are one tone and resolve to colour
    under the cursor. Desaturated at rest so nine different brand palettes do not
