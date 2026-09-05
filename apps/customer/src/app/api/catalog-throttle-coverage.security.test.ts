@@ -58,3 +58,48 @@ describe("public catalogue reads are throttled", () => {
     expect(helper).toContain("clientIpFrom");
   });
 });
+
+/**
+ * A throttle is keyed to the CALLER'S address. When a page builds itself by
+ * fetching the app's own HTTP route, the caller is the app: every render in the
+ * world lands in one bucket, and the surface it feeds — the category menu, the
+ * brand filter — empties for everybody once that bucket fills. CI found this as
+ * `/api/categories answered HTTP 429` on a suite that visits a dozen pages.
+ *
+ * Pages read the catalogue directly. The routes stay for real clients.
+ */
+describe("no page builds itself by calling the app's own throttled route", () => {
+  const APP_ROOT = join(API_ROOT, "..");
+
+  function sourceFiles(dir: string): string[] {
+    return readdirSync(dir).flatMap((entry) => {
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) return entry === "api" ? [] : sourceFiles(full);
+      return /\.tsx?$/.test(entry) ? [full] : [];
+    });
+  }
+
+  const offenders = sourceFiles(APP_ROOT)
+    .filter((file) => {
+      const source = readFileSync(file, "utf8");
+      if (!source.includes("fetchBackendJson")) return false;
+      return /"\/api\/(products|categories|brands|signals|cart)/.test(source);
+    })
+    .map((file) => file.slice(APP_ROOT.length));
+
+  it("finds none", () => {
+    expect(
+      offenders,
+      "these pages fetch a throttled route from the server, so every render shares one rate-limit bucket",
+    ).toEqual([]);
+  });
+
+  it("the category tree and the brand list are readable without HTTP", () => {
+    expect(readFileSync(join(API_ROOT, "..", "..", "lib", "public-category-tree.ts"), "utf8")).toContain(
+      "export async function readPublicCategoryTree",
+    );
+    expect(readFileSync(join(API_ROOT, "..", "..", "lib", "public-brands.ts"), "utf8")).toContain(
+      "export async function readPublicBrands",
+    );
+  });
+});

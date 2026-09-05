@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { db } from "@avenick/database";
+import { readPublicBrands } from "@/lib/public-brands";
 import { log } from "@avenick/observability";
 import { catalogThrottle } from "@/lib/catalog-throttle";
 
@@ -15,14 +15,8 @@ export async function GET(req: NextRequest) {
     const throttled = await catalogThrottle(req.headers);
     if (throttled) return throttled;
 
-    const brands = await db.brand.findMany({
-      where: { isActive: true },
-      include: { _count: { select: { products: { where: { status: "ACTIVE", deletedAt: null } } } } },
-      orderBy: { nameEn: "asc" },
-    });
-
     return NextResponse.json(
-      { success: true, data: brands },
+      { success: true, data: await readPublicBrands() },
       // Public, slow-changing catalog data — cache at the edge with background
       // revalidation. Brands change rarely, so a longer window is fine.
       { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" } },
