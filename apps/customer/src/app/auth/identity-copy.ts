@@ -67,25 +67,37 @@ export function resetTtlLabel(locale: IdentityLocale, ttlSeconds: number, englis
 }
 
 /**
- * The three surfaces an account actually reaches on this deployment, with the
- * route each one IS.
+ * What an account reaches, stated as what the system RECORDS.
  *
- * Printing the route is not decoration and it is not developer-facing whimsy: it
- * is the McMaster-Carr move the direction names — density of TRUE fact where a
- * template would put a stock illustration. It is checkable, it is the same in
- * both languages, and it is the one thing on a sign-in page that could not have
- * been written by a marketing team.
+ * WHAT THIS USED TO BE, AND WHY IT IS GONE. Each row carried its route — the
+ * literal string "/account/orders" — set in the mono face in its own column,
+ * under the line "Every surface named here exists on this deployment". That was
+ * defended as density of true fact, and the fact was true. It was also written
+ * for a reviewer. A procurement manager signing in does not read a URL as
+ * evidence; they read it as an unfinished page, and "exists on this deployment"
+ * is a sentence about a BUILD, addressed to whoever was auditing the build. The
+ * one screen that is a buyer's first impression of the platform was spending its
+ * most valuable column on internal documentation.
+ *
+ * What replaces it has to earn the same trust without the URL, so each row now
+ * names the record the account actually holds and — where it matters — the limit
+ * on it. `basis` is that limit: it is the sentence a competitor's login page
+ * cannot copy, because saying "the seller records this status, we do not
+ * estimate it" costs something to say.
  *
  * Nothing here promises a delivery window, a response time, a discount or a
  * reply, because the platform measures and stores none of those. The support
  * line is deliberately narrow: a SupportTicket row carries a subject, a
  * category, a description and a status and NOTHING ELSE — there is no reply or
- * message column in schema.prisma.
+ * message column in schema.prisma. The company row is narrow for the same
+ * reason: payment terms are whatever an approved company account records, and
+ * there is no self-service credit application anywhere in this product.
  */
 export interface AccountSurface {
   readonly label: string;
   readonly body: string;
-  readonly route: string;
+  /** The limit on the row above it. A fact, never a reassurance. */
+  readonly basis: string;
 }
 
 interface IdentityDictionary {
@@ -111,6 +123,48 @@ interface IdentityDictionary {
     readonly genericError: string;
     readonly errorInvalid: string;
     readonly errorThrottled: string;
+    /* The company door. One form, not two — see the note on <CompanyDoor>. */
+    readonly companyTitle: string;
+    readonly companyBody: string;
+    readonly companyAction: string;
+    readonly companyRegister: string;
+    /** Shown once the validated callbackUrl is a buyer-workspace path. */
+    readonly destinationB2B: string;
+  };
+  readonly invite: {
+    readonly eyebrow: string;
+    readonly title: string;
+    readonly subtitle: (company: string) => string;
+    readonly subtitleUnusable: string;
+    readonly note: (until: string) => string;
+    readonly joining: string;
+    readonly companyLabel: string;
+    readonly roleLabel: string;
+    readonly roleSetByAdmin: string;
+    readonly rulesTitle: string;
+    readonly ruleLength: string;
+    readonly ruleUpper: string;
+    readonly ruleDigit: string;
+    readonly formLabel: string;
+    readonly password: string;
+    readonly passwordHint: string;
+    readonly confirm: string;
+    readonly confirmHint: string;
+    readonly mismatch: string;
+    readonly weak: string;
+    readonly submit: string;
+    readonly done: (company: string) => string;
+    readonly signIn: string;
+    readonly missingToken: string;
+    readonly deadToken: string;
+    readonly usedToken: string;
+    readonly noSecret: string;
+    readonly askAgain: string;
+    readonly backTo: string;
+    readonly genericError: string;
+    readonly roleLabels: Readonly<Record<string, string>>;
+    readonly roleDescriptions: Readonly<Record<string, string>>;
+    readonly roleUnknown: string;
   };
   readonly register: {
     readonly eyebrow: string;
@@ -196,23 +250,28 @@ const EN: IdentityDictionary = {
   brand: {
     eyebrow: "Account",
     ledger: "What the account reaches",
-    provenance: "Every surface named here exists on this deployment",
+    provenance: "Every line above is a record this account holds — never an estimate, a delivery window or a response time",
   },
   surfaces: [
     {
       label: "Orders",
       body: "Every order placed on this account, with the status currently recorded against it.",
-      route: "/account/orders",
+      basis: "The status is the one the seller has recorded. It is never an estimate.",
     },
     {
       label: "Returns",
-      body: "Request a return on a delivered order, then follow its review.",
-      route: "/returns",
+      body: "Request a return on a delivered order, then follow the seller's review of it.",
+      basis: "A return is reviewed before a refund is raised. No outcome is promised up front.",
     },
     {
       label: "Support",
       body: "Open a ticket and follow the status recorded against it.",
-      route: "/support",
+      basis: "A ticket carries a subject, a category and a status. No reply time is promised.",
+    },
+    {
+      label: "Company purchasing",
+      body: "Purchase orders, approval thresholds and per-buyer spend limits, on a company account.",
+      basis: "Opens once the company's commercial registration has been verified.",
     },
   ],
   login: {
@@ -240,6 +299,76 @@ const EN: IdentityDictionary = {
     // build has the same two outcomes in its own language; see localiseSignInError.
     errorInvalid: "Invalid email or password.",
     errorThrottled: "Too many sign-in attempts. Please wait a few minutes and try again.",
+    companyTitle: "Buying for a company?",
+    // States the two things a company user cannot work out from this page: that
+    // it IS their door, and that the workspace is gated on verification rather
+    // than on some second credential they have not been given.
+    companyBody:
+      "Company accounts sign in here, with the same email and password. The buyer workspace opens once the company's registration has been verified.",
+    companyAction: "Sign in to the buyer workspace",
+    companyRegister: "Register a company",
+    destinationB2B: "After signing in you will be taken to the buyer workspace.",
+  },
+  invite: {
+    eyebrow: "Team invitation",
+    title: "Set your password",
+    subtitle: (company) => `You have been invited to buy on behalf of ${company}. Choose a password to finish joining.`,
+    subtitleUnusable: "This page needs a working invitation link.",
+    note: (until) => `This invitation link works until ${until}.`,
+    joining: "You are joining",
+    companyLabel: "Company",
+    roleLabel: "Role",
+    roleSetByAdmin:
+      "Your role and any spend limit were set by the administrator who invited you, and are not changed here.",
+    // The rule is stated BEFORE the boxes, not after a rejection. It is also the
+    // rule the server enforces, verbatim — see the note in accept-form.tsx.
+    rulesTitle: "Your password must:",
+    ruleLength: "be between 8 and 128 characters",
+    ruleUpper: "contain at least one uppercase letter",
+    ruleDigit: "contain at least one number",
+    formLabel: "Set your password",
+    password: "Password",
+    passwordHint: "8–128 characters, with an uppercase letter and a number.",
+    confirm: "Confirm password",
+    confirmHint: "Type the same password again.",
+    mismatch: "The two passwords do not match.",
+    weak: "Choose a stronger password: 8–128 characters, with an uppercase letter and a number.",
+    submit: "Set password and join",
+    // Deliberately does NOT promise the buyer workspace. A company can slip to
+    // PENDING_VERIFICATION between the invitation and the acceptance, and the
+    // redeem route admits that case on purpose rather than adding a fifth
+    // refusal — so this sentence has to be true either way. The button still
+    // carries a callbackUrl to /b2b, which either opens or explains itself.
+    done: (company) => `Your password is set and you have joined ${company}. Sign in with your email address and the password you just chose.`,
+    signIn: "Sign in",
+    missingToken:
+      "This page needs the link from your invitation email — the invitation code is missing from the address.",
+    // ONE sentence for every dead end, deliberately. Expired, already used,
+    // withdrawn by the administrator and "no such invitation" must read the
+    // same, or this page becomes the membership oracle every other door in the
+    // identity track refuses to be.
+    deadToken:
+      "This invitation link cannot be used. It may have expired, it may already have been used, or the invitation may have been withdrawn.",
+    usedToken:
+      "This invitation link cannot be used. It may have expired, it may already have been used, or the invitation may have been withdrawn.",
+    noSecret: "Invitations cannot be accepted from this environment.",
+    // There is no self-service way out: /auth/forgot-password refuses an account
+    // that has never been activated, on purpose. The only real next step is the
+    // administrator, so that is what this says.
+    askAgain: "Ask the colleague who invited you to send a new invitation.",
+    backTo: "Back to",
+    genericError: "Something went wrong. Please try again.",
+    roleLabels: {
+      COMPANY_ADMIN: "Company administrator",
+      COMPANY_APPROVER: "Approver",
+      COMPANY_BUYER: "Buyer",
+    },
+    roleDescriptions: {
+      COMPANY_ADMIN: "Full access — manages the team, billing, approvals and ordering.",
+      COMPANY_APPROVER: "Reviews and approves purchase orders above a buyer's spend limit.",
+      COMPANY_BUYER: "Raises requests and orders within an assigned spend limit.",
+    },
+    roleUnknown: "Company member",
   },
   register: {
     eyebrow: "Create an account",
@@ -350,23 +479,28 @@ const AR: IdentityDictionary = {
   brand: {
     eyebrow: "الحساب",
     ledger: "ما يصل إليه الحساب",
-    provenance: "كل صفحة مذكورة هنا موجودة فعلياً في هذا الإصدار",
+    provenance: "كل سطر أعلاه سجلٌّ يحتفظ به هذا الحساب — لا تقدير ولا موعد تسليم ولا زمن ردّ",
   },
   surfaces: [
     {
       label: "الطلبات",
       body: "كل طلب قُدّم على هذا الحساب، مع الحالة المسجّلة عليه حالياً.",
-      route: "/account/orders",
+      basis: "الحالة هي ما سجّله البائع، وليست تقديراً.",
     },
     {
       label: "المرتجعات",
-      body: "اطلب إرجاع طلب تم تسليمه، ثم تابع مراجعته.",
-      route: "/returns",
+      body: "اطلب إرجاع طلب تم تسليمه، ثم تابع مراجعة البائع له.",
+      basis: "يُراجَع الإرجاع قبل إصدار أي مبلغ مُستردّ. لا نتيجة موعودة مسبقاً.",
     },
     {
       label: "الدعم",
       body: "افتح تذكرة وتابع الحالة المسجّلة عليها.",
-      route: "/support",
+      basis: "تحمل التذكرة موضوعاً وتصنيفاً وحالة. لا وعد بزمن ردّ.",
+    },
+    {
+      label: "مشتريات الشركة",
+      body: "أوامر الشراء وحدود الاعتماد وحدود الإنفاق لكل مشترٍ، على حساب شركة.",
+      basis: "يُفتح بعد التحقق من السجل التجاري للشركة.",
     },
   ],
   login: {
@@ -386,6 +520,55 @@ const AR: IdentityDictionary = {
     genericError: "حدث خطأ غير متوقع. حاول مرة أخرى.",
     errorInvalid: "بيانات الدخول غير صحيحة.",
     errorThrottled: "محاولات تسجيل دخول كثيرة. انتظر بضع دقائق ثم حاول مرة أخرى.",
+    companyTitle: "تشتري لحساب شركة؟",
+    companyBody:
+      "حسابات الشركات تسجّل الدخول من هنا، بالبريد وكلمة المرور نفسها. وتُفتح مساحة عمل المشتري بعد التحقق من السجل التجاري للشركة.",
+    companyAction: "الدخول إلى مساحة عمل المشتري",
+    companyRegister: "تسجيل شركة",
+    destinationB2B: "بعد تسجيل الدخول ستُنقل إلى مساحة عمل المشتري.",
+  },
+  invite: {
+    eyebrow: "دعوة إلى فريق",
+    title: "عيّن كلمة المرور",
+    subtitle: (company) => `تمت دعوتك للشراء نيابة عن ${company}. اختر كلمة مرور لإتمام الانضمام.`,
+    subtitleUnusable: "تحتاج هذه الصفحة إلى رابط دعوة صالح.",
+    note: (until) => `يظل رابط الدعوة صالحاً حتى ${until}.`,
+    joining: "أنت تنضم إلى",
+    companyLabel: "الشركة",
+    roleLabel: "الدور",
+    roleSetByAdmin: "حدّد المديرُ الذي دعاك دورَك وحدَّ الإنفاق الخاص بك، ولا يُغيَّران من هنا.",
+    rulesTitle: "يجب أن تكون كلمة المرور:",
+    ruleLength: "من 8 إلى 128 حرفاً",
+    ruleUpper: "تحتوي حرفاً لاتينياً كبيراً واحداً على الأقل",
+    ruleDigit: "تحتوي رقماً واحداً على الأقل",
+    formLabel: "تعيين كلمة المرور",
+    password: "كلمة المرور",
+    passwordHint: "من 8 إلى 128 حرفاً، مع حرف لاتيني كبير ورقم.",
+    confirm: "تأكيد كلمة المرور",
+    confirmHint: "أعد كتابة كلمة المرور نفسها.",
+    mismatch: "كلمتا المرور غير متطابقتين.",
+    weak: "اختر كلمة مرور أقوى: من 8 إلى 128 حرفاً، مع حرف لاتيني كبير ورقم.",
+    submit: "تعيين كلمة المرور والانضمام",
+    done: (company) => `تم تعيين كلمة المرور وانضممت إلى ${company}. سجّل الدخول ببريدك الإلكتروني وكلمة المرور التي اخترتها للتو.`,
+    signIn: "تسجيل الدخول",
+    missingToken: "تحتاج هذه الصفحة إلى الرابط الوارد في رسالة الدعوة — رمز الدعوة غير موجود في العنوان.",
+    deadToken: "لا يمكن استخدام رابط الدعوة هذا. ربما انتهت صلاحيته أو سبق استخدامه أو سُحبت الدعوة.",
+    usedToken: "لا يمكن استخدام رابط الدعوة هذا. ربما انتهت صلاحيته أو سبق استخدامه أو سُحبت الدعوة.",
+    noSecret: "قبول الدعوات غير متاح من هذه البيئة.",
+    askAgain: "اطلب من زميلك الذي دعاك إرسال دعوة جديدة.",
+    backTo: "العودة إلى",
+    genericError: "حدث خطأ غير متوقع. حاول مرة أخرى.",
+    roleLabels: {
+      COMPANY_ADMIN: "مدير الشركة",
+      COMPANY_APPROVER: "معتمِد",
+      COMPANY_BUYER: "مشترٍ",
+    },
+    roleDescriptions: {
+      COMPANY_ADMIN: "صلاحية كاملة — يدير الفريق والفوترة والاعتمادات والطلبات.",
+      COMPANY_APPROVER: "يراجع ويعتمد أوامر الشراء التي تتجاوز حد إنفاق المشتري.",
+      COMPANY_BUYER: "يصدر الطلبات وأوامر الشراء ضمن حد إنفاق مُسنَد إليه.",
+    },
+    roleUnknown: "عضو في الشركة",
   },
   register: {
     eyebrow: "إنشاء حساب",

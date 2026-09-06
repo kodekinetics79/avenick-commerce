@@ -62,6 +62,10 @@ const en = {
   "nav.team": "Team & Roles",
   "nav.addresses": "Delivery Sites",
   "nav.company": "Company",
+  /* Marks a destination this reader may open but not change — see
+     ./nav-access.ts. It is the accessible name of the badge as well as its
+     tooltip, so the link is announced as "Team & Roles, view only". */
+  "nav.viewOnly": "View only",
 
   /* ── Shared vocabulary ──────────────────────────────────────────────────── */
   "common.notRecorded": "Not recorded",
@@ -477,12 +481,23 @@ const en = {
   "team.eyebrow": "Administration",
   "team.title": "Team & Roles",
   "team.description": "Who may buy on behalf of {company}, and up to what value.",
+  /* Each role's two sentences are read off the server's own gates — the team,
+     policy and delivery-site actions, and the purchase-order route. They are
+     cited in app/b2b/team/page.tsx. An administrator was choosing between three
+     words and a colour; these say what the choice grants and what it withholds,
+     so do not "tighten" a limit out of them. */
+  "team.roles": "What each role may do",
   "team.role.admin": "Admin",
-  "team.role.admin.desc": "Full access — manages the team, billing, approvals and ordering.",
+  "team.role.admin.desc": "Invites colleagues and sets every role and spend limit, writes the approval policies, adds delivery sites, and may approve any purchase order whichever policy governs it.",
+  "team.role.admin.cannot": "Cannot approve their own purchase order while any other approver is on the team.",
   "team.role.approver": "Approver",
-  "team.role.approver.desc": "Reviews and approves purchase orders above a buyer's spend limit.",
+  "team.role.approver.desc": "Approves and rejects the purchase orders the governing policy names their role for, and any order no policy covers. Places or cancels an order without being held to a spend limit.",
+  "team.role.approver.cannot": "Cannot invite a colleague, change a role or a spend limit, write a policy, or add a delivery site.",
   "team.role.buyer": "Buyer",
-  "team.role.buyer.desc": "Raises requests and orders within an assigned spend limit.",
+  "team.role.buyer.desc": "Raises requests for quotation and purchase orders, and places or cancels their own up to the spend limit recorded against them.",
+  "team.role.buyer.cannot": "Cannot approve or reject anything, their own request included, and cannot place an order above their spend limit.",
+  "team.roles.basis": "Read from the gates the server enforces: the team, policy and delivery-site actions admit an administrator only, and the purchase-order route decides an approval by the role the governing policy names",
+  "team.readOnly": "You can read this page but not change it. Only a company administrator can invite a colleague, change a role or a spend limit, or revoke access.",
   "team.invite": "Invite a member",
   "team.invite.name": "Full name",
   "team.invite.email": "Work email",
@@ -493,15 +508,34 @@ const en = {
   "team.invite.submit": "Send invite",
   "team.members": "Members",
   "team.members.basis": "Spend limits are recorded without a currency and read as {currency}, this company's jurisdiction currency",
+  "team.members.pending.one": "1 invitation is outstanding",
+  "team.members.pending.other": "{count} invitations are outstanding",
   "team.col.member": "Member",
   "team.col.role": "Role",
+  "team.col.since": "On record since",
   "team.col.spendLimit": "Spend limit",
   "team.col.access": "Access",
   "team.status.invited": "Invited",
+  /* An invitation and a colleague at their desk used to look identical in this
+     column. The hint is the fact that separates them, and it is the User row's
+     own: a PENDING account has no password and cannot sign in. */
+  "team.status.invited.hint": "Has not set a password yet",
   "team.status.active": "Active",
   "team.status.suspended": "Suspended",
+  /* Revoked is this COMPANY's decision (CompanyMember.isActive); suspended is
+     the PLATFORM's (User.status). Reporting both as "Suspended" told an
+     administrator their own action had been taken by someone else. */
+  "team.status.revoked": "Access revoked",
   "team.suspend": "Suspend",
+  "team.revoke": "Revoke",
   "team.reactivate": "Reactivate",
+  "team.resend": "Resend invitation",
+  "team.resend.sent": "The invitation has been sent again.",
+  "team.resend.notSent": "The invitation could not be sent, because email delivery is not configured on this deployment. Nothing about the member has changed.",
+  "team.resend.notOpen": "There is no open invitation for that colleague any more, so nothing was sent. They may have accepted it already, or the company account may no longer be active.",
+  "team.resend.accepted": "That colleague has already set a password, so there is nothing to resend.",
+  "team.resend.notPending": "That membership is not live, so no invitation was sent. Reactivate it first.",
+  "team.resend.notFound": "That membership is no longer on this company's record.",
   "team.empty.eyebrow": "Nothing recorded",
   "team.empty.headline": "This company has no member other than its administrator.",
   "team.empty.body": "Invite a colleague above; they join with a pending status until they set a password, and they can buy only within the spend limit recorded against them.",
@@ -650,6 +684,7 @@ const en = {
   "act.team.roleInvalid": "Choose one of the three company roles.",
   "act.team.spendPositive": "A spend limit must be a positive number, or blank for no limit.",
   "act.team.emailTaken": "That email address is already registered.",
+  "act.team.alreadyInvited": "That colleague has already been invited and has not set a password yet. Use Resend invitation on their row instead.",
   "act.team.failed": "The member could not be invited. Please try again.",
   "act.team.inviteSent": "An invitation email has been sent to {email}.",
   "act.team.inviteNotSent": "{email} has been added and shows as invited until they set a password. No invitation email was sent, because email delivery is not configured on this deployment.",
@@ -750,6 +785,31 @@ const en = {
   "register.language.AR": "العربية — Arabic",
   "register.language.EN": "English",
   "register.created.unreported": "unreported",
+
+  /* ── The application status screen ───────────────────────────────────────
+     Shown to a member whose company is still PENDING_VERIFICATION — the page
+     /b2b bounces them to on every visit until a reviewer acts. Every sentence
+     here has to survive being read for the fifth time by someone who can do
+     nothing to speed it up, which is why none of them promises a review time:
+     nothing in this system measures one. */
+  "status.eyebrow": "Application status",
+  "status.pill.review": "In review",
+  "status.lead": "This company account has been created and is with {platform} for verification. The buyer workspace opens on approval — nothing is waiting on you.",
+  "status.filed.submitted": "Application received",
+  "status.filed.cr": "Commercial registration",
+  "status.filed.country": "Registered in",
+  "status.filed.basis": "The values filed with this application. Quote the registration number if you contact support about this account.",
+  "status.stages": "Where the application stands",
+  "status.step.received": "Application received",
+  "status.step.received.desc": "The company account and its administrator login were created. You can sign in today — only the buyer workspace is closed.",
+  "status.step.review": "Verification in review",
+  "status.step.review.desc": "{platform} checks the commercial registration against the market that issued it. There is nothing further to submit.",
+  "status.step.open": "Buyer workspace opens",
+  "status.step.open.desc": "B2B pricing, purchase orders, approval policies, spend limits and team accounts switch on. Sign in as usual and this page becomes the workspace.",
+  "status.next": "What happens next",
+  "status.next.nothingToDo": "Nothing is waiting on you. No document, no payment and no second registration: a second application would be refused, because this registration number is already filed.",
+  "status.next.noEta": "No review time is promised. A company is approved once its registration has been checked, not on a schedule.",
+  "status.next.returning": "You can close this page. Signing in again brings you back here until the company is approved, and straight into the workspace afterwards.",
 } as const;
 
 export type B2BKey = keyof typeof en;
@@ -779,6 +839,7 @@ const ar: Record<B2BKey, string> = {
   "nav.team": "الفريق والصلاحيات",
   "nav.addresses": "مواقع التسليم",
   "nav.company": "الشركة",
+  "nav.viewOnly": "View only",
 
   /* ── Shared vocabulary ──────────────────────────────────────────────────── */
   "common.notRecorded": "غير مسجَّل",
@@ -1188,12 +1249,24 @@ const ar: Record<B2BKey, string> = {
   "team.eyebrow": "الإدارة",
   "team.title": "الفريق والصلاحيات",
   "team.description": "من يحق له الشراء نيابة عن {company}، وإلى أي قيمة.",
+  /* English, by the standing product decision, for the sentences added or
+     rewritten here. The three `.desc` lines used to carry a settled Arabic
+     rendering of a VAGUER claim ("full access", "above a buyer's spend limit");
+     they now state exactly which gate admits which role, and an Arabic sentence
+     describing the older, looser rule beside an English one describing the
+     enforced rule would be the two languages disagreeing about authority. */
+  "team.roles": "What each role may do",
   "team.role.admin": "مدير",
-  "team.role.admin.desc": "صلاحية كاملة — يدير الفريق والفوترة والاعتمادات والطلبات.",
+  "team.role.admin.desc": "Invites colleagues and sets every role and spend limit, writes the approval policies, adds delivery sites, and may approve any purchase order whichever policy governs it.",
+  "team.role.admin.cannot": "Cannot approve their own purchase order while any other approver is on the team.",
   "team.role.approver": "معتمِد",
-  "team.role.approver.desc": "يراجع ويعتمد أوامر الشراء التي تتجاوز حد إنفاق المشتري.",
+  "team.role.approver.desc": "Approves and rejects the purchase orders the governing policy names their role for, and any order no policy covers. Places or cancels an order without being held to a spend limit.",
+  "team.role.approver.cannot": "Cannot invite a colleague, change a role or a spend limit, write a policy, or add a delivery site.",
   "team.role.buyer": "مشترٍ",
-  "team.role.buyer.desc": "يصدر الطلبات وأوامر الشراء ضمن حد إنفاق مُسنَد إليه.",
+  "team.role.buyer.desc": "Raises requests for quotation and purchase orders, and places or cancels their own up to the spend limit recorded against them.",
+  "team.role.buyer.cannot": "Cannot approve or reject anything, their own request included, and cannot place an order above their spend limit.",
+  "team.roles.basis": "Read from the gates the server enforces: the team, policy and delivery-site actions admit an administrator only, and the purchase-order route decides an approval by the role the governing policy names",
+  "team.readOnly": "You can read this page but not change it. Only a company administrator can invite a colleague, change a role or a spend limit, or revoke access.",
   "team.invite": "دعوة عضو",
   "team.invite.name": "الاسم الكامل",
   "team.invite.email": "البريد المهني",
@@ -1204,15 +1277,28 @@ const ar: Record<B2BKey, string> = {
   "team.invite.submit": "إرسال الدعوة",
   "team.members": "الأعضاء",
   "team.members.basis": "حدود الإنفاق مسجَّلة دون عملة وتُقرأ بعملة {currency}، عملة اختصاص هذه الشركة",
+  "team.members.pending.one": "1 invitation is outstanding",
+  "team.members.pending.other": "{count} invitations are outstanding",
   "team.col.member": "العضو",
   "team.col.role": "الدور",
+  "team.col.since": "On record since",
   "team.col.spendLimit": "حد الإنفاق",
   "team.col.access": "الوصول",
   "team.status.invited": "مدعو",
+  "team.status.invited.hint": "Has not set a password yet",
   "team.status.active": "نشط",
   "team.status.suspended": "موقوف",
+  "team.status.revoked": "Access revoked",
   "team.suspend": "إيقاف",
+  "team.revoke": "Revoke",
   "team.reactivate": "إعادة التفعيل",
+  "team.resend": "Resend invitation",
+  "team.resend.sent": "The invitation has been sent again.",
+  "team.resend.notSent": "The invitation could not be sent, because email delivery is not configured on this deployment. Nothing about the member has changed.",
+  "team.resend.notOpen": "There is no open invitation for that colleague any more, so nothing was sent. They may have accepted it already, or the company account may no longer be active.",
+  "team.resend.accepted": "That colleague has already set a password, so there is nothing to resend.",
+  "team.resend.notPending": "That membership is not live, so no invitation was sent. Reactivate it first.",
+  "team.resend.notFound": "That membership is no longer on this company's record.",
   "team.empty.eyebrow": "لا يوجد مسجَّل",
   "team.empty.headline": "لا يوجد في هذه الشركة عضو غير مديرها.",
   "team.empty.body": "ادعُ زميلًا أعلاه؛ ينضم بحالة معلَّقة حتى يعيّن كلمة مرور، ولا يشتري إلا ضمن حد الإنفاق المسجَّل عليه.",
@@ -1353,6 +1439,7 @@ const ar: Record<B2BKey, string> = {
   "act.team.roleInvalid": "اختر أحد أدوار الشركة الثلاثة.",
   "act.team.spendPositive": "حد الإنفاق يجب أن يكون رقمًا موجبًا، أو فارغًا لبلا حد.",
   "act.team.emailTaken": "هذا البريد الإلكتروني مسجَّل بالفعل.",
+  "act.team.alreadyInvited": "That colleague has already been invited and has not set a password yet. Use Resend invitation on their row instead.",
   "act.team.failed": "تعذّرت دعوة العضو. حاول مرة أخرى.",
   "act.team.inviteSent": "أُرسلت رسالة دعوة إلى {email}.",
   "act.team.inviteNotSent": "أُضيف {email} ويظهر بحالة «مدعو» حتى يعيّن كلمة مرور. لم تُرسَل رسالة دعوة لأن إرسال البريد غير مهيّأ في هذا النشر.",
@@ -1450,6 +1537,26 @@ const ar: Record<B2BKey, string> = {
   "register.language.AR": "العربية",
   "register.language.EN": "English — الإنجليزية",
   "register.created.unreported": "غير مُبلَّغ عنها",
+
+  /* ── شاشة حالة الطلب ─────────────────────────────────────────────────── */
+  "status.eyebrow": "حالة الطلب",
+  "status.pill.review": "قيد المراجعة",
+  "status.lead": "أُنشئ حساب الشركة وهو لدى {platform} للتحقق. تُفتح مساحة عمل المشتري عند الموافقة — ولا شيء ينتظر منك.",
+  "status.filed.submitted": "تاريخ استلام الطلب",
+  "status.filed.cr": "السجل التجاري",
+  "status.filed.country": "بلد التسجيل",
+  "status.filed.basis": "هذه هي القيم المقدَّمة مع الطلب. اذكر رقم السجل التجاري إذا راسلت الدعم بشأن هذا الحساب.",
+  "status.stages": "أين وصل الطلب",
+  "status.step.received": "استُلم الطلب",
+  "status.step.received.desc": "أُنشئ حساب الشركة وحساب مديرها. يمكنك تسجيل الدخول اليوم — المغلق هو مساحة عمل المشتري وحدها.",
+  "status.step.review": "التحقق قيد المراجعة",
+  "status.step.review.desc": "تتحقق {platform} من السجل التجاري لدى السوق التي أصدرته. لا يوجد ما يلزم تقديمه بعد ذلك.",
+  "status.step.open": "فتح مساحة عمل المشتري",
+  "status.step.open.desc": "تُفعَّل أسعار الأعمال وأوامر الشراء وسياسات الاعتماد وحدود الإنفاق وحسابات الفريق. سجّل الدخول كالمعتاد وتتحول هذه الصفحة إلى مساحة العمل.",
+  "status.next": "ما الذي يحدث بعد ذلك",
+  "status.next.nothingToDo": "لا شيء ينتظر منك. لا مستند ولا دفعة ولا تسجيل ثانٍ: أي طلب ثانٍ سيُرفض لأن رقم السجل التجاري هذا مُقدَّم بالفعل.",
+  "status.next.noEta": "لا وعد بمدة مراجعة. تُعتمَد الشركة بعد التحقق من سجلها التجاري، لا وفق جدول زمني.",
+  "status.next.returning": "يمكنك إغلاق هذه الصفحة. تسجيل الدخول مرة أخرى يعيدك إلى هنا حتى تُعتمَد الشركة، ثم إلى مساحة العمل مباشرة بعدها.",
 };
 
 export const B2B_MESSAGES = { en, ar } as const;

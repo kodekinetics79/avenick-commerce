@@ -28,6 +28,11 @@ import { checkRateLimit, RATE_LIMITS } from "@avenick/auth/rate-limit";
 import { log } from "@avenick/observability";
 import { emailSender, platformName, selfOrigin } from "@avenick/utils/portal-config";
 import { passwordResetTtlLabel } from "./password-reset";
+// The invitation link is minted, not formatted: only lib/invite-acceptance can
+// decide that an address is still an open invitation, and it re-decides the
+// same thing when the link is used.
+import { inviteAcceptUrl } from "./invite-acceptance";
+import { inviteTtlLabel } from "./invite-token";
 
 /** Identifies which mail this is, so log lines stay diagnosable. */
 const TEMPLATE = "b2b-company-invite";
@@ -47,6 +52,14 @@ export type EmailSkipReason =
   | "sender-not-configured"
   | "origin-not-configured"
   | "suppressed"
+  /**
+   * The address is not an open invitation, so no acceptance link could be
+   * minted for it — already accepted, revoked, or never invited. An invitation
+   * mail without a working link is what the old `/register?email=` link was,
+   * and that mail is what left every invitee locked out; not sending is the
+   * honest answer, and the caller already reports "we could not send it".
+   */
+  | "invite-not-open"
   | "provider-rejected"
   | "request-failed";
 
@@ -221,9 +234,24 @@ export async function sendInviteEmail(opts: {
   if (!from) return { sent: false, reason: "sender-not-configured" };
   const appUrl = originOrNull(TEMPLATE, ref);
   if (!appUrl) return { sent: false, reason: "origin-not-configured" };
-  // Carries the recipient in a query param, so it is built here rather than
-  // above the guard: it must not be in scope for the skip branch to log.
-  const acceptUrl = `${appUrl}/register?email=${encodeURIComponent(opts.to)}`;
+  // THE LINK IS THE INVITATION. This used to be `/register?email=<address>` —
+  // an email address in a query string, which /register does not even read, and
+  // which carried no credential of any kind. The invitee arrived at the
+  // account-type chooser as a cold visitor, could not register (their address
+  // was already taken by the PENDING row), could not sign in (no password hash,
+  // not ACTIVE) and could not reset a password they had never had. Every door
+  // was correctly shut; none of them was a door.
+  //
+  // It is now a signed, expiring, single-use acceptance token — and it is
+  // minted by lib/invite-acceptance against COMMITTED state, so this mail
+  // cannot carry a working link to anything but a genuinely open invitation. A
+  // link is a credential, so it is built after the guards above (it must not be
+  // in scope for a skip branch to log) and is never logged.
+  const acceptUrl = await inviteAcceptUrl({ email: opts.to, origin: appUrl });
+  if (!acceptUrl) {
+    log.info("invite email skipped: no open invitation for this address", { template: TEMPLATE, recipientRef: ref });
+    return { sent: false, reason: "invite-not-open" };
+  }
 
   // Company and inviter names are typed by users at registration; they land
   // inside HTML here, so they are escaped like any other untrusted text.
@@ -240,6 +268,10 @@ export async function sendInviteEmail(opts: {
       as a <strong>${roleLabel}</strong>. Set your password to start purchasing on behalf of your company.
     </p>
     <a href="${acceptUrl}" style="display:inline-block;margin:20px 0;background:#4f46e5;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:12px">Accept invitation</a>
+    <p style="color:#52525b;font-size:13px;line-height:1.6">
+      This link expires in ${escapeHtml(inviteTtlLabel())} and can only be used once.
+      If it has expired, ask ${inviterName} to invite you again.
+    </p>
     <p style="color:#a1a1aa;font-size:12px">If you weren't expecting this, you can ignore this email.</p>
   </div>`;
 

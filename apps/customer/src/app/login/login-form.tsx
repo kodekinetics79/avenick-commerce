@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { signInWithCredentials } from "@avenick/auth/client";
 import { messageForSignInError } from "@avenick/auth/sign-in-messages";
 import { safeReturnTo } from "@avenick/auth/safe-redirect";
-import { Input, Button } from "@avenick/ui";
+import { Input, Button, Surface } from "@avenick/ui";
 import { FormErrorSlot } from "../auth/auth-shell";
 import { identityCopy, type IdentityLocale } from "../auth/identity-copy";
 
@@ -66,6 +66,17 @@ export function LoginForm({ locale }: { locale: IdentityLocale }) {
   const searchParams = useSearchParams();
   const urlError = searchParams.get("code") ?? searchParams.get("error");
   const callbackUrl = safeReturnTo(searchParams.get("callbackUrl"), "/account/orders");
+  /*
+   * Whether this sign-in is headed for the buyer workspace.
+   *
+   * Derived from the value safeReturnTo already returned rather than from the
+   * raw query string, so the destination a person is TOLD about is the exact
+   * path the browser will be sent to. Reading the parameter a second time to
+   * write the sentence would let the two disagree — the page could promise the
+   * buyer workspace and then land on /account/orders because the raw value had
+   * failed validation.
+   */
+  const toWorkspace = callbackUrl === "/b2b" || callbackUrl.startsWith("/b2b/");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -133,6 +144,60 @@ export function LoginForm({ locale }: { locale: IdentityLocale }) {
       <Button type="submit" size="lg" className="w-full" loading={loading}>
         {t.submit}
       </Button>
+      <CompanyDoor locale={locale} toWorkspace={toWorkspace} />
     </form>
+  );
+}
+
+/**
+ * The company door.
+ *
+ * WHAT WAS WRONG. This deployment has exactly one sign-in form and nothing on
+ * the page said so. A company buyer arriving at /login saw "Sign in to see your
+ * orders, returns and support tickets" — three consumer surfaces — with a
+ * "Register" link beside it that leads to the personal/business chooser. The
+ * owner could not find the company door because there was no company door: the
+ * form WAS it, silently. Meanwhile /b2b bounces a member with no durable
+ * membership to /b2b/register, so the one page that talks about company
+ * accounts is a registration form an existing member must not fill in.
+ *
+ * WHY IT IS NOT A SECOND FORM. Two forms on a sign-in page is the worst
+ * available answer: the credentials are identical, so a person who guesses
+ * wrong is refused by a form that would have accepted them, and every refusal
+ * reads as "wrong password" because @avenick/auth collapses every failure to
+ * one message. There is one set of credentials, so there is one set of boxes.
+ * What differs is only where you LAND, which is a callbackUrl and nothing more.
+ *
+ * It therefore lives inside this island rather than in the server page: the
+ * validated callbackUrl is here, so the block can state the destination instead
+ * of offering a link to a destination the visitor has already chosen. The page
+ * around it still never reads the parameter — see the note on LoginPage.
+ */
+function CompanyDoor({ locale, toWorkspace }: { locale: IdentityLocale; toWorkspace: boolean }) {
+  const t = identityCopy(locale).login;
+  return (
+    <Surface rung={1} className="space-y-1.5 p-4">
+      <p className="u-ui font-medium text-ink-1">{t.companyTitle}</p>
+      {/* The destination line replaces the link rather than joining it: once the
+          callbackUrl already points at the workspace, a link back to the same
+          page reads as a dead control. */}
+      <p className="u-meta text-ink-2">{toWorkspace ? t.destinationB2B : t.companyBody}</p>
+      <p className="u-meta flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-ink-3">
+        {!toWorkspace && (
+          <Link
+            href="/login?callbackUrl=%2Fb2b"
+            className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+          >
+            {t.companyAction}
+          </Link>
+        )}
+        <Link
+          href="/b2b/register"
+          className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+        >
+          {t.companyRegister}
+        </Link>
+      </p>
+    </Surface>
   );
 }

@@ -108,6 +108,13 @@ export const RATE_LIMITS = {
   passwordResetRequestIp: { name: "password-reset-request-ip", limit: 20, windowMs: 60 * 60_000 },
   /** Reset-token redemptions per client IP: the token is HMAC-signed, this only slows brute force on its expiry window. */
   passwordResetRedeem: { name: "password-reset-redeem", limit: 10, windowMs: 15 * 60_000 },
+  /**
+   * Invitation acceptances per client IP. Same shape and same reasoning as
+   * `passwordResetRedeem` — the token is HMAC-signed, so this only narrows the
+   * window for brute force over its (longer) expiry, and a shared bucket with
+   * the reset flow would let noise on one door lock the other.
+   */
+  inviteAccept: { name: "invite-accept", limit: 10, windowMs: 15 * 60_000 },
   /** Seller self-registrations per client IP. */
   sellerRegister: { name: "seller-register", limit: 5, windowMs: 60 * 60_000 },
   /** Product review submissions per user. */

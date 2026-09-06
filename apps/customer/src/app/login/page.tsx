@@ -69,7 +69,14 @@ export default async function LoginPage({
   );
 }
 
-/** Same box as the real form: two fields, a reserved error line, one button. */
+/**
+ * Same box as the real form: two fields, a reserved error line, one button, and
+ * the company door beneath it. The door is part of the island because it reads
+ * the validated callbackUrl (see <CompanyDoor>), so its height has to be
+ * reserved here as well — a card that grows by a panel on hydration is the
+ * cheapest possible way to look unfinished, which is the whole point of this
+ * fallback.
+ */
 function SignInSkeleton() {
   return (
     <div className="space-y-4" aria-hidden="true">
@@ -84,6 +91,7 @@ function SignInSkeleton() {
       </div>
       <div className="min-h-[2.5rem]" />
       <Skeleton className="h-[var(--control-h-lg)] w-full" />
+      <Skeleton className="h-[104px] w-full" />
     </div>
   );
 }
