@@ -1,5 +1,19 @@
 import { db } from "@avenick/database";
 
+/**
+ * What "has something to sell" means, in one place.
+ *
+ * The count and the existence test MUST use the same predicate. When they
+ * differed, a brand could be listed because it had an ACTIVE product while the
+ * count only saw discoverable ones — a tile advertising "0 listings" that the
+ * query itself had just judged worth showing.
+ */
+const PUBLICLY_VISIBLE = {
+  status: "ACTIVE",
+  deletedAt: null,
+  isPubliclyDiscoverable: true,
+} as const;
+
 export interface PublicBrand {
   id: string;
   slug: string;
@@ -21,9 +35,19 @@ export interface PublicBrand {
  * fills. The route below still exists for real clients and calls this.
  */
 export async function readPublicBrands(): Promise<PublicBrand[]> {
-  return (await db.brand.findMany({
-    where: { isActive: true },
-    include: { _count: { select: { products: { where: { status: "ACTIVE", deletedAt: null } } } } },
+  const rows = await db.brand.findMany({
+    where: {
+      isActive: true,
+      // A brand with nothing to sell is a shelf with nothing on it. The catalogue
+      // strip already refuses to advertise a category with no visible product —
+      // see the comment in app/page.tsx — and a brand tile is the same promise.
+      // The live data made the cost obvious: EATON, Navigator, a second 3M and a
+      // Honeywell all sat on the brands page reading "0 listings", so a third of
+      // the grid led nowhere.
+      products: { some: PUBLICLY_VISIBLE },
+    },
+    include: { _count: { select: { products: { where: PUBLICLY_VISIBLE } } } },
     orderBy: { nameEn: "asc" },
-  })) as unknown as PublicBrand[];
+  });
+  return rows as unknown as PublicBrand[];
 }
