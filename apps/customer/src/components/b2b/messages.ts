@@ -1650,7 +1650,7 @@ const ar: Record<B2BKey, string> = {
   "join.error.http": "رُفض الطلب (HTTP {status}).",
   "register.joinInstead": "هل سجّلها زميل لك بالفعل؟",
   "register.joinInstead.link": "انضم إلى حساب الشركة القائم",
-  /* ── طابور الموافقات في /b2b/team ──────────────────────────────────────── */
+  /* ── قائمة طلبات الانضمام في /b2b/team ─────────────────────────────────── */
   "act.join.adminOnly": "لا يقرّر من ينضم إلا مدير الشركة.",
   "act.join.roleInvalid": "اختر أحد أدوار الشركة الثلاثة.",
   "act.join.notFound": "هذا الطلب لم يعد متاحاً.",
@@ -1665,8 +1665,8 @@ const ar: Record<B2BKey, string> = {
   "team.join.askedFor": "طلب الانضمام بصفة {role}",
   "team.join.awaitingYou": "بانتظارك",
   "team.join.awaitingEmail": "بانتظاره",
-  "team.join.awaitingEmail.detail": "لم يؤكّد بريده الإلكتروني بعد. لا يُطلب منك شيء حتى يفعل.",
-  "team.join.role": "قبوله بصفة",
+  "team.join.awaitingEmail.detail": "لم يؤكّد بريده الإلكتروني بعد. ولا يُطلب منك شيء حتى يفعل ذلك.",
+  "team.join.role": "القبول بصفة",
   "team.join.approve": "موافقة",
   "team.join.reject": "رفض",
   "team.join.reason": "السبب (اختياري)",
