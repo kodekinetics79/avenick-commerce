@@ -86,6 +86,31 @@ PLAUSIBLE NUMBER.** This outranks everything else in this document.
 > status. The moment a technique requires inventing a rating, a count, a logo or a promise,
 > **the technique is wrong for this product and must be dropped, however good it looks.**
 
+**LAW G — A CHOICE IS PRESENTED ONCE, GROUPED, WITH ONE DEFAULT. IT IS NEVER DELETED TO
+MAKE THE SURFACE SHORTER.** Ranks *below* LAW F, and the second sentence is the half that
+does the work.
+
+> Hick's Law is the usual name for the first half, and the name is worth less than the
+> mechanism: `RT = a + b·log₂(n+1)` describes **simultaneous, equally weighted, unfamiliar**
+> choices, and there are three ways out of the log that delete nothing — **group** them
+> (the mega-menu's columns), **default** one (`DEFAULT_SORT`), or **fold** the rest behind a
+> disclosure (`FacetRail`, `.u-facet-shell`). Reach for those three in that order. Reaching
+> for the fourth — removing a real control so a number goes down — is LAW F's territory and
+> LAW F wins.
+>
+> **It governs decisions, not information.** A spec table, a price ladder, a quantity break
+> grid and a search result set are all allowed to be long; they are things to read, not
+> n-way choices to make. Do not cite this law at a table.
+>
+> Two failures it is written against, both found in the storefront and both since fixed.
+> The catalogue rail opened four facet groups by default and stood **806px tall on a 780px
+> viewport** — a phone scrolled past a full screen of filters, with the catalogue empty and
+> no category rows in the rail yet, to reach the first product. And the business mega-menu
+> presented twelve destinations **on hover**, every one of which `b2b-shell.tsx` already
+> carried in a persistent sidebar — the expensive kind of n, where the choice is not merely
+> large but a second copy of one made elsewhere. **Check for the duplicate before you count
+> the options.**
+
 ---
 
 ## 2. Where things live

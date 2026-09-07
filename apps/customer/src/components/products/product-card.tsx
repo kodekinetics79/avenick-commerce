@@ -240,9 +240,22 @@ export function ProductCard({
       }));
   }, [isB2B, currency, priceBands, activeLocale]);
 
-  function handleAddToCart(event: React.MouseEvent<HTMLButtonElement>) {
-    const action = productCardPurchaseAction(hasVariants, inStock);
-    if (action === "REQUEST_AVAILABILITY") {
+  /*
+   * ONE decision, computed once and used by the handler, the icon, the label and
+   * the disabled state alike. Those four used to re-derive it from `inStock` and
+   * `hasVariants` separately, which is how the tile ended up printing "Price on
+   * request" over a disabled "Add to cart": the price was in the disabled
+   * expression and in none of the other three.
+   */
+  const canPrice = price != null && !!currency && vatRate != null;
+  const purchaseAction = productCardPurchaseAction(hasVariants, inStock, canPrice);
+
+  function handlePrimaryAction(event: React.MouseEvent<HTMLButtonElement>) {
+    const action = purchaseAction;
+    // Both request actions go to the same form. They are separate actions
+    // because the buyer's reason differs — no stock is not no price — and the
+    // label has to say which one they are answering.
+    if (action === "REQUEST_AVAILABILITY" || action === "REQUEST_QUOTE") {
       router.push(`/b2b/rfq/new?supplier=${encodeURIComponent(sellerId)}&product=${encodeURIComponent(id)}`);
       return;
     }
@@ -666,14 +679,25 @@ export function ProductCard({
           variant="primary"
           size="md"
           className="w-full"
-          onClick={handleAddToCart}
-          disabled={inStock && !hasVariants && (price == null || !currency || vatRate == null)}
+          onClick={handlePrimaryAction}
+          /*
+           * NOTHING IS DISABLED ANY MORE. Every branch now has somewhere to go:
+           * a product this storefront cannot price is a product to quote, which
+           * is the whole commercial model, not an error state. The one case that
+           * remains unpressable is a variant-bearing row, and that navigates.
+           */
         >
-          {inStock ? <ShoppingCart className="h-3.5 w-3.5" aria-hidden="true" /> : <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />}
-          {inStock && !hasVariants ? (
+          {purchaseAction === "REQUEST_AVAILABILITY" || purchaseAction === "REQUEST_QUOTE" ? (
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <ShoppingCart className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          {purchaseAction === "ADD_TO_CART" ? (
             <CommitLabel idle={tp("addToCart")} committed={tc("added")} done={committed} />
-          ) : inStock ? (
+          ) : purchaseAction === "SELECT_VARIANT" ? (
             tp("selectOptions")
+          ) : purchaseAction === "REQUEST_QUOTE" ? (
+            tp("requestQuote")
           ) : (
             tp("requestAvailability")
           )}

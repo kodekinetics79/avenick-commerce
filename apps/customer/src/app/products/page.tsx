@@ -748,14 +748,17 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
     // instrument that scrolls away while you are reading the result it produced
     // makes you scroll back up to change one thing.
     //
-    // On a phone this panel still sits ABOVE the grid, as it always has. What
-    // is new is that both facets are <details> and can be folded away by tap,
-    // and that the applied chips above them state what is in force — so a
-    // collapsed facet costs the visitor no information. What is NOT solved here
-    // is defaulting a facet open on desktop and closed on mobile: `open` is an
-    // attribute, not a style, and nothing in CSS can set it per breakpoint. Doing
-    // it properly needs one rule in globals.css (see the handover note), not a
-    // client component on a page that is deliberately server-rendered.
+    // On a phone this panel sits ABOVE the grid, and until the facet shell
+    // landed that was measured at 806px of filters on a 780px viewport — a
+    // buyer scrolled past a full screen of controls to reach the first product,
+    // and that was the floor, with an empty catalogue and no category or brand
+    // rows in the rail. `.u-facet-shell` is the one globals.css rule the old
+    // note here asked for: the stack below folds to a single tap target on a
+    // phone and stands permanently open on a desktop sidebar, with no client
+    // component on a page that is deliberately server-rendered.
+    //
+    // The applied chips and "clear all" are deliberately OUTSIDE the shell. A
+    // folded rail may cost the visitor no information about what is in force.
     <aside
       className="w-full shrink-0 lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:w-64 lg:self-start lg:overflow-y-auto"
       aria-label={t("filters.label")}
@@ -777,6 +780,23 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
             />
           </div>
         )}
+
+        {/*
+         * THE SHELL. Closed on a phone, forced open on a desktop sidebar by
+         * `.u-facet-shell` in globals.css — see that rule for why this cannot be
+         * an attribute. The summary is removed from the box tree above 1024px,
+         * so on desktop there is no control here at all and the rail simply
+         * stands open as it always has.
+         *
+         * `filters.label` is reused rather than given a new key: the string is
+         * already "Filters" and it is already this panel's accessible name, so a
+         * second key would be two places for one word to drift.
+         */}
+        <details className="u-facet-shell">
+          <summary className="u-focus">
+            <span className="u-ui font-medium text-ink-1">{t("filters.label")}</span>
+            <span className="u-facet__chev" aria-hidden="true" />
+          </summary>
 
         {/*
          * <details>/<summary>, so open and close cost no client component at
@@ -884,7 +904,6 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
          */}
         <FacetRail
           label={t("filters.rating")}
-          defaultOpen
           options={[
             { id: "any-rating", label: t("filters.anyRating"), href: buildUrl({ minRating: undefined }), selected: filters.minRating == null },
             ...RATING_CHOICES.map((value) => ({
@@ -903,7 +922,7 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
             />
           )}
         />
-        <p className="u-meta pb-tight text-ink-3">{t("filters.ratingNote")}</p>
+        <p className="u-facet-note u-meta pb-tight text-ink-3">{t("filters.ratingNote")}</p>
 
         {/*
          * MINIMUM ORDER QUANTITY. Product.moq is a non-nullable Int, so this is
@@ -947,6 +966,8 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
             />
           )}
         />
+
+        </details>
 
         {applied.length > 0 && (
           // Clears the FILTERS, not the page. It used to point at bare

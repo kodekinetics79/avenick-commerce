@@ -14,8 +14,17 @@
 /** Internal base used purely to resolve relative paths for validation. */
 const VALIDATION_BASE = "http://return-path.invalid";
 
-/** Paths we refuse to return to, because doing so loops the visitor. */
-const LOOPING_PREFIXES = ["/login", "/api/auth"];
+/**
+ * Paths we refuse to return to, because doing so loops the visitor.
+ *
+ * `/register` joined this list when registration became part of the return
+ * chain: a buyer sent from checkout now arrives at /login carrying a
+ * callbackUrl, follows the link to /register carrying the same one, and signs
+ * in afterwards. Without this entry a hand-edited `callbackUrl=/register`
+ * returns a freshly registered buyer to the registration form they just
+ * completed.
+ */
+const LOOPING_PREFIXES = ["/login", "/register", "/api/auth"];
 
 export const DEFAULT_RETURN_PATH = "/";
 

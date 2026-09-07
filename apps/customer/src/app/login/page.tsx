@@ -8,6 +8,7 @@ import { LoginForm } from "./login-form";
 
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
+import { safeReturnTo } from "@avenick/auth/safe-redirect";
 
 /** The tab read the bare platform name; a sign-in page deserves its own. */
 export async function generateMetadata(): Promise<Metadata> {
@@ -31,17 +32,35 @@ export async function generateMetadata(): Promise<Metadata> {
  * /api/auth/register/consumer/route.ts) — so the browser genuinely does not know
  * which branch ran. The sentence chosen below is the one true in both.
  *
- * `callbackUrl` is deliberately NOT read here. It is read and validated inside
- * the island, where it is used; see the note on LoginForm.
+ * `callbackUrl` is read here for ONE purpose: to keep it attached to the
+ * registration link below. It is not used to navigate — the island still owns
+ * that, and still validates independently — but it has to survive this page or
+ * the buyer loses it. A visitor sent here from /checkout has no account by
+ * definition; they follow "Register", and until this link carried the parameter
+ * the destination died at the first hop, leaving a newly registered buyer on
+ * /account/orders wondering where their basket went.
+ *
+ * It is validated here anyway, with the same `safeReturnTo` the island uses. A
+ * value that reaches an href is a value an attacker can aim, and "it is only a
+ * link" is how open redirects ship.
  */
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams?: { registered?: string | string[] };
+  searchParams?: { registered?: string | string[]; callbackUrl?: string | string[] };
 }) {
   const locale = toIdentityLocale((await cookies()).get(LOCALE_COOKIE)?.value);
   const t = identityCopy(locale).login;
   const justRegistered = searchParams?.registered === "1";
+
+  const rawCallback = Array.isArray(searchParams?.callbackUrl)
+    ? searchParams?.callbackUrl[0]
+    : searchParams?.callbackUrl;
+  // safeReturnTo falls back to "" so that "no callback" and "an unsafe callback"
+  // produce the same bare /register link, rather than a link to the fallback
+  // path that the visitor never asked for.
+  const returnTo = safeReturnTo(rawCallback, "");
+  const registerHref = returnTo ? `/register?callbackUrl=${encodeURIComponent(returnTo)}` : "/register";
 
   return (
     <AuthShell
@@ -52,7 +71,7 @@ export default async function LoginPage({
       footer={
         <p className="u-meta text-ink-3">
           {t.noAccount}{" "}
-          <Link href="/register" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
+          <Link href={registerHref} className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
             {t.register}
           </Link>
         </p>

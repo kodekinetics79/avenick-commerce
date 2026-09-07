@@ -124,6 +124,16 @@ export function Header() {
    * company governance — because that is the structure the B2B suite actually
    * has. No invented category tree: law 1 applies to navigation as much as to a
    * product card.
+   *
+   * WHY THIS IS NOT THE WHOLE SUITE, AND WHY THAT ORPHANS NOTHING. b2b-shell.tsx
+   * — a registered navigation source in its own right — already carries every
+   * one of the eleven B2B destinations in a persistent grouped sidebar. This
+   * panel used to mirror it: twelve links, opened on HOVER, at a visitor who may
+   * only have been travelling to /b2b. Three of them (approval policies,
+   * billing, spend analytics) are settings nobody navigates to from a storefront
+   * header — they are where you go once you are already inside, which is exactly
+   * where the shell nav takes over. Removing them from here costs no
+   * reachability; it is the same destination list in one place instead of two.
    */
   const BUSINESS_COLUMNS: MegaMenuColumn[] = [
     {
@@ -139,7 +149,6 @@ export function Header() {
       links: [
         { href: "/b2b/purchase-orders", label: t("purchaseOrders") },
         { href: "/b2b/approvals", label: t("approvals") },
-        { href: "/b2b/approval-policies", label: t("approvalPolicies") },
       ],
     },
     {
@@ -149,8 +158,6 @@ export function Header() {
         { href: "/b2b/company", label: t("companyProfile") },
         { href: "/b2b/team", label: t("team") },
         { href: "/b2b/addresses", label: t("deliveryAddresses") },
-        { href: "/b2b/billing", label: t("billing") },
-        { href: "/b2b/analytics", label: t("spendAnalytics") },
       ],
     },
   ];
