@@ -1,10 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationSuite } from "../testing/integration-db";
 import { lockInventoryStockRows } from "../services/checkout-invariants";
 import { lockPromotionCommercialRows } from "../services/promotions";
 import { secureCreateOrder } from "../services/secure-checkout";
 
-const run = process.env.DATABASE_URL ? describe : describe.skip;
+const run = integrationSuite("parallel");
 const stamp = `promotion-mode-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 let buyerId = "";
 let ownerId = "";

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import bcrypt from "bcryptjs";
 import { db } from "../index";
+import { integrationSuite, integrationDbEnabled } from "../testing/integration-db";
 import {
   hashSellerPassword,
   registerSeller,
@@ -8,8 +9,7 @@ import {
   type SellerRegistrationInput,
 } from "../services/seller-registration";
 
-const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
-
+const run = integrationSuite();
 /** Every row this suite creates is tagged with the stamp so cleanup is exact. */
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const userIds: string[] = [];

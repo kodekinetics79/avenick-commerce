@@ -18,6 +18,7 @@ import { db } from "../index";
 import { checkDatabaseHealth } from "../services/health";
 import { getAuditLogs, getAuditEntityTypes } from "../services/audit";
 import { getAdminUsers, getAdminCompanies, setUserStatus } from "../services/admin";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 
 const STAMP = Date.now();
 const actorEmail = `it-actor-${STAMP}@example.test`;
@@ -28,7 +29,10 @@ let actorId: string;
 let targetId: string;
 let rootId: string;
 
+const run = integrationSuite();
+
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const [actor, target, root] = await Promise.all([
     db.user.create({
       data: { email: actorEmail, firstName: "IT", lastName: "Actor", role: "ADMIN", status: "ACTIVE" },
@@ -46,13 +50,14 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   const ids = [actorId, targetId, rootId].filter(Boolean);
   await db.auditLog.deleteMany({ where: { OR: [{ actorId: { in: ids } }, { entityId: { in: ids } }] } });
   await db.user.deleteMany({ where: { id: { in: ids } } });
   await db.$disconnect();
 });
 
-describe("database health", () => {
+run("database health", () => {
   it("reports a reachable database with latency", async () => {
     const health = await checkDatabaseHealth();
     expect(health.ok).toBe(true);
@@ -61,7 +66,7 @@ describe("database health", () => {
   });
 });
 
-describe("getAdminUsers", () => {
+run("getAdminUsers", () => {
   it("returns paginated users with role counts", async () => {
     const { users, total, roleCounts } = await getAdminUsers({ page: 1, limit: 5 });
     expect(Array.isArray(users)).toBe(true);
@@ -85,7 +90,7 @@ describe("getAdminUsers", () => {
   });
 });
 
-describe("setUserStatus — RBAC and audit trail", () => {
+run("setUserStatus — RBAC and audit trail", () => {
   it("suspends a user and writes an audit entry", async () => {
     const updated = await setUserStatus({
       userId: targetId,
@@ -133,7 +138,7 @@ describe("setUserStatus — RBAC and audit trail", () => {
   });
 });
 
-describe("getAuditLogs", () => {
+run("getAuditLogs", () => {
   it("returns newest-first entries with actor identity", async () => {
     const { logs, total } = await getAuditLogs({ page: 1, limit: 10 });
     expect(total).toBeGreaterThan(0);
@@ -154,7 +159,7 @@ describe("getAuditLogs", () => {
   });
 });
 
-describe("getAdminCompanies", () => {
+run("getAdminCompanies", () => {
   it("returns companies with workflow counts", async () => {
     const { companies, total, statusCounts } = await getAdminCompanies({ page: 1, limit: 10 });
     expect(total).toBeGreaterThanOrEqual(0);

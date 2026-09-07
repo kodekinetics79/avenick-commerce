@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationSuite, integrationDbEnabled } from "../testing/integration-db";
 import {
   DocumentNotPendingError,
   ProductNotPendingError,
@@ -22,7 +23,7 @@ import { SUPERSEDED_REJECTION_REASON, sellerDocumentKeyPrefix } from "../service
  * approved one of the same type. Skipped without DATABASE_URL, like the
  * other pg suites.
  */
-const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
+const run = integrationSuite();
 const stamp = `admin-cas-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 
 const created = {
@@ -94,7 +95,7 @@ async function makeApplicant(status: "PENDING_REVIEW" | "ACTIVE" | "REJECTED" | 
 }
 
 beforeAll(async () => {
-  if (!process.env.DATABASE_URL) return;
+  if (!integrationDbEnabled()) return;
   const [admin, owner] = await Promise.all([
     db.user.create({ data: { email: `${stamp}-admin@test.invalid`, firstName: "Review", lastName: "Admin", role: "ADMIN", status: "ACTIVE" } }),
     db.user.create({ data: { email: `${stamp}-owner@test.invalid`, firstName: "Review", lastName: "Owner", role: "SELLER_OWNER", status: "ACTIVE" } }),
@@ -114,7 +115,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (!process.env.DATABASE_URL) return;
+  if (!integrationDbEnabled()) return;
   await db.auditLog.deleteMany({
     where: { OR: [{ actorId: { in: created.users } }, { sellerId: { in: created.sellers } }, { entityId: { in: [...created.products, ...created.documents] } }] },
   });

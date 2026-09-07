@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationSuite, integrationDbEnabled } from "../testing/integration-db";
 import { listProducts } from "../services/products";
 
 /**
@@ -10,7 +11,7 @@ import { listProducts } from "../services/products";
  *
  * Skipped without DATABASE_URL, like the other pg suites.
  */
-const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
+const run = integrationSuite();
 const stamp = `brand-filter-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 
 const created = { users: [] as string[], sellers: [] as string[], categories: [] as string[], brands: [] as string[], products: [] as string[] };
@@ -38,7 +39,7 @@ async function makeProduct(name: string, brandId: string | null) {
 }
 
 beforeAll(async () => {
-  if (!process.env.DATABASE_URL) return;
+  if (!integrationDbEnabled()) return;
   const owner = await db.user.create({ data: { email: `${stamp}@test.invalid`, firstName: "Brand", lastName: "Owner", role: "SELLER_OWNER", status: "ACTIVE" } });
   created.users.push(owner.id);
   const seller = await db.sellerProfile.create({
@@ -62,7 +63,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (!process.env.DATABASE_URL) return;
+  if (!integrationDbEnabled()) return;
   await db.product.deleteMany({ where: { id: { in: created.products } } });
   await db.brand.deleteMany({ where: { id: { in: created.brands } } });
   await db.category.deleteMany({ where: { id: { in: created.categories } } });

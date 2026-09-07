@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 import { db, updateGovernedCompanyMember } from "@avenick/database";
 import { getB2BContext, type B2BActionState } from "@/lib/b2b";
 import { actionT } from "@/components/b2b/action-i18n";
-import { sendInviteEmail } from "@/lib/email";
+import { sendInviteEmail, sendJoinApprovedEmail } from "@/lib/email";
+import { selfOrigin } from "@avenick/utils/portal-config";
 
 const ROLES = ["COMPANY_ADMIN", "COMPANY_BUYER", "COMPANY_APPROVER"] as const;
 type Role = (typeof ROLES)[number];
@@ -181,6 +182,176 @@ export async function resendInvite(memberId: string) {
   revalidatePath(TEAM);
   // redirect() throws by design and must not sit inside a try block above it.
   redirect(`${TEAM}?invite=${code}`);
+}
+
+
+/**
+ * Admit an applicant who has confirmed their address.
+ *
+ * This is the ONLY place a CompanyJoinRequest becomes authority. Everything
+ * before it — the CR match, the domain match, the confirmed mailbox — narrows
+ * who may ask; none of it admits anybody. A person becomes a member here,
+ * because a human at the company said so.
+ *
+ * REJECTED is accepted alongside PENDING_ADMIN_APPROVAL on purpose. An
+ * applicant cannot re-apply (one request per person, by construction), so if
+ * rejection were final a mis-click would lock a colleague out permanently and
+ * even an invitation would then fail on "that address is already registered".
+ * The admin who rejected keeps the lever to undo it.
+ */
+export async function approveJoinRequest(
+  requestId: string,
+  _prev: B2BActionState,
+  formData: FormData,
+): Promise<B2BActionState> {
+  const t = actionT();
+  const ctx = await getB2BContext();
+  if (!ctx || ctx.member.role !== "COMPANY_ADMIN") return { error: t("act.join.adminOnly") };
+
+  // The role the ADMIN chooses, not the one the applicant asked for. The
+  // request's requestedRole is a hint shown in the queue and is never trusted
+  // as an instruction — that is what stops an applicant admitting themselves as
+  // an administrator by picking it on a public form.
+  const role = String(formData.get("role") ?? "COMPANY_BUYER") as Role;
+  if (!ROLES.includes(role)) return { error: t("act.join.roleInvalid") };
+
+  const request = await db.companyJoinRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      id: true,
+      companyId: true,
+      userId: true,
+      status: true,
+      department: true,
+      user: { select: { email: true, firstName: true } },
+    },
+  });
+  // Company scope first: a request id from another company must be as invisible
+  // as one that does not exist.
+  if (!request || request.companyId !== ctx.companyId) return { error: t("act.join.notFound") };
+  if (request.status === "PENDING_EMAIL_VERIFICATION") return { error: t("act.join.notConfirmed") };
+  if (request.status === "APPROVED") return { error: t("act.join.alreadyDecided") };
+
+  try {
+    const admitted = await db.$transaction(async (tx) => {
+      // The status is in the WHERE, not only in the check above: two
+      // administrators clicking approve at once must produce one membership.
+      const decided = await tx.companyJoinRequest.updateMany({
+        where: { id: request.id, status: { in: ["PENDING_ADMIN_APPROVAL", "REJECTED"] } },
+        data: { status: "APPROVED", decidedById: ctx.userId, decidedAt: new Date(), rejectionReason: null },
+      });
+      if (decided.count !== 1) return false;
+
+      const membership = await tx.companyMember.create({
+        data: { userId: request.userId, companyId: ctx.companyId, role, department: request.department },
+      });
+
+      // The account has been PENDING since the application was filed, which is
+      // what has kept sign-in refusing it. Activating it here — and only here —
+      // is what the approval actually grants.
+      await tx.user.update({
+        where: { id: request.userId },
+        data: { status: "ACTIVE", role },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          actorId: ctx.userId,
+          entityType: "CompanyMember",
+          entityId: membership.id,
+          action: "CREATE",
+          after: {
+            companyId: ctx.companyId,
+            userId: request.userId,
+            role,
+            admittedVia: "join-request",
+            joinRequestId: request.id,
+          },
+        },
+      });
+      return true;
+    });
+    if (!admitted) return { error: t("act.join.alreadyDecided") };
+  } catch {
+    // The likeliest cause is the unique on CompanyMember.userId: the applicant
+    // was admitted by another route between the read and the write.
+    return { error: t("act.join.failed") };
+  }
+
+  // Told AFTER the transaction commits, and never inside it: a provider that
+  // hangs must not hold a write open, and a "you are in" for a write that then
+  // rolled back is worse than no mail at all.
+  //
+  // The applicant cannot discover this any other way. Sign-in refused them
+  // yesterday and answers identically for "rejected" and "not looked at yet",
+  // so without this mail the only way to learn they were admitted is to keep
+  // trying the login form. A failure to send is therefore worth a line in the
+  // administrator's own confirmation, not a silent shrug.
+  const origin = selfOrigin("customer");
+  const notified = origin
+    ? (
+        await sendJoinApprovedEmail({
+          to: request.user.email,
+          companyName: ctx.company.nameEn,
+          firstName: request.user.firstName,
+          signInUrl: `${origin}/login`,
+        })
+      ).sent
+    : false;
+
+  revalidatePath("/b2b/team");
+  return {
+    ok: true,
+    message: notified
+      ? t("act.join.approved")
+      : t("act.join.approvedNotNotified", { email: request.user.email }),
+  };
+}
+
+/**
+ * Refuse an applicant.
+ *
+ * Nothing is deleted. The account stays PENDING with no membership, which is
+ * exactly the state it has been in since it was created — sign-in refuses it
+ * and getB2BContext returns null for it — and the row remains so the next
+ * administrator to read this queue can see that the decision was taken, by
+ * whom, and why.
+ */
+export async function rejectJoinRequest(
+  requestId: string,
+  _prev: B2BActionState,
+  formData: FormData,
+): Promise<B2BActionState> {
+  const t = actionT();
+  const ctx = await getB2BContext();
+  if (!ctx || ctx.member.role !== "COMPANY_ADMIN") return { error: t("act.join.adminOnly") };
+
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 500) || null;
+
+  const request = await db.companyJoinRequest.findUnique({
+    where: { id: requestId },
+    select: { id: true, companyId: true, userId: true, status: true },
+  });
+  if (!request || request.companyId !== ctx.companyId) return { error: t("act.join.notFound") };
+
+  const decided = await db.companyJoinRequest.updateMany({
+    where: { id: request.id, status: { in: ["PENDING_EMAIL_VERIFICATION", "PENDING_ADMIN_APPROVAL"] } },
+    data: { status: "REJECTED", decidedById: ctx.userId, decidedAt: new Date(), rejectionReason: reason },
+  });
+  if (decided.count !== 1) return { error: t("act.join.alreadyDecided") };
+
+  await db.auditLog.create({
+    data: {
+      actorId: ctx.userId,
+      entityType: "CompanyJoinRequest",
+      entityId: request.id,
+      action: "UPDATE",
+      after: { status: "REJECTED", companyId: ctx.companyId, userId: request.userId, rejectionReason: reason },
+    },
+  });
+
+  revalidatePath("/b2b/team");
+  return { ok: true, message: t("act.join.rejected") };
 }
 
 export async function updateMember(memberId: string, formData: FormData) {

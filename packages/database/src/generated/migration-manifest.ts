@@ -37,4 +37,6 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260903200000_shipping_zones",
   "20260905120000_product_view_signal",
   "20260905180000_company_registration_evidence",
+  "20260906060000_reconcile_registration_evidence",
+  "20260907120000_company_join_requests",
 ];

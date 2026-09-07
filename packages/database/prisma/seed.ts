@@ -364,7 +364,7 @@ async function main() {
   });
 
   const company = await prisma.company.upsert({
-    where: { crNumber: "AE-CR-2021-11234" },
+    where: { country_crNumber: { country: Country.AE, crNumber: "AE-CR-2021-11234" } },
     update: {},
     create: {
       nameEn: "Emirates Construction Group",

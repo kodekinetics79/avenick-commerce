@@ -55,15 +55,45 @@ export function toIdentityLocale(raw: string | undefined | null): IdentityLocale
  */
 export function resetTtlLabel(locale: IdentityLocale, ttlSeconds: number, englishLabel: string): string {
   if (locale === "en") return englishLabel;
-  if (ttlSeconds % 3600 === 0) {
-    const h = ttlSeconds / 3600;
-    return h === 1 ? "ساعة واحدة" : h === 2 ? "ساعتين" : `${h} ساعات`;
-  }
-  if (ttlSeconds % 60 === 0) {
-    const m = ttlSeconds / 60;
-    return m === 1 ? "دقيقة واحدة" : m === 2 ? "دقيقتين" : `${m} دقيقة`;
-  }
-  return `${ttlSeconds} ثانية`;
+  if (ttlSeconds % 86400 === 0) return arabicCount(ttlSeconds / 86400, DAY);
+  if (ttlSeconds % 3600 === 0) return arabicCount(ttlSeconds / 3600, HOUR);
+  if (ttlSeconds % 60 === 0) return arabicCount(ttlSeconds / 60, MINUTE);
+  return arabicCount(ttlSeconds, SECOND);
+}
+
+/**
+ * Arabic counts a noun in four ways, not two, and getting it wrong is the tell
+ * that a string was translated rather than written.
+ *
+ * 1        singular + واحد        ساعة واحدة
+ * 2        the dual               ساعتين
+ * 3-10     the plural             خمس ساعات  →  5 ساعات
+ * 11+      the singular again     24 ساعة    (NOT "24 ساعات")
+ *
+ * The old form of this helper had `${n} ساعات` for everything above two, which
+ * was right for three-to-ten and wrong for every number after it — and the
+ * confirmation link this file now describes is 24 hours, landing squarely in
+ * the wrong branch.
+ *
+ * WESTERN DIGITS throughout, per DESIGN_SYSTEM.md §2.3: one numeral system
+ * across both locales is GCC commerce convention and what keeps a figure
+ * tabular.
+ */
+type ArabicUnit = { one: string; two: string; few: string; many: string };
+
+const DAY: ArabicUnit = { one: "يوم واحد", two: "يومين", few: "أيام", many: "يوماً" };
+const HOUR: ArabicUnit = { one: "ساعة واحدة", two: "ساعتين", few: "ساعات", many: "ساعة" };
+const MINUTE: ArabicUnit = { one: "دقيقة واحدة", two: "دقيقتين", few: "دقائق", many: "دقيقة" };
+const SECOND: ArabicUnit = { one: "ثانية واحدة", two: "ثانيتين", few: "ثوانٍ", many: "ثانية" };
+
+function arabicCount(n: number, unit: ArabicUnit): string {
+  if (n === 1) return unit.one;
+  if (n === 2) return unit.two;
+  // 3-10 take the plural; 11 and above return to the singular. The rule is on
+  // the last two digits, so 103 behaves like 3 and 111 like 11.
+  const mod100 = n % 100;
+  if (mod100 >= 3 && mod100 <= 10) return `${n} ${unit.few}`;
+  return `${n} ${unit.many}`;
 }
 
 /**
@@ -241,6 +271,23 @@ interface IdentityDictionary {
     readonly usedToken: string;
     readonly noSecret: string;
     readonly requestNew: string;
+    readonly backTo: string;
+    readonly genericError: string;
+  };
+  readonly confirmEmail: {
+    readonly eyebrow: string;
+    readonly title: string;
+    readonly subtitle: string;
+    readonly note: (ttl: string) => string;
+    readonly submit: string;
+    readonly done: (company: string) => string;
+    readonly doneNoAdmins: (company: string) => string;
+    readonly whatNext: string;
+    readonly signIn: string;
+    readonly missingToken: string;
+    readonly deadToken: string;
+    readonly noSecret: string;
+    readonly applyAgain: string;
     readonly backTo: string;
     readonly genericError: string;
   };
@@ -473,6 +520,25 @@ const EN: IdentityDictionary = {
     backTo: "Back to",
     genericError: "Something went wrong. Please try again.",
   },
+  confirmEmail: {
+    eyebrow: "Company access",
+    title: "Confirm your email address",
+    subtitle: "One click confirms we can reach you here. It does not yet give you access.",
+    note: (ttl) => `A confirmation link is valid for ${ttl} from the moment it is sent.`,
+    submit: "Confirm my email address",
+    done: (company) =>
+      `Your address is confirmed. Your request is now with the administrators at ${company}, who decide whether to admit you. You will be able to sign in once one of them approves it.`,
+    doneNoAdmins: (company) =>
+      `Your address is confirmed. ${company} currently has no active administrator to review the request, so it will wait until one is available. Contact your colleague at the company directly.`,
+    whatNext: "Nothing on this platform is visible to you until an administrator at the company approves the request.",
+    signIn: "Sign in",
+    missingToken: "This page needs the link from your confirmation email \u2014 the confirmation code is missing from the address.",
+    deadToken: "This confirmation link is invalid or has expired.",
+    noSecret: "Email confirmation is not available from this environment.",
+    applyAgain: "Apply to join the company again",
+    backTo: "Back to",
+    genericError: "Something went wrong. Please try again.",
+  },
 };
 
 const AR: IdentityDictionary = {
@@ -670,6 +736,25 @@ const AR: IdentityDictionary = {
     usedToken: "رابط إعادة التعيين غير صالح أو انتهت صلاحيته أو سبق استخدامه.",
     noSecret: "إعادة تعيين كلمة المرور غير متاحة من هذه البيئة.",
     requestNew: "اطلب رابط إعادة تعيين جديداً",
+    backTo: "العودة إلى",
+    genericError: "حدث خطأ غير متوقع. حاول مرة أخرى.",
+  },
+  confirmEmail: {
+    eyebrow: "الوصول إلى حساب الشركة",
+    title: "أكّد بريدك الإلكتروني",
+    subtitle: "نقرة واحدة تُثبت أننا نصل إليك على هذا العنوان، وهي لا تمنحك صلاحية الدخول بعد.",
+    note: (ttl) => `يبقى رابط التأكيد صالحاً لمدة ${ttl} من لحظة إرساله.`,
+    submit: "تأكيد بريدي الإلكتروني",
+    done: (company) =>
+      `تم تأكيد عنوانك. طلبك الآن لدى مديري ${company}، وهم من يقرّر قبولك. ستتمكّن من تسجيل الدخول بمجرد موافقة أحدهم.`,
+    doneNoAdmins: (company) =>
+      `تم تأكيد عنوانك. لا يوجد لدى ${company} حالياً مدير نشط لمراجعة الطلب، فسينتظر حتى يتوفّر أحدهم. تواصل مع زميلك في الشركة مباشرة.`,
+    whatNext: "لا يظهر لك شيء على المنصّة حتى يوافق أحد مديري الشركة على الطلب.",
+    signIn: "تسجيل الدخول",
+    missingToken: "تحتاج هذه الصفحة إلى الرابط الوارد في رسالة التأكيد — رمز التأكيد غير موجود في العنوان.",
+    deadToken: "رابط التأكيد غير صالح أو انتهت صلاحيته.",
+    noSecret: "تأكيد البريد الإلكتروني غير متاح من هذه البيئة.",
+    applyAgain: "قدّم طلب الانضمام إلى الشركة من جديد",
     backTo: "العودة إلى",
     genericError: "حدث خطأ غير متوقع. حاول مرة أخرى.",
   },

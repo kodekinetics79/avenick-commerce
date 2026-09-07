@@ -12,7 +12,9 @@ import {
   StaleIntegrationLeaseError,
 } from "../services/integrations";
 
-const enabled = Boolean(process.env.DATABASE_URL);
+import { integrationDbEnabled } from "../testing/integration-db";
+
+const enabled = integrationDbEnabled();
 const run = enabled ? describe : describe.skip;
 const marker = `fencing-${Date.now()}`;
 let operatorId = "";

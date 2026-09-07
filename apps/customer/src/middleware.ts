@@ -25,5 +25,18 @@ export default function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  // The trailing alternation excludes files by EXTENSION, which is why the
+  // generated metadata routes have to be named explicitly: Next serves
+  // icon.tsx, apple-icon.tsx and opengraph-image.tsx at extensionless paths
+  // (`/icon?<hash>`), so they matched, hit the auth check and answered
+  // `307 -> /login?callbackUrl=%2Ficon`. A favicon that redirects to a sign-in
+  // page fails silently in the one place nobody looks — the browser just draws
+  // the default document icon, exactly as it did when there was no icon at all.
+  //
+  // `sitemap.xml` and `robots.txt` are covered by the extension rule already;
+  // these three are not, and neither would `manifest.webmanifest` be if it were
+  // not for its own extension.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|opengraph-image|twitter-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };

@@ -5,7 +5,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./commerce-governance": "./src/services/commerce-governance.ts",
-    "./pilot-catalog": "./src/services/pilot-catalog.ts"
+    "./pilot-catalog": "./src/services/pilot-catalog.ts",
+    "./testing": "./src/testing/integration-db.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

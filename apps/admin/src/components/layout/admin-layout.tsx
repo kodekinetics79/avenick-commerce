@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@avenick/utils";
 import { platformName } from "@avenick/utils/portal-config";
-import { Eyebrow, NavItem, StatusPill, Surface, ThemeToggle } from "@avenick/ui";
+import { BrandMark, Eyebrow, NavItem, StatusPill, Surface, ThemeToggle } from "@avenick/ui";
 import { signOut, useSession } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { CommandPalette, type PaletteGroup } from "@/components/command-palette";
@@ -392,12 +392,12 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
         className={cn("flex shrink-0 items-center border-b border-border px-4", collapsed && "justify-center px-2")}
       >
         {collapsed ? (
-          <span
-            className="fig flex items-center text-ui font-medium text-ink-1"
-            style={{ minBlockSize: "var(--control-h-md)" }}
-            aria-hidden="true"
-          >
-            {platformName().charAt(0)}
+          // The collapsed rail carried a BARE GLYPH — no plate, and no
+          // .toUpperCase(), so a lowercase NEXT_PUBLIC_PLATFORM_NAME rendered a
+          // lowercase initial here while every other surface in the product
+          // uppercased it. It is the mark now, like everywhere else.
+          <span className="flex items-center" style={{ minBlockSize: "var(--control-h-md)" }}>
+            <BrandMark name={platformName()} size={24} />
           </span>
         ) : (
           // One line, two registers. Stacked, the eyebrow made this plate taller

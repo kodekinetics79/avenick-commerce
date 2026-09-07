@@ -58,16 +58,35 @@ export default async function BrandsPage() {
                   href={`/products?brand=${encodeURIComponent(brand.slug)}`}
                   className="u-focus flex items-start gap-3 rounded-[inherit] p-4"
                 >
-                  {/* A neutral initial, not an indigo→violet gradient disc with a
-                      900-weight glyph and a glow. The old one was three banned
-                      things at once, and it scaled 10% on hover, which repainted
-                      every tile in the grid. */}
-                  <span
-                    aria-hidden="true"
-                    className="u-h3 grid h-11 w-11 shrink-0 place-items-center rounded-nested bg-surface-1 text-ink-2"
-                  >
-                    {brand.nameEn.charAt(0)}
-                  </span>
+                  {/* The brand's own mark when it has one, and a neutral initial
+                      when it does not — never the indigo→violet gradient disc
+                      with a 900-weight glyph and a glow that used to sit here.
+                      That was three banned things at once and it scaled 10% on
+                      hover, repainting every tile in the grid.
+
+                      A plain <img>, not next/image: these are same-origin SVGs a
+                      few hundred bytes each, so the optimiser would add a round
+                      trip and a transform to save nothing. Dimensions are set to
+                      reserve the box and keep the row from shifting as it loads. */}
+                  {brand.logoUrl ? (
+                    <img
+                      src={brand.logoUrl}
+                      alt=""
+                      aria-hidden="true"
+                      width={44}
+                      height={44}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-11 w-11 shrink-0 rounded-nested bg-surface-1 object-contain p-1.5"
+                    />
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      className="u-h3 grid h-11 w-11 shrink-0 place-items-center rounded-nested bg-surface-1 text-ink-2"
+                    >
+                      {brand.nameEn.charAt(0)}
+                    </span>
+                  )}
                   <span className="min-w-0 flex-1">
                     <span className="u-ui block truncate font-medium text-ink-1">{brand.nameEn}</span>
                     <span className="mt-1 flex items-baseline gap-1.5">

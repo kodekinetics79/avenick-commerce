@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { integrationSuite } from "../testing/integration-db";
 import { db } from "../index";
 import { canonicalOrderRequest } from "../services/commerce-governance";
 import { getProductBySlug } from "../services/products";
@@ -26,7 +27,7 @@ describe("release-board data minimization", () => {
   });
 });
 
-describe.skipIf(!process.env["DATABASE_URL"])("release-board commerce/finance PostgreSQL invariants", () => {
+integrationSuite()("release-board commerce/finance PostgreSQL invariants", () => {
   it("never exposes cross-channel variant prices or inventory topology", async () => {
     const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
     const owner = await db.user.create({ data: {

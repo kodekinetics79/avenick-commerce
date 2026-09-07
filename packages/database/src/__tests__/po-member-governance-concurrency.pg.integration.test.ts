@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { integrationSuite } from "../testing/integration-db";
 import { db } from "../index";
 import {
   createGovernedApprovalPolicy,
@@ -8,7 +9,7 @@ import {
   updateGovernedCompanyMember,
 } from "../services/b2b-purchase-orders";
 
-const run = process.env["DATABASE_URL"] ? describe.sequential : describe.skip;
+const run = integrationSuite();
 const users: string[] = [];
 const companies: string[] = [];
 

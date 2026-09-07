@@ -11,6 +11,7 @@ export * from "./date";
 export * from "./arabic";
 export * from "./cn";
 export * from "./record-id";
+export * from "./email-domain";
 
 /** Generate a unique reference code for bank transfers */
 export function generateReference(prefix = "MNZ"): string {

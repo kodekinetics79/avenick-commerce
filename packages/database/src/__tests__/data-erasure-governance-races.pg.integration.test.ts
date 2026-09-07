@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationSuite, integrationDbEnabled } from "../testing/integration-db";
 import { createGovernedApprovalPolicy } from "../services/b2b-purchase-orders";
 import { eraseUserData } from "../services/data-rights";
 import { lockInventoryStockRows } from "../services/checkout-invariants";
 import { secureCreateOrder } from "../services/secure-checkout";
 
-const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
+const run = integrationSuite();
 const userIds: string[] = [];
 const companyIds: string[] = [];
 
