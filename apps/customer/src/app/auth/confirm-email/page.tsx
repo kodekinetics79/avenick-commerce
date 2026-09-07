@@ -3,8 +3,12 @@ import { cookies } from "next/headers";
 import { AlertCircle } from "lucide-react";
 import { log } from "@avenick/observability";
 import { AuthNotice, AuthShell } from "../auth-shell";
-import { identityCopy, LOCALE_COOKIE, toIdentityLocale, type IdentityLocale } from "../identity-copy";
-import { emailVerificationTtlLabel, verifyEmailVerificationToken } from "@/lib/email-verification";
+import { identityCopy, LOCALE_COOKIE, resetTtlLabel, toIdentityLocale, type IdentityLocale } from "../identity-copy";
+import {
+  EMAIL_VERIFICATION_TTL_SECONDS,
+  emailVerificationTtlLabel,
+  verifyEmailVerificationToken,
+} from "@/lib/email-verification";
 import { ConfirmEmailForm } from "./confirm-form";
 
 /**
@@ -23,6 +27,11 @@ import { ConfirmEmailForm } from "./confirm-form";
 export default async function ConfirmEmailPage({ searchParams }: { searchParams?: { token?: string | string[] } }) {
   const locale = toIdentityLocale((await cookies()).get(LOCALE_COOKIE)?.value);
   const t = identityCopy(locale).confirmEmail;
+  // The English label is DERIVED from the constant the verifier enforces, and
+  // the Arabic is built from the same seconds rather than translated from that
+  // label — a translated "1 day" is a copy of a copy, and would go stale the
+  // moment the TTL changed. Same helper the reset page uses.
+  const ttl = resetTtlLabel(locale, EMAIL_VERIFICATION_TTL_SECONDS, emailVerificationTtlLabel());
 
   const raw = searchParams?.token;
   const token = typeof raw === "string" && raw.length > 0 ? raw : null;
@@ -40,7 +49,7 @@ export default async function ConfirmEmailPage({ searchParams }: { searchParams?
       eyebrow={t.eyebrow}
       title={t.title}
       subtitle={t.subtitle}
-      note={t.note(emailVerificationTtlLabel())}
+      note={t.note(ttl)}
       footer={
         <p className="u-meta text-ink-3">
           {t.backTo}{" "}
