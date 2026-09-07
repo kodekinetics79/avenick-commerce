@@ -33,8 +33,19 @@ interface OrderConfirmationProps {
   /** The order's own currency; there is no default because a guessed currency on an invoice is a wrong invoice. */
   currency: string;
   locale?: "ar" | "en";
-  /** Platform display name; the sender passes platformName() from portal-config. */
-  platformName?: string;
+  /**
+   * Platform display name. REQUIRED — the sender passes platformName() from
+   * portal-config.
+   *
+   * It used to be optional with a fallback of `isAr ? "منزل" : "Avenick"`, which
+   * was wrong three ways at once. "منزل" is the PREVIOUS brand, so an Arabic
+   * recipient was mailed a name the product no longer uses. The two scripts
+   * disagreed, while every other Arabic string in the platform carries the Latin
+   * name through a {platform} placeholder. And a silent default is the failure
+   * itself: a sender that forgets this prop should not quietly post mail under a
+   * hardcoded brand — it should not compile.
+   */
+  platformName: string;
 }
 
 export function OrderConfirmationEmail({
@@ -51,7 +62,7 @@ export function OrderConfirmationEmail({
 }: OrderConfirmationProps) {
   const isAr = locale === "ar";
   // The brand name is the one permitted literal; the sender can override it.
-  const name = platformName ?? (isAr ? "منزل" : "Avenick");
+  const name = platformName;
   const dir = isAr ? "rtl" : "ltr";
 
   const t = isAr
@@ -95,7 +106,7 @@ export function OrderConfirmationEmail({
       <Tailwind>
         <Body className="bg-gray-50 font-sans">
           <Container className="mx-auto my-8 max-w-xl rounded-2xl bg-white p-8 shadow-sm">
-            <Heading className="text-2xl font-bold text-orange-600 mb-2">{t.title}</Heading>
+            <Heading className="text-2xl font-semibold text-[#057f42] mb-2">{t.title}</Heading>
             <Text className="text-sm text-gray-500 mb-4">
               {t.orderNum}: <strong>{orderNumber}</strong>
             </Text>
@@ -141,8 +152,8 @@ export function OrderConfirmationEmail({
                 </Row>
               )}
               <Row className="mt-2">
-                <Column><Text className="font-bold m-0">{t.total}</Text></Column>
-                <Column className="text-end"><Text className="font-bold text-orange-600 m-0">{currency} {total.toFixed(2)}</Text></Column>
+                <Column><Text className="font-semibold m-0">{t.total}</Text></Column>
+                <Column className="text-end"><Text className="font-semibold text-[#057f42] m-0">{currency} {total.toFixed(2)}</Text></Column>
               </Row>
             </Section>
 

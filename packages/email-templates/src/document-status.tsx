@@ -9,8 +9,19 @@ interface DocumentStatusProps {
   status: "APPROVED" | "REJECTED";
   rejectionReason?: string;
   locale?: "ar" | "en";
-  /** Platform display name; the sender passes platformName() from portal-config. */
-  platformName?: string;
+  /**
+   * Platform display name. REQUIRED — the sender passes platformName() from
+   * portal-config.
+   *
+   * It used to be optional with a fallback of `isAr ? "منزل" : "Avenick"`, which
+   * was wrong three ways at once. "منزل" is the PREVIOUS brand, so an Arabic
+   * recipient was mailed a name the product no longer uses. The two scripts
+   * disagreed, while every other Arabic string in the platform carries the Latin
+   * name through a {platform} placeholder. And a silent default is the failure
+   * itself: a sender that forgets this prop should not quietly post mail under a
+   * hardcoded brand — it should not compile.
+   */
+  platformName: string;
 }
 
 export function DocumentStatusEmail({
@@ -23,7 +34,7 @@ export function DocumentStatusEmail({
 }: DocumentStatusProps) {
   const isAr = locale === "ar";
   // The brand name is the one permitted literal; the sender can override it.
-  const name = platformName ?? (isAr ? "منزل" : "Avenick");
+  const name = platformName;
   const isApproved = status === "APPROVED";
   const dir = isAr ? "rtl" : "ltr";
 
@@ -38,7 +49,7 @@ export function DocumentStatusEmail({
       <Tailwind>
         <Body className="bg-gray-50 font-sans">
           <Container className="mx-auto my-8 max-w-xl rounded-2xl bg-white p-8 shadow-sm">
-            <Heading className={`text-2xl font-bold mb-4 ${isApproved ? "text-green-600" : "text-red-600"}`}>
+            <Heading className={`text-2xl font-semibold mb-4 ${isApproved ? "text-green-600" : "text-red-600"}`}>
               {title}
             </Heading>
 

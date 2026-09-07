@@ -956,5 +956,14 @@
     "products": "Browse the catalogue",
     "support": "Contact support",
     "markLabel": "{brand} home"
+  },
+  "errorPage": {
+    "eyebrow": "Page not loaded",
+    "headline": "This page failed while it was rendering.",
+    "body": "Retrying re-renders the page. Nothing you had already submitted was changed by this failure.",
+    "retry": "Try again",
+    "home": "Go to the storefront",
+    "support": "Contact support",
+    "reference": "Reference"
   }
 }
