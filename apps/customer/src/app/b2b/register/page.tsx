@@ -25,7 +25,9 @@ import {
   DisplayPlate,
   Eyebrow,
   Reveal,
+  StatusPill,
   Surface,
+  Timeline,
   type SurfaceTone,
 } from "@avenick/ui";
 import { MainLayout } from "@/components/layout/main-layout";
@@ -341,26 +343,129 @@ export default async function B2BRegisterPage({
     const { company } = member;
     const pending = company.status === "PENDING_VERIFICATION" && !company.deletedAt;
     const suspended = company.status === "SUSPENDED" || Boolean(company.deletedAt);
+    // The filed Arabic name where one exists, the filed English name otherwise.
+    // A blank heading would not be kinder than a name in the other script.
+    const companyName = (locale === "ar" ? company.nameAr : null) || company.nameEn;
+
+    /*
+     * THE PAGE A RETURNING APPLICANT LANDS ON.
+     *
+     * A founder whose company is PENDING_VERIFICATION can sign in perfectly
+     * well, and then every /b2b surface bounces them here, so this is the page
+     * they see on every visit until a reviewer acts. It was one amber box: a
+     * title, two sentences and two buttons. It said the application was in
+     * review; it did not say WHERE in the review, and "there is nothing further
+     * to submit" was buried in the second paragraph of the second sentence — so
+     * the honest question a returning applicant has ("is it stuck on me?") was
+     * answered, in passing, by a clause.
+     *
+     * It now states three things without being read closely: which stage the
+     * application is at (the ladder), what was filed and when (the record), and
+     * that nothing is waiting on the applicant (its own heading). The stage
+     * ladder carries no dates on its future steps and the copy promises no
+     * review time, because nothing in this system measures one — a company is
+     * approved when its registration has been checked, and inventing "2–3
+     * business days" here would be the one sentence on the page that could turn
+     * out to be a lie.
+     */
+    if (pending) {
+      const countryKey = COUNTRY_LABELS[company.country];
+      const record: Array<{ label: string; value: string }> = [
+        { label: t("status.filed.submitted"), value: f.date(company.createdAt) },
+        { label: t("status.filed.cr"), value: company.crNumber ?? t("common.notRecorded") },
+        { label: t("status.filed.country"), value: countryKey ? t(countryKey) : company.country },
+      ];
+
+      return (
+        <MainLayout>
+          <div className="mx-auto max-w-3xl space-y-block px-4 py-block lg:py-section">
+            <header>
+              <Eyebrow>{t("status.eyebrow")}</Eyebrow>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <h1 className="u-h2 text-ink-1">{companyName}</h1>
+                {/* Static dot, never pulsing: this page is visited repeatedly by
+                    someone who can do nothing about it, and a pulsing indicator
+                    on a wait they cannot shorten is fatigue, not information. */}
+                <StatusPill tone="warning" dot>{t("status.pill.review")}</StatusPill>
+              </div>
+              <p className="u-lead mt-3 max-w-prose text-ink-2">
+                {t("status.lead", { platform: platformName() })}
+              </p>
+            </header>
+
+            {/* THE RECORD. What was filed, and when — the applicant's own copy of
+                it, and the three values a support conversation actually needs. */}
+            <Surface rung={2} className="p-5 sm:p-6">
+              <dl className="grid gap-4 sm:grid-cols-3">
+                {record.map((row) => (
+                  <div key={row.label}>
+                    <dt className="u-micro text-ink-3">{row.label}</dt>
+                    <dd className="u-ui mt-1 break-words font-medium text-ink-1">{row.value}</dd>
+                  </div>
+                ))}
+              </dl>
+              <Dateline className="mt-5">{t("status.filed.basis")}</Dateline>
+            </Surface>
+
+            {/* THE LADDER. Three stages, one of them current. No timestamps on
+                the two that have not happened. */}
+            <Surface rung={2} className="p-5 sm:p-6">
+              <h2 className="u-h3 text-ink-1">{t("status.stages")}</h2>
+              <Timeline
+                className="mt-4"
+                steps={[
+                  {
+                    label: t("status.step.received"),
+                    description: t("status.step.received.desc"),
+                    timestamp: f.date(company.createdAt),
+                    done: true,
+                  },
+                  {
+                    label: t("status.step.review"),
+                    description: t("status.step.review.desc", { platform: platformName() }),
+                    current: true,
+                    icon: Clock,
+                  },
+                  {
+                    label: t("status.step.open"),
+                    description: t("status.step.open.desc"),
+                  },
+                ]}
+              />
+            </Surface>
+
+            {/* WHAT IS WAITING ON WHOM. Its own heading, because it is the
+                question a returning applicant came with. */}
+            <Surface rung={2} tone="warning" className="p-5 sm:p-6">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-warning-ink" aria-hidden="true" />
+                <div className="u-body space-y-2 text-ink-2">
+                  <h2 className="u-h3 text-ink-1">{t("status.next")}</h2>
+                  <p>{t("status.next.nothingToDo")}</p>
+                  <p>{t("status.next.noEta")}</p>
+                  <p>{t("status.next.returning")}</p>
+                </div>
+              </div>
+            </Surface>
+
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="secondary"><Link href="/products">{t("common.browseCatalogue")}</Link></Button>
+              <Button asChild variant="ghost"><Link href="/support">{t("register.support")}</Link></Button>
+            </div>
+          </div>
+        </MainLayout>
+      );
+    }
 
     return (
       <MainLayout>
         <div className="max-w-2xl mx-auto px-4 py-16 space-y-4">
-          {pending ? (
-            <Notice icon={Clock} tone="warning" title={t("register.pending.title", { company: company.nameEn })}>
-              <p>
-                {t("register.pending.body", {
-                  date: f.date(company.createdAt),
-                  platform: platformName(),
-                })}
-              </p>
-              <p>{t("register.pending.body2")}</p>
-            </Notice>
-          ) : suspended ? (
-            <Notice icon={AlertCircle} tone="warning" title={t("register.suspended.title", { company: company.nameEn })}>
+          {suspended ? (
+            <Notice icon={AlertCircle} tone="warning" title={t("register.suspended.title", { company: companyName })}>
               <p>{company.deletedAt ? t("register.suspended.closed") : t("register.suspended.body")}</p>
             </Notice>
           ) : (
-            <Notice icon={AlertCircle} tone="warning" title={t("register.inactive.title", { company: company.nameEn })}>
+            <Notice icon={AlertCircle} tone="warning" title={t("register.inactive.title", { company: companyName })}>
               <p>{t("register.inactive.body")}</p>
             </Notice>
           )}

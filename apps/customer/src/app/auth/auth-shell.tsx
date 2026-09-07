@@ -39,12 +39,20 @@ import { identityCopy, type IdentityLocale } from "./identity-copy";
  *     test, and round one's version failed it.
  *
  *   · THE LEDGER IS DENSITY OF TRUE FACT where a template puts an illustration.
- *     Each row names a surface this deployment really ships AND PRINTS ITS
- *     ROUTE in the mono face. It is checkable by clicking, it is identical in
- *     both languages, and it is the one thing on a sign-in page that could not
- *     have been written by a marketing team. Nothing here promises a delivery
- *     window, a response time, a discount or a reply, because the platform
- *     measures and stores none of those.
+ *     Each row names a record the account holds and, underneath it, the LIMIT on
+ *     that record. Nothing here promises a delivery window, a response time, a
+ *     discount or a reply, because the platform measures and stores none of
+ *     those.
+ *
+ *     It used to print each row's ROUTE — "/account/orders", set in the mono
+ *     face in its own column — under the line "Every surface named here exists
+ *     on this deployment". That was defended as checkable fact, and it was fact.
+ *     It was also addressed to a reviewer auditing the build rather than to the
+ *     buyer signing in, who reads a raw URL on a sign-in page as an unfinished
+ *     screen. The mono column is gone and the third line of each row now carries
+ *     the disclosure instead, which is the part a competitor's login page cannot
+ *     copy: saying "the seller records this status, we do not estimate it" costs
+ *     something to say. See the note on AccountSurface in identity-copy.ts.
  *
  *   · ONE BRASS GESTURE, not a sixth one invented here. The rule above the
  *     masthead is the same .u-drawn rule as active nav, the selected tab, the
@@ -138,22 +146,19 @@ export function AuthShell({ locale, eyebrow, title, subtitle, note, footer, chil
                 <ul className="mt-2">
                   {copy.surfaces.map((surface, i) => (
                     <li
-                      key={surface.route}
+                      key={surface.label}
                       className={cn("py-3", i > 0 && "border-t border-hairline")}
                     >
-                      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-                        <p className="u-ui font-medium text-ink-1">{surface.label}</p>
-                        {/* The route IS the fact, so it is set at ink-2 rather
-                            than the metadata step: ink-3 measures 4.62:1 against
-                            the plate's lightest conic stop — passing, but with no
-                            headroom, and this line is load-bearing rather than
-                            chrome. Rank is carried by family and size instead.
-                            dir="ltr" because a path is a path in both languages. */}
-                        <p className="u-mono u-meta text-ink-2" dir="ltr">
-                          {surface.route}
-                        </p>
-                      </div>
+                      <p className="u-ui font-medium text-ink-1">{surface.label}</p>
                       <p className="u-meta mt-1 text-ink-2">{surface.body}</p>
+                      {/* The disclosure is the load-bearing line, so it is set at
+                          ink-2 rather than the metadata step: ink-3 measures
+                          4.62:1 against the plate's lightest conic stop —
+                          passing, but with no headroom. Rank is carried by the
+                          rule and the indent instead of by a lighter ink. */}
+                      <p className="u-meta mt-1.5 border-s border-hairline ps-2.5 text-ink-2">
+                        {surface.basis}
+                      </p>
                     </li>
                   ))}
                 </ul>
