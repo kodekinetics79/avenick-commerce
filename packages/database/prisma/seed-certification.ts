@@ -73,7 +73,7 @@ async function main() {
     const sellerBOwner = await upsertUser("cert-seller-b-owner@avenick.test", "Seller B", "Owner", UserRole.SELLER_OWNER);
 
     const company = await tx.company.upsert({
-      where: { crNumber: "CERT-AE-COMPANY-A" },
+      where: { country_crNumber: { country: Country.AE, crNumber: "CERT-AE-COMPANY-A" } },
       update: { status: CompanyStatus.ACTIVE, deletedAt: null, country: Country.AE, city: "Dubai" },
       create: {
         nameEn: "Avenick Certification Company A", nameAr: "شركة أفينيك للاعتماد أ",

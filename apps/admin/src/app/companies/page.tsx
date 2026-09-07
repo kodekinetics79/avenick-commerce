@@ -13,10 +13,22 @@ import {
 export const metadata = { title: "B2B Companies" };
 export const dynamic = "force-dynamic";
 
+/*
+ * Exhaustive over CompanyStatus, and the compiler enforces it: this map is
+ * `Record<CompanyStatus, …>`, so adding a state to the enum without a label
+ * here fails the build rather than rendering a company with no pill.
+ *
+ * REJECTED and INFO_REQUESTED arrive with the registration-evidence review.
+ * They take the tones the two existing non-terminal states already use —
+ * danger for a decision that closed against the applicant, warning for one
+ * waiting on them — so the column reads as one scale rather than five colours.
+ */
 const STATUS_CONFIG: Record<CompanyStatus, { label: string; tone: PillTone }> = {
   ACTIVE: { label: "Active", tone: "success" },
   SUSPENDED: { label: "Suspended", tone: "danger" },
   PENDING_VERIFICATION: { label: "Pending verification", tone: "warning" },
+  REJECTED: { label: "Rejected", tone: "danger" },
+  INFO_REQUESTED: { label: "Information requested", tone: "warning" },
 };
 
 interface PageProps {
