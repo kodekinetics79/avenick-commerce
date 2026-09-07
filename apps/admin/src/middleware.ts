@@ -7,5 +7,11 @@ import { createMiddleware } from "@avenick/auth/middleware";
 export default createMiddleware("admin");
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  // Named explicitly because the trailing alternation excludes by EXTENSION and
+  // Next serves the generated metadata routes at extensionless paths
+  // (`/icon?<hash>`). Without this they match, hit the auth check and answer
+  // 307 -> /login, so the tab silently keeps the browser default icon.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|icon|apple-icon|opengraph-image|twitter-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 };

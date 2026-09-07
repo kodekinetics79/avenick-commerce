@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Mail, ArrowRight, LifeBuoy, FileText } from "lucide-react";
-import { Button, Divider, Eyebrow, FieldWell } from "@avenick/ui";
+import { BrandLockup, Button, Divider, Eyebrow, FieldWell } from "@avenick/ui";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
 import { SELLER_REGISTER_URL } from "@/lib/portal-urls";
 
@@ -113,18 +113,12 @@ export function Footer() {
         <div className="col-span-2">
           <Link href="/" aria-label={brand} className="u-focus inline-flex items-center gap-2.5 rounded-nested">
             {/*
-              The wordmark and the monogram both come from the configured
-              platform name. They used to be the literals "A" and "avenick",
-              which meant a deployment that renamed the platform still shipped
-              somebody else's brand in its own footer.
+              The same mark the header draws, standing still. `animated` is not
+              passed on purpose: an entrance animation below the fold is one
+              nobody sees, and a second hopping mark competes with the first for
+              the attention the first exists to get.
             */}
-            <span
-              aria-hidden="true"
-              className="u-mark-flat grid h-8 w-8 place-items-center rounded-nested bg-ink-1 text-ui font-semibold text-ink-inv"
-            >
-              {brand.charAt(0).toUpperCase()}
-            </span>
-            <span className="u-h3 text-ink-1">{brand}</span>
+            <BrandLockup name={brand} size={32} />
           </Link>
           <p className="u-body mt-4 max-w-desc text-ink-2">{t("tagline")}</p>
           {/*

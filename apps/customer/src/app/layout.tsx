@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 import { AuthProvider } from "@/components/auth-provider";
 import { NavigationProgress } from "@/components/navigation-progress";
 import { AmbientField, EnvironmentFlags, RevealRoot } from "@avenick/ui";
-import { platformName } from "@avenick/utils/portal-config";
+import { platformName, selfOrigin } from "@avenick/utils/portal-config";
 import "./globals.css";
 
 // "The leading platform" (المنصة الرائدة) was a market-position claim nothing
@@ -19,9 +19,33 @@ import "./globals.css";
 // Arabic appended.
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("common");
+  const name = platformName();
+
+  // metadataBase is what every relative asset URL below resolves against. It was
+  // absent, and its absence is why an openGraph block would not have worked even
+  // if one had existed: Next resolves `/opengraph-image` against it, warns at
+  // build when it is missing, and falls back to localhost. selfOrigin() returns
+  // null rather than a guess when the deployment is not configured, so an
+  // unconfigured environment omits the key instead of advertising a card at an
+  // address that is not this one.
+  const origin = selfOrigin("customer");
+
   return {
-    title: { default: platformName(), template: `%s | ${platformName()}` },
+    ...(origin ? { metadataBase: new URL(origin) } : {}),
+    title: { default: name, template: `%s | ${name}` },
     description: t("metaDescription"),
+    applicationName: name,
+    // icon.tsx, apple-icon.tsx and opengraph-image.tsx are file conventions and
+    // are wired automatically; this names the manifest, which is not.
+    manifest: "/manifest.webmanifest",
+    openGraph: {
+      type: "website",
+      siteName: name,
+      title: name,
+      description: t("metaDescription"),
+      ...(origin ? { url: origin } : {}),
+    },
+    twitter: { card: "summary_large_image", title: name, description: t("metaDescription") },
   };
 }
 

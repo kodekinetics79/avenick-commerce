@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { platformName, portalUrl } from "@avenick/utils/portal-config";
 import { getTranslations } from "next-intl/server";
-import { Dateline, Divider, Eyebrow, Surface } from "@avenick/ui";
+import { BrandMark, Dateline, Divider, Eyebrow, Surface } from "@avenick/ui";
 import { RegisterForm } from "./register-form";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -34,13 +34,7 @@ export default async function RegisterPage() {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-12">
       <div className="mb-6">
-        <Surface
-          rung={1}
-          aria-hidden="true"
-          className="grid h-11 w-11 place-items-center rounded-nested text-h3 font-medium text-ink-1"
-        >
-          {brand.charAt(0).toUpperCase()}
-        </Surface>
+        <BrandMark name={brand} size={44} />
         <Divider drawn on className="mt-5 w-12" />
         {/* platformName() stays dynamic inside the translated string; the brand
             is never a literal in either language. */}

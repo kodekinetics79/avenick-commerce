@@ -22,7 +22,7 @@ import {
   Tag,
   User,
 } from "lucide-react";
-import { Button, Divider, Eyebrow, NavItem, StickyGlassBar, Surface, ThemeToggle } from "@avenick/ui";
+import { BrandLockup, Button, Divider, Eyebrow, NavItem, StickyGlassBar, Surface, ThemeToggle } from "@avenick/ui";
 import { useCartStore } from "@/stores/cart";
 import { useSearchSuggest } from "@/lib/search-suggest-client";
 import { useSession, signOut } from "next-auth/react";
@@ -380,20 +380,32 @@ export function Header() {
             className="group u-focus flex shrink-0 items-center gap-2.5 rounded-nested px-1 py-1"
           >
             {/*
-              The monogram is the configured name's first letter, and it is INK
-              rather than the old indigo→violet gradient: the ambient field is
-              the one gradient in the system, and a wordmark is not where the
-              single primary fill per view should be spent.
+              THE MARK. This was the configured name's first letter in an ink
+              plate — the same "a letter where a logo should be" the brands page
+              was fixed for, except here no logo existed to read. <BrandMark>
+              draws the real one, and it is the ONLY thing in the product that
+              draws it: the footer, the auth surfaces, the admin rail, the three
+              favicons, the OG images and the email header are now all the same
+              geometry module rather than eight divergent boxes.
+
+              Still ink, still not a gradient — the ambient field remains the one
+              gradient in the system, and a wordmark is not where the single
+              primary fill per view gets spent. The brass is the rule across the
+              entry, which is the active-nav indicator in another posture and
+              costs ~27 device pixels against a 2% budget.
+
+              A deployment that set NEXT_PUBLIC_PLATFORM_NAME gets its own
+              initial on the old plate instead. See BrandMark's docstring.
             */}
-            <span
-              aria-hidden="true"
-              className="u-mark grid h-8 w-8 place-items-center rounded-nested bg-ink-1 text-ui font-semibold text-ink-inv"
-            >
-              {brand.charAt(0).toUpperCase()}
-            </span>
-            {/* Below sm the monogram carries the mark on its own, so the whole
+            {/* Below sm the mark carries the brand on its own, so the whole
                 width the wordmark would take goes to the search field. */}
-            <span className="u-h3 hidden text-ink-1 sm:inline">{brand}</span>
+            <BrandLockup
+              name={brand}
+              size={32}
+              animated
+              wordmarkFrom="sm"
+              className="gap-2.5"
+            />
           </Link>
 
           <nav aria-label={t("primaryNav")} className="hidden items-center gap-0.5 lg:flex">

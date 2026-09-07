@@ -946,5 +946,15 @@
   },
   "status": {
     "metaTitle": "Platform status"
+  },
+  "notFound": {
+    "eyebrow": "Page not found",
+    "code": "404",
+    "headline": "This address does not resolve to a page.",
+    "body": "The link may be out of date, or the page may have been removed. The catalogue, your account and support are all still reachable below.",
+    "home": "Go to the storefront",
+    "products": "Browse the catalogue",
+    "support": "Contact support",
+    "markLabel": "{brand} home"
   }
 }

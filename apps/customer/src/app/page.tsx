@@ -236,21 +236,19 @@ export default async function HomePage() {
             allLabel={t("allProducts")}
           />
 
-          <div
-            className="u-sheen u-drift relative flex min-w-0 flex-col justify-center overflow-clip rounded-3xl p-8 sm:p-12 lg:p-14"
-            style={{
-              backgroundImage:
-                "linear-gradient(107deg, hsl(150 62% 30%) 22%, hsl(150 92% 20%) 99%)",
-            }}
-          >
-            {/* The reference's blurred bloom behind the object. Decorative and
-                inert, and it sits UNDER everything — a blur over the copy would
-                take the contrast measured above straight back out. */}
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -end-16 top-8 h-80 w-80 rounded-full opacity-30 blur-[64px]"
-              style={{ backgroundColor: "#eff6ff" }}
-            />
+          {/* The panel's material is .u-panel-brand now — a utility in
+              globals.css derived from --primary, rather than a gradient written
+              inline here. See that rule for what came off this element and why:
+              an inline gradient with two colour literals, `.u-drift` (24s
+              infinite, animating background-position — the property §8 names
+              under NEVER, and the product's fourth infinite animation against a
+              budget of two), and a 320px blurred `#eff6ff` bloom, which is a
+              glow, and §3.10 says there are none.
+
+              `.u-sheen` stays. Its drift is a transform on a low-alpha ::before
+              rather than a repaint, and its whole intent is to be noticed only
+              as the surface not being flat. */}
+          <div className="u-sheen u-panel-brand relative flex min-w-0 flex-col justify-center overflow-clip rounded-3xl p-8 sm:p-12 lg:p-14">
 
             <div className="relative grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
               <div className="min-w-0">
