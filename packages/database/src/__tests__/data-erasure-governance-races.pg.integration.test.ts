@@ -4,8 +4,9 @@ import { createGovernedApprovalPolicy } from "../services/b2b-purchase-orders";
 import { eraseUserData } from "../services/data-rights";
 import { lockInventoryStockRows } from "../services/checkout-invariants";
 import { secureCreateOrder } from "../services/secure-checkout";
+import { integrationSuite } from "../testing/integration-db";
 
-const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
+const run = integrationSuite();
 const userIds: string[] = [];
 const companyIds: string[] = [];
 

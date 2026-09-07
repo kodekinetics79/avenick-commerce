@@ -33,7 +33,7 @@ import { LOCALE_COOKIE, toIdentityLocale } from "../auth/identity-copy";
 export async function generateMetadata() {
   const isAr = toIdentityLocale((await cookies()).get(LOCALE_COOKIE)?.value) === "ar";
   return {
-    title: `${isAr ? "مركز المساعدة والدعم" : "Help centre"} — ${platformName()}`,
+    title: `${isAr ? "مركز المساعدة والدعم" : "Help centre"}`,
   };
 }
 

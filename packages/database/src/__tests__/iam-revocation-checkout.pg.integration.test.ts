@@ -4,8 +4,9 @@ import { setCompanyStatus, setUserStatus } from "../services/admin";
 import { createGovernedPurchaseOrder, placeGovernedPurchaseOrder, transitionGovernedPurchaseOrder, updateGovernedCompanyMember } from "../services/b2b-purchase-orders";
 import { lockInventoryStockRows } from "../services/checkout-invariants";
 import { secureCreateOrder } from "../services/secure-checkout";
+import { integrationSuite } from "../testing/integration-db";
 
-const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
+const run = integrationSuite();
 const users: string[] = [];
 const companies: string[] = [];
 

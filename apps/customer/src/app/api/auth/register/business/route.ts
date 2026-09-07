@@ -3,6 +3,7 @@ import { db } from "@avenick/database";
 import bcrypt from "bcryptjs";
 import { RegisterBusinessSchema } from "@avenick/types";
 import { checkRateLimit, clientIpFrom, RATE_LIMITS } from "@avenick/auth";
+import { claimableDomainOf } from "@avenick/utils";
 import { log } from "@avenick/observability";
 import { sendAlreadyRegisteredNotice } from "@/lib/email";
 
@@ -86,13 +87,32 @@ export async function POST(req: NextRequest) {
     const normalisedEmail = email.toLowerCase();
     raceEmail = normalisedEmail;
 
+    // The domain the company will be recognised at, so a colleague can later
+    // apply to join without an invitation. null — and therefore an empty list —
+    // for a founder who signed up from a personal mailbox, which is the common
+    // case for a small company and the SAFE one: a company that claimed
+    // gmail.com would admit every Gmail user on earth. Such a company stays
+    // invite-only. See claimableDomainOf in @avenick/utils.
+    const claimedDomain = claimableDomainOf(normalisedEmail);
+
     // The CR number is checked FIRST and answers truthfully: a commercial
     // registration number is a public registry identifier, and "this company
     // already has an Avenick account" is what the applicant needs to hear.
+    //
+    // It also tells them what to DO about it. Until there was a join route this
+    // 409 was the end of the road: the second person at a customer read "already
+    // registered" and had nowhere to go, so the whole company stalled on one
+    // colleague remembering to send an invitation. `code` lets the form offer
+    // the door rather than making the applicant find it.
     const existingCompany = await db.company.findUnique({ where: { crNumber } });
     if (existingCompany) {
       return NextResponse.json(
-        { success: false, error: "A company is already registered with that commercial registration number." },
+        {
+          success: false,
+          code: "cr-already-registered",
+          error:
+            "That commercial registration number is already registered. Register as an additional user on the existing company account instead.",
+        },
         { status: 409 },
       );
     }
@@ -149,6 +169,7 @@ export async function POST(req: NextRequest) {
           country,
           city,
           status: "PENDING_VERIFICATION",
+          emailDomains: claimedDomain ? [claimedDomain] : [],
           members: { create: { userId: user.id, role: "COMPANY_ADMIN" } },
         },
         select: { status: true },

@@ -8,6 +8,7 @@
     "e2e:playwright": "playwright test",
     "e2e:playwright:ui": "playwright test --ui",
     "e2e:playwright:report": "playwright show-report",
+    "e2e:certify": "playwright test playwright/console-hygiene.spec.ts playwright/boundaries.spec.ts playwright/catalogue-truth.spec.ts && playwright test --project=authenticated-journeys",
     "e2e:puppeteer": "node --test \"puppeteer/*.test.mjs\"",
     "e2e:cypress": "node scripts/cypress.mjs run",
     "e2e:cypress:open": "node scripts/cypress.mjs open",

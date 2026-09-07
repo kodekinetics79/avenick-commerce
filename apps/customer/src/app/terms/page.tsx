@@ -5,7 +5,7 @@ import { Eyebrow, PageHeader, Surface } from "@avenick/ui";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
 
 export const metadata = {
-  title: `Terms of Service — ${platformName()}`,
+  title: `Terms of Service`,
   description: `${platformName()} terms of service, B2B procurement rules, and regulatory guidelines.`,
 };
 

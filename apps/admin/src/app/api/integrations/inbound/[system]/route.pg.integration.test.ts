@@ -8,8 +8,9 @@ import {
   processIntegrationInboxMessage,
 } from "@avenick/database";
 import { POST } from "./route";
+import { integrationSuite, integrationDbEnabled } from "@avenick/database/testing";
 
-const run = process.env.DATABASE_URL ? describe : describe.skip;
+const run = integrationSuite("parallel");
 const marker = `signed-erp-ingress-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const secret = "signed-erp-ingress-test-secret-32-characters";
 const keyId = `${marker}-primary`;

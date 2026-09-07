@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import { cn } from "@avenick/utils";
+import { ScrollProgress } from "./scroll-progress";
 
 /**
  * StickyGlassBar — chrome that SETTLES rather than snapping.
  *
  * Round one crossed between two states at a threshold. Across the first 96px of
  * scroll the bar now continuously gains weight: its glass fill deepens from .55
- * to .92, its padding tightens from 18px to 10px, and a cast shadow fades up
+ * to .92, its padding tightens from 18px to 8px, and a cast shadow fades up
  * beneath it. It feels engineered rather than toggled, and it costs ZERO
  * JavaScript and zero scroll listeners — it is a CSS scroll-driven animation
  * running on the compositor.
@@ -27,10 +28,22 @@ import { cn } from "@avenick/utils";
  *
  * THE FALLBACK. The IntersectionObserver sentinel survives, because scroll
  * timelines are roughly 84–90% support and the other 10% still deserve a bar
- * that responds. It now only flips a data attribute, which CSS uses when there
- * is no timeline to override it. With JavaScript off, before hydration, or if
- * the observer never fires, the bar is simply always glass — nothing is ever
- * hidden or unreadable because an effect did not run.
+ * that responds. It flips a data attribute, which CSS uses when there is no
+ * timeline to override it — and it drives the ALPHA AND SHADOW ONLY. The
+ * padding half of the settle is timeline-only: a browser without scroll
+ * timelines (Firefox) keeps the uncompressed bar at every scroll position
+ * rather than snapping 20px shorter at the first pixel of scroll, because a
+ * padding change with no timeline to spread it over is a layout jolt, not a
+ * settle. With JavaScript off, before hydration, or if the observer never
+ * fires, the bar is simply always glass — nothing is ever hidden or unreadable
+ * because an effect did not run.
+ *
+ * `progress` hosts the brass reading hairline along the bar's BOTTOM edge — the
+ * Stripe/Apple pattern — as the bar's own last child, so its geometry follows
+ * the settle for free. It is the same <ScrollProgress> rule in a different
+ * posture, absent (scaleX(0)) where scroll timelines are unsupported and under
+ * reduced motion. One per document: globals.css hides a document-level
+ * hairline while a bar-hosted one exists.
  *
  * Serves the customer header, the seller and admin list toolbars, and can back a
  * table's sticky head.
@@ -47,6 +60,11 @@ export interface StickyGlassBarProps extends React.HTMLAttributes<HTMLDivElement
    * timeline would report progress the bar has nothing to do with.
    */
   settle?: boolean;
+  /**
+   * Draw the brass reading hairline along the bar's bottom edge. Document chrome
+   * only — it reads root scroll progress, so it is ignored when `settle` is off.
+   */
+  progress?: boolean;
 }
 
 export function StickyGlassBar({
@@ -54,6 +72,7 @@ export function StickyGlassBar({
   offset = 0,
   as,
   settle = true,
+  progress = false,
   className,
   ...props
 }: StickyGlassBarProps) {
@@ -106,6 +125,7 @@ export function StickyGlassBar({
         {...props}
       >
         {children}
+        {progress && <ScrollProgress className="u-chrome__progress" />}
       </Comp>
     </>
   );

@@ -2,6 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
 import { lockInventoryStockRows, lockProductCommercialRows } from "../services/checkout-invariants";
 import { secureCreateOrder } from "../services/secure-checkout";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
+
+const run = integrationSuite();
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const createdOrderIds: string[] = [];
@@ -35,6 +38,7 @@ async function waitForCommercialLockHolder(): Promise<void> {
 }
 
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const buyer = await db.user.create({ data: {
     email: `commercial-lock-buyer-${stamp}@example.test`, firstName: "Commercial", lastName: "Buyer",
     role: "CONSUMER", status: "ACTIVE",
@@ -75,6 +79,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   if (createdOrderIds.length) await db.order.deleteMany({ where: { id: { in: createdOrderIds } } });
   if (stockId) await db.inventoryStock.deleteMany({ where: { id: stockId } });
   if (locationId) await db.inventoryLocation.deleteMany({ where: { id: locationId } });
@@ -85,7 +90,7 @@ afterAll(async () => {
   await db.user.deleteMany({ where: { id: { in: [buyerId, ownerId].filter(Boolean) } } });
 });
 
-describe("checkout product-commercial serialization", () => {
+run("checkout product-commercial serialization", () => {
   it("uses the current tier when a price mutation owns the commercial lock first", async () => {
     let release!: () => void;
     let locked!: () => void;

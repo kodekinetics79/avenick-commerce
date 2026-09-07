@@ -6,6 +6,7 @@ import {
   recordSellerDocument,
   sellerDocumentKeyPrefix,
 } from "../services/seller-documents";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 
 /**
  * Seller compliance document recording against a real Postgres.
@@ -15,7 +16,7 @@ import {
  * needs, while the ownership and permission gates still hold inside the
  * transaction. Skipped without DATABASE_URL, like the other pg suites.
  */
-const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
+const run = integrationSuite();
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 
 let ownerId = "", staffId = "", viewerId = "", strangerOwnerId = "";
@@ -30,6 +31,7 @@ function documentKey(forSellerId: string, ext = "pdf"): string {
 }
 
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const [owner, staff, viewer, strangerOwner] = await Promise.all([
     db.user.create({ data: { email: `seller-docs-owner-${stamp}@test.invalid`, firstName: "Seller", lastName: "Owner", role: "SELLER_OWNER", status: "ACTIVE" } }),
     db.user.create({ data: { email: `seller-docs-staff-${stamp}@test.invalid`, firstName: "Seller", lastName: "Staff", role: "SELLER_STAFF", status: "ACTIVE" } }),
@@ -56,6 +58,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   await db.auditLog.deleteMany({ where: { OR: [{ actorId: { in: users } }, { sellerId: { in: sellers } }] } });
   await db.sellerDocument.deleteMany({ where: { sellerId: { in: sellers } } });
   await db.sellerMembership.deleteMany({ where: { userId: { in: users } } });

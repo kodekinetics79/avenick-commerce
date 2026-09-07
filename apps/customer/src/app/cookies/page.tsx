@@ -4,7 +4,7 @@ import { Eyebrow, PageHeader, Surface } from "@avenick/ui";
 import { platformName } from "@avenick/utils/portal-config";
 
 export const metadata = {
-  title: `Cookies Policy — ${platformName()}`,
+  title: `Cookies Policy`,
   description: `${platformName()} cookies policy, user tracking management, and data settings.`,
 };
 

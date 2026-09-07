@@ -19,51 +19,13 @@ import { ProductGrid } from "@/components/products/product-grid";
 import { categoryIcon } from "@/components/products/category-icon";
 import { fetchBackendJson } from "@/lib/backend";
 import { categoryLabel, getPublicCategories, type PublicCategory } from "@/lib/catalog-categories";
-import { getStorefrontSections, getTrendingProducts, listBrandsWithLogos } from "@avenick/database";
-import { toCatalogListDto } from "@/lib/catalog-list-dto";
+import { loadHomeRails } from "@/lib/home-rails";
 import { partitionHomeProducts } from "@/lib/home-catalog";
-import { productCardPricePresentation, storefrontProductHref } from "@/lib/product-card-commerce";
+import { productCardPricePresentation } from "@/lib/product-card-commerce";
+import { HeroCarousel } from "@/components/hero/hero-carousel";
+import { toHeroSlides } from "@/components/hero/hero-slides";
 
 export const dynamic = "force-dynamic";
-
-/**
- * Every rail on this page, from one call.
- *
- * The rows go through toCatalogListDto exactly as /api/products does, and that
- * is not a convenience — the DTO is where catalogue PRICE PRIVACY lives. It
- * decides which prices a channel may see and what the card is allowed to quote.
- * Reading the rows straight out of the service and shaping them here would
- * route around that rule, and the page would leak B2B pricing to an anonymous
- * visitor without anything failing.
- *
- * `rating` is re-attached after the DTO because the DTO builds a fresh object
- * and knows nothing about reviews.
- */
-async function getHomeRails() {
-  try {
-    const [sections, brands, trending] = await Promise.all([
-      getStorefrontSections({ limit: 10 }),
-      listBrandsWithLogos({ limit: 12 }),
-      // Legitimately empty until the view signal has something to say. The
-      // panel treats that as the normal case and shows the block only when it
-      // has rows — nothing here invents a trend from an empty table.
-      getTrendingProducts({ limit: 6 }),
-    ]);
-    const shape = (rows: Array<Record<string, any>>) =>
-      rows.map((row) => ({ ...toCatalogListDto(row as any, "B2C"), rating: row["rating"] ?? null }));
-    return {
-      bestSellers: shape(sections.bestSellers),
-      newArrivals: shape(sections.newArrivals),
-      topRated: shape(sections.topRated),
-      featured: shape(sections.featured),
-      trending: shape(trending),
-      brands,
-    };
-  } catch (error) {
-    console.error("Unable to load storefront rails", error);
-    return { bestSellers: [], newArrivals: [], topRated: [], featured: [], trending: [], brands: [] };
-  }
-}
 
 export default async function HomePage() {
   const cookieStore = await cookies();
@@ -73,7 +35,10 @@ export default async function HomePage() {
   const tc = await getTranslations("catalogue");
   // The category strip comes from the catalog, not from a list typed into this
   // page: a typed list kept advertising categories with nothing to sell.
-  const [rails, categories] = await Promise.all([getHomeRails(), getPublicCategories()]);
+  const [rails, categories] = await Promise.all([
+    loadHomeRails({ onError: (source, error) => console.error(`Unable to load storefront ${source}`, error) }),
+    getPublicCategories(),
+  ]);
   // The hero's specimen and shelf come from the same rails the page already
   // loaded, so the page makes no extra round trip to fill its own header.
   const products = [...rails.featured, ...rails.bestSellers, ...rails.newArrivals];
@@ -235,13 +200,33 @@ export default async function HomePage() {
         the catalogue exposes no public price it says so instead. That is the
         one substitution this hero cannot make — a number in this position is
         read as an offer.
+
+        THE OBJECT IS A CAROUSEL OF THE PRODUCTS THIS PAGE ALREADY LOADED — up
+        to ten, one slide per distinct name, crossfading with a 1.02 → 1 settle
+        every six seconds and pausing on hover, on focus, in a hidden tab and
+        under reduced motion. The copy column does not turn; only the object and
+        its glass caption do, which is Apple's hero taken as a behaviour rather
+        than as an asset. NO VIDEO: there is no product video asset, and stock
+        footage would be a fabrication — a hero made of things the catalogue
+        does not hold. The behaviour matrix is in components/hero.
+
+        WIDTH AND MOTION, NOT STRUCTURE. The shell is max-w-shell (96rem) with a
+        fluid gutter where it was max-w-7xl over a fixed 16px; the rail and the
+        slab stretch to one height so they read as one composed row; the object
+        column grows with the shell (20 → 24 → 26rem) while the prose stays on
+        max-w-desc. The object parallaxes on a view() timeline where scroll
+        timelines exist and stands still where they do not, and the slab clips
+        with overflow-clip rather than hidden because hidden makes a scroll
+        container — inside one, a view() timeline never advances. The radius is
+        rounded-3xl (--radius-lg): the class this slab carried before resolved
+        to nothing, and it shipped square.
       */}
       <section className="border-b border-hairline">
         <div
           className={
             categories.length > 0
-              ? "mx-auto w-full max-w-7xl px-4 py-block lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-6"
-              : "mx-auto w-full max-w-7xl px-4 py-block"
+              ? "mx-auto w-full max-w-shell px-gutter py-block lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-stretch lg:gap-6"
+              : "mx-auto w-full max-w-shell px-gutter py-block"
           }
         >
           <CategoryRail
@@ -252,7 +237,7 @@ export default async function HomePage() {
           />
 
           <div
-            className="u-sheen u-drift relative min-w-0 overflow-hidden rounded-lifted p-8 sm:p-12 lg:p-14"
+            className="u-sheen u-drift relative flex min-w-0 flex-col justify-center overflow-clip rounded-3xl p-8 sm:p-12 lg:p-14"
             style={{
               backgroundImage:
                 "linear-gradient(107deg, hsl(150 62% 30%) 22%, hsl(150 92% 20%) 99%)",
@@ -267,7 +252,7 @@ export default async function HomePage() {
               style={{ backgroundColor: "#eff6ff" }}
             />
 
-            <div className="relative grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)]">
+            <div className="relative grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
               <div className="min-w-0">
                 <Reveal index={0}>
                   <p className="u-meta font-medium uppercase tracking-[0.14em] text-white/80">
@@ -296,9 +281,12 @@ export default async function HomePage() {
                     the button. It renders only when the catalogue actually
                     exposes a price for the specimen — a figure this size in
                     this position is read as an offer, and "Price on request"
-                    set at 60px would be a headline made out of an absence. The
-                    caption on the object carries that state instead. */}
-                {specimenHasPrice && (
+                    set at 60px would be a headline made out of an absence —
+                    AND only while the object beside it is a single product.
+                    With the carousel turning, a static figure here would be an
+                    offer for a product that is off screen half the time; each
+                    slide's own glass caption carries its figure instead. */}
+                {specimenHasPrice && mapped.length === 1 && (
                   <Reveal index={3}>
                     <p className="mt-6 text-[2.5rem] font-bold leading-none text-white">{specimenPriceLine}</p>
                   </Reveal>
@@ -322,40 +310,14 @@ export default async function HomePage() {
                 </Reveal>
               </div>
 
-              {/* The object. One real listing at scale — the reference's stock
-                  gear replaced by something a buyer can actually click. */}
-              {specimen ? (
+              {/* The object. Real listings at scale — the reference's stock
+                  gear replaced by things a buyer can actually click. Held to
+                  lg and up exactly as the single specimen was: on a phone the
+                  copy and the call to action are the hero, and a 20rem object
+                  above them would push the action under the fold. */}
+              {mapped.length > 0 ? (
                 <Reveal index={2} className="hidden lg:block">
-                  <Link
-                    href={storefrontProductHref(specimen.slug, { currency: specimen.currency })}
-                    aria-label={t("specimenView", { name: specimenName })}
-                    className="u-focus group block rounded-lifted"
-                  >
-                    <div className="u-float relative aspect-square w-full">
-                      {specimen.imageUrl ? (
-                        <Image
-                          src={specimen.imageUrl}
-                          alt=""
-                          aria-hidden="true"
-                          fill
-                          priority
-                          sizes="(min-width: 1024px) 20rem, 0px"
-                          className="object-contain drop-shadow-2xl transition-transform duration-hover ease-standard group-hover:-translate-y-1 group-hover:scale-[1.03]"
-                        />
-                      ) : null}
-                    </div>
-                    {/* Glass, over the photograph it actually refracts. */}
-                    <Surface rung={4} glass className="mt-3 p-3">
-                      {/* No fallback label: this page already states that a product whose
-                          category is unknown is shown WITHOUT one rather than filed
-                          under a category it may not belong to. */}
-                      {specimen.category ? (
-                        <p className="u-meta text-ink-3">{specimen.category}</p>
-                      ) : null}
-                      <p className="u-ui mt-0.5 font-medium text-ink-1">{specimenName}</p>
-                      <p className="u-meta mt-1 text-ink-2">{specimenPriceLine}</p>
-                    </Surface>
-                  </Link>
+                  <HeroCarousel slides={toHeroSlides(mapped, { locale })} />
                 </Reveal>
               ) : null}
             </div>
@@ -367,7 +329,7 @@ export default async function HomePage() {
       {/* Categories come from the catalog API (active, with discoverable
           products), never a list typed into this page. An empty catalog gets a
           plain link to all products rather than a decorative strip. */}
-      <section className="mx-auto max-w-7xl px-4 pt-block lg:hidden">
+      <section className="mx-auto max-w-shell px-gutter pt-block lg:hidden">
         <SectionHead
           eyebrow={t("categoriesEyebrow")}
           title={t("categoriesTitle")}
@@ -475,7 +437,7 @@ export default async function HomePage() {
           verified before listing" is a different KIND of claim: it is true by
           construction, because listing requires approval. It fills the same
           slot and survives being asked about. */}
-      <section className="mx-auto max-w-7xl px-4 py-block">
+      <section className="mx-auto max-w-shell px-gutter py-block">
         <Surface rung={2} className="overflow-hidden">
           <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
             <div className="p-6 sm:p-8">
@@ -598,7 +560,7 @@ export default async function HomePage() {
           strip cannot show a brand nothing is listed under, and it renders
           nothing at all rather than a row of gaps when no logo is set. */}
       {rails.brands.length > 0 && (
-        <section className="mx-auto max-w-7xl px-4 py-block">
+        <section className="mx-auto max-w-shell px-gutter py-block">
           <SectionHead
             eyebrow={t("brandsEyebrow")}
             title={t("brandsTitle")}
@@ -636,7 +598,7 @@ export default async function HomePage() {
       )}
 
       {/* ─── B2B band ─────────────────────────────────────── */}
-      <section className="mx-auto max-w-7xl px-4 pb-section pt-block">
+      <section className="mx-auto max-w-shell px-gutter pb-section pt-block">
         {/*
           Recessed, because recessed is context — and the raised button on top of
           it is the action. The old version was an indigo→violet gradient panel
@@ -744,7 +706,7 @@ function CategoryRail({
 }) {
   if (categories.length === 0) return null;
   return (
-    <nav aria-label={label} className="hidden lg:block">
+    <nav aria-label={label} className="hidden lg:flex lg:flex-col">
       {/*
         A FLOATING RAIL — raised to rung 4, and NOT glass.
         
@@ -764,10 +726,17 @@ function CategoryRail({
 
         What it keeps is the float: rung 4 elevation, the fresnel shoulder, and
         rows that press in when you point at them.
+
+        ONE BAND WITH THE HERO. The grid row is `items-stretch`, the nav is a
+        flex column and the panel fills it, so the rail is exactly as tall as
+        the slab beside it and its "All products" row sits flush with the
+        slab's bottom edge — the two read as one composed row rather than a
+        short list beside a tall panel. That is also why the panel is no longer
+        `sticky`: a panel as tall as its containing block has nowhere to stick.
       */}
-      <Surface rung={4} className="sticky top-24 overflow-hidden">
+      <Surface rung={4} className="flex flex-1 flex-col overflow-hidden">
         <p className="u-meta border-b border-hairline px-3.5 py-2.5 font-medium text-ink-2">{label}</p>
-        <ul className="py-1">
+        <ul className="flex-1 py-1">
           {categories.map((category) => {
             const Icon = categoryIcon(category.iconName, category.slug);
             return (
@@ -951,7 +920,7 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="mx-auto max-w-7xl px-4 py-block">
+    <section className="mx-auto max-w-shell px-gutter py-block">
       <SectionHead eyebrow={eyebrow} title={title} subtitle={subtitle} href={href} linkLabel={linkLabel} />
       {children}
     </section>

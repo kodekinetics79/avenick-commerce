@@ -1,0 +1,53 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+
+  errors:
+    # A missing token or a wrong-typed one must stop the build, not warn.
+    invalid_assignment: error
+    argument_type_not_assignable: error
+    # Directional layout is the whole RTL mandate; a non-directional inset is
+    # not a style preference.
+    avoid_unnecessary_containers: warning
+
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - build/**
+
+linter:
+  rules:
+    # --- The design-system rules -------------------------------------------
+    #
+    # BAN: hardcoded `Color(0x…)` outside lib/theme/tokens.g.dart.
+    #
+    # The Dart analyzer has NO built-in lint for a literal of a specific type,
+    # and adding one needs a `custom_lint` plugin process that every developer
+    # and CI runner has to start. That is a lot of machinery for one rule, and
+    # a rule that only runs when the plugin is alive is worse than a rule that
+    # runs in `flutter test`.
+    #
+    # So the colour ban is enforced as a real, always-run assertion in
+    #   test/design_lint_test.dart
+    # alongside the EdgeInsets.only(left:/right:) ban. Both fail the suite with
+    # the file and line number. See that file — it is the enforcement point.
+    #
+    # -----------------------------------------------------------------------
+    prefer_const_constructors: true
+    prefer_const_constructors_in_immutables: true
+    prefer_const_declarations: true
+    prefer_const_literals_to_create_immutables: true
+    prefer_final_locals: true
+    always_declare_return_types: true
+    avoid_positional_boolean_parameters: true
+    unnecessary_parenthesis: true
+    use_super_parameters: true
+    require_trailing_commas: true
+    sort_child_properties_last: true
+    # Directionality-correct APIs.
+    use_colored_box: true
+    use_decorated_box: true

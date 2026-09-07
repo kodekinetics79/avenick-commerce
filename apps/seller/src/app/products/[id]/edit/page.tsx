@@ -9,6 +9,7 @@ import { browserDirectUploadsEnabled } from "@avenick/utils/browser-upload-polic
 import { requireSellerPermission } from "@/lib/auth";
 import { sellerHasPermission } from "@/lib/seller-permissions";
 import { SellerLayout } from "@/components/layout/seller-layout";
+import { ArchiveListing } from "@/components/products/archive-listing";
 import { ProductForm, type ProductFormOption, type ProductFormValues } from "@/components/products/product-form";
 import { loadStatutoryVatTable } from "@/app/products/actions";
 // One status vocabulary for the whole catalog surface: the list and this page
@@ -213,6 +214,13 @@ export default async function EditProductPage({ params }: { params: { id: string
           reservedQty={reservedQty}
           stockIsSplit={stockIsSplit}
         />
+
+        {/* Product.deletedAt was read by every catalogue query and written by
+            nothing, so a listing could be created and edited but never taken
+            down. The control lives below the form, not in its commit bar: the
+            bar carries the one primary action, and a destructive action next to
+            Save is a misclick waiting to happen. */}
+        <ArchiveListing productId={product.id} productName={product.nameEn} />
       </div>
     </SellerLayout>
   );

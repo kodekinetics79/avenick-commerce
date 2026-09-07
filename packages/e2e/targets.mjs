@@ -26,6 +26,24 @@ export function url(portal, path = "/") {
 }
 
 /**
+ * True when a portal target is a loopback address — a local `next dev` or
+ * `next start`, including the CI job, which pins all three portals at
+ * http://localhost:1310x.
+ *
+ * The certification specs use this to admit exactly one class of noise that a
+ * loopback target produces and a deployed one cannot: the production CSP
+ * carries `upgrade-insecure-requests`, so Chromium rewrites the storefront's
+ * own http://localhost:PORT subresource fetches (Next's RSC route prefetches
+ * above all) to https://localhost:PORT, where nothing is listening. Against an
+ * https origin the rewrite is a no-op. Nowhere else is a failed request
+ * forgiven.
+ */
+export function isLocalTarget(portal) {
+  const { hostname } = new URL(TARGETS[portal]);
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+}
+
+/**
  * Strings that must never render on an unauthenticated surface.
  * Encodes defect D-01 from AVENICK_GATE_1_WORKTREE_AUDIT_2026-08-17.md:
  * working credential pairs are printed on all three portal login pages.
@@ -49,3 +67,16 @@ export const PUBLIC_CUSTOMER_ROUTES = [
   "/privacy",
   "/terms",
 ];
+
+/**
+ * The fixed list of public routes the console-hygiene certification walks on
+ * each portal. Mirrors PUBLIC_PATHS in packages/auth/src/middleware.ts: the
+ * storefront is public almost everywhere, while Seller Central and the Admin
+ * Console expose only their sign-in surfaces without a session and redirect
+ * everything else to /login.
+ */
+export const PUBLIC_PORTAL_ROUTES = {
+  customer: [...PUBLIC_CUSTOMER_ROUTES, "/cart", "/wishlist", "/login", "/register"],
+  seller: ["/login", "/register"],
+  admin: ["/login"],
+};

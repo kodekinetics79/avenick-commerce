@@ -1,13 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
 import { createSellerCatalogListing, updateSellerCatalogListing } from "../services/seller-catalog";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 
-const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
+const run = integrationSuite();
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const ids = { users: [] as string[], sellers: [] as string[], products: [] as string[] };
 let sellerA = "", sellerB = "", ownerA = "", ownerB = "", deniedStaff = "", categoryId = "";
 
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const users = await Promise.all([
     db.user.create({ data: { email: `catalog-owner-a-${stamp}@test.invalid`, firstName: "Owner", lastName: "A", role: "SELLER_OWNER", status: "ACTIVE" } }),
     db.user.create({ data: { email: `catalog-owner-b-${stamp}@test.invalid`, firstName: "Owner", lastName: "B", role: "SELLER_OWNER", status: "ACTIVE" } }),
@@ -26,6 +28,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   await db.auditLog.deleteMany({ where: { actorId: { in: ids.users } } });
   await db.product.deleteMany({ where: { id: { in: ids.products } } });
   if (categoryId) await db.category.deleteMany({ where: { id: categoryId } });

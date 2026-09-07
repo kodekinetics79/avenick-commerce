@@ -1,11 +1,15 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
 import { listProducts, normalizeCatalogSearch } from "../services/products";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
+
+const run = integrationSuite();
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const ids = { user: "", seller: "", category: "", middleCategory: "", parentCategory: "", product: "" };
 
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const user = await db.user.create({
     data: { email: `catalog-search-${stamp}@example.test`, firstName: "Catalog", lastName: "Search", role: "SELLER_OWNER", status: "ACTIVE" },
   });
@@ -48,6 +52,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   if (ids.product) await db.product.deleteMany({ where: { id: ids.product } });
   if (ids.category) await db.category.deleteMany({ where: { id: ids.category } });
   if (ids.middleCategory) await db.category.deleteMany({ where: { id: ids.middleCategory } });
@@ -62,7 +67,7 @@ async function expectSearch(term: string) {
   return result;
 }
 
-describe("catalog discovery search", () => {
+run("catalog discovery search", () => {
   it("normalizes only surrounding/repeated whitespace and preserves punctuation", () => {
     expect(normalizeCatalogSearch("  35-Green  ")).toBe("35-Green");
     expect(normalizeCatalogSearch(" Alpha   Conduit ")).toBe("Alpha Conduit");

@@ -2,8 +2,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { db } from "../index";
 import { secureCreateOrder } from "../services/secure-checkout";
 import { saveGovernedIntegrationConnection, setGovernedIntegrationConnectionStatus } from "../services/integration-routing";
+import { integrationSuite } from "../testing/integration-db";
 
-const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
+const run = integrationSuite();
 const users: string[] = [];
 const companies: string[] = [];
 const connections: string[] = [];

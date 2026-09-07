@@ -17,6 +17,7 @@ import {
   Surface,
 } from "@avenick/ui";
 import { Stars } from "@/components/product/stars";
+import { useCartDrawerStore } from "@/components/cart/cart-drawer-store";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
 import { useLocale, useTranslations } from "next-intl";
@@ -154,6 +155,7 @@ export function ProductCard({
   const nextLocale = useLocale();
   const activeLocale = locale || (nextLocale as "en" | "ar");
   const addItem = useCartStore((s) => s.addItem);
+  const openCartDrawerFor = useCartDrawerStore((s) => s.openFor);
   const { toggle, has } = useWishlist();
   // Persisted wishlist state would mismatch on hydration — gate on mount.
   const [mounted, setMounted] = React.useState(false);
@@ -238,9 +240,22 @@ export function ProductCard({
       }));
   }, [isB2B, currency, priceBands, activeLocale]);
 
-  function handleAddToCart() {
-    const action = productCardPurchaseAction(hasVariants, inStock);
-    if (action === "REQUEST_AVAILABILITY") {
+  /*
+   * ONE decision, computed once and used by the handler, the icon, the label and
+   * the disabled state alike. Those four used to re-derive it from `inStock` and
+   * `hasVariants` separately, which is how the tile ended up printing "Price on
+   * request" over a disabled "Add to cart": the price was in the disabled
+   * expression and in none of the other three.
+   */
+  const canPrice = price != null && !!currency && vatRate != null;
+  const purchaseAction = productCardPurchaseAction(hasVariants, inStock, canPrice);
+
+  function handlePrimaryAction(event: React.MouseEvent<HTMLButtonElement>) {
+    const action = purchaseAction;
+    // Both request actions go to the same form. They are separate actions
+    // because the buyer's reason differs — no stock is not no price — and the
+    // label has to say which one they are answering.
+    if (action === "REQUEST_AVAILABILITY" || action === "REQUEST_QUOTE") {
       router.push(`/b2b/rfq/new?supplier=${encodeURIComponent(sellerId)}&product=${encodeURIComponent(id)}`);
       return;
     }
@@ -250,6 +265,23 @@ export function ProductCard({
     }
     if (price == null || !currency || vatRate == null) return;
     addItem({ productId: id, slug, channel: isB2B ? "B2B" : "B2C", nameEn, nameAr, imageUrl, sku, qty: moq, moq, unitPrice: price, vatRate, priceTiered, sellerId, currency });
+    /*
+     * THE DRAWER OPENS; THE PAGE STAYS. Adding used to be the end of browsing —
+     * the line went in and the buyer was sent to the cart — so the biggest
+     * conversion leak on the storefront was the add-to-cart button itself.
+     * The drawer shows the line over the grid the buyer is still standing on.
+     *
+     * The control is focused first, on purpose. The drawer's focus scope
+     * returns focus to whatever element was active when it opened, and Safari
+     * does not focus a button on click — without this, "Continue shopping"
+     * would strand a Safari user on <body>. Programmatic focus after a pointer
+     * press does not draw the focus ring, so a mouse user sees nothing.
+     *
+     * Bands travel only from a B2B tile, mirroring the ladder's own gate: a
+     * consumer's drawer must never carry wholesale breaks.
+     */
+    event.currentTarget.focus({ preventScroll: true });
+    openCartDrawerFor({ productId: id, priceBands: isB2B ? priceBands : undefined });
     clearTimeout(commitTimer.current);
     setCommitted(true);
     commitTimer.current = setTimeout(() => setCommitted(false), 1800);
@@ -647,14 +679,25 @@ export function ProductCard({
           variant="primary"
           size="md"
           className="w-full"
-          onClick={handleAddToCart}
-          disabled={inStock && !hasVariants && (price == null || !currency || vatRate == null)}
+          onClick={handlePrimaryAction}
+          /*
+           * NOTHING IS DISABLED ANY MORE. Every branch now has somewhere to go:
+           * a product this storefront cannot price is a product to quote, which
+           * is the whole commercial model, not an error state. The one case that
+           * remains unpressable is a variant-bearing row, and that navigates.
+           */
         >
-          {inStock ? <ShoppingCart className="h-3.5 w-3.5" aria-hidden="true" /> : <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />}
-          {inStock && !hasVariants ? (
+          {purchaseAction === "REQUEST_AVAILABILITY" || purchaseAction === "REQUEST_QUOTE" ? (
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <ShoppingCart className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+          {purchaseAction === "ADD_TO_CART" ? (
             <CommitLabel idle={tp("addToCart")} committed={tc("added")} done={committed} />
-          ) : inStock ? (
+          ) : purchaseAction === "SELECT_VARIANT" ? (
             tp("selectOptions")
+          ) : purchaseAction === "REQUEST_QUOTE" ? (
+            tp("requestQuote")
           ) : (
             tp("requestAvailability")
           )}

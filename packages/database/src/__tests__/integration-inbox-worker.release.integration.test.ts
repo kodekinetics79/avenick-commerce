@@ -13,8 +13,9 @@ import {
   redriveIntegrationInbox,
   StaleIntegrationLeaseError,
 } from "../services/integrations";
+import { integrationSuite } from "../testing/integration-db";
 
-const run = process.env.DATABASE_URL ? describe : describe.skip;
+const run = integrationSuite("parallel");
 const marker = `inbound-worker-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 let actorId = "";
 let orderId = "";

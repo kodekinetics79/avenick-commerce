@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
@@ -17,6 +17,9 @@ import { SUPPORTED_COUNTRIES } from "@/lib/market-context";
 // AssertTrue<Exact<...>> block in that file, so nothing here can drift from
 // what the column will accept.
 import { COMPANY_SIZE_VALUES, INDUSTRY_VALUES } from "@avenick/types/schemas";
+// Subpath import, not the "@avenick/auth" barrel: the barrel pulls the whole
+// auth runtime into a client bundle. safe-redirect is a pure string function.
+import { safeReturnTo } from "@avenick/auth/safe-redirect";
 
 type Mode = "select" | "consumer" | "business";
 
@@ -31,6 +34,22 @@ export default function RegisterPage() {
   const [mode, setMode] = useState<Mode>("select");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  /*
+   * The other way out of this page. A buyer sent here from checkout who turns
+   * out to HAVE an account presses "Sign in" in the footer, and that link has to
+   * carry the destination too, or the shorter of the two routes back to the
+   * basket is the one that loses it.
+   *
+   * Initialised to the bare path and corrected after mount, so the server and
+   * the first client render agree; reading the query string during render would
+   * mismatch. The button below is a real link at every moment — never a dead one
+   * waiting for an effect.
+   */
+  const [signInHref, setSignInHref] = useState("/login");
+  useEffect(() => {
+    const returnTo = safeReturnTo(new URLSearchParams(window.location.search).get("callbackUrl"), "");
+    if (returnTo) setSignInHref(`/login?callbackUrl=${encodeURIComponent(returnTo)}`);
+  }, []);
   // `companySize` is required by RegisterBusinessSchema and was absent from this
   // object entirely, so every business registration was rejected 400 before it
   // reached the database. `industry` was present but hardcoded to
@@ -58,7 +77,32 @@ export default function RegisterPage() {
       const res = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
       const data = await res.json();
       if (data.success) {
-        router.push("/login?registered=1");
+        /*
+         * THE DESTINATION SURVIVES REGISTRATION.
+         *
+         * A buyer who filled a basket and pressed checkout is sent to
+         * /login?callbackUrl=/checkout, follows "Register" (which now carries
+         * that parameter), and lands back on /login to sign in. Dropping it
+         * here put a newly registered buyer on /account/orders with a full
+         * basket and no indication of how to return to it — the abandonment is
+         * at the exact moment they had decided to buy.
+         *
+         * Read from the live query string rather than useSearchParams: this
+         * page is one client component with no Suspense boundary, and reaching
+         * for that hook here would either force a refactor or deopt the route.
+         * The value is only needed at submit, when window is certain.
+         *
+         * Validated with the same helper the login island uses. A registration
+         * form is a fine place to aim an open redirect from, precisely because
+         * the visitor is about to authenticate for real.
+         */
+        const raw = new URLSearchParams(window.location.search).get("callbackUrl");
+        const returnTo = safeReturnTo(raw, "");
+        router.push(
+          returnTo
+            ? `/login?registered=1&callbackUrl=${encodeURIComponent(returnTo)}`
+            : "/login?registered=1",
+        );
       } else {
         setError(data.error ?? t.failed);
       }
@@ -100,7 +144,7 @@ export default function RegisterPage() {
       footer={
         <p className="u-meta text-ink-3">
           {t.hasAccount}{" "}
-          <Link href="/login" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
+          <Link href={signInHref} className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
             {t.signIn}
           </Link>
         </p>

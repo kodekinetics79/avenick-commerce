@@ -6,12 +6,16 @@ vi.mock("@/lib/auth-instance", () => ({ auth: vi.fn(async () => ({ user: { id: a
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { setMemberActive, updateMember } from "../actions";
+import { integrationSuite, integrationDbEnabled } from "@avenick/database/testing";
+
+const run = integrationSuite();
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 let companyId = "", adminMemberId = "", targetMemberId = "", targetUserId = "";
 const userIds: string[] = [];
 
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const company = await db.company.create({ data: {
     nameEn: `IAM ${stamp}`, crNumber: `IAM-${stamp}`, industry: "BUILDING_MATERIALS",
     size: "SMALL", country: "AE", city: "Dubai", status: "ACTIVE",
@@ -30,13 +34,14 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   await db.auditLog.deleteMany({ where: { actorId: { in: userIds } } });
   if (companyId) await db.companyMember.deleteMany({ where: { companyId } });
   if (companyId) await db.company.deleteMany({ where: { id: companyId } });
   await db.user.deleteMany({ where: { id: { in: userIds } } });
 });
 
-describe("B2B IAM durable state and actor audit", () => {
+run("B2B IAM durable state and actor audit", () => {
   it("atomically changes member and user roles with actor before/after evidence", async () => {
     const form = new FormData();
     form.set("role", "COMPANY_APPROVER");

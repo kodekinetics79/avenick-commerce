@@ -8,6 +8,7 @@ import {
   createGovernedPurchaseOrder,
   placeGovernedPurchaseOrder,
 } from "../services/b2b-purchase-orders";
+import { integrationSuite } from "../testing/integration-db";
 
 describe("release-board data minimization", () => {
   it("stores an opaque stable checkout digest, never canonical request PII", () => {
@@ -26,7 +27,7 @@ describe("release-board data minimization", () => {
   });
 });
 
-describe.skipIf(!process.env["DATABASE_URL"])("release-board commerce/finance PostgreSQL invariants", () => {
+integrationSuite()("release-board commerce/finance PostgreSQL invariants", () => {
   it("never exposes cross-channel variant prices or inventory topology", async () => {
     const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
     const owner = await db.user.create({ data: {

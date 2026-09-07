@@ -10,7 +10,7 @@
  */
 import { z } from "zod";
 
-import type { CompanySize, Country, Currency, Industry, Language } from "@avenick/database";
+import type { CompanySize, Country, Currency, Industry, Language, SellerTier } from "@avenick/database";
 
 // ─── Enum values (Prisma is the authority) ─────────────────────────────
 
@@ -60,6 +60,7 @@ export const COMPANY_SIZE_VALUES = ["MICRO", "SMALL", "MEDIUM", "LARGE", "ENTERP
 
 /** Prisma `Language`. */
 export const LANGUAGE_VALUES = ["AR", "EN"] as const;
+export const SELLER_TIER_VALUES = ["STANDARD", "VERIFIED", "GOLD", "PLATINUM"] as const;
 
 /**
  * Compile-time proof that every list above is exactly its Prisma enum — not a
@@ -72,6 +73,7 @@ export type EnumListsMatchPrisma = [
   AssertTrue<Exact<(typeof INDUSTRY_VALUES)[number], Industry>>,
   AssertTrue<Exact<(typeof COMPANY_SIZE_VALUES)[number], CompanySize>>,
   AssertTrue<Exact<(typeof LANGUAGE_VALUES)[number], Language>>,
+  AssertTrue<Exact<(typeof SELLER_TIER_VALUES)[number], SellerTier>>,
 ];
 
 /**
@@ -110,6 +112,46 @@ export const RegisterConsumerSchema = z.object({
     .max(128, { message: "Password must be at most 128 characters" })
     .regex(/[A-Z]/, "Must contain uppercase letter")
     .regex(/[0-9]/, "Must contain a number"),
+  language: z.enum(LANGUAGE_VALUES).default("AR"),
+});
+
+/**
+ * Joining a company that is ALREADY registered.
+ *
+ * The counterpart to RegisterBusinessSchema, and the answer to what used to be
+ * a dead end: a second person at a customer typed their employer's commercial
+ * registration number, was told the CR was taken, and had nowhere to go.
+ *
+ * The company is identified by CR rather than by name or by a company id. A CR
+ * number is a public registry identifier the applicant can read off their own
+ * payslip or their colleague's business card; a company id is an internal
+ * string nobody outside this system has ever seen, and a name is ambiguous
+ * across the six markets this platform sells in.
+ *
+ * Deliberately NO company fields. Everything about the company already exists
+ * and belongs to the people already inside it; an applicant who could send a
+ * new trade name or a new industry along with their application would be
+ * editing a record they have not yet been admitted to.
+ *
+ * The password rules are RegisterConsumerSchema's own rather than a copy, for
+ * the reason every other flow reuses them: a door with a weaker rule is the way
+ * around the rule.
+ */
+export const RegisterJoinSchema = z.object({
+  crNumber: z.string().min(5).max(30),
+  firstName: z.string().min(2).max(50),
+  lastName: z.string().min(2).max(50),
+  email: z.string().email(),
+  phone: optionalText(z.string().regex(/^\+[1-9]\d{7,14}$/, "Enter the phone in international format, e.g. +9715xxxxxxx")),
+  password: RegisterConsumerSchema.shape.password,
+  /**
+   * What the applicant says they do. ADVISORY: the approving admin sets the
+   * role that is actually written to CompanyMember. COMPANY_ADMIN is absent on
+   * purpose and must stay absent — nobody applies their way into administering
+   * a company they are not yet a member of.
+   */
+  requestedRole: z.enum(["COMPANY_BUYER", "COMPANY_APPROVER"]).default("COMPANY_BUYER"),
+  department: optionalText(z.string().max(60)),
   language: z.enum(LANGUAGE_VALUES).default("AR"),
 });
 
@@ -172,6 +214,56 @@ export const RegisterSellerSchema = z.object({
 });
 
 export type RegisterSellerInput = z.infer<typeof RegisterSellerSchema>;
+
+/**
+ * An administrator opening a seller account on the platform's own initiative.
+ *
+ * Deliberately NOT `RegisterSellerSchema.omit({ acceptTerms: true })`: the two
+ * forms are filled by different people for different reasons. There is no
+ * seller agreement to tick here — the administrator is not the seller and
+ * cannot accept terms on their behalf — and there are three commercial fields a
+ * self-registering applicant must never be able to set for themselves.
+ *
+ * `status` is the review decision baked into the creation: PENDING_REVIEW puts
+ * the new organisation in the same queue a self-registration lands in, ACTIVE
+ * opens it for trading immediately. The service refuses ACTIVE for anyone below
+ * SUPER_ADMIN — this schema only says the value is well formed.
+ */
+export const CreateSellerByAdminSchema = z.object({
+  businessNameEn: z.string().min(2).max(100),
+  businessNameAr: optionalText(z.string().min(2).max(100)),
+  crNumber: z.string().min(5).max(30),
+  vatNumber: optionalText(z.string().max(30)),
+  type: z.enum(["MANUFACTURER", "DISTRIBUTOR", "IMPORTER", "RETAILER"]),
+  country: z.enum(COUNTRY_VALUES),
+  city: z.string().min(2).max(50),
+  description: optionalText(z.string().max(1000)),
+  firstName: z.string().min(2).max(50),
+  lastName: z.string().min(2).max(50),
+  email: z.string().email(),
+  phone: optionalText(z.string().regex(/^\+[1-9]\d{7,14}$/, "Enter the phone in international format, e.g. +9715xxxxxxx")),
+  // The same rule registration enforces. An account an administrator opens must
+  // not be reachable with a weaker password than one a seller opens themselves.
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(128, { message: "Password must be at most 128 characters" })
+    .regex(/[A-Z]/, "Password must contain an uppercase letter")
+    .regex(/[0-9]/, "Password must contain a number"),
+  language: z.enum(LANGUAGE_VALUES).default("EN"),
+  status: z.enum(["PENDING_REVIEW", "ACTIVE"]).default("PENDING_REVIEW"),
+  tier: z.enum(SELLER_TIER_VALUES).default("STANDARD"),
+  // Percent of order value. Decimal(5,2) in the schema, so two places and a
+  // ceiling of 100 — a rate above that would bill a seller more than the sale.
+  commissionRate: z.coerce
+    .number()
+    .min(0, "Commission cannot be negative")
+    .max(100, "Commission cannot exceed 100%")
+    .multipleOf(0.01, "Commission is recorded to two decimal places")
+    .default(5),
+});
+
+export type CreateSellerByAdminInput = z.infer<typeof CreateSellerByAdminSchema>;
 
 // ─── Product ─────────────────────────────────────────────────────────────────
 
@@ -253,5 +345,6 @@ export const AddressSchema = z.object({
 export type LoginInput = z.infer<typeof LoginSchema>;
 export type RegisterConsumerInput = z.infer<typeof RegisterConsumerSchema>;
 export type RegisterBusinessInput = z.infer<typeof RegisterBusinessSchema>;
+export type RegisterJoinInput = z.infer<typeof RegisterJoinSchema>;
 export type SellerOnboardingInput = z.infer<typeof SellerOnboardingSchema>;
 export type AddressInput = z.infer<typeof AddressSchema>;

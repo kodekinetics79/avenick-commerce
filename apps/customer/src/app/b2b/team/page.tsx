@@ -20,9 +20,9 @@ import { getB2BT, b2bMetadata } from "@/components/b2b/i18n";
 import type { B2BKey } from "@/components/b2b/messages";
 import { toneRule } from "@/components/b2b/rules";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
-import { inviteMember, setMemberActive } from "./actions";
+import { approveJoinRequest, inviteMember, rejectJoinRequest, setMemberActive } from "./actions";
 import { ValidatedForm } from "@/components/b2b/validated-form";
-import { Shield, ShoppingBag, CheckSquare, UserPlus, Users } from "lucide-react";
+import { Shield, ShoppingBag, CheckSquare, MailCheck, UserPlus, Users } from "lucide-react";
 
 export async function generateMetadata() {
   return b2bMetadata("team.title");
@@ -63,6 +63,24 @@ export default async function B2BTeamPage() {
     orderBy: { joinedAt: "asc" },
   });
   const isAdmin = ctx.member.role === "COMPANY_ADMIN";
+
+  // Applications from colleagues who found the company by its CR number.
+  //
+  // BOTH pending states are read, not just the actionable one. A queue that
+  // showed only PENDING_ADMIN_APPROVAL would leave an admin who has been told
+  // "Ahmed applied" staring at an empty panel while Ahmed has simply not opened
+  // his confirmation email yet — so the unconfirmed ones are listed too, with
+  // no buttons and a line saying who is being waited on.
+  const joinRequests = isAdmin
+    ? await db.companyJoinRequest.findMany({
+        where: {
+          companyId: ctx.companyId,
+          status: { in: ["PENDING_ADMIN_APPROVAL", "PENDING_EMAIL_VERIFICATION"] },
+        },
+        include: { user: { select: { firstName: true, lastName: true, email: true } } },
+        orderBy: { createdAt: "desc" },
+      })
+    : [];
   // CompanyMember.spendLimit has no currency column; like the credit limit it
   // is read in the company's jurisdiction currency.
   const currency = companyCurrencyForCountry(ctx.company.country);
@@ -124,6 +142,69 @@ export default async function B2BTeamPage() {
               <Button type="submit" variant="primary">{t("team.invite.submit")}</Button>
             </div>
           </ValidatedForm>
+        )}
+
+        {/* The approvals queue. Rendered only when there is something in it:
+            an empty panel on every visit teaches an admin to stop looking, and
+            this is the panel that must be worth looking at. */}
+        {isAdmin && joinRequests.length > 0 && (
+          <Surface rung={1} className="p-5">
+            <Eyebrow className="mb-1 flex items-center gap-1.5">
+              <MailCheck className="h-3.5 w-3.5" aria-hidden="true" /> {t("team.join.title")}
+            </Eyebrow>
+            <Dateline className="mb-4">{t("team.join.basis")}</Dateline>
+            <ul className="divide-y divide-border">
+              {joinRequests.map((r) => {
+                const name = `${r.user.firstName} ${r.user.lastName}`.trim();
+                const awaitingConfirmation = r.status === "PENDING_EMAIL_VERIFICATION";
+                const askedFor = ROLES[r.requestedRole] ?? ROLES.COMPANY_BUYER!;
+                return (
+                  <li key={r.id} className="py-4 first:pt-0 last:pb-0">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-ink-1">{name}</p>
+                        <p className="u-meta truncate text-ink-3">{r.user.email}</p>
+                        <p className="u-meta mt-1 text-ink-2">
+                          {t("team.join.askedFor", { role: t(askedFor.labelKey) })}
+                          {r.department ? ` · ${r.department}` : ""}
+                        </p>
+                      </div>
+                      <StatusPill tone={awaitingConfirmation ? "neutral" : "warning"} className="whitespace-nowrap">
+                        {t(awaitingConfirmation ? "team.join.awaitingEmail" : "team.join.awaitingYou")}
+                      </StatusPill>
+                    </div>
+
+                    {/* No buttons until the address is confirmed. An admin must
+                        never be able to admit somebody on the strength of an
+                        address nobody has proved receives mail — that is the
+                        whole of what the confirmation step buys. */}
+                    {awaitingConfirmation ? (
+                      <p className="u-meta mt-3 text-ink-3">{t("team.join.awaitingEmail.detail")}</p>
+                    ) : (
+                      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                        <ValidatedForm action={approveJoinRequest.bind(null, r.id)} className="space-y-3">
+                          <Field label={t("team.join.role")} htmlFor={`approve-role-${r.id}`}>
+                            <SelectField id={`approve-role-${r.id}`} name="role" defaultValue={r.requestedRole}>
+                              <option value="COMPANY_BUYER">{t("team.role.buyer")}</option>
+                              <option value="COMPANY_APPROVER">{t("team.role.approver")}</option>
+                              <option value="COMPANY_ADMIN">{t("team.role.admin")}</option>
+                            </SelectField>
+                          </Field>
+                          <Button type="submit" variant="primary">{t("team.join.approve")}</Button>
+                        </ValidatedForm>
+                        <ValidatedForm action={rejectJoinRequest.bind(null, r.id)} className="space-y-3">
+                          <Field label={t("team.join.reason")} htmlFor={`reject-reason-${r.id}`} hint={t("team.join.reason.hint")}>
+                            <TextField id={`reject-reason-${r.id}`} name="reason" maxLength={500} />
+                          </Field>
+                          <Button type="submit" variant="secondary">{t("team.join.reject")}</Button>
+                        </ValidatedForm>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </Surface>
         )}
 
         <LedgerTable

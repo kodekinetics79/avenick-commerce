@@ -11,8 +11,9 @@ import {
   redriveIntegrationOutbox,
   StaleIntegrationLeaseError,
 } from "../services/integrations";
+import { integrationDbEnabled } from "../testing/integration-db";
 
-const enabled = Boolean(process.env.DATABASE_URL);
+const enabled = integrationDbEnabled();
 const run = enabled ? describe : describe.skip;
 const marker = `fencing-${Date.now()}`;
 let operatorId = "";

@@ -7,8 +7,9 @@ import {
   SellerRegistrationConflictError,
   type SellerRegistrationInput,
 } from "../services/seller-registration";
+import { integrationSuite } from "../testing/integration-db";
 
-const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
+const run = integrationSuite();
 
 /** Every row this suite creates is tagged with the stamp so cleanup is exact. */
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;

@@ -498,6 +498,23 @@
         "saveChanges": "Save changes",
         "cancel": "Cancel"
       }
+    },
+    "archive": {
+      "title": "Archive this listing",
+      "description": "Removes it from your catalogue, the storefront and search. Past orders that contain it are unaffected and still resolve what was bought.",
+      "action": "Archive listing",
+      "confirm": "Archive “{name}”? It will stop appearing anywhere buyers or your team can find it.",
+      "confirmAction": "Yes, archive it",
+      "cancel": "Keep the listing",
+      "doneToast": "Listing archived",
+      "reversibleNote": "An archived listing can be restored as a draft, and its SKU stays reserved to you.",
+      "errors": {
+        "unknownProduct": "That listing is not in your catalogue.",
+        "permissionWithdrawn": "You no longer have permission to change this catalogue.",
+        "notArchived": "The listing was not archived. Nothing was changed.",
+        "notArchived404": "That listing is not archived.",
+        "notRestored": "The listing was not restored. Nothing was changed."
+      }
     }
   },
   "sellerOps": {
@@ -1602,6 +1619,41 @@
           "eyebrow": "Nothing recorded",
           "headline": "No category has revenue against it.",
           "body": "A category appears here as soon as one of its products is bought."
+        }
+      },
+      "traffic": {
+        "eyebrow": "Traffic",
+        "title": "Traffic and conversion by listing",
+        "description": "What buyers looked at, and how much of that attention turned into an order. Worst-converting traffic first.",
+        "dateline": "Views and units over the last {days} days · ranked by the attention that did not convert",
+        "provenance": "Views are de-duplicated storefront views, at most one per visitor per listing per day. They are a measure of attention, not an audited counter, and nothing financial reads them. Conversion counts units in every currency, because a view has none.",
+        "excluded": "The sales column shows one currency only; {count, plural, one {# order line was} other {# order lines were}} placed in {currencies} and are not in it.",
+        "noViewsTitle": "No views recorded in this window, so there is no conversion to state.",
+        "kpi": {
+          "views": "Views",
+          "viewsNote": "De-duplicated storefront views of your listings.",
+          "units": "Units ordered",
+          "unitsNote": "Units on orders that were not cancelled, in every currency.",
+          "conversion": "Conversion",
+          "conversionNote": "Units ordered per view. Blank when nothing was viewed."
+        },
+        "columns": {
+          "listing": "Listing",
+          "status": "Status",
+          "views": "Views",
+          "units": "Units",
+          "conversion": "Conversion",
+          "sales": "Sales"
+        },
+        "empty": {
+          "eyebrow": "Nothing measured",
+          "headline": "No listing was viewed or ordered in this window.",
+          "body": "Views are recorded as buyers browse the storefront. Once a listing is live and seen, its traffic and conversion appear here over the last {days} days."
+        },
+        "unread": {
+          "eyebrow": "Not read",
+          "headline": "Traffic could not be read for this account.",
+          "body": "The rest of this page is unaffected — it is computed from your order lines. Nothing here is a zero; the figures simply were not available. Try again shortly."
         }
       }
     },

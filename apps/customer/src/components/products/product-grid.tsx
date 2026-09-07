@@ -30,7 +30,10 @@ import { LightGrid, Skeleton, SkeletonImageFrame } from "@avenick/ui";
  */
 const COLUMNS: Record<4 | 5, string> = {
   4: "grid-cols-2 sm:grid-cols-3 xl:grid-cols-4",
-  5: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5",
+  // 2xl (1536px) is the shell's own max width, so six tiles land at ~228px
+  // each — the same tile width the 5-up grid gives at xl. Without this the
+  // wider shell just stretched five tiles.
+  5: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6",
 };
 
 export function ProductGrid({

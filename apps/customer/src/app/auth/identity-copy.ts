@@ -190,6 +190,46 @@ interface IdentityDictionary {
     readonly backTo: string;
     readonly genericError: string;
   };
+  readonly invitation: {
+    readonly eyebrow: string;
+    readonly title: string;
+    readonly subtitle: string;
+    readonly note: (ttl: string) => string;
+    readonly formLabel: string;
+    readonly password: string;
+    readonly passwordHint: string;
+    readonly confirm: string;
+    readonly confirmHint: string;
+    readonly mismatch: string;
+    readonly weak: string;
+    readonly submit: string;
+    readonly done: string;
+    readonly signIn: string;
+    readonly missingToken: string;
+    readonly deadToken: string;
+    readonly usedToken: string;
+    readonly noSecret: string;
+    readonly askAdmin: string;
+    readonly backTo: string;
+    readonly genericError: string;
+  };
+  readonly confirm: {
+    readonly eyebrow: string;
+    readonly title: string;
+    readonly subtitle: string;
+    readonly note: (ttl: string) => string;
+    readonly submit: string;
+    readonly done: (company: string) => string;
+    readonly doneNoAdmins: (company: string) => string;
+    readonly whatNext: string;
+    readonly signIn: string;
+    readonly missingToken: string;
+    readonly deadToken: string;
+    readonly noSecret: string;
+    readonly applyAgain: string;
+    readonly backTo: string;
+    readonly genericError: string;
+  };
 }
 
 const EN: IdentityDictionary = {
@@ -344,6 +384,48 @@ const EN: IdentityDictionary = {
     backTo: "Back to",
     genericError: "Something went wrong. Please try again.",
   },
+  invitation: {
+    eyebrow: "Company invitation",
+    title: "Set your password",
+    subtitle: "Your colleague has added you to their company account. Choose a password to finish.",
+    note: (ttl) => `An invitation link is valid for ${ttl} from the moment it is sent.`,
+    formLabel: "Set your password and activate your account",
+    password: "Password",
+    passwordHint: "At least 8 characters, with an uppercase letter and a number.",
+    confirm: "Confirm password",
+    confirmHint: "Type the same password again.",
+    mismatch: "The two passwords do not match.",
+    weak: "Choose a stronger password.",
+    submit: "Activate my account",
+    done: "Your account is active. Sign in to start buying for your company.",
+    signIn: "Sign in",
+    missingToken: "This page needs the link from your invitation email \u2014 the invitation code is missing from the address.",
+    deadToken: "This invitation link is invalid or has expired.",
+    usedToken: "This invitation is invalid, has expired, or has already been used.",
+    noSecret: "Invitations cannot be accepted from this environment.",
+    askAdmin: "Ask your company administrator to send the invitation again.",
+    backTo: "Back to",
+    genericError: "Something went wrong. Please try again.",
+  },
+  confirm: {
+    eyebrow: "Company access",
+    title: "Confirm your email address",
+    subtitle: "One click confirms we can reach you here. It does not yet give you access.",
+    note: (ttl) => `A confirmation link is valid for ${ttl} from the moment it is sent.`,
+    submit: "Confirm my email address",
+    done: (company) =>
+      `Your address is confirmed. Your request is now with the administrators at ${company}, who decide whether to admit you. You will be able to sign in once one of them approves it.`,
+    doneNoAdmins: (company) =>
+      `Your address is confirmed. ${company} currently has no active administrator to review the request, so it will wait until one is available. Contact your colleague at the company directly.`,
+    whatNext: "Nothing on this platform is visible to you until an administrator at the company approves the request.",
+    signIn: "Sign in",
+    missingToken: "This page needs the link from your confirmation email \u2014 the confirmation code is missing from the address.",
+    deadToken: "This confirmation link is invalid or has expired.",
+    noSecret: "Email confirmation is not available from this environment.",
+    applyAgain: "Apply to join the company again",
+    backTo: "Back to",
+    genericError: "Something went wrong. Please try again.",
+  },
 };
 
 const AR: IdentityDictionary = {
@@ -489,6 +571,61 @@ const AR: IdentityDictionary = {
     requestNew: "اطلب رابط إعادة تعيين جديداً",
     backTo: "العودة إلى",
     genericError: "حدث خطأ غير متوقع. حاول مرة أخرى.",
+  },
+  /*
+   * INVITATION: keys present, Arabic deliberately not written yet.
+   *
+   * This group carries the English strings under the Arabic dictionary, which is
+   * exactly the half-translated state the header of this file argues against. It
+   * is here anyway, and knowingly, because the standing product decision is
+   * English-only until the flows stop moving \u2014 and a MISSING key is worse than
+   * an untranslated one: `identityCopy("ar").invitation.title` would be
+   * undefined and the page would throw in front of an Arabic buyer rather than
+   * merely read in the wrong language.
+   *
+   * When the Arabic pass happens, this group and this comment go together.
+   */
+  invitation: {
+    eyebrow: "Company invitation",
+    title: "Set your password",
+    subtitle: "Your colleague has added you to their company account. Choose a password to finish.",
+    note: (ttl) => `An invitation link is valid for ${ttl} from the moment it is sent.`,
+    formLabel: "Set your password and activate your account",
+    password: "Password",
+    passwordHint: "At least 8 characters, with an uppercase letter and a number.",
+    confirm: "Confirm password",
+    confirmHint: "Type the same password again.",
+    mismatch: "The two passwords do not match.",
+    weak: "Choose a stronger password.",
+    submit: "Activate my account",
+    done: "Your account is active. Sign in to start buying for your company.",
+    signIn: "Sign in",
+    missingToken: "This page needs the link from your invitation email \u2014 the invitation code is missing from the address.",
+    deadToken: "This invitation link is invalid or has expired.",
+    usedToken: "This invitation is invalid, has expired, or has already been used.",
+    noSecret: "Invitations cannot be accepted from this environment.",
+    askAdmin: "Ask your company administrator to send the invitation again.",
+    backTo: "Back to",
+    genericError: "Something went wrong. Please try again.",
+  },
+  confirm: {
+    eyebrow: "Company access",
+    title: "Confirm your email address",
+    subtitle: "One click confirms we can reach you here. It does not yet give you access.",
+    note: (ttl) => `A confirmation link is valid for ${ttl} from the moment it is sent.`,
+    submit: "Confirm my email address",
+    done: (company) =>
+      `Your address is confirmed. Your request is now with the administrators at ${company}, who decide whether to admit you. You will be able to sign in once one of them approves it.`,
+    doneNoAdmins: (company) =>
+      `Your address is confirmed. ${company} currently has no active administrator to review the request, so it will wait until one is available. Contact your colleague at the company directly.`,
+    whatNext: "Nothing on this platform is visible to you until an administrator at the company approves the request.",
+    signIn: "Sign in",
+    missingToken: "This page needs the link from your confirmation email \u2014 the confirmation code is missing from the address.",
+    deadToken: "This confirmation link is invalid or has expired.",
+    noSecret: "Email confirmation is not available from this environment.",
+    applyAgain: "Apply to join the company again",
+    backTo: "Back to",
+    genericError: "Something went wrong. Please try again.",
   },
 };
 

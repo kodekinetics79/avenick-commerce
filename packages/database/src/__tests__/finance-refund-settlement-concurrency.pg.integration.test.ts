@@ -2,8 +2,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { db } from "../index";
 import { getSellerFinancialPosition, setPayoutStatus } from "../services/finance";
 import { setReturnStatus } from "../services/workflow";
+import { integrationSuite } from "../testing/integration-db";
 
-const run = process.env["DATABASE_URL"] ? describe : describe.skip;
+const run = integrationSuite("parallel");
 const cleanupUsers: string[] = [];
 
 async function fixture(label: string, payouts: Array<{ status: "PENDING" | "PROCESSING" | "PAID"; gross: number; commission: number }>) {

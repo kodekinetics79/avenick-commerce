@@ -60,7 +60,7 @@ export default async function DealsPage() {
 
   return (
     <MainLayout>
-      <div className="mx-auto max-w-7xl px-4 py-block">
+      <div className="mx-auto max-w-shell px-gutter py-block">
         {/* The old hero was a rose→red→verdigris gradient band with a white blur
             orb, white text and a 48px/800 heading. It had no dark value, it made
             a discovery page shout louder than the checkout, and the red read as

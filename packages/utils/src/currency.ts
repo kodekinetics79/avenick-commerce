@@ -94,13 +94,19 @@ export function calculateVat(amount: number, countryCode: string): number {
   return parseFloat(((amount * rate) / 100).toFixed(2));
 }
 
-export function calculateOrderTotal(
-  subtotal: number,
-  countryCode: string,
-  shippingAmount = 0,
-  discountAmount = 0,
-): { subtotal: number; vatAmount: number; shippingAmount: number; discountAmount: number; total: number } {
-  const vatAmount = calculateVat(subtotal, countryCode);
-  const total = parseFloat((subtotal + vatAmount + shippingAmount - discountAmount).toFixed(2));
-  return { subtotal, vatAmount, shippingAmount, discountAmount, total };
-}
+/**
+ * `calculateOrderTotal` used to live here and has been deleted on purpose.
+ *
+ * It taxed the goods and then added the delivery untaxed — the defect fixed in
+ * PR #21 ("charge VAT on the delivery, not just on the goods"). By the time it
+ * was removed it had zero callers, which made it worse rather than harmless: a
+ * plausible, importable, well-named helper that silently under-collects VAT,
+ * sitting one autocomplete away from anyone building a new checkout surface.
+ *
+ * Order totals have exactly one source of truth:
+ *   composeOrderTotals — packages/database/src/services/checkout-invariants.ts
+ *
+ * It returns goods VAT and shipping VAT as separate figures. Do not re-derive
+ * totals anywhere else, and do not collapse those two components; clients read
+ * them from POST /api/v1/checkout/quote and render what the server computed.
+ */

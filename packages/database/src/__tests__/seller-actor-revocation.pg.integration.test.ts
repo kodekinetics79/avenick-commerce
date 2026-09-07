@@ -3,13 +3,15 @@ import { db } from "../index";
 import { rejectSeller, setUserStatus } from "../services/admin";
 import { submitQuote } from "../services/rfq";
 import { advanceSellerOrderItems } from "../services/seller-fulfillment";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 
-const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
+const run = integrationSuite();
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 let staffId = "", ownerId = "", adminId = "", buyerId = "", sellerId = "", productId = "", categoryId = "", orderId = "";
 const rfqIds: string[] = [];
 
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const [staff, owner, admin, buyer] = await Promise.all([
     db.user.create({ data: { email: `seller-revoke-staff-${stamp}@test.invalid`, firstName: "Seller", lastName: "Staff", role: "SELLER_STAFF", status: "ACTIVE" } }),
     db.user.create({ data: { email: `seller-revoke-owner-${stamp}@test.invalid`, firstName: "Seller", lastName: "Owner", role: "SELLER_OWNER", status: "ACTIVE" } }),
@@ -35,6 +37,7 @@ async function openRfq(label: string) {
 }
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   await db.auditLog.deleteMany({ where: { actorId: { in: [staffId, ownerId, adminId] } } });
   await db.order.deleteMany({ where: { id: orderId } });
   await db.rFQRequest.deleteMany({ where: { id: { in: rfqIds } } });

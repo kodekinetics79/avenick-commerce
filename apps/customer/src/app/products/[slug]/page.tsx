@@ -5,6 +5,10 @@ import Link from "next/link";
 import * as React from "react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import { ProductCard } from "@/components/products/product-card";
+import { ProductGrid } from "@/components/products/product-grid";
+import { toCardRow } from "@/lib/product-card-row";
+import { useCartDrawerStore } from "@/components/cart/cart-drawer-store";
 import { ChevronRight, FileText, Heart, RotateCcw, ShieldCheck, Truck } from "lucide-react";
 import {
   AvailabilityDot,
@@ -188,6 +192,25 @@ export default function ProductPage({
     return `/api/products/${params.slug}${query.size ? `?${query}` : ""}`;
   }, [params.slug, searchParams.currency, searchParams.b2b]);
 
+  /*
+    The selling rails, fetched alongside the product rather than with it: the
+    product answers in one round trip and paints; the rails answer in another
+    and appear below the fold. A buyer never waits on "others also bought" to
+    read a spec sheet. Each list is empty when its signal is thin — bought
+    together needs real co-purchases, trending needs real views — and an empty
+    list renders NOTHING, never a padded rail under a confident heading.
+  */
+  const [rails, setRails] = useState<{ related: any[]; boughtTogether: any[]; trending: any[] } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const url = productUrl().replace(`/api/products/${params.slug}`, `/api/products/${params.slug}/recommendations`);
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (!cancelled && data?.success) setRails(data.data); })
+      .catch(() => { /* a missing rail is a missing rail, not a broken page */ });
+    return () => { cancelled = true; };
+  }, [productUrl, params.slug]);
+
   useEffect(() => {
     fetch(productUrl())
       .then((r) => r.json())
@@ -258,7 +281,7 @@ export default function ProductPage({
   // cannot look expensive no matter what it assembles into.
   if (loading) return (
     <MainLayout>
-      <div className="mx-auto max-w-7xl px-4 py-8">
+      <div className="mx-auto max-w-shell px-gutter py-8">
         <Skeleton className="mb-6 h-4 w-48" />
         <div className="grid grid-cols-1 items-start gap-x-8 gap-y-8 lg:grid-cols-12">
           <div className="lg:col-span-6">
@@ -366,6 +389,14 @@ export default function ProductPage({
   const addToCart = () => {
     if (!selection) return;
     addItem({ ...toStorefrontCartLine(p, selection, qty, isB2B ? "B2B" : "B2C", images[0]?.url), priceTiered });
+    // The same drawer the catalogue tiles open: the buyer sees the line they
+    // just added, the running subtotal, and stays on the product page. The
+    // page's own "Added" readout below is kept — it confirms the click on the
+    // control the buyer is looking at; the drawer is where they go next.
+    useCartDrawerStore.getState().openFor({
+      productId: String(p.id),
+      ...(selection?.variantId ? { variantId: selection.variantId } : {}),
+    });
     // The line is already in the cart by the time this runs: the confirmation is
     // a READOUT, never a gate. The control stays enabled and a second press
     // simply restarts the acknowledgement from wherever it is.
@@ -400,7 +431,7 @@ export default function ProductPage({
       {typeof product.id === "string" && product.id ? <ViewBeacon productId={product.id} /> : null}
       {/* Bottom padding leaves room for the mobile buy bar, which is fixed. */}
       <div className="min-h-screen bg-background pb-24 lg:pb-0">
-        <div className="mx-auto max-w-7xl px-4 py-8">
+        <div className="mx-auto max-w-shell px-gutter py-8">
 
           <nav aria-label={t("breadcrumbLabel")} className="mb-6">
             <ol className="flex items-center gap-1.5 u-meta text-ink-3">
@@ -761,6 +792,33 @@ export default function ProductPage({
               </section>
             </Surface>
           </div>
+
+          {/* ─── The selling rails ─────────────────────────────
+              Three lists, three different claims, labelled apart so each can
+              be true: catalogue affinity, real co-purchase, real attention.
+              Each states its basis under the heading, the way the home page
+              does, and each renders only when it has rows. */}
+          {rails && (
+            [
+              { key: "related", rows: rails.related },
+              { key: "boughtTogether", rows: rails.boughtTogether },
+              { key: "trending", rows: rails.trending },
+            ] as const
+          ).map(({ key, rows }) =>
+            rows.length === 0 ? null : (
+              <section key={key} aria-labelledby={`rail-${key}`} className="mt-12 lg:col-span-12">
+                <h2 id={`rail-${key}`} className="u-h2 text-ink-1">{t(`sections.${key}`)}</h2>
+                <p className="u-meta mt-1 text-ink-3">{t(`railReason.${key}`)}</p>
+                <div className="mt-5">
+                  <ProductGrid columns={5}>
+                    {rows.map((row: any, i: number) => (
+                      <ProductCard key={row.id} {...toCardRow(row, locale)} locale={locale} index={i} />
+                    ))}
+                  </ProductGrid>
+                </div>
+              </section>
+            ),
+          )}
 
           {/* Watched by the buy-bar observer: when this is on screen the reader
               has reached the end of the page and the fixed bar stands down. */}

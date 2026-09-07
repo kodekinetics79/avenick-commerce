@@ -573,6 +573,19 @@ export default async function B2BRegisterPage({
               {t("register.haveAccount")}{" "}
               <Link href="/login" className="u-focus rounded-nested text-primary-ink hover:underline">{t("register.signIn")}</Link>
             </p>
+
+            {/* Shown ALWAYS, not only after the CR clash.
+                The person who needs this does not know yet that a colleague has
+                already registered the company — that is precisely why they are
+                on this form. Making them submit, read a refusal and then find
+                the other door is a step that exists only because the door was
+                hidden. */}
+            <p className="u-ui mt-2 text-ink-2">
+              {t("register.joinInstead")}{" "}
+              <Link href="/b2b/join" className="u-focus rounded-nested text-primary-ink hover:underline">
+                {t("register.joinInstead.link")}
+              </Link>
+            </p>
           </div>
         </Surface>
       </div>

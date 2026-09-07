@@ -12,10 +12,11 @@ import {
   suppressProduct,
   updateCategory,
 } from "../services/admin-operations";
+import { integrationSuite, integrationDbEnabled } from "../testing/integration-db";
 
 // Runs only against a real Postgres: advisory locks, compare-and-set and
 // unique-violation handling are the behaviour under test.
-const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
+const run = integrationSuite();
 
 const stamp = `adminops-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const created = {
@@ -94,7 +95,7 @@ async function makeOrder(input: { status: "PENDING_PAYMENT" | "PAYMENT_CONFIRMED
 }
 
 beforeAll(async () => {
-  if (!process.env.DATABASE_URL) return;
+  if (!integrationDbEnabled()) return;
   const [admin, suspended, buyer, owner] = await Promise.all([
     db.user.create({ data: { email: `${stamp}-admin@test.invalid`, firstName: "Ops", lastName: "Admin", role: "ADMIN", status: "ACTIVE" } }),
     db.user.create({ data: { email: `${stamp}-suspended@test.invalid`, firstName: "Gone", lastName: "Admin", role: "ADMIN", status: "SUSPENDED" } }),
@@ -130,7 +131,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (!process.env.DATABASE_URL) return;
+  if (!integrationDbEnabled()) return;
   await db.auditLog.deleteMany({ where: { OR: [{ actorId: { in: created.users } }, { entityId: { in: [...created.orders, ...created.products, ...created.categories, ...created.stocks] } }] } });
   await db.order.deleteMany({ where: { id: { in: created.orders } } });
   await db.purchaseOrder.deleteMany({ where: { id: { in: created.purchaseOrders } } });

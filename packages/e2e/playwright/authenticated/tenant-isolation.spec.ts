@@ -1,6 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { url } from "../../targets.mjs";
-import { storageStatePath } from "../../personas.mjs";
+import { PERSONAS, storageStatePath } from "../../personas.mjs";
+
+/**
+ * The shared database holds no Seller B account with a known password, so
+ * the `shared` persona set (E2E_PERSONA_SET) has no `sellerBOwner` and no
+ * state file is ever written for one. Skip with the reason rather than fail on
+ * a missing file: "not exercised" is the truthful result, and it is visible in
+ * the report as exactly that.
+ */
+const NO_SELLER_B = "No Seller B persona in the active persona set (E2E_PERSONA_SET) — seller-to-seller isolation not exercised";
 
 /**
  * Seller-to-seller isolation.
@@ -13,6 +22,7 @@ import { storageStatePath } from "../../personas.mjs";
 
 test.describe("seller-to-seller isolation", () => {
   test("Seller B sees only its own line items on a shared order", async ({ browser }) => {
+    test.skip(!PERSONAS.sellerBOwner, NO_SELLER_B);
     // A marketplace order can legitimately contain items from several sellers,
     // so both sellers seeing the same order header is CORRECT, not a leak. The
     // real isolation guarantee is at line-item level: each seller must receive
@@ -52,6 +62,7 @@ test.describe("seller-to-seller isolation", () => {
   });
 
   test("a shared order discloses no foreign line items to either seller", async ({ browser }) => {
+    test.skip(!PERSONAS.sellerBOwner, NO_SELLER_B);
     const sellerA = await browser.newContext({ storageState: storageStatePath("sellerOwner") });
     const sellerB = await browser.newContext({ storageState: storageStatePath("sellerBOwner") });
 
@@ -84,6 +95,7 @@ test.describe("seller-to-seller isolation", () => {
   });
 
   test("Seller B cannot fetch a Seller A record by direct ID", async ({ browser }) => {
+    test.skip(!PERSONAS.sellerBOwner, NO_SELLER_B);
     // This test is written to be NON-VACUOUS. An earlier version targeted
     // /api/seller/orders/:id, which does not exist — so it returned 404 to
     // everyone and passed while asserting nothing. It would have passed

@@ -6,8 +6,9 @@ import {
   setGovernedApprovalPolicyActive,
   updateGovernedCompanyMember,
 } from "../services/b2b-purchase-orders";
+import { integrationSuite } from "../testing/integration-db";
 
-const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
+const run = integrationSuite();
 const userIds: string[] = [];
 const companyIds: string[] = [];
 

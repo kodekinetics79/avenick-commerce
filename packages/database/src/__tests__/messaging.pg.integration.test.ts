@@ -12,8 +12,9 @@ import {
   replyToThread,
   sellerRfqPosture,
 } from "../services/messaging";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 
-const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
+const run = integrationSuite();
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 
 let ownerId = "", staffId = "", viewerId = "", adminId = "", buyerId = "", otherOwnerId = "";
@@ -43,6 +44,7 @@ async function openThread(opts: { sellerId: string; rfqId?: string; isOpen?: boo
 }
 
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const [owner, staff, viewer, admin, buyer, otherOwner] = await Promise.all([
     db.user.create({ data: { email: `msg-owner-${stamp}@test.invalid`, firstName: "Seller", lastName: "Owner", role: "SELLER_OWNER", status: "ACTIVE" } }),
     db.user.create({ data: { email: `msg-staff-${stamp}@test.invalid`, firstName: "Seller", lastName: "Staff", role: "SELLER_STAFF", status: "ACTIVE" } }),
@@ -73,6 +75,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   await db.message.deleteMany({ where: { OR: [{ threadId: { in: threadIds } }, { rfqId }] } });
   await db.messageThread.deleteMany({ where: { id: { in: threadIds } } });
   await db.auditLog.deleteMany({ where: { actorId: { in: [ownerId, staffId, viewerId, adminId] } } });

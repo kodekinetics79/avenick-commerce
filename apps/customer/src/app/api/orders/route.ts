@@ -18,7 +18,18 @@ import type { PaymentMethod, Currency, OrderStatus } from "@avenick/database";
 const CurrencySchema = z.enum(["AED", "SAR", "QAR", "KWD", "OMR", "BHD", "USD"]);
 const PaymentMethodSchema = z.enum(["MADA", "APPLE_PAY", "CREDIT_CARD", "BANK_TRANSFER", "STC_PAY", "MOCK"]);
 const CountrySchema = z.enum(["AE", "SA", "QA", "KW", "OM", "BH"]);
-const OrderStatusSchema = z.enum([
+/**
+ * Every OrderStatus the `?status=` filter accepts.
+ *
+ * RETURN_REQUESTED was missing, so a buyer could not list the orders they were
+ * waiting on a return decision for: the filter answered 400 for a status the
+ * schema defines and the orders table actually holds.
+ *
+ * The fence below is the idiom from packages/auth/src/remote-session.ts. Add a
+ * status to the Prisma enum and forget it here, and this file stops compiling —
+ * rather than silently rejecting a legitimate filter for another year.
+ */
+const ORDER_STATUSES = [
   "PENDING_PAYMENT",
   "PAYMENT_CONFIRMED",
   "CONFIRMED",
@@ -28,8 +39,16 @@ const OrderStatusSchema = z.enum([
   "DELIVERED",
   "CANCELLED",
   "REFUNDED",
+  "RETURN_REQUESTED",
   "RETURNED",
-]);
+] as const satisfies readonly OrderStatus[];
+
+type _EveryOrderStatusIsListed =
+  Exclude<OrderStatus, (typeof ORDER_STATUSES)[number]> extends never ? true : never;
+const _everyOrderStatusIsListed: _EveryOrderStatusIsListed = true;
+void _everyOrderStatusIsListed;
+
+const OrderStatusSchema = z.enum(ORDER_STATUSES);
 
 const CreateOrderSchema = z.object({
   // The client supplies identity + quantity only. Seller ownership, prices,

@@ -7,6 +7,7 @@ import {
 } from "../services/commerce-governance";
 import { db } from "../index";
 import { transitionGovernedPurchaseOrder } from "../services/b2b-purchase-orders";
+import { integrationSuite } from "../testing/integration-db";
 
 describe("canonical checkout idempotency", () => {
   const request = {
@@ -64,7 +65,7 @@ describe("immutable purchase-order approval evidence", () => {
   });
 });
 
-describe.skipIf(!process.env["DATABASE_URL"])("database concurrency fencing", () => {
+integrationSuite()("database concurrency fencing", () => {
   it("allows exactly one of concurrent approve/reject transitions to commit", async () => {
     const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
     const actor = await db.user.create({ data: {

@@ -6,6 +6,7 @@ import {
   normalizeReviewText,
   ProductReviewError,
 } from "../services/product-reviews";
+import { integrationSuite, integrationDbEnabled } from "../testing/integration-db";
 
 /**
  * Verified-purchase reviews against a real Postgres.
@@ -15,7 +16,7 @@ import {
  * and `isVerified` is stamped from exactly that check. Skipped without
  * DATABASE_URL like the other pg integration suites.
  */
-const run = process.env.DATABASE_URL ? describe.sequential : describe.skip;
+const run = integrationSuite();
 
 const ids = { users: [] as string[], sellers: [] as string[], products: [] as string[], orders: [] as string[] };
 let categoryId: string | null = null;
@@ -33,7 +34,7 @@ async function expectCode(promise: Promise<unknown>, code: ProductReviewError["c
 }
 
 beforeAll(async () => {
-  if (!process.env.DATABASE_URL) return;
+  if (!integrationDbEnabled()) return;
   const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 
   const [buyer, shopper, suspended, owner] = await Promise.all([
@@ -93,7 +94,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (!process.env.DATABASE_URL) return;
+  if (!integrationDbEnabled()) return;
   await db.auditLog.deleteMany({ where: { entityType: "ProductReview", actorId: { in: ids.users } } });
   await db.productReview.deleteMany({ where: { productId: { in: ids.products } } });
   await db.order.deleteMany({ where: { id: { in: ids.orders } } });

@@ -4,8 +4,9 @@ import { createGovernedPurchaseOrder, placeGovernedPurchaseOrder } from "../serv
 import { createCustomerReturnRequests } from "../services/customer-returns";
 import { secureCreateOrder } from "../services/secure-checkout";
 import { setReturnStatus } from "../services/workflow";
+import { integrationSuite } from "../testing/integration-db";
 
-const run = process.env["DATABASE_URL"] ? describe.sequential : describe.skip;
+const run = integrationSuite();
 const cleanupUsers: string[] = [];
 const cleanupCompanies: string[] = [];
 

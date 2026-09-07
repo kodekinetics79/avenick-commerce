@@ -108,6 +108,33 @@ export const RATE_LIMITS = {
   passwordResetRequestIp: { name: "password-reset-request-ip", limit: 20, windowMs: 60 * 60_000 },
   /** Reset-token redemptions per client IP: the token is HMAC-signed, this only slows brute force on its expiry window. */
   passwordResetRedeem: { name: "password-reset-redeem", limit: 10, windowMs: 15 * 60_000 },
+  /**
+   * Invitation redemptions per client IP.
+   *
+   * Matched to passwordResetRedeem because the exposure is the same shape — an
+   * HMAC-signed token, so this only slows a brute force against the signature
+   * inside its window. The window is longer here (an invitation lives seven
+   * days, not thirty minutes) which is exactly why the cap is worth having.
+   */
+  invitationAccept: { name: "invitation-accept", limit: 10, windowMs: 15 * 60_000 },
+  /**
+   * Applications to join an existing company, per client IP.
+   *
+   * Deliberately tighter than `register`. This route takes a commercial
+   * registration number and answers whether a company is registered under it,
+   * so an unthrottled version is a way to walk the public CR registry against
+   * this platform's customer list. Three attempts an hour is more than a person
+   * joining their employer ever needs.
+   */
+  companyJoinRequest: { name: "company-join-request", limit: 3, windowMs: 60 * 60_000 },
+  /**
+   * Email-confirmation redemptions per client IP.
+   *
+   * The token is HMAC-signed, so this only slows a brute force inside its
+   * window; the cap that matters for this flow is companyJoinRequest above,
+   * which limits how many applications can be created in the first place.
+   */
+  emailVerification: { name: "email-verification", limit: 10, windowMs: 15 * 60_000 },
   /** Seller self-registrations per client IP. */
   sellerRegister: { name: "seller-register", limit: 5, windowMs: 60 * 60_000 },
   /** Product review submissions per user. */

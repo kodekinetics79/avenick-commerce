@@ -1,6 +1,9 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { db } from "../index";
 import { applyPilotCatalog, type PilotCatalogFile } from "../services/pilot-catalog";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
+
+const run = integrationSuite();
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const cleanup = { users: [] as string[], sellers: [] as string[], products: [] as string[], categories: [] as string[] };
@@ -16,13 +19,14 @@ const row = (sku: string, overrides: Record<string, unknown> = {}) => ({
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   await db.product.deleteMany({ where: { id: { in: cleanup.products } } });
   await db.category.deleteMany({ where: { id: { in: cleanup.categories } } });
   await db.sellerProfile.deleteMany({ where: { id: { in: cleanup.sellers } } });
   await db.user.deleteMany({ where: { id: { in: cleanup.users } } });
 });
 
-describe("pilot import seller isolation and atomicity", () => {
+run("pilot import seller isolation and atomicity", () => {
   it("rejects a global SKU collision without transferring the foreign product", async () => {
     const owner = await db.user.create({ data: { email: `pilot-foreign-${stamp}@example.test`, firstName: "Foreign", lastName: "Owner", role: "SELLER_OWNER", status: "ACTIVE" } });
     cleanup.users.push(owner.id);

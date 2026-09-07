@@ -16,7 +16,12 @@ const PORTAL_ROLE_MAP: Record<PortalType, UserRole[]> = {
 
 // Paths that are publicly accessible (no auth required)
 const PUBLIC_PATHS: Record<PortalType, string[]> = {
-  customer: ["/", "/products", "/search", "/login", "/register", "/auth/forgot-password", "/auth/reset-password", "/auth/verify-email", "/deals", "/brands", "/cart", "/wishlist", "/categories", "/returns", "/support", "/privacy", "/terms", "/cookies", "/status"],
+  customer: ["/", "/products", "/search", "/login", "/register", "/auth/forgot-password", "/auth/reset-password", "/auth/verify-email", "/deals", "/brands", "/cart", "/wishlist", "/categories", "/returns", "/support", "/privacy", "/terms", "/cookies", "/status",
+    // The company-registration door. The page handles a visitor with no session
+    // itself — it renders a sign-in prompt and the registration path — so
+    // gating it here sent every prospective B2B buyer to a generic login with
+    // no explanation, which is the one visitor this door exists to catch.
+    "/b2b/register"],
   seller: ["/login", "/register"],
   admin: ["/login"],
 };
@@ -33,7 +38,11 @@ const PUBLIC_API_PATHS: Record<PortalType, string[]> = {
   // majority of it, and an authenticated-only signal would measure logged-in
   // attention and call it "trending". It carries no personal data and cannot
   // read anything — the route only increments a per-product, per-day counter.
-  customer: ["/api/products", "/api/categories", "/api/brands", "/api/signals", "/api/payments/webhook"],
+  // "/api/cart" is the basket's "complete your order" lookup. The cart is client
+  // state, so most baskets belong to nobody the server can name; an
+  // authenticated-only endpoint here would silently return 401 to every
+  // anonymous shopper — the exact failure the view beacon shipped with.
+  customer: ["/api/products", "/api/categories", "/api/brands", "/api/signals", "/api/cart", "/api/payments/webhook"],
   seller: [],
   admin: ["/api/integrations/inbound"],
 };

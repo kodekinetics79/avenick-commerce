@@ -3,8 +3,9 @@ import { db } from "../index";
 import { getIntegrationRuntimeReadiness, probeDueIntegrationConnections } from "../services/integration-worker";
 import { getIntegrationOperationalSummary } from "../services/integrations";
 import type { ErpAdapter } from "../services/erp-adapter";
+import { integrationSuite } from "../testing/integration-db";
 
-const run = process.env.DATABASE_URL ? describe : describe.skip;
+const run = integrationSuite("parallel");
 const marker = `integration-operability-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 let connectionId = "";
 

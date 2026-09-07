@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { db } from "../index";
 import { read, write } from "../resilient-ops";
 import { PRODUCT_LIST_INCLUDE, attachProductRatings, type ProductListRow, type ProductListRowBase } from "./products";
@@ -369,6 +370,31 @@ export interface TrendingProductsOptions {
   minProducts?: number;
   /** The moment being asked about. Defaults to now; injected by tests. */
   now?: Date;
+  /**
+   * Restrict the ranking to one category AND every active descendant of it.
+   *
+   * The subtree is resolved in SQL by the same recursive walk `listProducts`
+   * performs for a category slug (services/products.ts), keyed on id because a
+   * page holding the category tree already has one. So "Moving in Electronics"
+   * counts a view of a cable filed three levels down, exactly as the category's
+   * own grid lists that cable.
+   *
+   * SCOPING NARROWS WHAT IS COUNTED, NEVER WHAT COUNTS. Inside the category the
+   * same MIN_VIEWS_FOR_TRENDING and MIN_TRENDING_PRODUCTS apply, unchanged: a
+   * category in which two products are being looked at gets an empty rail, not
+   * a two-tile one, for the same reason the catalogue-wide rail refuses to
+   * rank two products. An id that names no active category resolves to an
+   * empty scope and the rail is empty — the caller asked about a category, and
+   * answering with the whole catalogue under that heading would be the lie.
+   */
+  categoryId?: string;
+  /**
+   * Restrict the ranking to exactly these categories, used verbatim — no
+   * expansion — for a caller that has already resolved the subtree it means.
+   * Combined with `categoryId` the scope is the union. `[]` is an empty scope
+   * and yields an empty rail; it is not the same as leaving the option out.
+   */
+  categoryIds?: string[];
 }
 
 function clampWindowDays(value: number | undefined): number {
@@ -379,6 +405,117 @@ function clampWindowDays(value: number | undefined): number {
 function clampHalfLifeDays(value: number | undefined): number {
   if (value == null || !Number.isFinite(value) || value <= 0) return TRENDING_HALF_LIFE_DAYS;
   return Math.max(0.5, value);
+}
+
+/** The knobs one call runs with, after clamping. */
+export interface TrendingParameters {
+  limit: number;
+  windowDays: number;
+  halfLifeDays: number;
+  minViews: number;
+  minProducts: number;
+}
+
+/**
+ * Resolve a call's window, decay and thresholds from its options.
+ *
+ * Pure and exported for one reason: it lets a test state the property the
+ * category scope must have, which is that it does not appear here at all. The
+ * bar a product must clear and the quorum a rail must reach are the same with
+ * a category as without one — the scope is not an input to either.
+ */
+export function trendingParameters(opts: TrendingProductsOptions = {}): TrendingParameters {
+  return {
+    limit: sectionSize(opts.limit),
+    windowDays: clampWindowDays(opts.windowDays),
+    halfLifeDays: clampHalfLifeDays(opts.halfLifeDays),
+    minViews: Math.max(1, Math.floor(opts.minViews ?? MIN_VIEWS_FOR_TRENDING)),
+    minProducts: Math.max(1, Math.floor(opts.minProducts ?? MIN_TRENDING_PRODUCTS)),
+  };
+}
+
+// ─── CATEGORY SCOPE ───────────────────────────────────────────────────────────
+
+/** cuid/uuid shaped, like PRODUCT_ID_SHAPE. Anything else never reaches a query. */
+const CATEGORY_ID_SHAPE = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * The category restriction a caller asked for, normalised.
+ *
+ * `undefined` is the whole catalogue — the rail exactly as it was before
+ * scoping existed. Anything else is a scope, INCLUDING one that turns out to
+ * name nothing: a malformed `categoryId` or an empty `categoryIds` is a
+ * question about a category this function cannot find, and the honest answer
+ * to that is an empty rail, never the unscoped one under a scoped heading.
+ */
+export interface TrendingCategoryScope {
+  /** Expanded to its active subtree in SQL before anything is counted. */
+  rootId?: string;
+  /** Taken as given: de-duplicated, shape-checked and sorted, never expanded. */
+  ids: string[];
+}
+
+export function trendingCategoryScope(
+  opts: Pick<TrendingProductsOptions, "categoryId" | "categoryIds">,
+): TrendingCategoryScope | undefined {
+  if (opts.categoryId === undefined && opts.categoryIds === undefined) return undefined;
+  const rootId = opts.categoryId?.trim();
+  const ids = Array.from(
+    new Set(
+      (opts.categoryIds ?? [])
+        .map((id) => id?.trim())
+        .filter((id): id is string => !!id && CATEGORY_ID_SHAPE.test(id)),
+    ),
+  ).sort();
+  return { rootId: rootId && CATEGORY_ID_SHAPE.test(rootId) ? rootId : undefined, ids };
+}
+
+/**
+ * The product predicate a ranking counts against: public visibility, and the
+ * category set when there is one.
+ *
+ * The scope is ADDED to the visibility rule, never substituted for it — a
+ * product in the right category that the catalogue would hide is still hidden
+ * here. And it is applied in the aggregate rather than to the ranked result:
+ * ranking the whole catalogue and then keeping the category's rows would leave
+ * a category's rail short whenever the catalogue's top viewed products sit
+ * elsewhere, because the truncation to the candidate set would already have
+ * happened.
+ */
+export function trendingProductWhere(
+  visible: Prisma.ProductWhereInput,
+  scopeIds: string[] | undefined,
+): Prisma.ProductWhereInput {
+  return scopeIds ? { ...visible, categoryId: { in: scopeIds } } : visible;
+}
+
+/**
+ * A category and its active descendants, by id.
+ *
+ * The same recursive walk `listProducts` performs for a category slug: start at
+ * the category if it is active, follow `parentId` downward, and keep only active
+ * rows at every level — so the set of categories this rail counts is the set of
+ * categories the category's grid lists from. Keyed on id rather than slug
+ * because the storefront pages hold the tree and already know the id.
+ *
+ * `UNION` where listProducts writes `UNION ALL`: membership is identical on any
+ * well-formed tree, and on a malformed one — a category whose parent chain loops
+ * back on itself — the recursion terminates instead of hanging the busiest
+ * public route on the site. An inactive or unknown root yields no rows.
+ */
+async function resolveCategorySubtree(rootId: string): Promise<string[]> {
+  const rows = await db.$queryRaw<Array<{ id: string }>>`
+    WITH RECURSIVE category_tree AS (
+      SELECT id FROM "Category" WHERE id = ${rootId} AND "isActive" = true
+      UNION
+      SELECT child.id
+      FROM "Category" child
+      INNER JOIN category_tree parent ON child."parentId" = parent.id
+      WHERE child."isActive" = true
+    )
+    SELECT id FROM category_tree
+  `;
+  return rows.map(({ id }) => id);
 }
 
 /**
@@ -401,16 +538,19 @@ function clampHalfLifeDays(value: number | undefined): number {
  *   3. one keyed fetch of the winning rows.
  * Wrapped in the resilient read with the same 60s TTL the other rails use, so a
  * degraded database costs the page a stale rail rather than a 500.
+ *
+ * Scoped to a category (`categoryId` / `categoryIds`), the category set is
+ * resolved first — one more round trip, inside the same cached read — and then
+ * joins the visibility predicate in the aggregate and in the keyed fetch. Every
+ * threshold above is applied unchanged within the category; see the option's
+ * own note for why a scope may narrow what is counted but never what counts.
  */
 export async function getTrendingProducts(opts: TrendingProductsOptions = {}): Promise<ProductListRow[]> {
-  const limit = sectionSize(opts.limit);
-  const windowDays = clampWindowDays(opts.windowDays);
-  const halfLifeDays = clampHalfLifeDays(opts.halfLifeDays);
-  const minViews = Math.max(1, Math.floor(opts.minViews ?? MIN_VIEWS_FOR_TRENDING));
-  const minProducts = Math.max(1, Math.floor(opts.minProducts ?? MIN_TRENDING_PRODUCTS));
+  const { limit, windowDays, halfLifeDays, minViews, minProducts } = trendingParameters(opts);
   const now = opts.now ?? new Date();
   const from = trendingWindowStart(now, windowDays);
   const visible = publicProductWhere(opts.b2c);
+  const scope = trendingCategoryScope(opts);
 
   // Keyed on the DAY, not the instant: `now` moves every millisecond and would
   // give every request its own cache entry, i.e. no cache at all.
@@ -421,19 +561,32 @@ export async function getTrendingProducts(opts: TrendingProductsOptions = {}): P
     halfLifeDays,
     minViews,
     minProducts,
+    scope: scope ? { root: scope.rootId ?? null, ids: scope.ids } : null,
     day: utcDayStart(now).toISOString(),
   })}`;
 
   const { data } = await read(
     async () => {
+      // The category set, resolved BEFORE anything is counted. A scope that
+      // names no category is not the absence of a scope: the caller asked
+      // about a category, and the whole catalogue is not the answer.
+      let scopeIds: string[] | undefined;
+      if (scope) {
+        const subtree = scope.rootId ? await resolveCategorySubtree(scope.rootId) : [];
+        scopeIds = Array.from(new Set([...subtree, ...scope.ids]));
+        if (scopeIds.length === 0) return [] as ProductListRow[];
+      }
+      const countable = trendingProductWhere(visible, scopeIds);
+
       const candidates = await db.productViewSignal.groupBy({
         by: ["productId"],
         where: {
           bucketDate: { gte: from },
-          // Visibility is applied HERE, not after ranking: filtering afterwards
-          // would return a short rail whenever a heavily viewed product is
-          // hidden, because the truncation would already have happened.
-          product: visible,
+          // Visibility — and the category scope — is applied HERE, not after
+          // ranking: filtering afterwards would return a short rail whenever a
+          // heavily viewed product is hidden or filed elsewhere, because the
+          // truncation would already have happened.
+          product: countable,
         },
         _sum: { views: true },
         having: { views: { _sum: { gte: minViews } } },
@@ -465,7 +618,7 @@ export async function getTrendingProducts(opts: TrendingProductsOptions = {}): P
       // are seconds apart and a seller can be suspended in between; the tile
       // that renders must satisfy the predicate, not merely have satisfied it.
       const rows: ProductListRowBase[] = await db.product.findMany({
-        where: { ...visible, id: { in: rankedIds } },
+        where: { ...countable, id: { in: rankedIds } },
         take: rankedIds.length,
         include: PRODUCT_LIST_INCLUDE,
       });
