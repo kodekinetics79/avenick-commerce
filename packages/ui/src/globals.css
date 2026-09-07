@@ -2098,6 +2098,54 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 }
 .u-facet[open] > summary .u-facet__chev { transform: rotate(-135deg); }
 
+/* ═══ THE FACET SHELL ═══
+   The rule the catalogue sidebar's handover note asked for, and the reason that
+   note existed: `open` is an ATTRIBUTE, not a style, so "stand open in a desktop
+   sidebar, fold away on a phone" cannot be said in markup at all. It is said
+   here instead — with no client component on a page that is deliberately
+   server-rendered, and no second copy of the rail in the DOM.
+
+   The shell carries no `open`, so a phone gets a real disclosure: one tap target
+   where a screen and a half of filters used to stand between the page heading
+   and the first product. On a wide viewport the summary leaves the box tree and
+   the UA's `content-visibility: hidden` over the closed content is overridden,
+   so the rail stands permanently open exactly as it does today — and since the
+   summary is gone with it, no control survives that could put the two out of
+   step.
+
+   WHAT THE APPLIED CHIPS ARE DOING OUTSIDE THIS ELEMENT. A folded rail may cost
+   a visitor no information about what is in force, so the chips and "clear all"
+   stay above the shell and are never folded. Collapsing a filter is allowed;
+   hiding the fact that one is applied is not.
+
+   A browser with no ::details-content support keeps the summary at every width
+   and the shell stays an ordinary disclosure. That is a degradation and not a
+   break: on desktop the filters become one click away rather than zero. */
+.u-facet-shell > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  padding-block: 8px;
+}
+.u-facet-shell > summary::-webkit-details-marker { display: none; }
+.u-facet-shell[open] > summary .u-facet__chev { transform: rotate(-135deg); }
+
+@media (min-width: 1024px) {
+  .u-facet-shell > summary { display: none; }
+  .u-facet-shell::details-content { content-visibility: visible; }
+}
+
+/* A note that explains a facet goes when the facet goes. The rating note tells
+   the visitor that the filter also drops every unreviewed listing — indispensable
+   beside an open control, and three lines explaining a control that is not on
+   screen when the facet beside it is folded. It is a sibling rather than a child
+   because FacetRail renders its own <ul> and has no footer slot; this rule is
+   what keeps the two in step. */
+.u-facet:not([open]) + .u-facet-note { display: none; }
+
 /* ═══ THE CHROME THAT SETTLES ═══
    Zero JS, zero scroll listener. Across the first 96px the bar continuously
    gains weight: the glass fill deepens, the padding tightens, and a cast shadow

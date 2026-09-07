@@ -84,12 +84,16 @@ export type CompletionAction =
  *   otherwise               → an authoritative cart line at MOQ
  */
 export function completionAction(row: CartCompletionRow, channel: "B2C" | "B2B"): CompletionAction {
-  const action = productCardPurchaseAction(row.hasVariants, row.inStock);
+  // The price check is no longer applied here after the fact. It is the third
+  // argument, so this row and the grid tile run one decision rather than two
+  // that were supposed to agree and did not.
+  const canPrice = row.price != null && !!row.currency && row.vatRate != null;
+  const action = productCardPurchaseAction(row.hasVariants, row.inStock, canPrice);
   if (action === "REQUEST_AVAILABILITY") return { kind: "REQUEST_AVAILABILITY", href: rfqHref(row.sellerId, row.id) };
   if (action === "SELECT_VARIANT") {
     return { kind: "SELECT_VARIANT", href: storefrontProductHref(row.slug, { currency: row.currency, b2b: channel === "B2B" }) };
   }
-  if (row.price == null || !row.currency || row.vatRate == null) return { kind: "REQUEST_QUOTE", href: rfqHref(row.sellerId, row.id) };
+  if (action === "REQUEST_QUOTE") return { kind: "REQUEST_QUOTE", href: rfqHref(row.sellerId, row.id) };
   return { kind: "ADD_TO_CART" };
 }
 
