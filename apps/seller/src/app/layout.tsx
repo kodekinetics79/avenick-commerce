@@ -3,7 +3,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { AuthProvider } from "@/components/auth-provider";
 import { AmbientField, EnvironmentFlags, RevealRoot } from "@avenick/ui";
-import { platformName } from "@avenick/utils/portal-config";
+import { platformName, selfOrigin } from "@avenick/utils/portal-config";
 import "./globals.css";
 
 /**
@@ -15,9 +15,22 @@ import "./globals.css";
  */
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("sellerShell.meta");
+  const origin = selfOrigin("seller");
+
+  // metadataBase resolves the generated icon routes; selfOrigin() returns null
+  // rather than a guess when the deployment is unconfigured, so the key is
+  // omitted instead of pointing at localhost.
+  //
+  // robots: a back office is not a search result. This portal was previously
+  // silent on the question, which means a public deployment of it was
+  // indexable by default. There is no openGraph block for the same reason: a
+  // share card for a sign-in page is a picture of a door.
   return {
+    ...(origin ? { metadataBase: new URL(origin) } : {}),
     title: { default: t("title", { platform: platformName() }), template: t("titleTemplate") },
     description: t("description", { platform: platformName() }),
+    applicationName: platformName(),
+    robots: { index: false, follow: false },
   };
 }
 

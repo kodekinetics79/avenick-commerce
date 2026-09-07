@@ -131,7 +131,18 @@ export async function POST(req: NextRequest) {
     // The CR number is checked FIRST and answers truthfully: a commercial
     // registration number is a public registry identifier, and "this company
     // already has an Avenick account" is what the applicant needs to hear.
-    const existingCompany = await db.company.findUnique({ where: { crNumber } });
+    //
+    // SCOPED TO THE COUNTRY, because that is what the identifier means. The
+    // schema now carries @@unique([country, crNumber]): a registration number is
+    // issued by one national registry and is unique inside it, not across the
+    // six markets this platform serves. Checking it globally rejected a genuine
+    // Saudi applicant whose CR string happened to collide with an Emirati
+    // company's — telling them another business already held their number, which
+    // is both wrong and unappealable. `country` is the applicant's own, already
+    // validated against this same identifier by checkIdentifier above.
+    const existingCompany = await db.company.findUnique({
+      where: { country_crNumber: { country, crNumber } },
+    });
     if (existingCompany) {
       return NextResponse.json(
         { success: false, error: "A company is already registered with that commercial registration number." },

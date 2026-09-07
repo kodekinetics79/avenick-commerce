@@ -4,6 +4,7 @@
   "private": true,
   "exports": {
     ".": "./src/index.ts",
+    "./brand-mark-geometry": "./src/brand-mark-geometry.ts",
     "./globals.css": "./src/globals.css"
   },
   "dependencies": {

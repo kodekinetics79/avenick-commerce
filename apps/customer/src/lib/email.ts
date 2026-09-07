@@ -26,6 +26,10 @@ import { createHash, createHmac } from "node:crypto";
 // module that only wants a throttle — including server actions under vitest.
 import { checkRateLimit, RATE_LIMITS } from "@avenick/auth/rate-limit";
 import { log } from "@avenick/observability";
+// The geometry module, NOT the @avenick/ui barrel: this is a server-only lib and
+// the barrel would pull every React client component into it. The subpath export
+// exists for exactly this call site.
+import { brandMarkDocument } from "@avenick/ui/brand-mark-geometry";
 import { emailSender, platformName, selfOrigin } from "@avenick/utils/portal-config";
 import { passwordResetTtlLabel } from "./password-reset";
 // The invitation link is minted, not formatted: only lib/invite-acceptance can
@@ -171,12 +175,33 @@ async function providerMessageId(res: Response): Promise<string | undefined> {
   }
 }
 
-/** The shared header block every template opens with. */
+/**
+ * The shared header block every template opens with.
+ *
+ * WAS: a 32px div with `linear-gradient(135deg,#6366f1,#7c3aed)`, `font-weight:900`
+ * and the literal letter "A" — the pre-doctrine indigo→violet tile, two hexes of
+ * a palette the product stopped using, a weight the type ladder does not define,
+ * and an initial that ignored platformName() entirely. A deployment that renamed
+ * itself still sent password resets under Avenick's old monogram.
+ *
+ * NOW: the real mark, from the same geometry module the header, the footer and
+ * the favicons draw. It is inlined as a data: URI rather than linked, because a
+ * remote <img> in an email is blocked by default in most clients and would leave
+ * a broken-image box where the brand should be — and because a tracking-shaped
+ * request to our own host on every open is a privacy cost with no benefit.
+ *
+ * 28px, so it takes the SMALL CUT: at that size the master's optical events are
+ * sub-pixel, and email clients composite them unpredictably anyway. Silhouette
+ * and one rule survive anything.
+ */
 function brandHeader(): string {
+  const name = platformName();
+  const svg = brandMarkDocument({ size: 28, title: name });
+  const src = `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
   return `
     <div style="display:inline-flex;align-items:center;gap:8px;margin-bottom:24px">
-      <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;font-weight:900;text-align:center;line-height:32px">A</div>
-      <strong style="font-size:18px">${platformName()}</strong>
+      <img src="${src}" width="28" height="28" alt="" style="display:block;border:0" />
+      <strong style="font-size:18px">${name}</strong>
     </div>`;
 }
 

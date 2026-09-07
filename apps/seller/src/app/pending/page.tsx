@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertTriangle, ArrowRight, Ban, Clock, LogOut, XCircle } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { Button, Eyebrow, FieldWell, Surface } from "@avenick/ui";
+import { BrandMark, Button, Eyebrow, FieldWell, Surface } from "@avenick/ui";
 import { db } from "@avenick/database";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
 import { getSellerAccountState } from "@/lib/auth";
@@ -75,9 +75,7 @@ export default async function PendingPage() {
           {/* The brand mark is a material, not a fill: the seller portal's single
               primary fill belongs to whatever the page's action is, and this page
               has no action beyond signing out. */}
-          <Surface as="span" rung={2} className="mb-3 inline-grid h-12 w-12 place-items-center rounded-lg text-lead font-medium text-ink-1">
-            {brand.charAt(0).toUpperCase()}
-          </Surface>
+          <BrandMark name={brand} size={48} className="mx-auto mb-3" />
           <h1 className="u-h2 text-ink-1">{t("pending.sellerCentral")}</h1>
           <p className="u-ui mt-1 text-ink-2">
             {t.rich("pending.signedInAs", {
