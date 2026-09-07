@@ -76,6 +76,21 @@ enum CompanySize {
   ENTERPRISE
 }
 
+/// The life of an application to join a company that already exists.
+///
+/// The two PENDING states are separate because they wait on different people.
+/// PENDING_EMAIL_VERIFICATION waits on the APPLICANT to prove they read mail at
+/// the address they claimed; PENDING_ADMIN_APPROVAL waits on the COMPANY'S OWN
+/// administrator to say this person works there. Collapsing them into one
+/// "PENDING" would fill the approvals queue with applicants who have proved
+/// nothing, which is the whole point of the first step.
+enum CompanyJoinRequestStatus {
+  PENDING_EMAIL_VERIFICATION
+  PENDING_ADMIN_APPROVAL
+  APPROVED
+  REJECTED
+}
+
 enum CompanyStatus {
   PENDING_VERIFICATION
   ACTIVE
@@ -352,6 +367,7 @@ model User {
   sellerProfile      SellerProfile?
   adminProfile       AdminProfile?
   companyMember      CompanyMember?
+  companyJoinRequest CompanyJoinRequest?
   addresses          Address[]
   cart               Cart?
   orders             Order[]
@@ -361,9 +377,9 @@ model User {
   /// Companies this admin verified, and company documents they reviewed. Named
   /// relations because User already relates to AuditLog and would otherwise be
   /// ambiguous.
-  companiesVerified  Company[]         @relation("CompanyVerifiedBy")
-  documentsReviewed  CompanyDocument[] @relation("CompanyDocumentReviewer")
-  sentMessages       Message[]          @relation("SentMessages")
+  companiesVerified  Company[]           @relation("CompanyVerifiedBy")
+  documentsReviewed  CompanyDocument[]   @relation("CompanyDocumentReviewer")
+  sentMessages       Message[]           @relation("SentMessages")
   customerActivities CustomerActivity[]
   reviews            ProductReview[]
   supportTickets     SupportTicket[]
@@ -411,16 +427,29 @@ model Company {
   city         String
   logo         String?
   status       CompanyStatus @default(PENDING_VERIFICATION)
+  /// Email domains this company is recognised at, lower-cased and without the
+  /// "@" — e.g. ["aramco.com"]. A colleague of an existing member may apply to
+  /// join only a company whose CR they know AND whose domain their own address
+  /// belongs to, so this list is the second half of that gate.
+  ///
+  /// Seeded from the founding administrator's own address at registration, and
+  /// ONLY when that address is not at a public mailbox provider: a company whose
+  /// admin signed up with a gmail.com address must never come to claim
+  /// gmail.com, or every Gmail user on earth could apply to join it. An empty
+  /// list is therefore normal and means "no self-service joining" — that company
+  /// adds colleagues by invitation instead. See claimableDomainOf in
+  /// @avenick/utils.
+  emailDomains String[]
   creditLimit  Decimal?      @db.Decimal(12, 2)
   paymentTerms Int           @default(0)
 
   // ── Registry identity ───────────────────────────────────────────────────
-  unifiedNumber String?
-  legalForm     String?
-  crIssuedOn    DateTime?
+  unifiedNumber     String?
+  legalForm         String?
+  crIssuedOn        DateTime?
   /// The ONE canonical expiry. Everything that queries, indexes or sweeps for
   /// an expiring registration reads this and nothing else.
-  crExpiresOn   DateTime?
+  crExpiresOn       DateTime?
   /// Which calendar the applicant read the date in, and the string they typed.
   /// Display and audit only — never re-parsed, never queried. A GCC certificate
   /// states its expiry in Hijri, and storing Hijri and Gregorian as two
@@ -439,8 +468,8 @@ model Company {
   /// takes a reason and writes it only into the audit payload, where the
   /// applicant can never be shown it.
   reviewNotes  String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
   members              CompanyMember[]
@@ -454,6 +483,7 @@ model Company {
   integrationRoutes    IntegrationCompanyRoute[]
   documents            CompanyDocument[]
   auditEntries         AuditLog[]
+  joinRequests         CompanyJoinRequest[]
   verifiedBy           User?                     @relation("CompanyVerifiedBy", fields: [verifiedById], references: [id])
 
   @@unique([country, crNumber])
@@ -462,6 +492,55 @@ model Company {
   @@index([country])
   @@index([status, submittedAt])
   @@index([crExpiresOn])
+}
+
+/// An application from a person who is NOT yet a member to join a company that
+/// already exists — the answer to "the CR is registered, so how do I get in?".
+///
+/// It is deliberately NOT a CompanyMember. A membership row is authority: it is
+/// what getB2BContext reads to decide whose prices and whose purchase orders a
+/// signed-in user may see. Nothing in this table grants any of that. The row is
+/// promoted to a CompanyMember by approveJoinRequest, in one transaction, and
+/// only by an administrator of the company being joined.
+///
+/// `userId` is unique because CompanyMember.userId is: a person belongs to at
+/// most one company here, so they can have at most one live application. A
+/// rejected application therefore blocks a fresh one, which is why approval
+/// accepts REJECTED as well — otherwise a mis-click would lock a colleague out
+/// permanently, and even an invitation would then fail on "already registered".
+model CompanyJoinRequest {
+  id        String                   @id @default(cuid())
+  companyId String
+  userId    String                   @unique
+  status    CompanyJoinRequestStatus @default(PENDING_EMAIL_VERIFICATION)
+
+  /// What the applicant asked to be. ADVISORY ONLY: the approving administrator
+  /// sets the role actually written to CompanyMember, which is what stops an
+  /// applicant admitting themselves as an administrator by picking it.
+  requestedRole UserRole @default(COMPANY_BUYER)
+
+  /// The team the applicant says they are in, as they typed it. Carried onto
+  /// CompanyMember on approval, and shown in the queue because "Procurement"
+  /// next to a name is often the whole of what makes a request recognisable.
+  department String?
+
+  /// The domain the address was accepted under, recorded as it was matched. The
+  /// company's `emailDomains` can change afterwards; what the gate actually let
+  /// through must stay legible to whoever reviews this later.
+  emailDomain String
+
+  emailVerifiedAt DateTime?
+  decidedById     String?
+  decidedAt       DateTime?
+  rejectionReason String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  /// The administrator's queue: "everything awaiting my decision", newest first.
+  @@index([companyId, status, createdAt])
 }
 
 model CompanyMember {
@@ -1521,7 +1600,7 @@ model AuditLog {
   /// AuditLog carried actorId and sellerId but nothing for a company, so a
   /// company's verification history was findable only by scanning on
   /// entityType.
-  companyId  String?
+  companyId String?
 
   actor   User?          @relation(fields: [actorId], references: [id])
   seller  SellerProfile? @relation(fields: [sellerId], references: [id])

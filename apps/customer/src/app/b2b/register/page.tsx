@@ -593,6 +593,20 @@ export default async function B2BRegisterPage({
                 {t("register.signIn")}
               </Link>
             </p>
+
+            {/* Shown ALWAYS, not only after a CR clash.
+                The person who needs this does not yet know a colleague has
+                already registered the company — that is precisely why they are
+                on this form. Making them fill it in, read a refusal and then go
+                looking for the other door is a step that exists only because
+                the door was hidden. Same reasoning as the sign-in line above:
+                someone in the wrong place finds out at the TOP. */}
+            <p className="u-ui mt-2 text-ink-2">
+              {t("register.joinInstead")}{" "}
+              <Link href="/b2b/join" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
+                {t("register.joinInstead.link")}
+              </Link>
+            </p>
           </div>
 
           <DisplayPlate className="grid min-h-[260px] content-end p-6 lg:col-span-5 lg:min-h-[340px]">

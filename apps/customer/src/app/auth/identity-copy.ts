@@ -244,6 +244,23 @@ interface IdentityDictionary {
     readonly backTo: string;
     readonly genericError: string;
   };
+  readonly confirmEmail: {
+    readonly eyebrow: string;
+    readonly title: string;
+    readonly subtitle: string;
+    readonly note: (ttl: string) => string;
+    readonly submit: string;
+    readonly done: (company: string) => string;
+    readonly doneNoAdmins: (company: string) => string;
+    readonly whatNext: string;
+    readonly signIn: string;
+    readonly missingToken: string;
+    readonly deadToken: string;
+    readonly noSecret: string;
+    readonly applyAgain: string;
+    readonly backTo: string;
+    readonly genericError: string;
+  };
 }
 
 const EN: IdentityDictionary = {
@@ -473,6 +490,25 @@ const EN: IdentityDictionary = {
     backTo: "Back to",
     genericError: "Something went wrong. Please try again.",
   },
+  confirmEmail: {
+    eyebrow: "Company access",
+    title: "Confirm your email address",
+    subtitle: "One click confirms we can reach you here. It does not yet give you access.",
+    note: (ttl) => `A confirmation link is valid for ${ttl} from the moment it is sent.`,
+    submit: "Confirm my email address",
+    done: (company) =>
+      `Your address is confirmed. Your request is now with the administrators at ${company}, who decide whether to admit you. You will be able to sign in once one of them approves it.`,
+    doneNoAdmins: (company) =>
+      `Your address is confirmed. ${company} currently has no active administrator to review the request, so it will wait until one is available. Contact your colleague at the company directly.`,
+    whatNext: "Nothing on this platform is visible to you until an administrator at the company approves the request.",
+    signIn: "Sign in",
+    missingToken: "This page needs the link from your confirmation email \u2014 the confirmation code is missing from the address.",
+    deadToken: "This confirmation link is invalid or has expired.",
+    noSecret: "Email confirmation is not available from this environment.",
+    applyAgain: "Apply to join the company again",
+    backTo: "Back to",
+    genericError: "Something went wrong. Please try again.",
+  },
 };
 
 const AR: IdentityDictionary = {
@@ -672,6 +708,25 @@ const AR: IdentityDictionary = {
     requestNew: "اطلب رابط إعادة تعيين جديداً",
     backTo: "العودة إلى",
     genericError: "حدث خطأ غير متوقع. حاول مرة أخرى.",
+  },
+  confirmEmail: {
+    eyebrow: "Company access",
+    title: "Confirm your email address",
+    subtitle: "One click confirms we can reach you here. It does not yet give you access.",
+    note: (ttl) => `A confirmation link is valid for ${ttl} from the moment it is sent.`,
+    submit: "Confirm my email address",
+    done: (company) =>
+      `Your address is confirmed. Your request is now with the administrators at ${company}, who decide whether to admit you. You will be able to sign in once one of them approves it.`,
+    doneNoAdmins: (company) =>
+      `Your address is confirmed. ${company} currently has no active administrator to review the request, so it will wait until one is available. Contact your colleague at the company directly.`,
+    whatNext: "Nothing on this platform is visible to you until an administrator at the company approves the request.",
+    signIn: "Sign in",
+    missingToken: "This page needs the link from your confirmation email \u2014 the confirmation code is missing from the address.",
+    deadToken: "This confirmation link is invalid or has expired.",
+    noSecret: "Email confirmation is not available from this environment.",
+    applyAgain: "Apply to join the company again",
+    backTo: "Back to",
+    genericError: "Something went wrong. Please try again.",
   },
 };
 

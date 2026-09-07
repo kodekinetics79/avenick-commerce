@@ -10,6 +10,7 @@ import { checkIdentifier, describeIdentifier } from "@avenick/utils/gcc-identifi
 // the whole credentials provider — and therefore Prisma — into any test or
 // bundle that imports it.
 import { checkRateLimit, clientIpFrom, RATE_LIMITS } from "@avenick/auth/rate-limit";
+import { claimableDomainOf } from "@avenick/utils";
 import { log } from "@avenick/observability";
 import { sendAlreadyRegisteredNotice } from "@/lib/email";
 
@@ -144,11 +145,27 @@ export async function POST(req: NextRequest) {
       where: { country_crNumber: { country, crNumber } },
     });
     if (existingCompany) {
+      // Says what to DO about it, not just that it happened. Until there was a
+      // join route this 409 was the end of the road: the second person at a
+      // customer read "already registered" and had nowhere to go, so the whole
+      // company stalled on one colleague remembering to send an invitation.
+      // `code` lets the form offer the other door rather than making the
+      // applicant find it.
       return NextResponse.json(
-        { success: false, error: "A company is already registered with that commercial registration number." },
+        {
+          success: false,
+          code: "cr-already-registered",
+          error:
+            "That commercial registration number is already registered. Register as an additional user on the existing company account instead.",
+        },
         { status: 409 },
       );
     }
+
+    // Resolved before the transaction so the create below reads one value, and
+    // null-checked there rather than here: null is the ordinary outcome, not an
+    // error worth telling the applicant about. See claimableDomainOf.
+    const claimedDomain = claimableDomainOf(normalisedEmail);
 
     // Hash before the email existence check, not after, so the response time
     // is not the oracle the status code no longer is (see the consumer route).
@@ -202,6 +219,12 @@ export async function POST(req: NextRequest) {
           country,
           city,
           status: "PENDING_VERIFICATION",
+          // The domain this company will be recognised at, so a colleague can
+          // later apply to join without an invitation. Empty for a founder who
+          // signed up from a personal mailbox — the common case for a small
+          // company, and the SAFE one: a company that claimed gmail.com would
+          // admit every Gmail user on earth. Those companies stay invite-only.
+          emailDomains: claimedDomain ? [claimedDomain] : [],
           members: { create: { userId: user.id, role: "COMPANY_ADMIN" } },
         },
         select: { status: true },

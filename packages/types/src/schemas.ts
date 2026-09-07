@@ -113,6 +113,46 @@ export const RegisterConsumerSchema = z.object({
   language: z.enum(LANGUAGE_VALUES).default("AR"),
 });
 
+/**
+ * Joining a company that is ALREADY registered.
+ *
+ * The counterpart to RegisterBusinessSchema, and the answer to what used to be
+ * a dead end: a second person at a customer typed their employer's commercial
+ * registration number, was told the CR was taken, and had nowhere to go.
+ *
+ * The company is identified by (country, crNumber) and NOT by name, by id, or
+ * by the CR alone. A CR is issued by one national registry — the schema carries
+ * @@unique([country, crNumber]) — so the number by itself can name two
+ * unrelated businesses in two markets. It is what the applicant can read off
+ * their own payslip; a company id is an internal string nobody outside this
+ * system has seen, and a name is ambiguous across the six markets.
+ *
+ * Deliberately NO company fields. Everything about the company already exists
+ * and belongs to the people already inside it; an applicant who could submit a
+ * new trade name or industry alongside their application would be editing a
+ * record they have not been admitted to.
+ */
+export const RegisterJoinSchema = z.object({
+  crNumber: z.string().min(5).max(30),
+  /// Which national registry issued that CR. Half of the lookup key, not a
+  /// preference — see the note above.
+  country: z.enum(COUNTRY_VALUES),
+  firstName: z.string().min(2).max(50),
+  lastName: z.string().min(2).max(50),
+  email: z.string().email(),
+  phone: optionalText(z.string().regex(/^\+[1-9]\d{7,14}$/, "Enter the phone in international format, e.g. +9715xxxxxxx")),
+  password: RegisterConsumerSchema.shape.password,
+  /**
+   * What the applicant says they do. ADVISORY: the approving administrator sets
+   * the role actually written to CompanyMember. COMPANY_ADMIN is absent on
+   * purpose and must stay absent — nobody applies their way into administering
+   * a company they are not yet a member of.
+   */
+  requestedRole: z.enum(["COMPANY_BUYER", "COMPANY_APPROVER"]).default("COMPANY_BUYER"),
+  department: optionalText(z.string().max(60)),
+  language: z.enum(LANGUAGE_VALUES).default("AR"),
+});
+
 export const RegisterBusinessSchema = z.object({
   // Company info
   companyNameEn: z.string().min(2).max(100),
@@ -253,5 +293,6 @@ export const AddressSchema = z.object({
 export type LoginInput = z.infer<typeof LoginSchema>;
 export type RegisterConsumerInput = z.infer<typeof RegisterConsumerSchema>;
 export type RegisterBusinessInput = z.infer<typeof RegisterBusinessSchema>;
+export type RegisterJoinInput = z.infer<typeof RegisterJoinSchema>;
 export type SellerOnboardingInput = z.infer<typeof SellerOnboardingSchema>;
 export type AddressInput = z.infer<typeof AddressSchema>;

@@ -32,6 +32,7 @@ import { log } from "@avenick/observability";
 import { brandMarkDocument } from "@avenick/ui/brand-mark-geometry";
 import { emailSender, platformName, selfOrigin } from "@avenick/utils/portal-config";
 import { passwordResetTtlLabel } from "./password-reset";
+import { emailVerificationTtlLabel } from "./email-verification";
 // The invitation link is minted, not formatted: only lib/invite-acceptance can
 // decide that an address is still an open invitation, and it re-decides the
 // same thing when the link is used.
@@ -40,6 +41,15 @@ import { inviteTtlLabel } from "./invite-token";
 
 /** Identifies which mail this is, so log lines stay diagnosable. */
 const TEMPLATE = "b2b-company-invite";
+
+/** "Confirm your address" for an application to join an existing company. */
+const JOIN_VERIFY_TEMPLATE = "b2b-join-verify-email";
+
+/** "Someone is waiting on you", to a company administrator. */
+const JOIN_PENDING_TEMPLATE = "b2b-join-pending-approval";
+
+/** "You are in", to an applicant an administrator has just admitted. */
+const JOIN_APPROVED_TEMPLATE = "b2b-join-approved";
 const ALREADY_REGISTERED_TEMPLATE = "already-registered-notice";
 const PASSWORD_RESET_TEMPLATE = "password-reset";
 
@@ -421,6 +431,171 @@ export async function sendPasswordResetEmail(opts: {
     key,
     { from, to: opts.to, subject: `Reset your ${brand} password`, html },
     { template: PASSWORD_RESET_TEMPLATE, recipientRef: ref },
+  );
+}
+
+/**
+ * "Confirm this is your address" — sent to someone applying to join a company
+ * that already exists.
+ *
+ * This mail is the load-bearing half of the domain gate. Matching the company's
+ * domain proves only that an applicant TYPED an address there; following this
+ * link proves they RECEIVE at it. Without it, the queue a company admin is
+ * asked to read would be full of unverified claims, and a domain check would be
+ * a text field rather than a control.
+ *
+ * The URL embeds a credential, so like the address it is never logged.
+ */
+export async function sendJoinVerificationEmail(opts: {
+  to: string;
+  companyName: string;
+  verifyUrl: string;
+  firstName: string;
+}): Promise<EmailOutcome> {
+  const key = process.env.RESEND_API_KEY;
+  const ref = recipientRef(opts.to);
+
+  if (!key) {
+    log.info("email skipped: RESEND_API_KEY not set", { template: JOIN_VERIFY_TEMPLATE, recipientRef: ref });
+    return { sent: false, reason: "provider-not-configured" };
+  }
+
+  const from = senderOrNull(JOIN_VERIFY_TEMPLATE, ref);
+  if (!from) return { sent: false, reason: "sender-not-configured" };
+
+  const brand = platformName();
+  const companyName = escapeHtml(opts.companyName);
+  const greeting = opts.firstName.trim() ? `Hi ${escapeHtml(opts.firstName.trim())},` : "Hi,";
+  const html = `
+  <div style="font-family:Inter,system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#0a0a0b">
+    ${brandHeader()}
+    <h1 style="font-size:22px;margin:0 0 8px">Confirm your email address</h1>
+    <p style="color:#52525b;font-size:14px;line-height:1.6">
+      ${greeting} you asked to join <strong>${companyName}</strong> on ${brand}. Confirm this address,
+      and your request goes to that company&#39;s administrator to approve.
+    </p>
+    <a href="${opts.verifyUrl}" style="display:inline-block;margin:20px 0;background:#4f46e5;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:12px">Confirm my email address</a>
+    <p style="color:#52525b;font-size:13px;line-height:1.6">
+      This link expires in ${emailVerificationTtlLabel()}. Confirming it does not yet give you access:
+      an administrator at ${companyName} decides that.
+    </p>
+    <p style="color:#a1a1aa;font-size:12px">If you did not ask for this, you can ignore this email. No account is active until it is confirmed and approved.</p>
+  </div>`;
+
+  return deliver(
+    key,
+    { from, to: opts.to, subject: `Confirm your email address to join ${opts.companyName}`, html },
+    { template: JOIN_VERIFY_TEMPLATE, recipientRef: ref },
+  );
+}
+
+/**
+ * "Somebody is waiting on you" — sent to a company administrator once an
+ * applicant has confirmed their address.
+ *
+ * An in-app notification row is written too, but a queue nobody is told about
+ * is a queue that rots: the admin has no reason to open the team page on the
+ * day a colleague applies. This mail is what makes the approval step a step
+ * rather than a place applications go to wait indefinitely.
+ *
+ * No token and no credential in the link — it goes to the team page, which
+ * requires the admin to be signed in.
+ */
+export async function sendJoinRequestPendingEmail(opts: {
+  to: string;
+  companyName: string;
+  applicantName: string;
+  applicantEmail: string;
+  teamUrl: string;
+}): Promise<EmailOutcome> {
+  const key = process.env.RESEND_API_KEY;
+  const ref = recipientRef(opts.to);
+
+  if (!key) {
+    log.info("email skipped: RESEND_API_KEY not set", { template: JOIN_PENDING_TEMPLATE, recipientRef: ref });
+    return { sent: false, reason: "provider-not-configured" };
+  }
+
+  const from = senderOrNull(JOIN_PENDING_TEMPLATE, ref);
+  if (!from) return { sent: false, reason: "sender-not-configured" };
+
+  const brand = platformName();
+  const companyName = escapeHtml(opts.companyName);
+  // Both are attacker-controlled: the applicant typed them. Escaped like any
+  // other untrusted text before they land inside this HTML.
+  const applicantName = escapeHtml(opts.applicantName);
+  const applicantEmail = escapeHtml(opts.applicantEmail);
+  const html = `
+  <div style="font-family:Inter,system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#0a0a0b">
+    ${brandHeader()}
+    <h1 style="font-size:22px;margin:0 0 8px">Someone has asked to join ${companyName}</h1>
+    <p style="color:#52525b;font-size:14px;line-height:1.6">
+      <strong>${applicantName}</strong> (${applicantEmail}) has asked to join your ${brand} company account
+      and has confirmed that email address. They have no access to anything until you approve them.
+    </p>
+    <a href="${opts.teamUrl}" style="display:inline-block;margin:20px 0;background:#4f46e5;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:12px">Review the request</a>
+    <p style="color:#a1a1aa;font-size:12px">If you do not recognise this person, reject the request. Nothing is granted until you act.</p>
+  </div>`;
+
+  return deliver(
+    key,
+    { from, to: opts.to, subject: `${opts.applicantName} has asked to join ${opts.companyName}`, html },
+    { template: JOIN_PENDING_TEMPLATE, recipientRef: ref },
+  );
+}
+
+/**
+ * "You are in" — sent to an applicant a company administrator has just admitted.
+ *
+ * Without it the flow has a silent end: the applicant confirmed an address,
+ * was told an administrator would decide, and then nothing ever arrives. They
+ * cannot poll — sign-in refused them yesterday and gives the same answer
+ * whether they were rejected or simply not looked at yet — so the only way they
+ * would ever discover they had been admitted is to keep trying the login form
+ * on the off-chance. This mail is what makes the approval a decision the
+ * applicant learns about rather than one taken about them.
+ *
+ * There is deliberately no mail for a REJECTION. The administrator was told the
+ * reason is recorded and not sent, and a refusal that arrives by email invites
+ * a reply-all argument with a colleague about a decision that is theirs to
+ * explain in person.
+ */
+export async function sendJoinApprovedEmail(opts: {
+  to: string;
+  companyName: string;
+  firstName: string;
+  signInUrl: string;
+}): Promise<EmailOutcome> {
+  const key = process.env.RESEND_API_KEY;
+  const ref = recipientRef(opts.to);
+
+  if (!key) {
+    log.info("email skipped: RESEND_API_KEY not set", { template: JOIN_APPROVED_TEMPLATE, recipientRef: ref });
+    return { sent: false, reason: "provider-not-configured" };
+  }
+
+  const from = senderOrNull(JOIN_APPROVED_TEMPLATE, ref);
+  if (!from) return { sent: false, reason: "sender-not-configured" };
+
+  const brand = platformName();
+  const companyName = escapeHtml(opts.companyName);
+  const greeting = opts.firstName.trim() ? `Hi ${escapeHtml(opts.firstName.trim())},` : "Hi,";
+  const html = `
+  <div style="font-family:Inter,system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#0a0a0b">
+    ${brandHeader()}
+    <h1 style="font-size:22px;margin:0 0 8px">You have been added to ${companyName}</h1>
+    <p style="color:#52525b;font-size:14px;line-height:1.6">
+      ${greeting} an administrator at <strong>${companyName}</strong> has approved your request to join
+      their ${brand} account. Sign in with the password you chose when you applied.
+    </p>
+    <a href="${opts.signInUrl}" style="display:inline-block;margin:20px 0;background:#4f46e5;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:12px">Sign in</a>
+    <p style="color:#a1a1aa;font-size:12px">What you can see and spend is set by your administrator, not by this email.</p>
+  </div>`;
+
+  return deliver(
+    key,
+    { from, to: opts.to, subject: `You have been added to ${opts.companyName} on ${brand}`, html },
+    { template: JOIN_APPROVED_TEMPLATE, recipientRef: ref },
   );
 }
 

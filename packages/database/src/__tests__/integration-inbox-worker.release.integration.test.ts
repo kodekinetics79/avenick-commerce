@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationSuite } from "../testing/integration-db";
 import {
   DEPLOYED_INTEGRATION_INBOX_HANDLERS,
   getIntegrationRuntimeReadiness,
@@ -14,7 +15,7 @@ import {
   StaleIntegrationLeaseError,
 } from "../services/integrations";
 
-const run = process.env.DATABASE_URL ? describe : describe.skip;
+const run = integrationSuite("parallel");
 const marker = `inbound-worker-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
 let actorId = "";
 let orderId = "";
