@@ -25,8 +25,9 @@ import {
 import { BrandLockup, Button, Divider, Eyebrow, NavItem, StickyGlassBar, Surface, ThemeToggle } from "@avenick/ui";
 import { useCartStore } from "@/stores/cart";
 import { useSearchSuggest } from "@/lib/search-suggest-client";
+import { useBrandMenu } from "@/lib/brand-menu-client";
 import { useSession, signOut } from "next-auth/react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useDisclosure } from "./disclosure";
 import { LocaleToggle } from "./locale-toggle";
 import { MegaMenu, type MegaMenuColumn } from "./mega-menu";
@@ -62,7 +63,7 @@ interface NavEntry {
   /** Shown in the mobile sheet only; the desktop nav stays text-only. */
   icon: React.ElementType;
   /** Present when this entry also opens a mega-menu panel. */
-  menu?: "shop" | "business";
+  menu?: "shop" | "business" | "brands";
 }
 
 const NAV: NavEntry[] = [
@@ -71,12 +72,16 @@ const NAV: NavEntry[] = [
   // Deals stays out of primary navigation until governed active promotions
   // exist. The page currently lists ordinary catalog products, so presenting it
   // as "Deals" claims a discount the commercial model does not back.
-  { href: "/brands", labelKey: "brands", icon: Tag },
+  // The panel is populated from /api/brands at runtime and only opens when that
+  // returns something; see BRAND_COLUMNS below. Without it this stays the plain
+  // link it has always been.
+  { href: "/brands", labelKey: "brands", icon: Tag, menu: "brands" },
   { href: "/b2b", labelKey: "forBusiness", icon: Briefcase, menu: "business" },
   { href: "/support", labelKey: "support", icon: LifeBuoy },
 ];
 
 export function Header() {
+  const locale = useLocale();
   const t = useTranslations("nav");
   const tc = useTranslations("common");
   const pathname = usePathname();
@@ -100,6 +105,43 @@ export function Header() {
   );
 
   const brand = platformName();
+
+  /*
+   * The brands panel, and the one rule that governs whether it opens at all.
+   *
+   * useBrandMenu() returns only brands that readPublicBrands() judged to have
+   * something publicly sellable — the same PUBLICLY_VISIBLE predicate the
+   * /brands page uses, so a brand cannot appear here and then show an empty
+   * shelf. When it returns nothing (no brands, a failed request, JavaScript
+   * off, the first paint before hydration) `brandMenu` is empty, BRAND_COLUMNS
+   * is empty, and the render below falls back to the plain link. A nav item
+   * that opens an empty panel is worse than one that does not open.
+   *
+   * The count is used to ORDER the panel and is not printed in it: MegaMenuLink
+   * is {href,label}, and widening a shared primitive so one menu can show a
+   * number is the "ten new signatures instead of one extended one" failure. The
+   * brands page shows the counts, from the same query.
+   */
+  const brandMenu = useBrandMenu(6);
+  const BRAND_COLUMNS: MegaMenuColumn[] =
+    brandMenu.length === 0
+      ? []
+      : [
+          {
+            title: t("brands"),
+            links: brandMenu.map((b) => ({
+              href: `/products?brand=${encodeURIComponent(b.slug)}`,
+              label: locale === "ar" && b.nameAr ? b.nameAr : b.nameEn,
+            })),
+          },
+          {
+            title: t("catalogue"),
+            links: [
+              { href: "/brands", label: t("allBrands") },
+              { href: "/products", label: t("products") },
+            ],
+          },
+        ];
 
   const SHOP_COLUMNS: MegaMenuColumn[] = [
     {
@@ -412,7 +454,19 @@ export function Header() {
             {NAV.map((entry) => {
               const label = t(entry.labelKey);
               const active = isActive(entry.href);
-              if (entry.menu === "shop" || entry.menu === "business") {
+              const columns =
+                entry.menu === "shop"
+                  ? SHOP_COLUMNS
+                  : entry.menu === "business"
+                    ? BUSINESS_COLUMNS
+                    : entry.menu === "brands"
+                      ? BRAND_COLUMNS
+                      : [];
+              // An entry declares a panel; whether it GETS one depends on there
+              // being something to put in it. Only the brands panel is ever
+              // empty — the other two are static — and when it is, this falls
+              // through to the plain link below.
+              if (entry.menu && columns.length > 0) {
                 return (
                   <MegaMenu
                     key={entry.href}
@@ -421,7 +475,7 @@ export function Header() {
                     label={label}
                     menuLabel={t("submenuOf", { label })}
                     active={active}
-                    columns={entry.menu === "shop" ? SHOP_COLUMNS : BUSINESS_COLUMNS}
+                    columns={columns}
                   />
                 );
               }

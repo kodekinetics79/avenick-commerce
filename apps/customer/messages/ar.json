@@ -61,7 +61,8 @@
     "team": "الفريق",
     "deliveryAddresses": "عناوين التسليم",
     "billing": "الفوترة",
-    "spendAnalytics": "تحليلات الإنفاق"
+    "spendAnalytics": "تحليلات الإنفاق",
+    "allBrands": "كل العلامات التجارية"
   },
   "auth": {
     "welcomeBack": "مرحباً بعودتك",

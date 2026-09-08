@@ -61,7 +61,8 @@
     "team": "Team",
     "deliveryAddresses": "Delivery addresses",
     "billing": "Billing",
-    "spendAnalytics": "Spend analytics"
+    "spendAnalytics": "Spend analytics",
+    "allBrands": "All brands"
   },
   "auth": {
     "welcomeBack": "Welcome back",
