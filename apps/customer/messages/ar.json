@@ -574,7 +574,13 @@
     "privacy": "الخصوصية",
     "terms": "الشروط",
     "cookies": "ملفات تعريف الارتباط",
-    "rights": "© {year} {brand}. جميع الحقوق محفوظة."
+    "rights": "© {year} {brand}. جميع الحقوق محفوظة.",
+    "about": "عن المنصة",
+    "contact": "اتصل بنا",
+    "delivery": "التوصيل",
+    "returnsPolicy": "الإرجاع والاسترداد",
+    "warranty": "مطالبات الضمان",
+    "help": "المساعدة"
   },
   "pdp": {
     "breadcrumbLabel": "مسار التنقل",

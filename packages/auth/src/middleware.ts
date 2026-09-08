@@ -17,6 +17,14 @@ const PORTAL_ROLE_MAP: Record<PortalType, UserRole[]> = {
 // Paths that are publicly accessible (no auth required)
 const PUBLIC_PATHS: Record<PortalType, string[]> = {
   customer: ["/", "/products", "/search", "/login", "/register", "/auth/forgot-password", "/auth/reset-password", "/auth/verify-email", "/deals", "/brands", "/cart", "/wishlist", "/categories", "/returns", "/support", "/privacy", "/terms", "/cookies", "/status",
+    // The information and policy surfaces. Every one of these must answer to a
+    // visitor with no session: a shopper deciding whether to buy is exactly the
+    // person who reads the returns policy, and a warranty page behind a login
+    // wall is indistinguishable from not having one. They were 307ing to
+    // /login the moment they were added, because anything absent from this list
+    // is private by default — which is the right default, and the reason a new
+    // public page has to be named here.
+    "/about", "/contact", "/shipping", "/returns-policy", "/warranty",
     // The company-registration door. The page handles a visitor with no session
     // itself — it renders a sign-in prompt and the registration path — so
     // gating it here sent every prospective B2B buyer to a generic login with

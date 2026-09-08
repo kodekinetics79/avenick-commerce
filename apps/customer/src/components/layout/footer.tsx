@@ -58,13 +58,30 @@ export function Footer() {
         // environment does not know the seller portal's origin there is no
         // correct target, so the link is omitted rather than pointed at a guess.
         ...(SELLER_REGISTER_URL ? [{ label: t("becomeSeller"), href: SELLER_REGISTER_URL, external: true }] : []),
+      ],
+    },
+    {
+      // Help, split out from Company. These five pages did not exist at all
+      // until now: a buyer could not find out what could be returned, who
+      // honours a warranty, or who the company is, from anywhere in the
+      // storefront. /returns is the account page where a return is RAISED;
+      // /returns-policy is the statement of terms. Both are listed, because
+      // sending someone to a login wall when they wanted the policy is the
+      // same failure as having no policy.
+      title: t("help"),
+      links: [
+        { label: t("support"), href: "/support" },
+        { label: t("delivery"), href: "/shipping" },
+        { label: t("returnsPolicy"), href: "/returns-policy" },
+        { label: t("warranty"), href: "/warranty" },
         { label: t("returns"), href: "/returns" },
       ],
     },
     {
       title: t("company"),
       links: [
-        { label: t("support"), href: "/support" },
+        { label: t("about"), href: "/about" },
+        { label: t("contact"), href: "/contact" },
         { label: t("status"), href: "/status" },
         { label: t("myAccount"), href: "/account" },
         { label: t("signIn"), href: "/login" },

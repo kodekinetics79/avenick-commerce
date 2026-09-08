@@ -574,7 +574,13 @@
     "privacy": "Privacy",
     "terms": "Terms",
     "cookies": "Cookies",
-    "rights": "© {year} {brand}. All rights reserved."
+    "rights": "© {year} {brand}. All rights reserved.",
+    "about": "About us",
+    "contact": "Contact",
+    "delivery": "Delivery",
+    "returnsPolicy": "Returns & refunds",
+    "warranty": "Warranty claims",
+    "help": "Help"
   },
   "pdp": {
     "breadcrumbLabel": "Breadcrumb",
