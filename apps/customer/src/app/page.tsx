@@ -247,8 +247,21 @@ export default async function HomePage() {
 
               `.u-sheen` stays. Its drift is a transform on a low-alpha ::before
               rather than a repaint, and its whole intent is to be noticed only
-              as the surface not being flat. */}
-          <div className="u-sheen u-panel-brand relative flex min-w-0 flex-col justify-center overflow-clip rounded-3xl p-8 sm:p-12 lg:p-14">
+              as the surface not being flat.
+
+              `data-grain` is new here and is the reason the panel stopped
+              reading as a flat fill once the drift came off. It is the register's
+              own grain — the same tiled noise the ambient field carries, at
+              --field-noise, thinned to 70% above 2dppx — and it is a MATERIAL
+              rather than an effect: it gives the green a surface to be, which a
+              two-stop gradient on its own does not have. It rides ::after, so it
+              composes with .u-sheen's ::before instead of replacing it; that is
+              also why [data-rim] is NOT on this element, since its ::before
+              would win on source order and delete the specular pass. */}
+          <div
+            data-grain=""
+            className="u-sheen u-panel-brand relative flex min-w-0 flex-col justify-center overflow-clip rounded-3xl p-8 sm:p-12 lg:p-14"
+          >
 
             <div className="relative grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
               <div className="min-w-0">
