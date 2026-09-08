@@ -61,28 +61,31 @@ export function Footer() {
       ],
     },
     {
-      // Help, split out from Company. These five pages did not exist at all
-      // until now: a buyer could not find out what could be returned, who
-      // honours a warranty, or who the company is, from anywhere in the
-      // storefront. /returns is the account page where a return is RAISED;
-      // /returns-policy is the statement of terms. Both are listed, because
-      // sending someone to a login wall when they wanted the policy is the
-      // same failure as having no policy.
-      title: t("help"),
-      links: [
-        { label: t("support"), href: "/support" },
-        { label: t("delivery"), href: "/shipping" },
-        { label: t("returnsPolicy"), href: "/returns-policy" },
-        { label: t("warranty"), href: "/warranty" },
-        { label: t("returns"), href: "/returns" },
-      ],
-    },
-    {
+      // WHAT CAME OUT OF HERE, and why it was wrong to put it here.
+      //
+      // A "Help" column of five links sat beside a "Support" link, which is a
+      // help centre and a list of help links — the same choice offered twice,
+      // and exactly the duplicate LAW G says to find before counting options.
+      // It also listed "Returns & refunds" directly above "Returns": the policy
+      // and the account page where a return is raised, two entries a shopper
+      // reads as one thing and has to guess between. That was mine and it was
+      // indefensible in a footer.
+      //
+      // Delivery, returns, warranty and system status now live on /support,
+      // which is the help centre and where someone with a question already
+      // goes. Nothing was deleted — LAW G's grouping, not its forbidden fourth
+      // option. /returns stays reachable from the returns policy and from the
+      // account area, which is where a signed-in buyer raises one.
+      //
+      // System status in particular does not belong in storefront chrome beside
+      // About and Contact. It is a real page and it works; it is also an
+      // engineering readout, and putting it on every page of a shop advertises
+      // that the shop breaks.
       title: t("company"),
       links: [
         { label: t("about"), href: "/about" },
         { label: t("contact"), href: "/contact" },
-        { label: t("status"), href: "/status" },
+        { label: t("support"), href: "/support" },
         { label: t("myAccount"), href: "/account" },
         { label: t("signIn"), href: "/login" },
       ],

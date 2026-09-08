@@ -576,11 +576,7 @@
     "cookies": "Cookies",
     "rights": "© {year} {brand}. All rights reserved.",
     "about": "About us",
-    "contact": "Contact",
-    "delivery": "Delivery",
-    "returnsPolicy": "Returns & refunds",
-    "warranty": "Warranty claims",
-    "help": "Help"
+    "contact": "Contact"
   },
   "pdp": {
     "breadcrumbLabel": "Breadcrumb",

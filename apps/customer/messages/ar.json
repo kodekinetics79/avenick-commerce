@@ -576,11 +576,7 @@
     "cookies": "ملفات تعريف الارتباط",
     "rights": "© {year} {brand}. جميع الحقوق محفوظة.",
     "about": "عن المنصة",
-    "contact": "اتصل بنا",
-    "delivery": "التوصيل",
-    "returnsPolicy": "الإرجاع والاسترداد",
-    "warranty": "مطالبات الضمان",
-    "help": "المساعدة"
+    "contact": "اتصل بنا"
   },
   "pdp": {
     "breadcrumbLabel": "مسار التنقل",
