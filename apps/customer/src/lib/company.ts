@@ -57,16 +57,66 @@ export function formatAddress(a: CompanyAddress): string {
 }
 
 /**
- * The GCC trading entity.
+ * The GCC offices.
  *
- * NOT YET SUPPLIED. The operator has confirmed one exists alongside the US
- * headquarters, but its registered name and address have not been provided, and
- * this module does not invent them: a company name on a contract page is the
- * single least survivable thing to guess.
+ * WHERE THE PLATFORM OPERATES IN THE GULF. These are presence, not identity —
+ * see the note on gccTradingEntity() below for why the two must not be
+ * conflated on a page a buyer reads before contracting.
  *
- * Returns null until `NEXT_PUBLIC_GCC_ENTITY` is configured, and every surface
- * that reads it renders nothing rather than a placeholder. When it is set, the
- * contact and about pages pick it up with no further change.
+ * Dubai is recorded against the UAE. The operator supplied it as "Dubai - USA",
+ * alongside "Riyand" for Riyadh, so the entry is a typo in an obviously
+ * city-country list rather than a claim about jurisdiction. Publishing "Dubai,
+ * USA" on a Gulf marketplace would be visibly wrong to every buyer it serves,
+ * and a country is the half of an address that decides which consumer law
+ * applies — so it is corrected here and flagged rather than transcribed.
+ */
+export interface Office {
+  city: string;
+  country: string;
+}
+
+const GCC_OFFICES: Office[] = [
+  { city: "Riyadh", country: "Saudi Arabia" },
+  { city: "Doha", country: "Qatar" },
+  { city: "Dubai", country: "United Arab Emirates" },
+];
+
+/** Arabic names, so an Arabic reader is not handed a Latin list of Gulf cities. */
+export const OFFICE_AR: Record<string, { city: string; country: string }> = {
+  Riyadh: { city: "الرياض", country: "المملكة العربية السعودية" },
+  Doha: { city: "الدوحة", country: "قطر" },
+  Dubai: { city: "دبي", country: "الإمارات العربية المتحدة" },
+};
+
+/**
+ * Format: "City,Country;City,Country" — overrides the list entirely when set.
+ * A malformed value is rejected rather than partially trusted, the same rule
+ * portal-config applies to an origin.
+ */
+export function gccOffices(): Office[] {
+  const raw = process.env.NEXT_PUBLIC_GCC_OFFICES?.trim();
+  if (!raw) return GCC_OFFICES;
+  const parsed = raw
+    .split(";")
+    .map((entry) => entry.split(",").map((s) => s.trim()))
+    .filter((p): p is [string, string] => p.length === 2 && p.every((s) => s !== ""))
+    .map(([city, country]) => ({ city, country }));
+  return parsed.length > 0 ? parsed : GCC_OFFICES;
+}
+
+/**
+ * The GCC trading ENTITY — still not supplied, and deliberately still separate
+ * from the office list above.
+ *
+ * An office is where a company works. A trading entity is the legal person a
+ * buyer's contract is with, and it has a registered name and a commercial
+ * registration number. Three city names do not answer that question: a buyer in
+ * Riyadh reading "Riyadh · Doha · Dubai" learns the platform is present in the
+ * region, not who is on the invoice or who they sue.
+ *
+ * So the offices render as offices, and this stays null until
+ * `NEXT_PUBLIC_GCC_ENTITY` is configured. A company name on a contract page is
+ * the least survivable thing in this product to guess.
  *
  * Format: "Legal Name|line1|city|country"
  */

@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { MainLayout } from "@/components/layout/main-layout";
 import { PolicyShell, type PolicySection } from "@/components/legal/policy-shell";
-import { companyHeadquarters, formatAddress, gccTradingEntity } from "@/lib/company";
+import { OFFICE_AR, companyHeadquarters, formatAddress, gccOffices, gccTradingEntity } from "@/lib/company";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
 
 export const metadata = {
@@ -32,6 +32,24 @@ export default async function ContactPage() {
   const { support, legal, privacy } = platformContacts();
   const hq = companyHeadquarters();
   const gcc = gccTradingEntity();
+  const offices = gccOffices();
+
+  /* Offices are a list of places, so they are marked up as one. A <ul> is what
+     a screen reader announces with a count — "list, 3 items" — where three
+     stacked <p>s are three unrelated paragraphs. */
+  const officeList = (ar: boolean) => (
+    <ul className="flex flex-col gap-1">
+      {offices.map((o) => {
+        const t = ar ? OFFICE_AR[o.city] : undefined;
+        return (
+          <li key={`${o.city}-${o.country}`}>
+            <span className="text-ink-1">{t?.city ?? o.city}</span>
+            <span className="text-ink-3"> · {t?.country ?? o.country}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
 
   const mail = (addr: string) => (
     <a href={`mailto:${addr}`} className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
@@ -85,6 +103,10 @@ export default async function ContactPage() {
             <br />
             {formatAddress(hq)}
           </p>
+          <div>
+            <strong className="text-ink-1">Gulf offices</strong>
+            {officeList(false)}
+          </div>
           {gcc ? (
             <p>
               <strong className="text-ink-1">Trading entity</strong>
@@ -116,6 +138,10 @@ export default async function ContactPage() {
             <br />
             {formatAddress(hq)}
           </p>
+          <div>
+            <strong className="text-ink-1">مكاتب الخليج</strong>
+            {officeList(true)}
+          </div>
           {gcc ? (
             <p>
               <strong className="text-ink-1">الكيان التجاري</strong>

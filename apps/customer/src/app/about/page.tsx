@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { MainLayout } from "@/components/layout/main-layout";
 import { PolicyShell, type PolicySection } from "@/components/legal/policy-shell";
-import { companyHeadquarters, formatAddress } from "@/lib/company";
+import { OFFICE_AR, companyHeadquarters, formatAddress, gccOffices } from "@/lib/company";
 import { platformName } from "@avenick/utils/portal-config";
 
 export const metadata = {
@@ -31,6 +31,7 @@ export default async function AboutPage() {
   const isAr = ((await cookies()).get("AVENICK_LOCALE")?.value ?? "en") === "ar";
   const name = platformName();
   const hq = companyHeadquarters();
+  const offices = gccOffices();
 
   const link = (href: string, en: string, ar: string) => (
     <Link href={href} className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
@@ -128,12 +129,15 @@ export default async function AboutPage() {
       titleAr: "الشركة",
       contentEn: (
         <>
+          <p>Headquarters: {formatAddress(hq)}.</p>
           <p>
-            Headquarters: {formatAddress(hq)}.
+            Gulf offices:{" "}
+            {offices.map((o) => `${o.city}, ${o.country}`).join(" · ")}.
           </p>
           <p>
-            The registered entity for GCC orders, the governing terms and the contact routes are on
-            the {link("/contact", "contact page", "صفحة الاتصال")} and in the{" "}
+            An office is where the platform works, not who your order is with. The registered entity
+            for GCC orders, the governing terms and the contact routes are on the{" "}
+            {link("/contact", "contact page", "صفحة الاتصال")} and in the{" "}
             {link("/terms", "terms of service", "شروط الخدمة")}.
           </p>
         </>
@@ -142,7 +146,18 @@ export default async function AboutPage() {
         <>
           <p>المقر الرئيسي: {formatAddress(hq)}.</p>
           <p>
-            أما الكيان المسجَّل لطلبات الخليج والشروط الحاكمة وطرق التواصل فمذكورة في{" "}
+            مكاتب الخليج:{" "}
+            {offices
+              .map((o) => {
+                const t = OFFICE_AR[o.city];
+                return `${t?.city ?? o.city}، ${t?.country ?? o.country}`;
+              })
+              .join(" · ")}
+            .
+          </p>
+          <p>
+            والمكتب هو موضع عمل المنصة لا الجهة التي يُبرم معها طلبك. أما الكيان المسجَّل لطلبات
+            الخليج والشروط الحاكمة وطرق التواصل فمذكورة في{" "}
             {link("/contact", "صفحة الاتصال", "صفحة الاتصال")} وفي{" "}
             {link("/terms", "شروط الخدمة", "شروط الخدمة")}.
           </p>
