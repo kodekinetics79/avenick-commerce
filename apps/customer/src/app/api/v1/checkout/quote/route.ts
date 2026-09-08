@@ -35,6 +35,11 @@ import { buildCheckoutQuote } from "./quote-service";
 export const POST = route({
   route: "/api/v1/checkout/quote",
   auth: "optional",
+  // The mobile client authenticates with a bearer token. Opt-in per route
+  // and per verb, never inferred from the header: a token accepted on a
+  // route that did not ask for one is how a cookie-only surface quietly
+  // becomes token-accessible.
+  allowBearer: true,
   // Applies only when somebody IS signed in. A seller or an admin account has
   // no consumer basket, and `createOrder` refuses them inside its transaction;
   // refusing here means the app finds out before the buyer fills a form.

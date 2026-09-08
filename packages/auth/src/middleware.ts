@@ -42,7 +42,32 @@ const PUBLIC_API_PATHS: Record<PortalType, string[]> = {
   // state, so most baskets belong to nobody the server can name; an
   // authenticated-only endpoint here would silently return 401 to every
   // anonymous shopper — the exact failure the view beacon shipped with.
-  customer: ["/api/products", "/api/categories", "/api/brands", "/api/signals", "/api/cart", "/api/payments/webhook"],
+  // The "/api/v1/*" entries are the same catalogue, on the surface the mobile
+  // app consumes. They have to be listed separately because this allowlist
+  // matches on a path prefix, so "/api/products" does not cover
+  // "/api/v1/products" — and without them middleware answered 401 before the
+  // route handler ran, which meant an anonymous shopper could not see the
+  // catalogue at all. That is the entire top of the funnel, and the failure was
+  // invisible from the route's own tests: those call the handler directly.
+  //
+  // "/api/v1/checkout/quote" is public for the same reason the cart is — a
+  // guest must be able to see what a basket costs before being asked who they
+  // are. "/api/v1/auth" is how a native client obtains a session in the first
+  // place; requiring one to reach it would be circular. Everything else on the
+  // v1 surface — orders, me, addresses, rfqs — stays authenticated.
+  customer: [
+    "/api/products",
+    "/api/categories",
+    "/api/brands",
+    "/api/signals",
+    "/api/cart",
+    "/api/payments/webhook",
+    "/api/v1/products",
+    "/api/v1/categories",
+    "/api/v1/brands",
+    "/api/v1/checkout/quote",
+    "/api/v1/auth",
+  ],
   seller: [],
   admin: ["/api/integrations/inbound"],
 };

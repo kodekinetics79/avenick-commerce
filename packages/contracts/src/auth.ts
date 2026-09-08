@@ -13,11 +13,20 @@ import { successEnvelope } from "./envelope";
  * signing the account out everywhere. So /v1 issues a short-lived access token
  * and a rotating refresh token.
  *
- * NOTE FOR THE BACKEND: nothing in `schema.prisma` stores a refresh token
- * today. `Session` holds an opaque token with an `expiresAt` and no device,
- * rotation lineage or revocation reason. See the report accompanying this
- * package — this contract describes what the app needs, and the storage for it
- * does not exist yet.
+ * STORAGE, AS OF THE MOBILE IDENTITY MIGRATIONS. This note used to say that
+ * nothing in `schema.prisma` stored a refresh token. It does now: `RefreshToken`
+ * carries the hash, the `familyId` rotation lineage and a revocation reason, and
+ * `OtpChallenge` holds the in-flight phone challenge. The old `Session` table is
+ * unrelated to both and remains unused by the JWT web sessions.
+ *
+ * The endpoints below are implemented in
+ * `apps/customer/src/app/api/v1/auth/`. Two things this contract does NOT
+ * describe, and which therefore do not exist: phone-first REGISTRATION (a
+ * verified number with no account behind it can only be refused, because
+ * `OtpVerifyResponseSchema` returns a token pair and nothing else), and any
+ * signal that an SMS was actually dispatched — with no provider wired, the
+ * request endpoint answers 503 `upstream_unavailable`, which is the status this
+ * contract already lists for it.
  */
 
 /** The password grant. `deviceId` binds the refresh token to one installation. */
@@ -51,6 +60,8 @@ export const AuthPrincipalSchema = z
     language: LanguageSchema,
   })
   .strict();
+
+export type AuthPrincipal = z.infer<typeof AuthPrincipalSchema>;
 
 /**
  * A token pair.

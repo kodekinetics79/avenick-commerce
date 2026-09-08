@@ -64,6 +64,24 @@ export type PilotCatalogRecord = {
   productGroup?: string | null;
   assetKey?: string | null;
   assets?: PilotAssetSet;
+  /**
+   * Consumer-channel commitment for this row. Unlike every other field above,
+   * this is not an observation copied out of a supplier sheet — it is a
+   * decision, so the three states are kept distinct and none of them is
+   * inferred:
+   *
+   *   `true`      — sell this product to consumers.
+   *   `false`     — quote-only; revert a product that was flagged before.
+   *   absent/null — the source states nothing. The import then falls back to
+   *                 `applyPilotCatalog`'s `defaultB2CEnabled` option, and if
+   *                 that is also unstated it leaves an existing product's flag
+   *                 exactly as it found it (see PILOT_DEFAULT_B2C_ENABLED).
+   *
+   * Only a real boolean counts. A truthy string such as "FALSE" or "0" is a
+   * validation error rather than a coercion, because guessing wrong here sells
+   * something the business never agreed to sell.
+   */
+  isB2CEnabled?: boolean | null;
 };
 
 export type PilotCatalogFile = {
@@ -117,6 +135,47 @@ const nonNegativeInt = (value: unknown) => {
   return Number.isFinite(n) && n >= 0 ? Math.round(n) : 0;
 };
 
+/**
+ * A product this importer CREATES is quote-only until somebody says otherwise.
+ *
+ * `isB2CEnabled` is not a description of a product, it is a commitment to sell
+ * it: `orders.ts:288` refuses any B2C order line whose product lacks the flag,
+ * so setting it is a promise that the price, the stock figure, the lead time
+ * and the returns handling behind that SKU are good enough to take a
+ * consumer's money against. This catalogue is imported supplier data — nothing
+ * in the source file carries that promise — so the honest default is `false`
+ * and it stays `false`.
+ *
+ * What used to be wrong was not the default. It was that `false` was written
+ * as a hardcoded literal on both the create and the update path, so the flag
+ * could not be stated by a caller at all, and a value set by hand afterwards
+ * was silently reverted by the next re-import. The default is unchanged; it is
+ * now a default rather than a fact.
+ */
+export const PILOT_DEFAULT_B2C_ENABLED = false;
+
+/**
+ * The consumer-channel flag this import should write for a row, or `undefined`
+ * when neither the row nor the caller has stated one.
+ *
+ * Precedence is row, then the import-wide option, then nothing. `undefined` is
+ * a meaningful third answer and not a synonym for `false`: the caller in
+ * `upsertProduct` writes `PILOT_DEFAULT_B2C_ENABLED` when creating a product
+ * and omits the column entirely when updating one, which is what makes a
+ * hand-set or admin-set `true` survive a re-import.
+ *
+ * An explicit `false` — on the row or in the option — is honoured as an
+ * explicit answer and DOES clear a previously flagged product. That is the
+ * intended lever for taking a product back off the consumer channel.
+ */
+export function resolvePilotB2CEnabled(
+  row: Pick<PilotCatalogRecord, "isB2CEnabled">,
+  defaultB2CEnabled?: boolean,
+): boolean | undefined {
+  if (typeof row.isB2CEnabled === "boolean") return row.isB2CEnabled;
+  return typeof defaultB2CEnabled === "boolean" ? defaultB2CEnabled : undefined;
+}
+
 export function pilotCatalogFingerprint(row: PilotCatalogRecord) {
   return createHash("sha256")
     .update(JSON.stringify({
@@ -140,9 +199,10 @@ export function validatePilotCatalog(file: PilotCatalogFile) {
   let verifiedPriceRows = 0;
   let sourceStockRows = 0;
   let mediaMappedRows = 0;
+  let b2cEnabledRows = 0;
 
   if (file?.version !== 1 || !Array.isArray(file.records)) {
-    return { errors: ["Unsupported catalog format; expected version 1 with records[]"], warnings, counts, verifiedPriceRows, sourceStockRows, mediaMappedRows };
+    return { errors: ["Unsupported catalog format; expected version 1 with records[]"], warnings, counts, verifiedPriceRows, sourceStockRows, mediaMappedRows, b2cEnabledRows };
   }
   if (file.records.length > 20_000) errors.push("A single pilot import is limited to 20,000 product rows");
 
@@ -159,9 +219,23 @@ export function validatePilotCatalog(file: PilotCatalogFile) {
     else warnings.push(`${row.sku}: no verified SAR sales price; will remain DRAFT`);
     if (row.stockAvailable != null && Number.isFinite(Number(row.stockAvailable))) sourceStockRows += 1;
     if ((row.assets?.images?.length ?? 0) > 0 || (row.assets?.documents?.length ?? 0) > 0) mediaMappedRows += 1;
+    // The consumer-channel flag is a commitment, so it is never coerced. A
+    // sheet-to-JSON converter that emits "TRUE" or 1 must be fixed at the
+    // converter; silently reading a string as truthy would put a product on
+    // sale that nobody agreed to sell.
+    if (row.isB2CEnabled != null && typeof row.isB2CEnabled !== "boolean") {
+      errors.push(`${row.sourceSheet}:${row.sourceRow} isB2CEnabled must be true, false or absent (received ${typeof row.isB2CEnabled})`);
+    } else if (row.isB2CEnabled === true) {
+      b2cEnabledRows += 1;
+      // A DRAFT product cannot be ordered in any channel, so a consumer flag on
+      // a row with no verified SAR price commits to nothing yet.
+      if (!(Number(row.unitPriceSAR) > 0)) {
+        warnings.push(`${row.sku}: flagged consumer-sellable but has no verified SAR price; it stays DRAFT and cannot be ordered`);
+      }
+    }
   }
 
-  return { errors, warnings, counts, verifiedPriceRows, sourceStockRows, mediaMappedRows };
+  return { errors, warnings, counts, verifiedPriceRows, sourceStockRows, mediaMappedRows, b2cEnabledRows };
 }
 
 async function ensureSeller(client: CatalogClient, sellerKey: string, testPassword?: string) {
@@ -270,7 +344,14 @@ function commercialPayload(row: PilotCatalogRecord): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(payload)) as Prisma.InputJsonValue;
 }
 
-async function upsertProduct(client: CatalogClient, row: PilotCatalogRecord, sellerId: string, locationId: string, assetBaseUrl?: string) {
+async function upsertProduct(
+  client: CatalogClient,
+  row: PilotCatalogRecord,
+  sellerId: string,
+  locationId: string,
+  assetBaseUrl?: string,
+  defaultB2CEnabled?: boolean,
+) {
   const category = await ensureCategory(client, row);
   const brand = await ensureBrand(client, row.brand ?? row.manufacturer ?? row.sourceSheet, row.brandAr);
   const arabicName = arabicOrNull(row.nameAr);
@@ -280,6 +361,7 @@ async function upsertProduct(client: CatalogClient, row: PilotCatalogRecord, sel
   const fingerprint = pilotCatalogFingerprint(row);
   const slug = `${slugify(row.sku)}-${fingerprint.slice(0, 8)}`;
   const moq = positiveInt(row.moqSales, 1);
+  const b2cEnabled = resolvePilotB2CEnabled(row, defaultB2CEnabled);
 
   const product = await client.product.upsert({
     where: { sku: row.sku },
@@ -300,7 +382,15 @@ async function upsertProduct(client: CatalogClient, row: PilotCatalogRecord, sel
       status,
       isPubliclyDiscoverable: Boolean(verifiedPrice),
       isB2BEnabled: true,
-      isB2CEnabled: false,
+      // The consumer-channel flag is written on re-import ONLY when this import
+      // actually states one — on the row, or via the import-wide option. It
+      // used to be a hardcoded `false` here, which meant a product flagged
+      // consumer-sellable by an admin, a backfill or a seller was silently
+      // reverted to quote-only by the next re-import of the same sheet. There
+      // is no value in the source file to justify that write, so absent an
+      // explicit answer the stored value is left alone. See
+      // PILOT_DEFAULT_B2C_ENABLED for why the default is nevertheless `false`.
+      ...(b2cEnabled === undefined ? {} : { isB2CEnabled: b2cEnabled }),
       weight: Number(row.netWeightKg) > 0 ? Number(row.netWeightKg) : undefined,
       dimensions: { cm: row.dimensionsCm ?? null, cbm: row.cbm ?? null, grossWeightKg: row.grossWeightKg ?? null },
       tags: ["pilot-catalog", `source:${slugify(row.sourceSheet)}`],
@@ -321,7 +411,11 @@ async function upsertProduct(client: CatalogClient, row: PilotCatalogRecord, sel
       status,
       isPubliclyDiscoverable: Boolean(verifiedPrice),
       isB2BEnabled: true,
-      isB2CEnabled: false,
+      // A product that does not exist yet has no value to preserve, so the
+      // default applies here and is written explicitly rather than left to the
+      // column default — a reader of this file should be able to see what a
+      // fresh pilot product is committed to.
+      isB2CEnabled: b2cEnabled ?? PILOT_DEFAULT_B2C_ENABLED,
       weight: Number(row.netWeightKg) > 0 ? Number(row.netWeightKg) : undefined,
       dimensions: { cm: row.dimensionsCm ?? null, cbm: row.cbm ?? null, grossWeightKg: row.grossWeightKg ?? null },
       tags: ["pilot-catalog", `source:${slugify(row.sourceSheet)}`],
@@ -480,13 +574,34 @@ async function upsertProduct(client: CatalogClient, row: PilotCatalogRecord, sel
       })),
     });
   }
-  return { active: Boolean(verifiedPrice), hasSourceStock: row.stockAvailable != null, hasMappedMedia: Boolean(row.assets?.images?.length || row.assets?.documents?.length) };
+  return {
+    active: Boolean(verifiedPrice),
+    hasSourceStock: row.stockAvailable != null,
+    hasMappedMedia: Boolean(row.assets?.images?.length || row.assets?.documents?.length),
+    // What this import STATED, not what is now stored: a row that stayed silent
+    // may well be consumer-sellable already. Putting a product on the consumer
+    // channel is a commercial decision, so the count of rows that asked for it
+    // belongs in the import's audit row.
+    flaggedConsumerSellable: b2cEnabled === true,
+  };
 }
 
 export async function applyPilotCatalog(file: PilotCatalogFile, options: {
   actorId?: string;
   assetBaseUrl?: string;
   testPassword?: string;
+  /**
+   * Consumer-channel flag for every row that does not state its own.
+   *
+   * Unstated (the default) means: create new products quote-only
+   * (`PILOT_DEFAULT_B2C_ENABLED`, i.e. `false`) and leave an existing
+   * product's flag untouched. Passing `true` or `false` here states an answer
+   * for the whole file and overwrites what is stored, which is how a whole
+   * sheet is put on, or taken off, the consumer channel in one import.
+   *
+   * Per-row `isB2CEnabled` wins over this option.
+   */
+  defaultB2CEnabled?: boolean;
 } = {}) {
   const validation = validatePilotCatalog(file);
   if (validation.errors.length) throw new Error(`Catalog validation failed: ${validation.errors.slice(0, 10).join("; ")}`);
@@ -541,14 +656,16 @@ export async function applyPilotCatalog(file: PilotCatalogFile, options: {
     let draftMissingPrice = 0;
     let rowsWithSourceStock = 0;
     let rowsWithMappedMedia = 0;
+    let rowsFlaggedConsumerSellable = 0;
     for (const row of file.records) {
       const context = contexts.get(row.sellerKey);
       if (!context) throw new Error(`Seller context missing for ${row.sellerKey}`);
-      const applied = await upsertProduct(tx, row, context.seller.id, context.location.id, options.assetBaseUrl);
+      const applied = await upsertProduct(tx, row, context.seller.id, context.location.id, options.assetBaseUrl, options.defaultB2CEnabled);
       if (applied.active) activeWithVerifiedPrice += 1;
       else draftMissingPrice += 1;
       if (applied.hasSourceStock) rowsWithSourceStock += 1;
       if (applied.hasMappedMedia) rowsWithMappedMedia += 1;
+      if (applied.flaggedConsumerSellable) rowsFlaggedConsumerSellable += 1;
     }
 
     const result = {
@@ -557,6 +674,7 @@ export async function applyPilotCatalog(file: PilotCatalogFile, options: {
       draftMissingPrice,
       rowsWithSourceStock,
       rowsWithMappedMedia,
+      rowsFlaggedConsumerSellable,
       sellerKeys: [...contexts.keys()],
       source: file.generatedFrom ?? "client-supplied pilot catalog",
     };

@@ -24,6 +24,11 @@ import { contractPhone, toMe } from "./me-projection";
 export const GET = route({
   route: "/api/v1/me",
   auth: "required",
+  // The mobile client authenticates with a bearer token. Opt-in per route
+  // and per verb, never inferred from the header: a token accepted on a
+  // route that did not ask for one is how a cookie-only surface quietly
+  // becomes token-accessible.
+  allowBearer: true,
   response: MeSchema,
   rateLimit: { rule: V1_RATE_LIMITS.accountRead },
   handle: async (ctx) => {

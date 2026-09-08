@@ -21,6 +21,11 @@ import { ADDRESS_SELECT, toAddress } from "../address-projection";
 export const GET = route({
   route: "/api/v1/addresses/[id]",
   auth: "required",
+  // The mobile client authenticates with a bearer token. Opt-in per route
+  // and per verb, never inferred from the header: a token accepted on a
+  // route that did not ask for one is how a cookie-only surface quietly
+  // becomes token-accessible.
+  allowBearer: true,
   params: AddressPathParamsSchema,
   response: AddressSchema,
   rateLimit: { rule: V1_RATE_LIMITS.accountRead },
@@ -49,6 +54,11 @@ export const GET = route({
 export const PATCH = route({
   route: "/api/v1/addresses/[id]",
   auth: "required",
+  // The mobile client authenticates with a bearer token. Opt-in per route
+  // and per verb, never inferred from the header: a token accepted on a
+  // route that did not ask for one is how a cookie-only surface quietly
+  // becomes token-accessible.
+  allowBearer: true,
   params: AddressPathParamsSchema,
   body: UpdateAddressRequestSchema,
   response: AddressSchema,
@@ -123,6 +133,11 @@ const FOREIGN_KEY_VIOLATION = "P2003";
 export const DELETE = route({
   route: "/api/v1/addresses/[id]",
   auth: "required",
+  // The mobile client authenticates with a bearer token. Opt-in per route
+  // and per verb, never inferred from the header: a token accepted on a
+  // route that did not ask for one is how a cookie-only surface quietly
+  // becomes token-accessible.
+  allowBearer: true,
   params: AddressPathParamsSchema,
   response: AddressDeletedSchema,
   rateLimit: { rule: V1_RATE_LIMITS.addressWrite },

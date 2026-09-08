@@ -23,6 +23,11 @@ import { readRfqDetail } from "../rfq-service";
 export const GET = route({
   route: "/api/v1/rfqs/[id]",
   auth: "required",
+  // The mobile client authenticates with a bearer token. Opt-in per route
+  // and per verb, never inferred from the header: a token accepted on a
+  // route that did not ask for one is how a cookie-only surface quietly
+  // becomes token-accessible.
+  allowBearer: true,
   params: RfqPathParamsSchema,
   response: RfqDetailSchema,
   rateLimit: { rule: V1_RATE_LIMITS.accountRead },

@@ -35,6 +35,11 @@ import { placeOrder } from "./place-order";
 export const GET = route({
   route: "/api/v1/orders",
   auth: "required",
+  // The mobile client authenticates with a bearer token. Opt-in per route
+  // and per verb, never inferred from the header: a token accepted on a
+  // route that did not ask for one is how a cookie-only surface quietly
+  // becomes token-accessible.
+  allowBearer: true,
   query: OrderListQuerySchema,
   response: OrderCardSchema.array(),
   rateLimit: { rule: V1_RATE_LIMITS.accountRead },
@@ -116,6 +121,11 @@ export const GET = route({
 export const POST = route({
   route: "/api/v1/orders",
   auth: "required",
+  // The mobile client authenticates with a bearer token. Opt-in per route
+  // and per verb, never inferred from the header: a token accepted on a
+  // route that did not ask for one is how a cookie-only surface quietly
+  // becomes token-accessible.
+  allowBearer: true,
   roles: BUYER_ROLES,
   body: PlaceOrderRequestSchema,
   response: PlacedOrderSchema,

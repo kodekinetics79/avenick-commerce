@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import { AuditAction, db, UserRole, UserStatus } from "@avenick/database";
+import { AuditAction, db, RefreshTokenRevokedReason, UserRole, UserStatus } from "@avenick/database";
 import { checkRateLimit, clientIpFrom, RATE_LIMITS } from "@avenick/auth/rate-limit";
 import { log } from "@avenick/observability";
 import { RegisterConsumerSchema } from "@avenick/types";
@@ -100,6 +100,23 @@ export async function POST(req: NextRequest) {
           // Following the link proves the mailbox; that is what verification
           // asks for, so an unverified address becomes verified here.
           emailVerified: user.emailVerified ?? now,
+          /**
+           * THE POINT OF A PASSWORD RESET.
+           *
+           * Whoever is resetting this password is, most of the time, doing it
+           * because someone else has been in the account. Until this line, the
+           * reset changed the lock and left every key working: browser sessions
+           * are NextAuth JWTs with a thirty-day maxAge and no server-side row,
+           * so a cookie an attacker copied yesterday stayed valid for another
+           * month no matter how many times the owner reset.
+           *
+           * Written INSIDE the same conditional updateMany as the new hash, so
+           * the cutoff and the password it belongs to land together or not at
+           * all. `guarded()` and the /v1 principal resolver compare every
+           * session's issued-at against this column on the read they already
+           * make, so the next request from that stolen cookie is refused.
+           */
+          sessionsValidAfter: now,
         },
       });
       if (updated.count !== 1) return false;
@@ -115,12 +132,28 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Browser sessions are NextAuth JWTs (session.strategy "jwt" in
-      // @avenick/auth config): they carry no server-side row and stay valid
-      // until they expire, which no schema-free change can revoke. The Session
-      // table exists for database-backed sessions; clearing it costs nothing
-      // and is correct the day anything writes to it.
+      // The Session table exists for database-backed sessions; clearing it
+      // costs nothing and is correct the day anything writes to it. Browser
+      // sessions are NextAuth JWTs and are NOT in it — `sessionsValidAfter`
+      // above is what ends those.
       await tx.session.deleteMany({ where: { userId: user.id } });
+
+      /**
+       * The mobile half of the same revocation.
+       *
+       * `sessionsValidAfter` ends every access token the account holds, because
+       * an access token carries the creation instant of the refresh token that
+       * minted it. It does not by itself stop the phone MINTING a new one, and
+       * a refresh token lives for sixty days — so the family has to go too, and
+       * with a reason a support engineer can read back later. Scoped to tokens
+       * that are still live: re-stamping an already-revoked row would overwrite
+       * a REUSE_DETECTED with a routine reason and erase the only record that a
+       * replay ever happened.
+       */
+      await tx.refreshToken.updateMany({
+        where: { userId: user.id, revokedAt: null },
+        data: { revokedAt: now, revokedReason: RefreshTokenRevokedReason.PASSWORD_RESET },
+      });
       return true;
     });
     if (!redeemed) return invalidToken();

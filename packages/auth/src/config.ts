@@ -1,9 +1,10 @@
 import NextAuth, { CredentialsSignin, type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import { db, UserRole, UserStatus } from "@avenick/database";
+import { UserRole } from "@avenick/database";
 import { LoginSchema } from "@avenick/types";
+import { verifyCredentials } from "./credentials";
 import { checkRateLimit, clientIpFrom, RATE_LIMITS } from "./rate-limit";
+import { SESSION_ISSUED_AT_CLAIM } from "./session-revocation";
 
 type AppName = "customer" | "seller" | "admin";
 
@@ -46,26 +47,11 @@ function buildAuthConfig(app: AppName): NextAuthConfig {
           ]);
           if (!byEmail.ok || !byIp.ok) throw new RateLimitedSignin();
 
-          const user = await db.user.findUnique({
-            where: { email: email.toLowerCase() },
-            select: {
-              id: true,
-              email: true,
-              passwordHash: true,
-              firstName: true,
-              lastName: true,
-              role: true,
-              status: true,
-              language: true,
-              avatar: true,
-            },
-          });
-
-          if (!user || !user.passwordHash) return null;
-          if (user.status !== UserStatus.ACTIVE) return null;
-
-          const valid = await bcrypt.compare(password, user.passwordHash);
-          if (!valid) return null;
+          // Shared with POST /api/v1/auth/token. Two sign-in doors that each
+          // implemented their own lookup would drift, and the weaker of the two
+          // would become the way in — see credentials.ts.
+          const user = await verifyCredentials({ email, password });
+          if (!user) return null;
 
           return {
             id: user.id,
@@ -88,6 +74,25 @@ function buildAuthConfig(app: AppName): NextAuthConfig {
         if (user) {
           token["role"] = (user as { role: UserRole }).role;
           token["language"] = (user as { language: string }).language;
+          /**
+           * WHEN THE CREDENTIAL WAS PRESENTED — the half of the revocation
+           * check that lives in the token.
+           *
+           * `User.sessionsValidAfter` can now say "every session older than
+           * this instant is dead", but a cutoff is useless without a date to
+           * compare it to, and this token had none. The JWT's own `iat` is not
+           * it: next-auth re-encodes the session cookie as it is read, so `iat`
+           * slides forward with ordinary use and a stolen cookie would keep
+           * minting itself a fresh one — the exact thing the cutoff is meant to
+           * stop.
+           *
+           * This claim is written ONLY inside `if (user)`, which next-auth
+           * enters just once, at sign-in. Every later invocation carries the
+           * existing token through untouched, so the value stays pinned to the
+           * moment a password was actually checked, for the whole 30-day life
+           * of the session.
+           */
+          token[SESSION_ISSUED_AT_CLAIM] = Math.floor(Date.now() / 1000);
         }
         return token;
       },
@@ -97,6 +102,17 @@ function buildAuthConfig(app: AppName): NextAuthConfig {
           (session.user as unknown as { role: UserRole }).role = token["role"] as UserRole;
           (session.user as unknown as { language: string }).language = token["language"] as string;
         }
+        /**
+         * Surfaced on the session ROOT rather than on `session.user`, for two
+         * reasons: it describes the session and not the person, and
+         * `/api/auth/session` serialises this object verbatim — which is how a
+         * split Vercel/Render deployment reads it back in `remote-session.ts`.
+         * Hidden inside `user` it would still travel, but it would read as a
+         * property of the account, and the next person to widen the user
+         * projection would drop it.
+         */
+        (session as unknown as Record<string, unknown>)[SESSION_ISSUED_AT_CLAIM] =
+          token[SESSION_ISSUED_AT_CLAIM];
         return session;
       },
     },

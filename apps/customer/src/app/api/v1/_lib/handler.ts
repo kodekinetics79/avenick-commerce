@@ -86,6 +86,14 @@ export interface V1RouteSpec<
   auth?: "required" | "optional" | "none";
   /** Allowed roles for a signed-in caller. Omit to allow any active account. */
   roles?: readonly UserRole[];
+  /**
+   * Accept an `Authorization: Bearer` access token as well as the portal
+   * cookie. OFF by default, and never inferred from the header being present:
+   * inferring it would silently widen every route on this surface — and every
+   * route added to it later — the moment the first access token was minted.
+   * The mobile client's routes opt in one by one.
+   */
+  allowBearer?: boolean;
   body?: TBody;
   query?: TQuery;
   params?: TParams;
@@ -164,7 +172,10 @@ export function route<
           : ((rawParams as Record<string, string> | undefined) ?? {});
 
       const mode = spec.auth ?? "required";
-      const principal = mode === "none" ? null : await resolvePrincipal();
+      const principal =
+        mode === "none"
+          ? null
+          : await resolvePrincipal({ headers: req.headers, allowBearer: spec.allowBearer === true });
       if (mode === "required" && !principal) {
         throw new V1Error("unauthenticated", "Sign in to continue.");
       }

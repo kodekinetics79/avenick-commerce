@@ -25,6 +25,11 @@ export const GET = route({
   // whether B2B pricing may be quoted, and a session naming a revoked account
   // must still be refused rather than quietly degraded to a guest.
   auth: "optional",
+  // The mobile client authenticates with a bearer token. Opt-in per route
+  // and per verb, never inferred from the header: a token accepted on a
+  // route that did not ask for one is how a cookie-only surface quietly
+  // becomes token-accessible.
+  allowBearer: true,
   query: ProductListQuerySchema,
   response: ProductCardSchema.array(),
   rateLimit: { rule: V1_RATE_LIMITS.catalogueRead },

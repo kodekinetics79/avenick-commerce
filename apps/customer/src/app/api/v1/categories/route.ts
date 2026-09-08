@@ -22,6 +22,11 @@ import { readCategoryList } from "./category-tree";
 export const GET = route({
   route: "/api/v1/categories",
   auth: "none",
+  // The mobile client authenticates with a bearer token. Opt-in per route
+  // and per verb, never inferred from the header: a token accepted on a
+  // route that did not ask for one is how a cookie-only surface quietly
+  // becomes token-accessible.
+  allowBearer: true,
   response: CategorySchema.array().max(2000),
   rateLimit: { rule: V1_RATE_LIMITS.catalogueRead },
   handle: async (ctx) => ({ data: await readCategoryList(publicOrigin(ctx.req)) }),

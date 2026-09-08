@@ -73,4 +73,55 @@ export const V1_RATE_LIMITS = {
    * throttled client discovers it can keep going on the other surface.
    */
   rfqWrite: { name: "v1-rfq-write", limit: 10, windowMs: 60_000 },
+
+  /**
+   * Refresh-token rotations, per client IP.
+   *
+   * A well-behaved device rotates roughly four times an hour — once per access
+   * token expiry. This cap is aimed at the other caller: someone walking stolen
+   * or guessed refresh tokens through the endpoint to find one that is live.
+   * Keyed on IP rather than on the token, because a per-token limit is useless
+   * against an attacker who has a list of them. Generous enough that a shared
+   * corporate NAT full of phones is never throttled.
+   *
+   * The password GRANT deliberately does not appear here: it shares
+   * `RATE_LIMITS.login` and `RATE_LIMITS.loginIp` with the web sign-in, because
+   * it brute-forces the same passwords against the same accounts, and two
+   * budgets for one credential is how a throttled attacker discovers the other
+   * surface.
+   */
+  authRefresh: { name: "v1-auth-refresh", limit: 120, windowMs: 5 * 60_000 },
+
+  /** Sign-outs, per account. A client that loops here is broken, not hostile. */
+  authRevoke: { name: "v1-auth-revoke", limit: 20, windowMs: 60_000 },
+
+  /**
+   * One-time codes REQUESTED for one phone number.
+   *
+   * The tighter of the two OTP request limits and the one that matters most:
+   * each request is an SMS somebody pays for and a message somebody receives,
+   * so an unthrottled endpoint is both a bill and a way to harass a number.
+   * Five an hour is more than any real sign-in needs — the resend countdown is
+   * sixty seconds — and it is what stops the attempt cap on a single challenge
+   * being bypassed by simply asking for a new challenge per guess.
+   */
+  otpRequestPhone: { name: "v1-otp-request-phone", limit: 5, windowMs: 60 * 60_000 },
+
+  /**
+   * One-time codes requested from one client IP.
+   *
+   * The separate question: one address walking many numbers never trips a
+   * per-phone limit, and that is the shape of both an enumeration sweep and an
+   * SMS-pumping fraud. Both limits are needed, so both are applied.
+   */
+  otpRequestIp: { name: "v1-otp-request-ip", limit: 20, windowMs: 60 * 60_000 },
+
+  /**
+   * Code verifications from one client IP.
+   *
+   * `OTP_MAX_ATTEMPTS` caps guesses against one challenge; this caps guesses
+   * across many, which is what an attacker holding a list of challenge ids
+   * would do.
+   */
+  otpVerifyIp: { name: "v1-otp-verify-ip", limit: 30, windowMs: 15 * 60_000 },
 } satisfies Record<string, RateLimitRule>;

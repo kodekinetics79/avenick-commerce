@@ -28,6 +28,11 @@ const STATE_CONFLICT = /only quoted|changed since|changed concurrently|required/
 export const POST = route({
   route: "/api/v1/rfqs/[id]/decision",
   auth: "required",
+  // The mobile client authenticates with a bearer token. Opt-in per route
+  // and per verb, never inferred from the header: a token accepted on a
+  // route that did not ask for one is how a cookie-only surface quietly
+  // becomes token-accessible.
+  allowBearer: true,
   params: RfqPathParamsSchema,
   body: RfqDecisionRequestSchema,
   response: RfqDetailSchema,

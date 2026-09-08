@@ -29,6 +29,11 @@ const MAX_ADDRESSES = 100;
 export const GET = route({
   route: "/api/v1/addresses",
   auth: "required",
+  // The mobile client authenticates with a bearer token. Opt-in per route
+  // and per verb, never inferred from the header: a token accepted on a
+  // route that did not ask for one is how a cookie-only surface quietly
+  // becomes token-accessible.
+  allowBearer: true,
   // Returned whole, not cursored: an account holds a handful of addresses, and
   // paginating five rows costs a round trip to learn there is no second page.
   response: AddressSchema.array().max(MAX_ADDRESSES),
@@ -63,6 +68,11 @@ export const GET = route({
 export const POST = route({
   route: "/api/v1/addresses",
   auth: "required",
+  // The mobile client authenticates with a bearer token. Opt-in per route
+  // and per verb, never inferred from the header: a token accepted on a
+  // route that did not ask for one is how a cookie-only surface quietly
+  // becomes token-accessible.
+  allowBearer: true,
   body: CreateAddressRequestSchema,
   response: AddressSchema,
   rateLimit: { rule: V1_RATE_LIMITS.addressWrite },

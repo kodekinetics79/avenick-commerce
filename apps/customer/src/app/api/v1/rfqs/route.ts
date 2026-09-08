@@ -23,6 +23,11 @@ import { createRfqForBuyer } from "./rfq-service";
 export const GET = route({
   route: "/api/v1/rfqs",
   auth: "required",
+  // The mobile client authenticates with a bearer token. Opt-in per route
+  // and per verb, never inferred from the header: a token accepted on a
+  // route that did not ask for one is how a cookie-only surface quietly
+  // becomes token-accessible.
+  allowBearer: true,
   /**
    * Returned whole, not cursored. `getRFQsForBuyer` reads a fixed `take: 50`
    * with no cursor support, so promising a page this endpoint cannot produce
@@ -46,6 +51,11 @@ export const GET = route({
 export const POST = route({
   route: "/api/v1/rfqs",
   auth: "required",
+  // The mobile client authenticates with a bearer token. Opt-in per route
+  // and per verb, never inferred from the header: a token accepted on a
+  // route that did not ask for one is how a cookie-only surface quietly
+  // becomes token-accessible.
+  allowBearer: true,
   body: CreateRfqRequestSchema,
   response: RfqDetailSchema,
   rateLimit: { rule: V1_RATE_LIMITS.rfqWrite },

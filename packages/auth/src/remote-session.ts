@@ -1,6 +1,7 @@
 import type { Session } from "next-auth";
 import { getToken } from "next-auth/jwt";
 import type { UserRole } from "@avenick/database";
+import { SESSION_ISSUED_AT_CLAIM } from "./session-revocation";
 
 /**
  * The roles a portal session may carry, as plain strings.
@@ -16,7 +17,7 @@ import type { UserRole } from "@avenick/database";
  * forget it here, and this file stops compiling instead of silently rejecting
  * sessions that carry the new role.
  */
-const USER_ROLES = [
+export const USER_ROLES = [
   "CONSUMER",
   "COMPANY_ADMIN",
   "COMPANY_BUYER",
@@ -31,7 +32,7 @@ type _EveryRoleIsListed = Exclude<UserRole, (typeof USER_ROLES)[number]> extends
 const _everyRoleIsListed: _EveryRoleIsListed = true;
 void _everyRoleIsListed;
 
-function isUserRole(value: unknown): value is UserRole {
+export function isUserRole(value: unknown): value is UserRole {
   return typeof value === "string" && (USER_ROLES as readonly string[]).includes(value);
 }
 
@@ -131,7 +132,13 @@ export async function resolveRemotePortalSession(
             language: typeof token["language"] === "string" ? token["language"] : "en",
           } as Session["user"],
           expires: new Date(token.exp * 1_000).toISOString(),
-        };
+          // Carried through, not re-derived. `isSessionRevoked` refuses a
+          // session it cannot date whenever the account has a cutoff, so
+          // dropping this claim here would sign every split-deployment user out
+          // the moment anybody reset a password. The remote branch below gets
+          // it for free: /api/auth/session serialises the session root.
+          [SESSION_ISSUED_AT_CLAIM]: token[SESSION_ISSUED_AT_CLAIM],
+        } as Session;
       }
     } catch {
       // Continue to the deployment-owned verification endpoint.
