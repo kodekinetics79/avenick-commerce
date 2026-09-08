@@ -49,6 +49,19 @@ export const CartLineSchema = z
      */
     priceTiered: z.boolean(),
     availability: AvailabilitySchema,
+    /**
+     * Can this line be ORDERED in `channel`? See `ProductCard.sellableInChannel`
+     * for the full argument; the short version is that `channel` says which
+     * price list the figures came from and this says whether checkout will
+     * accept the line at all. The pilot catalogue is priced in B2C and sellable
+     * to nobody, so the two disagree for every production row.
+     *
+     * A cart is where the difference bites hardest: a line that cannot be
+     * ordered must not sit under a Checkout button, and the app should not have
+     * to place the order to find out. `secureCreateOrder` refuses it, so the
+     * only question is whether the buyer learns before or after they try.
+     */
+    sellableInChannel: z.boolean(),
     /** qty x unitPrice, net of VAT. Convenience only — the quote is authoritative. */
     lineTotal: MoneySchema,
   })

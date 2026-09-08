@@ -30,7 +30,11 @@
     },
     {
       "name": "orders",
-      "description": "Placed orders."
+      "description": "Placing and reading orders."
+    },
+    {
+      "name": "rfqs",
+      "description": "Requests for quote — the buying journey for a quote-only catalogue."
     },
     {
       "name": "me",
@@ -87,9 +91,7 @@
           }
         },
         "required": [
-          "url",
-          "width",
-          "height"
+          "url"
         ],
         "additionalProperties": false
       },
@@ -420,6 +422,9 @@
               "UNCONFIRMED"
             ]
           },
+          "sellableInChannel": {
+            "type": "boolean"
+          },
           "lineTotal": {
             "type": "number",
             "minimum": 0,
@@ -444,6 +449,7 @@
           "vatRatePercent",
           "priceTiered",
           "availability",
+          "sellableInChannel",
           "lineTotal"
         ],
         "additionalProperties": false
@@ -1223,6 +1229,9 @@
               "null"
             ],
             "maxLength": 120
+          },
+          "sellableInChannel": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1236,7 +1245,8 @@
           "availability",
           "priceTiered",
           "rating",
-          "brandName"
+          "brandName",
+          "sellableInChannel"
         ],
         "additionalProperties": false
       },
@@ -1426,6 +1436,9 @@
                 ]
               }
             ]
+          },
+          "sellableInChannel": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -1449,7 +1462,8 @@
           "brand",
           "category",
           "seller",
-          "rating"
+          "rating",
+          "sellableInChannel"
         ],
         "additionalProperties": false
       },
@@ -2090,6 +2104,325 @@
           "notes",
           "vatInvoiceUrl",
           "placedAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "PlacedOrder": {
+        "type": "object",
+        "properties": {
+          "order": {
+            "$ref": "#/components/schemas/OrderDetail"
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "order",
+          "replayed"
+        ],
+        "additionalProperties": false
+      },
+      "RfqSeller": {
+        "type": "object",
+        "properties": {
+          "businessNameEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "STANDARD",
+              "VERIFIED",
+              "GOLD",
+              "PLATINUM"
+            ]
+          }
+        },
+        "required": [
+          "businessNameEn",
+          "tier"
+        ],
+        "additionalProperties": false
+      },
+      "RfqItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "productId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "nameEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "quantity": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "unitQuoted": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "id",
+          "productId",
+          "nameEn",
+          "quantity",
+          "unitQuoted",
+          "notes"
+        ],
+        "additionalProperties": false
+      },
+      "RfqCard": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "rfqNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SUBMITTED",
+              "UNDER_REVIEW",
+              "QUOTED",
+              "NEGOTIATING",
+              "ACCEPTED",
+              "REJECTED",
+              "EXPIRED",
+              "CANCELLED"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "AED",
+              "SAR",
+              "QAR",
+              "KWD",
+              "OMR",
+              "BHD",
+              "USD"
+            ]
+          },
+          "itemCount": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "totalQuoted": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "quoteVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "seller": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RfqSeller"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "requiredBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "messageCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "rfqNumber",
+          "status",
+          "currency",
+          "itemCount",
+          "totalQuoted",
+          "quoteVersion",
+          "seller",
+          "requiredBy",
+          "createdAt",
+          "messageCount"
+        ],
+        "additionalProperties": false
+      },
+      "RfqDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "rfqNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SUBMITTED",
+              "UNDER_REVIEW",
+              "QUOTED",
+              "NEGOTIATING",
+              "ACCEPTED",
+              "REJECTED",
+              "EXPIRED",
+              "CANCELLED"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "AED",
+              "SAR",
+              "QAR",
+              "KWD",
+              "OMR",
+              "BHD",
+              "USD"
+            ]
+          },
+          "itemCount": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "totalQuoted": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "quoteVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "seller": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RfqSeller"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "requiredBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "messageCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RfqItem"
+            },
+            "minItems": 1,
+            "maxItems": 50
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "rfqNumber",
+          "status",
+          "currency",
+          "itemCount",
+          "totalQuoted",
+          "quoteVersion",
+          "seller",
+          "requiredBy",
+          "createdAt",
+          "messageCount",
+          "items",
+          "notes",
+          "expiresAt",
           "updatedAt"
         ],
         "additionalProperties": false
@@ -4360,6 +4693,217 @@
             }
           }
         }
+      },
+      "post": {
+        "tags": [
+          "orders"
+        ],
+        "summary": "Place an order",
+        "description": "Prices, discounts, VAT and freight are resolved server-side; the request carries identity and quantity only. Send an Idempotency-Key header: a retry of the same submission returns the original order with replayed=true instead of creating a second one. B2C only — a B2B order must go through the governed purchase-order workflow, which has no endpoint on this surface. Card and wallet methods are refused with 503 until a payment-session flow exists; BANK_TRANSFER is the method that completes.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "description": "Lines, destination, currency and payment method.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "productId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "variantId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 100000
+                        }
+                      },
+                      "required": [
+                        "productId",
+                        "quantity"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1,
+                    "maxItems": 500
+                  },
+                  "shippingAddress": {
+                    "$ref": "#/components/schemas/ShippingAddress"
+                  },
+                  "paymentMethod": {
+                    "type": "string",
+                    "enum": [
+                      "MADA",
+                      "APPLE_PAY",
+                      "CREDIT_CARD",
+                      "BANK_TRANSFER",
+                      "STC_PAY",
+                      "MOCK"
+                    ]
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": [
+                      "AED",
+                      "SAR",
+                      "QAR",
+                      "KWD",
+                      "OMR",
+                      "BHD",
+                      "USD"
+                    ]
+                  },
+                  "couponCode": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 40,
+                    "pattern": "^[A-Za-z0-9_-]+$"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "items",
+                  "shippingAddress",
+                  "paymentMethod",
+                  "currency"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The placed order, and whether this response replayed an existing one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlacedOrder"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request contradicts current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A dependency this platform does not control failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/orders/{id}": {
@@ -4428,6 +4972,451 @@
           },
           "404": {
             "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rfqs": {
+      "get": {
+        "tags": [
+          "rfqs"
+        ],
+        "summary": "The buyer's requests for quote",
+        "description": "The caller's own RFQs, plus their company's when they hold an active membership. Returned whole and capped at 50: the buyer service reads a fixed page with no cursor.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The buyer's RFQs, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RfqCard"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "rfqs"
+        ],
+        "summary": "Ask for a quote",
+        "description": "The action a quote-only product offers instead of Add to Cart. A line naming a catalogue product takes its name from the catalogue; a free-text line must carry its own. One RFQ is answered by at most one supplier — see the RfqDetail description.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "The lines, the currency to be quoted in, and when they are needed.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "productId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "nameEn": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 300
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 1000000
+                        },
+                        "notes": {
+                          "type": "string",
+                          "maxLength": 500
+                        }
+                      },
+                      "required": [
+                        "quantity"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1,
+                    "maxItems": 50
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": [
+                      "AED",
+                      "SAR",
+                      "QAR",
+                      "KWD",
+                      "OMR",
+                      "BHD",
+                      "USD"
+                    ]
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "requiredBy": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "items",
+                  "currency"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The submitted request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RfqDetail"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rfqs/{id}": {
+      "get": {
+        "tags": [
+          "rfqs"
+        ],
+        "summary": "One request, with its quoted lines",
+        "description": "RFQRequest.sellerId is a single nullable supplier and submitQuote is its only writer, so a request carries at most ONE supplier's prices. There is no multi-supplier comparison to return, and this surface does not pretend otherwise.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request and its lines.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RfqDetail"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rfqs/{id}/decision": {
+      "post": {
+        "tags": [
+          "rfqs"
+        ],
+        "summary": "Accept or reject a quote",
+        "description": "expectedQuoteVersion is compared against the stored version under the RFQ's advisory lock, so a decision made against a quote the supplier has since revised is refused rather than binding the buyer to a price they never saw.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "The decision and the quote version it was made against.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "ACCEPTED",
+                      "REJECTED"
+                    ]
+                  },
+                  "expectedQuoteVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "decision",
+                  "expectedQuoteVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The request after the decision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RfqDetail"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request contradicts current state.",
             "content": {
               "application/json": {
                 "schema": {

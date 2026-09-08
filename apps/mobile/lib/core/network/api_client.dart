@@ -155,11 +155,20 @@ class ApiClient {
         cancelToken: cancelToken,
       );
 
+  /// [headers] are per-request additions to what the interceptors already set.
+  ///
+  /// It exists for `Idempotency-Key` on `POST /v1/orders`, which is the one
+  /// header on this surface that is part of the REQUEST'S MEANING rather than
+  /// of the transport: it is what makes a retry of a placement return the
+  /// original order instead of writing a second one. A header like that cannot
+  /// live in an interceptor, because the interceptor does not know which
+  /// submission this is a retry of.
   Future<T> post<T>(
     String path, {
     required JsonDecoderFn<T> decoder,
     Object? body,
     Map<String, Object?>? query,
+    Map<String, String>? headers,
     bool skipAuth = false,
     CancelToken? cancelToken,
   }) =>
@@ -169,6 +178,7 @@ class ApiClient {
         decoder: decoder,
         body: body,
         query: query,
+        headers: headers,
         skipAuth: skipAuth,
         cancelToken: cancelToken,
       );
@@ -298,6 +308,7 @@ class ApiClient {
     required JsonDecoderFn<T> decoder,
     Object? body,
     Map<String, Object?>? query,
+    Map<String, String>? headers,
     bool skipAuth = false,
     CancelToken? cancelToken,
   }) async {
@@ -306,6 +317,7 @@ class ApiClient {
       path,
       body: body,
       query: query,
+      headers: headers,
       skipAuth: skipAuth,
       cancelToken: cancelToken,
     );
@@ -331,6 +343,7 @@ class ApiClient {
     String path, {
     Object? body,
     Map<String, Object?>? query,
+    Map<String, String>? headers,
     bool skipAuth = false,
     CancelToken? cancelToken,
   }) async {
@@ -343,6 +356,9 @@ class ApiClient {
         cancelToken: cancelToken,
         options: Options(
           method: method,
+          headers: headers == null || headers.isEmpty
+              ? null
+              : <String, dynamic>{...headers},
           extra: <String, dynamic>{
             if (skipAuth) AuthInterceptor.skipAuthExtraKey: true,
           },

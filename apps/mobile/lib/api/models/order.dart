@@ -162,3 +162,40 @@ abstract class OrderDetail with _$OrderDetail {
   List<OrderStatusEvent> get timeline =>
       [...statusHistory]..sort((a, b) => a.occurredAt.compareTo(b.occurredAt));
 }
+
+/// What `POST /v1/orders` answers with: the order, and whether this response
+/// created it or replayed one that already existed.
+///
+/// [replayed] IS NOT COSMETIC. Placing an order is the one call in this app
+/// that must not happen twice, and a timeout is not a rollback — the request
+/// may well have been applied. The client's defence is an `Idempotency-Key`
+/// header, and the server's answer to a repeat of the same submission is the
+/// ORIGINAL order with `replayed: true` rather than a second one.
+///
+/// So the flag is how the app tells "I placed your order" from "your order was
+/// already placed". Both are successes and neither is an error, but a
+/// confirmation screen that celebrates a replay as a fresh purchase is how a
+/// buyer who tapped twice believes they have bought two. Show the order;
+/// suppress the "thank you" fanfare and any second confirmation email trigger
+/// when [replayed] is true.
+@freezed
+abstract class PlacedOrder with _$PlacedOrder {
+  const PlacedOrder._();
+
+  const factory PlacedOrder({
+    required OrderDetail order,
+
+    /// True when this response replayed an order an earlier request had
+    /// already created, under the same `Idempotency-Key`.
+    required bool replayed,
+  }) = _PlacedOrder;
+
+  factory PlacedOrder.fromJson(Map<String, dynamic> json) =>
+      _$PlacedOrderFromJson(json);
+
+  /// This request is what created the order.
+  bool get isNew => !replayed;
+
+  String get id => order.id;
+  String get orderNumber => order.orderNumber;
+}

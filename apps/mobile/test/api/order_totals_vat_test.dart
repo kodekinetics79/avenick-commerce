@@ -158,4 +158,44 @@ void main() {
       expect(order.money.vatAmount.format(), '2.11 AED');
     });
   });
+
+  group('the invariant survives the new placement path', () {
+    test('a PLACED order with a split that does not add up is refused', () {
+      // `POST /v1/orders` is a new route onto the same totals. The check has
+      // to hold there too, and at PARSE time: a placed order whose recorded
+      // VAT split contradicts the VAT it charged must never reach a
+      // confirmation screen, because every figure on that screen would agree
+      // with every other and all of them would be wrong together.
+      final Map<String, dynamic> tamperedTotals = f.persistedOrderTotals()
+        ..['goodsVatAmount'] = 0.50;
+      expect(
+        () => PlacedOrder.fromJson(<String, dynamic>{
+          'order': f.orderDetail(totals: tamperedTotals),
+          'replayed': false,
+        }),
+        throwsA(isA<ContractViolation>()),
+      );
+    });
+
+    test('a REPLAYED order gets exactly the same scrutiny', () {
+      // A replay is still a payload off the wire. "We have seen this order
+      // before" is not a reason to stop checking its arithmetic.
+      final Map<String, dynamic> tamperedTotals = f.persistedOrderTotals()
+        ..['total'] = 99.99;
+      expect(
+        () => PlacedOrder.fromJson(<String, dynamic>{
+          'order': f.orderDetail(totals: tamperedTotals),
+          'replayed': true,
+        }),
+        throwsA(isA<ContractViolation>()),
+      );
+    });
+
+    test('a well-formed placed order passes through untouched', () {
+      final PlacedOrder placed = PlacedOrder.fromJson(f.placedOrder());
+      expect(placed.order.money.vatAmount.format(), '2.11 AED');
+      expect(placed.order.totals.vatComponentsAgree, isTrue);
+      expect(placed.order.totals.totalAgrees, isTrue);
+    });
+  });
 }

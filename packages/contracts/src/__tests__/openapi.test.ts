@@ -94,7 +94,54 @@ describe("the OpenAPI document", () => {
   it("describes every image as a descriptor, never as a bare string", () => {
     const image = (document.components?.schemas as any).Image;
     expect(Object.keys(image.properties).sort()).toEqual(["alt", "blurhash", "height", "url", "width"]);
-    expect(image.required).toEqual(expect.arrayContaining(["url", "width", "height"]));
+    // `url` is the only required field. `width`/`height` are OPTIONAL, and
+    // deliberately so: `ProductImage` has no such columns, so requiring them
+    // left the server a choice between inventing a size and reporting no image
+    // — and it correctly reported none, which shipped a catalogue with no
+    // pictures. They go back to required when the columns exist. See the note
+    // on ImageSchema in primitives.ts.
+    expect(image.required).toEqual(["url"]);
+    expect(image.properties.width.type).toBe("integer");
+    expect(image.properties.height.type).toBe("integer");
+  });
+
+  it("still shares ONE Image component rather than inlining it per schema", () => {
+    // The reason width/height are not a cross-field refinement: a ZodEffects
+    // here would stop the composites resolving `Image` by $ref, and a Dart
+    // generator fed eleven inline copies emits eleven near-identical models.
+    const refs = [...JSON.stringify(document).matchAll(/#\/components\/schemas\/Image/g)];
+    expect(refs.length).toBeGreaterThan(4);
+    expect((document.components?.schemas as any).Image.type).toBe("object");
+  });
+
+  it("states sellability explicitly, as a REQUIRED boolean, wherever a product is described", () => {
+    // `channel` says which price list the figures came from; this says whether
+    // checkout will accept the line. The pilot catalogue is priced in B2C and
+    // sellable to nobody, so reading one as the other is true for every
+    // production row and correct for none.
+    for (const schemaName of ["ProductCard", "ProductDetail", "CartLine"]) {
+      const schema = (document.components?.schemas as any)[schemaName];
+      expect(Object.keys(schema.properties), `${schemaName} omits sellableInChannel`)
+        .toContain("sellableInChannel");
+      expect(schema.properties.sellableInChannel.type).toBe("boolean");
+      // Required, not optional: an absent flag is the ambiguity that forced the
+      // client to model a third "unstated" state and branch defensively.
+      expect(schema.required, `${schemaName}.sellableInChannel must be required`)
+        .toContain("sellableInChannel");
+    }
+  });
+
+  it("keeps sellability and the priced channel as SEPARATE fields", () => {
+    const detail = (document.components?.schemas as any).ProductDetail;
+    const cartLine = (document.components?.schemas as any).CartLine;
+    for (const schema of [detail, cartLine]) {
+      expect(Object.keys(schema.properties)).toContain("channel");
+      expect(Object.keys(schema.properties)).toContain("sellableInChannel");
+    }
+    // A card carries no `channel` at all — it is built for one and says only
+    // whether it can be bought in it.
+    const card = (document.components?.schemas as any).ProductCard;
+    expect(Object.keys(card.properties)).not.toContain("channel");
   });
 
   it("leaves the public catalogue and the sign-in endpoints unauthenticated, and guards the rest", () => {

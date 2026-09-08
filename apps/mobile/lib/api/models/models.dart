@@ -1,6 +1,6 @@
 /// Every wire model on the `/v1` surface, in one import.
 ///
-/// Hand-written from `packages/contracts/openapi.json` — all 40 named schemas
+/// Hand-written from `packages/contracts/openapi.json` — all 45 named schemas
 /// plus the two inline objects on `ProductDetail` and the request bodies. The
 /// spec is generated from zod; these are generated from nobody, deliberately.
 /// `openapi-generator` is not installed in this repo, and a reviewed set of
@@ -23,3 +23,4 @@ export 'money.dart';
 export 'order.dart';
 export 'order_totals.dart';
 export 'requests.dart';
+export 'rfq.dart';

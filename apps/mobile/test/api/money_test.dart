@@ -214,6 +214,7 @@ void main() {
         'vatRatePercent': 0,
         'priceTiered': false,
         'availability': 'IN_STOCK',
+        'sellableInChannel': true,
         'lineTotal': 3.75,
       });
       expect(line.unitPriceMoney.format(), '1.250 KWD');

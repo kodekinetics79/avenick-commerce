@@ -153,12 +153,33 @@ abstract class ProductCard with _$ProductCard {
     /// Null when nothing is priced in the requested channel and currency —
     /// which is a real catalogue state, not an error. The card renders
     /// "price on request", it does not render zero.
+    ///
+    /// A PRESENT PRICE IS NOT PERMISSION TO SELL. See [sellableInChannel].
     required CardPrice? price,
     required int moq,
     required Availability availability,
     required bool priceTiered,
     required RatingSummary? rating,
     required String? brandName,
+
+    /// WHETHER THIS PRODUCT CAN BE ORDERED IN THE CHANNEL THIS CARD WAS BUILT
+    /// FOR. Add to cart when true; Request a quote when false.
+    ///
+    /// This is the platform's own gate, answered channel-parameterised:
+    /// `Product.isB2CEnabled` / `isB2BEnabled`, the flag `services/orders.ts`,
+    /// `services/secure-checkout.ts` and the v1 quote's `quote-lines.ts` each
+    /// check before refusing a line.
+    ///
+    /// It is a SEPARATE fact from [price], and the difference is the whole
+    /// reason the field exists. The pilot catalogue is priced in B2C and
+    /// carries `isB2CEnabled: false` on every row the importer writes, so
+    /// "has a resolved price" and "can be bought" disagree for all 1,172 rows
+    /// in production. Inferring sellability from the price renders Add to cart
+    /// on every one of them, and `secureCreateOrder` then refuses the order
+    /// server-side — after the buyer has committed. Read this flag; do not
+    /// derive it, and do not read [Channel] for it either, which answers only
+    /// which channel the price was resolved IN.
+    required bool sellableInChannel,
   }) = _ProductCard;
 
   factory ProductCard.fromJson(Map<String, dynamic> json) =>
@@ -228,6 +249,11 @@ abstract class ProductDetail with _$ProductDetail {
     required ProductCategoryRef category,
     required SellerSummary seller,
     required RatingSummary? rating,
+
+    /// Whether this product can be ORDERED in [channel], as opposed to merely
+    /// priced in it. See [ProductCard.sellableInChannel] — the same flag, the
+    /// same trap, and the one the primary action on this page is driven from.
+    required bool sellableInChannel,
   }) = _ProductDetail;
 
   factory ProductDetail.fromJson(Map<String, dynamic> json) =>

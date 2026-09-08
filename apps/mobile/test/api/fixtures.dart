@@ -29,6 +29,17 @@ Map<String, dynamic> imageMinimal() => <String, dynamic>{
       'height': 600,
     };
 
+/// THE PAYLOAD EVERY LIVE ROW ACTUALLY SENDS: a URL and nothing else.
+///
+/// `ProductImage` has columns for `url`, `altEn`, `altAr`, `isPrimary` and
+/// `sortOrder` and none for the dimensions, so this — not [image] — is what
+/// the pilot catalogue and every brand logo produce. Under the previous
+/// contract, where `width` and `height` were required, this payload failed to
+/// parse and took the whole catalogue with it.
+Map<String, dynamic> imageNoDimensions() => <String, dynamic>{
+      'url': 'https://cdn.avenick.com/p/valve-03.jpg',
+    };
+
 Map<String, dynamic> pageMeta({
   String? cursor = 'Y3VyOjQy',
   bool hasMore = true,
@@ -100,6 +111,7 @@ Map<String, dynamic> cartLine({
   num unitPrice = 12.34,
   num lineTotal = 24.68,
   int qty = 2,
+  bool sellableInChannel = true,
 }) =>
     <String, dynamic>{
       'id': id,
@@ -119,6 +131,7 @@ Map<String, dynamic> cartLine({
       'vatRatePercent': 5,
       'priceTiered': false,
       'availability': 'IN_STOCK',
+      'sellableInChannel': sellableInChannel,
       'lineTotal': lineTotal,
     };
 
@@ -316,6 +329,22 @@ Map<String, dynamic> productCard() => <String, dynamic>{
       'priceTiered': true,
       'rating': ratingSummary(),
       'brandName': 'Gulf Valve',
+      'sellableInChannel': true,
+    };
+
+/// THE PILOT-CATALOGUE ROW. Priced in B2C and NOT sellable in it.
+///
+/// `pilot-catalog.ts` writes `isB2CEnabled: false` on every product it imports
+/// and prices them anyway, so this shape — a resolved `CardPrice` beside
+/// `sellableInChannel: false` — is what all 1,172 production rows look like.
+/// It is the payload that renders Add to cart on a client that reads
+/// sellability off the price.
+Map<String, dynamic> productCardPricedNotSellable() => <String, dynamic>{
+      ...productCard(),
+      'id': 'prd_pilot',
+      'slug': 'pilot-cast-iron-y-strainer',
+      'nameEn': 'Cast iron Y-strainer DN100',
+      'sellableInChannel': false,
     };
 
 /// The same card with every nullable property null — an unpriced product with
@@ -332,6 +361,7 @@ Map<String, dynamic> productCardBare() => <String, dynamic>{
       'priceTiered': false,
       'rating': null,
       'brandName': null,
+      'sellableInChannel': false,
     };
 
 Map<String, dynamic> productDetail() => <String, dynamic>{
@@ -342,7 +372,7 @@ Map<String, dynamic> productDetail() => <String, dynamic>{
       'nameAr': 'محبس نحاسي ٢ بوصة',
       'descriptionEn': 'Rising-stem gate valve, PN16.',
       'descriptionAr': null,
-      'images': <dynamic>[image(), imageMinimal()],
+      'images': <dynamic>[image(), imageMinimal(), imageNoDimensions()],
       'prices': <dynamic>[priceBand(), priceBand(minQty: 10, maxQty: null)],
       'variants': <dynamic>[productVariant()],
       'moq': 1,
@@ -365,6 +395,15 @@ Map<String, dynamic> productDetail() => <String, dynamic>{
       },
       'seller': sellerSummary(),
       'rating': ratingSummary(),
+      'sellableInChannel': true,
+    };
+
+/// The same product page as the pilot catalogue sends it: a full B2C price
+/// ladder, and the flag that says it cannot be bought. See
+/// [productCardPricedNotSellable].
+Map<String, dynamic> productDetailPricedNotSellable() => <String, dynamic>{
+      ...productDetail(),
+      'sellableInChannel': false,
     };
 
 Map<String, dynamic> category() => <String, dynamic>{
@@ -383,7 +422,7 @@ Map<String, dynamic> brand() => <String, dynamic>{
       'slug': 'gulf-valve',
       'nameEn': 'Gulf Valve',
       'nameAr': null,
-      'logo': imageMinimal(),
+      'logo': imageNoDimensions(),
       'productCount': 42,
     };
 
@@ -539,3 +578,86 @@ Map<String, dynamic> device() => <String, dynamic>{
 
 Map<String, dynamic> deviceDeleted() =>
     <String, dynamic>{'deviceId': 'a1b2c3d4e5f6', 'deleted': true};
+
+/// `PlacedOrder` — the answer to `POST /v1/orders`.
+Map<String, dynamic> placedOrder({bool replayed = false}) => <String, dynamic>{
+      'order': orderDetail(),
+      'replayed': replayed,
+    };
+
+Map<String, dynamic> rfqSeller() => <String, dynamic>{
+      'businessNameEn': 'Gulf Valve Trading',
+      'tier': 'VERIFIED',
+    };
+
+/// A catalogue line the supplier has priced.
+Map<String, dynamic> rfqItem({num? unitQuoted = 11.50}) => <String, dynamic>{
+      'id': 'rfi_1',
+      'productId': 'prd_1',
+      'nameEn': 'Brass gate valve 2"',
+      'quantity': 250,
+      'unitQuoted': unitQuoted,
+      'notes': 'PN16, rising stem.',
+    };
+
+/// A FREE-TEXT line: no `productId`, so the name is the whole description.
+/// The ordinary case for an RFQ, not an edge case.
+Map<String, dynamic> rfqItemFreeText() => <String, dynamic>{
+      'id': 'rfi_2',
+      'productId': null,
+      'nameEn': 'DN200 butterfly valve, lugged, EPDM seat',
+      'quantity': 40,
+      'unitQuoted': null,
+      'notes': null,
+    };
+
+Map<String, dynamic> rfqCard({
+  String status = 'QUOTED',
+  num? totalQuoted = 2875.00,
+  int quoteVersion = 2,
+  bool withSeller = true,
+}) =>
+    <String, dynamic>{
+      'id': 'rfq_1',
+      'rfqNumber': 'RFQ-2026-000042',
+      'status': status,
+      'currency': 'AED',
+      'itemCount': 2,
+      'totalQuoted': totalQuoted,
+      'quoteVersion': quoteVersion,
+      'seller': withSeller ? rfqSeller() : null,
+      'requiredBy': '2026-10-01T00:00:00.000Z',
+      'createdAt': '2026-09-01T06:00:00.000Z',
+      'messageCount': 3,
+    };
+
+/// A request nobody has picked up yet: no supplier, no quote, version zero.
+/// Null `totalQuoted` means "not yet quoted", never "nothing to pay".
+Map<String, dynamic> rfqCardUnquoted() => rfqCard(
+      status: 'SUBMITTED',
+      totalQuoted: null,
+      quoteVersion: 0,
+      withSeller: false,
+    );
+
+/// `RfqDetail`. NOTE WHAT IS NOT HERE: a `quotes` array. `RFQRequest.sellerId`
+/// is a single nullable supplier, so a request carries at most ONE supplier's
+/// prices — the schema is `additionalProperties: false` and the contracts
+/// package asserts a payload carrying `quotes` is refused.
+Map<String, dynamic> rfqDetail({
+  String status = 'QUOTED',
+  num? totalQuoted = 2875.00,
+  int quoteVersion = 2,
+  String? expiresAt = '2026-09-15T00:00:00.000Z',
+}) =>
+    <String, dynamic>{
+      ...rfqCard(
+        status: status,
+        totalQuoted: totalQuoted,
+        quoteVersion: quoteVersion,
+      ),
+      'items': <dynamic>[rfqItem(), rfqItemFreeText()],
+      'notes': 'Site delivery, Jebel Ali.',
+      'expiresAt': expiresAt,
+      'updatedAt': '2026-09-06T09:00:00.000Z',
+    };

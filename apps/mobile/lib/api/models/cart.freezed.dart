@@ -39,6 +39,16 @@ mixin _$CartLine {
   /// if the quantity does.
   bool get priceTiered;
   Availability get availability;
+
+  /// Whether this line can be ORDERED in [channel] — the platform's
+  /// `isB2CEnabled`/`isB2BEnabled` gate, answered for the channel this line
+  /// was priced in. See `ProductCard.sellableInChannel` in `catalogue.dart`.
+  ///
+  /// A line with `false` here is priced, in stock, above its MOQ and still
+  /// impossible to buy: `secureCreateOrder` refuses the order. It must be
+  /// shown as quote-only in the basket and must not be carried into a
+  /// checkout — which is what [Cart.blockingLines] now enforces.
+  bool get sellableInChannel;
   @DecimalConverter()
   Decimal get lineTotal;
 
@@ -82,36 +92,40 @@ mixin _$CartLine {
                 other.priceTiered == priceTiered) &&
             (identical(other.availability, availability) ||
                 other.availability == availability) &&
+            (identical(other.sellableInChannel, sellableInChannel) ||
+                other.sellableInChannel == sellableInChannel) &&
             (identical(other.lineTotal, lineTotal) ||
                 other.lineTotal == lineTotal));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      id,
-      productId,
-      variantId,
-      sellerId,
-      slug,
-      sku,
-      nameEn,
-      nameAr,
-      image,
-      channel,
-      qty,
-      moq,
-      unitPrice,
-      currency,
-      vatRatePercent,
-      priceTiered,
-      availability,
-      lineTotal);
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        id,
+        productId,
+        variantId,
+        sellerId,
+        slug,
+        sku,
+        nameEn,
+        nameAr,
+        image,
+        channel,
+        qty,
+        moq,
+        unitPrice,
+        currency,
+        vatRatePercent,
+        priceTiered,
+        availability,
+        sellableInChannel,
+        lineTotal
+      ]);
 
   @override
   String toString() {
-    return 'CartLine(id: $id, productId: $productId, variantId: $variantId, sellerId: $sellerId, slug: $slug, sku: $sku, nameEn: $nameEn, nameAr: $nameAr, image: $image, channel: $channel, qty: $qty, moq: $moq, unitPrice: $unitPrice, currency: $currency, vatRatePercent: $vatRatePercent, priceTiered: $priceTiered, availability: $availability, lineTotal: $lineTotal)';
+    return 'CartLine(id: $id, productId: $productId, variantId: $variantId, sellerId: $sellerId, slug: $slug, sku: $sku, nameEn: $nameEn, nameAr: $nameAr, image: $image, channel: $channel, qty: $qty, moq: $moq, unitPrice: $unitPrice, currency: $currency, vatRatePercent: $vatRatePercent, priceTiered: $priceTiered, availability: $availability, sellableInChannel: $sellableInChannel, lineTotal: $lineTotal)';
   }
 }
 
@@ -138,6 +152,7 @@ abstract mixin class $CartLineCopyWith<$Res> {
       @DecimalConverter() Decimal vatRatePercent,
       bool priceTiered,
       Availability availability,
+      bool sellableInChannel,
       @DecimalConverter() Decimal lineTotal});
 
   $ImageRefCopyWith<$Res>? get image;
@@ -172,6 +187,7 @@ class _$CartLineCopyWithImpl<$Res> implements $CartLineCopyWith<$Res> {
     Object? vatRatePercent = null,
     Object? priceTiered = null,
     Object? availability = null,
+    Object? sellableInChannel = null,
     Object? lineTotal = null,
   }) {
     return _then(_self.copyWith(
@@ -243,6 +259,10 @@ class _$CartLineCopyWithImpl<$Res> implements $CartLineCopyWith<$Res> {
           ? _self.availability
           : availability // ignore: cast_nullable_to_non_nullable
               as Availability,
+      sellableInChannel: null == sellableInChannel
+          ? _self.sellableInChannel
+          : sellableInChannel // ignore: cast_nullable_to_non_nullable
+              as bool,
       lineTotal: null == lineTotal
           ? _self.lineTotal
           : lineTotal // ignore: cast_nullable_to_non_nullable
@@ -376,6 +396,7 @@ extension CartLinePatterns on CartLine {
             @DecimalConverter() Decimal vatRatePercent,
             bool priceTiered,
             Availability availability,
+            bool sellableInChannel,
             @DecimalConverter() Decimal lineTotal)?
         $default, {
     required TResult orElse(),
@@ -401,6 +422,7 @@ extension CartLinePatterns on CartLine {
             _that.vatRatePercent,
             _that.priceTiered,
             _that.availability,
+            _that.sellableInChannel,
             _that.lineTotal);
       case _:
         return orElse();
@@ -440,6 +462,7 @@ extension CartLinePatterns on CartLine {
             @DecimalConverter() Decimal vatRatePercent,
             bool priceTiered,
             Availability availability,
+            bool sellableInChannel,
             @DecimalConverter() Decimal lineTotal)
         $default,
   ) {
@@ -464,6 +487,7 @@ extension CartLinePatterns on CartLine {
             _that.vatRatePercent,
             _that.priceTiered,
             _that.availability,
+            _that.sellableInChannel,
             _that.lineTotal);
       case _:
         throw StateError('Unexpected subclass');
@@ -502,6 +526,7 @@ extension CartLinePatterns on CartLine {
             @DecimalConverter() Decimal vatRatePercent,
             bool priceTiered,
             Availability availability,
+            bool sellableInChannel,
             @DecimalConverter() Decimal lineTotal)?
         $default,
   ) {
@@ -526,6 +551,7 @@ extension CartLinePatterns on CartLine {
             _that.vatRatePercent,
             _that.priceTiered,
             _that.availability,
+            _that.sellableInChannel,
             _that.lineTotal);
       case _:
         return null;
@@ -554,6 +580,7 @@ class _CartLine extends CartLine {
       @DecimalConverter() required this.vatRatePercent,
       required this.priceTiered,
       required this.availability,
+      required this.sellableInChannel,
       @DecimalConverter() required this.lineTotal})
       : super._();
   factory _CartLine.fromJson(Map<String, dynamic> json) =>
@@ -601,6 +628,17 @@ class _CartLine extends CartLine {
   final bool priceTiered;
   @override
   final Availability availability;
+
+  /// Whether this line can be ORDERED in [channel] — the platform's
+  /// `isB2CEnabled`/`isB2BEnabled` gate, answered for the channel this line
+  /// was priced in. See `ProductCard.sellableInChannel` in `catalogue.dart`.
+  ///
+  /// A line with `false` here is priced, in stock, above its MOQ and still
+  /// impossible to buy: `secureCreateOrder` refuses the order. It must be
+  /// shown as quote-only in the basket and must not be carried into a
+  /// checkout — which is what [Cart.blockingLines] now enforces.
+  @override
+  final bool sellableInChannel;
   @override
   @DecimalConverter()
   final Decimal lineTotal;
@@ -650,36 +688,40 @@ class _CartLine extends CartLine {
                 other.priceTiered == priceTiered) &&
             (identical(other.availability, availability) ||
                 other.availability == availability) &&
+            (identical(other.sellableInChannel, sellableInChannel) ||
+                other.sellableInChannel == sellableInChannel) &&
             (identical(other.lineTotal, lineTotal) ||
                 other.lineTotal == lineTotal));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
-      runtimeType,
-      id,
-      productId,
-      variantId,
-      sellerId,
-      slug,
-      sku,
-      nameEn,
-      nameAr,
-      image,
-      channel,
-      qty,
-      moq,
-      unitPrice,
-      currency,
-      vatRatePercent,
-      priceTiered,
-      availability,
-      lineTotal);
+  int get hashCode => Object.hashAll([
+        runtimeType,
+        id,
+        productId,
+        variantId,
+        sellerId,
+        slug,
+        sku,
+        nameEn,
+        nameAr,
+        image,
+        channel,
+        qty,
+        moq,
+        unitPrice,
+        currency,
+        vatRatePercent,
+        priceTiered,
+        availability,
+        sellableInChannel,
+        lineTotal
+      ]);
 
   @override
   String toString() {
-    return 'CartLine(id: $id, productId: $productId, variantId: $variantId, sellerId: $sellerId, slug: $slug, sku: $sku, nameEn: $nameEn, nameAr: $nameAr, image: $image, channel: $channel, qty: $qty, moq: $moq, unitPrice: $unitPrice, currency: $currency, vatRatePercent: $vatRatePercent, priceTiered: $priceTiered, availability: $availability, lineTotal: $lineTotal)';
+    return 'CartLine(id: $id, productId: $productId, variantId: $variantId, sellerId: $sellerId, slug: $slug, sku: $sku, nameEn: $nameEn, nameAr: $nameAr, image: $image, channel: $channel, qty: $qty, moq: $moq, unitPrice: $unitPrice, currency: $currency, vatRatePercent: $vatRatePercent, priceTiered: $priceTiered, availability: $availability, sellableInChannel: $sellableInChannel, lineTotal: $lineTotal)';
   }
 }
 
@@ -708,6 +750,7 @@ abstract mixin class _$CartLineCopyWith<$Res>
       @DecimalConverter() Decimal vatRatePercent,
       bool priceTiered,
       Availability availability,
+      bool sellableInChannel,
       @DecimalConverter() Decimal lineTotal});
 
   @override
@@ -743,6 +786,7 @@ class __$CartLineCopyWithImpl<$Res> implements _$CartLineCopyWith<$Res> {
     Object? vatRatePercent = null,
     Object? priceTiered = null,
     Object? availability = null,
+    Object? sellableInChannel = null,
     Object? lineTotal = null,
   }) {
     return _then(_CartLine(
@@ -814,6 +858,10 @@ class __$CartLineCopyWithImpl<$Res> implements _$CartLineCopyWith<$Res> {
           ? _self.availability
           : availability // ignore: cast_nullable_to_non_nullable
               as Availability,
+      sellableInChannel: null == sellableInChannel
+          ? _self.sellableInChannel
+          : sellableInChannel // ignore: cast_nullable_to_non_nullable
+              as bool,
       lineTotal: null == lineTotal
           ? _self.lineTotal
           : lineTotal // ignore: cast_nullable_to_non_nullable

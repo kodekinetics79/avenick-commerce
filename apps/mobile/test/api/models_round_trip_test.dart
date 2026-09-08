@@ -30,12 +30,36 @@ void main() {
       expect(full, ImageRef.fromJson(reencode(full.toJson())));
       expect(full.blurhash, isNotNull);
       expect(full.alt, 'Brass gate valve');
+      expect(full.hasIntrinsicSize, isTrue);
       expect(full.aspectRatio, 1.0);
+      // A present ratio wins over the surface's own.
+      expect(full.aspectRatioOr(4 / 5), 1.0);
 
       final minimal = ImageRef.fromJson(f.imageMinimal());
       expect(minimal, ImageRef.fromJson(reencode(minimal.toJson())));
       expect(minimal.blurhash, isNull);
       expect(minimal.alt, isNull);
+      expect(minimal.aspectRatio, closeTo(4 / 3, 1e-9));
+    });
+
+    test('ImageRef parses a payload with NO dimensions at all', () {
+      // ONLY `url` is required. `ProductImage` has no column for width,
+      // height or blurhash, so this is the payload every live row sends —
+      // and under the previous contract, where the two dimensions were
+      // required, it took the entire pilot catalogue and every brand logo
+      // down at the parse step.
+      final bare = ImageRef.fromJson(f.imageNoDimensions());
+      expect(bare, ImageRef.fromJson(reencode(bare.toJson())));
+      expect(bare.url, 'https://cdn.avenick.com/p/valve-03.jpg');
+      expect(bare.width, isNull);
+      expect(bare.height, isNull);
+      expect(bare.hasIntrinsicSize, isFalse);
+      // Null, not 1.0. "The row does not record this" is a different claim
+      // from "the picture is square", and a defaulted ratio is how a grid
+      // reflows once the bytes land.
+      expect(bare.aspectRatio, isNull);
+      // The surface supplies its own ratio when the image cannot.
+      expect(bare.aspectRatioOr(4 / 5), 4 / 5);
     });
 
     test('PageMeta round-trips and hides a cursor once hasMore is false', () {
@@ -118,6 +142,25 @@ void main() {
       expect(model.lineTotalMoney.format(), '24.68 AED');
       expect(model.variantId, isNull);
       expect(model.isBelowMoq, isFalse);
+      expect(model.sellableInChannel, isTrue);
+      expect(model.isQuoteOnly, isFalse);
+    });
+
+    test('a quote-only CartLine blocks the checkout it looks fine in', () {
+      // Priced, in stock, above its MOQ — and the order service will refuse
+      // it. Without the flag there is nothing on this line to see that by.
+      final model = CartLine.fromJson(f.cartLine(sellableInChannel: false));
+      expect(model, CartLine.fromJson(reencode(model.toJson())));
+      expect(model.isQuoteOnly, isTrue);
+      expect(model.isBelowMoq, isFalse);
+      expect(model.availability, Availability.inStock);
+
+      final cart = Cart.fromJson(<String, dynamic>{
+        ...f.cart(),
+        'lines': <dynamic>[f.cartLine(sellableInChannel: false)],
+      });
+      expect(cart.blockingLines, hasLength(1));
+      expect(cart.quoteOnlyLines, hasLength(1));
     });
 
     test('Cart round-trips and its subtotal agrees with its lines', () {
@@ -237,6 +280,7 @@ void main() {
       expect(full, ProductCard.fromJson(reencode(full.toJson())));
       expect(full.name(Language.ar), 'محبس نحاسي ٢ بوصة');
       expect(full.price!.money.format(), '12.34 AED');
+      expect(full.sellableInChannel, isTrue);
 
       final bare = ProductCard.fromJson(f.productCardBare());
       expect(bare, ProductCard.fromJson(reencode(bare.toJson())));
@@ -247,6 +291,20 @@ void main() {
       expect(bare.rating, isNull);
       expect(bare.brandName, isNull);
       expect(bare.availability, Availability.unconfirmed);
+      expect(bare.sellableInChannel, isFalse);
+    });
+
+    test('a ProductCard can be priced and still not sellable', () {
+      // THE PRODUCTION SHAPE. `pilot-catalog.ts` writes isB2CEnabled: false on
+      // every row it imports and prices them in B2C anyway, so a resolved
+      // price and permission to sell are two different facts on all 1,172
+      // live rows. The model has to keep them apart, because a client that
+      // collapses them renders Add to cart on the whole catalogue.
+      final model = ProductCard.fromJson(f.productCardPricedNotSellable());
+      expect(model, ProductCard.fromJson(reencode(model.toJson())));
+      expect(model.price, isNotNull);
+      expect(model.price!.money.format(), '12.34 AED');
+      expect(model.sellableInChannel, isFalse);
     });
 
     test('ProductDetail round-trips, inline brand and category included', () {
@@ -254,13 +312,30 @@ void main() {
       expect(model, ProductDetail.fromJson(reencode(model.toJson())));
       expect(model.brand!.nameEn, 'Gulf Valve');
       expect(model.category.slug, 'valves');
-      expect(model.images, hasLength(2));
+      expect(model.images, hasLength(3));
+      expect(model.sellableInChannel, isTrue);
+      // The third descriptor carries a URL and nothing else — the shape the
+      // database can actually produce.
+      expect(model.images.last.hasIntrinsicSize, isFalse);
       expect(model.hasVariants, isTrue);
       expect(
         model.isTiered(channel: Channel.b2c, currency: Currency.aed),
         isTrue,
       );
       expect(model.description(Language.ar), 'Rising-stem gate valve, PN16.');
+    });
+
+    test('a ProductDetail can carry a full price ladder and refuse the sale',
+        () {
+      final model =
+          ProductDetail.fromJson(f.productDetailPricedNotSellable());
+      expect(model, ProductDetail.fromJson(reencode(model.toJson())));
+      expect(model.channel, Channel.b2c);
+      expect(
+        model.isTiered(channel: Channel.b2c, currency: Currency.aed),
+        isTrue,
+      );
+      expect(model.sellableInChannel, isFalse);
     });
 
     test('Category round-trips', () {
@@ -312,6 +387,113 @@ void main() {
       expect(model.hasInvoice, isTrue);
       expect(model.timeline, hasLength(1));
       expect(model.money.total.format(), '44.32 AED');
+    });
+
+    test('PlacedOrder round-trips and keeps the replay flag apart', () {
+      final placed = PlacedOrder.fromJson(f.placedOrder());
+      expect(placed, PlacedOrder.fromJson(reencode(placed.toJson())));
+      expect(placed.replayed, isFalse);
+      expect(placed.isNew, isTrue);
+      expect(placed.orderNumber, 'AVN-2026-000123');
+      expect(placed.order.money.total.format(), '44.32 AED');
+
+      // The SAME order coming back under the same Idempotency-Key. Both are
+      // successes; only one of them is a purchase that just happened, and a
+      // confirmation screen that cannot tell them apart tells a buyer who
+      // tapped twice that they bought two.
+      final replay = PlacedOrder.fromJson(f.placedOrder(replayed: true));
+      expect(replay, PlacedOrder.fromJson(reencode(replay.toJson())));
+      expect(replay.replayed, isTrue);
+      expect(replay.isNew, isFalse);
+      expect(replay.order, placed.order);
+    });
+  });
+
+  group('rfqs', () {
+    test('RfqSeller round-trips', () {
+      final model = RfqSeller.fromJson(f.rfqSeller());
+      expect(model, RfqSeller.fromJson(reencode(model.toJson())));
+      expect(model.tier, SellerTier.verified);
+    });
+
+    test('RfqItem round-trips, catalogue line and free-text line', () {
+      final quoted = RfqItem.fromJson(f.rfqItem());
+      expect(quoted, RfqItem.fromJson(reencode(quoted.toJson())));
+      expect(quoted.isCatalogueLine, isTrue);
+      expect(quoted.isQuoted, isTrue);
+      expect(quoted.unitQuotedIn(Currency.aed)!.format(), '11.50 AED');
+
+      final free = RfqItem.fromJson(f.rfqItemFreeText());
+      expect(free, RfqItem.fromJson(reencode(free.toJson())));
+      expect(free.productId, isNull);
+      expect(free.isCatalogueLine, isFalse);
+      // Not yet priced. Null is not zero — a line with no price must render
+      // as awaiting a quote, never as free.
+      expect(free.isQuoted, isFalse);
+      expect(free.unitQuotedIn(Currency.aed), isNull);
+    });
+
+    test('RfqCard round-trips, quoted and not yet quoted', () {
+      final quoted = RfqCard.fromJson(f.rfqCard());
+      expect(quoted, RfqCard.fromJson(reencode(quoted.toJson())));
+      expect(quoted.status, RfqStatus.quoted);
+      expect(quoted.seller!.businessNameEn, 'Gulf Valve Trading');
+      expect(quoted.totalQuotedMoney!.format(), '2,875.00 AED');
+      expect(quoted.awaitsDecision, isTrue);
+
+      final open = RfqCard.fromJson(f.rfqCardUnquoted());
+      expect(open, RfqCard.fromJson(reencode(open.toJson())));
+      expect(open.status, RfqStatus.submitted);
+      expect(open.seller, isNull);
+      expect(open.totalQuoted, isNull);
+      expect(open.totalQuotedMoney, isNull);
+      expect(open.quoteVersion, 0);
+      expect(open.awaitsDecision, isFalse);
+    });
+
+    test('RfqDetail round-trips, and models ONE supplier — no quotes array',
+        () {
+      final model = RfqDetail.fromJson(f.rfqDetail());
+      expect(model, RfqDetail.fromJson(reencode(model.toJson())));
+      expect(model.items, hasLength(2));
+      expect(model.quotedItems, hasLength(1));
+      expect(model.quoteVersion, 2);
+      expect(model.totalQuotedMoney!.format(), '2,875.00 AED');
+      expect(model.awaitsDecision, isTrue);
+      expect(model.isExpired(DateTime.utc(2026, 9, 10)), isFalse);
+      expect(model.isExpired(DateTime.utc(2026, 9, 20)), isTrue);
+
+      // RFQRequest.sellerId is a single nullable column and submitQuote is
+      // its only writer, so there is at most ONE supplier's prices here. The
+      // schema refuses a `quotes` key outright; this model does not have one
+      // to serialise, and a comparison screen would be a claim about a market
+      // that was never surveyed.
+      expect(model.toJson().containsKey('quotes'), isFalse);
+      expect(model.seller, isNotNull);
+    });
+
+    test('an RFQ nobody has priced is not a decision the buyer can make', () {
+      final model = RfqDetail.fromJson(
+        f.rfqDetail(status: 'SUBMITTED', totalQuoted: null, quoteVersion: 0),
+      );
+      expect(model, RfqDetail.fromJson(reencode(model.toJson())));
+      expect(model.isQuoted, isFalse);
+      expect(model.awaitsDecision, isFalse);
+      expect(model.status.isDecidable, isFalse);
+      expect(model.status.isClosed, isFalse);
+
+      // And a request that HAS been quoted but then accepted is closed: the
+      // decision has already been taken.
+      final done = RfqDetail.fromJson(f.rfqDetail(status: 'ACCEPTED'));
+      expect(done.status.isClosed, isTrue);
+      expect(done.awaitsDecision, isFalse);
+    });
+
+    test('an RFQ with no expiry never expires', () {
+      final model = RfqDetail.fromJson(f.rfqDetail(expiresAt: null));
+      expect(model, RfqDetail.fromJson(reencode(model.toJson())));
+      expect(model.expiresAt, isNull);
+      expect(model.isExpired(DateTime.utc(2030)), isFalse);
     });
   });
 

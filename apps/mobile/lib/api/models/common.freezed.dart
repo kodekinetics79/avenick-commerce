@@ -15,8 +15,13 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$ImageRef {
   String get url;
-  int get width;
-  int get height;
+
+  /// Intrinsic width in pixels. Null on every row the database has today —
+  /// there is no column for it. Not zero, not a guess: absent.
+  int? get width;
+
+  /// Intrinsic height in pixels. Null on the same terms as [width].
+  int? get height;
 
   /// BlurHash from the reference encoder. Absent on older rows.
   String? get blurhash;
@@ -64,7 +69,8 @@ abstract mixin class $ImageRefCopyWith<$Res> {
   factory $ImageRefCopyWith(ImageRef value, $Res Function(ImageRef) _then) =
       _$ImageRefCopyWithImpl;
   @useResult
-  $Res call({String url, int width, int height, String? blurhash, String? alt});
+  $Res call(
+      {String url, int? width, int? height, String? blurhash, String? alt});
 }
 
 /// @nodoc
@@ -80,8 +86,8 @@ class _$ImageRefCopyWithImpl<$Res> implements $ImageRefCopyWith<$Res> {
   @override
   $Res call({
     Object? url = null,
-    Object? width = null,
-    Object? height = null,
+    Object? width = freezed,
+    Object? height = freezed,
     Object? blurhash = freezed,
     Object? alt = freezed,
   }) {
@@ -90,14 +96,14 @@ class _$ImageRefCopyWithImpl<$Res> implements $ImageRefCopyWith<$Res> {
           ? _self.url
           : url // ignore: cast_nullable_to_non_nullable
               as String,
-      width: null == width
+      width: freezed == width
           ? _self.width
           : width // ignore: cast_nullable_to_non_nullable
-              as int,
-      height: null == height
+              as int?,
+      height: freezed == height
           ? _self.height
           : height // ignore: cast_nullable_to_non_nullable
-              as int,
+              as int?,
       blurhash: freezed == blurhash
           ? _self.blurhash
           : blurhash // ignore: cast_nullable_to_non_nullable
@@ -204,7 +210,7 @@ extension ImageRefPatterns on ImageRef {
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>(
     TResult Function(
-            String url, int width, int height, String? blurhash, String? alt)?
+            String url, int? width, int? height, String? blurhash, String? alt)?
         $default, {
     required TResult orElse(),
   }) {
@@ -234,7 +240,7 @@ extension ImageRefPatterns on ImageRef {
   @optionalTypeArgs
   TResult when<TResult extends Object?>(
     TResult Function(
-            String url, int width, int height, String? blurhash, String? alt)
+            String url, int? width, int? height, String? blurhash, String? alt)
         $default,
   ) {
     final _that = this;
@@ -262,7 +268,7 @@ extension ImageRefPatterns on ImageRef {
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>(
     TResult? Function(
-            String url, int width, int height, String? blurhash, String? alt)?
+            String url, int? width, int? height, String? blurhash, String? alt)?
         $default,
   ) {
     final _that = this;
@@ -280,21 +286,22 @@ extension ImageRefPatterns on ImageRef {
 @JsonSerializable()
 class _ImageRef extends ImageRef {
   const _ImageRef(
-      {required this.url,
-      required this.width,
-      required this.height,
-      this.blurhash,
-      this.alt})
+      {required this.url, this.width, this.height, this.blurhash, this.alt})
       : super._();
   factory _ImageRef.fromJson(Map<String, dynamic> json) =>
       _$ImageRefFromJson(json);
 
   @override
   final String url;
+
+  /// Intrinsic width in pixels. Null on every row the database has today —
+  /// there is no column for it. Not zero, not a guess: absent.
   @override
-  final int width;
+  final int? width;
+
+  /// Intrinsic height in pixels. Null on the same terms as [width].
   @override
-  final int height;
+  final int? height;
 
   /// BlurHash from the reference encoder. Absent on older rows.
   @override
@@ -351,7 +358,8 @@ abstract mixin class _$ImageRefCopyWith<$Res>
       __$ImageRefCopyWithImpl;
   @override
   @useResult
-  $Res call({String url, int width, int height, String? blurhash, String? alt});
+  $Res call(
+      {String url, int? width, int? height, String? blurhash, String? alt});
 }
 
 /// @nodoc
@@ -367,8 +375,8 @@ class __$ImageRefCopyWithImpl<$Res> implements _$ImageRefCopyWith<$Res> {
   @pragma('vm:prefer-inline')
   $Res call({
     Object? url = null,
-    Object? width = null,
-    Object? height = null,
+    Object? width = freezed,
+    Object? height = freezed,
     Object? blurhash = freezed,
     Object? alt = freezed,
   }) {
@@ -377,14 +385,14 @@ class __$ImageRefCopyWithImpl<$Res> implements _$ImageRefCopyWith<$Res> {
           ? _self.url
           : url // ignore: cast_nullable_to_non_nullable
               as String,
-      width: null == width
+      width: freezed == width
           ? _self.width
           : width // ignore: cast_nullable_to_non_nullable
-              as int,
-      height: null == height
+              as int?,
+      height: freezed == height
           ? _self.height
           : height // ignore: cast_nullable_to_non_nullable
-              as int,
+              as int?,
       blurhash: freezed == blurhash
           ? _self.blurhash
           : blurhash // ignore: cast_nullable_to_non_nullable

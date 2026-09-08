@@ -350,6 +350,56 @@ enum ApiErrorCode {
       }[this]!;
 }
 
+/// Where a request for quote has got to.
+///
+/// `QUOTED` is the state a buyer can act on: the supplier has priced it and
+/// `POST /v1/rfqs/{id}/decision` will be accepted. `NEGOTIATING` means the
+/// price has been revised since — which is exactly why a decision carries the
+/// version it was made against.
+enum RfqStatus {
+  @JsonValue('DRAFT')
+  draft,
+  @JsonValue('SUBMITTED')
+  submitted,
+  @JsonValue('UNDER_REVIEW')
+  underReview,
+  @JsonValue('QUOTED')
+  quoted,
+  @JsonValue('NEGOTIATING')
+  negotiating,
+  @JsonValue('ACCEPTED')
+  accepted,
+  @JsonValue('REJECTED')
+  rejected,
+  @JsonValue('EXPIRED')
+  expired,
+  @JsonValue('CANCELLED')
+  cancelled;
+
+  /// True once the supplier's answer is on the table and nothing has closed
+  /// it. Only in these states is a decision a request the server will honour.
+  bool get isDecidable =>
+      this == RfqStatus.quoted || this == RfqStatus.negotiating;
+
+  /// Nothing further will happen to this request.
+  bool get isClosed =>
+      this == RfqStatus.accepted ||
+      this == RfqStatus.rejected ||
+      this == RfqStatus.expired ||
+      this == RfqStatus.cancelled;
+}
+
+/// The buyer's answer to a quote. `POST /v1/rfqs/{id}/decision`.
+enum RfqDecision {
+  @JsonValue('ACCEPTED')
+  accepted('ACCEPTED'),
+  @JsonValue('REJECTED')
+  rejected('REJECTED');
+
+  const RfqDecision(this.wire);
+  final String wire;
+}
+
 enum AccountDeletionStatus {
   @JsonValue('scheduled')
   scheduled,

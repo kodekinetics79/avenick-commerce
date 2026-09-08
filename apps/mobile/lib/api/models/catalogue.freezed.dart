@@ -2159,12 +2159,33 @@ mixin _$ProductCard {
   /// Null when nothing is priced in the requested channel and currency —
   /// which is a real catalogue state, not an error. The card renders
   /// "price on request", it does not render zero.
+  ///
+  /// A PRESENT PRICE IS NOT PERMISSION TO SELL. See [sellableInChannel].
   CardPrice? get price;
   int get moq;
   Availability get availability;
   bool get priceTiered;
   RatingSummary? get rating;
   String? get brandName;
+
+  /// WHETHER THIS PRODUCT CAN BE ORDERED IN THE CHANNEL THIS CARD WAS BUILT
+  /// FOR. Add to cart when true; Request a quote when false.
+  ///
+  /// This is the platform's own gate, answered channel-parameterised:
+  /// `Product.isB2CEnabled` / `isB2BEnabled`, the flag `services/orders.ts`,
+  /// `services/secure-checkout.ts` and the v1 quote's `quote-lines.ts` each
+  /// check before refusing a line.
+  ///
+  /// It is a SEPARATE fact from [price], and the difference is the whole
+  /// reason the field exists. The pilot catalogue is priced in B2C and
+  /// carries `isB2CEnabled: false` on every row the importer writes, so
+  /// "has a resolved price" and "can be bought" disagree for all 1,172 rows
+  /// in production. Inferring sellability from the price renders Add to cart
+  /// on every one of them, and `secureCreateOrder` then refuses the order
+  /// server-side — after the buyer has committed. Read this flag; do not
+  /// derive it, and do not read [Channel] for it either, which answers only
+  /// which channel the price was resolved IN.
+  bool get sellableInChannel;
 
   /// Create a copy of ProductCard
   /// with the given fields replaced by the non-null parameter values.
@@ -2194,17 +2215,31 @@ mixin _$ProductCard {
                 other.priceTiered == priceTiered) &&
             (identical(other.rating, rating) || other.rating == rating) &&
             (identical(other.brandName, brandName) ||
-                other.brandName == brandName));
+                other.brandName == brandName) &&
+            (identical(other.sellableInChannel, sellableInChannel) ||
+                other.sellableInChannel == sellableInChannel));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, id, slug, nameEn, nameAr, image,
-      price, moq, availability, priceTiered, rating, brandName);
+  int get hashCode => Object.hash(
+      runtimeType,
+      id,
+      slug,
+      nameEn,
+      nameAr,
+      image,
+      price,
+      moq,
+      availability,
+      priceTiered,
+      rating,
+      brandName,
+      sellableInChannel);
 
   @override
   String toString() {
-    return 'ProductCard(id: $id, slug: $slug, nameEn: $nameEn, nameAr: $nameAr, image: $image, price: $price, moq: $moq, availability: $availability, priceTiered: $priceTiered, rating: $rating, brandName: $brandName)';
+    return 'ProductCard(id: $id, slug: $slug, nameEn: $nameEn, nameAr: $nameAr, image: $image, price: $price, moq: $moq, availability: $availability, priceTiered: $priceTiered, rating: $rating, brandName: $brandName, sellableInChannel: $sellableInChannel)';
   }
 }
 
@@ -2225,7 +2260,8 @@ abstract mixin class $ProductCardCopyWith<$Res> {
       Availability availability,
       bool priceTiered,
       RatingSummary? rating,
-      String? brandName});
+      String? brandName,
+      bool sellableInChannel});
 
   $ImageRefCopyWith<$Res>? get image;
   $CardPriceCopyWith<$Res>? get price;
@@ -2255,6 +2291,7 @@ class _$ProductCardCopyWithImpl<$Res> implements $ProductCardCopyWith<$Res> {
     Object? priceTiered = null,
     Object? rating = freezed,
     Object? brandName = freezed,
+    Object? sellableInChannel = null,
   }) {
     return _then(_self.copyWith(
       id: null == id
@@ -2301,6 +2338,10 @@ class _$ProductCardCopyWithImpl<$Res> implements $ProductCardCopyWith<$Res> {
           ? _self.brandName
           : brandName // ignore: cast_nullable_to_non_nullable
               as String?,
+      sellableInChannel: null == sellableInChannel
+          ? _self.sellableInChannel
+          : sellableInChannel // ignore: cast_nullable_to_non_nullable
+              as bool,
     ));
   }
 
@@ -2451,7 +2492,8 @@ extension ProductCardPatterns on ProductCard {
             Availability availability,
             bool priceTiered,
             RatingSummary? rating,
-            String? brandName)?
+            String? brandName,
+            bool sellableInChannel)?
         $default, {
     required TResult orElse(),
   }) {
@@ -2469,7 +2511,8 @@ extension ProductCardPatterns on ProductCard {
             _that.availability,
             _that.priceTiered,
             _that.rating,
-            _that.brandName);
+            _that.brandName,
+            _that.sellableInChannel);
       case _:
         return orElse();
     }
@@ -2501,7 +2544,8 @@ extension ProductCardPatterns on ProductCard {
             Availability availability,
             bool priceTiered,
             RatingSummary? rating,
-            String? brandName)
+            String? brandName,
+            bool sellableInChannel)
         $default,
   ) {
     final _that = this;
@@ -2518,7 +2562,8 @@ extension ProductCardPatterns on ProductCard {
             _that.availability,
             _that.priceTiered,
             _that.rating,
-            _that.brandName);
+            _that.brandName,
+            _that.sellableInChannel);
       case _:
         throw StateError('Unexpected subclass');
     }
@@ -2549,7 +2594,8 @@ extension ProductCardPatterns on ProductCard {
             Availability availability,
             bool priceTiered,
             RatingSummary? rating,
-            String? brandName)?
+            String? brandName,
+            bool sellableInChannel)?
         $default,
   ) {
     final _that = this;
@@ -2566,7 +2612,8 @@ extension ProductCardPatterns on ProductCard {
             _that.availability,
             _that.priceTiered,
             _that.rating,
-            _that.brandName);
+            _that.brandName,
+            _that.sellableInChannel);
       case _:
         return null;
     }
@@ -2587,7 +2634,8 @@ class _ProductCard extends ProductCard {
       required this.availability,
       required this.priceTiered,
       required this.rating,
-      required this.brandName})
+      required this.brandName,
+      required this.sellableInChannel})
       : super._();
   factory _ProductCard.fromJson(Map<String, dynamic> json) =>
       _$ProductCardFromJson(json);
@@ -2606,6 +2654,8 @@ class _ProductCard extends ProductCard {
   /// Null when nothing is priced in the requested channel and currency —
   /// which is a real catalogue state, not an error. The card renders
   /// "price on request", it does not render zero.
+  ///
+  /// A PRESENT PRICE IS NOT PERMISSION TO SELL. See [sellableInChannel].
   @override
   final CardPrice? price;
   @override
@@ -2618,6 +2668,26 @@ class _ProductCard extends ProductCard {
   final RatingSummary? rating;
   @override
   final String? brandName;
+
+  /// WHETHER THIS PRODUCT CAN BE ORDERED IN THE CHANNEL THIS CARD WAS BUILT
+  /// FOR. Add to cart when true; Request a quote when false.
+  ///
+  /// This is the platform's own gate, answered channel-parameterised:
+  /// `Product.isB2CEnabled` / `isB2BEnabled`, the flag `services/orders.ts`,
+  /// `services/secure-checkout.ts` and the v1 quote's `quote-lines.ts` each
+  /// check before refusing a line.
+  ///
+  /// It is a SEPARATE fact from [price], and the difference is the whole
+  /// reason the field exists. The pilot catalogue is priced in B2C and
+  /// carries `isB2CEnabled: false` on every row the importer writes, so
+  /// "has a resolved price" and "can be bought" disagree for all 1,172 rows
+  /// in production. Inferring sellability from the price renders Add to cart
+  /// on every one of them, and `secureCreateOrder` then refuses the order
+  /// server-side — after the buyer has committed. Read this flag; do not
+  /// derive it, and do not read [Channel] for it either, which answers only
+  /// which channel the price was resolved IN.
+  @override
+  final bool sellableInChannel;
 
   /// Create a copy of ProductCard
   /// with the given fields replaced by the non-null parameter values.
@@ -2652,17 +2722,31 @@ class _ProductCard extends ProductCard {
                 other.priceTiered == priceTiered) &&
             (identical(other.rating, rating) || other.rating == rating) &&
             (identical(other.brandName, brandName) ||
-                other.brandName == brandName));
+                other.brandName == brandName) &&
+            (identical(other.sellableInChannel, sellableInChannel) ||
+                other.sellableInChannel == sellableInChannel));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(runtimeType, id, slug, nameEn, nameAr, image,
-      price, moq, availability, priceTiered, rating, brandName);
+  int get hashCode => Object.hash(
+      runtimeType,
+      id,
+      slug,
+      nameEn,
+      nameAr,
+      image,
+      price,
+      moq,
+      availability,
+      priceTiered,
+      rating,
+      brandName,
+      sellableInChannel);
 
   @override
   String toString() {
-    return 'ProductCard(id: $id, slug: $slug, nameEn: $nameEn, nameAr: $nameAr, image: $image, price: $price, moq: $moq, availability: $availability, priceTiered: $priceTiered, rating: $rating, brandName: $brandName)';
+    return 'ProductCard(id: $id, slug: $slug, nameEn: $nameEn, nameAr: $nameAr, image: $image, price: $price, moq: $moq, availability: $availability, priceTiered: $priceTiered, rating: $rating, brandName: $brandName, sellableInChannel: $sellableInChannel)';
   }
 }
 
@@ -2685,7 +2769,8 @@ abstract mixin class _$ProductCardCopyWith<$Res>
       Availability availability,
       bool priceTiered,
       RatingSummary? rating,
-      String? brandName});
+      String? brandName,
+      bool sellableInChannel});
 
   @override
   $ImageRefCopyWith<$Res>? get image;
@@ -2718,6 +2803,7 @@ class __$ProductCardCopyWithImpl<$Res> implements _$ProductCardCopyWith<$Res> {
     Object? priceTiered = null,
     Object? rating = freezed,
     Object? brandName = freezed,
+    Object? sellableInChannel = null,
   }) {
     return _then(_ProductCard(
       id: null == id
@@ -2764,6 +2850,10 @@ class __$ProductCardCopyWithImpl<$Res> implements _$ProductCardCopyWith<$Res> {
           ? _self.brandName
           : brandName // ignore: cast_nullable_to_non_nullable
               as String?,
+      sellableInChannel: null == sellableInChannel
+          ? _self.sellableInChannel
+          : sellableInChannel // ignore: cast_nullable_to_non_nullable
+              as bool,
     ));
   }
 
@@ -3524,6 +3614,11 @@ mixin _$ProductDetail {
   SellerSummary get seller;
   RatingSummary? get rating;
 
+  /// Whether this product can be ORDERED in [channel], as opposed to merely
+  /// priced in it. See [ProductCard.sellableInChannel] — the same flag, the
+  /// same trap, and the one the primary action on this page is driven from.
+  bool get sellableInChannel;
+
   /// Create a copy of ProductDetail
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -3566,7 +3661,9 @@ mixin _$ProductDetail {
             (identical(other.category, category) ||
                 other.category == category) &&
             (identical(other.seller, seller) || other.seller == seller) &&
-            (identical(other.rating, rating) || other.rating == rating));
+            (identical(other.rating, rating) || other.rating == rating) &&
+            (identical(other.sellableInChannel, sellableInChannel) ||
+                other.sellableInChannel == sellableInChannel));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -3593,12 +3690,13 @@ mixin _$ProductDetail {
         brand,
         category,
         seller,
-        rating
+        rating,
+        sellableInChannel
       ]);
 
   @override
   String toString() {
-    return 'ProductDetail(id: $id, slug: $slug, sku: $sku, nameEn: $nameEn, nameAr: $nameAr, descriptionEn: $descriptionEn, descriptionAr: $descriptionAr, images: $images, prices: $prices, variants: $variants, moq: $moq, availability: $availability, availableQty: $availableQty, origin: $origin, weightKg: $weightKg, tags: $tags, channel: $channel, brand: $brand, category: $category, seller: $seller, rating: $rating)';
+    return 'ProductDetail(id: $id, slug: $slug, sku: $sku, nameEn: $nameEn, nameAr: $nameAr, descriptionEn: $descriptionEn, descriptionAr: $descriptionAr, images: $images, prices: $prices, variants: $variants, moq: $moq, availability: $availability, availableQty: $availableQty, origin: $origin, weightKg: $weightKg, tags: $tags, channel: $channel, brand: $brand, category: $category, seller: $seller, rating: $rating, sellableInChannel: $sellableInChannel)';
   }
 }
 
@@ -3629,7 +3727,8 @@ abstract mixin class $ProductDetailCopyWith<$Res> {
       ProductBrandRef? brand,
       ProductCategoryRef category,
       SellerSummary seller,
-      RatingSummary? rating});
+      RatingSummary? rating,
+      bool sellableInChannel});
 
   $ProductBrandRefCopyWith<$Res>? get brand;
   $ProductCategoryRefCopyWith<$Res> get category;
@@ -3671,6 +3770,7 @@ class _$ProductDetailCopyWithImpl<$Res>
     Object? category = null,
     Object? seller = null,
     Object? rating = freezed,
+    Object? sellableInChannel = null,
   }) {
     return _then(_self.copyWith(
       id: null == id
@@ -3757,6 +3857,10 @@ class _$ProductDetailCopyWithImpl<$Res>
           ? _self.rating
           : rating // ignore: cast_nullable_to_non_nullable
               as RatingSummary?,
+      sellableInChannel: null == sellableInChannel
+          ? _self.sellableInChannel
+          : sellableInChannel // ignore: cast_nullable_to_non_nullable
+              as bool,
     ));
   }
 
@@ -3923,7 +4027,8 @@ extension ProductDetailPatterns on ProductDetail {
             ProductBrandRef? brand,
             ProductCategoryRef category,
             SellerSummary seller,
-            RatingSummary? rating)?
+            RatingSummary? rating,
+            bool sellableInChannel)?
         $default, {
     required TResult orElse(),
   }) {
@@ -3951,7 +4056,8 @@ extension ProductDetailPatterns on ProductDetail {
             _that.brand,
             _that.category,
             _that.seller,
-            _that.rating);
+            _that.rating,
+            _that.sellableInChannel);
       case _:
         return orElse();
     }
@@ -3993,7 +4099,8 @@ extension ProductDetailPatterns on ProductDetail {
             ProductBrandRef? brand,
             ProductCategoryRef category,
             SellerSummary seller,
-            RatingSummary? rating)
+            RatingSummary? rating,
+            bool sellableInChannel)
         $default,
   ) {
     final _that = this;
@@ -4020,7 +4127,8 @@ extension ProductDetailPatterns on ProductDetail {
             _that.brand,
             _that.category,
             _that.seller,
-            _that.rating);
+            _that.rating,
+            _that.sellableInChannel);
       case _:
         throw StateError('Unexpected subclass');
     }
@@ -4061,7 +4169,8 @@ extension ProductDetailPatterns on ProductDetail {
             ProductBrandRef? brand,
             ProductCategoryRef category,
             SellerSummary seller,
-            RatingSummary? rating)?
+            RatingSummary? rating,
+            bool sellableInChannel)?
         $default,
   ) {
     final _that = this;
@@ -4088,7 +4197,8 @@ extension ProductDetailPatterns on ProductDetail {
             _that.brand,
             _that.category,
             _that.seller,
-            _that.rating);
+            _that.rating,
+            _that.sellableInChannel);
       case _:
         return null;
     }
@@ -4119,7 +4229,8 @@ class _ProductDetail extends ProductDetail {
       required this.brand,
       required this.category,
       required this.seller,
-      required this.rating})
+      required this.rating,
+      required this.sellableInChannel})
       : _images = images,
         _prices = prices,
         _variants = variants,
@@ -4200,6 +4311,12 @@ class _ProductDetail extends ProductDetail {
   @override
   final RatingSummary? rating;
 
+  /// Whether this product can be ORDERED in [channel], as opposed to merely
+  /// priced in it. See [ProductCard.sellableInChannel] — the same flag, the
+  /// same trap, and the one the primary action on this page is driven from.
+  @override
+  final bool sellableInChannel;
+
   /// Create a copy of ProductDetail
   /// with the given fields replaced by the non-null parameter values.
   @override
@@ -4246,7 +4363,9 @@ class _ProductDetail extends ProductDetail {
             (identical(other.category, category) ||
                 other.category == category) &&
             (identical(other.seller, seller) || other.seller == seller) &&
-            (identical(other.rating, rating) || other.rating == rating));
+            (identical(other.rating, rating) || other.rating == rating) &&
+            (identical(other.sellableInChannel, sellableInChannel) ||
+                other.sellableInChannel == sellableInChannel));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -4273,12 +4392,13 @@ class _ProductDetail extends ProductDetail {
         brand,
         category,
         seller,
-        rating
+        rating,
+        sellableInChannel
       ]);
 
   @override
   String toString() {
-    return 'ProductDetail(id: $id, slug: $slug, sku: $sku, nameEn: $nameEn, nameAr: $nameAr, descriptionEn: $descriptionEn, descriptionAr: $descriptionAr, images: $images, prices: $prices, variants: $variants, moq: $moq, availability: $availability, availableQty: $availableQty, origin: $origin, weightKg: $weightKg, tags: $tags, channel: $channel, brand: $brand, category: $category, seller: $seller, rating: $rating)';
+    return 'ProductDetail(id: $id, slug: $slug, sku: $sku, nameEn: $nameEn, nameAr: $nameAr, descriptionEn: $descriptionEn, descriptionAr: $descriptionAr, images: $images, prices: $prices, variants: $variants, moq: $moq, availability: $availability, availableQty: $availableQty, origin: $origin, weightKg: $weightKg, tags: $tags, channel: $channel, brand: $brand, category: $category, seller: $seller, rating: $rating, sellableInChannel: $sellableInChannel)';
   }
 }
 
@@ -4311,7 +4431,8 @@ abstract mixin class _$ProductDetailCopyWith<$Res>
       ProductBrandRef? brand,
       ProductCategoryRef category,
       SellerSummary seller,
-      RatingSummary? rating});
+      RatingSummary? rating,
+      bool sellableInChannel});
 
   @override
   $ProductBrandRefCopyWith<$Res>? get brand;
@@ -4357,6 +4478,7 @@ class __$ProductDetailCopyWithImpl<$Res>
     Object? category = null,
     Object? seller = null,
     Object? rating = freezed,
+    Object? sellableInChannel = null,
   }) {
     return _then(_ProductDetail(
       id: null == id
@@ -4443,6 +4565,10 @@ class __$ProductDetailCopyWithImpl<$Res>
           ? _self.rating
           : rating // ignore: cast_nullable_to_non_nullable
               as RatingSummary?,
+      sellableInChannel: null == sellableInChannel
+          ? _self.sellableInChannel
+          : sellableInChannel // ignore: cast_nullable_to_non_nullable
+              as bool,
     ));
   }
 

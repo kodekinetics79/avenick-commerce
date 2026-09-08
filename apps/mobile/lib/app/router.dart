@@ -3,7 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/l10n/directional_text.dart';
-import '../core/ui/key_button.dart';
+import '../features/account/account.dart';
+import '../features/catalogue/catalogue.dart';
+import '../features/commerce/commerce.dart';
+// `hide`: rfq and commerce each carry their own copy of these two helpers
+// (house precedent is a self-contained feature tree), and importing both
+// barrels unqualified would be ambiguous. The router uses neither.
+import '../features/rfq/rfq.dart' hide languageOf, kMinTouchTarget;
 import '../theme/meridian_theme.dart';
 import '../theme/tokens.g.dart';
 import '../theme/typography.dart';
@@ -30,7 +36,6 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
     initialLocation: Routes.home,
     refreshListenable: ref.watch(routerRefreshProvider),
     debugLogDiagnostics: false,
-
     redirect: (BuildContext context, GoRouterState state) {
       final AuthState session = ref.read(authControllerProvider);
       final String location = state.uri.toString();
@@ -64,7 +69,6 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
 
       return null;
     },
-
     routes: <RouteBase>[
       GoRoute(
         path: Routes.signIn,
@@ -79,7 +83,7 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
         name: Routes.nProduct,
         parentNavigatorKey: _rootKey,
         builder: (BuildContext context, GoRouterState state) =>
-            ProductScreen(slug: state.pathParameters['slug']!),
+            ProductDetailScreen(slug: state.pathParameters['slug']!),
       ),
       GoRoute(
         path: Routes.category,
@@ -88,6 +92,90 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
         builder: (BuildContext context, GoRouterState state) =>
             CategoryScreen(slug: state.pathParameters['slug']!),
       ),
+      // ── Quote requests ────────────────────────────────────────────────
+      //
+      // `/rfq/new` is the app's primary action, because every product in the
+      // production catalogue is quote-only. It is above the shell: asking for
+      // a price is a task, and a tab bar under it is an invitation to abandon.
+      GoRoute(
+        path: Routes.rfqNew,
+        name: Routes.nRfqNew,
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext context, GoRouterState state) => RequestQuoteScreen(
+          subject: QuoteSubject.fromQuery(state.uri.queryParameters),
+          onCreated: (String rfqId) => context.pushReplacement(Routes.rfqOf(rfqId)),
+          // `/rfq/new` is deliberately open to a stranger, but POST /v1/rfqs
+          // requires a session — so the form CAN be filled in and cannot be
+          // sent. Parking the full location means sign-in returns to this exact
+          // form with its product still named, rather than dumping the buyer on
+          // the account screen having lost what they were asking about.
+          onSignInRequired: () {
+            auth.rememberDestination(state.uri.toString());
+            context.push(Routes.signIn);
+          },
+        ),
+      ),
+      GoRoute(
+        path: Routes.rfqs,
+        name: Routes.nRfqs,
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext context, GoRouterState state) => RfqListScreen(
+          onOpenRfq: (String rfqId) => context.push(Routes.rfqOf(rfqId)),
+        ),
+      ),
+      GoRoute(
+        path: Routes.rfq,
+        name: Routes.nRfq,
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext context, GoRouterState state) =>
+            RfqDetailScreen(rfqId: state.pathParameters['id']!),
+      ),
+
+      // Checkout sits above the shell too: it is a committed, linear flow and
+      // the tab bar is an invitation to abandon it half-finished.
+      GoRoute(
+        path: Routes.checkout,
+        name: Routes.nCheckout,
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext context, GoRouterState state) => CheckoutScreen(
+          onOrderPlaced: (String orderId) => context.go(Routes.orderConfirmedOf(orderId)),
+        ),
+      ),
+      GoRoute(
+        path: Routes.orderConfirmed,
+        name: Routes.nOrderConfirmed,
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext context, GoRouterState state) => OrderConfirmedScreen(
+          orderId: state.pathParameters['id']!,
+          // `go`, not `pop`: the basket behind this screen is spent. Popping
+          // back into a checkout for an order that already exists is how a
+          // buyer places the same order twice.
+          onDone: () => context.go(Routes.orderOf(state.pathParameters['id']!)),
+        ),
+      ),
+
+      GoRoute(
+        path: Routes.addresses,
+        name: Routes.nAddresses,
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext context, GoRouterState state) => const AddressesScreen(),
+      ),
+      GoRoute(
+        path: Routes.notificationPrefs,
+        name: Routes.nNotificationPrefs,
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext context, GoRouterState state) =>
+            const NotificationPreferencesScreen(),
+      ),
+      GoRoute(
+        path: Routes.deleteAccount,
+        name: Routes.nDeleteAccount,
+        parentNavigatorKey: _rootKey,
+        builder: (BuildContext context, GoRouterState state) => DeleteAccountScreen(
+          onDeleted: () => context.go(Routes.home),
+        ),
+      ),
+
       GoRoute(
         path: Routes.b2bApproval,
         name: Routes.nB2bApproval,
@@ -119,7 +207,7 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
                 path: Routes.search,
                 name: Routes.nSearch,
                 builder: (BuildContext context, GoRouterState state) =>
-                    SearchScreen(query: state.uri.queryParameters['q']),
+                    SearchScreen(initialQuery: state.uri.queryParameters['q']),
               ),
             ],
           ),
@@ -128,7 +216,18 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
               GoRoute(
                 path: Routes.cart,
                 name: Routes.nCart,
-                builder: (BuildContext context, GoRouterState state) => const CartScreen(),
+                builder: (BuildContext context, GoRouterState state) => CartScreen(
+                  onCheckout: () => context.push(Routes.checkout),
+                  onBrowse: () => context.go(Routes.home),
+                  // A quote-only line in the basket routes to the same place
+                  // the buy box does, so there is one way to ask for a price.
+                  onRequestQuote: (String productId) => context.push(
+                    Uri(
+                      path: Routes.rfqNew,
+                      queryParameters: <String, String>{'productId': productId},
+                    ).toString(),
+                  ),
+                ),
               ),
             ],
           ),
@@ -137,7 +236,9 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
               GoRoute(
                 path: Routes.orders,
                 name: Routes.nOrders,
-                builder: (BuildContext context, GoRouterState state) => const OrdersScreen(),
+                builder: (BuildContext context, GoRouterState state) => OrdersListScreen(
+                  onOpenOrder: (String id) => context.push(Routes.orderOf(id)),
+                ),
                 routes: <RouteBase>[
                   // `/orders/:id` also resolves inside the Orders tab when it is
                   // reached by tapping a row, so the back gesture returns to the
@@ -146,7 +247,7 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
                     path: ':id',
                     name: Routes.nOrder,
                     builder: (BuildContext context, GoRouterState state) =>
-                        OrderScreen(id: state.pathParameters['id']!),
+                        OrderDetailScreen(orderId: state.pathParameters['id']!),
                   ),
                 ],
               ),
@@ -157,14 +258,16 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
               GoRoute(
                 path: Routes.account,
                 name: Routes.nAccount,
-                builder: (BuildContext context, GoRouterState state) => const AccountScreen(),
+                builder: (BuildContext context, GoRouterState state) => AccountScreen(
+                  onOpenOrders: () => context.go(Routes.orders),
+                  onOpenAddresses: () => context.push(Routes.addresses),
+                ),
               ),
             ],
           ),
         ],
       ),
     ],
-
     errorBuilder: (BuildContext context, GoRouterState state) =>
         NotFoundScreen(location: state.uri.toString()),
   );
@@ -177,6 +280,29 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
 // and the goldens are exercised end to end from day one — a router with no
 // destinations proves nothing.
 // ---------------------------------------------------------------------------
+
+/// Approving a purchase order from a push notification.
+///
+/// Still a placeholder, and deliberately so: the B2B approval journey is real
+/// on the web and the deep link is kept alive here so a notification opening
+/// the app lands somewhere that names the thing it was about, rather than on a
+/// 404 that looks like the link was wrong. The screen behind it is a separate
+/// piece of work — an approval needs the price-drift diff (`PurchaseOrder`
+/// carries `approvedCommercialFingerprint` and `approvalVersion`, so an
+/// approved PO whose prices moved is no longer approved), and half of that is
+/// worse than none.
+class B2BApprovalScreen extends StatelessWidget {
+  const B2BApprovalScreen({required this.id, super.key});
+
+  final String id;
+
+  @override
+  Widget build(BuildContext context) => _Placeholder(
+        title: 'Approval',
+        detail: id,
+        detailKind: LtrToken.reference,
+      );
+}
 
 class _Placeholder extends StatelessWidget {
   const _Placeholder({required this.title, this.detail, this.detailKind});
@@ -217,121 +343,10 @@ class _Placeholder extends StatelessWidget {
   }
 }
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const _Placeholder(title: 'Home');
-}
-
-class SearchScreen extends StatelessWidget {
-  const SearchScreen({this.query, super.key});
-  final String? query;
-  @override
-  Widget build(BuildContext context) => _Placeholder(title: 'Search', detail: query);
-}
-
-class CartScreen extends StatelessWidget {
-  const CartScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const _Placeholder(title: 'Cart');
-}
-
-class OrdersScreen extends StatelessWidget {
-  const OrdersScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const _Placeholder(title: 'Orders');
-}
-
-class AccountScreen extends StatelessWidget {
-  const AccountScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const _Placeholder(title: 'Account');
-}
-
-class ProductScreen extends StatelessWidget {
-  const ProductScreen({required this.slug, super.key});
-  final String slug;
-  @override
-  Widget build(BuildContext context) =>
-      _Placeholder(title: 'Product', detail: slug, detailKind: LtrToken.sku);
-}
-
-class CategoryScreen extends StatelessWidget {
-  const CategoryScreen({required this.slug, super.key});
-  final String slug;
-  @override
-  Widget build(BuildContext context) => _Placeholder(title: 'Category', detail: slug);
-}
-
-class OrderScreen extends StatelessWidget {
-  const OrderScreen({required this.id, super.key});
-  final String id;
-  @override
-  Widget build(BuildContext context) =>
-      _Placeholder(title: 'Order', detail: id, detailKind: LtrToken.orderId);
-}
-
-class B2BApprovalScreen extends StatelessWidget {
-  const B2BApprovalScreen({required this.id, super.key});
-  final String id;
-  @override
-  Widget build(BuildContext context) =>
-      _Placeholder(title: 'Approval', detail: id, detailKind: LtrToken.purchaseOrder);
-}
-
 class NotFoundScreen extends StatelessWidget {
   const NotFoundScreen({required this.location, super.key});
   final String location;
   @override
   Widget build(BuildContext context) =>
       _Placeholder(title: 'Not found', detail: location, detailKind: LtrToken.url);
-}
-
-/// The auth wall.
-///
-/// Signing in here does not navigate: it flips the session, `refreshListenable`
-/// fires, and the redirect consumes the parked destination. The screen never
-/// needs to know where the user was going, which is what keeps the resume
-/// working for links that arrive from outside the app.
-class SignInScreen extends ConsumerWidget {
-  const SignInScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final MeridianTokens t = context.tokens;
-    final MeridianTypography type = context.type;
-    final String? pending = ref.read(authControllerProvider.notifier).pendingDestination;
-
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsetsDirectional.all(t.spaceBlock),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Text('Sign in', style: type.h1, textAlign: TextAlign.center),
-                if (pending != null) ...<Widget>[
-                  SizedBox(height: t.spaceTight),
-                  Text(
-                    'You will be taken back to where you were.',
-                    style: type.meta.copyWith(color: t.ink3),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-                SizedBox(height: t.spaceBlock),
-                KeyButton(
-                  label: 'Continue',
-                  size: KeyButtonSize.large,
-                  expand: true,
-                  onPressed: () => ref.read(authControllerProvider.notifier).signIn(),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

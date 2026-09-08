@@ -47,6 +47,7 @@ import {
   SellerSummarySchema,
 } from "../catalogue";
 import {
+  IdempotencyKeySchema,
   OrderCardSchema,
   OrderDetailSchema,
   OrderItemSchema,
@@ -54,8 +55,19 @@ import {
   OrderPathParamsSchema,
   OrderStatusEventSchema,
   PersistedOrderTotalsSchema,
+  PlaceOrderRequestSchema,
+  PlacedOrderSchema,
   ShipmentSchema,
 } from "../orders";
+import {
+  CreateRfqRequestSchema,
+  RfqCardSchema,
+  RfqDecisionRequestSchema,
+  RfqDetailSchema,
+  RfqItemSchema,
+  RfqPathParamsSchema,
+  RfqSellerSchema,
+} from "../rfqs";
 import {
   AccountDeletionSchema,
   CompanyMembershipSchema,
@@ -136,7 +148,12 @@ export const V1_ENDPOINTS = [
   "GET /v1/categories",
   "GET /v1/brands",
   "GET /v1/orders",
+  "POST /v1/orders",
   "GET /v1/orders/{id}",
+  "GET /v1/rfqs",
+  "POST /v1/rfqs",
+  "GET /v1/rfqs/{id}",
+  "POST /v1/rfqs/{id}/decision",
   "GET /v1/me",
   "PATCH /v1/me",
   "DELETE /v1/account",
@@ -229,6 +246,12 @@ export function buildOpenApiDocument() {
   named(registry, "Shipment", ShipmentSchema);
   const OrderCard = named(registry, "OrderCard", OrderCardSchema);
   const OrderDetail = named(registry, "OrderDetail", OrderDetailSchema);
+  const PlacedOrder = named(registry, "PlacedOrder", PlacedOrderSchema);
+
+  named(registry, "RfqSeller", RfqSellerSchema);
+  named(registry, "RfqItem", RfqItemSchema);
+  const RfqCard = named(registry, "RfqCard", RfqCardSchema);
+  const RfqDetail = named(registry, "RfqDetail", RfqDetailSchema);
 
   named(registry, "CompanyMembership", CompanyMembershipSchema);
   const Me = named(registry, "Me", MeSchema);
@@ -442,6 +465,24 @@ export function buildOpenApiDocument() {
   });
 
   registry.registerPath({
+    method: "post",
+    path: "/v1/orders",
+    tags: ["orders"],
+    summary: "Place an order",
+    description:
+      "Prices, discounts, VAT and freight are resolved server-side; the request carries identity and quantity only. Send an Idempotency-Key header: a retry of the same submission returns the original order with replayed=true instead of creating a second one. B2C only — a B2B order must go through the governed purchase-order workflow, which has no endpoint on this surface. Card and wallet methods are refused with 503 until a payment-session flow exists; BANK_TRANSFER is the method that completes.",
+    security,
+    request: {
+      headers: z.object({ "Idempotency-Key": IdempotencyKeySchema.optional() }),
+      body: json(PlaceOrderRequestSchema, "Lines, destination, currency and payment method."),
+    },
+    responses: {
+      200: ok(PlacedOrder, "The placed order, and whether this response replayed an existing one."),
+      ...errorResponses([400, 401, 403, 404, 409, 429, 503]),
+    },
+  });
+
+  registry.registerPath({
     method: "get",
     path: "/v1/orders/{id}",
     tags: ["orders"],
@@ -451,6 +492,54 @@ export function buildOpenApiDocument() {
     security,
     request: { params: OrderPathParamsSchema },
     responses: { 200: ok(OrderDetail, "The full order."), ...errorResponses([401, 403, 404, 429]) },
+  });
+
+  // ── rfqs ─────────────────────────────────────────────────────────────────
+  registry.registerPath({
+    method: "get",
+    path: "/v1/rfqs",
+    tags: ["rfqs"],
+    summary: "The buyer's requests for quote",
+    description:
+      "The caller's own RFQs, plus their company's when they hold an active membership. Returned whole and capped at 50: the buyer service reads a fixed page with no cursor.",
+    security,
+    responses: { 200: ok(z.array(RfqCard), "The buyer's RFQs, newest first."), ...errorResponses([401, 429]) },
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/v1/rfqs",
+    tags: ["rfqs"],
+    summary: "Ask for a quote",
+    description:
+      "The action a quote-only product offers instead of Add to Cart. A line naming a catalogue product takes its name from the catalogue; a free-text line must carry its own. One RFQ is answered by at most one supplier — see the RfqDetail description.",
+    security,
+    request: { body: json(CreateRfqRequestSchema, "The lines, the currency to be quoted in, and when they are needed.") },
+    responses: { 200: ok(RfqDetail, "The submitted request."), ...errorResponses([400, 401, 404, 429]) },
+  });
+
+  registry.registerPath({
+    method: "get",
+    path: "/v1/rfqs/{id}",
+    tags: ["rfqs"],
+    summary: "One request, with its quoted lines",
+    description:
+      "RFQRequest.sellerId is a single nullable supplier and submitQuote is its only writer, so a request carries at most ONE supplier's prices. There is no multi-supplier comparison to return, and this surface does not pretend otherwise.",
+    security,
+    request: { params: RfqPathParamsSchema },
+    responses: { 200: ok(RfqDetail, "The request and its lines."), ...errorResponses([401, 404, 429]) },
+  });
+
+  registry.registerPath({
+    method: "post",
+    path: "/v1/rfqs/{id}/decision",
+    tags: ["rfqs"],
+    summary: "Accept or reject a quote",
+    description:
+      "expectedQuoteVersion is compared against the stored version under the RFQ's advisory lock, so a decision made against a quote the supplier has since revised is refused rather than binding the buyer to a price they never saw.",
+    security,
+    request: { params: RfqPathParamsSchema, body: json(RfqDecisionRequestSchema, "The decision and the quote version it was made against.") },
+    responses: { 200: ok(RfqDetail, "The request after the decision."), ...errorResponses([400, 401, 404, 409, 429]) },
   });
 
   // ── me ───────────────────────────────────────────────────────────────────
@@ -571,7 +660,8 @@ export function buildOpenApiDocument() {
       { name: "cart", description: "The server cart, which absorbs the device's offline cart." },
       { name: "checkout", description: "Pricing a basket. The only place a total is stated." },
       { name: "catalogue", description: "Products, categories and brands." },
-      { name: "orders", description: "Placed orders." },
+      { name: "orders", description: "Placing and reading orders." },
+      { name: "rfqs", description: "Requests for quote — the buying journey for a quote-only catalogue." },
       { name: "me", description: "Identity and account lifecycle." },
       { name: "addresses", description: "Ship-to addresses." },
       { name: "devices", description: "Push-notification registration." },

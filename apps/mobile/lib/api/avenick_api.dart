@@ -11,11 +11,12 @@ import 'catalogue_api.dart';
 import 'checkout_api.dart';
 import 'devices_api.dart';
 import 'orders_api.dart';
+import 'rfqs_api.dart';
 
 /// The whole API surface, assembled.
 ///
 /// One of these per app. It owns the two Dio instances, the session, and the
-/// seven endpoint clients, and it is the only thing above this layer that
+/// eight endpoint clients, and it is the only thing above this layer that
 /// needs constructing.
 ///
 ///     final api = AvenickApi.build(config: ApiConfig.fromEnvironment());
@@ -26,11 +27,18 @@ import 'orders_api.dart';
 /// `ApiFailure` — a sealed family, so a `switch` over it is exhaustive and the
 /// compiler will point at the screen that forgot the new case.
 ///
-/// NOTE ON WHAT ACTUALLY WORKS TODAY: only `/v1/checkout/quote` is implemented
-/// on the server. The catalogue, cart, orders, account, address and device
-/// routes are specified and not built; the auth routes are specified, not
-/// built, and additionally require a refresh-token table and an OTP model that
-/// do not exist. See the header of `auth_api.dart`.
+/// NOTE ON WHAT ACTUALLY WORKS TODAY: `/v1/checkout/quote` is implemented on
+/// the server; `POST /v1/orders` and the four `/v1/rfqs` operations are newly
+/// specified. The catalogue, cart, account, address and device routes are
+/// specified and not built; the auth routes are specified, not built, and
+/// additionally require a refresh-token table and an OTP model that do not
+/// exist. See the header of `auth_api.dart`.
+///
+/// AND ONE RULE THAT IS NOT ABOUT PLUMBING: `ProductCard`, `ProductDetail` and
+/// `CartLine` all carry `sellableInChannel`. That flag — not the presence of a
+/// price — decides Add to cart versus Request a quote. The pilot catalogue is
+/// priced in B2C and flagged unsellable in it, so the two disagree on every
+/// row in production.
 class AvenickApi {
   AvenickApi._({
     required this.client,
@@ -39,6 +47,7 @@ class AvenickApi {
     required this.cart,
     required this.checkout,
     required this.orders,
+    required this.rfqs,
     required this.account,
     required this.devices,
   });
@@ -49,6 +58,7 @@ class AvenickApi {
   final CartApi cart;
   final CheckoutApi checkout;
   final OrdersApi orders;
+  final RfqsApi rfqs;
   final AccountApi account;
   final DevicesApi devices;
 
@@ -90,6 +100,7 @@ class AvenickApi {
       cart: CartApi(client),
       checkout: CheckoutApi(client),
       orders: OrdersApi(client),
+      rfqs: RfqsApi(client),
       account: AccountApi(client),
       devices: DevicesApi(client),
     );

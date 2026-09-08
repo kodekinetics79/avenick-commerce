@@ -10,7 +10,7 @@ import {
 } from "./enums";
 import { IdSchema, ImageSchema, MoneySchema, SlugSchema, TimestampSchema, VatRatePercentSchema } from "./primitives";
 import { CursorQuerySchema, pageEnvelope, successEnvelope } from "./envelope";
-import { ShippingAddressInputSchema } from "./checkout";
+import { QuoteLineInputSchema, ShippingAddressInputSchema } from "./checkout";
 
 /**
  * The totals ON A PLACED ORDER, which are NOT the same schema as a quote's.
@@ -162,3 +162,96 @@ export const OrderListResponseSchema = pageEnvelope(OrderCardSchema);
 export const OrderPathParamsSchema = z.object({ id: IdSchema }).strict();
 
 export const OrderDetailResponseSchema = successEnvelope(OrderDetailSchema);
+
+/**
+ * POST /v1/orders — REQUEST.
+ *
+ * The client sends identity and quantity and NOTHING that costs money. Prices,
+ * discounts, VAT and freight are resolved server-side, for the same reason
+ * `/api/orders` resolves them: a shipping figure the client can influence is a
+ * discount the client can grant itself. `items` and `shippingAddress` are the
+ * same schemas `POST /v1/checkout/quote` takes, so the object the app was
+ * quoted on is the object it orders with — byte for byte, which is also what
+ * makes the idempotency fingerprint over the two agree.
+ *
+ * TWO FIELDS THE LEGACY ROUTE ACCEPTS ARE DELIBERATELY ABSENT, because on this
+ * path they can only ever produce a refusal:
+ *
+ *   · `type` — `assertGovernedB2BCheckout` (checkout-invariants.ts) refuses
+ *     `type: "B2B"` from generic checkout unconditionally: a B2B order must
+ *     carry an approved purchase order AND its immutable governed terms, and
+ *     neither can come from a phone. So this endpoint places B2C orders, and
+ *     the field would be a switch with one working position.
+ *   · `purchaseOrderId` — `assertGenericCheckoutHasNoPurchaseOrder` refuses it
+ *     outright; approved POs are placed by `placeGovernedPurchaseOrder`, which
+ *     has no v1 endpoint. Accepting the field would let the app offer a button
+ *     whose only outcome is a 409 it cannot act on.
+ *
+ * A client that sends either gets `validation_failed` naming the field, which
+ * says "this surface does not do that" — rather than a business conflict, which
+ * says "try again differently" when there is no differently.
+ */
+export const PlaceOrderRequestSchema = z
+  .object({
+    items: z.array(QuoteLineInputSchema).min(1).max(500),
+    shippingAddress: ShippingAddressInputSchema,
+    paymentMethod: PaymentMethodSchema,
+    /** Required, never defaulted: a defaulted currency prices an order the buyer never chose. */
+    currency: CurrencySchema,
+    couponCode: z
+      .string()
+      .trim()
+      .min(3)
+      .max(40)
+      .regex(/^[A-Za-z0-9_-]+$/)
+      .optional(),
+    notes: z.string().trim().max(2000).optional(),
+  })
+  .strict();
+
+export type PlaceOrderRequest = z.infer<typeof PlaceOrderRequestSchema>;
+
+/**
+ * The `Idempotency-Key` request header.
+ *
+ * A header rather than a body field, matching `/api/orders`, and for a reason
+ * the body could not serve: the key must survive a RETRY OF THE SAME REQUEST
+ * unchanged, and a value inside the payload is one a client is tempted to
+ * regenerate along with the payload. `Order.idempotencyKey` is unique per user,
+ * so a replay returns the original order instead of creating a second one — the
+ * single most important property on this endpoint, because the request that
+ * times out is exactly the one a phone on a warehouse connection will send
+ * twice.
+ *
+ * 128 characters is the column's practical bound and the same cap the existing
+ * route enforces.
+ */
+export const IdempotencyKeySchema = z.string().trim().min(1).max(128);
+
+export const PlaceOrderHeadersSchema = z
+  .object({ "idempotency-key": IdempotencyKeySchema.optional() })
+  .strict();
+
+/**
+ * POST /v1/orders — RESPONSE.
+ *
+ * The whole order, through the same projection `GET /v1/orders/{id}` uses, so
+ * the confirmation screen needs no second call and cannot disagree with the
+ * order screen it becomes.
+ *
+ * `replayed` is the legacy route's `idempotent: true` signal, moved INSIDE the
+ * payload. It cannot be a sibling of `data`: the success envelope is `.strict()`
+ * and admits only `data` and `meta`, which is exactly the drift that let
+ * `/api/products` grow `{ success, products, page, limit, total, totalPages }`
+ * around its payload. The app uses it to avoid celebrating the same order twice
+ * when a retry succeeds.
+ */
+export const PlacedOrderSchema = z
+  .object({
+    order: OrderDetailSchema,
+    /** True when this response replays an order the same Idempotency-Key already created. */
+    replayed: z.boolean(),
+  })
+  .strict();
+
+export const PlaceOrderResponseSchema = successEnvelope(PlacedOrderSchema);

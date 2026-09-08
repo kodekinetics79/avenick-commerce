@@ -87,15 +87,40 @@ export const VatRatePercentSchema = z.number().finite().min(0).max(100);
  * let Flutter reserve the box before the bytes land, and the blurhash gives it
  * something to draw meanwhile.
  *
- * NOTE FOR THE BACKEND: `ProductImage` today stores only `url`, `altEn`,
- * `altAr`, `isPrimary` and `sortOrder`. `width`, `height` and `blurhash` have
- * no column yet — see the report accompanying this package.
+ * ⚠ `width` and `height` ARE OPTIONAL, AND ONLY TEMPORARILY SO.
+ *
+ * They were required, and that was the right shape for the data this contract
+ * describes — but not for the data the database holds. `ProductImage` stores
+ * `url`, `altEn`, `altAr`, `isPrimary` and `sortOrder` and nothing else;
+ * `Category.imageUrl`, `Brand.logoUrl` and `User.avatar` are bare URL strings.
+ * With the fields required there were exactly two things a server could do:
+ * invent a size, or report no image. Inventing one is the worse of the two —
+ * Flutter reserves the box from it, so every tile whose real ratio differs
+ * re-lays out when the bytes land, and a guessed number is indistinguishable
+ * from a measured one to everyone who reads it afterwards. So the server
+ * reported nothing, and the entire pilot catalogue and every brand logo
+ * serialised as `image: null`: a storefront with no pictures.
+ *
+ * Optional is the honest middle. The server sends the dimensions wherever the
+ * stored URL genuinely states them (a `WxH` path segment, or `w`/`h` query
+ * parameters) and omits them otherwise; the client reserves the box when they
+ * are present and lays out on load when they are not. They are written
+ * TOGETHER or not at all — a width without a height is not an aspect ratio and
+ * reserves nothing — which the server guarantees at its single projection
+ * point rather than the schema enforcing it, because a cross-field refinement
+ * here would make `Image` a ZodEffects and this is the one component eleven
+ * other schemas embed by reference.
+ *
+ * THEY GO BACK TO REQUIRED once `ProductImage` has real `width`/`height`
+ * columns, populated at upload and backfilled over the asset bucket. That
+ * migration is the actual fix; this is the shape that stops the app shipping
+ * without images until it lands.
  */
 export const ImageSchema = z
   .object({
     url: z.string().url().max(2048),
-    width: z.number().int().positive().max(20000),
-    height: z.number().int().positive().max(20000),
+    width: z.number().int().positive().max(20000).optional(),
+    height: z.number().int().positive().max(20000).optional(),
     /** BlurHash, as produced by the reference encoder. Optional: older rows have none. */
     blurhash: z.string().min(6).max(128).optional(),
     /** Alt text in the caller's requested language. Null when the seller supplied none. */

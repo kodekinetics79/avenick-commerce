@@ -1,5 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import 'checkout.dart' show ShippingAddress;
 import 'enums.dart';
 
 /// Request bodies, hand-written rather than generated.
@@ -210,8 +211,9 @@ class CartMergeRequest {
       };
 }
 
-/// The ship-to address a quote is priced against — exactly the fields
-/// `checkout/quote` accepts, and no more.
+/// The ship-to address a quote is priced against and an order is placed to —
+/// exactly the fields `checkout/quote` and `POST /v1/orders` accept, and no
+/// more.
 @immutable
 class ShippingAddressInput {
   const ShippingAddressInput({
@@ -222,6 +224,23 @@ class ShippingAddressInput {
     this.line2,
     this.postalCode,
   });
+
+  /// Narrow a `ShippingAddress` off the wire back into a request body.
+  ///
+  /// The two carry the same six fields, but they are NOT the same type on
+  /// purpose: the response model's generated `toJson` writes `line2: null`,
+  /// and the request schema types `line2` as `.optional()` — where an explicit
+  /// null is a 400, not an empty second line. This is the conversion that
+  /// keeps that difference from becoming a rejected order.
+  factory ShippingAddressInput.from(ShippingAddress address) =>
+      ShippingAddressInput(
+        label: address.label,
+        line1: address.line1,
+        city: address.city,
+        country: address.country,
+        line2: address.line2,
+        postalCode: address.postalCode,
+      );
 
   final String label;
   final String line1;
@@ -305,6 +324,223 @@ class CheckoutQuoteRequest {
         'channel': channel.wire,
         if (couponCode != null && couponCode!.isNotEmpty)
           'couponCode': couponCode,
+      };
+}
+
+/// One line of `POST /v1/orders`.
+///
+/// A typedef rather than a copy: the order-item schema and the quote-line
+/// schema are the same three properties with the same three constraints —
+/// `productId` required, `variantId` optional, `quantity` a positive integer
+/// capped at 100,000 — and two hand-written classes for one wire shape is two
+/// places to update when it moves. `endpoints_test.dart` asserts the two
+/// bodies serialise identically, so a divergence in the contract fails there
+/// rather than silently in one of them.
+typedef OrderLineInput = QuoteLineInput;
+
+/// `POST /v1/orders` — place the order.
+///
+/// ## What this body does NOT carry
+///
+/// No prices, no discounts, no VAT, no freight, no totals. Identity and
+/// quantity only: everything with money in it is resolved server-side against
+/// the catalogue at the moment of placement. A client that could name a price
+/// is a client that could name a lower one.
+///
+/// ## Idempotency is not optional here
+///
+/// This is the one non-idempotent call on the surface, and a timeout on it is
+/// NOT a rollback — the order may well have been written. Send an
+/// `Idempotency-Key` and reuse the SAME key for every retry of the same
+/// submission; the server answers a repeat with the original order and
+/// `replayed: true`. `OrdersApi.placeOrder` mints one per attempt if the
+/// caller does not, but a caller that retries must pass its own: a fresh key
+/// on a retry is how one basket becomes two orders.
+///
+/// ## B2C only, and card methods are refused
+///
+/// A B2B order goes through the governed purchase-order workflow, which has no
+/// endpoint on this surface. And of the six [PaymentMethod] values, only
+/// `BANK_TRANSFER` (and `MOCK`, where the deployment allows it) completes
+/// today — card and wallet methods answer 503 `upstream_unavailable` until a
+/// payment-session flow exists. That is a dependency that is absent, not one
+/// that is down: the UI must EXPLAIN it, not retry it. See
+/// `OrdersApi.placeOrder`.
+@immutable
+class PlaceOrderRequest {
+  const PlaceOrderRequest({
+    required this.items,
+    required this.shippingAddress,
+    required this.paymentMethod,
+    required this.currency,
+    this.couponCode,
+    this.notes,
+  });
+
+  final List<OrderLineInput> items;
+  final ShippingAddressInput shippingAddress;
+  final PaymentMethod paymentMethod;
+
+  /// Required, never defaulted: a defaulted currency charges for an order the
+  /// buyer never agreed to.
+  final Currency currency;
+  final String? couponCode;
+  final String? notes;
+
+  /// True for the methods this deployment can actually complete. A screen that
+  /// offers one of the others is offering a button that answers 503.
+  bool get isSettleableMethod =>
+      paymentMethod == PaymentMethod.bankTransfer ||
+      paymentMethod == PaymentMethod.mock;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'items': <Map<String, Object?>>[
+          for (final OrderLineInput item in items) item.toJson(),
+        ],
+        'shippingAddress': shippingAddress.toJson(),
+        'paymentMethod': _paymentMethodWire(paymentMethod),
+        'currency': currency.code,
+        if (couponCode != null && couponCode!.isNotEmpty)
+          'couponCode': couponCode,
+        if (notes != null && notes!.isNotEmpty) 'notes': notes,
+      };
+
+  /// The wire spelling of a [PaymentMethod]. The Dart names are lowerCamelCase
+  /// to keep the linter quiet, so the SCREAMING_SNAKE form the server expects
+  /// is produced here rather than by `.name`.
+  static String _paymentMethodWire(PaymentMethod method) =>
+      const <PaymentMethod, String>{
+        PaymentMethod.mada: 'MADA',
+        PaymentMethod.applePay: 'APPLE_PAY',
+        PaymentMethod.creditCard: 'CREDIT_CARD',
+        PaymentMethod.bankTransfer: 'BANK_TRANSFER',
+        PaymentMethod.stcPay: 'STC_PAY',
+        PaymentMethod.mock: 'MOCK',
+      }[method]!;
+}
+
+/// One line of `POST /v1/rfqs`.
+///
+/// Only [quantity] is required. A line naming a catalogue [productId] takes
+/// its name from the catalogue, and a free-text line must carry its own
+/// [nameEn] — so exactly one of the two is always meaningful, and sending
+/// neither is a 400. [isWellFormed] says so before the round trip does.
+@immutable
+class RfqLineInput {
+  const RfqLineInput({
+    required this.quantity,
+    this.productId,
+    this.nameEn,
+    this.notes,
+  });
+
+  /// A line for a catalogue product: the server fills the name in.
+  const RfqLineInput.product({
+    required String this.productId,
+    required this.quantity,
+    this.notes,
+  }) : nameEn = null;
+
+  /// A line for something the catalogue does not list. This is the ordinary
+  /// case for an RFQ, not an edge case.
+  const RfqLineInput.freeText({
+    required String this.nameEn,
+    required this.quantity,
+    this.notes,
+  }) : productId = null;
+
+  final String? productId;
+
+  /// 2 to 300 characters when present.
+  final String? nameEn;
+  final int quantity;
+  final String? notes;
+
+  /// A line the server can act on: it names a product, or it describes one.
+  bool get isWellFormed =>
+      quantity > 0 &&
+      (productId != null || (nameEn != null && nameEn!.trim().length >= 2));
+
+  /// The optional fields are OMITTED rather than sent as null — every one of
+  /// them is `.optional()` and an explicit null fails validation.
+  Map<String, Object?> toJson() => <String, Object?>{
+        if (productId != null) 'productId': productId,
+        if (nameEn != null && nameEn!.isNotEmpty) 'nameEn': nameEn,
+        'quantity': quantity,
+        if (notes != null && notes!.isNotEmpty) 'notes': notes,
+      };
+}
+
+/// `POST /v1/rfqs` — the action a quote-only product offers instead of
+/// Add to Cart.
+///
+/// [currency] is required and never defaulted: it is the currency the supplier
+/// will quote IN, and a request raised in the wrong one comes back priced in a
+/// currency the buyer cannot settle.
+@immutable
+class CreateRfqRequest {
+  const CreateRfqRequest({
+    required this.items,
+    required this.currency,
+    this.notes,
+    this.requiredBy,
+  });
+
+  /// 1 to 50 lines.
+  final List<RfqLineInput> items;
+  final Currency currency;
+  final String? notes;
+
+  /// When the buyer needs them. Sent as ISO-8601 UTC.
+  final DateTime? requiredBy;
+
+  /// Every line names a product or describes one. Check before sending: a 400
+  /// on a form the buyer has just filled in is a worse experience than a
+  /// disabled button that says which line is short.
+  bool get isWellFormed =>
+      items.isNotEmpty && items.every((RfqLineInput l) => l.isWellFormed);
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'items': <Map<String, Object?>>[
+          for (final RfqLineInput item in items) item.toJson(),
+        ],
+        'currency': currency.code,
+        if (notes != null && notes!.isNotEmpty) 'notes': notes,
+        if (requiredBy != null)
+          'requiredBy': requiredBy!.toUtc().toIso8601String(),
+      };
+}
+
+/// `POST /v1/rfqs/{id}/decision` — accept or reject the supplier's quote.
+///
+/// [expectedQuoteVersion] IS THE POINT OF THIS BODY. It is compared against
+/// the stored version under the RFQ's advisory lock, so a decision made
+/// against a quote the supplier has since revised comes back as a `conflict`
+/// rather than binding the buyer to a price they never saw.
+///
+/// Pass `RfqDetail.quoteVersion` from the payload the buyer was LOOKING AT.
+/// Re-reading the RFQ at the moment of the tap to "get the latest version"
+/// defeats the check entirely — it would accept whatever the supplier had just
+/// changed the price to.
+@immutable
+class RfqDecisionRequest {
+  const RfqDecisionRequest({
+    required this.decision,
+    required this.expectedQuoteVersion,
+  });
+
+  const RfqDecisionRequest.accept(this.expectedQuoteVersion)
+      : decision = RfqDecision.accepted;
+
+  const RfqDecisionRequest.reject(this.expectedQuoteVersion)
+      : decision = RfqDecision.rejected;
+
+  final RfqDecision decision;
+  final int expectedQuoteVersion;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+        'decision': decision.wire,
+        'expectedQuoteVersion': expectedQuoteVersion,
       };
 }
 

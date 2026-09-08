@@ -213,10 +213,36 @@ class _KeyButtonState extends State<KeyButton> {
     // `depth` when up and by `0` when down. Because the face is opaque, the
     // only part of the edge ever visible is the `depth` sliver below the face —
     // which is precisely what an edge is.
+    // The face is the Stack's ONLY non-positioned child, and that is load
+    // bearing rather than incidental.
+    //
+    // This assembly used to position both children — the edge with
+    // Positioned.fill and the face with AnimatedPositionedDirectional — inside
+    // a Stack of fixed height. A Stack with no non-positioned child has nothing
+    // to measure, so it takes `constraints.biggest`; under an unbounded width
+    // that is infinity, and the button asserted. The practical effect was that
+    // a KeyButton could not be placed in a Row or a Wrap at all, and `expand:
+    // false` did nothing, because the fixed-height SizedBox never had an
+    // intrinsic width to report either.
+    //
+    // Keeping the face unpositioned makes the Stack size to it: width from the
+    // face's own intrinsic Row, height from the face plus the padding below.
+    // The travel becomes padding rather than an offset, which animates the same
+    // way and costs nothing, because the total (height + depth) is constant —
+    // the padding only moves where the face sits inside it.
     final Widget key = SizedBox(
-      height: height + depth,
+      // Only when the caller asked to fill. Null passes constraints straight
+      // through, which is what lets the intrinsic path above work.
       width: widget.expand ? double.infinity : null,
       child: Stack(
+        // Passthrough hands the INCOMING constraints to the face rather than
+        // loosening them, which is what makes one assembly serve both callers:
+        // given a tight width (a sticky bar, a Column that stretches) the face
+        // fills it exactly as the old positioned version did, and given an
+        // unbounded one (a Row, a Wrap) it falls back to its intrinsic width
+        // instead of asserting. Without this the edge would fill a tight parent
+        // while the face sat narrow inside it.
+        fit: StackFit.passthrough,
         children: <Widget>[
           if (depth > 0)
             Positioned.fill(
@@ -227,16 +253,18 @@ class _KeyButtonState extends State<KeyButton> {
                 ),
               ),
             ),
-          AnimatedPositionedDirectional(
+          AnimatedPadding(
             duration: context.motion.press,
             // Down is a harder stop than up: the key hits its base. Up is the
             // spring returning.
             curve: down ? context.motion.exitCurve : context.motion.overshoot,
-            // Directional so the face fills edge-to-edge in both locales.
-            start: 0,
-            end: 0,
-            top: down ? depth : 0,
-            height: height,
+            // Symmetric about the travel: the pair always sums to `depth`, so
+            // the button's overall height never changes as it is pressed — only
+            // the sliver of edge visible below the face does.
+            padding: EdgeInsets.only(
+              top: down ? depth : 0,
+              bottom: down ? 0 : depth,
+            ),
             child: face,
           ),
         ],

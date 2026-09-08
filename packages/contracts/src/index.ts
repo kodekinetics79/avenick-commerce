@@ -32,6 +32,7 @@ export * from "./cart";
 export * from "./checkout";
 export * from "./catalogue";
 export * from "./orders";
+export * from "./rfqs";
 export * from "./me";
 export * from "./addresses";
 export * from "./devices";

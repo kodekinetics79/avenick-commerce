@@ -134,4 +134,81 @@ void main() {
       expect(tester.getTopLeft(find.text('Press')).dy, restTop);
     });
   });
+
+  _unboundedWidthRegression();
+}
+
+/// Regression: a KeyButton must survive an UNBOUNDED width.
+///
+/// The assembly used to be a Stack whose children were all positioned. A Stack
+/// with no non-positioned child has nothing to measure, so it takes
+/// `constraints.biggest` — which under an unbounded width is infinity, and the
+/// button asserted rather than laying out. The practical effect was that a
+/// KeyButton could not be placed in a Row or a Wrap at all, which is exactly
+/// where a pair of actions ("Remove" / "Ask for a quote") wants to sit, and
+/// `expand: false` could not shrink it either because there was no intrinsic
+/// width to report.
+///
+/// These tests pin the two halves of the fix: the face is the Stack's only
+/// non-positioned child, and `StackFit.passthrough` hands it the incoming
+/// constraints so a tight parent still gets a full-width face.
+void _unboundedWidthRegression() {
+  Widget host(Widget child) => MaterialApp(
+        theme: MeridianTheme.light(),
+        home: Scaffold(body: Center(child: child)),
+      );
+
+  testWidgets('lays out inside a Row, which is an unbounded width', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            KeyButton(label: 'Remove', onPressed: () {}),
+            const SizedBox(width: 8),
+            KeyButton(label: 'Ask for a quote', onPressed: () {}),
+          ],
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    // Intrinsic, not infinite: the longer label must be the wider button.
+    final double remove = tester.getSize(find.byType(KeyButton).first).width;
+    final double quote = tester.getSize(find.byType(KeyButton).last).width;
+    expect(remove, lessThan(quote));
+    expect(remove, greaterThan(0));
+    expect(quote.isFinite, isTrue);
+  });
+
+  testWidgets('lays out inside a Wrap', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      host(
+        Wrap(
+          children: <Widget>[
+            KeyButton(label: 'One', onPressed: () {}),
+            KeyButton(label: 'Two', onPressed: () {}),
+          ],
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('still fills a tight width, so a sticky bar is unchanged', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        SizedBox(
+          width: 320,
+          child: KeyButton(label: 'Checkout', onPressed: () {}),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    expect(tester.getSize(find.byType(KeyButton)).width, 320);
+  });
 }

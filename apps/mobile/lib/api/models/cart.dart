@@ -43,6 +43,16 @@ abstract class CartLine with _$CartLine {
     /// if the quantity does.
     required bool priceTiered,
     required Availability availability,
+
+    /// Whether this line can be ORDERED in [channel] — the platform's
+    /// `isB2CEnabled`/`isB2BEnabled` gate, answered for the channel this line
+    /// was priced in. See `ProductCard.sellableInChannel` in `catalogue.dart`.
+    ///
+    /// A line with `false` here is priced, in stock, above its MOQ and still
+    /// impossible to buy: `secureCreateOrder` refuses the order. It must be
+    /// shown as quote-only in the basket and must not be carried into a
+    /// checkout — which is what [Cart.blockingLines] now enforces.
+    required bool sellableInChannel,
     @DecimalConverter() required Decimal lineTotal,
   }) = _CartLine;
 
@@ -55,6 +65,10 @@ abstract class CartLine with _$CartLine {
   String name(Language language) => language == Language.ar ? nameAr : nameEn;
 
   bool get isBelowMoq => qty < moq;
+
+  /// The server would refuse an order containing this line. Named for what it
+  /// means at the till rather than for the flag it reads.
+  bool get isQuoteOnly => !sellableInChannel;
 }
 
 @freezed
@@ -79,11 +93,24 @@ abstract class Cart with _$Cart {
 
   bool get isEmpty => lines.isEmpty;
 
-  /// Lines that would stop a checkout: below MOQ, or gone out of stock while
-  /// the cart sat there.
+  /// Lines that would stop a checkout: below MOQ, gone out of stock while the
+  /// cart sat there, or not sellable in the channel they were priced in.
+  ///
+  /// The third is the one that is invisible without the flag. A quote-only
+  /// line looks perfect in a basket — priced, in stock, above its minimum —
+  /// and the order service refuses it at the last step.
   List<CartLine> get blockingLines => lines
-      .where((l) => l.isBelowMoq || l.availability == Availability.outOfStock)
+      .where(
+        (l) =>
+            l.isBelowMoq ||
+            l.availability == Availability.outOfStock ||
+            l.isQuoteOnly,
+      )
       .toList();
+
+  /// The lines that must be taken out of the basket and asked about instead.
+  List<CartLine> get quoteOnlyLines =>
+      lines.where((l) => l.isQuoteOnly).toList();
 
   /// The one arithmetic identity worth checking on a cart. It is NOT enforced
   /// at parse time: unlike the order totals, a cart is a scratch surface the

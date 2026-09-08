@@ -217,3 +217,14 @@ const _$PaymentMethodEnumMap = {
   PaymentMethod.stcPay: 'STC_PAY',
   PaymentMethod.mock: 'MOCK',
 };
+
+_PlacedOrder _$PlacedOrderFromJson(Map<String, dynamic> json) => _PlacedOrder(
+      order: OrderDetail.fromJson(json['order'] as Map<String, dynamic>),
+      replayed: json['replayed'] as bool,
+    );
+
+Map<String, dynamic> _$PlacedOrderToJson(_PlacedOrder instance) =>
+    <String, dynamic>{
+      'order': instance.order,
+      'replayed': instance.replayed,
+    };

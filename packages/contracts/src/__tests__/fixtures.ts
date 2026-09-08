@@ -40,6 +40,7 @@ const cartLine = {
   vatRatePercent: 5,
   priceTiered: false,
   availability: "IN_STOCK" as const,
+  sellableInChannel: true,
   lineTotal: 100,
 };
 
@@ -92,6 +93,7 @@ const productCard = {
   priceTiered: false,
   rating: { average: 4.5, count: 12 },
   brandName: "Ansell",
+  sellableInChannel: true,
 };
 
 const priceBand = {
@@ -186,6 +188,63 @@ const orderItem = {
   status: "CONFIRMED" as const,
 };
 
+const orderDetail = {
+  id: "ord_1",
+  orderNumber: "AV-2026-000123",
+  status: "CONFIRMED" as const,
+  paymentStatus: "PAID" as const,
+  paymentMethod: "BANK_TRANSFER" as const,
+  type: "B2C" as const,
+  currency: "AED" as const,
+  totals: { subtotal: 100, discountAmount: 0, shippingAmount: 20, vatAmount: 6, goodsVatAmount: 5, shippingVatAmount: 1, total: 126 },
+  items: [orderItem],
+  shippingAddress,
+  shipments: [],
+  statusHistory: [{ status: "PENDING_PAYMENT" as const, message: "Order created, awaiting payment", occurredAt: "2026-09-04T08:30:00Z" }],
+  notes: null,
+  vatInvoiceUrl: null,
+  placedAt: "2026-09-04T08:30:00Z",
+  updatedAt: "2026-09-04T09:30:00Z",
+};
+
+const placeOrderRequest = {
+  items: [{ productId: "prod_1", quantity: 2 }],
+  shippingAddress,
+  paymentMethod: "BANK_TRANSFER" as const,
+  currency: "AED" as const,
+};
+
+const rfqItem = {
+  id: "rfqi_1",
+  productId: "prod_1",
+  nameEn: "OPC Portland Cement 50kg",
+  quantity: 5000,
+  unitQuoted: null,
+  notes: null,
+};
+
+const rfqCard = {
+  id: "rfq_1",
+  rfqNumber: "RFQ-2026-001",
+  status: "SUBMITTED" as const,
+  currency: "AED" as const,
+  itemCount: 1,
+  totalQuoted: null,
+  quoteVersion: 0,
+  seller: null,
+  requiredBy: "2026-10-04T08:30:00Z",
+  createdAt: "2026-09-04T08:30:00Z",
+  messageCount: 0,
+};
+
+const rfqDetail = {
+  ...rfqCard,
+  items: [rfqItem],
+  notes: "Need 5000 bags for Q2 project.",
+  expiresAt: null,
+  updatedAt: "2026-09-04T08:30:00Z",
+};
+
 const me = {
   id: "usr_1",
   email: "buyer@example.com",
@@ -220,9 +279,23 @@ export const SCHEMA_CASES: SchemaCase[] = [
     name: "Image",
     schema: contracts.ImageSchema,
     valid: image,
-    // A bare string is exactly what the current DTOs ship, and what this
-    // contract exists to stop.
-    invalid: { url: "https://cdn.avenick.com/p/1.jpg" },
+    // The URL is still the one required field: a descriptor with no address is
+    // not an image, which is what this contract exists to stop the DTOs
+    // shipping.
+    invalid: { url: "cdn.avenick.com/p/1.jpg", width: 800, height: 800 },
+    invalidPath: "url",
+  },
+  {
+    name: "Image (no recorded dimensions)",
+    schema: contracts.ImageSchema,
+    // The pilot catalogue's shape: a real picture whose size nothing stored.
+    // This MUST parse — when it did not, the server had to answer `image: null`
+    // for the entire catalogue rather than invent a size, and the app shipped
+    // with no pictures. See the note on ImageSchema.
+    valid: { url: "https://assets.avenick.com/pilot/bolt-m6.jpg", alt: null },
+    // A dimension that is present must still be a real one; zero reserves a
+    // box of nothing.
+    invalid: { url: "https://assets.avenick.com/pilot/bolt-m6.jpg", width: 0, height: 800 },
     invalidPath: "width",
   },
   {
@@ -387,8 +460,40 @@ export const SCHEMA_CASES: SchemaCase[] = [
     name: "ProductDetail",
     schema: contracts.ProductDetailSchema,
     valid: productDetail,
-    invalid: { ...productDetail, images: [{ url: "https://cdn.avenick.com/p/1.jpg" }] },
-    invalidPath: "images.0.width",
+    // A gallery entry whose address is not an address. The SIZE is no longer
+    // the thing that makes an image descriptor invalid — see the note on
+    // ImageSchema — but the URL still is.
+    invalid: { ...productDetail, images: [{ url: "cdn.avenick.com/p/1.jpg" }] },
+    invalidPath: "images.0.url",
+  },
+  {
+    name: "ProductDetail (unsized gallery image)",
+    schema: contracts.ProductDetailSchema,
+    // The pilot catalogue's gallery: real pictures, no recorded dimensions.
+    // This is the case the whole surface was blocked on.
+    valid: { ...productDetail, images: [{ url: "https://assets.avenick.com/pilot/bolt-m6.jpg", alt: null }] },
+    // What `/api/products/[slug]` ships today: twenty review bodies inlined
+    // into the product payload, which is a page of user-generated text nobody
+    // has scrolled to yet.
+    invalid: {
+      ...productDetail,
+      reviews: [{ id: "rev_1", rating: 5, title: "Good", body: "…", isVerified: true }],
+    },
+  },
+  {
+    name: "ProductCard (priced in B2C, sellable to nobody)",
+    schema: contracts.ProductCardSchema,
+    // The pilot catalogue's actual state, and the reason the flag exists: a
+    // B2C price and `isB2CEnabled: false` on the same row. The app reads
+    // `sellableInChannel`, never the channel the price came from.
+    valid: { ...productCard, sellableInChannel: false },
+    // Omitting it is the ambiguity that forced the client into a third
+    // `unstated` state. It is required, so an absent flag is a refusal.
+    invalid: (() => {
+      const { sellableInChannel: _omitted, ...withoutFlag } = productCard;
+      return withoutFlag;
+    })(),
+    invalidPath: "sellableInChannel",
   },
   {
     name: "ProductListQuery",
@@ -424,43 +529,76 @@ export const SCHEMA_CASES: SchemaCase[] = [
   {
     name: "OrderDetail",
     schema: contracts.OrderDetailSchema,
-    valid: {
-      id: "ord_1",
-      orderNumber: "AV-2026-000123",
-      status: "CONFIRMED",
-      paymentStatus: "PAID",
-      paymentMethod: "BANK_TRANSFER",
-      type: "B2C",
-      currency: "AED",
-      totals: { subtotal: 100, discountAmount: 0, shippingAmount: 20, vatAmount: 6, goodsVatAmount: 5, shippingVatAmount: 1, total: 126 },
-      items: [orderItem],
-      shippingAddress,
-      shipments: [],
-      statusHistory: [{ status: "PENDING_PAYMENT", message: "Order created, awaiting payment", occurredAt: "2026-09-04T08:30:00Z" }],
-      notes: null,
-      vatInvoiceUrl: null,
-      placedAt: "2026-09-04T08:30:00Z",
-      updatedAt: "2026-09-04T09:30:00Z",
-    },
-    invalid: {
-      id: "ord_1",
-      orderNumber: "AV-2026-000123",
-      status: "CONFIRMED",
-      paymentStatus: "PAID",
-      paymentMethod: "BANK_TRANSFER",
-      type: "B2C",
-      currency: "AED",
-      totals: { subtotal: 100, discountAmount: 0, shippingAmount: 20, vatAmount: 6, goodsVatAmount: 5, shippingVatAmount: 5, total: 126 },
-      items: [orderItem],
-      shippingAddress,
-      shipments: [],
-      statusHistory: [],
-      notes: null,
-      vatInvoiceUrl: null,
-      placedAt: "2026-09-04T08:30:00Z",
-      updatedAt: "2026-09-04T09:30:00Z",
-    },
+    valid: orderDetail,
+    // Components that do not sum to the declared tax. This is the PR #21 defect
+    // encoded: the pair must reconcile whenever both are recorded.
+    invalid: { ...orderDetail, totals: { ...orderDetail.totals, shippingVatAmount: 5 } },
     invalidPath: "totals.vatAmount",
+  },
+  {
+    name: "PlaceOrderRequest",
+    schema: contracts.PlaceOrderRequestSchema,
+    valid: placeOrderRequest,
+    // A basket with nothing in it. `secureCreateOrder` refuses it too, but a
+    // refusal the schema can make is one that never reaches a transaction.
+    invalid: { ...placeOrderRequest, items: [] },
+    invalidPath: "items",
+  },
+  {
+    name: "PlaceOrderRequest (no B2B door, and no client-priced fields)",
+    schema: contracts.PlaceOrderRequestSchema,
+    valid: { ...placeOrderRequest, couponCode: "AUTUMN10", notes: "Gate 4 before noon." },
+    // `type` and `purchaseOrderId` are what the legacy route accepts and always
+    // refuses; `shippingAmount` is a discount the client would be granting
+    // itself. All three are unrecognised keys here, which is the difference
+    // between "this surface does not do that" and "try again differently".
+    invalid: { ...placeOrderRequest, type: "B2B", purchaseOrderId: "po_1", shippingAmount: 0 },
+  },
+  {
+    name: "PlacedOrder",
+    schema: contracts.PlacedOrderSchema,
+    valid: { order: orderDetail, replayed: false },
+    // The legacy route answers `{ success, data, idempotent }` — a sibling of
+    // the payload. Here the signal is inside it, and omitting it is a bug: an
+    // app that cannot tell a replay from a new order celebrates twice.
+    invalid: { order: orderDetail },
+    invalidPath: "replayed",
+  },
+
+  // ── rfqs ────────────────────────────────────────────────────────────────
+  {
+    name: "RfqCard",
+    schema: contracts.RfqCardSchema,
+    valid: rfqCard,
+    // A quoted total carried at a precision the Decimal(12,2) column cannot hold.
+    invalid: { ...rfqCard, totalQuoted: 37500.125 },
+    invalidPath: "totalQuoted",
+  },
+  {
+    name: "RfqDetail",
+    schema: contracts.RfqDetailSchema,
+    valid: { ...rfqDetail, status: "QUOTED", totalQuoted: 37500, quoteVersion: 1, seller: { businessNameEn: "Gulf Safety Supplies", tier: "VERIFIED" }, items: [{ ...rfqItem, unitQuoted: 7.5 }] },
+    // The comparison screen this schema deliberately cannot describe:
+    // RFQRequest.sellerId is ONE nullable supplier, so there is no quotes array.
+    invalid: { ...rfqDetail, quotes: [{ sellerId: "sel_1", total: 37500 }] },
+  },
+  {
+    name: "CreateRfqRequest",
+    schema: contracts.CreateRfqRequestSchema,
+    valid: { items: [{ productId: "prod_1", quantity: 500 }, { nameEn: "Safety boots, assorted sizes", quantity: 200 }], currency: "AED" },
+    // A line that neither names a catalogue product nor says what is wanted is
+    // a request no supplier can answer.
+    invalid: { items: [{ quantity: 500 }], currency: "AED" },
+    invalidPath: "items.0.nameEn",
+  },
+  {
+    name: "RfqDecisionRequest",
+    schema: contracts.RfqDecisionRequestSchema,
+    valid: { decision: "ACCEPTED", expectedQuoteVersion: 1 },
+    // Without the version the buyer could accept a price the supplier revised
+    // while the screen was open.
+    invalid: { decision: "ACCEPTED" },
+    invalidPath: "expectedQuoteVersion",
   },
   {
     name: "OrderListQuery",

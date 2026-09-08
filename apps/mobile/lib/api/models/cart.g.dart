@@ -27,6 +27,7 @@ _CartLine _$CartLineFromJson(Map<String, dynamic> json) => _CartLine(
           const DecimalConverter().fromJson(json['vatRatePercent'] as Object),
       priceTiered: json['priceTiered'] as bool,
       availability: $enumDecode(_$AvailabilityEnumMap, json['availability']),
+      sellableInChannel: json['sellableInChannel'] as bool,
       lineTotal: const DecimalConverter().fromJson(json['lineTotal'] as Object),
     );
 
@@ -49,6 +50,7 @@ Map<String, dynamic> _$CartLineToJson(_CartLine instance) => <String, dynamic>{
           const DecimalConverter().toJson(instance.vatRatePercent),
       'priceTiered': instance.priceTiered,
       'availability': _$AvailabilityEnumMap[instance.availability]!,
+      'sellableInChannel': instance.sellableInChannel,
       'lineTotal': const DecimalConverter().toJson(instance.lineTotal),
     };
 

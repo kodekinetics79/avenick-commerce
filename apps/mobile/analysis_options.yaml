@@ -18,6 +18,7 @@ analyzer:
     - "**/*.g.dart"
     - "**/*.freezed.dart"
     - build/**
+    - ios/**
 
 linter:
   rules:

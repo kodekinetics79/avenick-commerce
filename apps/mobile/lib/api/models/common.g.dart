@@ -8,8 +8,8 @@ part of 'common.dart';
 
 _ImageRef _$ImageRefFromJson(Map<String, dynamic> json) => _ImageRef(
       url: json['url'] as String,
-      width: (json['width'] as num).toInt(),
-      height: (json['height'] as num).toInt(),
+      width: (json['width'] as num?)?.toInt(),
+      height: (json['height'] as num?)?.toInt(),
       blurhash: json['blurhash'] as String?,
       alt: json['alt'] as String?,
     );

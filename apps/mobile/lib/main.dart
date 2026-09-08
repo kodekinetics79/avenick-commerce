@@ -3,12 +3,15 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app/auth_state.dart';
+import 'app/composition.dart';
 import 'app/router.dart';
+import 'features/account/account.dart';
 import 'theme/meridian_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: AvenickApp()));
+  // The features are inert until their ports are joined up — see composition.dart.
+  runApp(appScope(child: const AvenickApp()));
 }
 
 class AvenickApp extends ConsumerStatefulWidget {
@@ -51,7 +54,12 @@ class _AvenickAppState extends ConsumerState<AvenickApp> {
       darkTheme: MeridianTheme.dark(viewportWidth: viewportWidth),
       themeMode: ThemeMode.system,
 
-      locale: null, // follow the device
+      // The user's own choice wins; null falls through to the device locale via
+      // localeResolutionCallback below. Without this line the language picker
+      // in Account only re-rendered the screens beneath it (through a scoped
+      // Localizations.override) and the rest of the app stayed on the device
+      // language — which reads as a setting that does not work.
+      locale: ref.watch(resolvedPreferencesProvider).localeOverride,
       supportedLocales: const <Locale>[
         Locale('en'),
         Locale('ar'),
@@ -76,14 +84,25 @@ class _AvenickAppState extends ConsumerState<AvenickApp> {
       },
 
       builder: (BuildContext context, Widget? child) {
-        // Text scaling is honoured but bounded. Above ~1.3 the fluid ramp and
-        // the fixed control heights from the tokens stop agreeing and labels
-        // start clipping inside 38px buttons; the cap keeps the system legible
-        // rather than broken. Raising it means auditing controlH* first.
+        // Text scaling is honoured to 200%, because WCAG 1.4.4 asks for 200%
+        // without loss of content or function and an accessibility audit reads
+        // a hard cap below it as a failure, not as a design decision.
+        //
+        // This was 1.3, on the reasoning that labels clip inside fixed control
+        // heights above it. That reasoning was sound about the CONTROLS and
+        // wrong about the remedy: capping globally fixes a button by shrinking
+        // every sentence in the app for the users who most need it larger. The
+        // clamp belongs on the specific chrome that cannot grow — the tab bar
+        // and the sticky CTA — not on content, and the account screens are
+        // already tested at 2.0x.
+        //
+        // The ceiling stays because iOS accessibility sizes reach ~3.1x, where
+        // the fluid ramp and the token control heights genuinely stop agreeing.
+        // Raising it further means auditing controlH* first.
         final MediaQueryData mq = MediaQuery.of(context);
         return MediaQuery(
           data: mq.copyWith(
-            textScaler: mq.textScaler.clamp(minScaleFactor: 1.0, maxScaleFactor: 1.3),
+            textScaler: mq.textScaler.clamp(minScaleFactor: 1.0, maxScaleFactor: 2.0),
           ),
           child: child ?? const SizedBox.shrink(),
         );

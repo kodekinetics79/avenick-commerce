@@ -2909,4 +2909,350 @@ class __$OrderDetailCopyWithImpl<$Res> implements _$OrderDetailCopyWith<$Res> {
   }
 }
 
+/// @nodoc
+mixin _$PlacedOrder {
+  OrderDetail get order;
+
+  /// True when this response replayed an order an earlier request had
+  /// already created, under the same `Idempotency-Key`.
+  bool get replayed;
+
+  /// Create a copy of PlacedOrder
+  /// with the given fields replaced by the non-null parameter values.
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  $PlacedOrderCopyWith<PlacedOrder> get copyWith =>
+      _$PlacedOrderCopyWithImpl<PlacedOrder>(this as PlacedOrder, _$identity);
+
+  /// Serializes this PlacedOrder to a JSON map.
+  Map<String, dynamic> toJson();
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is PlacedOrder &&
+            (identical(other.order, order) || other.order == order) &&
+            (identical(other.replayed, replayed) ||
+                other.replayed == replayed));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode => Object.hash(runtimeType, order, replayed);
+
+  @override
+  String toString() {
+    return 'PlacedOrder(order: $order, replayed: $replayed)';
+  }
+}
+
+/// @nodoc
+abstract mixin class $PlacedOrderCopyWith<$Res> {
+  factory $PlacedOrderCopyWith(
+          PlacedOrder value, $Res Function(PlacedOrder) _then) =
+      _$PlacedOrderCopyWithImpl;
+  @useResult
+  $Res call({OrderDetail order, bool replayed});
+
+  $OrderDetailCopyWith<$Res> get order;
+}
+
+/// @nodoc
+class _$PlacedOrderCopyWithImpl<$Res> implements $PlacedOrderCopyWith<$Res> {
+  _$PlacedOrderCopyWithImpl(this._self, this._then);
+
+  final PlacedOrder _self;
+  final $Res Function(PlacedOrder) _then;
+
+  /// Create a copy of PlacedOrder
+  /// with the given fields replaced by the non-null parameter values.
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? order = null,
+    Object? replayed = null,
+  }) {
+    return _then(_self.copyWith(
+      order: null == order
+          ? _self.order
+          : order // ignore: cast_nullable_to_non_nullable
+              as OrderDetail,
+      replayed: null == replayed
+          ? _self.replayed
+          : replayed // ignore: cast_nullable_to_non_nullable
+              as bool,
+    ));
+  }
+
+  /// Create a copy of PlacedOrder
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $OrderDetailCopyWith<$Res> get order {
+    return $OrderDetailCopyWith<$Res>(_self.order, (value) {
+      return _then(_self.copyWith(order: value));
+    });
+  }
+}
+
+/// Adds pattern-matching-related methods to [PlacedOrder].
+extension PlacedOrderPatterns on PlacedOrder {
+  /// A variant of `map` that fallback to returning `orElse`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeMap<TResult extends Object?>(
+    TResult Function(_PlacedOrder value)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _PlacedOrder() when $default != null:
+        return $default(_that);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// Callbacks receives the raw object, upcasted.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case final Subclass2 value:
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult map<TResult extends Object?>(
+    TResult Function(_PlacedOrder value) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _PlacedOrder():
+        return $default(_that);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `map` that fallback to returning `null`.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case final Subclass value:
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? mapOrNull<TResult extends Object?>(
+    TResult? Function(_PlacedOrder value)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _PlacedOrder() when $default != null:
+        return $default(_that);
+      case _:
+        return null;
+    }
+  }
+
+  /// A variant of `when` that fallback to an `orElse` callback.
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return orElse();
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult maybeWhen<TResult extends Object?>(
+    TResult Function(OrderDetail order, bool replayed)? $default, {
+    required TResult orElse(),
+  }) {
+    final _that = this;
+    switch (_that) {
+      case _PlacedOrder() when $default != null:
+        return $default(_that.order, _that.replayed);
+      case _:
+        return orElse();
+    }
+  }
+
+  /// A `switch`-like method, using callbacks.
+  ///
+  /// As opposed to `map`, this offers destructuring.
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case Subclass2(:final field2):
+  ///     return ...;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult when<TResult extends Object?>(
+    TResult Function(OrderDetail order, bool replayed) $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _PlacedOrder():
+        return $default(_that.order, _that.replayed);
+      case _:
+        throw StateError('Unexpected subclass');
+    }
+  }
+
+  /// A variant of `when` that fallback to returning `null`
+  ///
+  /// It is equivalent to doing:
+  /// ```dart
+  /// switch (sealedClass) {
+  ///   case Subclass(:final field):
+  ///     return ...;
+  ///   case _:
+  ///     return null;
+  /// }
+  /// ```
+
+  @optionalTypeArgs
+  TResult? whenOrNull<TResult extends Object?>(
+    TResult? Function(OrderDetail order, bool replayed)? $default,
+  ) {
+    final _that = this;
+    switch (_that) {
+      case _PlacedOrder() when $default != null:
+        return $default(_that.order, _that.replayed);
+      case _:
+        return null;
+    }
+  }
+}
+
+/// @nodoc
+@JsonSerializable()
+class _PlacedOrder extends PlacedOrder {
+  const _PlacedOrder({required this.order, required this.replayed}) : super._();
+  factory _PlacedOrder.fromJson(Map<String, dynamic> json) =>
+      _$PlacedOrderFromJson(json);
+
+  @override
+  final OrderDetail order;
+
+  /// True when this response replayed an order an earlier request had
+  /// already created, under the same `Idempotency-Key`.
+  @override
+  final bool replayed;
+
+  /// Create a copy of PlacedOrder
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @pragma('vm:prefer-inline')
+  _$PlacedOrderCopyWith<_PlacedOrder> get copyWith =>
+      __$PlacedOrderCopyWithImpl<_PlacedOrder>(this, _$identity);
+
+  @override
+  Map<String, dynamic> toJson() {
+    return _$PlacedOrderToJson(
+      this,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        (other.runtimeType == runtimeType &&
+            other is _PlacedOrder &&
+            (identical(other.order, order) || other.order == order) &&
+            (identical(other.replayed, replayed) ||
+                other.replayed == replayed));
+  }
+
+  @JsonKey(includeFromJson: false, includeToJson: false)
+  @override
+  int get hashCode => Object.hash(runtimeType, order, replayed);
+
+  @override
+  String toString() {
+    return 'PlacedOrder(order: $order, replayed: $replayed)';
+  }
+}
+
+/// @nodoc
+abstract mixin class _$PlacedOrderCopyWith<$Res>
+    implements $PlacedOrderCopyWith<$Res> {
+  factory _$PlacedOrderCopyWith(
+          _PlacedOrder value, $Res Function(_PlacedOrder) _then) =
+      __$PlacedOrderCopyWithImpl;
+  @override
+  @useResult
+  $Res call({OrderDetail order, bool replayed});
+
+  @override
+  $OrderDetailCopyWith<$Res> get order;
+}
+
+/// @nodoc
+class __$PlacedOrderCopyWithImpl<$Res> implements _$PlacedOrderCopyWith<$Res> {
+  __$PlacedOrderCopyWithImpl(this._self, this._then);
+
+  final _PlacedOrder _self;
+  final $Res Function(_PlacedOrder) _then;
+
+  /// Create a copy of PlacedOrder
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $Res call({
+    Object? order = null,
+    Object? replayed = null,
+  }) {
+    return _then(_PlacedOrder(
+      order: null == order
+          ? _self.order
+          : order // ignore: cast_nullable_to_non_nullable
+              as OrderDetail,
+      replayed: null == replayed
+          ? _self.replayed
+          : replayed // ignore: cast_nullable_to_non_nullable
+              as bool,
+    ));
+  }
+
+  /// Create a copy of PlacedOrder
+  /// with the given fields replaced by the non-null parameter values.
+  @override
+  @pragma('vm:prefer-inline')
+  $OrderDetailCopyWith<$Res> get order {
+    return $OrderDetailCopyWith<$Res>(_self.order, (value) {
+      return _then(_self.copyWith(order: value));
+    });
+  }
+}
+
 // dart format on

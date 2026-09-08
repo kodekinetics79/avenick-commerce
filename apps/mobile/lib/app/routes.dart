@@ -39,17 +39,62 @@ abstract final class Routes {
   static const String nB2bApproval = 'b2bApproval';
   static const String nSignIn = 'signIn';
 
+  // ── Checkout and post-purchase ────────────────────────────────────────────
+  static const String checkout = '/checkout';
+  // Deliberately NOT '/orders/:id/confirmed'. That would sit under the same
+  // prefix as the `/orders/:id` route inside the Orders tab branch, and a
+  // nested match there is ambiguous — the confirmation belongs above the
+  // shell anyway, since it covers the tab bar.
+  static const String orderConfirmed = '/order-confirmed/:id';
+  static String orderConfirmedOf(String id) => '/order-confirmed/$id';
+  static const String nCheckout = 'checkout';
+  static const String nOrderConfirmed = 'orderConfirmed';
+
+  // ── Quote requests ────────────────────────────────────────────────────────
+  //
+  // The primary action of this app, not a side journey: every product in the
+  // production catalogue answers `sellableInChannel: false`, so the buy box
+  // says "Request a quote" and lands here.
+  static const String rfqNew = '/rfq/new';
+  static const String rfqs = '/rfqs';
+  static const String rfq = '/rfqs/:id';
+  static String rfqOf(String id) => '/rfqs/$id';
+  static const String nRfqNew = 'rfqNew';
+  static const String nRfqs = 'rfqs';
+  static const String nRfq = 'rfq';
+
+  // ── Account sub-pages ─────────────────────────────────────────────────────
+  static const String addresses = '/account/addresses';
+  static const String notificationPrefs = '/account/notifications';
+  static const String deleteAccount = '/account/delete';
+  static const String nAddresses = 'addresses';
+  static const String nNotificationPrefs = 'notificationPrefs';
+  static const String nDeleteAccount = 'deleteAccount';
+
   /// Paths that require a session.
   ///
   /// `/cart` is deliberately NOT here: a guest must be able to build a basket
   /// and only meet the wall at checkout. Making the cart itself protected is
   /// how you turn a browsing session into a bounce.
+  ///
+  /// `/checkout` IS here — that is where the wall belongs.
+  ///
+  /// `/rfq/new` is deliberately NOT here either, and that is the more important
+  /// call. With a quote-only catalogue, asking for a price is the equivalent of
+  /// adding to a basket: it is the first thing a stranger does, and putting a
+  /// sign-in wall in front of it is putting one in front of the funnel. The
+  /// server takes an anonymous RFQ; the wall belongs at the point of commitment,
+  /// which is reading and accepting the quote (`/rfqs`).
   static bool requiresAuth(String location) {
     final String path = Uri.parse(location).path;
     return path == orders ||
         path.startsWith('/orders/') ||
+        path.startsWith('/order-confirmed/') ||
+        path == checkout ||
         path == account ||
         path.startsWith('/account/') ||
+        path == rfqs ||
+        (path.startsWith('/rfqs/') && path != rfqNew) ||
         path.startsWith('/b2b/');
   }
 

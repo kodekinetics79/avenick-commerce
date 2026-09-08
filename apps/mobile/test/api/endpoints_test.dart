@@ -1,4 +1,5 @@
 import 'package:avenick/api/avenick_api.dart';
+import 'package:avenick/api/orders_api.dart';
 import 'package:avenick/api/models/models.dart';
 import 'package:avenick/core/network/api_config.dart';
 import 'package:avenick/core/network/trace_context.dart';
@@ -512,4 +513,356 @@ void main() {
       expect(order.money.total.format(), '44.32 AED');
     });
   });
+
+  group('POST /v1/orders', () {
+    PlaceOrderRequest request({
+      PaymentMethod method = PaymentMethod.bankTransfer,
+    }) =>
+        PlaceOrderRequest(
+          items: const <OrderLineInput>[
+            OrderLineInput(productId: 'prd_1', quantity: 2),
+          ],
+          shippingAddress: const ShippingAddressInput(
+            label: 'Warehouse',
+            line1: 'Plot 42, Industrial Area 3',
+            city: 'Sharjah',
+            country: Country.ae,
+          ),
+          paymentMethod: method,
+          currency: Currency.aed,
+        );
+
+    test('places the order and carries no money in the body', () async {
+      final (api, adapter) = build((_) => FakeResponse.data(f.placedOrder()));
+      addTearDown(api.dispose);
+
+      final placed = await api.orders.placeOrder(request());
+
+      expect(adapter.requests.single.path, '/v1/orders');
+      expect(adapter.requests.single.method, 'POST');
+
+      final body = adapter.requests.single.data! as Map<String, Object?>;
+      // Prices, discounts, VAT and freight are resolved server-side. A client
+      // that could name a price is a client that could name a lower one.
+      expect(body.keys, isNot(contains('unitPrice')));
+      expect(body.keys, isNot(contains('totals')));
+      expect(body.keys, isNot(contains('total')));
+      expect(body['currency'], 'AED');
+      expect(body['paymentMethod'], 'BANK_TRANSFER');
+      expect((body['items']! as List<Object?>).single, <String, Object?>{
+        'productId': 'prd_1',
+        'quantity': 2,
+      });
+
+      expect(placed.replayed, isFalse);
+      expect(placed.isNew, isTrue);
+      expect(placed.order.orderNumber, 'AVN-2026-000123');
+    });
+
+    test('an order line and a quote line serialise identically', () {
+      // `OrderLineInput` is a typedef, not a copy. If the two schemas ever
+      // diverge this is where it shows up, rather than in one of two
+      // hand-written classes that somebody forgot.
+      const order = OrderLineInput(
+        productId: 'prd_1',
+        variantId: 'var_1',
+        quantity: 7,
+      );
+      const quote = QuoteLineInput(
+        productId: 'prd_1',
+        variantId: 'var_1',
+        quantity: 7,
+      );
+      expect(order.toJson(), quote.toJson());
+    });
+
+    test('an Idempotency-Key is always sent, and the caller can pin it',
+        () async {
+      final (api, adapter) = build((_) => FakeResponse.data(f.placedOrder()));
+      addTearDown(api.dispose);
+
+      await api.orders.placeOrder(request());
+      final minted = adapter.requests.single.headers['Idempotency-Key'];
+      expect(minted, isA<String>());
+      expect((minted! as String).isNotEmpty, isTrue);
+
+      // The key belongs to the SUBMISSION. A retry that mints a fresh one is
+      // how one basket becomes two orders, so a caller that retries passes
+      // its own — and it must arrive verbatim.
+      await api.orders.placeOrder(request(), idempotencyKey: 'sub-42');
+      expect(adapter.requests.last.headers['Idempotency-Key'], 'sub-42');
+    });
+
+    test('two minted keys never collide', () {
+      final Set<String> keys = <String>{
+        for (int i = 0; i < 200; i++) OrdersApi.newIdempotencyKey(),
+      };
+      expect(keys, hasLength(200));
+    });
+
+    test('a replay is a success the app can tell apart from a purchase',
+        () async {
+      final (api, _) =
+          build((_) => FakeResponse.data(f.placedOrder(replayed: true)));
+      addTearDown(api.dispose);
+
+      final placed =
+          await api.orders.placeOrder(request(), idempotencyKey: 'sub-42');
+
+      // Both are 200s. Only one of them is a purchase that just happened, and
+      // a confirmation screen that cannot tell them apart tells a buyer who
+      // tapped twice that they bought two.
+      expect(placed.replayed, isTrue);
+      expect(placed.isNew, isFalse);
+      expect(placed.order.id, 'ord_1');
+    });
+
+    test('the Idempotency-Key survives a refresh replay', () async {
+      // The auth interceptor replays a 401ed request after refreshing. If the
+      // key were dropped there, an expired token in the middle of a checkout
+      // would write the order twice.
+      var placements = 0;
+      final adapter = FakeAdapter((options) {
+        if (options.path == '/v1/auth/refresh') {
+          return FakeResponse.data(f.tokenPair(accessToken: 'access-2'));
+        }
+        placements += 1;
+        return placements == 1
+            ? FakeResponse.error(401, 'unauthenticated')
+            : FakeResponse.data(f.placedOrder(replayed: true));
+      });
+      final api = AvenickApi.build(
+        config: config,
+        store: InMemoryTokenStore(refreshToken: 'refresh-1'),
+        adapter: adapter,
+      );
+      addTearDown(api.dispose);
+      await api.session
+          .adopt(TokenPair.fromJson(f.tokenPair(accessToken: 'access-1')));
+
+      final placed =
+          await api.orders.placeOrder(request(), idempotencyKey: 'sub-42');
+
+      expect(placed.replayed, isTrue);
+      final List<RequestOptionsLike> attempts = adapter.requests
+          .where((r) => r.path == '/v1/orders')
+          .map((r) => (path: r.path, key: r.headers['Idempotency-Key']))
+          .toList();
+      expect(attempts, hasLength(2));
+      // Both attempts, the original and the replay, carry the SAME key.
+      expect(attempts.every((a) => a.key == 'sub-42'), isTrue);
+    });
+
+    test('a card method is a distinguishable 503, not a generic outage',
+        () async {
+      // Card and wallet methods are refused with 503 / upstream_unavailable
+      // until a payment-session flow exists. The UI must EXPLAIN that, which
+      // it can only do if the failure is distinguishable from every other
+      // one — and from a dependency that is merely down.
+      final (api, _) = build(
+        (_) => FakeResponse.error(
+          503,
+          'upstream_unavailable',
+          message: 'Card payments are not available yet.',
+          requestId: 'req_503',
+        ),
+      );
+      addTearDown(api.dispose);
+
+      final Object failure = await api.orders
+          .placeOrder(request(method: PaymentMethod.creditCard))
+          .then<Object>((v) => v)
+          .onError<ApiFailure>((e, _) => e);
+
+      expect(failure, isA<ServerFailure>());
+      final server = failure as ServerFailure;
+      expect(server.code, ApiErrorCode.upstreamUnavailable);
+      expect(server.isUpstreamUnavailable, isTrue);
+      // NOT one of the other five variants, and not a bare "something went
+      // wrong" — the message and the request id are both intact.
+      expect(server.isNotFound, isFalse);
+      expect(server.isConflict, isFalse);
+      expect(server.isInternal, isFalse);
+      expect(server.statusCode, 503);
+      expect(server.requestId, 'req_503');
+      expect(server.displayMessage, 'Card payments are not available yet.');
+
+      // THE TRAP, pinned so nobody wires a spinner to it. The sealed family
+      // reports `upstream_unavailable` as retryable in general, and in
+      // general it is — a dependency that is down comes back. Here the
+      // dependency has not been BUILT, so a retry can only ever end in the
+      // same 503. The code is what a caller must branch on; `isRetryable`
+      // alone is not enough to decide what to do on this route.
+      expect(server.isRetryable, isTrue);
+    });
+
+    test('totals that do not add up never reach the confirmation screen',
+        () async {
+      final (api, _) = build(
+        (_) => FakeResponse.data(<String, dynamic>{
+          'order': f.orderDetail(
+            totals: f.persistedOrderTotals()..['total'] = 99.99,
+          ),
+          'replayed': false,
+        }),
+      );
+      addTearDown(api.dispose);
+
+      final Object failure = await api.orders
+          .placeOrder(request())
+          .then<Object>((v) => v)
+          .onError<ApiFailure>((e, _) => e);
+
+      // A 200 whose arithmetic the contract forbids. The bytes were fine; the
+      // numbers were not, and the buyer is never shown the figure.
+      expect(failure, isA<UnexpectedFailure>());
+      expect((failure as UnexpectedFailure).cause, isA<ContractViolation>());
+    });
+
+    test('the request knows which methods can settle before it is sent', () {
+      // The check that stops the buyer meeting the 503 at all.
+      expect(request().isSettleableMethod, isTrue);
+      expect(
+        request(method: PaymentMethod.mock).isSettleableMethod,
+        isTrue,
+      );
+      for (final PaymentMethod card in <PaymentMethod>[
+        PaymentMethod.mada,
+        PaymentMethod.applePay,
+        PaymentMethod.creditCard,
+        PaymentMethod.stcPay,
+      ]) {
+        expect(request(method: card).isSettleableMethod, isFalse);
+      }
+    });
+  });
+
+  group('/v1/rfqs', () {
+    test('the list is unpaginated — no meta, and no invented page', () async {
+      final (api, adapter) = build(
+        (_) => FakeResponse.data(<Object?>[f.rfqCard(), f.rfqCardUnquoted()]),
+      );
+      addTearDown(api.dispose);
+
+      final List<RfqCard> rfqs = await api.rfqs.rfqs();
+
+      expect(adapter.requests.single.path, '/v1/rfqs');
+      expect(rfqs, hasLength(2));
+      expect(rfqs.first.awaitsDecision, isTrue);
+      expect(rfqs.last.seller, isNull);
+    });
+
+    test('one request comes back whole, with no quotes array', () async {
+      final (api, adapter) = build((_) => FakeResponse.data(f.rfqDetail()));
+      addTearDown(api.dispose);
+
+      final RfqDetail rfq = await api.rfqs.rfq('rfq_1');
+
+      expect(adapter.requests.single.path, '/v1/rfqs/rfq_1');
+      expect(rfq.items, hasLength(2));
+      expect(rfq.seller!.businessNameEn, 'Gulf Valve Trading');
+      // One RFQ, one supplier. There is nothing to compare and this client
+      // does not pretend otherwise.
+      expect(rfq.toJson().containsKey('quotes'), isFalse);
+    });
+
+    test('creating an RFQ sends catalogue and free-text lines', () async {
+      final (api, adapter) = build((_) => FakeResponse.data(f.rfqDetail()));
+      addTearDown(api.dispose);
+
+      await api.rfqs.create(
+        CreateRfqRequest(
+          items: const <RfqLineInput>[
+            RfqLineInput.product(productId: 'prd_1', quantity: 250),
+            RfqLineInput.freeText(
+              nameEn: 'DN200 butterfly valve, lugged',
+              quantity: 40,
+            ),
+          ],
+          currency: Currency.aed,
+          requiredBy: DateTime.utc(2026, 10),
+        ),
+      );
+
+      expect(adapter.requests.single.path, '/v1/rfqs');
+      expect(adapter.requests.single.method, 'POST');
+      final body = adapter.requests.single.data! as Map<String, Object?>;
+      expect(body['currency'], 'AED');
+      expect(body['requiredBy'], '2026-10-01T00:00:00.000Z');
+
+      final lines = body['items']! as List<Object?>;
+      // A catalogue line omits `nameEn` — the server takes it from the
+      // catalogue — and a free-text line omits `productId`. Neither sends an
+      // explicit null: every one of these is `.optional()`.
+      expect(lines.first, <String, Object?>{
+        'productId': 'prd_1',
+        'quantity': 250,
+      });
+      expect(lines.last, <String, Object?>{
+        'nameEn': 'DN200 butterfly valve, lugged',
+        'quantity': 40,
+      });
+    });
+
+    test('a line that names nothing is caught before the round trip', () {
+      const bad = CreateRfqRequest(
+        items: <RfqLineInput>[RfqLineInput(quantity: 5)],
+        currency: Currency.aed,
+      );
+      expect(bad.isWellFormed, isFalse);
+
+      const good = CreateRfqRequest(
+        items: <RfqLineInput>[
+          RfqLineInput.product(productId: 'prd_1', quantity: 5),
+        ],
+        currency: Currency.aed,
+      );
+      expect(good.isWellFormed, isTrue);
+    });
+
+    test('a decision carries the version it was made against', () async {
+      final (api, adapter) = build(
+        (_) => FakeResponse.data(f.rfqDetail(status: 'ACCEPTED')),
+      );
+      addTearDown(api.dispose);
+
+      final RfqDetail before = RfqDetail.fromJson(f.rfqDetail());
+      final RfqDetail after = await api.rfqs.decide(
+        before.id,
+        RfqDecisionRequest.accept(before.quoteVersion),
+      );
+
+      expect(adapter.requests.single.path, '/v1/rfqs/rfq_1/decision');
+      expect(adapter.requests.single.data, <String, Object?>{
+        'decision': 'ACCEPTED',
+        // The version the buyer was LOOKING AT. Re-reading it at the moment
+        // of the tap would accept whatever the supplier had just changed the
+        // price to.
+        'expectedQuoteVersion': 2,
+      });
+      expect(after.status, RfqStatus.accepted);
+    });
+
+    test('a stale decision is a conflict the buyer is told about', () async {
+      final (api, _) = build(
+        (_) => FakeResponse.error(
+          409,
+          'conflict',
+          message: 'The supplier has revised this quote.',
+        ),
+      );
+      addTearDown(api.dispose);
+
+      final Object failure = await api.rfqs
+          .decide('rfq_1', const RfqDecisionRequest.accept(1))
+          .then<Object>((v) => v)
+          .onError<ApiFailure>((e, _) => e);
+
+      expect(failure, isA<ServerFailure>());
+      expect((failure as ServerFailure).isConflict, isTrue);
+    });
+  });
 }
+
+/// The two fields of a captured request this suite compares.
+typedef RequestOptionsLike = ({String path, Object? key});

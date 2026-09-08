@@ -152,6 +152,7 @@ _ProductCard _$ProductCardFromJson(Map<String, dynamic> json) => _ProductCard(
           ? null
           : RatingSummary.fromJson(json['rating'] as Map<String, dynamic>),
       brandName: json['brandName'] as String?,
+      sellableInChannel: json['sellableInChannel'] as bool,
     );
 
 Map<String, dynamic> _$ProductCardToJson(_ProductCard instance) =>
@@ -167,6 +168,7 @@ Map<String, dynamic> _$ProductCardToJson(_ProductCard instance) =>
       'priceTiered': instance.priceTiered,
       'rating': instance.rating,
       'brandName': instance.brandName,
+      'sellableInChannel': instance.sellableInChannel,
     };
 
 _ProductBrandRef _$ProductBrandRefFromJson(Map<String, dynamic> json) =>
@@ -233,6 +235,7 @@ _ProductDetail _$ProductDetailFromJson(Map<String, dynamic> json) =>
       rating: json['rating'] == null
           ? null
           : RatingSummary.fromJson(json['rating'] as Map<String, dynamic>),
+      sellableInChannel: json['sellableInChannel'] as bool,
     );
 
 Map<String, dynamic> _$ProductDetailToJson(_ProductDetail instance) =>
@@ -258,6 +261,7 @@ Map<String, dynamic> _$ProductDetailToJson(_ProductDetail instance) =>
       'category': instance.category,
       'seller': instance.seller,
       'rating': instance.rating,
+      'sellableInChannel': instance.sellableInChannel,
     };
 
 _Category _$CategoryFromJson(Map<String, dynamic> json) => _Category(

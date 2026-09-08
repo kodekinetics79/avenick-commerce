@@ -80,6 +80,41 @@ export const ProductCardSchema = z
     priceTiered: z.boolean(),
     rating: RatingSummarySchema.nullable(),
     brandName: z.string().max(120).nullable(),
+    /**
+     * CAN THIS BE ORDERED, IN THE CHANNEL THIS DTO WAS BUILT FOR?
+     *
+     * This is NOT the same question as `channel`, and conflating the two is the
+     * defect this field exists to make impossible. `channel` — here, on `PriceBand`
+     * and on `CartLine` — says which price list the figures came FROM. Sellability
+     * is a property of the PRODUCT: `Product.isB2CEnabled` / `isB2BEnabled`, two
+     * independent booleans that have nothing to do with which prices were
+     * published.
+     *
+     * The pilot catalogue is the proof. Every one of its ~1,172 rows is priced in
+     * B2C *and* carries `isB2CEnabled: false` — priced for consumers, sellable to
+     * none of them. So `channel === "B2C"` read as "sellable" is true for every
+     * production row and correct for none, which is the worst shape a bug can
+     * take: it passes every test anyone would naturally write.
+     *
+     * WHAT IT MIRRORS. Three write paths already compute exactly this, identically:
+     * `services/orders.ts` (~line 285), `services/secure-checkout.ts` and the v1
+     * checkout quote's `quote-lines.ts` each refuse a line with
+     * `channel === "B2B" ? !isB2BEnabled : !isB2CEnabled`. So `false` here is a
+     * promise with teeth: an order for this product in this channel WILL be
+     * refused, by three separate guards, whatever the app does next.
+     *
+     * WHY NOT `isB2CEnabled`. The whole surface is channel-parameterised — the same
+     * product is fetched as B2C or B2B — so a field named for one column would be
+     * either absent or dishonest on the other channel's DTO. This name asks the
+     * question the app actually has ("can I put this in a basket?") and answers it
+     * for whichever channel was requested.
+     *
+     * REQUIRED, NEVER OPTIONAL. An absent flag is the ambiguity that forced the
+     * Flutter client to model a third `unstated` state and branch defensively. A
+     * required boolean lets the app be correct by construction: `true` shows Add to
+     * Cart, `false` shows Request a Quote, and there is no third case to invent.
+     */
+    sellableInChannel: z.boolean(),
   })
   .strict();
 
@@ -151,6 +186,8 @@ export const ProductDetailSchema = z
     category: z.object({ id: IdSchema, slug: SlugSchema, nameEn: z.string().max(120), nameAr: z.string().max(120) }).strict(),
     seller: SellerSummarySchema,
     rating: RatingSummarySchema.nullable(),
+    /** See `ProductCard.sellableInChannel` — the same promise, for the detail. */
+    sellableInChannel: z.boolean(),
   })
   .strict();
 

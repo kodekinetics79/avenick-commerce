@@ -12,21 +12,35 @@ part 'common.g.dart';
 /// let Flutter reserve the box before the bytes land, and [blurhash] gives it
 /// something to draw meanwhile.
 ///
-/// BACKEND NOTE, carried over from `primitives.ts`: `ProductImage` stores only
-/// `url`, `altEn`, `altAr`, `isPrimary` and `sortOrder` today. `width`,
-/// `height` and `blurhash` have no column yet, so a live server cannot fill
-/// them. They are required in the contract, which means the first real
-/// response either carries them or fails to parse — that is the intended
-/// outcome, not a surprise: silently defaulting a size is how you get a grid
-/// that jumps.
+/// ONLY [url] IS REQUIRED. The previous contract made the two dimensions
+/// required as well, and the reasoning was defensible on paper: a defaulted
+/// size is how a grid jumps. In practice it took the whole surface down.
+/// `ProductImage` stores `url`, `altEn`, `altAr`, `isPrimary` and `sortOrder`
+/// and has no column for `width`, `height` or `blurhash` — so no live response
+/// could carry them, and "fails to parse" was not one product image, it was
+/// EVERY product image and EVERY brand logo in the pilot catalogue. A model
+/// that refuses the only payload the server can send is not strict, it is
+/// broken.
+///
+/// So the dimensions are nullable and the layout question is answered
+/// explicitly instead: use [aspectRatio] when it is there — [hasIntrinsicSize]
+/// says so — and [aspectRatioOr] with the surface's own ratio token when it is
+/// not. What the app must still never do is invent a number and present it as
+/// the image's own: null means "the row does not record this", which is a
+/// different claim from a square thumbnail.
 @freezed
 abstract class ImageRef with _$ImageRef {
   const ImageRef._();
 
   const factory ImageRef({
     required String url,
-    required int width,
-    required int height,
+
+    /// Intrinsic width in pixels. Null on every row the database has today —
+    /// there is no column for it. Not zero, not a guess: absent.
+    int? width,
+
+    /// Intrinsic height in pixels. Null on the same terms as [width].
+    int? height,
 
     /// BlurHash from the reference encoder. Absent on older rows.
     String? blurhash,
@@ -39,8 +53,23 @@ abstract class ImageRef with _$ImageRef {
   factory ImageRef.fromJson(Map<String, dynamic> json) =>
       _$ImageRefFromJson(json);
 
-  /// Intrinsic aspect ratio, for a `SizedBox`/`AspectRatio` placeholder.
-  double get aspectRatio => height == 0 ? 1 : width / height;
+  /// True when both dimensions travelled, so a box can be reserved at the
+  /// image's OWN proportions rather than at the surface's.
+  bool get hasIntrinsicSize => width != null && height != null;
+
+  /// Intrinsic aspect ratio, for a `SizedBox`/`AspectRatio` placeholder, or
+  /// null when the dimensions did not travel.
+  double? get aspectRatio {
+    final int? w = width;
+    final int? h = height;
+    if (w == null || h == null || h == 0) return null;
+    return w / h;
+  }
+
+  /// [aspectRatio] when the server sent one, and [fallback] — the surface's
+  /// own ratio token — when it did not. This is the call site that avoids a
+  /// layout shift without pretending to know the picture's shape.
+  double aspectRatioOr(double fallback) => aspectRatio ?? fallback;
 }
 
 /// Cursor pagination metadata: `{ cursor, hasMore }`, and deliberately no
