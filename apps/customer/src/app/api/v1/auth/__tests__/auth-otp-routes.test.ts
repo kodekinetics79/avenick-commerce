@@ -203,9 +203,19 @@ describe("requesting a code", () => {
     expect(hashOtpCode("+971509999999", "SIGN_IN" as never, code)).not.toBe(written.codeHash);
 
     // And without the key the digest is not reproducible at all.
+    //
+    // BOTH variables have to go. `resolveAppSecret` falls back from AUTH_SECRET
+    // to NEXTAUTH_SECRET on purpose, so deleting only the first proves nothing
+    // wherever the second is also set — which is every CI run, and would be a
+    // deployment too. This test passed locally and failed in CI for exactly
+    // that reason: it was asserting on an environment, not on the code.
+    const priorAuth = process.env.AUTH_SECRET;
+    const priorNextAuth = process.env.NEXTAUTH_SECRET;
     delete process.env.AUTH_SECRET;
+    delete process.env.NEXTAUTH_SECRET;
     expect(() => hashOtpCode(PHONE, "SIGN_IN" as never, code)).toThrow();
-    process.env.AUTH_SECRET = SECRET;
+    process.env.AUTH_SECRET = priorAuth ?? SECRET;
+    if (priorNextAuth !== undefined) process.env.NEXTAUTH_SECRET = priorNextAuth;
   });
 
   it("binds the challenge to the installation that asked for it", async () => {
