@@ -63,7 +63,21 @@ run("archiving a seller's own listing", () => {
     });
     sellerId = seller.id;
 
-    const category = await db.category.findFirstOrThrow({ where: { isActive: true }, select: { id: true } });
+    // Create the category rather than borrowing one. This used to be a
+    // `findFirstOrThrow` for any active category, which passes on a database
+    // some other suite has already populated and fails on a fresh one — so it
+    // was green locally and red in CI, where the database is migrated but not
+    // seeded. An integration test that depends on ambient rows is testing the
+    // order it happened to run in.
+    const category = await db.category.create({
+      data: {
+        nameEn: `Archive fixture ${stamp}`,
+        nameAr: `Archive fixture ${stamp}`,
+        slug: `archive-fixture-${stamp}`,
+        isActive: true,
+      },
+      select: { id: true },
+    });
     categoryId = category.id;
 
     const warehouse = await db.warehouse.create({

@@ -104,7 +104,23 @@ run("seller listing traffic and conversion", () => {
       select: { id: true },
     });
     sellerId = seller.id;
-    categoryId = (await db.category.findFirstOrThrow({ where: { isActive: true }, select: { id: true } })).id;
+    // Create the category rather than borrowing one. This used to be a
+    // `findFirstOrThrow` for any active category, which passes on a database
+    // some other suite has already populated and fails on a fresh one — so it
+    // was green locally and red in CI, where the database is migrated but not
+    // seeded. An integration test that depends on ambient rows is testing the
+    // order it happened to run in.
+    categoryId = (
+      await db.category.create({
+        data: {
+          nameEn: `Traffic fixture ${stamp}`,
+          nameAr: `Traffic fixture ${stamp}`,
+          slug: `traffic-fixture-${stamp}`,
+          isActive: true,
+        },
+        select: { id: true },
+      })
+    ).id;
   });
 
   afterAll(async () => {
