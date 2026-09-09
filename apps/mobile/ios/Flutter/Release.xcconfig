@@ -1,2 +1,7 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"
 #include "Generated.xcconfig"
+
+// Our dart-defines, so Product → Archive carries the API base URL.
+// MUST come after Generated.xcconfig: it appends with $(inherited).
+// Regenerate with tool/sync-dart-defines.sh [dev|staging|prod].
+#include "DartDefines.xcconfig"
