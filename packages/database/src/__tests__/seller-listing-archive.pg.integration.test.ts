@@ -168,8 +168,31 @@ run("archiving a seller's own listing", () => {
 
   it("refuses to archive a listing belonging to another seller", async () => {
     const productId = await makeProduct("foreign");
-    const otherSeller = await db.sellerProfile.findFirstOrThrow({
-      where: { id: { not: sellerId } },
+    // Create the other seller. This was a `findFirstOrThrow` for ANY seller
+    // that is not ours, which finds one only when some other suite has already
+    // made one — so it passed in a full run and threw "No SellerProfile found"
+    // whenever this file ran first or alone. Same defect as the category
+    // lookup above: the test was relying on its neighbours.
+    const otherOwner = await db.user.create({
+      data: {
+        email: `archive-other-owner-${stamp}@test.invalid`,
+        firstName: "Archive",
+        lastName: "Other",
+        role: "SELLER_OWNER",
+        status: "ACTIVE",
+      },
+      select: { id: true },
+    });
+    const otherSeller = await db.sellerProfile.create({
+      data: {
+        userId: otherOwner.id,
+        businessNameEn: `Archive foreign seller ${stamp}`,
+        crNumber: `ARCH-CR-OTHER-${stamp}`,
+        type: "DISTRIBUTOR",
+        country: "AE",
+        city: "Dubai",
+        status: "ACTIVE",
+      },
       select: { id: true },
     });
     await expect(
