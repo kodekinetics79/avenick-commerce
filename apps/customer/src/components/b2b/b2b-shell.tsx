@@ -3,14 +3,16 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   LayoutDashboard, FileCheck2, ClipboardList, CheckSquare,
-  ListChecks, Receipt, BarChart3, Users, Building2, Plus, ShieldCheck, MapPin,
+  ListChecks, Receipt, BarChart3, Users, Building2, Plus, ShieldCheck, MapPin, Eye,
 } from "lucide-react";
 import { Button, Eyebrow, NavItem, PageHeader, Surface } from "@avenick/ui";
 import { platformName } from "@avenick/utils/portal-config";
 import { MainLayout } from "@/components/layout/main-layout";
 import { useB2BT } from "./use-b2b-t";
+import { navAccessForRole } from "./nav-access";
 import type { B2BKey } from "./messages";
 
 /*
@@ -28,7 +30,15 @@ import type { B2BKey } from "./messages";
  *
  * This file is a registered navigation source in
  * ops/release/frontend-availability.json — every href below must have an
- * availability contract there, and CI fails the build otherwise.
+ * availability contract there, and CI fails the build otherwise. That is also
+ * why the hrefs stay in THIS file rather than moving out with the role policy:
+ * the registry names this path, and a nav whose destinations had moved would
+ * pass that check by having nothing left to check.
+ *
+ * WHAT EACH ROW MEANS FOR THE READER is decided by ./nav-access.ts, which
+ * describes the server's own gates. Until then every role saw the same eleven
+ * rows, so a buyer read Team, Approval Policies and Delivery Sites as places
+ * they could work and found out otherwise on arrival.
  */
 const NAV_GROUPS: Array<{ label: B2BKey; items: Array<{ href: string; label: B2BKey; icon: typeof Building2 }> }> = [
   {
@@ -67,6 +77,7 @@ export function B2BShell({
   dateline,
   actions,
   workspace,
+  role,
 }: {
   children: React.ReactNode;
   title?: string;
@@ -83,9 +94,28 @@ export function B2BShell({
    * "whose purchase orders am I looking at" on a shared machine.
    */
   workspace?: string;
+  /**
+   * The reader's CompanyMember role, when the page already holds it.
+   *
+   * A page that has resolved a B2B context knows the company's own record of
+   * this person's authority and should pass it; every other page falls back to
+   * the role on the session below. The two cannot disagree for anyone who can
+   * see this shell at all — isDurableB2BMember (lib/b2b-access.ts:19) refuses a
+   * membership whose User.role and CompanyMember.role have diverged — but the
+   * company record is the governance record, so where it is in hand it wins.
+   */
+  role?: string;
 }) {
   const t = useB2BT();
   const pathname = usePathname();
+  // The sidebar has to be able to describe authority on ELEVEN pages, only one
+  // of which passes a role, so the fallback is the session — the same role the
+  // JWT callback copies off the User row (packages/auth/src/config.ts:88-89).
+  // It is cast because this repo carries no next-auth module augmentation, so
+  // `session.user` is typed as the library's bare default; an absent or
+  // unexpected value is handled by navAccessForRole rather than asserted away.
+  const { data: session } = useSession();
+  const viewerRole = role ?? (session?.user as { role?: string } | undefined)?.role;
   // An RFQ lives under /b2b/rfq/… but the buyer arrives at it from Quotes, and
   // the detail page's own back link points there, so Quotes is the section that
   // stays lit rather than nothing at all.
@@ -143,10 +173,17 @@ export function B2BShell({
               // feathered inline edges would fade the nav labels themselves.
               className="u-edge-fade-inline flex gap-5 overflow-x-auto pb-1 [--edge:18px] lg:[--edge:0px] lg:flex-col lg:gap-5 lg:overflow-visible"
             >
-              {NAV_GROUPS.map((group) => (
+              {NAV_GROUPS.map((group) => {
+                // A group whose every destination is hidden for this role must
+                // not leave its heading behind over nothing.
+                const items = group.items.filter(
+                  ({ href }) => navAccessForRole(href, viewerRole) !== "hidden",
+                );
+                if (items.length === 0) return null;
+                return (
                 <div key={group.label} className="flex shrink-0 gap-1 lg:flex-col lg:gap-0.5">
                   <Eyebrow className="hidden lg:block lg:mb-1.5 lg:ps-3">{t(group.label)}</Eyebrow>
-                  {group.items.map(({ href, label, icon }) => (
+                  {items.map(({ href, label, icon }) => (
                     <NavItem
                       key={href}
                       href={href}
@@ -155,10 +192,25 @@ export function B2BShell({
                       active={isActive(href)}
                       linkComponent={Link}
                       className="shrink-0 whitespace-nowrap"
+                      // A destination this role may read but not change says so
+                      // BEFORE the click. The eye is aria-hidden and the words
+                      // are the accessible text, so the link is announced as
+                      // "Team & Roles, view only" rather than as an unexplained
+                      // icon — the badge sits inside the anchor, so it becomes
+                      // part of the link's name.
+                      badge={
+                        navAccessForRole(href, viewerRole) === "read" ? (
+                          <span className="inline-flex items-center" title={t("nav.viewOnly")}>
+                            <Eye className="h-3 w-3" aria-hidden="true" />
+                            <span className="sr-only">{t("nav.viewOnly")}</span>
+                          </span>
+                        ) : undefined
+                      }
                     />
                   ))}
                 </div>
-              ))}
+                );
+              })}
             </nav>
           </aside>
 

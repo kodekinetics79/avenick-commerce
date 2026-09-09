@@ -897,6 +897,42 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 }
 .u-float { animation: u-float 6s var(--ease-standard) infinite; will-change: transform; }
 
+/* ─── THE BRAND PANEL ─────────────────────────────────────────────────────
+   The storefront hero's material, as a utility rather than four colour
+   literals in a page.
+
+   WHAT IT REPLACES, and why each part had to go:
+
+   · `style={{ backgroundImage: "linear-gradient(107deg, hsl(150 62% 30%) 22%,
+     hsl(150 92% 20%) 99%)" }}` — a gradient written inline in the component.
+     §9b's governing rule is "never a hex in a component", and the same page
+     rejected a different raw hex 200 lines further down for exactly that
+     reason, so the file was already arguing with itself. Both stops are now
+     derived from --primary, which means the panel follows the brand hue instead
+     of pinning a copy of it.
+
+   · `.u-drift` — 24s infinite, animating BACKGROUND-POSITION. §8 names that
+     property under NEVER and <AmbientField>'s own docstring says it is avoided
+     because it repaints the element every frame rather than transforming a
+     pre-painted layer. It was also the product's fourth simultaneous infinite
+     animation against a budget of two.
+
+   · a 320px `blur-[64px]` bloom at `#eff6ff` — a glow, and §3.10 is
+     unambiguous: "there are no glow tokens; --glow-* stays undefined." The
+     panel does not need it. `.u-sheen` already gives the surface its specular
+     pass, which is the same light arriving as a material property instead of as
+     a lamp.
+
+   The gradient stays on ONE hue (a saturation and lightness ramp, not a hue
+   crossing), so §3.11's `in oklab` has nothing to correct here. */
+.u-panel-brand {
+  background-image: linear-gradient(
+    calc(107deg * var(--dir)),
+    hsl(var(--primary) / 1) 22%,
+    hsl(150 92% 20%) 99%
+  );
+}
+
 /* ─── SHEEN DRIFT ─────────────────────────────────────────────────────────
    The specular pass crawls across the panel over 18s. Slow enough that it is
    never caught moving — it is noticed only as the surface not being flat. */
@@ -1027,6 +1063,70 @@ p, .u-lead, .u-body { text-wrap: pretty; }
   /* The hop goes; the thickness stays. Depth is information. */
   .u-mark,
   .group:hover .u-mark { animation: none; }
+}
+
+/* ─── THE BRAND MARK ──────────────────────────────────────────────────────
+   THE ENTRY — the platform's own mark. Geometry lives in
+   packages/ui/src/brand-mark-geometry.ts, which is also what the favicons, the
+   apple-icons, the OG images and the email header are drawn from; this block is
+   only its dressing when it is inlined into a page.
+
+   It reads the live four-part light model, so the mark inherits each portal's
+   own dial with no prop and no second file: --rim-shoulder-3 is .48 on customer,
+   .38 on seller and .30 on admin, and the mark quiets down in the back office
+   for free. A standalone render (favicon, <img>, email) has no stylesheet to
+   read and carries measured fallbacks inside the document instead.
+
+   NOTE it does NOT get .u-mark's key edge. That 3px --ink-edge extrusion exists
+   because the monogram was a <span> with a letter in it and needed to be given
+   an object to be. This mark already IS an object — it draws its own contact
+   shadow under each foot — and stacking the two gives it two undersides, which
+   is the one thing a single overhead light cannot produce. */
+.u-brand { color: hsl(var(--ink-1)); display: block; }
+.u-brand__rule { fill: hsl(var(--brass)); }
+.u-brand__apex { fill: hsl(var(--rim) / var(--rim-3)); }
+.u-brand__under { fill: hsl(var(--fresnel-under) / var(--fresnel-alpha)); }
+.u-brand__lit  { stop-color: hsl(var(--rim)); stop-opacity: var(--rim-shoulder-3); }
+.u-brand__lit0 { stop-color: hsl(var(--rim)); stop-opacity: 0; }
+.u-brand__dk   { stop-color: hsl(var(--fresnel-under)); stop-opacity: var(--fresnel-alpha); }
+.u-brand__dk0  { stop-color: hsl(var(--fresnel-under)); stop-opacity: 0; }
+.u-brand__ct   { stop-color: hsl(var(--contact)); stop-opacity: var(--contact-alpha); }
+.u-brand__ct0  { stop-color: hsl(var(--contact)); stop-opacity: 0; }
+
+/* The entrance, borrowed from the monogram it replaces rather than invented:
+   the same u-hop-in curve, the same delay, the same transform-origin at the
+   base so it pushes off its own feet. §10.13 — one gesture in many postures,
+   never a sixth with its own timing. */
+.u-brand--enter {
+  transform-origin: 50% 100%;
+  animation: u-hop-in .95s var(--ease-out) .35s 1 both;
+}
+.group:hover .u-brand--enter { animation: u-hop-over .8s var(--ease-out) 1; }
+.group:active .u-brand--enter {
+  animation: none;
+  transform: translateY(var(--key-travel, var(--key-depth)));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The hop goes; the modelling stays. Depth is information, motion is not. */
+  .u-brand--enter,
+  .group:hover .u-brand--enter { animation: none; }
+}
+
+/* FORCED COLOURS. There was no forced-colors block anywhere in this system
+   before this one, which is survivable for a bordered card and is not for a
+   logo: Windows High Contrast replaces every fill with a system colour, so the
+   apex seam, the fresnel ramps, the counter and the four contact ellipses all
+   become CanvasText and the mark fills in as a solid, unreadable blob.
+
+   The fix is the same one the mono cut makes: keep the silhouette, drop the
+   light. The slab is already `currentColor` so it maps to CanvasText on its own;
+   everything optical is hidden, and the rule keeps a real edge by becoming the
+   silhouette's counter rather than a fill of its own. */
+@media (forced-colors: active) {
+  .u-brand__lit-group { display: none; }
+  .u-brand { forced-color-adjust: auto; }
+  .u-brand__rule { fill: Canvas; stroke: CanvasText; stroke-width: .5; }
 }
 
 /* ─── LOGO PLATE ──────────────────────────────────────────────────────────
@@ -1563,6 +1663,27 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 .u-layer-panel[data-side="end"][data-state="closed"] { animation: layer-out-inline var(--t-panel) var(--ease-exit) both; }
 .u-layer-panel[data-side="bottom"][data-state="open"]   { animation: layer-in-bottom  var(--t-layer) var(--ease-out) both; }
 .u-layer-panel[data-side="bottom"][data-state="closed"] { animation: layer-out-bottom var(--t-panel) var(--ease-exit) both; }
+
+/* ─── ROUTE ARRIVAL ──────────────────────────────────────────────────────
+   One short settle as a new page's content arrives, applied by <RouteFade> to
+   the contents of <main> and to nothing else: the header and footer hold still,
+   because chrome that re-animates on every navigation reads as a full page load.
+
+   OPACITY ONLY. A transform on this wrapper would make it the containing block
+   for every `position: fixed` descendant of <main> and would clip the sticky
+   ones — the failure that put every dialog in the product at the end of the
+   document. `.u-route` is named in the containing-block guard test for exactly
+   that reason. Opacity creates a stacking context and nothing else.
+
+   --t-panel, not --t-layer: a page is not a drawer. It should be over before
+   anyone has finished deciding whether they saw it. */
+.u-route { animation: u-route-in var(--t-panel) var(--ease-out) both; }
+@keyframes u-route-in { from { opacity: 0 } to { opacity: 1 } }
+@media (prefers-reduced-motion: reduce) {
+  /* No fade at all: the content is simply there, which is what reduced motion
+     asks for. Nothing here conveys meaning that the fade was carrying. */
+  .u-route { animation: none; }
+}
 
 /* Staged reveal. The base state is VISIBLE. The hidden state is applied only by
    <RevealRoot> once it has confirmed the element is below the fold, so nothing

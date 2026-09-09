@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { integrationSuite } from "../testing/integration-db";
 import { db } from "../index";
 import {
   createGovernedApprovalPolicy,
@@ -7,7 +8,6 @@ import {
   transitionGovernedPurchaseOrder,
   updateGovernedCompanyMember,
 } from "../services/b2b-purchase-orders";
-import { integrationSuite } from "../testing/integration-db";
 
 const run = integrationSuite();
 const users: string[] = [];

@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { integrationSuite } from "../testing/integration-db";
 import { db } from "../index";
 import { createGovernedPurchaseOrder, placeGovernedPurchaseOrder } from "../services/b2b-purchase-orders";
 import { createCustomerReturnRequests } from "../services/customer-returns";
 import { secureCreateOrder } from "../services/secure-checkout";
 import { setReturnStatus } from "../services/workflow";
-import { integrationSuite } from "../testing/integration-db";
 
 const run = integrationSuite();
 const cleanupUsers: string[] = [];

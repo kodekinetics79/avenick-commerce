@@ -20,14 +20,6 @@ import { getAuditLogs, getAuditEntityTypes } from "../services/audit";
 import { getAdminUsers, getAdminCompanies, setUserStatus } from "../services/admin";
 import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 
-/**
- * This file force-loads DATABASE_URL from the repo root .env above, so it ran
- * unconditionally — against production — on every `pnpm test`. The injection is
- * kept for local convenience; the gate decides whether the resulting host is
- * something these suites may write to.
- */
-const run = integrationSuite();
-
 const STAMP = Date.now();
 const actorEmail = `it-actor-${STAMP}@example.test`;
 const targetEmail = `it-target-${STAMP}@example.test`;
@@ -36,6 +28,8 @@ const rootEmail = `it-root-${STAMP}@example.test`;
 let actorId: string;
 let targetId: string;
 let rootId: string;
+
+const run = integrationSuite();
 
 beforeAll(async () => {
   if (!integrationDbEnabled()) return;

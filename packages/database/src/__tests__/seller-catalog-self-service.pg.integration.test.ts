@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
-import { createSellerCatalogListing, updateSellerCatalogListing } from "../services/seller-catalog";
 import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
+import { createSellerCatalogListing, updateSellerCatalogListing } from "../services/seller-catalog";
 
 const run = integrationSuite();
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;

@@ -42,3 +42,44 @@ export function objectStorageRemotePatterns(env = process.env) {
   }
   return patterns;
 }
+
+/**
+ * The CSP `img-src` origins for a set of next/image `remotePatterns`.
+ *
+ * WHY THIS EXISTS. `remotePatterns` and the CSP are two answers to the same
+ * question — "may the browser load this image?" — and they disagreed. All three
+ * portals allow `www.mennekes.org` in remotePatterns, but only the customer
+ * portal passed it to the CSP, so the admin and seller portals BLOCKED the very
+ * images their own configuration promised to serve: no product photo on the
+ * admin products list, and none on the approval screens where a human is meant
+ * to look at the product before approving it. The failure is silent — a blocked
+ * image is an empty box and one console line, and the page around it is fine.
+ *
+ * The object-storage hosts had the same hole waiting: they are computed from
+ * env for remotePatterns and were never in any portal's CSP, so the first
+ * uploaded product photo would have been invisible in production.
+ *
+ * Deriving one from the other is the fix. The pattern list stays the single
+ * source of truth and the policy cannot fall behind it.
+ *
+ * @param {Array<{protocol?: string, hostname: string, port?: string}>} patterns
+ * @param {object}  [options]
+ * @param {boolean} [options.isDev] Include http origins (localhost media).
+ * @returns {string[]} origins, deduplicated, in first-seen order
+ */
+export function imageOriginsFrom(patterns, { isDev = false } = {}) {
+  const origins = new Set();
+  for (const pattern of patterns ?? []) {
+    const hostname = pattern?.hostname?.trim();
+    if (!hostname) continue;
+    const protocol = pattern.protocol ?? "https";
+    if (protocol !== "http" && protocol !== "https") continue;
+    // An http origin is a development convenience (localhost media). Carrying
+    // it into a production policy would widen it for nothing.
+    if (protocol === "http" && !isDev) continue;
+    const port = pattern.port ? `:${pattern.port}` : hostname === "localhost" ? ":*" : "";
+    origins.add(`${protocol}://${hostname}${port}`);
+  }
+  return [...origins];
+}
+

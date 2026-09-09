@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 import {
   DocumentNotPendingError,
   ProductNotPendingError,
@@ -11,7 +12,6 @@ import {
   reviewDocument,
 } from "../services/admin";
 import { SUPERSEDED_REJECTION_REASON, sellerDocumentKeyPrefix } from "../services/seller-documents";
-import { integrationSuite, integrationDbEnabled } from "../testing/integration-db";
 
 /**
  * Admin review decisions against a real Postgres.

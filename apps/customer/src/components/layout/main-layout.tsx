@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Header } from "./header";
 import { Footer } from "./footer";
 import { SkipLink } from "./skip-link";
+import { RouteFade } from "./route-fade";
 import { DiscoveryPanel, type TrendingProduct } from "@/components/discovery";
 import { CartDrawerConnected } from "@/components/cart/cart-drawer-connected";
 
@@ -42,7 +43,7 @@ export function MainLayout({ children, discoveryTrending }: MainLayoutProps) {
       <SkipLink />
       <Header />
       <main id="main-content" tabIndex={-1} className="flex-1">
-        {children}
+        <RouteFade>{children}</RouteFade>
       </main>
       <Footer />
 

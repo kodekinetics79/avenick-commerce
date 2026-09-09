@@ -2,7 +2,59 @@
 
 import * as React from "react";
 import { CheckCircle2, AlertCircle } from "lucide-react";
+import { Field } from "@avenick/ui";
+import { cn } from "@avenick/utils";
+import { SelectField, TextField } from "@/components/b2b/controls";
 import type { B2BActionState } from "@/lib/b2b";
+
+/**
+ * What a server action may hand back to this form.
+ *
+ * `B2BActionState` carries only the flat `error` sentence, and that is all the
+ * registration form ever showed — even though /api/auth/register/business has
+ * always returned a `fieldErrors` map naming each offending field. An applicant
+ * filling in fourteen boxes was told "Password: Password must contain a number.
+ * Phone number: Enter the phone in international format" as one run-on line at
+ * the bottom of the form and left to work out which box each half belonged to.
+ *
+ * The map is keyed by the control's `name`, exactly as the endpoint builds it,
+ * so a field can find its own message without anything in between translating
+ * key to key.
+ */
+export type ValidatedFormState = B2BActionState & {
+  fieldErrors?: Record<string, string>;
+};
+
+/**
+ * The last submission's per-field messages, read by name.
+ *
+ * A context rather than props because the fields are composed by a SERVER
+ * component: /b2b/register renders its inputs as children of this client form,
+ * so nothing in the page can hold the response. Context crosses that boundary
+ * — the children slot is rendered inside this component's client tree — which
+ * is why the field wrappers below have to be client components and cannot take
+ * a function child from the page.
+ */
+const FieldErrorContext = React.createContext<Record<string, string> | undefined>(undefined);
+
+/**
+ * Exported so the field wrappers can be exercised without driving a form
+ * submission: this project is on React 18.3, where `<form action={fn}>` is a
+ * Next-supplied capability that does not exist in a bare react-dom render.
+ */
+export function FieldErrorProvider({
+  errors,
+  children,
+}: {
+  errors?: Record<string, string>;
+  children: React.ReactNode;
+}) {
+  return <FieldErrorContext.Provider value={errors}>{children}</FieldErrorContext.Provider>;
+}
+
+function useFieldError(name: string): string | undefined {
+  return React.useContext(FieldErrorContext)?.[name];
+}
 
 /**
  * Wraps a create form with inline error/success messaging.
@@ -17,7 +69,7 @@ export function ValidatedForm({
   className,
   rung,
 }: {
-  action: (state: B2BActionState, formData: FormData) => Promise<B2BActionState>;
+  action: (state: ValidatedFormState, formData: FormData) => Promise<ValidatedFormState>;
   children: React.ReactNode;
   className?: string;
   /**
@@ -28,7 +80,7 @@ export function ValidatedForm({
    */
   rung?: 0 | 1 | 2;
 }) {
-  const [state, setState] = React.useState<B2BActionState>({});
+  const [state, setState] = React.useState<ValidatedFormState>({});
   const formRef = React.useRef<HTMLFormElement>(null);
 
   async function handle(formData: FormData) {
@@ -44,7 +96,10 @@ export function ValidatedForm({
       data-rung={rung}
       className={rung !== undefined && rung > 0 ? `border border-border ${className ?? ""}` : className}
     >
-      {children}
+      {/* Every <ValidatedTextField> / <ValidatedSelectField> below picks its own
+          message out of this, by name. A form that uses plain controls simply
+          never reads it and behaves exactly as it did before. */}
+      <FieldErrorProvider errors={state.fieldErrors}>{children}</FieldErrorProvider>
       {/*
         The outcome, in the system's own COMMIT gesture rather than as a coloured
         line of text.
@@ -66,6 +121,12 @@ export function ValidatedForm({
         — a validation message naming the field, or the API's own refusal — and
         replacing it with a generic translated line would throw away the only
         actionable part of it.
+
+        It stays even when every field is carrying its own message. A field
+        error is only visible if you happen to be looking at that field, and on
+        a form this long the submit button can be a screen away from the box
+        that failed; this is the one line that is announced on submit and says
+        how many there are.
       */}
       {state.error && (
         <div
@@ -90,5 +151,77 @@ export function ValidatedForm({
         </div>
       )}
     </form>
+  );
+}
+
+/**
+ * A labelled text control whose message is ASSOCIATED with it.
+ *
+ * What this replaces on /b2b/register was a label wrapping its input with no
+ * id, no `aria-describedby` and nowhere at all for an error to go. A screen
+ * reader could read the label and then had no way to be told the field was
+ * rejected, let alone why — the same defect checkout carried until <Field>
+ * grew the function child that hands the control its wiring.
+ *
+ * `{...a11y}` goes on LAST so a call site cannot accidentally shadow the id or
+ * the describedby that the label and the message line point at.
+ */
+export interface ValidatedTextFieldProps
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "size" | "id" | "name"> {
+  /** The control's `name`, and the key its server message is filed under. */
+  name: string;
+  label: string;
+  /** Shown on the reserved message line until a server message replaces it. */
+  hint?: string;
+  size?: "sm" | "md";
+}
+
+export function ValidatedTextField({ name, label, hint, className, ...props }: ValidatedTextFieldProps) {
+  const error = useFieldError(name);
+  return (
+    <Field label={label} hint={hint} error={error} required={props.required}>
+      {(a11y) => (
+        <TextField
+          name={name}
+          className={cn(error && "border-danger-rule", className)}
+          {...props}
+          {...a11y}
+        />
+      )}
+    </Field>
+  );
+}
+
+/** The <select> half of the same thing; the options stay the caller's. */
+export interface ValidatedSelectFieldProps
+  extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "size" | "id" | "name"> {
+  name: string;
+  label: string;
+  hint?: string;
+  size?: "sm" | "md";
+}
+
+export function ValidatedSelectField({
+  name,
+  label,
+  hint,
+  className,
+  children,
+  ...props
+}: ValidatedSelectFieldProps) {
+  const error = useFieldError(name);
+  return (
+    <Field label={label} hint={hint} error={error} required={props.required}>
+      {(a11y) => (
+        <SelectField
+          name={name}
+          className={cn(error && "border-danger-rule", className)}
+          {...props}
+          {...a11y}
+        >
+          {children}
+        </SelectField>
+      )}
+    </Field>
   );
 }

@@ -22,11 +22,12 @@ import {
   Tag,
   User,
 } from "lucide-react";
-import { Button, Divider, Eyebrow, NavItem, StickyGlassBar, Surface, ThemeToggle } from "@avenick/ui";
+import { BrandLockup, Button, Divider, Eyebrow, NavItem, StickyGlassBar, Surface, ThemeToggle } from "@avenick/ui";
 import { useCartStore } from "@/stores/cart";
 import { useSearchSuggest } from "@/lib/search-suggest-client";
+import { useBrandMenu } from "@/lib/brand-menu-client";
 import { useSession, signOut } from "next-auth/react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useDisclosure } from "./disclosure";
 import { LocaleToggle } from "./locale-toggle";
 import { MegaMenu, type MegaMenuColumn } from "./mega-menu";
@@ -62,7 +63,7 @@ interface NavEntry {
   /** Shown in the mobile sheet only; the desktop nav stays text-only. */
   icon: React.ElementType;
   /** Present when this entry also opens a mega-menu panel. */
-  menu?: "shop" | "business";
+  menu?: "shop" | "business" | "brands";
 }
 
 const NAV: NavEntry[] = [
@@ -71,12 +72,16 @@ const NAV: NavEntry[] = [
   // Deals stays out of primary navigation until governed active promotions
   // exist. The page currently lists ordinary catalog products, so presenting it
   // as "Deals" claims a discount the commercial model does not back.
-  { href: "/brands", labelKey: "brands", icon: Tag },
+  // The panel is populated from /api/brands at runtime and only opens when that
+  // returns something; see BRAND_COLUMNS below. Without it this stays the plain
+  // link it has always been.
+  { href: "/brands", labelKey: "brands", icon: Tag, menu: "brands" },
   { href: "/b2b", labelKey: "forBusiness", icon: Briefcase, menu: "business" },
   { href: "/support", labelKey: "support", icon: LifeBuoy },
 ];
 
 export function Header() {
+  const locale = useLocale();
   const t = useTranslations("nav");
   const tc = useTranslations("common");
   const pathname = usePathname();
@@ -100,6 +105,43 @@ export function Header() {
   );
 
   const brand = platformName();
+
+  /*
+   * The brands panel, and the one rule that governs whether it opens at all.
+   *
+   * useBrandMenu() returns only brands that readPublicBrands() judged to have
+   * something publicly sellable — the same PUBLICLY_VISIBLE predicate the
+   * /brands page uses, so a brand cannot appear here and then show an empty
+   * shelf. When it returns nothing (no brands, a failed request, JavaScript
+   * off, the first paint before hydration) `brandMenu` is empty, BRAND_COLUMNS
+   * is empty, and the render below falls back to the plain link. A nav item
+   * that opens an empty panel is worse than one that does not open.
+   *
+   * The count is used to ORDER the panel and is not printed in it: MegaMenuLink
+   * is {href,label}, and widening a shared primitive so one menu can show a
+   * number is the "ten new signatures instead of one extended one" failure. The
+   * brands page shows the counts, from the same query.
+   */
+  const brandMenu = useBrandMenu(6);
+  const BRAND_COLUMNS: MegaMenuColumn[] =
+    brandMenu.length === 0
+      ? []
+      : [
+          {
+            title: t("brands"),
+            links: brandMenu.map((b) => ({
+              href: `/products?brand=${encodeURIComponent(b.slug)}`,
+              label: locale === "ar" && b.nameAr ? b.nameAr : b.nameEn,
+            })),
+          },
+          {
+            title: t("catalogue"),
+            links: [
+              { href: "/brands", label: t("allBrands") },
+              { href: "/products", label: t("products") },
+            ],
+          },
+        ];
 
   const SHOP_COLUMNS: MegaMenuColumn[] = [
     {
@@ -134,10 +176,6 @@ export function Header() {
    * header — they are where you go once you are already inside, which is exactly
    * where the shell nav takes over. Removing them from here costs no
    * reachability; it is the same destination list in one place instead of two.
-   *
-   * The deeper cut is still available and is a product decision rather than a
-   * layout one: on the same argument this panel could carry the sourcing entry
-   * points and a single door to /b2b, and nothing else.
    */
   const BUSINESS_COLUMNS: MegaMenuColumn[] = [
     {
@@ -384,27 +422,51 @@ export function Header() {
             className="group u-focus flex shrink-0 items-center gap-2.5 rounded-nested px-1 py-1"
           >
             {/*
-              The monogram is the configured name's first letter, and it is INK
-              rather than the old indigo→violet gradient: the ambient field is
-              the one gradient in the system, and a wordmark is not where the
-              single primary fill per view should be spent.
+              THE MARK. This was the configured name's first letter in an ink
+              plate — the same "a letter where a logo should be" the brands page
+              was fixed for, except here no logo existed to read. <BrandMark>
+              draws the real one, and it is the ONLY thing in the product that
+              draws it: the footer, the auth surfaces, the admin rail, the three
+              favicons, the OG images and the email header are now all the same
+              geometry module rather than eight divergent boxes.
+
+              Still ink, still not a gradient — the ambient field remains the one
+              gradient in the system, and a wordmark is not where the single
+              primary fill per view gets spent. The brass is the rule across the
+              entry, which is the active-nav indicator in another posture and
+              costs ~27 device pixels against a 2% budget.
+
+              A deployment that set NEXT_PUBLIC_PLATFORM_NAME gets its own
+              initial on the old plate instead. See BrandMark's docstring.
             */}
-            <span
-              aria-hidden="true"
-              className="u-mark grid h-8 w-8 place-items-center rounded-nested bg-ink-1 text-ui font-semibold text-ink-inv"
-            >
-              {brand.charAt(0).toUpperCase()}
-            </span>
-            {/* Below sm the monogram carries the mark on its own, so the whole
+            {/* Below sm the mark carries the brand on its own, so the whole
                 width the wordmark would take goes to the search field. */}
-            <span className="u-h3 hidden text-ink-1 sm:inline">{brand}</span>
+            <BrandLockup
+              name={brand}
+              size={32}
+              animated
+              wordmarkFrom="sm"
+              className="gap-2.5"
+            />
           </Link>
 
           <nav aria-label={t("primaryNav")} className="hidden items-center gap-0.5 lg:flex">
             {NAV.map((entry) => {
               const label = t(entry.labelKey);
               const active = isActive(entry.href);
-              if (entry.menu === "shop" || entry.menu === "business") {
+              const columns =
+                entry.menu === "shop"
+                  ? SHOP_COLUMNS
+                  : entry.menu === "business"
+                    ? BUSINESS_COLUMNS
+                    : entry.menu === "brands"
+                      ? BRAND_COLUMNS
+                      : [];
+              // An entry declares a panel; whether it GETS one depends on there
+              // being something to put in it. Only the brands panel is ever
+              // empty — the other two are static — and when it is, this falls
+              // through to the plain link below.
+              if (entry.menu && columns.length > 0) {
                 return (
                   <MegaMenu
                     key={entry.href}
@@ -413,7 +475,7 @@ export function Header() {
                     label={label}
                     menuLabel={t("submenuOf", { label })}
                     active={active}
-                    columns={entry.menu === "shop" ? SHOP_COLUMNS : BUSINESS_COLUMNS}
+                    columns={columns}
                   />
                 );
               }

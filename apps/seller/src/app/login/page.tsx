@@ -5,7 +5,7 @@ import Link from "next/link";
 import { signInWithCredentials } from "@avenick/auth/client";
 import { messageForSignInError as messageForError } from "@avenick/auth/sign-in-messages";
 import { useSearchParams } from "next/navigation";
-import { Button, Dateline, Divider, Eyebrow, Input, Surface } from "@avenick/ui";
+import { BrandMark, Button, Dateline, Divider, Eyebrow, Input, Surface } from "@avenick/ui";
 import { platformName, portalUrl } from "@avenick/utils/portal-config";
 
 /**
@@ -68,17 +68,9 @@ export default function SellerLoginPage() {
     <div className="flex min-h-screen items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
         <div className="mb-6">
-          {/* A recessed plate with the initial in ink — not the indigo→violet
-              gradient tile. The ambient field is the only gradient in the system,
-              and a gradient monogram is the single most copied SaaS tell there
-              is. */}
-          <Surface
-            rung={1}
-            aria-hidden="true"
-            className="grid h-11 w-11 place-items-center rounded-nested text-h3 font-medium text-ink-1"
-          >
-            {brand.charAt(0).toUpperCase()}
-          </Surface>
+          {/* The mark, at the size the plate used to be. It draws its own
+              light, so it no longer needs a Surface to sit on. */}
+          <BrandMark name={brand} size={44} />
           {/* The brass rule, drawn from the inline start. Same gesture as the
               active nav entry, the certificate's top edge and the ladder's active
               band — one rule in different postures. */}

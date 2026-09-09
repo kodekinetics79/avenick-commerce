@@ -40,5 +40,6 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260905140000_user_sessions_valid_after",
   "20260905150000_order_vat_component_split",
   "20260905180000_company_registration_evidence",
-  "20260906120000_company_join_requests",
+  "20260906060000_reconcile_registration_evidence",
+  "20260907120000_company_join_requests",
 ];

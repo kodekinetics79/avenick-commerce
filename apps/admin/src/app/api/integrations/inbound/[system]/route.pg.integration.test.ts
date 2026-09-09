@@ -7,8 +7,8 @@ import {
   DEPLOYED_INTEGRATION_INBOX_HANDLERS,
   processIntegrationInboxMessage,
 } from "@avenick/database";
+import { integrationDbEnabled, integrationSuite } from "@avenick/database/testing";
 import { POST } from "./route";
-import { integrationSuite, integrationDbEnabled } from "@avenick/database/testing";
 
 const run = integrationSuite("parallel");
 const marker = `signed-erp-ingress-${Date.now()}-${Math.floor(Math.random() * 100000)}`;

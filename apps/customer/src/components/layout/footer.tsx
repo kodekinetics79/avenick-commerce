@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Mail, ArrowRight, LifeBuoy, FileText } from "lucide-react";
-import { Button, Divider, Eyebrow, FieldWell } from "@avenick/ui";
+import { BrandLockup, Button, Divider, Eyebrow, FieldWell } from "@avenick/ui";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
 import { SELLER_REGISTER_URL } from "@/lib/portal-urls";
 
@@ -58,14 +58,34 @@ export function Footer() {
         // environment does not know the seller portal's origin there is no
         // correct target, so the link is omitted rather than pointed at a guess.
         ...(SELLER_REGISTER_URL ? [{ label: t("becomeSeller"), href: SELLER_REGISTER_URL, external: true }] : []),
-        { label: t("returns"), href: "/returns" },
       ],
     },
     {
+      // WHAT CAME OUT OF HERE, and why it was wrong to put it here.
+      //
+      // A "Help" column of five links sat beside a "Support" link, which is a
+      // help centre and a list of help links — the same choice offered twice,
+      // and exactly the duplicate LAW G says to find before counting options.
+      // It also listed "Returns & refunds" directly above "Returns": the policy
+      // and the account page where a return is raised, two entries a shopper
+      // reads as one thing and has to guess between. That was mine and it was
+      // indefensible in a footer.
+      //
+      // Delivery, returns, warranty and system status now live on /support,
+      // which is the help centre and where someone with a question already
+      // goes. Nothing was deleted — LAW G's grouping, not its forbidden fourth
+      // option. /returns stays reachable from the returns policy and from the
+      // account area, which is where a signed-in buyer raises one.
+      //
+      // System status in particular does not belong in storefront chrome beside
+      // About and Contact. It is a real page and it works; it is also an
+      // engineering readout, and putting it on every page of a shop advertises
+      // that the shop breaks.
       title: t("company"),
       links: [
+        { label: t("about"), href: "/about" },
+        { label: t("contact"), href: "/contact" },
         { label: t("support"), href: "/support" },
-        { label: t("status"), href: "/status" },
         { label: t("myAccount"), href: "/account" },
         { label: t("signIn"), href: "/login" },
       ],
@@ -113,18 +133,12 @@ export function Footer() {
         <div className="col-span-2">
           <Link href="/" aria-label={brand} className="u-focus inline-flex items-center gap-2.5 rounded-nested">
             {/*
-              The wordmark and the monogram both come from the configured
-              platform name. They used to be the literals "A" and "avenick",
-              which meant a deployment that renamed the platform still shipped
-              somebody else's brand in its own footer.
+              The same mark the header draws, standing still. `animated` is not
+              passed on purpose: an entrance animation below the fold is one
+              nobody sees, and a second hopping mark competes with the first for
+              the attention the first exists to get.
             */}
-            <span
-              aria-hidden="true"
-              className="u-mark-flat grid h-8 w-8 place-items-center rounded-nested bg-ink-1 text-ui font-semibold text-ink-inv"
-            >
-              {brand.charAt(0).toUpperCase()}
-            </span>
-            <span className="u-h3 text-ink-1">{brand}</span>
+            <BrandLockup name={brand} size={32} />
           </Link>
           <p className="u-body mt-4 max-w-desc text-ink-2">{t("tagline")}</p>
           {/*

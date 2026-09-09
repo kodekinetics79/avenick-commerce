@@ -1,26 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProductBySlug, type Currency } from "@avenick/database";
-import { getServerB2BContext } from "@/lib/b2b-server";
+import { resolveCatalogChannel } from "@/lib/catalog-channel";
 import { toCatalogDetailDto } from "@/lib/catalog-detail-dto";
+import { catalogThrottle } from "@/lib/catalog-throttle";
 
 const CURRENCIES = new Set<Currency>(["AED", "SAR", "QAR", "KWD", "OMR", "BHD", "USD"]);
 
 export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
   try {
+    const throttled = await catalogThrottle(req.headers);
+    if (throttled) return throttled;
+
     const wantsB2B = req.nextUrl.searchParams.get("b2b") === "true";
     const currencyParam = req.nextUrl.searchParams.get("currency")?.toUpperCase() as Currency | undefined;
     if (currencyParam && !CURRENCIES.has(currencyParam)) {
       return NextResponse.json({ success: false, error: "Unsupported currency" }, { status: 400 });
     }
 
-    if (wantsB2B) {
-      const ctx = await getServerB2BContext();
-      if (!ctx) {
-        return NextResponse.json({ success: false, error: "Active company account required for B2B pricing" }, { status: 401 });
-      }
-    }
-
-    const channel = wantsB2B ? "B2B" : "B2C";
+    const resolved = await resolveCatalogChannel(wantsB2B);
+    if (!resolved.ok) return resolved.response;
+    const channel = resolved.channel;
     const product = await getProductBySlug(params.slug, channel, currencyParam);
     if (!product || product.status !== "ACTIVE") {
       return NextResponse.json({ success: false, error: "Product not found" }, { status: 404 });

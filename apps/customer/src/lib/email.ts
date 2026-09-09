@@ -26,10 +26,18 @@ import { createHash, createHmac } from "node:crypto";
 // module that only wants a throttle — including server actions under vitest.
 import { checkRateLimit, RATE_LIMITS } from "@avenick/auth/rate-limit";
 import { log } from "@avenick/observability";
+// The geometry module, NOT the @avenick/ui barrel: this is a server-only lib and
+// the barrel would pull every React client component into it. The subpath export
+// exists for exactly this call site.
+import { brandMarkDocument } from "@avenick/ui/brand-mark-geometry";
 import { emailSender, platformName, selfOrigin } from "@avenick/utils/portal-config";
 import { passwordResetTtlLabel } from "./password-reset";
-import { invitationTtlLabel } from "./invitation";
 import { emailVerificationTtlLabel } from "./email-verification";
+// The invitation link is minted, not formatted: only lib/invite-acceptance can
+// decide that an address is still an open invitation, and it re-decides the
+// same thing when the link is used.
+import { inviteAcceptUrl } from "./invite-acceptance";
+import { inviteTtlLabel } from "./invite-token";
 
 /** Identifies which mail this is, so log lines stay diagnosable. */
 const TEMPLATE = "b2b-company-invite";
@@ -58,6 +66,14 @@ export type EmailSkipReason =
   | "sender-not-configured"
   | "origin-not-configured"
   | "suppressed"
+  /**
+   * The address is not an open invitation, so no acceptance link could be
+   * minted for it — already accepted, revoked, or never invited. An invitation
+   * mail without a working link is what the old `/register?email=` link was,
+   * and that mail is what left every invitee locked out; not sending is the
+   * honest answer, and the caller already reports "we could not send it".
+   */
+  | "invite-not-open"
   | "provider-rejected"
   | "request-failed";
 
@@ -169,12 +185,33 @@ async function providerMessageId(res: Response): Promise<string | undefined> {
   }
 }
 
-/** The shared header block every template opens with. */
+/**
+ * The shared header block every template opens with.
+ *
+ * WAS: a 32px div with `linear-gradient(135deg,#6366f1,#7c3aed)`, `font-weight:900`
+ * and the literal letter "A" — the pre-doctrine indigo→violet tile, two hexes of
+ * a palette the product stopped using, a weight the type ladder does not define,
+ * and an initial that ignored platformName() entirely. A deployment that renamed
+ * itself still sent password resets under Avenick's old monogram.
+ *
+ * NOW: the real mark, from the same geometry module the header, the footer and
+ * the favicons draw. It is inlined as a data: URI rather than linked, because a
+ * remote <img> in an email is blocked by default in most clients and would leave
+ * a broken-image box where the brand should be — and because a tracking-shaped
+ * request to our own host on every open is a privacy cost with no benefit.
+ *
+ * 28px, so it takes the SMALL CUT: at that size the master's optical events are
+ * sub-pixel, and email clients composite them unpredictably anyway. Silhouette
+ * and one rule survive anything.
+ */
 function brandHeader(): string {
+  const name = platformName();
+  const svg = brandMarkDocument({ size: 28, title: name });
+  const src = `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
   return `
     <div style="display:inline-flex;align-items:center;gap:8px;margin-bottom:24px">
-      <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#7c3aed);color:#fff;font-weight:900;text-align:center;line-height:32px">A</div>
-      <strong style="font-size:18px">${platformName()}</strong>
+      <img src="${src}" width="28" height="28" alt="" style="display:block;border:0" />
+      <strong style="font-size:18px">${name}</strong>
     </div>`;
 }
 
@@ -214,26 +251,11 @@ async function deliver(
   }
 }
 
-/**
- * The invitation a company admin sends a colleague.
- *
- * `token` is the invitation credential, minted by the caller (lib/invitation is
- * node:crypto-only and this module is imported from more places than it should
- * be). The link it builds is the ONLY way an invited account ever becomes
- * usable: the row is created PENDING with no password, and sign-in refuses
- * anything that is not ACTIVE.
- *
- * It used to point at /register, which for an address that already had a row
- * could only answer "already registered" — so every invitation ever sent was a
- * dead end. Anything that changes this URL must keep it pointing at a page that
- * can ACTIVATE the account, not merely register a new one.
- */
 export async function sendInviteEmail(opts: {
   to: string;
   companyName: string;
   inviterName: string;
   role: string;
-  token: string;
 }): Promise<EmailOutcome> {
   const key = process.env.RESEND_API_KEY;
   const ref = recipientRef(opts.to);
@@ -247,9 +269,24 @@ export async function sendInviteEmail(opts: {
   if (!from) return { sent: false, reason: "sender-not-configured" };
   const appUrl = originOrNull(TEMPLATE, ref);
   if (!appUrl) return { sent: false, reason: "origin-not-configured" };
-  // Carries a credential in a query param, so it is built here rather than
-  // above the guard: it must not be in scope for the skip branch to log.
-  const acceptUrl = `${appUrl}/auth/accept-invitation?token=${encodeURIComponent(opts.token)}`;
+  // THE LINK IS THE INVITATION. This used to be `/register?email=<address>` —
+  // an email address in a query string, which /register does not even read, and
+  // which carried no credential of any kind. The invitee arrived at the
+  // account-type chooser as a cold visitor, could not register (their address
+  // was already taken by the PENDING row), could not sign in (no password hash,
+  // not ACTIVE) and could not reset a password they had never had. Every door
+  // was correctly shut; none of them was a door.
+  //
+  // It is now a signed, expiring, single-use acceptance token — and it is
+  // minted by lib/invite-acceptance against COMMITTED state, so this mail
+  // cannot carry a working link to anything but a genuinely open invitation. A
+  // link is a credential, so it is built after the guards above (it must not be
+  // in scope for a skip branch to log) and is never logged.
+  const acceptUrl = await inviteAcceptUrl({ email: opts.to, origin: appUrl });
+  if (!acceptUrl) {
+    log.info("invite email skipped: no open invitation for this address", { template: TEMPLATE, recipientRef: ref });
+    return { sent: false, reason: "invite-not-open" };
+  }
 
   // Company and inviter names are typed by users at registration; they land
   // inside HTML here, so they are escaped like any other untrusted text.
@@ -265,10 +302,11 @@ export async function sendInviteEmail(opts: {
       ${inviterName} has invited you to join <strong>${companyName}</strong> on ${brand}
       as a <strong>${roleLabel}</strong>. Set your password to start purchasing on behalf of your company.
     </p>
-    <p style="color:#52525b;font-size:14px;line-height:1.6">
-      This link is valid for ${invitationTtlLabel()} and can be used once.
-    </p>
     <a href="${acceptUrl}" style="display:inline-block;margin:20px 0;background:#4f46e5;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 24px;border-radius:12px">Accept invitation</a>
+    <p style="color:#52525b;font-size:13px;line-height:1.6">
+      This link expires in ${escapeHtml(inviteTtlLabel())} and can only be used once.
+      If it has expired, ask ${inviterName} to invite you again.
+    </p>
     <p style="color:#a1a1aa;font-size:12px">If you weren't expecting this, you can ignore this email.</p>
   </div>`;
 

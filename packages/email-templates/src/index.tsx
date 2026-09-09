@@ -9,8 +9,15 @@
  * copy behind in the barrel.
  *
  * Nothing sends these yet. Wiring the seller welcome mail (and the other two)
- * into a sender is a follow-up; the sender must pass platformName() from
- * portal-config rather than let the template fall back to its brand literal.
+ * into a sender is a follow-up.
+ *
+ * `platformName` is now a REQUIRED prop on all three rather than an optional one
+ * with a brand literal behind it. The note that used to sit here asked the
+ * future sender to remember to pass it; a request in a docstring is not a
+ * guarantee, and the fallback it was guarding against ("منزل", the previous
+ * brand) would have gone out silently the first time somebody forgot. The type
+ * enforces it now, so that mistake fails at compile time instead of in an
+ * Arabic recipient's inbox.
  */
 export { DocumentStatusEmail } from "./document-status";
 export { OrderConfirmationEmail } from "./order-confirmation";

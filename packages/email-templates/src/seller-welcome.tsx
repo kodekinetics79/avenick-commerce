@@ -7,8 +7,19 @@ interface SellerWelcomeProps {
   sellerName: string;
   businessName: string;
   locale?: "ar" | "en";
-  /** Platform display name; the sender passes platformName() from portal-config. */
-  platformName?: string;
+  /**
+   * Platform display name. REQUIRED — the sender passes platformName() from
+   * portal-config.
+   *
+   * It used to be optional with a fallback of `isAr ? "منزل" : "Avenick"`, which
+   * was wrong three ways at once. "منزل" is the PREVIOUS brand, so an Arabic
+   * recipient was mailed a name the product no longer uses. The two scripts
+   * disagreed, while every other Arabic string in the platform carries the Latin
+   * name through a {platform} placeholder. And a silent default is the failure
+   * itself: a sender that forgets this prop should not quietly post mail under a
+   * hardcoded brand — it should not compile.
+   */
+  platformName: string;
 }
 
 export function SellerWelcomeEmail({
@@ -20,7 +31,7 @@ export function SellerWelcomeEmail({
   const isAr = locale === "ar";
   const dir = isAr ? "rtl" : "ltr";
   // The brand name is the one permitted literal; the sender can override it.
-  const name = platformName ?? (isAr ? "منزل" : "Avenick");
+  const name = platformName;
 
   return (
     <Html dir={dir} lang={isAr ? "ar" : "en"}>
@@ -29,7 +40,7 @@ export function SellerWelcomeEmail({
       <Tailwind>
         <Body className="bg-gray-50 font-sans">
           <Container className="mx-auto my-8 max-w-xl rounded-2xl bg-white p-8 shadow-sm">
-            <Heading className="text-2xl font-bold text-orange-600 mb-4">
+            <Heading className="text-2xl font-semibold text-[#057f42] mb-4">
               {isAr ? `مرحباً بك في ${name}!` : `Welcome to ${name}!`}
             </Heading>
 
@@ -43,8 +54,8 @@ export function SellerWelcomeEmail({
                 : `Thank you for registering as a seller on ${name}. Your application for ${businessName} is currently under review.`}
             </Text>
 
-            <Section className="rounded-xl bg-orange-50 p-4 mb-4">
-              <Heading as="h2" className="text-base font-semibold text-orange-700 mt-0 mb-2">
+            <Section className="rounded-xl bg-[#f0f7f2] p-4 mb-4">
+              <Heading as="h2" className="text-base font-semibold text-[#046937] mt-0 mb-2">
                 {isAr ? "الخطوات التالية" : "Next Steps"}
               </Heading>
               <ul className="list-disc ps-5 text-sm text-gray-700 space-y-1">

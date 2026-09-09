@@ -11,6 +11,7 @@ import {
   redriveIntegrationOutbox,
   StaleIntegrationLeaseError,
 } from "../services/integrations";
+
 import { integrationDbEnabled } from "../testing/integration-db";
 
 const enabled = integrationDbEnabled();

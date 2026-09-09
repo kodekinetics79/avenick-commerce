@@ -42,9 +42,13 @@ export function CartDrawerConnected() {
           body: JSON.stringify({ productIds, b2b, currency }),
         });
         if (!res.ok) return [];
-        const json = (await res.json()) as { success?: boolean; data?: unknown[] };
+        const json = (await res.json()) as { success?: boolean; data?: unknown[]; basis?: unknown };
         if (!json?.success || !Array.isArray(json.data)) return [];
-        return json.data.map((dto) => toCardRow(dto, locale) as CartCompletionRow);
+        // The basis rides on every row rather than in a second store slot:
+        // one response, one claim, and the drawer reads it off whichever row
+        // survives the not-in-cart filter.
+        const basis = json.basis === "co-purchase" || json.basis === "related" ? json.basis : undefined;
+        return json.data.map((dto) => ({ ...(toCardRow(dto, locale) as CartCompletionRow), ...(basis ? { basis } : {}) }));
       } catch {
         return [];
       }

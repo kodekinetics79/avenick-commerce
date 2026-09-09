@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationSuite } from "../testing/integration-db";
 import {
   DEPLOYED_INTEGRATION_INBOX_HANDLERS,
   getIntegrationRuntimeReadiness,
@@ -13,7 +14,6 @@ import {
   redriveIntegrationInbox,
   StaleIntegrationLeaseError,
 } from "../services/integrations";
-import { integrationSuite } from "../testing/integration-db";
 
 const run = integrationSuite("parallel");
 const marker = `inbound-worker-${Date.now()}-${Math.floor(Math.random() * 10000)}`;

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 import { setCompanyStatus, setUserStatus } from "../services/admin";
-import { integrationSuite } from "../testing/integration-db";
 
 const run = integrationSuite();
 const users: string[] = [];

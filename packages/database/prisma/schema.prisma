@@ -76,25 +76,31 @@ enum CompanySize {
   ENTERPRISE
 }
 
-enum CompanyStatus {
-  PENDING_VERIFICATION
-  ACTIVE
-  SUSPENDED
-}
-
 /// The life of an application to join a company that already exists.
 ///
-/// The two PENDING states are separate because they are waiting on different
-/// people. PENDING_EMAIL_VERIFICATION waits on the APPLICANT to prove they read
-/// mail at the address they claimed; PENDING_ADMIN_APPROVAL waits on the
-/// COMPANY'S OWN ADMIN to say this person works there. Collapsing them into one
-/// "PENDING" would make the approvals queue show applicants who have not yet
-/// proved anything, which is the whole point of the first step.
+/// The two PENDING states are separate because they wait on different people.
+/// PENDING_EMAIL_VERIFICATION waits on the APPLICANT to prove they read mail at
+/// the address they claimed; PENDING_ADMIN_APPROVAL waits on the COMPANY'S OWN
+/// administrator to say this person works there. Collapsing them into one
+/// "PENDING" would fill the approvals queue with applicants who have proved
+/// nothing, which is the whole point of the first step.
 enum CompanyJoinRequestStatus {
   PENDING_EMAIL_VERIFICATION
   PENDING_ADMIN_APPROVAL
   APPROVED
   REJECTED
+}
+
+enum CompanyStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  /// Refused. Three statuses made a refusal indistinguishable from a
+  /// suspension, so the only way to turn an applicant down was to suspend a
+  /// company that had never traded.
+  REJECTED
+  /// Waiting on the applicant for something specific — see reviewNotes.
+  INFO_REQUESTED
 }
 
 enum SellerType {
@@ -401,7 +407,12 @@ model User {
   sessions           Session[]
   notifications      Notification[]
   auditLogs          AuditLog[]
-  sentMessages       Message[]          @relation("SentMessages")
+  /// Companies this admin verified, and company documents they reviewed. Named
+  /// relations because User already relates to AuditLog and would otherwise be
+  /// ambiguous.
+  companiesVerified  Company[]           @relation("CompanyVerifiedBy")
+  documentsReviewed  CompanyDocument[]   @relation("CompanyDocumentReviewer")
+  sentMessages       Message[]           @relation("SentMessages")
   customerActivities CustomerActivity[]
   reviews            ProductReview[]
   supportTickets     SupportTicket[]
@@ -439,30 +450,61 @@ model Company {
   id           String        @id @default(cuid())
   nameEn       String
   nameAr       String?
-  crNumber     String?       @unique
-  vatNumber    String?       @unique
+  // Unique WITHIN the issuing jurisdiction, not globally. A Bahraini "12345-1"
+  // and an Omani "1234567" are unrelated namespaces, and a global constraint
+  // let the first company to claim a short numeric CR lock that string out of
+  // all six markets. See the @@unique declarations below.
+  crNumber     String?
+  vatNumber    String?
   industry     Industry
   size         CompanySize
   country      Country
   city         String
   logo         String?
   status       CompanyStatus @default(PENDING_VERIFICATION)
-  /// Email domains this company has been recognised at, lower-cased and without
-  /// the "@" — e.g. ["aramco.com"]. A colleague of an existing member may only
-  /// apply to join a company whose CR they know AND whose domain their address
+  /// Email domains this company is recognised at, lower-cased and without the
+  /// "@" — e.g. ["aramco.com"]. A colleague of an existing member may apply to
+  /// join only a company whose CR they know AND whose domain their own address
   /// belongs to, so this list is the second half of that gate.
   ///
-  /// Seeded from the founding admin's own address at registration, and ONLY when
-  /// that address is not at a public mailbox provider: a company whose admin
-  /// signed up with a gmail.com address must never end up claiming gmail.com,
-  /// or every Gmail user on earth could apply to join it. An empty list is
-  /// therefore normal and means "no self-service joining" — the admin invites
-  /// colleagues by hand instead. See isPublicMailboxDomain in @avenick/utils.
+  /// Seeded from the founding administrator's own address at registration, and
+  /// ONLY when that address is not at a public mailbox provider: a company whose
+  /// admin signed up with a gmail.com address must never come to claim
+  /// gmail.com, or every Gmail user on earth could apply to join it. An empty
+  /// list is therefore normal and means "no self-service joining" — that company
+  /// adds colleagues by invitation instead. See claimableDomainOf in
+  /// @avenick/utils.
   emailDomains String[]
   creditLimit  Decimal?      @db.Decimal(12, 2)
   paymentTerms Int           @default(0)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+
+  // ── Registry identity ───────────────────────────────────────────────────
+  unifiedNumber     String?
+  legalForm         String?
+  crIssuedOn        DateTime?
+  /// The ONE canonical expiry. Everything that queries, indexes or sweeps for
+  /// an expiring registration reads this and nothing else.
+  crExpiresOn       DateTime?
+  /// Which calendar the applicant read the date in, and the string they typed.
+  /// Display and audit only — never re-parsed, never queried. A GCC certificate
+  /// states its expiry in Hijri, and storing Hijri and Gregorian as two
+  /// independent dates gives you two sources of truth that drift the moment
+  /// anything writes one without the other.
+  crExpiryCalendar  String?
+  crExpiryAsEntered String?
+  /// No vatExpiresOn: a GCC VAT registration does not expire.
+  vatEffectiveFrom  DateTime?
+
+  // ── Review trail ────────────────────────────────────────────────────────
+  submittedAt  DateTime?
+  verifiedAt   DateTime?
+  verifiedById String?
+  /// Why it was refused, or what is still needed. setCompanyStatus already
+  /// takes a reason and writes it only into the audit payload, where the
+  /// applicant can never be shown it.
+  reviewNotes  String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
   deletedAt    DateTime?
 
   members              CompanyMember[]
@@ -474,26 +516,17 @@ model Company {
   requisitionLists     RequisitionList[]
   externalAccountLinks ExternalAccountLink[]
   integrationRoutes    IntegrationCompanyRoute[]
+  documents            CompanyDocument[]
+  auditEntries         AuditLog[]
   joinRequests         CompanyJoinRequest[]
+  verifiedBy           User?                     @relation("CompanyVerifiedBy", fields: [verifiedById], references: [id])
 
+  @@unique([country, crNumber])
+  @@unique([country, vatNumber])
   @@index([status])
   @@index([country])
-}
-
-model CompanyMember {
-  id         String   @id @default(cuid())
-  userId     String   @unique
-  companyId  String
-  role       UserRole
-  department String?
-  spendLimit Decimal? @db.Decimal(12, 2)
-  isActive   Boolean  @default(true)
-  joinedAt   DateTime @default(now())
-
-  user    User    @relation(fields: [userId], references: [id])
-  company Company @relation(fields: [companyId], references: [id])
-
-  @@index([companyId])
+  @@index([status, submittedAt])
+  @@index([crExpiresOn])
 }
 
 /// An application from a person who is NOT yet a member to join a company that
@@ -501,28 +534,28 @@ model CompanyMember {
 ///
 /// It is deliberately NOT a CompanyMember. A membership row is authority: it is
 /// what getB2BContext reads to decide whose prices and whose purchase orders a
-/// signed-in user can see. Nothing in this table grants any of that. The row is
+/// signed-in user may see. Nothing in this table grants any of that. The row is
 /// promoted to a CompanyMember by approveJoinRequest, in one transaction, and
-/// only by an admin of the company being joined.
+/// only by an administrator of the company being joined.
 ///
 /// `userId` is unique because CompanyMember.userId is: a person belongs to at
 /// most one company here, so they can have at most one live application. A
-/// rejected application therefore blocks a fresh one, which is intended — the
-/// applicant asks their admin, they do not re-apply until it is allowed.
+/// rejected application therefore blocks a fresh one, which is why approval
+/// accepts REJECTED as well — otherwise a mis-click would lock a colleague out
+/// permanently, and even an invitation would then fail on "already registered".
 model CompanyJoinRequest {
   id        String                   @id @default(cuid())
   companyId String
   userId    String                   @unique
   status    CompanyJoinRequestStatus @default(PENDING_EMAIL_VERIFICATION)
 
-  /// What the applicant asked to be. Advisory only: the approving admin sets
-  /// the role that is actually written to CompanyMember, so an applicant cannot
-  /// make themselves an admin by asking to be one.
+  /// What the applicant asked to be. ADVISORY ONLY: the approving administrator
+  /// sets the role actually written to CompanyMember, which is what stops an
+  /// applicant admitting themselves as an administrator by picking it.
   requestedRole UserRole @default(COMPANY_BUYER)
 
   /// The team the applicant says they are in, as they typed it. Carried onto
-  /// CompanyMember on approval so an admin does not have to retype what the
-  /// applicant already told them, and shown in the queue because "Procurement"
+  /// CompanyMember on approval, and shown in the queue because "Procurement"
   /// next to a name is often the whole of what makes a request recognisable.
   department String?
 
@@ -541,8 +574,24 @@ model CompanyJoinRequest {
   company Company @relation(fields: [companyId], references: [id])
   user    User    @relation(fields: [userId], references: [id])
 
-  /// The company admin's queue: "everything awaiting my decision", newest first.
+  /// The administrator's queue: "everything awaiting my decision", newest first.
   @@index([companyId, status, createdAt])
+}
+
+model CompanyMember {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  companyId  String
+  role       UserRole
+  department String?
+  spendLimit Decimal? @db.Decimal(12, 2)
+  isActive   Boolean  @default(true)
+  joinedAt   DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
 }
 
 model ApprovalPolicy {
@@ -649,6 +698,43 @@ model SavedView {
   seller SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
   @@index([sellerId, entity])
+}
+
+/// The evidence a company's verification decision rests on.
+///
+/// A company could not store a CR scan at all: SellerDocument is hard-keyed to
+/// sellerId, so this mirrors it rather than bending it, reusing the DocumentType
+/// and DocumentStatus enums that already carry COMMERCIAL_REGISTRATION,
+/// VAT_CERTIFICATE and TRADE_LICENSE.
+///
+/// reviewedById is a real foreign key. SellerDocument.reviewedBy is a bare
+/// string with no relation, which is the one part of that model not worth
+/// copying — it cannot be joined and it cannot be trusted to name a real user.
+model CompanyDocument {
+  id              String         @id @default(cuid())
+  companyId       String
+  type            DocumentType
+  fileUrl         String
+  fileName        String
+  fileSize        Int
+  mimeType        String
+  status          DocumentStatus @default(PENDING_REVIEW)
+  /// Same treatment as Company.crExpiresOn: one canonical Gregorian instant,
+  /// plus what the applicant read and typed, kept for a reviewer holding the
+  /// paper certificate.
+  expiresOn       DateTime?
+  expiryCalendar  String?
+  expiryAsEntered String?
+  rejectionReason String?
+  uploadedAt      DateTime       @default(now())
+  reviewedAt      DateTime?
+  reviewedById    String?
+
+  company  Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reviewer User?   @relation("CompanyDocumentReviewer", fields: [reviewedById], references: [id])
+
+  @@index([companyId, type])
+  @@index([status, uploadedAt])
 }
 
 model SellerDocument {
@@ -1030,6 +1116,21 @@ model Address {
   lat        Decimal? @db.Decimal(10, 8)
   lng        Decimal? @db.Decimal(11, 8)
   isDefault  Boolean  @default(false)
+
+  /// Saudi National Address. Only SA publishes a structured one, which is why
+  /// these are nullable — not because they are decorative: a shipment without
+  /// buildingNumber and additionalNumber fails SPL validation. TEXT and never
+  /// Int, because they are exactly four digits and a leading zero counts.
+  district         String?
+  buildingNumber   String?
+  additionalNumber String?
+  shortAddress     String?
+
+  /// Arabic address text is DATA required for GCC invoicing, not a rendering
+  /// of the English line.
+  line1Ar    String?
+  districtAr String?
+  cityAr     String?
 
   user    User?    @relation(fields: [userId], references: [id])
   company Company? @relation(fields: [companyId], references: [id])
@@ -1541,13 +1642,20 @@ model AuditLog {
   userAgent  String?
   createdAt  DateTime    @default(now())
 
-  actor  User?          @relation(fields: [actorId], references: [id])
-  seller SellerProfile? @relation(fields: [sellerId], references: [id])
+  /// AuditLog carried actorId and sellerId but nothing for a company, so a
+  /// company's verification history was findable only by scanning on
+  /// entityType.
+  companyId String?
+
+  actor   User?          @relation(fields: [actorId], references: [id])
+  seller  SellerProfile? @relation(fields: [sellerId], references: [id])
+  company Company?       @relation(fields: [companyId], references: [id])
 
   @@index([entityType, entityId])
   @@index([actorId])
   @@index([sellerId])
   @@index([createdAt])
+  @@index([companyId, createdAt])
 }
 
 // ─── COMMERCE CONTROL PLANE / PILOT OVERHAUL

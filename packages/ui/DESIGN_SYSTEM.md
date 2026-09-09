@@ -242,13 +242,21 @@ The single permitted ambient gradient, mounted **exactly once** per root layout 
 `<AmbientField>`.
 
 ```
---field-a: 248 66% 58%   alpha .075 light / .16 dark   indigo — brand
---field-b: 184 64% 44%   alpha .052 light / .11 dark   verdigris — trade
+--field-a: 150 66% 40%   alpha .075 light / .16 dark   green — brand
+--field-b: 200 64% 44%   alpha .052 light / .11 dark   verdigris — trade
 --field-c:  36 56% 42%   alpha .026 light / .07 dark   brass — the register    (NEW)
 --field-rule / --field-rule-alpha   .035 light / .045 dark
 --field-noise  .022 light / .034 dark        --field-blur 64px
 --field-intensity  1 customer · .30 seller · .15 admin
 ```
+
+> **Corrected against the shipped file.** This table read `248 66% 58%` (indigo)
+> and `184 64% 44%` until the brand hue moved indigo → green; `globals.css` has
+> shipped `150` and `200` since. The CSS is the truth. A stale token table is
+> worse than none, because it is the thing a new track copies values out of —
+> and §3.7's contrast ceilings are derived from the hues that are actually
+> composited, so a mark or a plate tuned against the old lobes would be tuned
+> against a field that no longer exists.
 
 **Three hues, never four.** Overlapping lobes past three mix to brown rather than glow.
 This is documented behaviour, not taste.
@@ -308,6 +316,49 @@ There is deliberately no brass fill, soft or gradient.
 `shadow-glow` to a hue-matched elevation rung stays. The only luminous thing in the product
 is brass, and brass is a rule, a tier mark or a seal — never a fill, never a halo, never a
 button.
+
+### 3.10b THE MARK — `<BrandMark>` / `<BrandLockup>`
+
+THE ENTRY: an **A whose crossbar is the brass rule**. Not a letter with the house
+gesture applied — take the rule away and the silhouette is a chevron, not an A. §10.13
+warns that a twelfth agent inventing a sixth brass gesture is how a system stops reading
+as designed, so the mark invents nothing: it is the active-nav rule, the ladder's band
+and the certificate's top edge, in the posture of an entrance, **with no timing of its
+own** — the rule at rest, the state after `scaleX(1)`.
+
+**Geometry lives in exactly one module**, `packages/ui/src/brand-mark-geometry.ts`, with
+no `"use client"` directive (LAW 9 — `brandMarkDocument()` is called from server files).
+The header, the footer, six auth and shell surfaces, three favicons, three apple-icons,
+the share card and the email header all draw from it. It replaced **eight independent
+reimplementations in six different geometries**, three of which had drifted back to the
+pre-doctrine indigo→violet gradient tile and had stopped calling `platformName()`
+entirely.
+
+| | |
+|---|---|
+| **The 3D** | §3.4's four optical events, at **zero degrees**. Apex highlight, fresnel shoulder as a vertical ramp clipped to the path's own inside, counter-fresnel on the undersides, contact ellipses under each foot. Two depth intervals: the rule stands proud of the slab, the slab stands on the ground. |
+| **Why the fresnel is a ramp** | It is the SVG translation of `[data-rim]::before`'s masked conic, and it gets the around-the-perimeter fade **without `mask-composite`**, which Safari and Firefox disagree about. |
+| **Arabic** | Symmetric about x=32. Byte-identical under `[dir="rtl"]` — no mirroring, no `--dir`, no second file. This is LAW B paying for itself. |
+| **Brass** | 22 × 5 units of a 64 × 64 box. At a 32px header mark that is ~27 device pixels against a 2% viewport budget. It is not a fourth permitted use: marking the entry is the active-indicator rule at another scale. |
+| **Small cut** | Below 40px a **different drawing** ships. All four optical events are deleted rather than scaled — a 0.75-unit seam is 0.19px at 16px, and a 0.5px stroke antialiases to uniform grey. Every edge is an integer on a 16-unit box. It is drawn ~17% wider than a true scale, the ordinary caption-cut correction: at 12px of letter height the master's aperture closes and an A reads as a chevron. |
+| **Forced colours** | `@media (forced-colors: active)` hides the lighting group and keeps the silhouette; the slab is `currentColor`. **This is the system's first and currently only `forced-colors` block** — there were zero across `globals.css` and all three apps. |
+| **Rasterisers** | `brandMarkDocument({ theme })` flattens to literal values with no `var()`, no `@media` and no `<style>`. Satori composites through resvg, which has **no CSS custom property support** and hands back an empty box with no error. |
+
+**THE REFUSAL.** `platformName()` reads `NEXT_PUBLIC_PLATFORM_NAME` and falls back to
+`"Avenick"`; `DEPLOYMENT.md` documents the override and this repository is called
+`manzil` because the brand has already been renamed once. An unconditional Avenick "A"
+beside a wordmark reading something else is **a logo asserting a brand the deployment
+does not have** — LAW F, and worse than the plain letter it replaced because it looks
+authoritative. So `<BrandMark>` renders the mark **only when the name is Avenick**, and
+otherwise puts the deployment's own initial on the plate the monogram always had.
+
+**Never** add a second mark, a portal-specific badge, or an animated variant. The
+entrance hop is `u-hop-in`, borrowed from the monogram it replaces — the same curve, the
+same delay, the same origin at the base — and it runs on the header's mark only: an
+entrance below the fold is one nobody sees, and a second hopping mark competes with the
+first for the attention the first exists to get.
+
+---
 
 ### 3.11 Gradient interpolation
 
@@ -993,10 +1044,20 @@ Western digits in both locales — GCC commerce convention, and a deliberate dec
 the code violates its own stated intent for five of seven currencies. Flag it to the owner
 anyway, because it is the one item that touches a formatter.
 
-**`apps/customer/package.json` — framer-motion, and `three` / `@react-three/fiber`.** Both
-changes are **blocked on a lockfile update**, which this track cannot perform: CI runs
-`pnpm install --frozen-lockfile`, and any edit to a `package.json` that `pnpm-lock.yaml` does
-not match fails the install step for every other agent. See the handover note.
+**`apps/customer/package.json` — framer-motion, and `three` / `@react-three/fiber`.**
+
+> **This entry is out of date and the two halves now have different answers.**
+>
+> `three@0.180.0` and `@react-three/fiber@8.18.0` are **already dependencies**
+> (`apps/customer/package.json`), fully resolved in `pnpm-lock.yaml` and installed.
+> `--frozen-lockfile` passes. They arrived with the gated `/b2b/spatial-commerce`
+> shell. Nothing about 3D in this product is blocked on a lockfile any more; what
+> the spatial route is blocked on is real catalogue data, since it renders with
+> `items={[]}` whenever `NODE_ENV` is production.
+>
+> `framer-motion` is in neither the lockfile nor any `package.json`, and it is
+> **also banned by §9** ("framer-motion arriving for a fade"). The dependency
+> question is therefore moot: it is not blocked, it is refused.
 
 ---
 

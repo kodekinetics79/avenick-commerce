@@ -184,6 +184,41 @@ describe("CartDrawer", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  /**
+   * The rail's heading is a CLAIM. "You might also need" sits over rows two
+   * distinct buyers actually ordered together; when nothing has been ordered
+   * together yet the route sends affinity rows with basis "related", and the
+   * heading has to change with them — otherwise the drawer would put words in
+   * other buyers' mouths on a catalogue where nobody has bought anything.
+   */
+  it("heads the rail with the claim its basis supports", () => {
+    render(<CartDrawer completions={[completion({ basis: "related" })]} />);
+    act(() => {
+      useCartStore.getState().addItem(line);
+      useCartDrawerStore.getState().openFor({ productId: "p1" });
+    });
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.textContent).toContain("drawer.alsoRelated");
+    expect(dialog.textContent).not.toContain("drawer.alsoNeed");
+  });
+
+  it("keeps the co-purchase heading when the basis is co-purchase, and when none is reported", () => {
+    const { unmount } = render(<CartDrawer completions={[completion({ basis: "co-purchase" })]} />);
+    act(() => {
+      useCartStore.getState().addItem(line);
+      useCartDrawerStore.getState().openFor({ productId: "p1" });
+    });
+    expect(screen.getByRole("dialog").textContent).toContain("drawer.alsoNeed");
+    unmount();
+    cleanup();
+
+    render(<CartDrawer completions={[completion()]} />);
+    act(() => {
+      useCartDrawerStore.getState().openFor({ productId: "p1" });
+    });
+    expect(screen.getByRole("dialog").textContent).toContain("drawer.alsoNeed");
+  });
+
   it("opens from the product card's add-to-cart without leaving the page", () => {
     render(
       <>

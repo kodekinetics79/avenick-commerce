@@ -59,6 +59,8 @@ export * from "./availability-dot";
 export * from "./facet-rail";
 
 /* ── Layers & chrome ────────────────────────────────────────────────────── */
+export * from "./brand-mark";
+export * from "./brand-mark-geometry";
 export * from "./layer";
 export * from "./sticky-glass-bar";
 export * from "./nav-item";

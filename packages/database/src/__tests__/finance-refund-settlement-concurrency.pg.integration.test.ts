@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { integrationSuite } from "../testing/integration-db";
 import { db } from "../index";
 import { getSellerFinancialPosition, setPayoutStatus } from "../services/finance";
 import { setReturnStatus } from "../services/workflow";
-import { integrationSuite } from "../testing/integration-db";
 
 const run = integrationSuite("parallel");
 const cleanupUsers: string[] = [];

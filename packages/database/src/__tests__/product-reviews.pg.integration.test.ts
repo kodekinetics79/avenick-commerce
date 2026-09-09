@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationSuite, integrationDbEnabled } from "../testing/integration-db";
 import {
   createProductReview,
   getReviewEligibility,
   normalizeReviewText,
   ProductReviewError,
 } from "../services/product-reviews";
-import { integrationSuite, integrationDbEnabled } from "../testing/integration-db";
 
 /**
  * Verified-purchase reviews against a real Postgres.
@@ -17,7 +17,6 @@ import { integrationSuite, integrationDbEnabled } from "../testing/integration-d
  * DATABASE_URL like the other pg integration suites.
  */
 const run = integrationSuite();
-
 const ids = { users: [] as string[], sellers: [] as string[], products: [] as string[], orders: [] as string[] };
 let categoryId: string | null = null;
 

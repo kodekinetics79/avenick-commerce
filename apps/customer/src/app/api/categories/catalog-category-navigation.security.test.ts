@@ -1,6 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
 
-const mocks = vi.hoisted(() => ({ queryRaw: vi.fn() }));
+const mocks = vi.hoisted(() => ({ queryRaw: vi.fn(), checkRateLimit: vi.fn() }));
+
+// The route passes every public read through the shared catalogue throttle.
+vi.mock("@avenick/auth/rate-limit", () => ({
+  checkRateLimit: mocks.checkRateLimit,
+  clientIpFrom: () => "127.0.0.1",
+  RATE_LIMITS: { catalogRead: { name: "catalog-read", limit: 120, windowMs: 60_000 } },
+}));
 
 vi.mock("@avenick/database", () => ({
   db: { $queryRaw: mocks.queryRaw },
@@ -25,11 +33,17 @@ import { GET } from "./route";
  * it is active and leads to a product a member of the public may see.
  */
 describe("customer category navigation", () => {
-  beforeEach(() => mocks.queryRaw.mockReset());
+  beforeEach(() => {
+    mocks.queryRaw.mockReset();
+    mocks.checkRateLimit.mockReset();
+    mocks.checkRateLimit.mockResolvedValue({ ok: true, resetAt: Date.now() + 1000 });
+  });
+
+  const ask = () => GET(new NextRequest("http://localhost/api/categories"));
 
   it("exposes only active categories that lead to a publicly discoverable product", async () => {
     mocks.queryRaw.mockResolvedValue([]);
-    const response = await GET();
+    const response = await ask();
     expect(response.status).toBe(200);
 
     const sql: string = mocks.queryRaw.mock.calls[0]![0].text;
@@ -57,7 +71,7 @@ describe("customer category navigation", () => {
       { id: "2", slug: "child", nameEn: "Child", nameAr: "ط", iconName: null, parentId: "1", sortOrder: 0 },
       { id: "3", slug: "grandchild", nameEn: "Grandchild", nameAr: "ح", iconName: null, parentId: "2", sortOrder: 0 },
     ]);
-    const body = await (await GET()).json();
+    const body = await (await ask()).json();
     expect(body.success).toBe(true);
     expect(body.data).toHaveLength(1);
     // Three levels, which the previous implementation could not represent.

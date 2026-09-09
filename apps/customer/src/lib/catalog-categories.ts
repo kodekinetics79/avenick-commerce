@@ -1,4 +1,4 @@
-import { fetchBackendJson } from "@/lib/backend";
+import { readPublicCategoryTree } from "@/lib/public-category-tree";
 
 /**
  * Top-level catalog categories as the public catalog API exposes them
@@ -25,7 +25,13 @@ export interface PublicCategory {
  */
 export async function getPublicCategories(): Promise<PublicCategory[]> {
   try {
-    const result = await fetchBackendJson<unknown>("/api/categories");
+    // Read the catalogue, do not fetch our own HTTP route. This menu renders on
+    // every page; going over HTTP made each render an anonymous request from the
+    // app to itself, subject to every guard meant for the public internet — a
+    // per-IP throttle counted the whole world against one bucket and emptied the
+    // menu for everybody, and an unlisted Host made the app unable to call
+    // itself at all.
+    const result: unknown = await readPublicCategoryTree();
     if (!Array.isArray(result)) return [];
     return result.filter(
       (c): c is PublicCategory =>

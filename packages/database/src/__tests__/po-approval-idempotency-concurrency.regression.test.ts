@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { integrationSuite } from "../testing/integration-db";
 import {
   assertMatchingIdempotencyFingerprint,
   buildApprovalDecisionSnapshot,
@@ -7,7 +8,6 @@ import {
 } from "../services/commerce-governance";
 import { db } from "../index";
 import { transitionGovernedPurchaseOrder } from "../services/b2b-purchase-orders";
-import { integrationSuite } from "../testing/integration-db";
 
 describe("canonical checkout idempotency", () => {
   const request = {

@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 import { setUserStatus } from "../services/admin";
 import {
   createGovernedApprovalPolicy,
   setGovernedApprovalPolicyActive,
   updateGovernedCompanyMember,
 } from "../services/b2b-purchase-orders";
-import { integrationSuite } from "../testing/integration-db";
 
 const run = integrationSuite();
 const userIds: string[] = [];

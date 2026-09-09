@@ -93,7 +93,13 @@ describe("signed tokens", () => {
       const result = verifyEmailVerificationToken(mintEmailVerificationToken(UID, NOW), NOW);
       expect(result.ok).toBe(true);
       if (!result.ok) return;
-      expect(result.payload.hf).toBeUndefined();
+      // Checked on the object rather than through `result.payload.hf`: the
+      // email-verification payload type no longer carries `hf` at all, so the
+      // property access stopped compiling. That is the guarantee getting
+      // STRONGER — absence is now enforced by the type — and the runtime
+      // assertion is kept anyway, because the type says what this code believes
+      // and the test says what the token actually contains.
+      expect(Object.hasOwn(result.payload, "hf")).toBe(false);
       expect(result.payload.exp).toBe(Math.floor(NOW / 1000) + EMAIL_VERIFICATION_TTL_SECONDS);
     });
   });

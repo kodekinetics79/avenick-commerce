@@ -39,7 +39,6 @@ import {
   formatRatingFloor,
   parseCatalogFilters,
   sortNarrowsToReviewed,
-  wantsB2BChannel,
   type CatalogSearchParams,
 } from "@/components/products/catalog-filters";
 import { categoryIcon } from "@/components/products/category-icon";
@@ -54,6 +53,8 @@ import { categoryLabel } from "@/lib/catalog-categories";
 import { toCatalogListDto } from "@/lib/catalog-list-dto";
 import { findCategory, type CategoryNode } from "@/lib/category-tree";
 import { toCardRow, type CardRow } from "@/lib/product-card-row";
+import { readPublicBrands } from "@/lib/public-brands";
+import { readPublicCategoryTree } from "@/lib/public-category-tree";
 
 // No platform-name suffix here. The root layout declares
 // `title.template: "%s | <platform>"`, so appending it again rendered
@@ -178,7 +179,7 @@ async function loadCatalogueLead(
 ): Promise<CatalogueLead> {
   try {
     if (filters.category) {
-      const tree = await fetchBackendJson<CategoryNode[]>("/api/categories");
+      const tree = (await readPublicCategoryTree()) as unknown as CategoryNode[];
       const within = findCategory(tree, filters.category);
       // Unknown slug, or a category with nothing published beneath it: the
       // grid below is about to say so, and nothing here should say otherwise.
@@ -189,7 +190,7 @@ async function loadCatalogueLead(
       return { within, topCategories: [], moving };
     }
     if (appliedCatalogFilters(filters).length === 0 && !search) {
-      const tree = await fetchBackendJson<CategoryNode[]>("/api/categories");
+      const tree = (await readPublicCategoryTree()) as unknown as CategoryNode[];
       return { topCategories: await topCategoriesByListings(tree, ctx.wantsB2B), moving: [] };
     }
     return EMPTY_LEAD;
@@ -385,7 +386,7 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
   // Narrowed, not cast: the card row helper takes the two locales the
   // storefront ships, and anything else in the cookie is English.
   const cardLocale: "en" | "ar" = locale === "ar" ? "ar" : "en";
-  const wantsB2B = wantsB2BChannel(searchParams);
+  const wantsB2B = searchParams.b2b === "true";
   const context = wantsB2B ? await getServerB2BContext() : null;
   const currency = searchParams.currency?.toUpperCase() ?? (context ? companyCurrencyForCountry(context.company.country) : undefined);
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10));
@@ -695,8 +696,8 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
   // its own Suspense boundary and serialising them would double the time the
   // panel spends as a skeleton.
   const [categories, brands] = await Promise.all([
-    fetchBackendJson<any[]>("/api/categories"),
-    fetchBackendJson<any[]>("/api/brands"),
+    readPublicCategoryTree() as unknown as Promise<any[]>,
+    readPublicBrands() as unknown as Promise<any[]>,
   ]);
   // The filter list rendered `cat.nameEn` for every visitor, so the one portal
   // that ships Arabic put an English-only column of category names beside an

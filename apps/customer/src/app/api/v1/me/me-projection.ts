@@ -1,5 +1,5 @@
 import type { Me } from "@avenick/contracts";
-import type { Country, Language, UserRole, UserStatus } from "@avenick/database";
+import type { CompanyStatus, Country, Language, UserRole, UserStatus } from "@avenick/database";
 
 import { toImage, toTimestamp } from "../_lib/dto";
 
@@ -59,7 +59,9 @@ export interface MeRow {
       nameEn: string;
       nameAr: string | null;
       country: Country;
-      status: "PENDING_VERIFICATION" | "ACTIVE" | "SUSPENDED";
+      // The Prisma type, not a hand-written subset: this was three literals
+      // and went stale the moment REJECTED and INFO_REQUESTED were added.
+      status: CompanyStatus;
       deletedAt: Date | null;
     };
   } | null;

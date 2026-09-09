@@ -16,7 +16,24 @@ export const CompanyMembershipSchema = z
     nameEn: z.string().min(1).max(200),
     nameAr: z.string().max(200).nullable(),
     country: CountrySchema,
-    status: z.enum(["PENDING_VERIFICATION", "ACTIVE", "SUSPENDED"]),
+    /**
+     * Every value of the Prisma `CompanyStatus` enum, not a subset.
+     *
+     * This listed three when the schema had three. `REJECTED` and
+     * `INFO_REQUESTED` were added so a refusal stopped being indistinguishable
+     * from a suspension — and because this enum was written out by hand rather
+     * than derived, the contract silently went stale: a member of a rejected
+     * company would have failed response validation on `GET /v1/me`, which is
+     * the one call every screen makes, so the app would have been unusable for
+     * exactly the people who most need to see why.
+     */
+    status: z.enum([
+      "PENDING_VERIFICATION",
+      "ACTIVE",
+      "SUSPENDED",
+      "REJECTED",
+      "INFO_REQUESTED",
+    ]),
     /** The member's role within the company, which gates approval actions. */
     role: UserRoleSchema,
   })

@@ -218,6 +218,39 @@ export default async function SupportPage() {
                 </Dateline>
               </Surface>
             )}
+            {/* ── Policies, and the system status ──────────────────────────
+                These four lived in the footer as a "Help" column sitting beside
+                Support, which is the duplicate LAW G says to look for before
+                counting options: a help centre and a list of help links are the
+                same choice made twice, and the column additionally carried
+                "Returns & refunds" directly above "Returns", two entries a
+                shopper reads as one thing.
+
+                They belong here because this IS the help centre. And system
+                status belongs here rather than in a storefront footer beside
+                About and Contact — someone asking whether something is down
+                comes looking for help; nobody browsing a shop wants an
+                engineering readout in the chrome of every page. */}
+            <Surface rung={2} className="p-5">
+              <Eyebrow as="h2">{isAr ? "السياسات" : "Policies"}</Eyebrow>
+              <ul className="mt-2 flex flex-col">
+                {[
+                  { href: "/shipping", en: "Delivery", ar: "التوصيل" },
+                  { href: "/returns-policy", en: "Returns & refunds", ar: "الإرجاع والاسترداد" },
+                  { href: "/warranty", en: "Warranty claims", ar: "مطالبات الضمان" },
+                  { href: "/status", en: "System status", ar: "حالة النظام" },
+                ].map((row) => (
+                  <li key={row.href}>
+                    <Link
+                      href={row.href}
+                      className="u-focus u-ui rounded-e-nested border-s-2 border-hairline py-1.5 ps-3 text-ink-2 transition-colors duration-press ease-standard hover:border-border-strong hover:text-ink-1 block"
+                    >
+                      {isAr ? row.ar : row.en}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </Surface>
           </section>
 
           {/* ── Tickets ───────────────────────────────────────────────────── */}

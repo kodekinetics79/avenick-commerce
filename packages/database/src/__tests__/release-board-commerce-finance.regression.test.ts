@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { integrationSuite } from "../testing/integration-db";
 import { db } from "../index";
 import { canonicalOrderRequest } from "../services/commerce-governance";
 import { getProductBySlug } from "../services/products";
@@ -8,7 +9,6 @@ import {
   createGovernedPurchaseOrder,
   placeGovernedPurchaseOrder,
 } from "../services/b2b-purchase-orders";
-import { integrationSuite } from "../testing/integration-db";
 
 describe("release-board data minimization", () => {
   it("stores an opaque stable checkout digest, never canonical request PII", () => {

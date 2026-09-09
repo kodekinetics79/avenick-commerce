@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 import { secureCreateOrder } from "../services/secure-checkout";
 import { saveGovernedIntegrationConnection, setGovernedIntegrationConnectionStatus } from "../services/integration-routing";
-import { integrationSuite } from "../testing/integration-db";
 
 const run = integrationSuite();
 const users: string[] = [];

@@ -8,7 +8,7 @@ import { domainMatchesCompany, emailDomainOf } from "@avenick/utils";
 import { selfOrigin } from "@avenick/utils/portal-config";
 import { mailDeliveryConfigured, sendAlreadyRegisteredNotice, sendJoinVerificationEmail } from "@/lib/email";
 import { mintEmailVerificationToken } from "@/lib/email-verification";
-import { resolveTokenSecret } from "@/lib/signed-token";
+import { resolvePasswordResetSecret } from "@/lib/password-reset";
 
 // node:crypto (token signing) and bcrypt have no edge build; pin the runtime
 // so a future default change cannot silently move this handler.
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     // confirmation mail can never be sent, or whose token can never be signed,
     // is an account stuck at PENDING_EMAIL_VERIFICATION forever with a cheerful
     // "check your email" on screen.
-    if (!resolveTokenSecret()) {
+    if (!resolvePasswordResetSecret()) {
       log.error("register.join refused: no signing secret (AUTH_SECRET or NEXTAUTH_SECRET)", undefined, { path: PATH });
       return unavailable();
     }
@@ -92,14 +92,24 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json({ success: false, error: parsed.error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
     }
-    const { crNumber, firstName, lastName, email, phone, password, requestedRole, department, language } = parsed.data;
+    const { crNumber, country, firstName, lastName, email, phone, password, requestedRole, department, language } = parsed.data;
 
     const normalisedEmail = email.trim().toLowerCase();
     const crn = crNumber.trim();
     const domain = emailDomainOf(normalisedEmail);
 
+    // (country, crNumber), NOT crNumber alone.
+    //
+    // A commercial registration number is issued by ONE national registry and
+    // says nothing about the other five markets — the schema carries
+    // @@unique([country, crNumber]) for exactly that reason. Looking up by the
+    // number alone would hand a Saudi applicant to whichever company happened to
+    // hold the same string in Bahrain, and the domain gate below would then be
+    // checked against the WRONG company's domains. This is the same correction
+    // /api/auth/register/business already carries; the applicant states their
+    // country on the form for the same reason the registration form asks.
     const company = await db.company.findUnique({
-      where: { crNumber: crn },
+      where: { country_crNumber: { country, crNumber: crn } },
       select: { id: true, nameEn: true, status: true, emailDomains: true },
     });
 

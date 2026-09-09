@@ -7,6 +7,8 @@ import {
   type Currency,
 } from "@avenick/database";
 import { toCatalogListDto } from "@/lib/catalog-list-dto";
+import { resolveCatalogChannel } from "@/lib/catalog-channel";
+import { catalogThrottle } from "@/lib/catalog-throttle";
 
 export const dynamic = "force-dynamic";
 
@@ -35,12 +37,18 @@ const CURRENCIES = new Set<Currency>(["AED", "SAR", "QAR", "KWD", "OMR", "BHD", 
  */
 export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
   try {
+    const throttled = await catalogThrottle(req.headers);
+    if (throttled) return throttled;
+
     const wantsB2B = req.nextUrl.searchParams.get("b2b") === "true";
     const currencyParam = req.nextUrl.searchParams.get("currency")?.toUpperCase() as Currency | undefined;
     if (currencyParam && !CURRENCIES.has(currencyParam)) {
       return NextResponse.json({ success: false, error: "Unsupported currency" }, { status: 400 });
     }
-    const channel = wantsB2B ? "B2B" : "B2C";
+    // A flag is a request; only the session can grant the channel.
+    const resolved = await resolveCatalogChannel(wantsB2B);
+    if (!resolved.ok) return resolved.response;
+    const channel = resolved.channel;
 
     const product = await getProductBySlug(params.slug, channel, currencyParam);
     if (!product || (!wantsB2B && !product.isPubliclyDiscoverable)) {

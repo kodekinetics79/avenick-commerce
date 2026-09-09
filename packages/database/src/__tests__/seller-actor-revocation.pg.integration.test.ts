@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 import { rejectSeller, setUserStatus } from "../services/admin";
 import { submitQuote } from "../services/rfq";
 import { advanceSellerOrderItems } from "../services/seller-fulfillment";
-import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 
 const run = integrationSuite();
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;

@@ -20,7 +20,7 @@ type Result = { companyName: string; administratorsNotified: number };
  * used. One click keeps the mutation behind a real human action.
  */
 export function ConfirmEmailForm({ locale, token }: { locale: IdentityLocale; token: string }) {
-  const t = identityCopy(locale).confirm;
+  const t = identityCopy(locale).confirmEmail;
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState("");
   const [tokenDead, setTokenDead] = useState(false);

@@ -61,7 +61,8 @@
     "team": "Team",
     "deliveryAddresses": "Delivery addresses",
     "billing": "Billing",
-    "spendAnalytics": "Spend analytics"
+    "spendAnalytics": "Spend analytics",
+    "allBrands": "All brands"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -139,7 +140,8 @@
       "mixed": "Lines differ in currency or sales channel · review them in the cart before checkout",
       "viewCart": "View cart",
       "purchaseOrder": "Create purchase order",
-      "alsoNeed": "You might also need"
+      "alsoNeed": "You might also need",
+      "alsoRelated": "Related to what you added"
     },
     "completions": {
       "title": "Complete your order"
@@ -573,7 +575,9 @@
     "privacy": "Privacy",
     "terms": "Terms",
     "cookies": "Cookies",
-    "rights": "© {year} {brand}. All rights reserved."
+    "rights": "© {year} {brand}. All rights reserved.",
+    "about": "About us",
+    "contact": "Contact"
   },
   "pdp": {
     "breadcrumbLabel": "Breadcrumb",
@@ -945,5 +949,24 @@
   },
   "status": {
     "metaTitle": "Platform status"
+  },
+  "notFound": {
+    "eyebrow": "Page not found",
+    "code": "404",
+    "headline": "This address does not resolve to a page.",
+    "body": "The link may be out of date, or the page may have been removed. The catalogue, your account and support are all still reachable below.",
+    "home": "Go to the storefront",
+    "products": "Browse the catalogue",
+    "support": "Contact support",
+    "markLabel": "{brand} home"
+  },
+  "errorPage": {
+    "eyebrow": "Page not loaded",
+    "headline": "This page failed while it was rendering.",
+    "body": "Retrying re-renders the page. Nothing you had already submitted was changed by this failure.",
+    "retry": "Try again",
+    "home": "Go to the storefront",
+    "support": "Contact support",
+    "reference": "Reference"
   }
 }

@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 import { setCompanyStatus, setUserStatus } from "../services/admin";
 import { createGovernedPurchaseOrder, placeGovernedPurchaseOrder, transitionGovernedPurchaseOrder, updateGovernedCompanyMember } from "../services/b2b-purchase-orders";
 import { lockInventoryStockRows } from "../services/checkout-invariants";
 import { secureCreateOrder } from "../services/secure-checkout";
-import { integrationSuite } from "../testing/integration-db";
 
 const run = integrationSuite();
 const users: string[] = [];

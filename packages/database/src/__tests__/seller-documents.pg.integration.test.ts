@@ -1,12 +1,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 import {
   SUPERSEDED_REJECTION_REASON,
   isSellerDocumentKey,
   recordSellerDocument,
   sellerDocumentKeyPrefix,
 } from "../services/seller-documents";
-import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 
 /**
  * Seller compliance document recording against a real Postgres.

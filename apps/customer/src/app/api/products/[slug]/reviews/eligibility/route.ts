@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth-instance";
 import { db, getReviewEligibility, type ReviewEligibility } from "@avenick/database";
 import { log } from "@avenick/observability";
+import { catalogThrottle } from "@/lib/catalog-throttle";
 
 /**
  * GET /api/products/[slug]/reviews/eligibility
@@ -25,8 +26,11 @@ function respond(data: ReviewEligibility) {
   return NextResponse.json({ success: true, data }, { headers: NO_STORE });
 }
 
-export async function GET(_req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
   try {
+    const throttled = await catalogThrottle(req.headers);
+    if (throttled) return throttled;
+
     const slug = SlugSchema.safeParse(params.slug);
     if (!slug.success) return NextResponse.json({ success: false, error: "Product not found" }, { status: 404, headers: NO_STORE });
 

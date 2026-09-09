@@ -14,6 +14,7 @@ import { categoryLabel } from "@/lib/catalog-categories";
 import { toCatalogListDto } from "@/lib/catalog-list-dto";
 import { categoryTrail, findCategory, type CategoryNode } from "@/lib/category-tree";
 import { toCardRow, type CardRow } from "@/lib/product-card-row";
+import { readPublicCategoryTree } from "@/lib/public-category-tree";
 
 interface Props { params: { slug: string } }
 
@@ -61,7 +62,7 @@ async function movingInCategory(category: CategoryNode, locale: "en" | "ar"): Pr
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const categories = await fetchBackendJson<CategoryNode[]>("/api/categories");
+  const categories = (await readPublicCategoryTree()) as unknown as CategoryNode[];
   // Searched at any DEPTH. `Array.find` walks roots only, which is why every
   // subcategory page in the storefront rendered the not-found body.
   const cat = findCategory(categories, params.slug);
@@ -84,7 +85,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function CategoryPage({ params }: Props) {
   const locale = (cookies().get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
   const t = await getTranslations("catalogue");
-  const categories = await fetchBackendJson<CategoryNode[]>("/api/categories");
+  const categories = (await readPublicCategoryTree()) as unknown as CategoryNode[];
   const category = findCategory(categories, params.slug);
   const trail = categoryTrail(categories, params.slug);
   if (!category) return notFound();

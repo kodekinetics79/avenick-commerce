@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationSuite } from "../testing/integration-db";
 import { lockInventoryStockRows } from "../services/checkout-invariants";
 import { lockPromotionCommercialRows } from "../services/promotions";
 import { secureCreateOrder } from "../services/secure-checkout";
-import { integrationSuite } from "../testing/integration-db";
 
 const run = integrationSuite("parallel");
 const stamp = `promotion-mode-${Date.now()}-${Math.floor(Math.random() * 100000)}`;

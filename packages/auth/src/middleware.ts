@@ -17,6 +17,14 @@ const PORTAL_ROLE_MAP: Record<PortalType, UserRole[]> = {
 // Paths that are publicly accessible (no auth required)
 const PUBLIC_PATHS: Record<PortalType, string[]> = {
   customer: ["/", "/products", "/search", "/login", "/register", "/auth/forgot-password", "/auth/reset-password", "/auth/verify-email", "/deals", "/brands", "/cart", "/wishlist", "/categories", "/returns", "/support", "/privacy", "/terms", "/cookies", "/status",
+    // The information and policy surfaces. Every one of these must answer to a
+    // visitor with no session: a shopper deciding whether to buy is exactly the
+    // person who reads the returns policy, and a warranty page behind a login
+    // wall is indistinguishable from not having one. They were 307ing to
+    // /login the moment they were added, because anything absent from this list
+    // is private by default — which is the right default, and the reason a new
+    // public page has to be named here.
+    "/about", "/contact", "/shipping", "/returns-policy", "/warranty",
     // The company-registration door. The page handles a visitor with no session
     // itself — it renders a sign-in prompt and the registration path — so
     // gating it here sent every prospective B2B buyer to a generic login with
@@ -24,6 +32,26 @@ const PUBLIC_PATHS: Record<PortalType, string[]> = {
     "/b2b/register"],
   seller: ["/login", "/register"],
   admin: ["/login"],
+};
+
+/**
+ * Public at EXACTLY this path — never its subtree.
+ *
+ * PUBLIC_PATHS is prefix-matched, which is right for `/products` and would be
+ * a hole for `/b2b`: one entry there would unlock `/b2b/team`, `/b2b/billing`,
+ * `/b2b/purchase-orders` and every other company surface at once.
+ *
+ * `/b2b` itself is the workspace, and it already handles a visitor it cannot
+ * place: the dashboard fetch fails and the page redirects to `/b2b/register`,
+ * the door built for a prospect. Gating it in the middleware replaced that with
+ * a generic login — and `/b2b` is the header's own "For business" link, so the
+ * one visitor the door exists to catch was the one being turned away. Same
+ * reasoning as `/b2b/register` above; only the matching differs.
+ */
+const PUBLIC_EXACT_PATHS: Record<PortalType, string[]> = {
+  customer: ["/b2b"],
+  seller: [],
+  admin: [],
 };
 
 // API paths that must stay public: catalog browsing and externally-signed
@@ -97,6 +125,7 @@ function isPublicApiPath(pathname: string, portal: PortalType): boolean {
 }
 
 function isPublicPath(pathname: string, portal: PortalType): boolean {
+  if (PUBLIC_EXACT_PATHS[portal].includes(pathname)) return true;
   return PUBLIC_PATHS[portal].some(
     (p) =>
       pathname === p ||

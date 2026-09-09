@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
-import { db } from "@avenick/database";
+import { NextResponse, type NextRequest } from "next/server";
+import { readPublicBrands } from "@/lib/public-brands";
 import { log } from "@avenick/observability";
+import { catalogThrottle } from "@/lib/catalog-throttle";
 
 // Catalogue data changes when a seller publishes, not when this app is built.
 // /api/categories already declares this; without it a route handler can be
@@ -9,16 +10,13 @@ import { log } from "@avenick/observability";
 // gives a CDN its own short window, which is where caching belongs.
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const brands = await db.brand.findMany({
-      where: { isActive: true },
-      include: { _count: { select: { products: { where: { status: "ACTIVE", deletedAt: null } } } } },
-      orderBy: { nameEn: "asc" },
-    });
+    const throttled = await catalogThrottle(req.headers);
+    if (throttled) return throttled;
 
     return NextResponse.json(
-      { success: true, data: brands },
+      { success: true, data: await readPublicBrands() },
       // Public, slow-changing catalog data — cache at the edge with background
       // revalidation. Brands change rarely, so a longer window is fine.
       { headers: { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600" } },

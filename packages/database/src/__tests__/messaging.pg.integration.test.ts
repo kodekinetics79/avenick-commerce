@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 import { setUserStatus } from "../services/admin";
 import { getRFQForBuyer } from "../services/rfq";
 import {
@@ -12,7 +13,6 @@ import {
   replyToThread,
   sellerRfqPosture,
 } from "../services/messaging";
-import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 
 const run = integrationSuite();
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;

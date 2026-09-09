@@ -212,7 +212,15 @@ describe("appliedCatalogFilters", () => {
 describe("catalogApiQuery", () => {
   const context = { page: 2, limit: 24, b2b: false } as const;
 
-  it("sends every active filter to the catalog query", () => {
+  /**
+   * This expectation used to include `b2c: "true"`, and that is how the defect
+   * survived: the test asserted the query the code built, not the query the
+   * page meant. Once /api/products started honouring the parameter, the main
+   * catalogue asked for products flagged isB2CEnabled — of which this catalogue
+   * has none — and rendered "No products match these filters" over 383
+   * published listings.
+   */
+  it("sends every active filter to the catalog query, and no channel it does not mean", () => {
     const filters = parseCatalogFilters({
       category: "power-tools",
       brand: "bosch",
@@ -226,7 +234,6 @@ describe("catalogApiQuery", () => {
     expect(Object.fromEntries(query)).toEqual({
       page: "2",
       limit: "24",
-      b2c: "true",
       search: "bearing",
       categorySlug: "power-tools",
       brand: "bosch",

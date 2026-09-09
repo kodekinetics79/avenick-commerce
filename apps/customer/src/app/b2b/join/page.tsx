@@ -6,6 +6,7 @@ import { POST as registerJoinHandler } from "@/app/api/auth/register/join/route"
 import { Building2, ShieldCheck, UserPlus } from "lucide-react";
 import type { Language } from "@avenick/database";
 import { LANGUAGE_VALUES } from "@avenick/types";
+import { SUPPORTED_COUNTRIES } from "@/lib/market-context";
 import { Button, Dateline, Eyebrow, Surface } from "@avenick/ui";
 import { SelectField, TextField } from "@/components/b2b/controls";
 import { MainLayout } from "@/components/layout/main-layout";
@@ -46,6 +47,7 @@ async function joinCompanyAction(_prev: B2BActionState, formData: FormData): Pro
   const value = (key: string) => String(formData.get(key) ?? "").trim();
   const payload = {
     crNumber: value("crNumber"),
+    country: value("country"),
     firstName: value("firstName"),
     lastName: value("lastName"),
     email: value("email"),
@@ -128,11 +130,23 @@ export default async function B2BJoinPage() {
 
         <ValidatedForm action={joinCompanyAction} rung={1} className="mt-6 p-5">
           <div className="grid items-start gap-x-3 gap-y-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <Field label={t("join.cr")} hint={t("join.cr.hint")}>
-                <TextField name="crNumber" required minLength={5} maxLength={30} inputMode="numeric" />
-              </Field>
-            </div>
+            <Field label={t("join.cr")} hint={t("join.cr.hint")}>
+              <TextField name="crNumber" required minLength={5} maxLength={30} inputMode="numeric" />
+            </Field>
+            {/* Half of the lookup key, not a preference. A CR identifies a
+                company only within the registry that issued it, so without this
+                a Saudi applicant could be matched against a Bahraini company
+                holding the same number — and then have their address checked
+                against that company's domains. */}
+            <Field label={t("join.country")} hint={t("join.country.hint")}>
+              <SelectField name="country" defaultValue="AE" required>
+                {SUPPORTED_COUNTRIES.map(([code, label]) => (
+                  <option key={code} value={code}>
+                    {label}
+                  </option>
+                ))}
+              </SelectField>
+            </Field>
             <Field label={t("join.firstName")}>
               <TextField name="firstName" required minLength={2} maxLength={50} autoComplete="given-name" />
             </Field>

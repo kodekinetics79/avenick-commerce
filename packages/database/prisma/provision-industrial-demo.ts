@@ -77,7 +77,7 @@ async function main() {
     const approver = await upsertUser(address("approver"), "Industrial Demo", "Approver", UserRole.COMPANY_APPROVER);
 
     const company = await tx.company.upsert({
-      where: { crNumber: `DEMO-${runId.toUpperCase()}-COMPANY` },
+      where: { country_crNumber: { country: Country.SA, crNumber: `DEMO-${runId.toUpperCase()}-COMPANY` } },
       update: { nameEn: `Industrial Demo Company ${runId}`, country: Country.SA, city: "Riyadh", status: CompanyStatus.ACTIVE, deletedAt: null },
       create: {
         nameEn: `Industrial Demo Company ${runId}`,

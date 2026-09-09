@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
+import { brandMarkDocument } from "@avenick/ui/brand-mark-geometry";
+import { platformName } from "@avenick/utils/portal-config";
 
 /**
  * Root-layout failure boundary for the admin console. It renders its own
@@ -25,6 +27,16 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
     console.error("[admin] global error", { message: error.message, digest: error.digest });
   }, [error]);
 
+  const name = platformName();
+  // Percent-encoded rather than base64: this renders on the server AND in the
+  // browser, `Buffer` is not reliably in the client bundle, and `btoa` throws on
+  // any non-Latin-1 codepoint. Inline rather than linked because there is no
+  // stylesheet here and possibly no route back to our own origin — a remote
+  // <img> would leave a broken-image box where the brand should be.
+  const mark = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+    brandMarkDocument({ size: 40, title: name, theme: "light" }),
+  )}`;
+
   const css = `
     :root {
       color-scheme: light dark;
@@ -34,8 +46,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       --g-ink-2: hsl(220 12% 32%);
       --g-ink-3: hsl(220 11% 41%);
       --g-line: hsl(220 14% 88%);
-      --g-brass: hsl(36 42% 46%);
-      --g-ring: hsl(248 66% 58%);
+      --g-brass: hsl(36 56% 42%);
+      --g-ring: hsl(150 92% 26%);
     }
     @media (prefers-color-scheme: dark) {
       :root {
@@ -45,8 +57,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         --g-ink-2: hsl(224 12% 78%);
         --g-ink-3: hsl(226 10% 65%);
         --g-line: hsl(230 12% 22%);
-        --g-brass: hsl(36 44% 62%);
-        --g-ring: hsl(248 70% 70%);
+        --g-brass: hsl(38 62% 60%);
+        --g-ring: hsl(150 66% 46%);
       }
     }
     * { box-sizing: border-box }
@@ -69,6 +81,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
          rests on, and the reason none of this needs mirroring in Arabic. */
       box-shadow: 0 1px 1px hsl(226 40% 10% / .05), 0 8px 18px -8px hsl(226 40% 10% / .10);
     }
+    .g-mark { display: block; width: 40px; height: 40px; margin-bottom: 16px }
     /* The brass rule: the same mark the console draws beside its active nav
        item, its empty states and its committed rows. */
     .g-rule { width: 48px; height: 2px; background: var(--g-brass); border-radius: 2px; margin-bottom: 18px }
@@ -94,6 +107,8 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
       <body>
         <div className="g-wrap">
           <div className="g-plate">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="g-mark" src={mark} width={40} height={40} alt={name} />
             <div className="g-rule" aria-hidden="true" />
             <p className="g-eyebrow">Console not loaded</p>
             <h1>The admin console failed before any screen could render.</h1>

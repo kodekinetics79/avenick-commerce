@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 import { listProducts } from "../services/products";
-import { integrationSuite, integrationDbEnabled } from "../testing/integration-db";
 
 /**
  * Every tile on /brands links to /products?brand=<slug>. Before this filter

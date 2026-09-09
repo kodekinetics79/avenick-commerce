@@ -2,6 +2,7 @@ import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { catalogApiQuery, parseCatalogFilters } from "@/components/products/catalog-filters";
 
 const appRoot = fileURLToPath(new URL("../../../", import.meta.url));
 const srcRoot = join(appRoot, "src");
@@ -38,13 +39,55 @@ describe("catalogue channel filter", () => {
     expect(route).toMatch(/\bb2c,|\bb2c:\s/);
   });
 
+  /**
+   * The behavioural half, and the one that would have caught this.
+   *
+   * The source scan below looks for the URL spelling — `?b2c=true`. The main
+   * catalogue page did not spell it that way: catalogApiQuery built the same
+   * parameter structurally, as `{ b2c: "true" }` inside URLSearchParams, and
+   * the scan never saw it. The whole /products grid rendered "No products match
+   * these filters" against a catalogue of 383 published products, because the
+   * page asked for the one thing none of them are.
+   *
+   * A guard that matches how a string is SPELLED misses the same defect
+   * expressed as data. So the function is asked directly.
+   */
+  it("the public catalogue query carries no channel restriction", () => {
+    const params = catalogApiQuery(parseCatalogFilters({}), { page: 1, limit: 24, b2b: false });
+    expect(params.get("b2c"), "the public catalogue asked for B2C-only products").toBeNull();
+    expect(params.get("b2b")).toBeNull();
+  });
+
+  it("a B2B request still asks for the B2B channel", () => {
+    const params = catalogApiQuery(parseCatalogFilters({}), { page: 1, limit: 24, b2b: true });
+    expect(params.get("b2b")).toBe("true");
+    expect(params.get("b2c")).toBeNull();
+  });
+
+  it("filters survive alongside the channel decision", () => {
+    const params = catalogApiQuery(parseCatalogFilters({ inStock: "1", minRating: "4" }), {
+      page: 2, limit: 24, b2b: false, currency: "AED", search: "cable",
+    });
+    expect(params.get("b2c")).toBeNull();
+    expect(params.get("inStock")).toBe("true");
+    expect(params.get("minRating")).toBe("4");
+    expect(params.get("currency")).toBe("AED");
+    expect(params.get("search")).toBe("cable");
+    expect(params.get("page")).toBe("2");
+  });
+
   it("no page requests a channel restriction it does not mean", () => {
     // The route itself is excluded: it is the READER of the parameter, and its
     // own comment necessarily quotes the query string it documents.
     const routePath = join(srcRoot, "app/api/products/route.ts");
     const offenders = sourceFiles(srcRoot)
       .filter((file) => file !== routePath)
-      .filter((file) => /[?&]b2c=(true|false)/.test(readFileSync(file, "utf8")));
+      // Both spellings: the URL form, and the object-property form that built
+      // the same parameter and slipped past this scan for a whole release.
+      .filter((file) => {
+        const source = readFileSync(file, "utf8");
+        return /[?&]b2c=(true|false)/.test(source) || /\bb2c\s*:\s*(["'`](true|false)["'`]|true\b)/.test(source);
+      });
     expect(
       offenders.map((f) => f.replace(srcRoot + "/", "")),
       "this page sends a channel filter that is now honoured, and no product is B2C-enabled — it will render empty",

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
+import { integrationSuite, integrationDbEnabled } from "../testing/integration-db";
 import {
   AdminOperationError,
   CategorySlugTakenError,
@@ -12,12 +13,10 @@ import {
   suppressProduct,
   updateCategory,
 } from "../services/admin-operations";
-import { integrationSuite, integrationDbEnabled } from "../testing/integration-db";
 
 // Runs only against a real Postgres: advisory locks, compare-and-set and
 // unique-violation handling are the behaviour under test.
 const run = integrationSuite();
-
 const stamp = `adminops-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const created = {
   users: [] as string[],

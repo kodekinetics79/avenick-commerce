@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@avenick/database";
 import bcrypt from "bcryptjs";
 import { RegisterBusinessSchema } from "@avenick/types";
-import { checkRateLimit, clientIpFrom, RATE_LIMITS } from "@avenick/auth";
+// Subpath, not the barrel: the table is 550 lines and this route is the only
+// thing that needs it.
+import { checkIdentifier, describeIdentifier } from "@avenick/utils/gcc-identifiers";
+// Narrow subpath on purpose, the same reason /api/products gives: the package
+// barrel pulls in next-auth, which this route never touches, and which drags
+// the whole credentials provider — and therefore Prisma — into any test or
+// bundle that imports it.
+import { checkRateLimit, clientIpFrom, RATE_LIMITS } from "@avenick/auth/rate-limit";
 import { claimableDomainOf } from "@avenick/utils";
 import { log } from "@avenick/observability";
 import { sendAlreadyRegisteredNotice } from "@/lib/email";
@@ -84,28 +91,66 @@ export async function POST(req: NextRequest) {
 
     const { email, password, firstName, lastName, phone, language, companyNameEn, companyNameAr, crNumber, vatNumber, industry, companySize, country, city } = parsed.data;
 
+    /*
+      The registry identifiers, checked against the country that issued them.
+
+      RegisterBusinessSchema can only say "5 to 30 characters", because it does
+      not know the country until the same payload is parsed. That is generic
+      enough to accept a plainly wrong number and, worse, to refuse nothing —
+      an applicant who transposes a digit learns it from a rejected order weeks
+      later. The table in @avenick/utils holds the per-country rule and the
+      sentence that explains it, in one entry, so what is enforced and what is
+      shown cannot drift apart. The reference implementation this was modelled
+      on drifted exactly there: its helper said "14 digits" while its validator
+      refused fourteen.
+
+      Only REFUSE blocks. The table's warn level covers conventions that are
+      usually true and occasionally not — a Saudi VAT ending "03", a CR that
+      looks like a unified number — and refusing a legitimate business over a
+      convention is the worse failure by far. Warnings are for the form to show,
+      never for this route to act on.
+    */
+    for (const [field, kind] of [["crNumber", "commercialRegistration"], ["vatNumber", "vatNumber"]] as const) {
+      const value = field === "crNumber" ? crNumber : vatNumber;
+      if (!value) continue;
+      const outcome = checkIdentifier(country, kind, value);
+      if (outcome.level !== "refuse") continue;
+      const described = describeIdentifier(country, kind);
+      return NextResponse.json(
+        {
+          success: false,
+          error: outcome.message ?? `${labelFor(field)} is not valid for the selected country.`,
+          fieldErrors: { [field]: outcome.message ?? described?.helper ?? `${labelFor(field)} is not valid for the selected country.` },
+        },
+        { status: 400 },
+      );
+    }
+
     const normalisedEmail = email.toLowerCase();
     raceEmail = normalisedEmail;
-
-    // The domain the company will be recognised at, so a colleague can later
-    // apply to join without an invitation. null — and therefore an empty list —
-    // for a founder who signed up from a personal mailbox, which is the common
-    // case for a small company and the SAFE one: a company that claimed
-    // gmail.com would admit every Gmail user on earth. Such a company stays
-    // invite-only. See claimableDomainOf in @avenick/utils.
-    const claimedDomain = claimableDomainOf(normalisedEmail);
 
     // The CR number is checked FIRST and answers truthfully: a commercial
     // registration number is a public registry identifier, and "this company
     // already has an Avenick account" is what the applicant needs to hear.
     //
-    // It also tells them what to DO about it. Until there was a join route this
-    // 409 was the end of the road: the second person at a customer read "already
-    // registered" and had nowhere to go, so the whole company stalled on one
-    // colleague remembering to send an invitation. `code` lets the form offer
-    // the door rather than making the applicant find it.
-    const existingCompany = await db.company.findUnique({ where: { crNumber } });
+    // SCOPED TO THE COUNTRY, because that is what the identifier means. The
+    // schema now carries @@unique([country, crNumber]): a registration number is
+    // issued by one national registry and is unique inside it, not across the
+    // six markets this platform serves. Checking it globally rejected a genuine
+    // Saudi applicant whose CR string happened to collide with an Emirati
+    // company's — telling them another business already held their number, which
+    // is both wrong and unappealable. `country` is the applicant's own, already
+    // validated against this same identifier by checkIdentifier above.
+    const existingCompany = await db.company.findUnique({
+      where: { country_crNumber: { country, crNumber } },
+    });
     if (existingCompany) {
+      // Says what to DO about it, not just that it happened. Until there was a
+      // join route this 409 was the end of the road: the second person at a
+      // customer read "already registered" and had nowhere to go, so the whole
+      // company stalled on one colleague remembering to send an invitation.
+      // `code` lets the form offer the other door rather than making the
+      // applicant find it.
       return NextResponse.json(
         {
           success: false,
@@ -116,6 +161,11 @@ export async function POST(req: NextRequest) {
         { status: 409 },
       );
     }
+
+    // Resolved before the transaction so the create below reads one value, and
+    // null-checked there rather than here: null is the ordinary outcome, not an
+    // error worth telling the applicant about. See claimableDomainOf.
+    const claimedDomain = claimableDomainOf(normalisedEmail);
 
     // Hash before the email existence check, not after, so the response time
     // is not the oracle the status code no longer is (see the consumer route).
@@ -169,6 +219,11 @@ export async function POST(req: NextRequest) {
           country,
           city,
           status: "PENDING_VERIFICATION",
+          // The domain this company will be recognised at, so a colleague can
+          // later apply to join without an invitation. Empty for a founder who
+          // signed up from a personal mailbox — the common case for a small
+          // company, and the SAFE one: a company that claimed gmail.com would
+          // admit every Gmail user on earth. Those companies stay invite-only.
           emailDomains: claimedDomain ? [claimedDomain] : [],
           members: { create: { userId: user.id, role: "COMPANY_ADMIN" } },
         },

@@ -109,14 +109,13 @@ export const RATE_LIMITS = {
   /** Reset-token redemptions per client IP: the token is HMAC-signed, this only slows brute force on its expiry window. */
   passwordResetRedeem: { name: "password-reset-redeem", limit: 10, windowMs: 15 * 60_000 },
   /**
-   * Invitation redemptions per client IP.
-   *
-   * Matched to passwordResetRedeem because the exposure is the same shape — an
-   * HMAC-signed token, so this only slows a brute force against the signature
-   * inside its window. The window is longer here (an invitation lives seven
-   * days, not thirty minutes) which is exactly why the cap is worth having.
+   * Invitation acceptances per client IP. Same shape and same reasoning as
+   * `passwordResetRedeem` — the token is HMAC-signed, so this only narrows the
+   * window for brute force over its (longer) expiry, and a shared bucket with
+   * the reset flow would let noise on one door lock the other.
    */
-  invitationAccept: { name: "invitation-accept", limit: 10, windowMs: 15 * 60_000 },
+  inviteAccept: { name: "invite-accept", limit: 10, windowMs: 15 * 60_000 },
+  /** Seller self-registrations per client IP. */
   /**
    * Applications to join an existing company, per client IP.
    *
@@ -130,9 +129,9 @@ export const RATE_LIMITS = {
   /**
    * Email-confirmation redemptions per client IP.
    *
-   * The token is HMAC-signed, so this only slows a brute force inside its
-   * window; the cap that matters for this flow is companyJoinRequest above,
-   * which limits how many applications can be created in the first place.
+   * The token is HMAC-signed under a derived key, so this only slows a brute
+   * force inside its window; the cap that matters for this flow is
+   * companyJoinRequest above, which limits how many applications exist at all.
    */
   emailVerification: { name: "email-verification", limit: 10, windowMs: 15 * 60_000 },
   /** Seller self-registrations per client IP. */

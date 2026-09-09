@@ -26,6 +26,13 @@ const PROTECTED_PAGES = [
   { portal: "admin" as const, path: "/shipping-zones" },
   { portal: "admin" as const, path: "/orders" },
   { portal: "admin" as const, path: "/sellers/pending" },
+  // The B2B company subtree. `/b2b` itself is public by exact match so a
+  // prospect reaches the registration door; PUBLIC_PATHS is prefix-matched, so
+  // one careless entry there would open every one of these at once.
+  { portal: "customer" as const, path: "/b2b/team" },
+  { portal: "customer" as const, path: "/b2b/billing" },
+  { portal: "customer" as const, path: "/b2b/purchase-orders" },
+  { portal: "customer" as const, path: "/b2b/quotes" },
 ];
 
 test.describe("protected pages send anonymous visitors to sign in, and say where they were going", () => {
@@ -165,5 +172,25 @@ test.describe("the public category tree", () => {
       expect(typeof node.nameEn).toBe("string");
       expect(Array.isArray(node.children)).toBe(true);
     }
+  });
+});
+
+test.describe("the business door", () => {
+  /**
+   * `/b2b` is the header's "For business" link and the footer's "B2B portal".
+   * It is the workspace, and it handles a visitor it cannot place by redirecting
+   * to /b2b/register — the door built for a prospect. While the middleware gated
+   * it, that redirect could never run and the one visitor the door exists to
+   * catch met a bare login instead.
+   */
+  test("an anonymous visitor following 'For business' lands on the registration door", async ({ page }) => {
+    const response = await page.goto(url("customer", "/b2b"), { waitUntil: "networkidle" });
+
+    expect(response?.status(), "the hub answered an error to an anonymous visitor").toBeLessThan(400);
+    expect(
+      new URL(page.url()).pathname,
+      `an anonymous visitor to /b2b landed on ${page.url()} instead of the registration door`,
+    ).toBe("/b2b/register");
+    await expect(page.locator("form, a[href*='register'], button")).not.toHaveCount(0);
   });
 });

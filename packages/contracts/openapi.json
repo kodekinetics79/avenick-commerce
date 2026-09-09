@@ -2463,7 +2463,9 @@
             "enum": [
               "PENDING_VERIFICATION",
               "ACTIVE",
-              "SUSPENDED"
+              "SUSPENDED",
+              "REJECTED",
+              "INFO_REQUESTED"
             ]
           },
           "role": {

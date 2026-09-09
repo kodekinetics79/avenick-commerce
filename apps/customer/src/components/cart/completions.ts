@@ -22,7 +22,18 @@ import type { CartItem } from "@/stores/cart";
  * locale)`, exactly as /api/products/[slug]/recommendations already does, and
  * hands the result here. Nothing in this directory imports that service.
  */
-export type CartCompletionRow = CardRow & { priceBands?: ProductCardPriceBand[] };
+/**
+ * WHY these rows are being shown. "co-purchase" is a claim about other buyers
+ * and is only ever set when the service found two distinct ones; "related" is
+ * a claim about the products themselves. The heading changes with it, so a
+ * mislabelled basis would put words in other buyers' mouths.
+ */
+export type CompletionBasis = "co-purchase" | "related";
+
+export type CartCompletionRow = CardRow & {
+  priceBands?: ProductCardPriceBand[];
+  basis?: CompletionBasis;
+};
 
 /**
  * An async provider of rows for the current cart. It MUST be a stable

@@ -46,21 +46,27 @@ const CONTAINING_BLOCK_PROPS = [
   "will-change",
 ];
 
-describe("layer portal wrapper", () => {
+describe.each([
+  [".u-layer-root", "traps the fixed panel at the end of the document"],
+  // <RouteFade>'s wrapper sits directly inside <main>, so the same property
+  // would trap every fixed element on the page and clip every sticky one. It
+  // animates opacity, which creates a stacking context and nothing else.
+  [".u-route", "traps every fixed element inside <main> and clips the sticky ones"],
+])("%s", (selector, consequence) => {
   it("is declared in the stylesheet", () => {
-    expect(ruleBodiesFor(".u-layer-root").length).toBeGreaterThan(0);
+    expect(ruleBodiesFor(selector).length).toBeGreaterThan(0);
   });
 
-  it.each(CONTAINING_BLOCK_PROPS)(
-    "never sets %s, which would trap the fixed panel at the end of the document",
-    (prop) => {
-      for (const body of ruleBodiesFor(".u-layer-root")) {
-        expect(body).not.toMatch(new RegExp(`(^|[;\\s])${prop}\\s*:`));
-      }
-    },
-  );
+  it.each(CONTAINING_BLOCK_PROPS)(`never sets %s, which ${"" || ""}`, (prop) => {
+    for (const body of ruleBodiesFor(selector)) {
+      expect(
+        body,
+        `${selector} sets ${prop}, which ${consequence}`,
+      ).not.toMatch(new RegExp(`(^|[;\\s])${prop}\\s*:`));
+    }
+  });
 
-  it("keeps the centred panel's depth as a perspective() transform function on the panel itself", () => {
+  it.skipIf(selector !== ".u-layer-root")("keeps the centred panel's depth as a perspective() transform function on the panel itself", () => {
     // translateZ without a perspective in its own transform list is a no-op, so
     // moving the depth here has to bring the perspective with it.
     const centreSteps = CSS.match(/@keyframes layer-(in|out)-center\s*\{[^}]*\}[^}]*\}/g) ?? [];
