@@ -3,6 +3,7 @@ import { db } from "@avenick/database";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import Link from "next/link";
 import { format } from "date-fns";
+import { Plus } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import {
   Button,
@@ -135,6 +136,16 @@ export default async function SellersPage({ searchParams }: { searchParams: { st
           // The query takes 100. Saying so is the difference between a count and
           // a claim about the size of the supply base.
           dateline={t("sellers.dateline", { filter: activeFilterLabel })}
+          // This list could judge accounts it had no way to create: a supplier
+          // signed off-platform had to be talked through the public
+          // registration form before anyone here could approve them.
+          actions={
+            <Button asChild size="sm">
+              <Link href="/sellers/new">
+                <Plus className="h-4 w-4" aria-hidden="true" /> {t("sellers.addSeller")}
+              </Link>
+            </Button>
+          }
         />
 
         {/* Recessed strip, raised current item: the same gesture as the sidebar,

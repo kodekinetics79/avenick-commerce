@@ -1,6 +1,12 @@
 packages:
   - "apps/*"
   - "packages/*"
+  # apps/mobile is a Flutter app: no package.json, no node_modules, and pub
+  # manages its own dependencies. Without this exclusion the "apps/*" glob
+  # pulls it into the workspace, and pnpm and turbo both walk a directory
+  # neither of them can do anything with. Its one generated file
+  # (lib/theme/tokens.g.dart) is written by @avenick/design-tokens.
+  - "!apps/mobile"
 
 # Allow these trusted dependencies to run install/build scripts. pnpm v10+
 # blocks dependency build scripts by default; without this the build fails

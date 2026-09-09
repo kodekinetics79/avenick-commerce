@@ -3,6 +3,8 @@ import { type Session } from "next-auth";
 import { db, UserRole } from "@avenick/database";
 import { ZodError } from "zod";
 import { instrumentRequest, type Logger } from "@avenick/observability";
+import { bearerTokenFrom, sessionFromAccessToken, verifyAccessToken } from "./access-token";
+import { isSessionRevoked, sessionIssuedAtSeconds } from "./session-revocation";
 
 /**
  * Standard API layer shared by all three portals.
@@ -69,6 +71,12 @@ export interface GuardedContext {
   /** Route params from dynamic segments, already awaited. */
   params: Record<string, string>;
   /**
+   * Which credential named the caller. "bearer" only ever appears on a route
+   * that opted in with `allowBearer`; `session.user.email` is null on that
+   * path (see `sessionFromAccessToken`).
+   */
+  credential: "cookie" | "bearer";
+  /**
    * Request-scoped structured logger. Already carries this request's requestId
    * and (at emit time) the active trace_id, so anything logged through it is
    * correlated to the trace and the client-facing error envelope for free.
@@ -83,6 +91,19 @@ interface GuardOptions {
   auth: () => Promise<Session | null>;
   /** Allowed roles. Omit to allow any authenticated user. */
   roles?: UserRole[];
+  /**
+   * Accept an `Authorization: Bearer` access token as well as the portal
+   * cookie. OFF unless a route says otherwise, and deliberately NOT inferred
+   * from the header being present.
+   *
+   * The difference matters. If the mere presence of a bearer header switched
+   * this on, every existing cookie-only route in all three portals would start
+   * accepting a mobile access token the day the first one was minted — an
+   * account-management route, a seller payout route, an admin action — none of
+   * which was written with a phone-held credential in mind. Widening an
+   * authentication surface is a decision each route makes explicitly.
+   */
+  allowBearer?: boolean;
 }
 
 type NextRouteArgs = { params?: Promise<Record<string, string>> | Record<string, string> };
@@ -121,19 +142,78 @@ export function guarded(options: GuardOptions, handler: RouteHandler) {
 
     let status = 500;
     try {
-      const session = await options.auth();
+      /**
+       * ONE AUTH SEAM, TWO CREDENTIALS.
+       *
+       * A bearer token is resolved into the SAME `Session` shape the cookie
+       * produces and then dropped into the same variable, so everything after
+       * this block — the live Postgres read of role/status/deletedAt, the role
+       * check, the revocation comparison — runs once and cannot drift between
+       * the web and the mobile path. A second auth branch further down would be
+       * a second place for one of those checks to be forgotten.
+       *
+       * The cookie is tried first: a browser that also sent an Authorization
+       * header (an extension, a misconfigured proxy) keeps the credential its
+       * user actually established.
+       */
+      let credential: "cookie" | "bearer" = "cookie";
+      let session = await options.auth();
+      if (!session?.user?.id && options.allowBearer) {
+        const presented = bearerTokenFrom(req.headers);
+        if (presented) {
+          const verified = verifyAccessToken(presented);
+          if (verified.ok) {
+            session = sessionFromAccessToken(verified.claims);
+            credential = "bearer";
+          } else if (verified.reason === "no-secret") {
+            // Nothing could have been minted without a key, so this is a
+            // deployment that lost its secret — loud, not "please sign in".
+            obs.log.error("bearer auth refused: no signing secret (AUTH_SECRET or NEXTAUTH_SECRET)", undefined, {
+              path: pathname,
+            });
+          }
+        }
+      }
       if (!session?.user?.id) {
         status = 401;
         return jsonErr("Authentication required", 401, requestId);
       }
       const currentUser = await db.user.findUnique({
         where: { id: session.user.id },
-        select: { role: true, status: true, deletedAt: true },
+        select: { role: true, status: true, deletedAt: true, sessionsValidAfter: true },
       });
       const role = currentUser?.role;
       if (!currentUser || currentUser.status !== "ACTIVE" || currentUser.deletedAt || !role || (options.roles && !options.roles.includes(role))) {
         status = 403;
         return jsonErr("Insufficient permissions", 403, requestId);
+      }
+
+      /**
+       * THE SESSION-LEVEL REVOCATION CHECK.
+       *
+       * The read above already revokes an ACCOUNT — suspended, deleted,
+       * demoted. It could not revoke a SESSION: web sessions are NextAuth JWTs
+       * with a thirty-day maxAge and no server-side row, so a cookie stolen
+       * before a password reset kept working for the rest of that month. That
+       * is what `User.sessionsValidAfter` fixes, and this is the comparison —
+       * one extra column on a query that was already being made, not a second
+       * round trip.
+       *
+       * 401 rather than 403 on purpose. The account is fine; this particular
+       * credential is not, and the client's correct response is to sign in
+       * again. 403 would tell an app to stop trying.
+       */
+      if (isSessionRevoked(sessionIssuedAtSeconds(session), currentUser.sessionsValidAfter)) {
+        status = 401;
+        obs.log.info("session refused: issued before the account's revocation cutoff", {
+          userId: session.user.id,
+          // Named `via`, not `credential`: the observability layer redacts any
+          // field whose name looks like a secret, and "cookie"/"bearer" is the
+          // one detail this line exists to record.
+          via: credential,
+          path: pathname,
+        });
+        return jsonErr("Your session has ended. Please sign in again.", 401, requestId);
       }
 
       const res = await handler({
@@ -143,6 +223,7 @@ export function guarded(options: GuardOptions, handler: RouteHandler) {
         role,
         requestId,
         params,
+        credential,
         log: obs.log,
       });
       res.headers.set("x-request-id", requestId);
