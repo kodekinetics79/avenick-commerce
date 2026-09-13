@@ -129,9 +129,17 @@ export function CommitBadge({ pulseKey, tone = "default", className, children, .
  *
  * A cross-fade between two strings puts every frame of the transition at partial
  * opacity, i.e. unreadable, on the one control the user is watching most closely.
- * A clip-path edge travelling from the inline start keeps BOTH layers at full
- * opacity the whole time: the confirmed label sits underneath, and the resting
- * label is wiped away to reveal it. No frame is ever half-transparent.
+ * A clip-path wipe keeps BOTH layers at full opacity the whole time and shows each
+ * only on its own side of one edge travelling from the inline start: the
+ * confirmed label behind the edge, the resting label ahead of it. No frame is
+ * ever half-transparent, and no pixel ever carries both.
+ *
+ * BOTH layers are clipped. The confirmed one used to sit unclipped "underneath",
+ * as if the resting label covered it, but text covers nothing between its
+ * glyphs — so at rest every Add to cart button painted "Add to cart" over
+ * "Added to cart" and read as neither. The two clips are complements on one
+ * shared transition; globals.css has the rules and
+ * commit-wipe.regression.test.ts holds them to that.
  *
  * `inset()` takes physical edges and has no logical form, so globals.css writes
  * out both directions — the mandatory second mechanism whenever a value cannot
@@ -149,8 +157,12 @@ export interface CommitLabelProps extends React.HTMLAttributes<HTMLSpanElement> 
 export function CommitLabel({ idle, committed, done, className, ...props }: CommitLabelProps) {
   return (
     <span className={cn("u-wipe", className)} data-state={done ? "on" : "off"} {...props}>
-      {/* The confirmed layer is underneath and always fully opaque. */}
-      <span aria-hidden={!done}>{committed}</span>
+      {/* Clipped to nothing at rest and revealed behind the travelling edge —
+          never merely "underneath", because the resting label's letter gaps
+          would show it. Fully opaque whenever any of it is visible. */}
+      <span className="u-wipe__to" aria-hidden={!done}>
+        {committed}
+      </span>
       <span className="u-wipe__from" aria-hidden={done}>
         {idle}
       </span>

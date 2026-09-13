@@ -2380,17 +2380,33 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 .u-badge-pulse[data-pulse="on"] { animation: badge-pulse 320ms 1; }
 .u-badge-pulse[data-tone="danger"] { color: hsl(var(--danger-ink)); }
 
-/* The label wipe. A clip-path edge travels from the inline start, so no frame of
-   the label is ever half-transparent and unreadable — which is exactly what a
-   cross-fade between two strings produces. The confirmed layer sits underneath
-   at FULL opacity the whole time. inset() takes physical edges and has no
-   logical form, so the two directions are written out; that is the mandatory
-   second mechanism for any physical-direction value in this system. */
+/* The label wipe. ONE clip-path edge travels from the inline start, and each
+   layer is shown only on its own side of it: the confirmed label (__to) behind
+   the edge, the resting label (__from) ahead of it. Both stay at FULL opacity
+   the whole time, so no frame is ever half-transparent and unreadable — which is
+   exactly what a cross-fade between two strings produces.
+
+   BOTH LAYERS ARE CLIPPED, and that is the whole mechanism. This used to clip
+   only __from and leave the confirmed label "underneath", on the theory that the
+   top layer hid it. Text hides nothing: only its glyphs are opaque. Every
+   Add to cart button in the storefront painted both labels in one cell and read
+   "AAdddedd to cart" at rest. The two clips are complements — __from's left
+   inset and __to's right inset travel 0 → 100% and 100% → 0 on one shared
+   transition — so their visible spans tile the label at every frame and never
+   overlap. commit-wipe.regression.test.ts resolves these rules and checks that.
+
+   inset() takes physical edges and has no logical form, so the two directions
+   are written out; that is the mandatory second mechanism for any
+   physical-direction value in this system. The on-state rule for __to outranks
+   the RTL off-state rule by specificity, so it needs no RTL twin of its own. */
 .u-wipe { display: inline-grid; }
-.u-wipe > * { grid-area: 1 / 1; }
-.u-wipe__from { transition: clip-path 200ms var(--ease-in-out); clip-path: inset(0 0 0 0); }
+.u-wipe > * { grid-area: 1 / 1; transition: clip-path 200ms var(--ease-in-out); }
+.u-wipe__from { clip-path: inset(0 0 0 0); }
 .u-wipe[data-state="on"] .u-wipe__from { clip-path: inset(0 0 0 100%); }
 [dir="rtl"] .u-wipe[data-state="on"] .u-wipe__from { clip-path: inset(0 100% 0 0); }
+.u-wipe__to { clip-path: inset(0 100% 0 0); }
+[dir="rtl"] .u-wipe__to { clip-path: inset(0 0 0 100%); }
+.u-wipe[data-state="on"] .u-wipe__to { clip-path: inset(0 0 0 0); }
 
 /* ═══ STATE LAYERS ═══
    Retires roughly forty hand-tuned hover/press tokens that had drifted apart.
