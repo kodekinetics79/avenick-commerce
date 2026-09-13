@@ -54,7 +54,12 @@ export function SellerCard({
      */
     tier: (tier: string) => string | null;
   };
-  quoteHref: string;
+  /**
+   * Omitted when the price panel above already offers the same request as its
+   * primary action. Two controls to one destination in one column is the
+   * duplicate LAW G asks you to look for before counting options.
+   */
+  quoteHref?: string;
 }) {
   const nameEn = seller.businessNameEn ? String(seller.businessNameEn) : "";
   const nameAr = seller.businessNameAr ? String(seller.businessNameAr) : "";
@@ -107,12 +112,14 @@ export function SellerCard({
             <StatusPill tone="neutral">{tierLabel}</StatusPill>
           ) : null}
 
-          <Button asChild variant="secondary" size="sm">
-            <Link href={quoteHref}>
-              <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
-              {labels.requestQuote}
-            </Link>
-          </Button>
+          {quoteHref && (
+            <Button asChild variant="secondary" size="sm">
+              <Link href={quoteHref}>
+                <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+                {labels.requestQuote}
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
     </Surface>

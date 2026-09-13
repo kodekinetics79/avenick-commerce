@@ -48,6 +48,8 @@ export function PricePanel({
   isB2B,
   ladder,
   onSetQty,
+  quoteOnly = false,
+  requestedCurrency,
   children,
 }: {
   selection: PriceSelection | null;
@@ -58,15 +60,50 @@ export function PricePanel({
   isB2B: boolean;
   ladder: PriceBand[];
   onSetQty: (qty: number) => void;
+  /**
+   * This view of the product carries no price row at all — see
+   * `quoteOnlyAction`. Distinct from a null selection over published bands,
+   * which is a real gap and keeps its own copy.
+   */
+  quoteOnly?: boolean;
+  /** The `?currency=` the product was requested in, when there was one. */
+  requestedCurrency?: string;
   /** The quantity stepper and the commit action, rendered inside the panel. */
   children?: React.ReactNode;
 }) {
   const t = useTranslations("pdp.price");
   const tl = useTranslations("pdp.ladder");
+  const tc = useTranslations("catalogue");
 
   const money = (amount: number) => formatCurrency(amount, currency, locale);
 
+  if (!selection && quoteOnly) {
+    // THE CATALOGUE'S NORMAL STATE, set as one. The same words the tile the
+    // buyer pressed already said, at a heading rank in ordinary ink — not
+    // danger-ink, because nothing has gone wrong — and a basis line that states
+    // only what this response can prove: no price row reached this view, in
+    // this order channel (and currency, when one was asked for). It does not say
+    // business bands exist, because the consumer DTO never sees them, and it
+    // does not say signing in reveals one, because a price also needs a live
+    // company membership and a business request.
+    const channel = isB2B ? "B2B" : "B2C";
+    return (
+      <Surface rung={3} rim className="p-5 sm:p-6">
+        <Eyebrow>{t("eyebrow")}</Eyebrow>
+        <p className="mt-1 u-h3 text-ink-1">{tc("quoteOnRequest")}</p>
+        <Dateline className="mt-2">
+          {requestedCurrency
+            ? t("onRequestBasisCurrency", { channel, currency: requestedCurrency })
+            : t("onRequestBasis", { channel })}
+        </Dateline>
+        {children && <div className="mt-5">{children}</div>}
+      </Surface>
+    );
+  }
+
   if (!selection) {
+    // Prices ARE published in this view and none covers this selection — a
+    // quantity or currency gap. That is a real mismatch and says so.
     return (
       <Surface rung={3} rim className="p-5 sm:p-6">
         <Eyebrow>{t("eyebrow")}</Eyebrow>

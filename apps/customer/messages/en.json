@@ -614,7 +614,9 @@
       "totalRow": "Total including VAT",
       "basis": "Published price for this selection at this quantity · price, tax and availability are revalidated when the order is submitted",
       "none": "No applicable price is available for this selection and quantity.",
-      "noneBasis": "Prices are published per currency and per quantity band; none of the published bands covers this combination"
+      "noneBasis": "Prices are published per currency and per quantity band; none of the published bands covers this combination",
+      "onRequestBasis": "No price is published for {channel, select, B2B {business orders} other {consumer orders}} of this listing",
+      "onRequestBasisCurrency": "No price in {currency} is published for {channel, select, B2B {business orders} other {consumer orders}} of this listing"
     },
     "ladder": {
       "title": "Volume pricing",

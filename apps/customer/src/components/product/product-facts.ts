@@ -2,6 +2,7 @@ import type * as React from "react";
 import { formatCurrency } from "@avenick/utils";
 import { resolveStorefrontSelection, type StorefrontProduct } from "@/lib/catalog-commercial";
 import type { Currency } from "@/lib/market-context";
+import { productCardPurchaseAction } from "@/lib/product-card-commerce";
 
 /**
  * The facts the product detail page is built out of, kept in a module with NO
@@ -94,6 +95,51 @@ export function nextBandOffer(ladder: PriceBand[], qty: number): { band: PriceBa
   if (!next) return null;
   if (current && next.unitPrice >= current.unitPrice) return null;
   return { band: next, more: next.minQty - qty };
+}
+
+/**
+ * What the buy column offers when this view of the product carries NO price at
+ * all — or null when it does.
+ *
+ * WHY THIS EXISTS. 383 of the 385 live listings publish only business price
+ * bands, and the anonymous detail DTO filters price rows by channel, so for
+ * almost every visitor `resolveStorefrontSelection` returns null. The page used
+ * to treat that null as ONE state and render it as an error: danger-ink "No
+ * applicable price is available…", a basis line saying none of the published
+ * bands covered the combination (false — the bands exist, in another channel),
+ * a locked stepper and a disabled Add to cart, with the RFQ link demoted to a
+ * secondary button beneath it. The tiles on the same page had already been
+ * taught the opposite: a product this storefront cannot price is a product to
+ * quote, not an error state (product-card-commerce.ts).
+ *
+ * So null is now TWO states. Prices exist in this view but no band covers the
+ * selection (a quantity or currency gap) — that is still the genuine gap, and
+ * still says so. No price row in this view at all, on the product or on any
+ * variant — that is the catalogue's normal quote-only state, and this returns
+ * the action for it.
+ *
+ * THE LABEL IS THE TILE'S RULE, not a second one. `productCardPurchaseAction`
+ * decides "request availability" versus "request a quote" from stock, and the
+ * page asks it the same question with the same stock fact the tile had, so the
+ * button a buyer pressed on the grid and the button on the page they land on
+ * say the same words. `hasVariants` goes in as false on purpose: the tile
+ * routes a variant-bearing row HERE so a variant can be chosen, and on this
+ * page one already has been, so the selected variant's own stock decides.
+ */
+export function quoteOnlyAction(
+  product: Pick<StorefrontProduct, "prices" | "variants" | "inventory">,
+  selectedVariantId: string | undefined,
+  hasSelection: boolean,
+): "REQUEST_QUOTE" | "REQUEST_AVAILABILITY" | null {
+  if (hasSelection) return null;
+  const hasChannelPrice = product.prices.length > 0
+    || product.variants.some((variant) => (variant.prices ?? []).length > 0);
+  if (hasChannelPrice) return null;
+  const variant = selectedVariantId ? product.variants.find((candidate) => candidate.id === selectedVariantId) : undefined;
+  const inStock = variant ? variant.inStock === true : product.inventory[0]?.inStock === true;
+  return productCardPurchaseAction(false, inStock, false) === "REQUEST_AVAILABILITY"
+    ? "REQUEST_AVAILABILITY"
+    : "REQUEST_QUOTE";
 }
 
 /**

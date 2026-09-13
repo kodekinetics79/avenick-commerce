@@ -44,7 +44,7 @@ import { ReviewPanel, type Review, type ReviewAccess } from "@/components/produc
 import { SellerCard, type ProductSeller } from "@/components/product/seller-card";
 import { SpecList, type SpecRow } from "@/components/product/spec-list";
 import { ViewBeacon } from "@/components/product/view-beacon";
-import { attributeLabel, buildPriceLadder, BUTTON_TYPE, FOCUS_INSET } from "@/components/product/product-facts";
+import { attributeLabel, buildPriceLadder, BUTTON_TYPE, FOCUS_INSET, quoteOnlyAction } from "@/components/product/product-facts";
 import type { SubmittedReview } from "@/components/product/review-form";
 import { Stars } from "@/components/product/stars";
 
@@ -95,6 +95,7 @@ export default function ProductPage({
   searchParams: { currency?: string; b2b?: string; variantId?: string; qty?: string };
 }) {
   const t = useTranslations("pdp");
+  const tc = useTranslations("catalogue");
   const locale = useLocale() as "en" | "ar";
 
   const [product, setProduct] = useState<Record<string, unknown> | null>(null);
@@ -364,6 +365,16 @@ export default function ProductPage({
   const rfqHref = seller
     ? `/b2b/rfq/new?supplier=${encodeURIComponent(String(seller.id ?? ""))}&product=${encodeURIComponent(productId)}`
     : null;
+  // The catalogue's normal state — no price row in this view at all — as
+  // opposed to a null selection over bands that do exist. See quoteOnlyAction.
+  const quoteAction = quoteOnlyAction(p, selectedVariantId, !!selection);
+  const request = quoteAction && rfqHref ? { href: rfqHref, action: quoteAction } : null;
+  // The phone bar follows the buyer down the page, so it must never follow them
+  // with a control that cannot be pressed. A quote-only product offers its
+  // request; a priced line that cannot be bought right now offers the same
+  // availability request the buy column offers beneath its cart button.
+  const barRequest = request
+    ?? (selection && !inStock && rfqHref ? { href: rfqHref, action: "REQUEST_AVAILABILITY" as const } : null);
 
   const SECTIONS: { id: Section; label: string }[] = [
     { id: "description", label: t("sections.description") },
@@ -418,6 +429,7 @@ export default function ProductPage({
       onQty={setQty}
       onAdd={addToCart}
       requestAvailabilityHref={rfqHref}
+      request={request}
     />
   );
 
@@ -482,20 +494,27 @@ export default function ProductPage({
                       <p className="u-lead mt-1 text-ink-2" dir={locale === "ar" ? "ltr" : "rtl"}>{secondaryName}</p>
                     )}
                   </div>
-                  <Button
-                    variant={wishlisted ? "secondary" : "ghost"}
-                    size="icon"
-                    className="shrink-0"
-                    disabled={!selection}
-                    aria-label={wishlisted ? t("wishlistRemove") : t("wishlistAdd")}
-                    aria-pressed={wishlisted}
-                    onClick={() => selection && toggle({ ...toStorefrontWishlistItem(p, params.slug, selection, qty, isB2B ? "B2B" : "B2C", images[0]?.url), priceTiered })}
-                  >
-                    {/* An icon-only control never carries meaning in the glyph
-                        alone: the accessible name is on the button above, and the
-                        filled state is one class rather than a second icon. */}
-                    <Heart className={`h-5 w-5 ${wishlisted ? "fill-current text-danger-ink" : ""}`} aria-hidden="true" />
-                  </Button>
+                  {/* Not rendered for a quote-only product. A wishlist line is a
+                      priced line — the cart reads its price back as the unit
+                      price — so there is nothing here to save, and a heart that
+                      is permanently disabled on 383 of 385 products is a dead
+                      control in the most looked-at corner of the page. */}
+                  {!quoteAction && (
+                    <Button
+                      variant={wishlisted ? "secondary" : "ghost"}
+                      size="icon"
+                      className="shrink-0"
+                      disabled={!selection}
+                      aria-label={wishlisted ? t("wishlistRemove") : t("wishlistAdd")}
+                      aria-pressed={wishlisted}
+                      onClick={() => selection && toggle({ ...toStorefrontWishlistItem(p, params.slug, selection, qty, isB2B ? "B2B" : "B2C", images[0]?.url), priceTiered })}
+                    >
+                      {/* An icon-only control never carries meaning in the glyph
+                          alone: the accessible name is on the button above, and the
+                          filled state is one class rather than a second icon. */}
+                      <Heart className={`h-5 w-5 ${wishlisted ? "fill-current text-danger-ink" : ""}`} aria-hidden="true" />
+                    </Button>
+                  )}
                 </div>
 
                 {/* The fact row. SKU is a first-class comparison attribute for a
@@ -602,6 +621,8 @@ export default function ProductPage({
                   isB2B={isB2B}
                   ladder={ladder}
                   onSetQty={setQty}
+                  quoteOnly={!!quoteAction}
+                  requestedCurrency={searchParams.currency?.toUpperCase()}
                 >
                   {buyActions}
                 </PricePanel>
@@ -621,12 +642,18 @@ export default function ProductPage({
                 order processing actually does. One hairline-divided panel rather
                 than three bordered tiles, and the icons carry no hue: ten
                 colours saying nothing is the loudest amateur signal there is.
+
+                "Price checked at order" is only rendered when there is a price
+                to check. Under "Price on request" it assured the buyer about a
+                figure the page had just told them does not exist.
               */}
-              <CellGrid cols={{ base: 1, sm: 3 }} density="compact">
-                <div className="flex items-start gap-2 text-start">
-                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
-                  <span className="u-meta text-ink-2">{t("assurance.priceChecked")}</span>
-                </div>
+              <CellGrid cols={{ base: 1, sm: quoteAction ? 2 : 3 }} density="compact">
+                {!quoteAction && (
+                  <div className="flex items-start gap-2 text-start">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
+                    <span className="u-meta text-ink-2">{t("assurance.priceChecked")}</span>
+                  </div>
+                )}
                 <div className="flex items-start gap-2 text-start">
                   <Truck className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
                   <span className="u-meta text-ink-2">{t("assurance.delivery")}</span>
@@ -639,11 +666,13 @@ export default function ProductPage({
                 </Link>
               </CellGrid>
 
-              {seller && rfqHref && (
+              {seller && (
                 <SellerCard
                   seller={seller}
                   locale={locale}
-                  quoteHref={`/b2b/rfq/new?supplier=${encodeURIComponent(String(seller.id ?? ""))}`}
+                  // When the price panel's primary action already IS the
+                  // request, the card does not repeat it one surface lower.
+                  quoteHref={request ? undefined : `/b2b/rfq/new?supplier=${encodeURIComponent(String(seller.id ?? ""))}`}
                   labels={{
                     eyebrow: t("seller.eyebrow"),
                     requestQuote: t("seller.requestQuote"),
@@ -776,8 +805,9 @@ export default function ProductPage({
                     { icon: RotateCcw, title: t("shipping.returns"), desc: t("shipping.returnsBody") },
                     // "Contact your account manager" named a service that exists
                     // nowhere in this product. Quotations do exist, and they are
-                    // reachable from the supplier card above, so the line points
-                    // at the mechanism that is actually implemented.
+                    // reachable from above — the supplier card on a priced
+                    // listing, the price panel's own action on a quote-only one —
+                    // so the line points at the mechanism that is implemented.
                     { icon: FileText, title: t("shipping.business"), desc: t("shipping.businessBody") },
                   ].map(({ icon: Icon, title, desc }) => (
                     <div key={title} className="flex gap-3">
@@ -856,30 +886,44 @@ export default function ProductPage({
                 )}
                 vat={isB2B ? t("price.exclVat") : t("price.inclVat")}
               />
+            ) : quoteAction ? (
+              // The tile's words, in ordinary ink: the normal state of this
+              // catalogue, not an error.
+              <p className="truncate u-ui text-ink-2">{tc("quoteOnRequest")}</p>
             ) : (
               <p className="truncate u-ui text-danger-ink">{t("price.none")}</p>
             )}
           </div>
-          <Button
-            size="lg"
-            variant="primary"
-            className="ms-auto min-w-[9rem] flex-1"
-            disabled={!inStock || !selection || !buyBarVisible}
-            tabIndex={buyBarVisible ? undefined : -1}
-            onClick={addToCart}
-          >
-            {/* The SAME wipe as the control in the buy column, not a string
-                swap. One gesture in one posture: a cross-fade here would put
-                every frame of the label at partial opacity on the one control a
-                buyer on a phone is watching most closely, and two different
-                confirmations for one action is how a system starts reading as
-                assembled rather than designed. */}
-            <CommitLabel
-              done={added !== null}
-              idle={t("buy.addToCart")}
-              committed={t("buy.addedShort")}
-            />
-          </Button>
+          {barRequest ? (
+            <Button asChild size="lg" variant="primary" className="ms-auto min-w-[9rem] flex-1">
+              {/* Withdrawn with the bar exactly as the cart button is: out of
+                  the tab order, and inside the aria-hidden container. */}
+              <Link href={barRequest.href} tabIndex={buyBarVisible ? undefined : -1}>
+                {barRequest.action === "REQUEST_QUOTE" ? t("seller.requestQuote") : t("buy.requestAvailability")}
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              size="lg"
+              variant="primary"
+              className="ms-auto min-w-[9rem] flex-1"
+              disabled={!inStock || !selection || !buyBarVisible}
+              tabIndex={buyBarVisible ? undefined : -1}
+              onClick={addToCart}
+            >
+              {/* The SAME wipe as the control in the buy column, not a string
+                  swap. One gesture in one posture: a cross-fade here would put
+                  every frame of the label at partial opacity on the one control a
+                  buyer on a phone is watching most closely, and two different
+                  confirmations for one action is how a system starts reading as
+                  assembled rather than designed. */}
+              <CommitLabel
+                done={added !== null}
+                idle={t("buy.addToCart")}
+                committed={t("buy.addedShort")}
+              />
+            </Button>
+          )}
         </Surface>
       </div>
     </MainLayout>
