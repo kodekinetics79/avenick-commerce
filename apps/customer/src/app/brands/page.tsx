@@ -141,7 +141,7 @@ export default async function BrandsPage() {
                         screen, and the Arabic noun is no shorter. */}
                     <span className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
                       <Num value={brand._count.products} rank="inline" />
-                      <Eyebrow as="span">{t("listingCount", { count: brand._count.products })}</Eyebrow>
+                      <Eyebrow as="span">{t("listingsNoun", { count: brand._count.products })}</Eyebrow>
                     </span>
                     {brand.country && (
                       <span className="u-meta block text-ink-3">{countryLabel(brand.country)}</span>

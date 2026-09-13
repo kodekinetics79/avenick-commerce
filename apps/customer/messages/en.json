@@ -397,7 +397,7 @@
     "title": "Shop by brand",
     "description": "Browse the brands with listings in the catalogue.",
     "dateline": "Each count is of the listings published for public discovery under that brand.",
-    "listingCount": "{count, plural, one {listing} other {listings}}",
+    "listingsNoun": "{count, plural, one {listing} other {listings}}",
     "empty": {
       "eyebrow": "Nothing recorded",
       "headline": "No brand has a listing in the catalogue yet.",
