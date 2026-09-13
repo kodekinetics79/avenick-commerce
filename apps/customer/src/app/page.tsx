@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, BadgeCheck, CreditCard, PackageSearch, ShieldCheck, Sparkles, Undo2 } from "lucide-react";
+import { ArrowRight, Building2, ClipboardCheck, PackageSearch, Undo2 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import {
@@ -426,89 +426,6 @@ export default async function HomePage() {
         />
       )}
 
-      {/* ─── Buyer protection ─────────────────────────────
-          The reference's layout: four assurances beside a photograph, with a
-          percentage badge over its lower corner. The CONTENT is Avenick's, and
-          each line is checkable —
-
-            verified sellers   SellerProfile reaches ACTIVE only through the
-                               approval gate in services/admin.ts
-            payment options    the real PaymentMethod enum: MADA, Apple Pay,
-                               card, bank transfer, STC Pay. The reference says
-                               "PayPal", which is neither offered here nor the
-                               right rail for the Gulf.
-            priced up front    VAT and delivery are computed at checkout before
-                               the order is placed (services/orders.ts)
-            returns            the ReturnRequest lifecycle, REQUESTED through
-                               REFUNDED
-
-          The badge reads 100% rather than the reference's 99.8%. 99.8% of what
-          is the question it cannot answer — twelve orders exist, so any success
-          rate quoted from them is noise dressed as evidence. "Every seller is
-          verified before listing" is a different KIND of claim: it is true by
-          construction, because listing requires approval. It fills the same
-          slot and survives being asked about. */}
-      <section className="mx-auto max-w-shell px-gutter py-block">
-        <Surface rung={2} className="overflow-hidden">
-          <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
-            <div className="p-6 sm:p-8">
-              <Eyebrow tone="brass">{t("protectEyebrow")}</Eyebrow>
-              <h2 className="u-h2 mt-2 text-ink-1">{t("protectTitle")}</h2>
-              <p className="u-ui mt-1.5 text-ink-2">{t("protectSub")}</p>
-
-              <ul className="mt-6 space-y-4">
-                {[
-                  { icon: ShieldCheck, titleKey: "protect1Title", descKey: "protect1Desc" },
-                  { icon: CreditCard, titleKey: "protect2Title", descKey: "protect2Desc" },
-                  { icon: BadgeCheck, titleKey: "protect3Title", descKey: "protect3Desc" },
-                  { icon: Undo2, titleKey: "protect4Title", descKey: "protect4Desc" },
-                ].map(({ icon: Icon, titleKey, descKey }) => (
-                  <li key={titleKey} className="flex items-start gap-3">
-                    {/* The reference's soft-green icon chip, taken from our own
-                        primary-soft token rather than its raw #e4fff1 — the raw
-                        hex has no dark counterpart and this panel has to work on
-                        both grounds. */}
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-nested bg-primary-soft text-primary-ink">
-                      <Icon className="h-4 w-4" aria-hidden="true" />
-                    </span>
-                    <span className="min-w-0">
-                      <h3 className="u-ui font-medium text-ink-1">{t(titleKey)}</h3>
-                      <p className="u-meta mt-0.5 text-ink-2">{t(descKey)}</p>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              <Button variant="primary" size="md" className="mt-7" asChild>
-                <Link href="/support">{t("propsEyebrow")}</Link>
-              </Button>
-            </div>
-
-            {/* The photograph, and the badge standing on its corner. Hidden
-                below lg: at phone width it would be a 200px letterbox carrying
-                no information the four lines above have not already given. */}
-            <div className="relative hidden min-h-[22rem] lg:block">
-              <Image
-                src="/hero/workshop-1600.jpg"
-                alt=""
-                aria-hidden="true"
-                fill
-                sizes="(min-width: 1024px) 45vw, 0px"
-                className="object-cover"
-              />
-              {/* Glass, because this badge is lying on a photograph — the image
-                      blurs and saturates behind it rather than being covered.
-                      The same panel on a flat ground would just be a lighter
-                      box, which is why the four rows opposite do not get it. */}
-              <Surface rung={4} glass className="absolute bottom-6 end-6 w-40 p-4 text-center">
-                <p className="u-display text-primary-ink">{t("protectStat")}</p>
-                <p className="u-meta mt-1 text-ink-2">{t("protectStatLabel")}</p>
-              </Surface>
-            </div>
-          </div>
-        </Surface>
-      </section>
-
       {/* ─── More products ────────────────────────────────── */}
       {/* No badge: "NEW" was stamped on every product regardless of age. The
           section is dropped entirely when the feed holds nothing the catalog
@@ -539,6 +456,110 @@ export default async function HomePage() {
         viewAll={t("viewAll")}
         locale={locale}
       />
+
+      {/* ─── Buyer protection ─────────────────────────────
+          The reference's layout: assurances beside a photograph. Every row is
+          a rule the code enforces on an order, and each one names where —
+
+            re-checked on submit  services/orders.ts prices the lines on the
+                                  server and re-reads stock inside the order
+                                  transaction, refusing a short line; a purchase
+                                  order must still match its own server-priced
+                                  total. Delivery terms are NOT settled at that
+                                  point — they are confirmed while the order is
+                                  processed, which is what the utility bar says
+                                  on every page.
+            bank transfer         the only method api/orders/route.ts accepts:
+                                  it answers 503 for MADA, Apple Pay, card and
+                                  STC Pay. A transfer is marked paid only after
+                                  finance verifies the funds
+                                  (orders.next.AWAIT_BANK_TRANSFER).
+            returns               customer-returns.ts accepts a return only
+                                  against a DELIVERED order, and the lifecycle
+                                  runs REQUESTED through REFUNDED (workflow.ts)
+
+          WHAT CAME OFF, SO IT DOES NOT COME BACK. This panel used to promise
+          "Complete buyer protection — your order is protected from payment
+          through to delivery", and there is no escrow: Terms §5 says so, which
+          is why the button goes there. It listed "MADA, Apple Pay, card, bank
+          transfer and STC Pay", which is the PaymentMethod enum — a schema, not
+          what the order route takes. It said VAT and delivery were "computed
+          and shown before you pay" above a rail of "Price on request" tiles,
+          when a purchase order carries no computed delivery charge at all.
+          And it ran a "Verified sellers" row under a "100% — Sellers verified
+          before listing" badge, defended as true by construction because
+          listing needs approval. It was not: approveSeller moves
+          PENDING_REVIEW to ACTIVE without looking at a document, and
+          pilot-catalog.ts upserts its sellers straight to ACTIVE without
+          approval at all — when this was checked, every live listing belonged
+          to a seller with no document on file. A verification claim needs a
+          code gate on reviewed documents first, and then a sentence rather
+          than a percentage.
+
+          It sits after New arrivals rather than directly under the hero: a
+          buyer sees products before the rules for ordering them, and the
+          panel breaks what was a run of three product rails. */}
+      <section className="mx-auto max-w-shell px-gutter py-block">
+        <Surface rung={2} className="overflow-hidden">
+          <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+            <div className="p-6 sm:p-8">
+              <Eyebrow tone="brass">{t("protectEyebrow")}</Eyebrow>
+              <h2 className="u-h2 mt-2 text-ink-1">{t("protectTitle")}</h2>
+              <p className="u-ui mt-1.5 text-ink-2">{t("protectSub")}</p>
+
+              {/* In the order an order lives them: submitted, paid, returned.
+                  The keys are called literally rather than through a mapped
+                  key string, so the message-key regression test sees every one
+                  of them in both languages. */}
+              <ul className="mt-6 space-y-4">
+                {[
+                  { icon: ClipboardCheck, title: t("protect3Title"), desc: t("protect3Desc") },
+                  { icon: Building2, title: t("protect2Title"), desc: t("protect2Desc") },
+                  { icon: Undo2, title: t("protect4Title"), desc: t("protect4Desc") },
+                ].map(({ icon: Icon, title, desc }) => (
+                  <li key={title} className="flex items-start gap-3">
+                    {/* The reference's soft-green icon chip, taken from our own
+                        primary-soft token rather than its raw #e4fff1 — the raw
+                        hex has no dark counterpart and this panel has to work on
+                        both grounds. */}
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-nested bg-primary-soft text-primary-ink">
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0">
+                      <h3 className="u-ui font-medium text-ink-1">{title}</h3>
+                      <p className="u-meta mt-0.5 text-ink-2">{desc}</p>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* To the section of the Terms that states these limits in full.
+                  It used to be labelled "How the platform works" and open the
+                  help centre, which is neither what the label said nor where
+                  the limits are written. */}
+              <Button variant="secondary" size="md" className="mt-7" asChild>
+                <Link href="/terms#disputes">{t("protectCta")}</Link>
+              </Button>
+            </div>
+
+            {/* The photograph, and nothing on it. It is decorative (empty alt,
+                hidden from assistive technology) and it asserts nothing about
+                any seller. Hidden below lg: at phone width it would be a 200px
+                letterbox carrying no information the rows beside it have not
+                already given. */}
+            <div className="relative hidden min-h-[22rem] lg:block">
+              <Image
+                src="/hero/workshop-1600.jpg"
+                alt=""
+                aria-hidden="true"
+                fill
+                sizes="(min-width: 1024px) 45vw, 0px"
+                className="object-cover"
+              />
+            </div>
+          </div>
+        </Surface>
+      </section>
 
       <ProductRail
         rows={railFor.featured}
