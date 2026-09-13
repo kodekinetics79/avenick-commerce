@@ -46,6 +46,7 @@ import { SpecList, type SpecRow } from "@/components/product/spec-list";
 import { ViewBeacon } from "@/components/product/view-beacon";
 import {
   attributeLabel,
+  bilingualName,
   breadcrumbCategory,
   buildPriceLadder,
   BUTTON_TYPE,
@@ -369,11 +370,12 @@ export default function ProductPage({
 
   // The product's own name in the reader's own language, with the other language
   // carried beneath it. The previous version pinned the headline to nameEn in
-  // both builds, so the Arabic page opened with an English title.
+  // both builds, so the Arabic page opened with an English title. The line
+  // beneath is omitted when the other column only repeats the name, which is
+  // every live product today: see bilingualName.
   const nameEn = String(p.nameEn ?? "");
   const nameAr = p.nameAr ? String(p.nameAr) : "";
-  const primaryName = locale === "ar" ? nameAr || nameEn : nameEn;
-  const secondaryName = locale === "ar" ? (nameAr ? nameEn : "") : nameAr;
+  const { primary: primaryName, secondary: secondaryName } = bilingualName(nameEn, nameAr, locale);
   const brandName = brand ? (locale === "ar" ? brand.nameAr || brand.nameEn : brand.nameEn) : null;
   const categoryCrumb = breadcrumbCategory(
     { isPubliclyDiscoverable: p.isPubliclyDiscoverable, category: p.category as CrumbCategory | null | undefined },
@@ -589,9 +591,12 @@ export default function ProductPage({
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                   {/* The same dot the seller's inventory table and the admin
                       stock console show, with the state carried in words beside
-                      it — colour is never the only channel. It appears here and
-                      under the frame it desaturates, because those are the two
-                      things it governs and they are in two different columns. */}
+                      it — colour is never the only channel. At lg it also
+                      appears under the frame it desaturates, because those are
+                      the two things it governs and they sit in two different
+                      columns. Below lg the columns stack, and that copy stands
+                      down so a phone does not read the same fact twice in one
+                      screen; this one, beside the name and the price, stays. */}
                   <AvailabilityDot state={availability} label={t(`availability.${availability}`)} />
                   <span className="u-meta text-ink-3">
                     {t("sku")} <span className="u-mono text-ink-2">{skuText}</span>

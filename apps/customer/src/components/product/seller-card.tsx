@@ -2,6 +2,7 @@ import * as React from "react";
 import Link from "next/link";
 import { MapPin, MessageSquare } from "lucide-react";
 import { Button, Dateline, Eyebrow, StatusPill, Surface, TierMark } from "@avenick/ui";
+import { bilingualName } from "./product-facts";
 import { Stars } from "./stars";
 
 export type ProductSeller = {
@@ -81,8 +82,9 @@ export function SellerCard({
 }) {
   const nameEn = seller.businessNameEn ? String(seller.businessNameEn) : "";
   const nameAr = seller.businessNameAr ? String(seller.businessNameAr) : "";
-  const primaryName = locale === "ar" ? nameAr || nameEn : nameEn;
-  const secondaryName = locale === "ar" ? (nameAr ? nameEn : "") : nameAr;
+  // Five of nine seller profiles store the English trading name in the Arabic
+  // column as well, and the card printed it twice. See bilingualName.
+  const { primary: primaryName, secondary: secondaryName } = bilingualName(nameEn, nameAr, locale);
   const tier = seller.tier ? String(seller.tier) : "";
   const tierLabel = tier ? labels.tier(tier) : null;
   const city = seller.city ? String(seller.city) : "";

@@ -142,6 +142,26 @@ export function quoteOnlyAction(
     : "REQUEST_QUOTE";
 }
 
+/**
+ * The name to lead with in the reader's language, and the other language's name
+ * to carry beneath it, or "" when there is nothing different to carry.
+ *
+ * The bilingual secondary line is deliberate: a GCC procurement buyer routinely
+ * needs the English trade name of an Arabic listing, and the reverse. But it was
+ * printed whenever the other column was non-empty. All 385 live products, and
+ * five of nine seller profiles, store the English name in the Arabic column too,
+ * so every product page printed its title twice. The second copy was set
+ * right-to-left and pushed to the inline end, where it read as a layout fault.
+ * An echo is not a translation, so an identical string is not repeated.
+ */
+export function bilingualName(nameEn: string, nameAr: string, locale: "en" | "ar"): { primary: string; secondary: string } {
+  const en = nameEn.trim();
+  const ar = nameAr.trim();
+  const primary = locale === "ar" ? ar || en : en;
+  const other = locale === "ar" ? (ar ? en : "") : ar;
+  return { primary, secondary: other && other !== primary ? other : "" };
+}
+
 export type CrumbCategory = { slug: string; nameEn: string; nameAr: string | null };
 
 /**
