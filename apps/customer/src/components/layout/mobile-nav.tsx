@@ -51,9 +51,19 @@ export interface MobileNavProps {
    */
   signIn: MobileNavItem;
   signOut?: { label: string; onSelect: () => void } | null;
+  /*
+   * The discovery panel's phone launcher. Below lg the panel has no floating
+   * pill (it sat over in-flow controls on every page), so this row is how a
+   * phone opens it. It is a real <button> for the same reason sign-out is: it
+   * opens a panel and navigates nowhere. Absent whenever the panel has nothing
+   * to say, so the sheet never offers an empty panel.
+   */
+  discovery?: { label: string; icon?: React.ElementType; onSelect: () => void } | null;
   /** Identity line shown above the session control when there is a session. */
   signedInAs?: string | null;
   action: { href: string; label: string; icon?: React.ElementType };
+  /** The theme switch's accessible names, in the active locale. */
+  themeLabels: { toDark: string; toLight: string };
   isActive: (href: string) => boolean;
 }
 
@@ -73,12 +83,15 @@ export function MobileNav({
   accountItems,
   signIn,
   signOut,
+  discovery,
   signedInAs,
   action,
+  themeLabels,
   isActive,
 }: MobileNavProps) {
   const pathname = usePathname();
   const ActionIcon = action.icon;
+  const DiscoveryIcon = discovery?.icon;
 
   // A tap on a row navigates client-side, which leaves the sheet mounted over
   // the page it just took you to. The route is the signal that it is done.
@@ -117,6 +130,18 @@ export function MobileNav({
         {items.map((item) => (
           <MobileRow key={item.href} item={item} active={isActive(item.href)} />
         ))}
+        {discovery && (
+          <button
+            type="button"
+            onClick={discovery.onSelect}
+            data-rung={0}
+            data-focus-lift=""
+            className={cn(ROW, "text-ink-2 hover:bg-ink-1/[0.05] hover:text-ink-1")}
+          >
+            {DiscoveryIcon && <DiscoveryIcon aria-hidden="true" className="h-[1.15rem] w-[1.15rem] shrink-0 text-ink-3" />}
+            <span className="truncate">{discovery.label}</span>
+          </button>
+        )}
       </nav>
 
       <Divider className="my-4" />
@@ -152,9 +177,15 @@ export function MobileNav({
 
       <Divider className="my-4" />
 
+      {/*
+        One row of 44px touch targets. The theme switch was 38px beside the
+        locale segments LocaleToggle sizes to 44px for exactly this sheet, which
+        made it the smallest target in the row. It keeps the raised chip here:
+        beside a recessed segmented control it is the one button in the row.
+      */}
       <div className="flex items-center gap-2">
         <LocaleToggle size="lg" className="flex-1" />
-        <ThemeToggle />
+        <ThemeToggle size="lg" labels={themeLabels} />
       </div>
     </Layer>
   );

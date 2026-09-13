@@ -16,6 +16,7 @@ import {
   type TrendingProduct,
   type ViewedProduct,
 } from "./interest-signals";
+import { useDiscoveryHost } from "./discovery-context";
 import { isDismissed } from "./history-storage";
 import { useCatalogueLabels, useDiscoverySignals } from "./use-discovery";
 
@@ -43,12 +44,25 @@ import { useCatalogueLabels, useDiscoverySignals } from "./use-discovery";
  * storefront's blur budget is already spent on the header.
  *
  * BEHAVIOUR. It is a disclosure, not a dialog: it never traps focus and never
- * covers the page uninvited. Closed, it is one small pill in the corner, lifted
- * clear of the product page's mobile buy bar. It shares the header's
- * `useDisclosure`, which is what gives it Escape-to-close with focus returned to
- * the trigger, outside-click close, close-on-navigation, and a trigger that is a
- * real <button> reporting aria-expanded. There is no hover trigger, because a
+ * covers the page uninvited. It shares the header's `useDisclosure`, which is
+ * what gives it Escape-to-close with focus returned to the trigger,
+ * outside-click close, close-on-navigation, and a trigger that is a real
+ * <button> reporting aria-expanded. There is no hover trigger, because a
  * keyboard or touch visitor never hovers.
+ *
+ * WHERE IT IS OPENED FROM. At lg and up, closed, it is one small pill in the
+ * corner. Below lg there is no pill. It used to be one, lifted 5.5rem to clear
+ * the product page's buy bar, and that lift was right for the buy bar and wrong
+ * for what it then landed on: at 390×844 it covered the product page's
+ * wishlist heart (a tap meant for the wishlist hit-tested to the launcher), the
+ * end of the cart's "Request a quote", a chip row on search and the help band's
+ * copy. A floating control that sits over "the one control the page exists
+ * for" is what this panel promised never to be. On a phone it is opened from
+ * the menu sheet, through the bridge in ./discovery-context. The panel reports
+ * whether it has anything to say and registers its own opener, so the sheet
+ * offers the row only when the panel would render, and the disclosure above
+ * still owns open and close. The OPEN panel keeps the lift, so it still never
+ * sits on the buy bar.
  */
 
 const PANEL_ID = "discovery-panel";
@@ -95,6 +109,77 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
   );
 
   const hidden = React.useMemo(() => isDismissed(dismissedAt, Date.now()), [dismissedAt]);
+  const available = ready && !hidden && hasSomethingToSay(plan);
+
+  // The chrome's side of the bridge. Reported rather than recomputed there,
+  // because only this component knows whether it would render anything.
+  const host = useDiscoveryHost();
+  React.useEffect(() => {
+    host?.setAvailable(available);
+  }, [host, available]);
+  /*
+   * FOCUS, WHEN THE SHEET OPENS IT. A pill trigger holds focus while its panel
+   * is open and gets it back on Escape. The sheet row that opens the panel
+   * below lg does neither: the sheet closes around it, and the dialog restores
+   * focus to no trigger at all. Keyboard-only at a narrow width, focus was on
+   * <body> the moment the panel opened and again when it closed, and a screen
+   * reader announced nothing.
+   *
+   * So when the chrome opens the panel, focus moves to the panel's heading,
+   * once no modal dialog is left in the document. Focusing it any sooner would
+   * put focus inside content the closing sheet still marks aria-hidden. When
+   * the panel closes or is hidden, focus returns to the control the chrome
+   * named, but only if it would otherwise be lost: on <body>, or on the pill
+   * the disclosure tried to focus, which is not drawn below lg. Focus that
+   * Tab has already moved elsewhere stays there, and a close caused by
+   * navigating away leaves focus to the new page.
+   */
+  const fromChrome = React.useRef<{ returnFocusTo: HTMLElement | null; path: string } | null>(null);
+  const headingRef = React.useRef<HTMLHeadingElement | null>(null);
+  React.useEffect(() => {
+    if (!host) return;
+    host.registerOpener((returnFocusTo) => {
+      fromChrome.current = { returnFocusTo, path: window.location.pathname };
+      setOpen(true);
+    });
+    return () => {
+      host.registerOpener(null);
+      host.setAvailable(false);
+    };
+  }, [host, setOpen]);
+
+  const shown = open && available;
+  React.useEffect(() => {
+    const request = fromChrome.current;
+    if (!request) return;
+
+    if (shown) {
+      let frame = 0;
+      let frames = 0;
+      const focusWhenNoModal = () => {
+        if (document.querySelector('[role="dialog"]')) {
+          // A modal that is still there after a second is not the sheet
+          // closing, and focus is its business, not this panel's.
+          if (++frames < 60) frame = requestAnimationFrame(focusWhenNoModal);
+          return;
+        }
+        headingRef.current?.focus({ preventScroll: true });
+      };
+      frame = requestAnimationFrame(focusWhenNoModal);
+      return () => cancelAnimationFrame(frame);
+    }
+
+    fromChrome.current = null;
+    const landed = document.activeElement;
+    const pill = triggerProps.ref.current;
+    const lost =
+      !landed || landed === document.body || (landed === pill && pill.getClientRects().length === 0);
+    if (lost && request.path === window.location.pathname && request.returnFocusTo?.isConnected) {
+      request.returnFocusTo.focus({ preventScroll: true });
+    }
+    // triggerProps.ref is a ref object; only the shown state drives this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown]);
   // Anything at all recorded by this browser — a product opened, a category
   // browsed, a search run. Distinct from `basis.views`, because a visitor who
   // has only browsed categories still has a trail worth naming and clearing.
@@ -102,7 +187,7 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
 
   // Nothing renders until localStorage has been read, which also means the
   // server and the first client paint agree: both are empty.
-  if (!ready || hidden || !hasSomethingToSay(plan)) return null;
+  if (!available) return null;
 
   const closeAndReturnFocus = () => {
     setOpen(false);
@@ -120,7 +205,9 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
         "fixed z-sticky end-4 print:hidden",
         // Clear of the product page's `fixed inset-x-0 bottom-0` buy bar below
         // lg, and of an iOS home indicator, so the helper never sits on top of
-        // the one control the page exists for.
+        // the one control the page exists for. Below lg this now positions only
+        // the OPEN panel: closed, there is nothing here to tap (see
+        // BEHAVIOUR above), so the lift no longer lands a control over content.
         "bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] lg:bottom-6",
       ].join(" ")}
     >
@@ -136,7 +223,10 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
             <div className="flex items-start gap-3 border-b border-hairline p-4 pb-3">
               <div className="min-w-0 flex-1">
                 <Eyebrow className="mb-1">{t("eyebrow")}</Eyebrow>
-                <h2 id={headingId} className="u-ui font-medium text-ink-1">
+                {/* tabIndex -1 and no ring: it is where focus lands when the
+                    sheet opens the panel (see FOCUS above), not a control, and
+                    a ring on a heading would dress it as one. */}
+                <h2 id={headingId} ref={headingRef} tabIndex={-1} className="u-ui font-medium text-ink-1 outline-none">
                   {hasOwnSignal ? t("heading.fromYourBrowsing") : t("heading.fromCatalogue")}
                 </h2>
               </div>
@@ -182,7 +272,9 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
         </div>
       )}
 
-      <Button {...triggerProps} variant="secondary" size="sm" className="shadow-elev-3">
+      {/* The pill exists at lg and up only. Below lg the menu sheet opens the
+          panel; a floating pill there covered in-flow controls on every page. */}
+      <Button {...triggerProps} variant="secondary" size="sm" className="hidden shadow-elev-3 lg:inline-flex">
         <Compass className="h-4 w-4" aria-hidden="true" />
         {t("launcher")}
       </Button>

@@ -177,7 +177,7 @@ test.describe("the public category tree", () => {
 
 test.describe("the business door", () => {
   /**
-   * `/b2b` is the header's "For business" link and the footer's "B2B portal".
+   * `/b2b` is the header's "For business" link and the footer's "Business account".
    * It is the workspace, and it handles a visitor it cannot place by redirecting
    * to /b2b/register — the door built for a prospect. While the middleware gated
    * it, that redirect could never run and the one visitor the door exists to

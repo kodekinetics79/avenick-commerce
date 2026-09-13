@@ -9,6 +9,7 @@ import {
   ArrowRight,
   Briefcase,
   ChevronDown,
+  Compass,
   FileText,
   Heart,
   Home,
@@ -26,6 +27,8 @@ import { BrandLockup, Button, Divider, Eyebrow, NavItem, StickyGlassBar, Surface
 import { useCartStore } from "@/stores/cart";
 import { useSearchSuggest } from "@/lib/search-suggest-client";
 import { useBrandMenu } from "@/lib/brand-menu-client";
+import { useCategoryMenu } from "@/lib/category-menu-client";
+import { useDiscoveryLauncher } from "@/components/discovery/discovery-context";
 import { useSession, signOut } from "next-auth/react";
 import { useLocale, useTranslations } from "next-intl";
 import { useDisclosure } from "./disclosure";
@@ -56,6 +59,27 @@ import { MobileNav, type MobileNavItem } from "./mobile-nav";
  * build is a setting rather than a design.
  */
 
+/*
+ * A 44px hit area for the bar's small controls, on a coarse pointer only.
+ *
+ * At 390×844 the search submit measured 32×32, and the cart and the menu
+ * trigger 38×38, all under the 44px a thumb needs. Growing the controls would
+ * take the width from the search field, which is already the tightest thing on
+ * a phone's first row. So the VISIBLE control stays the size it is and an
+ * empty ::after, which hit-tests as its host, extends past it. A mouse gets the
+ * control exactly as drawn, which is why this is media-gated rather than
+ * unconditional: on a fine pointer the extension would reach into the next
+ * control's gap.
+ *
+ * The host must already be positioned. None of these carry data-interactive,
+ * data-specular or u-shine, which are the three things in the system that also
+ * paint ::after.
+ */
+const COARSE_HIT_44_FROM_38 =
+  "[@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-[3px] [@media(pointer:coarse)]:after:content-['']";
+const COARSE_HIT_44_FROM_32 =
+  "[@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-1.5 [@media(pointer:coarse)]:after:content-['']";
+
 interface NavEntry {
   href: string;
   /** Key in messages/{en,ar}.json → nav. */
@@ -64,10 +88,19 @@ interface NavEntry {
   icon: React.ElementType;
   /** Present when this entry also opens a mega-menu panel. */
   menu?: "shop" | "business" | "brands";
+  /**
+   * Classes for this entry in the DESKTOP bar only, and only for a plain link
+   * (an entry with no panel). The sheet lists every entry at every width, so
+   * an entry the bar steps back from stays one tap away on a phone.
+   */
+  desktopClassName?: string;
 }
 
 const NAV: NavEntry[] = [
-  { href: "/", labelKey: "home", icon: Home },
+  // Held back to xl in the bar. The logo beside it is already the home link at
+  // every width, and between lg and xl the bar has no room for a second one:
+  // with it, the search field measured 118px at 1024 and showed "Se".
+  { href: "/", labelKey: "home", icon: Home, desktopClassName: "hidden xl:flex" },
   { href: "/products", labelKey: "shop", icon: Store, menu: "shop" },
   // Deals stays out of primary navigation until governed active promotions
   // exist. The page currently lists ordinary catalog products, so presenting it
@@ -84,9 +117,18 @@ export function Header() {
   const locale = useLocale();
   const t = useTranslations("nav");
   const tc = useTranslations("common");
+  const tDiscovery = useTranslations("discovery");
   const pathname = usePathname();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  /*
+   * ANONYMOUS IS A CONFIRMED STATE, NOT THE ABSENCE OF A SESSION. useSession()
+   * resolves on the client, so on first paint every visitor is "loading". The
+   * signed-in destination sets below are kept until the session is known to be
+   * absent. Every surface that changes (the account menu, the business panel,
+   * the sheet) is closed at first paint, so the swap is never seen happening.
+   */
+  const anonymous = status === "unauthenticated";
   const storeCount = useCartStore((s) => s.itemCount());
   // Persisted (localStorage) cart count differs between server and client —
   // only reflect it after mount to avoid a hydration mismatch.
@@ -95,6 +137,13 @@ export function Header() {
   const itemCount = mounted ? storeCount : 0;
 
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  // The discovery panel has no floating launcher below lg, so the sheet opens
+  // it. `available` is the panel's own report of whether it has anything to
+  // say; see components/discovery/discovery-context.tsx.
+  const discovery = useDiscoveryLauncher();
+  // Where focus goes back to when a panel the sheet opened closes: the control
+  // that opened the sheet, since the sheet row itself is gone by then.
+  const menuTriggerRef = React.useRef<HTMLButtonElement | null>(null);
   const account = useDisclosure("header-account-menu");
 
   // Active is computed from the real route, never guessed. "/" would otherwise
@@ -105,6 +154,11 @@ export function Header() {
   );
 
   const brand = platformName();
+
+  // The theme switch's accessible names, from the message tree. The primitive
+  // used to carry them as English literals, which is what an Arabic screen
+  // reader heard on the one control in the row that was not translated.
+  const themeLabels = { toDark: t("themeToDark"), toLight: t("themeToLight") };
 
   /*
    * The brands panel, and the one rule that governs whether it opens at all.
@@ -143,23 +197,65 @@ export function Header() {
           },
         ];
 
-  const SHOP_COLUMNS: MegaMenuColumn[] = [
-    {
-      title: t("catalogue"),
-      links: [
-        { href: "/products", label: t("products") },
-        { href: "/brands", label: t("brands") },
-      ],
-    },
-    {
-      title: t("ordersAndSaved"),
-      links: [
-        { href: "/account/orders", label: t("trackOrder") },
-        { href: "/wishlist", label: t("wishlist") },
-        { href: "/cart", label: t("cart") },
-      ],
-    },
-  ];
+  /*
+   * The Shop panel leads with the catalogue's own top-level categories.
+   *
+   * It used to hold five links, and every one repeated a control within a few
+   * hundred pixels: Products was the Shop link itself, Brands the next item in
+   * the bar (which now has its own panel), Wishlist and Cart the icons at the
+   * end of the bar, and Track orders the utility strip's link. Meanwhile the
+   * categories, which are the one way into the catalogue the chrome did not
+   * already offer, appeared only in the home page's sidebar.
+   *
+   * useCategoryMenu() reads /api/categories, which keeps only categories with
+   * something publicly discoverable beneath them, so no link here opens an
+   * empty shelf. The "no invented category tree" rule below is about inventing
+   * one. These are the database's, printed as the catalogue holds them. The
+   * Catalogue column keeps Products, the root of every category, and Wishlist,
+   * because the header's heart icon is held back to xl and between lg and xl
+   * this panel is the bar's only route to it.
+   *
+   * With no categories (a failed request, JavaScript off, the first paint
+   * before hydration) the panel keeps the static columns it has always had
+   * rather than collapsing to a bare link. That fallback is also what keeps the
+   * wishlist reachable at lg in that case.
+   */
+  const categoryMenu = useCategoryMenu(8);
+  const SHOP_COLUMNS: MegaMenuColumn[] =
+    categoryMenu.length > 0
+      ? [
+          {
+            title: t("categories"),
+            links: categoryMenu.map((c) => ({
+              href: `/products?category=${encodeURIComponent(c.slug)}`,
+              label: locale === "ar" && c.nameAr ? c.nameAr : c.nameEn,
+            })),
+          },
+          {
+            title: t("catalogue"),
+            links: [
+              { href: "/products", label: t("products") },
+              { href: "/wishlist", label: t("wishlist") },
+            ],
+          },
+        ]
+      : [
+          {
+            title: t("catalogue"),
+            links: [
+              { href: "/products", label: t("products") },
+              { href: "/brands", label: t("brands") },
+            ],
+          },
+          {
+            title: t("ordersAndSaved"),
+            links: [
+              { href: "/account/orders", label: t("trackOrder") },
+              { href: "/wishlist", label: t("wishlist") },
+              { href: "/cart", label: t("cart") },
+            ],
+          },
+        ];
 
   /*
    * The business panel is grouped by what the pages ARE — sourcing, ordering,
@@ -177,32 +273,51 @@ export function Header() {
    * where the shell nav takes over. Removing them from here costs no
    * reachability; it is the same destination list in one place instead of two.
    */
-  const BUSINESS_COLUMNS: MegaMenuColumn[] = [
-    {
-      title: t("sourcing"),
-      links: [
-        { href: "/b2b/rfq/new", label: t("getQuote") },
-        { href: "/b2b/quotes", label: t("quotes") },
-        { href: "/b2b/lists", label: t("lists") },
-      ],
-    },
-    {
-      title: t("ordering"),
-      links: [
-        { href: "/b2b/purchase-orders", label: t("purchaseOrders") },
-        { href: "/b2b/approvals", label: t("approvals") },
-      ],
-    },
-    {
-      title: t("company"),
-      links: [
-        { href: "/b2b", label: t("dashboard") },
-        { href: "/b2b/company", label: t("companyProfile") },
-        { href: "/b2b/team", label: t("team") },
-        { href: "/b2b/addresses", label: t("deliveryAddresses") },
-      ],
-    },
-  ];
+  /*
+   * FOR A VISITOR WITH NO SESSION the panel above is nine doors to one room:
+   * every one of /b2b/quotes, /b2b/lists, the purchase orders, approvals, the
+   * company profile, team and addresses answers 307 to /login. What an
+   * anonymous visitor can actually do here is ask for a quote or register a
+   * company, so that is the panel they get. /b2b is the registration door for
+   * them; it redirects a visitor it cannot place to /b2b/register.
+   */
+  const BUSINESS_COLUMNS: MegaMenuColumn[] = anonymous
+    ? [
+        {
+          title: t("sourcing"),
+          links: [{ href: "/b2b/rfq/new", label: t("getQuote") }],
+        },
+        {
+          title: t("company"),
+          links: [{ href: "/b2b", label: t("registerCompany") }],
+        },
+      ]
+    : [
+        {
+          title: t("sourcing"),
+          links: [
+            { href: "/b2b/rfq/new", label: t("getQuote") },
+            { href: "/b2b/quotes", label: t("quotes") },
+            { href: "/b2b/lists", label: t("lists") },
+          ],
+        },
+        {
+          title: t("ordering"),
+          links: [
+            { href: "/b2b/purchase-orders", label: t("purchaseOrders") },
+            { href: "/b2b/approvals", label: t("approvals") },
+          ],
+        },
+        {
+          title: t("company"),
+          links: [
+            { href: "/b2b", label: t("dashboard") },
+            { href: "/b2b/company", label: t("companyProfile") },
+            { href: "/b2b/team", label: t("team") },
+            { href: "/b2b/addresses", label: t("deliveryAddresses") },
+          ],
+        },
+      ];
 
   const mobileItems: MobileNavItem[] = NAV.map((entry) => ({
     href: entry.href,
@@ -210,20 +325,48 @@ export function Header() {
     icon: entry.icon,
   }));
 
-  const mobileAccountItems: MobileNavItem[] = [
-    { href: "/account", label: t("myAccount"), icon: User },
-    { href: "/account/orders", label: t("orders"), icon: FileText },
-    { href: "/wishlist", label: t("wishlist"), icon: Heart },
-    { href: "/cart", label: t("cart"), icon: ShoppingCart },
-  ];
+  /*
+   * THE ACCOUNT DESTINATIONS DEPEND ON THE SESSION, and they used to not.
+   *
+   * Anonymously, "My account" and "Orders" both answer 307 to /login: two
+   * labels for the "Sign in" row right beneath them, above a page that opens
+   * with "Welcome back" to someone who has never been here. Meanwhile no header,
+   * sheet or footer link reached registration at all. It was only reachable
+   * from small links at the bottom of /login.
+   *
+   * So a visitor with no session gets the door they can use: "Register a
+   * company", which is /b2b and lands on the business registration form. It
+   * replaces "For business" in the account menu rather than joining it, because
+   * for this visitor both are the same page. There is deliberately no personal
+   * "Create an account" (/register): no product in this catalogue is sold to
+   * consumers, and a personal account would promise a purchase path the
+   * catalogue cannot keep.
+   *
+   * The sheet gets the same door in its account section for parity with the
+   * desktop menu, because that is where a phone visitor looks for it. Wishlist
+   * and cart stay, since both work without a session. "Sign in" is the session
+   * row below either way.
+   */
+  const mobileAccountItems: MobileNavItem[] = anonymous
+    ? [
+        { href: "/b2b", label: t("registerCompany"), icon: Briefcase },
+        { href: "/wishlist", label: t("wishlist"), icon: Heart },
+        { href: "/cart", label: t("cart"), icon: ShoppingCart },
+      ]
+    : [
+        { href: "/account", label: t("myAccount"), icon: User },
+        { href: "/account/orders", label: t("orders"), icon: FileText },
+        { href: "/wishlist", label: t("wishlist"), icon: Heart },
+        { href: "/cart", label: t("cart"), icon: ShoppingCart },
+      ];
 
-  /* The account menu's three destinations do not depend on the session; only
-     the identity row and the sign-in / sign-out control do. */
-  const accountLinks = [
-    { href: "/account", label: t("myAccount") },
-    { href: "/account/orders", label: t("orders") },
-    { href: "/b2b", label: t("forBusiness") },
-  ];
+  const accountLinks = anonymous
+    ? [{ href: "/b2b", label: t("registerCompany") }]
+    : [
+        { href: "/account", label: t("myAccount") },
+        { href: "/account/orders", label: t("orders") },
+        { href: "/b2b", label: t("forBusiness") },
+      ];
 
   // Live-suggest state. `searchValue` is the input's own text; the hook
   // debounces, aborts superseded requests, and reports "too short" as its own
@@ -245,7 +388,12 @@ export function Header() {
         type="search"
         name="q"
         aria-label={tc("searchPlaceholder")}
-        placeholder={tc("searchPlaceholder")}
+        // The visible hint is the one word that fits every field this bar
+        // draws. "Search the marketplace" was cut to "Search the marke" on
+        // every phone, where the text box between the icon and the submit
+        // button holds about seventeen characters. The accessible name keeps
+        // the full phrase, because a screen reader has no width to run out of.
+        placeholder={tc("search")}
         // Recessed: an input is the textbook case for rung 1, and it also gives
         // the field an opaque plate of its own inside the blurred bar.
         data-rung={1}
@@ -320,7 +468,13 @@ export function Header() {
       <button
         type="submit"
         aria-label={tc("search")}
-        className="u-focus absolute inset-y-0 end-1.5 my-auto grid h-8 w-8 place-items-center rounded-nested text-ink-3 transition-colors duration-hover ease-standard hover:text-ink-1"
+        // 32px drawn, 44px to a thumb: end-1.5 plus the 6px extension is
+        // exactly the 44px the input's pe-11 reserves, so the enlarged area
+        // never reaches typed text.
+        className={cn(
+          "u-focus absolute inset-y-0 end-1.5 my-auto grid h-8 w-8 place-items-center rounded-nested text-ink-3 transition-colors duration-hover ease-standard hover:text-ink-1",
+          COARSE_HIT_44_FROM_32,
+        )}
       >
         <ArrowRight aria-hidden="true" className="h-4 w-4 rtl:rotate-180" />
       </button>
@@ -344,7 +498,7 @@ export function Header() {
       height, which the motion contract forbids because it relayouts every frame.
     */
     <>
-      <div className="border-b border-hairline">
+      <div className="border-b border-hairline print:hidden">
         <div className="mx-auto flex max-w-shell items-center justify-between gap-4 px-gutter py-1.5">
           {/*
             LAW E. This sentence is the residue of a hardening pass that removed
@@ -414,7 +568,11 @@ export function Header() {
         they carry body text. With JS off, before hydration, or with no
         scroll-timeline support, the bar is simply always glass.
       */}
-      <StickyGlassBar as="header" progress>
+      {/* print:hidden, here and on the utility strip above: a buyer who prints
+          a product or policy page into a procurement file wants the page, and
+          the printout used to open with the delivery strip, the bar and a
+          search field. */}
+      <StickyGlassBar as="header" progress className="print:hidden">
         <div className="mx-auto flex max-w-shell items-center gap-2 px-gutter sm:gap-3">
           <Link
             href="/"
@@ -440,12 +598,16 @@ export function Header() {
               initial on the old plate instead. See BrandMark's docstring.
             */}
             {/* Below sm the mark carries the brand on its own, so the whole
-                width the wordmark would take goes to the search field. */}
+                width the wordmark would take goes to the search field. The
+                same trade is made again between lg and xl, where the primary
+                nav joins the bar: the wordmark returns at xl. The link keeps
+                the brand as its accessible name at every width. */}
             <BrandLockup
               name={brand}
               size={32}
               animated
               wordmarkFrom="sm"
+              wordmarkClassName="lg:hidden xl:inline"
               className="gap-2.5"
             />
           </Link>
@@ -464,8 +626,9 @@ export function Header() {
                       : [];
               // An entry declares a panel; whether it GETS one depends on there
               // being something to put in it. Only the brands panel is ever
-              // empty — the other two are static — and when it is, this falls
-              // through to the plain link below.
+              // empty (the shop panel falls back to its static columns and the
+              // business panel is static), and when it is, this falls through
+              // to the plain link below.
               if (entry.menu && columns.length > 0) {
                 return (
                   <MegaMenu
@@ -487,22 +650,41 @@ export function Header() {
                   active={active}
                   orientation="horizontal"
                   linkComponent={Link}
+                  className={entry.desktopClassName}
                 />
               );
             })}
           </nav>
 
           {/*
-            Search is the centre of a storefront header, so it takes the whole
-            middle of the bar at every width instead of the 20rem it used to be
-            squeezed into at the far end — and on a phone it is on the FIRST
-            row rather than wrapped onto a second one, which is what kept the
-            sticky chrome to a single 64px line there.
+            Search is the centre of a storefront header, so it takes whatever
+            the middle of the bar has left, up to max-w-xl, instead of the 20rem
+            it used to be squeezed into at the far end. On a phone it is on the
+            FIRST row rather than wrapped onto a second one, which is what kept
+            the sticky chrome to a single 64px line there.
+
+            "Whatever is left" was very little between lg and xl, where the nav
+            joins the bar: 118px at 1024, 189px at 1100, with the placeholder
+            cut to "Se". The bar carried two things twice there, the Home item
+            beside a logo that is the home link and the wordmark beside a mark
+            that already carries the brand, and both step back until xl. The
+            quote action and the theme switch stay. The quote action is the
+            chrome's one primary fill, and the theme switch has no other home at
+            lg and up.
           */}
           <div className="min-w-0 flex-1 lg:max-w-xl">{searchField}</div>
 
-          <div className="flex shrink-0 items-center gap-1">
-            <ThemeToggle className="hidden lg:inline-flex" />
+          {/* gap-1.5 below lg is the 6px the cart's and the menu trigger's two
+              3px hit extensions need to meet without overlapping. */}
+          <div className="flex shrink-0 items-center gap-1.5 lg:gap-1">
+            {/*
+              Ghost, like the wishlist, cart and account controls beside it. It
+              was the one bordered, plated, shadowed chip in a row of flat icons,
+              and raised means actionable (LAW A), so the least important control
+              in the bar read as its main one. It stays at lg and up because
+              below lg it lives in the sheet, whose trigger is lg:hidden.
+            */}
+            <ThemeToggle variant="ghost" labels={themeLabels} className="hidden lg:inline-flex" />
 
             <Link
               href="/wishlist"
@@ -522,7 +704,10 @@ export function Header() {
                   ? t("cartWithCount", { count: itemCount, n: String(itemCount) })
                   : t("cart")
               }
-              className="u-focus relative grid h-control-md w-control-md place-items-center rounded-nested text-ink-2 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1"
+              className={cn(
+                "u-focus relative grid h-control-md w-control-md place-items-center rounded-nested text-ink-2 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1",
+                COARSE_HIT_44_FROM_38,
+              )}
             >
               <ShoppingCart aria-hidden="true" className="h-[1.15rem] w-[1.15rem]" />
               {itemCount > 0 && (
@@ -620,6 +805,7 @@ export function Header() {
             </Button>
 
             <button
+              ref={menuTriggerRef}
               type="button"
               onClick={() => setMobileOpen(true)}
               // It opens a dialog, not an inline disclosure, so haspopup names
@@ -627,7 +813,10 @@ export function Header() {
               aria-haspopup="dialog"
               aria-expanded={mobileOpen}
               aria-label={t("openMenu")}
-              className="u-focus grid h-control-md w-control-md place-items-center rounded-nested text-ink-2 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1 lg:hidden"
+              className={cn(
+                "u-focus relative grid h-control-md w-control-md place-items-center rounded-nested text-ink-2 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1 lg:hidden",
+                COARSE_HIT_44_FROM_38,
+              )}
             >
               <Menu aria-hidden="true" className="h-5 w-5" />
             </button>
@@ -645,7 +834,10 @@ export function Header() {
         // one string in it that stays English.
         closeLabel={t("closeMenu")}
         navLabel={t("primaryNav")}
-        accountLabel={t("myAccount")}
+        // "Account", not "My account": the first row of a signed-in sheet is
+        // "My account", and a heading that repeats the row under it reads as a
+        // stutter. For a visitor with no session there is no "my" yet.
+        accountLabel={t("account")}
         items={mobileItems}
         accountItems={mobileAccountItems}
         // The desktop account menu is hidden below lg, so without these the
@@ -653,7 +845,23 @@ export function Header() {
         signIn={{ href: "/login", label: t("signIn"), icon: LogIn }}
         signOut={session?.user ? { label: t("signOut"), onSelect: () => signOut({ callbackUrl: "/" }) } : null}
         signedInAs={session?.user ? session.user.name || session.user.email : null}
+        // Close the sheet first, then open the panel: the panel is a passive
+        // disclosure one rung below the sheet, and it must not open underneath a
+        // modal the visitor is about to dismiss anyway.
+        discovery={
+          discovery?.available
+            ? {
+                label: tDiscovery("launcher"),
+                icon: Compass,
+                onSelect: () => {
+                  setMobileOpen(false);
+                  discovery.open(menuTriggerRef.current);
+                },
+              }
+            : null
+        }
         action={{ href: "/b2b/rfq/new", label: t("getQuote"), icon: FileText }}
+        themeLabels={themeLabels}
         isActive={isActive}
       />
     </>
