@@ -425,7 +425,13 @@ const EN: IdentityDictionary = {
     subtitle: (platform) => `Choose how you will buy on ${platform}.`,
     chooserLabel: "Account type",
     consumerTitle: "Personal account",
-    consumerBody: "Buy for yourself. No company details are required.",
+    // Not "Buy for yourself": whether a product can be ordered on a personal
+    // account is a channel its supplier sets per product, and on production no
+    // live product had it on. The product page's specifications state it, so
+    // this points there instead of promising a purchase the catalogue may not
+    // allow. (The wishlist needs no account at all — it is browser storage —
+    // so it is not offered as the reason to register either.)
+    consumerBody: "For individuals. A product can be ordered on a personal account only where its supplier sells to individuals; the product page says which.",
     businessTitle: "Business account",
     businessBody: "Buy on behalf of a company. Needs a commercial registration number.",
     changeType: "Change account type",
@@ -644,7 +650,7 @@ const AR: IdentityDictionary = {
     subtitle: (platform) => `اختر طريقة الشراء على ${platform}.`,
     chooserLabel: "نوع الحساب",
     consumerTitle: "حساب شخصي",
-    consumerBody: "الشراء لنفسك. لا تُطلب أي بيانات شركة.",
+    consumerBody: "للأفراد. لا يُطلب المنتج بحساب شخصي إلا إذا كان مورّده يبيع للأفراد، وتوضح صفحة المنتج ذلك.",
     businessTitle: "حساب تجاري",
     businessBody: "الشراء نيابة عن شركة. يتطلب رقم سجل تجاري.",
     changeType: "تغيير نوع الحساب",

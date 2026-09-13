@@ -302,8 +302,8 @@
     },
     "trust": {
       "eyebrow": "Buyer protection",
-      "verifiedSellers": "Verified sellers",
-      "verifiedSellersDesc": "Business documentation is reviewed before a seller can list.",
+      "verifiedSellers": "Suppliers don't self-publish",
+      "verifiedSellersDesc": "A supplier's storefront goes live only when the platform activates it.",
       "paymentOptions": "Payment methods on this platform",
       "paymentOptionsDesc": "{methods}. Which of these are enabled today is stated at the payment step.",
       "pricedFirst": "Priced before you pay",

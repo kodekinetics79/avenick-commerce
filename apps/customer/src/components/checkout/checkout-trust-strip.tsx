@@ -1,27 +1,37 @@
-import { BadgeCheck, CreditCard, ShieldCheck, Undo2 } from "lucide-react";
+import { BadgeCheck, CreditCard, Store, Undo2 } from "lucide-react";
 import { Eyebrow, Surface } from "@avenick/ui";
 import type { Copy } from "@/app/cart/_money-path";
 import { BUYER_PAYMENT_METHODS } from "@/lib/checkout-order-record";
 import { PAYMENT_METHOD_LABELS } from "./payment-methods";
 
 /**
- * The home page's four buyer-protection assurances, compacted for the last
- * screen before money moves. Same facts, checkable in the same places:
+ * Four buyer-protection assurances for the last screen before money moves.
+ * Each is checkable in the place named beside it, and each is stated for THIS
+ * screen rather than copied from the home page's wording:
  *
- *   verified sellers   SellerProfile reaches ACTIVE only through the approval
- *                      gate in services/admin.ts
+ *   supplier gate      a SellerProfile is created PENDING_REVIEW and only the
+ *                      platform moves it to ACTIVE — approveSeller in
+ *                      services/admin.ts, or an operator catalogue script such
+ *                      as pilot-catalog.ts. This row used to say "Business
+ *                      documentation is reviewed before a seller can list", and
+ *                      that is not true on either path: approveSeller checks no
+ *                      document, and the pilot script bypasses it. On
+ *                      production every live listing came from a seller with no
+ *                      reviewed document. The row now says only what holds on
+ *                      every path, under a storefront glyph rather than a check
+ *                      mark, because a check mark is itself a verification claim.
  *   payment methods    the Prisma PaymentMethod enum, less the pilot MOCK;
- *                      which are enabled today is stated at the payment step
+ *                      which are enabled today is stated at the payment step —
+ *                      a deliberate, disclosed choice (see payment-methods.ts),
+ *                      so the list is not filtered here.
  *   priced before pay  VAT is stated per line here; delivery and its VAT are
  *                      quoted inside createOrder and recorded on the order,
  *                      which is PENDING_PAYMENT until funds are verified —
- *                      so every figure exists before any payment is taken.
- *                      (The home page says "before you place the order"; on
- *                      this screen the delivery figure visibly is not, so the
- *                      claim is stated at the boundary that is actually true.)
+ *                      so every figure exists before any payment is taken. That
+ *                      is true of the checkout path this strip sits on; it is a
+ *                      narrower claim than any made before an order exists, and
+ *                      it is stated at this boundary for that reason.
  *   returns            the ReturnRequest lifecycle, REQUESTED through REFUNDED
- *
- * Nothing here is a new claim.
  */
 export function CheckoutTrustStrip({ c, locale }: { c: Copy; locale: "en" | "ar" }) {
   const methods = BUYER_PAYMENT_METHODS
@@ -30,9 +40,9 @@ export function CheckoutTrustStrip({ c, locale }: { c: Copy; locale: "en" | "ar"
 
   const rows = [
     {
-      icon: ShieldCheck,
-      title: c("checkout.trust.verifiedSellers", "Verified sellers"),
-      desc: c("checkout.trust.verifiedSellersDesc", "Business documentation is reviewed before a seller can list."),
+      icon: Store,
+      title: c("checkout.trust.verifiedSellers", "Suppliers don't self-publish"),
+      desc: c("checkout.trust.verifiedSellersDesc", "A supplier's storefront goes live only when the platform activates it."),
     },
     {
       icon: CreditCard,

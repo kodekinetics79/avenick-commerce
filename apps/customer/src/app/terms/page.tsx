@@ -36,7 +36,7 @@ function buildSections(legalEmail: string | null): PolicySection[] {
     titleAr: "١. قبول الشروط والأحكام",
     contentEn: (
       <>
-        <p>By registering for, accessing, or using the {name} B2B/B2C trading platform, you agree to be bound by these Terms of Service. These terms constitute a legally binding agreement between you (and your company, if registering as a business entity) and {name}.</p>
+        <p>By registering for, accessing, or using the {name} trading platform, you agree to be bound by these Terms of Service. These terms constitute a legally binding agreement between you (and your company, if registering as a business entity) and {name}.</p>
         <p>If you do not agree with any part of these terms, you must not access the platform or use our services.</p>
       </>
     ),

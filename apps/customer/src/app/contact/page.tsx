@@ -202,15 +202,17 @@ export default async function ContactPage() {
       titleEn: "Selling on the platform",
       titleAr: "البيع عبر المنصة",
       contentEn: (
+        // Not "reviewed — including the commercial registration": no document
+        // check stands between an application and a live storefront. See the
+        // note on the suppliers section of /about.
         <p>
-          Suppliers apply through the seller portal. Applications are reviewed — including the
-          commercial registration — before a storefront goes live.
+          Suppliers apply through the seller portal, and a storefront goes live only when the
+          platform activates it.
         </p>
       ),
       contentAr: (
         <p>
-          يتقدّم الموردون عبر بوابة البائعين. وتُراجع الطلبات — بما فيها السجل التجاري — قبل تفعيل أي
-          متجر.
+          يتقدّم الموردون عبر بوابة البائعين، ولا يظهر أي متجر إلا حين تفعّله المنصة.
         </p>
       ),
     },

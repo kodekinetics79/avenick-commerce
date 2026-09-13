@@ -302,8 +302,8 @@
     },
     "trust": {
       "eyebrow": "حماية المشتري",
-      "verifiedSellers": "بائعون موثّقون",
-      "verifiedSellersDesc": "تُراجَع المستندات التجارية قبل أن يتمكن البائع من الإدراج.",
+      "verifiedSellers": "المورّدون لا ينشرون لأنفسهم",
+      "verifiedSellersDesc": "لا يظهر متجر المورّد إلا حين تفعّله المنصة.",
       "paymentOptions": "طرق الدفع في هذه المنصة",
       "paymentOptionsDesc": "{methods}. تُبيَّن الطرق المفعّلة حالياً في خطوة الدفع.",
       "pricedFirst": "التسعير قبل الدفع",

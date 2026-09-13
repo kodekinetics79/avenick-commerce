@@ -98,8 +98,11 @@ const FAQS = [
   {
     qEn: `What is ${platformName()}?`,
     qAr: `ما هي منصة ${platformName()}؟`,
-    aEn: `${platformName()} is a B2B and B2C procurement platform connecting approved suppliers with buyers for industrial supply, tools, and office procurement.`,
-    aAr: `${platformName()} هي منصة مشتريات للشركات والأفراد تربط الموردين المعتمدين بالمشترين لتوريد المنتجات الصناعية والأدوات والمستلزمات المكتبية.`
+    // Not "B2B and B2C … tools, and office procurement": the catalogue is
+    // industrial supply, a product's consumer channel is its supplier's setting,
+    // and no supplier review is guaranteed on every path. See /about.
+    aEn: `${platformName()} is a B2B-first procurement platform where suppliers list industrial supply, and business buyers order from that catalogue or request quotes.`,
+    aAr: `${platformName()} منصة مشتريات موجّهة للأعمال أولاً، يعرض فيها الموردون مستلزمات التوريد الصناعي، ويطلب منها المشترون من الشركات أو يطلبون عروض أسعار.`
   },
   {
     qEn: "How do I request a bulk quote (RFQ)?",

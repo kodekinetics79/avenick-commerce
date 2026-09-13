@@ -74,7 +74,7 @@ function buildSections(privacyEmail: string | null): PolicySection[] {
     titleAr: "٣. كيفية استخدام معلوماتكم",
     contentEn: (
       <>
-        <p>We process your data to deliver a secure, efficient B2B/B2C trading environment. Specifically, we use it to:</p>
+        <p>We process your data to deliver a secure, efficient trading environment. Specifically, we use it to:</p>
         <ul className="list-disc ps-5 space-y-1 mt-2">
           <li>Facilitate RFQ distribution, quote comparisons, and order fulfillment.</li>
           <li>Apply the payment terms already approved and recorded on your company account.</li>
@@ -85,7 +85,7 @@ function buildSections(privacyEmail: string | null): PolicySection[] {
     ),
     contentAr: (
       <>
-        <p>نقوم بمعالجة بياناتكم لتوفير بيئة تجارية آمنة وفعالة للشركات والأفراد. وبشكل خاص، نستخدمها لـ:</p>
+        <p>نقوم بمعالجة بياناتكم لتوفير بيئة تجارية آمنة وفعالة. وبشكل خاص، نستخدمها لـ:</p>
         <ul className="list-disc ps-5 space-y-1 mt-2">
           <li>تسهيل توزيع طلبات عروض الأسعار، ومقارنة العروض، وتلبية الطلبات.</li>
           <li>تطبيق شروط الدفع المعتمدة والمسجلة مسبقاً في حساب شركتكم.</li>

@@ -46,29 +46,36 @@ export default async function AboutPage() {
       titleAr: `ما هي ${name}`,
       contentEn: (
         <>
+          {/* This used to describe "business and consumer buying" of "tools and
+              office procurement", with "a person buying one item". The live
+              catalogue is electrical and industrial supply only, and whether a
+              product can be ordered on a personal account is a per-product
+              channel its supplier sets — the product page's specifications state
+              "Consumer orders" and "Business orders" for exactly that reason. So
+              the page names what the catalogue is and where that fact is shown,
+              and makes no promise about either channel that the data could
+              contradict. */}
           <p>
-            {name} is a GCC marketplace for business and consumer buying. Approved suppliers list
-            industrial supply, tools and office procurement; buyers search that catalogue, order
-            directly where a price is published, or submit a request for quotation where the
-            requirement is a volume rather than a unit.
+            {name} is a GCC marketplace for industrial supply. Suppliers list their catalogue; buyers
+            search it, raise a purchase order where a business price is published, or submit a
+            request for quotation where the requirement is a volume rather than a unit.
           </p>
           <p>
-            It is B2B-first and B2C-ready: the same catalogue serves a company buying on account and
-            a person buying one item, and the difference is in the terms attached to the order rather
-            than in two separate stores.
+            It is built business-first. Whether a product can be ordered on a company account, a
+            personal account or both is set by its supplier, and the product page states which in its
+            specifications.
           </p>
         </>
       ),
       contentAr: (
         <>
           <p>
-            {name} سوق خليجي للشراء للأعمال وللأفراد. يعرض الموردون المعتمدون مستلزمات التوريد
-            الصناعي والأدوات والمشتريات المكتبية؛ ويبحث المشترون في هذا الكتالوج، فيطلبون مباشرة حيث
-            يكون السعر منشورًا، أو يقدّمون طلب عرض سعر حين يكون المطلوب كمية لا وحدة.
+            {name} سوق خليجي للتوريد الصناعي. يعرض الموردون كتالوجاتهم، ويبحث المشترون فيها، فيُصدرون
+            أمر شراء حيث يكون سعر الأعمال منشورًا، أو يقدّمون طلب عرض سعر حين يكون المطلوب كمية لا وحدة.
           </p>
           <p>
-            المنصة موجّهة للأعمال أولًا وجاهزة للأفراد: الكتالوج نفسه يخدم شركة تشتري بحساب وفردًا
-            يشتري قطعة واحدة، والفارق في الشروط المرتبطة بالطلب لا في وجود متجرين منفصلين.
+            والمنصة موجّهة للأعمال أولًا. ويحدد المورّد ما إذا كان المنتج يُطلب بحساب شركة أو بحساب شخصي
+            أو بكليهما، وتذكر صفحة المنتج ذلك في مواصفاته.
           </p>
         </>
       ),
@@ -107,19 +114,25 @@ export default async function AboutPage() {
     },
     {
       id: "suppliers",
-      titleEn: "Suppliers are reviewed",
-      titleAr: "مراجعة المورّدين",
+      titleEn: "Suppliers do not self-publish",
+      titleAr: "المورّدون لا ينشرون لأنفسهم",
+      // Narrowed to the one thing the code guarantees. This said every
+      // application is reviewed "including the commercial registration" before
+      // a storefront goes live. A seller's own application does wait at
+      // PENDING_REVIEW for an operator, but approveSeller checks no document,
+      // and the operator catalogue scripts (pilot-catalog.ts) create sellers
+      // ACTIVE directly — on production every live listing came from a seller
+      // with no reviewed document. What holds on every path is that the platform,
+      // never the supplier, turns a storefront on.
       contentEn: (
         <p>
-          A supplier does not self-publish. An application is reviewed — including the commercial
-          registration — before a storefront goes live, and a verification mark shown anywhere on the
-          platform cites the document it rests on rather than standing on its own.
+          A supplier cannot publish a storefront itself: it goes live only when the platform
+          activates it.
         </p>
       ),
       contentAr: (
         <p>
-          لا ينشر المورّد لنفسه. تُراجع الطلبات — بما فيها السجل التجاري — قبل تفعيل أي متجر، وأي
-          علامة توثيق تظهر في المنصة تستند إلى المستند الذي تستشهد به لا إلى ذاتها.
+          لا يستطيع المورّد نشر متجره بنفسه؛ فالمتجر لا يظهر إلا حين تفعّله المنصة.
         </p>
       ),
     },
