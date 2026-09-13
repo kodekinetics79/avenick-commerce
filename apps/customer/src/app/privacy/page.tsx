@@ -105,7 +105,7 @@ function buildSections(privacyEmail: string | null): PolicySection[] {
         <ul className="list-disc ps-5 space-y-2 mt-2">
           <li><strong>Jurisdiction:</strong> Applicable privacy requirements are confirmed during customer onboarding and contracting.</li>
           <li><strong>Data location:</strong> Hosting and transfer details are documented for the deployed customer environment.</li>
-          <li><strong>No implied certification:</strong> Availability of the demo does not itself represent legal or regulatory certification in any country.</li>
+          <li><strong>No implied certification:</strong> Operating this platform does not in itself represent legal or regulatory certification in any country.</li>
         </ul>
       </>
     ),
@@ -115,7 +115,7 @@ function buildSections(privacyEmail: string | null): PolicySection[] {
         <ul className="list-disc ps-5 space-y-2 mt-2">
           <li><strong>الاختصاص القانوني:</strong> يتم تأكيد متطلبات الخصوصية أثناء إعداد حساب العميل والتعاقد.</li>
           <li><strong>موقع البيانات:</strong> يتم توثيق تفاصيل الاستضافة والنقل لبيئة العميل المنشورة.</li>
-          <li><strong>لا اعتماد ضمني:</strong> إتاحة البيئة التجريبية لا تعني اعتماداً قانونياً أو تنظيمياً في أي دولة.</li>
+          <li><strong>لا اعتماد ضمني:</strong> تشغيل هذه المنصة لا يعني بذاته اعتماداً قانونياً أو تنظيمياً في أي دولة.</li>
         </ul>
       </>
     ),

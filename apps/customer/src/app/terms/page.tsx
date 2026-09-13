@@ -26,6 +26,9 @@ function buildSections(legalEmail: string | null): PolicySection[] {
   const supportLink = (ar: boolean) => (
     <Link href="/support" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">{ar ? "بوابة الدعم الفني" : "support portal"}</Link>
   );
+  const contactLink = (ar: boolean) => (
+    <Link href="/contact" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">{ar ? "صفحة الاتصال" : "contact page"}</Link>
+  );
   return [
   {
     id: "terms",
@@ -118,12 +121,18 @@ function buildSections(legalEmail: string | null): PolicySection[] {
     titleAr: "٦. القانون الحاكم والولاية القضائية",
     contentEn: (
       <>
-        <p>The governing law and dispute forum must be stated in the executed customer agreement for the deployed tenant. This demo does not assign a jurisdiction by default. Contact the legal desk before relying on these terms for a live transaction.</p>
+        {/* This section called the live storefront "this demo" and sent readers
+            to a "legal desk" that no page names. What is true is narrower and
+            is all it says now: these terms name no governing law or forum, and
+            a signed agreement that does name them governs. No jurisdiction is
+            stated because none is recorded — lib/company.ts deliberately
+            resolves the GCC trading entity to null until it is configured. */}
+        <p>These terms do not name a governing law or a forum for disputes. Where a written agreement between you and {name} names them, that agreement applies. If none does, ask through the {contactLink(false)} before relying on these terms for a transaction.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>يجب تحديد القانون الحاكم وجهة الفصل في النزاعات ضمن اتفاقية العميل الموقعة للبيئة المنشورة. لا تحدد هذه البيئة التجريبية اختصاصاً قضائياً افتراضياً. يرجى التواصل مع القسم القانوني قبل الاعتماد على هذه الشروط في معاملة فعلية.</p>
+        <p>لا تحدد هذه الشروط قانوناً حاكماً ولا جهةً للفصل في النزاعات. فإن حدّدتهما اتفاقية مكتوبة بينكم وبين {name} فتسري تلك الاتفاقية، وإن لم توجد اتفاقية كهذه فاستفسروا عبر {contactLink(true)} قبل الاعتماد على هذه الشروط في أي معاملة.</p>
       </>
     ),
   },
