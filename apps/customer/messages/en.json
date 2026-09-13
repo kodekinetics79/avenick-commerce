@@ -64,7 +64,8 @@
     "spendAnalytics": "Spend analytics",
     "allBrands": "All brands",
     "themeToDark": "Switch to dark mode",
-    "themeToLight": "Switch to light mode"
+    "themeToLight": "Switch to light mode",
+    "registerCompany": "Register a company"
   },
   "auth": {
     "welcomeBack": "Welcome back",

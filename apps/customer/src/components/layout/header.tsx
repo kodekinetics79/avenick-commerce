@@ -117,7 +117,15 @@ export function Header() {
   const tc = useTranslations("common");
   const pathname = usePathname();
   const router = useRouter();
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  /*
+   * ANONYMOUS IS A CONFIRMED STATE, NOT THE ABSENCE OF A SESSION. useSession()
+   * resolves on the client, so on first paint every visitor is "loading". The
+   * signed-in destination sets below are kept until the session is known to be
+   * absent. Every surface that changes (the account menu, the business panel,
+   * the sheet) is closed at first paint, so the swap is never seen happening.
+   */
+  const anonymous = status === "unauthenticated";
   const storeCount = useCartStore((s) => s.itemCount());
   // Persisted (localStorage) cart count differs between server and client —
   // only reflect it after mount to avoid a hydration mismatch.
@@ -255,32 +263,51 @@ export function Header() {
    * where the shell nav takes over. Removing them from here costs no
    * reachability; it is the same destination list in one place instead of two.
    */
-  const BUSINESS_COLUMNS: MegaMenuColumn[] = [
-    {
-      title: t("sourcing"),
-      links: [
-        { href: "/b2b/rfq/new", label: t("getQuote") },
-        { href: "/b2b/quotes", label: t("quotes") },
-        { href: "/b2b/lists", label: t("lists") },
-      ],
-    },
-    {
-      title: t("ordering"),
-      links: [
-        { href: "/b2b/purchase-orders", label: t("purchaseOrders") },
-        { href: "/b2b/approvals", label: t("approvals") },
-      ],
-    },
-    {
-      title: t("company"),
-      links: [
-        { href: "/b2b", label: t("dashboard") },
-        { href: "/b2b/company", label: t("companyProfile") },
-        { href: "/b2b/team", label: t("team") },
-        { href: "/b2b/addresses", label: t("deliveryAddresses") },
-      ],
-    },
-  ];
+  /*
+   * FOR A VISITOR WITH NO SESSION the panel above is nine doors to one room:
+   * every one of /b2b/quotes, /b2b/lists, the purchase orders, approvals, the
+   * company profile, team and addresses answers 307 to /login. What an
+   * anonymous visitor can actually do here is ask for a quote or register a
+   * company, so that is the panel they get. /b2b is the registration door for
+   * them; it redirects a visitor it cannot place to /b2b/register.
+   */
+  const BUSINESS_COLUMNS: MegaMenuColumn[] = anonymous
+    ? [
+        {
+          title: t("sourcing"),
+          links: [{ href: "/b2b/rfq/new", label: t("getQuote") }],
+        },
+        {
+          title: t("company"),
+          links: [{ href: "/b2b", label: t("registerCompany") }],
+        },
+      ]
+    : [
+        {
+          title: t("sourcing"),
+          links: [
+            { href: "/b2b/rfq/new", label: t("getQuote") },
+            { href: "/b2b/quotes", label: t("quotes") },
+            { href: "/b2b/lists", label: t("lists") },
+          ],
+        },
+        {
+          title: t("ordering"),
+          links: [
+            { href: "/b2b/purchase-orders", label: t("purchaseOrders") },
+            { href: "/b2b/approvals", label: t("approvals") },
+          ],
+        },
+        {
+          title: t("company"),
+          links: [
+            { href: "/b2b", label: t("dashboard") },
+            { href: "/b2b/company", label: t("companyProfile") },
+            { href: "/b2b/team", label: t("team") },
+            { href: "/b2b/addresses", label: t("deliveryAddresses") },
+          ],
+        },
+      ];
 
   const mobileItems: MobileNavItem[] = NAV.map((entry) => ({
     href: entry.href,
@@ -288,20 +315,48 @@ export function Header() {
     icon: entry.icon,
   }));
 
-  const mobileAccountItems: MobileNavItem[] = [
-    { href: "/account", label: t("myAccount"), icon: User },
-    { href: "/account/orders", label: t("orders"), icon: FileText },
-    { href: "/wishlist", label: t("wishlist"), icon: Heart },
-    { href: "/cart", label: t("cart"), icon: ShoppingCart },
-  ];
+  /*
+   * THE ACCOUNT DESTINATIONS DEPEND ON THE SESSION, and they used to not.
+   *
+   * Anonymously, "My account" and "Orders" both answer 307 to /login: two
+   * labels for the "Sign in" row right beneath them, above a page that opens
+   * with "Welcome back" to someone who has never been here. Meanwhile no header,
+   * sheet or footer link reached registration at all. It was only reachable
+   * from small links at the bottom of /login.
+   *
+   * So a visitor with no session gets the door they can use: "Register a
+   * company", which is /b2b and lands on the business registration form. It
+   * replaces "For business" in the account menu rather than joining it, because
+   * for this visitor both are the same page. There is deliberately no personal
+   * "Create an account" (/register): no product in this catalogue is sold to
+   * consumers, and a personal account would promise a purchase path the
+   * catalogue cannot keep.
+   *
+   * The sheet gets the same door in its account section for parity with the
+   * desktop menu, because that is where a phone visitor looks for it. Wishlist
+   * and cart stay, since both work without a session. "Sign in" is the session
+   * row below either way.
+   */
+  const mobileAccountItems: MobileNavItem[] = anonymous
+    ? [
+        { href: "/b2b", label: t("registerCompany"), icon: Briefcase },
+        { href: "/wishlist", label: t("wishlist"), icon: Heart },
+        { href: "/cart", label: t("cart"), icon: ShoppingCart },
+      ]
+    : [
+        { href: "/account", label: t("myAccount"), icon: User },
+        { href: "/account/orders", label: t("orders"), icon: FileText },
+        { href: "/wishlist", label: t("wishlist"), icon: Heart },
+        { href: "/cart", label: t("cart"), icon: ShoppingCart },
+      ];
 
-  /* The account menu's three destinations do not depend on the session; only
-     the identity row and the sign-in / sign-out control do. */
-  const accountLinks = [
-    { href: "/account", label: t("myAccount") },
-    { href: "/account/orders", label: t("orders") },
-    { href: "/b2b", label: t("forBusiness") },
-  ];
+  const accountLinks = anonymous
+    ? [{ href: "/b2b", label: t("registerCompany") }]
+    : [
+        { href: "/account", label: t("myAccount") },
+        { href: "/account/orders", label: t("orders") },
+        { href: "/b2b", label: t("forBusiness") },
+      ];
 
   // Live-suggest state. `searchValue` is the input's own text; the hook
   // debounces, aborts superseded requests, and reports "too short" as its own
@@ -768,7 +823,10 @@ export function Header() {
         // one string in it that stays English.
         closeLabel={t("closeMenu")}
         navLabel={t("primaryNav")}
-        accountLabel={t("myAccount")}
+        // "Account", not "My account": the first row of a signed-in sheet is
+        // "My account", and a heading that repeats the row under it reads as a
+        // stutter. For a visitor with no session there is no "my" yet.
+        accountLabel={t("account")}
         items={mobileItems}
         accountItems={mobileAccountItems}
         // The desktop account menu is hidden below lg, so without these the

@@ -64,7 +64,8 @@
     "spendAnalytics": "تحليلات الإنفاق",
     "allBrands": "كل العلامات التجارية",
     "themeToDark": "التبديل إلى الوضع الداكن",
-    "themeToLight": "التبديل إلى الوضع الفاتح"
+    "themeToLight": "التبديل إلى الوضع الفاتح",
+    "registerCompany": "تسجيل شركة"
   },
   "auth": {
     "welcomeBack": "مرحباً بعودتك",
