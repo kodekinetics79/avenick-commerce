@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const origin = vi.hoisted(() => ({ value: "https://storefront.test" as string | null }));
 vi.mock("@avenick/utils/portal-config", () => ({ selfOrigin: () => origin.value }));
 
-import { canonicalFor, NOINDEX_FOLLOW } from "../page-metadata";
+import { canonicalFor, listingCanonicalFor, NOINDEX_FOLLOW } from "../page-metadata";
 
 /**
  * Every storefront page had a null canonical, while the same content is reached
@@ -39,5 +39,26 @@ describe("canonicalFor", () => {
 
   it("keeps search results out of the index while their links stay followable", () => {
     expect(NOINDEX_FOLLOW).toEqual({ index: false, follow: true });
+  });
+});
+
+/**
+ * The first cut named /products as the canonical of /products?page=2, 3, 4… Page
+ * three lists different products from page one, so that canonical told a crawler
+ * every product past the first page was a duplicate of page one's — the pattern
+ * search engines' pagination guidance names as the one not to use.
+ */
+describe("listingCanonicalFor", () => {
+  beforeEach(() => {
+    origin.value = "https://storefront.test";
+  });
+
+  it.each([undefined, "", "1", "0", "-2", "not-a-number"])("names the listing's path on its first page (page=%s)", (page) => {
+    expect(listingCanonicalFor("/products", page).alternates?.canonical).toBe("https://storefront.test/products");
+  });
+
+  it.each(["2", "17"])("names no canonical past the first page (page=%s)", (page) => {
+    expect(listingCanonicalFor("/products", page)).toEqual({});
+    expect(listingCanonicalFor("/categories/cable-glands", page)).toEqual({});
   });
 });

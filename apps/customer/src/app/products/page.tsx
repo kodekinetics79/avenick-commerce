@@ -55,7 +55,7 @@ import { findCategory, type CategoryNode } from "@/lib/category-tree";
 import { toCardRow, type CardRow } from "@/lib/product-card-row";
 import { readPublicBrands } from "@/lib/public-brands";
 import { readPublicCategoryTree } from "@/lib/public-category-tree";
-import { canonicalFor, NOINDEX_FOLLOW } from "@/lib/page-metadata";
+import { listingCanonicalFor, NOINDEX_FOLLOW } from "@/lib/page-metadata";
 
 // No platform-name suffix here. The root layout declares
 // `title.template: "%s | <platform>"`, so appending it again rendered
@@ -77,9 +77,12 @@ import { canonicalFor, NOINDEX_FOLLOW } from "@/lib/page-metadata";
 // which is visitor input and does not belong in a title.
 //
 // A search is a page made of the visitor's own words, so it is kept out of the
-// index (see NOINDEX_FOLLOW) and names no canonical. Every other variant of this
-// URL names one: a category filter is the same listing /categories/<slug>
-// publishes, and ?sort, ?page and the facets are views of /products itself.
+// index (see NOINDEX_FOLLOW) and names no canonical. The first page of every
+// other variant names one: a category filter is the same listing
+// /categories/<slug> publishes, and ?sort and the facets are views of /products
+// itself. A page past the first names none — it lists different products, and
+// pointing it at page one would tell a crawler those products are a duplicate of
+// page one's (see listingCanonicalFor).
 export async function generateMetadata({
   searchParams,
 }: {
@@ -90,7 +93,7 @@ export async function generateMetadata({
     return { title: t("title.search", { query: searchParams.search }), robots: NOINDEX_FOLLOW };
   }
   if (!searchParams.category) {
-    return { title: t("title.all"), description: t("metaDescription"), ...canonicalFor("/products") };
+    return { title: t("title.all"), description: t("metaDescription"), ...listingCanonicalFor("/products", searchParams.page) };
   }
   const category = await publicCategoryBySlug(searchParams.category);
   if (!category) return { title: t("title.all"), description: t("metaDescription") };
@@ -100,7 +103,7 @@ export async function generateMetadata({
       category: locale === "ar" ? category.nameAr?.trim() || category.nameEn : category.nameEn,
     }),
     description: t("metaDescription"),
-    ...canonicalFor(`/categories/${category.slug}`),
+    ...listingCanonicalFor(`/categories/${category.slug}`, searchParams.page),
   };
 }
 

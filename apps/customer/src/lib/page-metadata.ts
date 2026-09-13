@@ -37,6 +37,23 @@ export function canonicalFor(path: string): Pick<Metadata, "alternates"> {
 }
 
 /**
+ * The canonical for one page of a paginated listing, given its raw ?page value.
+ *
+ * Page one names the listing's path, as canonicalFor does. A page past the first
+ * names none. It lists different products from page one, so pointing it there
+ * would tell a crawler every product on it duplicates page one's — the pattern
+ * search engines' pagination guidance names as the one not to use. The products
+ * themselves are reached from the sitemap either way.
+ *
+ * `page` is parsed the way the listing parses it, so a missing, zero, negative
+ * or unreadable value is page one.
+ */
+export function listingCanonicalFor(path: string, page: string | undefined): Pick<Metadata, "alternates"> {
+  const pageNumber = Number.parseInt(page ?? "1", 10);
+  return Number.isFinite(pageNumber) && pageNumber > 1 ? {} : canonicalFor(path);
+}
+
+/**
  * For a page whose URL is made of the visitor's own words: search results.
  *
  * Any /search?q=<anything> answered an indexable 200 whose title and h1 repeat
