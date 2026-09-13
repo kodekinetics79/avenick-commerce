@@ -5,8 +5,10 @@ import { resetTtlLabel } from "@/app/auth/identity-copy";
 import { CATEGORY_VISIT_LIMIT, SEARCH_LIMIT, SIGNAL_TTL_MS, VIEW_LIMIT } from "@/components/discovery/interest-signals";
 import { DISMISSAL_TTL_MS } from "@/components/discovery/history-storage";
 import { platformName } from "@avenick/utils/portal-config";
+import { canonicalFor } from "@/lib/page-metadata";
 
 export const metadata = {
+  ...canonicalFor("/cookies"),
   title: `Cookies Policy`,
   description: `${platformName()} cookies policy, user tracking management, and data settings.`,
 };

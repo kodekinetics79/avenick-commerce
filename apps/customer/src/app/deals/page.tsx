@@ -7,13 +7,23 @@ import { ProductCard } from "@/components/products/product-card";
 import { ProductGrid } from "@/components/products/product-grid";
 import { fetchBackendJson } from "@/lib/backend";
 import { categoryLabel, getPublicCategories } from "@/lib/catalog-categories";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+import { canonicalFor } from "@/lib/page-metadata";
 
-// The page is titled "Featured Products" rather than "Deals" because the
+// The page is titled "Featured products" rather than "Deals" because the
 // catalog computes no promotion, no campaign and no discount — the old title
 // and its struck-through prices were removed during hardening and must not
 // come back. The Dateline below says exactly what the selection is, which is
 // the only remaining imprecision in the word "featured".
-export const metadata = { title: "Featured Products" };
+//
+// The tab used to read the English literal "Featured Products" above an h1
+// reading "Featured products", in both languages. It now comes from deals.title,
+// which the stale "Marketplace offers" copy used to occupy and nothing read.
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("deals");
+  return { title: t("title"), description: t("description"), ...canonicalFor("/deals") };
+}
 // Live catalog data — must not prerender at build time (no DB on build machines).
 export const dynamic = "force-dynamic";
 

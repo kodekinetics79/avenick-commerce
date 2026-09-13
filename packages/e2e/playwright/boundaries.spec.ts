@@ -69,6 +69,25 @@ test.describe("protected pages send anonymous visitors to sign in, and say where
   }
 });
 
+/**
+ * The other direction of the same boundary: a URL that names no page is a 404,
+ * not a sign-in page. Every unmatched storefront path used to answer
+ * `307 -> /login`, so a dead link greeted a visitor who had never held an account
+ * with "Welcome back" and no crawler ever saw the 404.
+ */
+test.describe("a URL that names no page answers 404, not the sign-in page", () => {
+  for (const path of ["/definitely-not-a-route", "/this-page-does-not-exist"]) {
+    test(`customer ${path} answers 404 without a redirect`, async ({ request }) => {
+      const response = await request.get(url("customer", path), { maxRedirects: 0 });
+      expect(
+        response.status(),
+        `${path} answered HTTP ${response.status()} ${response.headers()["location"] ?? ""} to an anonymous visitor`,
+      ).toBe(404);
+      expect(response.headers()["location"]).toBeUndefined();
+    });
+  }
+});
+
 test.describe("protected APIs refuse anonymous callers with JSON, not a redirect", () => {
   for (const { portal, path } of [
     { portal: "customer" as const, path: "/api/orders" },

@@ -3,8 +3,10 @@ import Link from "next/link";
 import { MainLayout } from "@/components/layout/main-layout";
 import { PolicyShell, type PolicySection } from "@/components/legal/policy-shell";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
+import { canonicalFor } from "@/lib/page-metadata";
 
 export const metadata = {
+  ...canonicalFor("/privacy"),
   title: `Privacy Policy`,
   description: `${platformName()} privacy policy and data protection guidelines under GCC regulations.`,
 };

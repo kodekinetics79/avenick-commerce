@@ -29,7 +29,10 @@ import { platformName } from "@avenick/utils/portal-config";
  */
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = "Avenick";
+// The configured name, like the name drawn on the card. This was the literal
+// "Avenick", so a renamed deployment's og:image:alt announced somebody else's
+// brand over its own card.
+export const alt = platformName();
 
 export default async function OpengraphImage() {
   const name = platformName();

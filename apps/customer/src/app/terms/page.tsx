@@ -3,8 +3,10 @@ import Link from "next/link";
 import { MainLayout } from "@/components/layout/main-layout";
 import { PolicyShell, type PolicySection } from "@/components/legal/policy-shell";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
+import { canonicalFor } from "@/lib/page-metadata";
 
 export const metadata = {
+  ...canonicalFor("/terms"),
   title: `Terms of Service`,
   description: `${platformName()} terms of service, B2B procurement rules, and regulatory guidelines.`,
 };

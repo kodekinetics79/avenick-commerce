@@ -77,6 +77,21 @@ const nextConfig = {
   },
   // Lint is run as a separate `pnpm lint` step, not during the production build.
   eslint: { ignoreDuringBuilds: true },
+  // Every response advertised `x-powered-by: Next.js`. It tells nobody anything
+  // they need, and it tells a scanner which framework's advisories to try first.
+  // The rest of the header set (HSTS, CSP, nosniff, frame and referrer policy)
+  // was already deliberate; this was the one header nobody had decided on.
+  poweredByHeader: false,
+  // Browsers, feed readers and crawlers still ask for /favicon.ico whatever the
+  // <link rel="icon"> says, and it answered 404 with a full HTML document — a
+  // page of markup returned for an image request. The favicon is generated
+  // (app/icon.tsx, served at /icon) because a static file cannot read the
+  // configured platform name, so the legacy path is pointed at that route rather
+  // than at a second, static copy that could disagree with it. An afterFiles
+  // rewrite, so it applies only while no real file claims the path.
+  async rewrites() {
+    return [{ source: "/favicon.ico", destination: "/icon" }];
+  },
   images: {
     unoptimized: true,
     remotePatterns: remoteImagePatterns,

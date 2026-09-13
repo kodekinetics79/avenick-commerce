@@ -18,7 +18,7 @@
     "freeDelivery": "Delivery terms are confirmed while your order is processed",
     "searchPlaceholder": "Search the marketplace",
     "skipToContent": "Skip to content",
-    "metaDescription": "A GCC marketplace for business and consumer buying: search a supplier catalogue, order directly, or submit an RFQ for volume requirements."
+    "metaDescription": "A GCC marketplace for business buying: search a supplier catalogue, request quotes, and order through a reviewed company account."
   },
   "nav": {
     "home": "Home",
@@ -391,8 +391,8 @@
     }
   },
   "deals": {
-    "title": "Marketplace offers",
-    "description": "Marketplace promotions are not currently available.",
+    "title": "Featured products",
+    "description": "Current catalogue listings and their published prices.",
     "browseProducts": "Browse products"
   },
   "brandsContent": {
@@ -409,7 +409,8 @@
     "sellerCta": {
       "headline": "Are you a brand or distributor?",
       "body": "Apply to sell on {platform}. Applications are reviewed before a storefront goes live."
-    }
+    },
+    "metaDescription": "Brands listed in the supplier catalogue, each linked to its products."
   },
   "spatialCommerce": {
     "metadataTitle": "Spatial Commerce Preview",
@@ -555,7 +556,8 @@
     "brandsSub": "Manufacturers whose products are listed by sellers on this marketplace",
     "brandsAll": "Browse brands",
     "quoteSignInNote": "Quote requests are sent from a business account. You'll be asked to sign in first if you aren't already.",
-    "protectCta": "Read the buyer protection terms"
+    "protectCta": "Read the buyer protection terms",
+    "metaTitle": "B2B sourcing marketplace for the GCC"
   },
   "footer": {
     "helpTitle": "Questions about an order or a price?",
@@ -929,7 +931,8 @@
       "OUT_OF_STOCK": "Out of stock",
       "UNCONFIRMED": "Availability unconfirmed"
     },
-    "productsNoun": "{count, plural, one {product} other {products}}"
+    "productsNoun": "{count, plural, one {product} other {products}}",
+    "metaDescription": "Browse the supplier catalogue by category, brand and minimum order quantity."
   },
   "discovery": {
     "eyebrow": "Discovery",
@@ -974,7 +977,7 @@
     "metaTitle": "Wishlist"
   },
   "status": {
-    "metaTitle": "Platform status"
+    "metaTitle": "System status"
   },
   "notFound": {
     "eyebrow": "Page not found",

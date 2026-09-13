@@ -4,8 +4,10 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { PolicyShell, type PolicySection } from "@/components/legal/policy-shell";
 import { OFFICE_AR, companyHeadquarters, formatAddress, gccOffices } from "@/lib/company";
 import { platformName } from "@avenick/utils/portal-config";
+import { canonicalFor } from "@/lib/page-metadata";
 
 export const metadata = {
+  ...canonicalFor("/about"),
   title: "About",
   description: `What ${platformName()} is, how buying works, and who operates the platform.`,
 };

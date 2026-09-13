@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations } from "next-intl/server";
@@ -7,6 +7,9 @@ import { AuthProvider } from "@/components/auth-provider";
 import { NavigationProgress } from "@/components/navigation-progress";
 import { AmbientField, EnvironmentFlags, RevealRoot } from "@avenick/ui";
 import { platformName, selfOrigin } from "@avenick/utils/portal-config";
+import { appIconPath } from "@/components/seo/app-icons";
+import { JsonLd } from "@/components/seo/json-ld";
+import { siteIdentity } from "@/components/seo/structured-data";
 import "./globals.css";
 
 // "The leading platform" (المنصة الرائدة) was a market-position claim nothing
@@ -38,16 +41,48 @@ export async function generateMetadata(): Promise<Metadata> {
     // icon.tsx, apple-icon.tsx and opengraph-image.tsx are file conventions and
     // are wired automatically; this names the manifest, which is not.
     manifest: "/manifest.webmanifest",
-    openGraph: {
-      type: "website",
-      siteName: name,
-      title: name,
-      description: t("metaDescription"),
-      ...(origin ? { url: origin } : {}),
-    },
-    twitter: { card: "summary_large_image", title: name, description: t("metaDescription") },
+    // Only what is true of EVERY page: the kind of site and its name. This block
+    // used to carry `title: name`, the root description and `url: origin`, and
+    // no route overrides openGraph, so every page on the storefront — a product,
+    // a category, the cart — shared as "Avenick", with the home page's sentence,
+    // at the home page's address.
+    //
+    // Leaving title and description out lets Next fill og:title, og:description
+    // and their twitter:* twins from each page's own resolved title (template
+    // included) and description (resolve-metadata.js, inheritFromMetadata). That
+    // is also why pages must not rebuild openGraph themselves: a page-level
+    // openGraph replaces this one, and the image opengraph-image.tsx attaches here
+    // would go with it. og:url is omitted, not recomputed: it is optional, a
+    // scraper uses the URL it fetched, and each indexable page names its
+    // canonical through lib/page-metadata.ts instead.
+    openGraph: { type: "website", siteName: name },
+    twitter: { card: "summary_large_image" },
   };
 }
+
+/**
+ * The browser's own chrome — the mobile address bar, the installed window's
+ * title bar — painted the colour of the page ground rather than the browser's
+ * default. There was no theme-color at all, so a dark-theme visitor on Android
+ * got a white bar above a near-black page.
+ *
+ * The two values are the literal grounds: --surface-0 in :root is
+ * hsl(36 20% 97.5%) = #faf9f7, the same paper the manifest's theme_color names,
+ * and in .dark it is hsl(232 18% 4%) = #08090c. They are literals because a meta
+ * tag cannot read a CSS custom property; if either token moves, these move with it.
+ *
+ * KNOWN LIMIT. This follows the SYSTEM preference. The header's ThemeToggle can
+ * override that, and it records the override in localStorage, which a server-
+ * rendered tag cannot see. A visitor who picks light on a dark system keeps a dark
+ * bar until the toggle updates the tag itself. That fix belongs to ThemeToggle in
+ * packages/ui and is handed off, not guessed at here.
+ */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#faf9f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#08090c" },
+  ],
+};
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +91,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const locale = cookieStore.get("AVENICK_LOCALE")?.value ?? "en";
   const messages = await getMessages();
   const dir = locale === "ar" ? "rtl" : "ltr";
+  // The site's name, address and logo as structured data, on every page. Only
+  // when this deployment knows its own address: every URL in it must be
+  // absolute, and selfOrigin() returns null rather than a guess. The logo is the
+  // 512px plated icon, the size search engines ask a logo to clear.
+  const origin = selfOrigin("customer");
 
   return (
     // data-portal is what selects this app's posture in the shared token file:
@@ -87,6 +127,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           />
         )}
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('avenick-theme');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;if(t==='dark'||(!t&&m)){document.documentElement.classList.add('dark');}}catch(e){}})();` }} />
+        {origin && <JsonLd data={{ "@graph": siteIdentity(origin, platformName(), appIconPath(512)) }} />}
       </head>
       <body>
         {/*

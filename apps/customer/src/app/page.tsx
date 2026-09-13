@@ -25,6 +25,24 @@ import { productCardPricePresentation } from "@/lib/product-card-commerce";
 import { HeroCarousel } from "@/components/hero/hero-carousel";
 import { toHeroSlides } from "@/components/hero/hero-slides";
 import { categoryRailRows } from "@/components/hero/category-rail-rows";
+import type { Metadata } from "next";
+import { platformName } from "@avenick/utils/portal-config";
+import { canonicalFor } from "@/lib/page-metadata";
+
+/**
+ * The home page exported no metadata, so its tab, its search result and every
+ * share card read the root default: the bare platform name, with no word saying
+ * what the platform is. `absolute` because the root template would otherwise
+ * append the name a second time. The description stays the root's, which is
+ * written for this page.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("home");
+  return {
+    title: { absolute: `${platformName()} · ${t("metaTitle")}` },
+    ...canonicalFor("/"),
+  };
+}
 
 export const dynamic = "force-dynamic";
 

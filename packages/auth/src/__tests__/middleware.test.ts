@@ -223,3 +223,71 @@ describe("static-asset skip does not become an auth bypass", () => {
     expect(res!.status).toBe(307);
   });
 });
+
+/**
+ * A path that names no route is a 404, not a sign-in page.
+ *
+ * Every unmatched customer URL answered `307 -> /login?callbackUrl=…`: a typo,
+ * a dead link from an old email, a crawler's probe. The visitor who had never
+ * held an account was greeted with "Welcome back", and not one request ever
+ * reached app/not-found.tsx. The app now passes the first segments it can route
+ * and the middleware rewrites anything else to a path nothing can be routed to.
+ *
+ * The value of the change is in what it does NOT move: every real private route
+ * still goes to sign in, every API still answers JSON, and the two operator
+ * portals, which pass no list, behave exactly as before.
+ */
+describe("unrouted paths reach the 404 page", () => {
+  const KNOWN = ["about", "account", "api", "auth", "b2b", "checkout", "orders", "products"];
+  const customer = (auth = anon) => createMiddleware("customer", auth, { knownTopLevelSegments: KNOWN });
+
+  const isRewrittenTo404 = (res: Response) =>
+    res.status === 200 &&
+    res.headers.get("location") === null &&
+    new URL(res.headers.get("x-middleware-rewrite") ?? "http://x/").pathname === "/_unrouted";
+
+  it.each(["/this-page-does-not-exist", "/definitely-not-a-route", "/wp-admin", "/accounts", "/b2b-internal", "/nope/deeper/still"])(
+    "rewrites anonymous %s to the unrouted path instead of redirecting to /login",
+    async (path) => {
+      const res = await customer()(req(path));
+      expect(isRewrittenTo404(res), `${path} answered ${res.status} ${res.headers.get("location") ?? ""}`).toBe(true);
+    },
+  );
+
+  it("gives a signed-in buyer the same 404, because who is asking does not change whether a page exists", async () => {
+    const res = await customer(as(UserRole.COMPANY_BUYER))(req("/this-page-does-not-exist"));
+    expect(isRewrittenTo404(res)).toBe(true);
+  });
+
+  it.each(["/account", "/account/orders", "/orders/1", "/checkout", "/b2b/team", "/auth/accept-invite"])(
+    "still sends anonymous %s to sign in",
+    async (path) => {
+      const res = await customer()(req(path));
+      expect(res.status, path).toBe(307);
+      const location = new URL(res.headers.get("location")!);
+      expect(location.pathname).toBe("/login");
+      expect(location.searchParams.get("callbackUrl")).toBe(path);
+    },
+  );
+
+  it("still answers a protected API with a JSON 401", async () => {
+    const res = await customer()(req("/api/orders"));
+    expect(res.status).toBe(401);
+  });
+
+  it("leaves the home page, public pages and static assets alone", async () => {
+    for (const path of ["/", "/about", "/products/some-slug", "/robots.txt", "/logo.svg"]) {
+      const res = await customer()(req(path));
+      expect(res.status, path).toBe(200);
+      expect(res.headers.get("x-middleware-rewrite"), `${path} must not be rewritten`).toBeNull();
+    }
+  });
+
+  it("changes nothing on the seller and admin portals, which pass no list", async () => {
+    for (const portal of ["seller", "admin"] as const) {
+      const res = await createMiddleware(portal, anon)(req("/this-page-does-not-exist"));
+      expect(res.status, portal).toBe(307);
+      expect(res.headers.get("location"), portal).toContain("/login");
+    }
+  });
+});

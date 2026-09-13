@@ -3,8 +3,10 @@ import Link from "next/link";
 import { MainLayout } from "@/components/layout/main-layout";
 import { PolicyShell, type PolicySection } from "@/components/legal/policy-shell";
 import { platformName } from "@avenick/utils/portal-config";
+import { canonicalFor } from "@/lib/page-metadata";
 
 export const metadata = {
+  ...canonicalFor("/warranty"),
   title: "Warranty claims",
   description: `${platformName()} warranty claims — who honours a warranty, what to send, and how a claim is handled.`,
 };

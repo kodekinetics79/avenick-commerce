@@ -55,6 +55,7 @@ import { findCategory, type CategoryNode } from "@/lib/category-tree";
 import { toCardRow, type CardRow } from "@/lib/product-card-row";
 import { readPublicBrands } from "@/lib/public-brands";
 import { readPublicCategoryTree } from "@/lib/public-category-tree";
+import { listingCanonicalFor, NOINDEX_FOLLOW } from "@/lib/page-metadata";
 
 // No platform-name suffix here. The root layout declares
 // `title.template: "%s | <platform>"`, so appending it again rendered
@@ -64,21 +65,59 @@ import { readPublicCategoryTree } from "@/lib/public-category-tree";
 // English literal "Products" for every visitor. A document title is a
 // user-visible string: it is what the browser tab, the history entry, the
 // bookmark and every share card say, so an Arabic session read the whole page
-// in Arabic under an English tab. It follows the same three cases the h1 does,
-// out of the same message tree.
+// in Arabic under an English tab. It follows the same three cases as the page
+// heading, out of the same message tree.
+//
+// THE CATEGORY CASE NEEDS THE CATEGORY'S NAME. catalogue.title.category is the
+// message "{category}", and it was called with no value, so next-intl answered
+// with its fallback: every /products?category=<slug> tab read
+// "catalogue.title.category | Avenick". The name is now read from the public
+// tree, in the visitor's locale, as /categories/<slug> names it. A slug the tree
+// does not hold gets the plain catalogue title rather than the raw parameter,
+// which is visitor input and does not belong in a title.
+//
+// A search is a page made of the visitor's own words, so it is kept out of the
+// index (see NOINDEX_FOLLOW) and names no canonical. The first page of every
+// other variant names one: a category filter is the same listing
+// /categories/<slug> publishes, and ?sort and the facets are views of /products
+// itself. A page past the first names none — it lists different products, and
+// pointing it at page one would tell a crawler those products are a duplicate of
+// page one's (see listingCanonicalFor).
 export async function generateMetadata({
   searchParams,
 }: {
   searchParams: SearchParams;
 }): Promise<Metadata> {
   const t = await getTranslations("catalogue");
+  if (searchParams.search) {
+    return { title: t("title.search", { query: searchParams.search }), robots: NOINDEX_FOLLOW };
+  }
+  if (!searchParams.category) {
+    return { title: t("title.all"), description: t("metaDescription"), ...listingCanonicalFor("/products", searchParams.page) };
+  }
+  const category = await publicCategoryBySlug(searchParams.category);
+  if (!category) return { title: t("title.all"), description: t("metaDescription") };
+  const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
   return {
-    title: searchParams.search
-      ? t("title.search", { query: searchParams.search })
-      : searchParams.category
-      ? t("title.category")
-      : t("title.all"),
+    title: t("title.category", {
+      category: locale === "ar" ? category.nameAr?.trim() || category.nameEn : category.nameEn,
+    }),
+    description: t("metaDescription"),
+    ...listingCanonicalFor(`/categories/${category.slug}`, searchParams.page),
   };
+}
+
+/**
+ * The public category a ?category= slug names, or null. A slug the tree does not
+ * hold, or a tree that cannot be read, names no canonical rather than pointing a
+ * crawler at a /categories/<slug> that would 404.
+ */
+async function publicCategoryBySlug(slug: string): Promise<CategoryNode | null> {
+  try {
+    return findCategory(await readPublicCategoryTree(), slug) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export const dynamic = "force-dynamic";
