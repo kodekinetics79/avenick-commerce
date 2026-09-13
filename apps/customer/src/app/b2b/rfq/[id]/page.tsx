@@ -75,7 +75,7 @@ export default async function RFQDetailPage({ params }: { params: { id: string }
     quoteVersion: number;
     createdAt: string;
     requiredBy: string | null;
-    seller: { businessNameEn: string; tier: string } | null;
+    seller: { businessNameEn: string; tier: string; verification: { type: string; reviewedAt: string } | null } | null;
     items: Array<{
       id: string;
       nameEn: string;
@@ -158,8 +158,12 @@ export default async function RFQDetailPage({ params }: { params: { id: string }
                       this page holds the seller's TIER, not a reviewed
                       SellerDocument, and a brass arc travelling around a badge
                       with no cited document behind it is a fabricated trust
-                      signal rendered in CSS. */}
-                  {BRASS_TIERS.has(rfq.seller.tier) ? (
+                      signal rendered in CSS. A VERIFIED tier with no approved,
+                      unexpired SellerDocument behind it prints nothing at all:
+                      the word is itself the claim, and the pilot importer and
+                      the seed scripts store that tier on sellers nothing
+                      reviewed. */}
+                  {rfq.seller.tier === "VERIFIED" && !rfq.seller.verification ? null : BRASS_TIERS.has(rfq.seller.tier) ? (
                     <TierMark tier={rfq.seller.tier} label={tierLabel(rfq.seller.tier)} />
                   ) : (
                     <span>· {tierLabel(rfq.seller.tier)}</span>

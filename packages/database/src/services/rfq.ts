@@ -89,14 +89,47 @@ export async function getRFQForBuyer(opts: { rfqId: string; buyerId: string; com
     },
     include: {
       items: true,
-      seller: { select: { businessNameEn: true, tier: true } },
+      seller: {
+        select: {
+          businessNameEn: true,
+          tier: true,
+          // THE BASIS A VERIFIED MARK MAY CITE, by the same rule the product page
+          // applies (services/products.ts, getProductBySlug). The stored tier is
+          // not one: the pilot importer and the seed scripts write VERIFIED on
+          // sellers that have no reviewed document. Type and date only — the
+          // file, its name and the reviewer never leave this function.
+          documents: {
+            where: {
+              status: "APPROVED",
+              reviewedAt: { not: null },
+              OR: [{ expiryDate: null }, { expiryDate: { gt: new Date() } }],
+            },
+            orderBy: { reviewedAt: "desc" },
+            take: 1,
+            select: { type: true, reviewedAt: true },
+          },
+        },
+      },
       messages: { orderBy: [{ createdAt: "desc" }, { id: "desc" }], take: RFQ_MESSAGE_WINDOW },
       _count: { select: { messages: true } },
     },
   });
   if (!rfq) return null;
-  const { _count, messages, ...rest } = rfq;
-  return { ...rest, messages: messages.reverse(), messageTotal: _count.messages };
+  const { _count, messages, seller, ...rest } = rfq;
+  const reviewed = seller?.documents[0];
+  return {
+    ...rest,
+    seller: seller
+      ? {
+          businessNameEn: seller.businessNameEn,
+          tier: seller.tier,
+          // null, not a guess, when no approved document stands.
+          verification: reviewed?.reviewedAt ? { type: reviewed.type, reviewedAt: reviewed.reviewedAt } : null,
+        }
+      : null,
+    messages: messages.reverse(),
+    messageTotal: _count.messages,
+  };
 }
 
 /** Buyer decision on a quoted RFQ. */
