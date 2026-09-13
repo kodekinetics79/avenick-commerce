@@ -777,7 +777,8 @@
     "title": {
       "all": "كل المنتجات",
       "category": "{category}",
-      "search": "نتائج البحث عن ”{query}“"
+      "search": "نتائج البحث عن ”{query}“",
+      "brand": "{brand}"
     },
     "forQuery": "عن ”{query}“",
     "showingAll": "تُعرض جميع المنتجات المنشورة.",

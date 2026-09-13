@@ -777,7 +777,8 @@
     "title": {
       "all": "All products",
       "category": "{category}",
-      "search": "Results for “{query}”"
+      "search": "Results for “{query}”",
+      "brand": "{brand}"
     },
     "forQuery": "for “{query}”",
     "showingAll": "Showing every published listing.",

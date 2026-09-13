@@ -53,7 +53,7 @@ import { categoryLabel } from "@/lib/catalog-categories";
 import { toCatalogListDto } from "@/lib/catalog-list-dto";
 import { findCategory, type CategoryNode } from "@/lib/category-tree";
 import { toCardRow, type CardRow } from "@/lib/product-card-row";
-import { readPublicBrands } from "@/lib/public-brands";
+import { readPublicBrands, type PublicBrand } from "@/lib/public-brands";
 import { readPublicCategoryTree } from "@/lib/public-category-tree";
 import { listingCanonicalFor, NOINDEX_FOLLOW } from "@/lib/page-metadata";
 
@@ -92,6 +92,19 @@ export async function generateMetadata({
   if (searchParams.search) {
     return { title: t("title.search", { query: searchParams.search }), robots: NOINDEX_FOLLOW };
   }
+  // A BRAND LISTING IS ITS OWN PAGE. /products?brand=<slug> is the only address a
+  // brand has — there is no /brands/<slug> — and it lists only that brand's
+  // products. It was titled "All products" and named /products as its canonical,
+  // which told a crawler every brand listing duplicates the whole catalogue and
+  // should be folded into it. It is titled with the brand and names no canonical:
+  // canonicalFor keeps paths only, and none is better than a wrong one.
+  if (searchParams.brand && !searchParams.category) {
+    const brand = await publicBrandBySlug(searchParams.brand);
+    return {
+      title: brand ? t("title.brand", { brand: brandLabel(brand, cookies().get("AVENICK_LOCALE")?.value) }) : t("title.all"),
+      description: t("metaDescription"),
+    };
+  }
   if (!searchParams.category) {
     return { title: t("title.all"), description: t("metaDescription"), ...listingCanonicalFor("/products", searchParams.page) };
   }
@@ -103,8 +116,24 @@ export async function generateMetadata({
       category: locale === "ar" ? category.nameAr?.trim() || category.nameEn : category.nameEn,
     }),
     description: t("metaDescription"),
-    ...listingCanonicalFor(`/categories/${category.slug}`, searchParams.page),
+    // A brand narrows the category to part of it, so /categories/<slug> is not
+    // this page's canonical either.
+    ...(searchParams.brand ? {} : listingCanonicalFor(`/categories/${category.slug}`, searchParams.page)),
   };
+}
+
+/** The public brand a ?brand= slug names, or null when it names none or the list cannot be read. */
+async function publicBrandBySlug(slug: string): Promise<PublicBrand | null> {
+  try {
+    return (await readPublicBrands()).find((brand) => brand.slug === slug) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** A brand's name in the reader's language, falling back to the English name. */
+function brandLabel(brand: PublicBrand, locale: string | undefined): string {
+  return locale === "ar" ? brand.nameAr?.trim() || brand.nameEn : brand.nameEn;
 }
 
 /**
@@ -1109,10 +1138,18 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
   // slug back as though it were a name. A failed read is the same heading: the
   // grid below is about to say what it found either way, and a page head must
   // not 500 over its label.
+  //
+  // A brand listing is headed with the brand, for the same reason its tab is
+  // (see generateMetadata): it lists one brand, not all products.
+  const brandInForce = !searchParams.search && !searchParams.category && searchParams.brand
+    ? await publicBrandBySlug(searchParams.brand)
+    : null;
   const title = searchParams.search
     ? t("title.search", { query: searchParams.search })
     : searchParams.category
     ? await categoryHeading(searchParams.category)
+    : brandInForce
+    ? t("title.brand", { brand: brandLabel(brandInForce, cookies().get("AVENICK_LOCALE")?.value) })
     : t("title.all");
 
   return (
