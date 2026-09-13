@@ -41,6 +41,7 @@ import { BuyActions } from "@/components/product/buy-actions";
 import { PricePanel } from "@/components/product/price-panel";
 import { ProductGallery, type GalleryImage } from "@/components/product/product-gallery";
 import { ReviewPanel, type Review, type ReviewAccess } from "@/components/product/review-panel";
+import { SectionNav } from "@/components/product/section-nav";
 import { SellerCard, type ProductSeller } from "@/components/product/seller-card";
 import { SpecList, type SpecRow } from "@/components/product/spec-list";
 import { ViewBeacon } from "@/components/product/view-beacon";
@@ -569,7 +570,7 @@ export default function ProductPage({
                     <Button
                       variant={wishlisted ? "secondary" : "ghost"}
                       size="icon"
-                      className="shrink-0"
+                      className="shrink-0 print:hidden"
                       disabled={!selection}
                       aria-label={wishlisted ? t("wishlistRemove") : t("wishlistAdd")}
                       aria-pressed={wishlisted}
@@ -775,42 +776,9 @@ export default function ProductPage({
 
           {/* Sections */}
           <div className="mt-block">
-            {/*
-              Plain anchors rather than buttons that call window.scrollTo: they
-              are keyboard-native, they work before hydration and with JavaScript
-              off, and the smooth scroll comes from the stylesheet, which is
-              already switched off under prefers-reduced-motion. The active mark
-              is the same drawn brass rule everything else on this page uses.
-
-              The bar is a SIBLING of the content panel rather than its first
-              child. An ancestor with `overflow: hidden` becomes the scroll box a
-              sticky element sticks inside, and because that box never scrolls
-              itself the bar would simply never stick — it would ride up the page
-              with the panel. It also sits one step BELOW the site header in the
-              stacking order, so a header that wraps taller on a narrow viewport
-              covers this rather than the other way round.
-
-              The focus ring is drawn inside each anchor: the strip scrolls
-              horizontally, and a scroll container clips an outward ring.
-            */}
-            <Surface as="nav" rung={1} aria-label={t("sections.label")} className="sticky top-16 z-20 rounded-b-none">
-              <ul className="flex overflow-x-auto scrollbar-hide">
-                {SECTIONS.map((entry) => (
-                  <li key={entry.id}>
-                    <a
-                      href={`#${entry.id}`}
-                      aria-current={section === entry.id ? "true" : undefined}
-                      className={`${FOCUS_INSET} relative flex h-row items-center whitespace-nowrap px-5 u-ui font-medium transition-colors duration-press ease-standard ${
-                        section === entry.id ? "text-ink-1" : "text-ink-3 hover:text-ink-1"
-                      }`}
-                    >
-                      {entry.label}
-                      <Divider drawn on={section === entry.id} className="absolute inset-x-0 bottom-0" />
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </Surface>
+            {/* A sibling of the content panel, never its child. See SectionNav
+                for why, and for how the strip shows a phone that it scrolls. */}
+            <SectionNav label={t("sections.label")} sections={SECTIONS} active={section} />
 
             {/* The panel's top edge is square and unruled because the nav above
                 supplies both; when the nav is stuck, the panel scrolls underneath
@@ -916,7 +884,7 @@ export default function ProductPage({
             ] as const
           ).map(({ key, rows }) =>
             rows.length === 0 ? null : (
-              <section key={key} aria-labelledby={`rail-${key}`} className="mt-12 lg:col-span-12">
+              <section key={key} aria-labelledby={`rail-${key}`} className="mt-12 lg:col-span-12 print:hidden">
                 <h2 id={`rail-${key}`} className="u-h2 text-ink-1">{t(`sections.${key}`)}</h2>
                 <p className="u-meta mt-1 text-ink-3">{t(`railReason.${key}`)}</p>
                 <div className="mt-5">
@@ -947,9 +915,17 @@ export default function ProductPage({
         8px: this bar wraps to two lines on a 320px phone with a long currency
         and a long label, and a fixed offset makes the same gesture travel a
         different visual distance depending on what the bar happens to contain.
+
+        NOT PRINTED, and neither are the wishlist heart, the section nav or the
+        selling rails. Buyers print or save product pages into approval and
+        procurement files. A position: fixed bar prints across the photograph,
+        the other three are controls or suggestions that do nothing on paper,
+        and the rails alone added pages of other products to a one-SKU printout.
+        What prints is the record: trail, name, SKU, price or quote state,
+        supplier, description, specifications and terms.
       */}
       <div
-        className={`fixed inset-x-0 bottom-0 z-sticky lg:hidden transition-[opacity,transform] duration-panel ease-standard motion-reduce:transform-none ${
+        className={`fixed inset-x-0 bottom-0 z-sticky lg:hidden print:hidden transition-[opacity,transform] duration-panel ease-standard motion-reduce:transform-none ${
           buyBarVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-[14%] opacity-0"
         }`}
         aria-hidden={!buyBarVisible}

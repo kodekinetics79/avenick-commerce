@@ -151,7 +151,11 @@ export function SellerCard({
             {tierMark}
 
             {quoteHref && (
-              <Button asChild variant="secondary" size="sm">
+              // 30px tall at size sm, which is under the 44px a thumb needs.
+              // Below sm the card stacks and there is room, so the control takes
+              // the large control height there and stays compact beside the name
+              // on wider screens.
+              <Button asChild variant="secondary" size="sm" className="max-sm:h-control-lg">
                 <Link href={quoteHref}>
                   <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
                   {labels.requestQuote}
