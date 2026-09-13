@@ -63,33 +63,33 @@ export default async function NotFound() {
   return (
     <MainLayout>
       <div className="mx-auto flex max-w-shell flex-col items-center gap-8 px-gutter py-section">
-      <EmptyState
-        variant="certificate"
-        headingLevel="h1"
-        eyebrow={`${t("eyebrow")} · ${t("code")}`}
-        headline={t("headline")}
-        body={t("body")}
-        glyph={<Compass />}
-        action={
-          <Button asChild variant="primary">
-            <Link href="/products">{t("products")}</Link>
-          </Button>
-        }
-        className="w-full"
-      />
+        <EmptyState
+          variant="certificate"
+          headingLevel="h1"
+          eyebrow={`${t("eyebrow")} · ${t("code")}`}
+          headline={t("headline")}
+          body={t("body")}
+          glyph={<Compass />}
+          action={
+            <Button asChild variant="primary">
+              <Link href="/products">{t("products")}</Link>
+            </Button>
+          }
+          className="w-full"
+        />
 
-      {/* Two further destinations, as tertiary links rather than a second row of
-          buttons: EmptyState takes exactly one action, and three equal buttons
-          would make the recovery a three-way choice instead of a default with
-          alternatives (LAW G — default one, do not delete the rest). */}
-      <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-        <Button asChild variant="link" size="sm">
-          <Link href="/">{t("home")}</Link>
-        </Button>
-        <Button asChild variant="link" size="sm">
-          <Link href="/support">{t("support")}</Link>
-        </Button>
-      </div>
+        {/* Two further destinations, as tertiary links rather than a second row of
+            buttons: EmptyState takes exactly one action, and three equal buttons
+            would make the recovery a three-way choice instead of a default with
+            alternatives (LAW G — default one, do not delete the rest). */}
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+          <Button asChild variant="link" size="sm">
+            <Link href="/">{t("home")}</Link>
+          </Button>
+          <Button asChild variant="link" size="sm">
+            <Link href="/support">{t("support")}</Link>
+          </Button>
+        </div>
       </div>
     </MainLayout>
   );
