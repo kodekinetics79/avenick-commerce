@@ -5,6 +5,7 @@ import { ThemeToggle } from "../theme-toggle";
 
 const markup = (node: React.ReactElement) => renderToStaticMarkup(node);
 const button = (html: string) => /<button[^>]*>/.exec(html)![0];
+const LABELS = { toDark: "Switch to dark mode", toLight: "Switch to light mode" };
 
 /**
  * The storefront header drew the theme toggle as the one bordered, plated,
@@ -17,7 +18,7 @@ const button = (html: string) => /<button[^>]*>/.exec(html)![0];
  */
 describe("ThemeToggle", () => {
   it("keeps the raised chip by default, so seller and admin render exactly as before", () => {
-    const html = markup(<ThemeToggle />);
+    const html = markup(<ThemeToggle labels={LABELS} />);
     expect(button(html)).toMatch(/border border-border bg-surface-2/);
     expect(button(html)).toMatch(/shadow-elev-2/);
     expect(button(html)).toMatch(/height:var\(--control-h-md\)/);
@@ -25,13 +26,13 @@ describe("ThemeToggle", () => {
   });
 
   it("draws a flat icon control when asked, with no border, plate or shadow", () => {
-    const html = button(markup(<ThemeToggle variant="ghost" />));
+    const html = button(markup(<ThemeToggle variant="ghost" labels={LABELS} />));
     expect(html).not.toMatch(/\bborder\b|bg-surface-2|shadow-/);
     expect(html).toMatch(/hover:bg-ink-1\/\[0\.06\]/);
   });
 
   it("offers a 44px touch target for a sheet", () => {
-    expect(button(markup(<ThemeToggle size="lg" />))).toMatch(/height:2\.75rem;width:2\.75rem/);
+    expect(button(markup(<ThemeToggle size="lg" labels={LABELS} />))).toMatch(/height:2\.75rem;width:2\.75rem/);
   });
 
   it("names itself in the language the caller passes", () => {

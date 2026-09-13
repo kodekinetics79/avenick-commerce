@@ -1402,7 +1402,9 @@
       "messages": "Messages",
       "messagesUnread": "Messages ({count} unread)",
       "accountMenu": "Account menu",
-      "accountMenuFor": "Account menu for {name}"
+      "accountMenuFor": "Account menu for {name}",
+      "themeToDark": "Switch to dark mode",
+      "themeToLight": "Switch to light mode"
     },
     "score": {
       "title": "Performance score",

@@ -27,21 +27,19 @@ export interface ThemeToggleProps {
   size?: "md" | "lg";
   /**
    * The accessible names, in the active locale. A primitive cannot read a
-   * portal's message tree, so the caller passes them. The English fallback
-   * exists only so that callers which have not adopted the prop keep their
-   * current names. A portal that ships Arabic must pass these.
+   * portal's message tree, so every caller passes them, and there is no
+   * fallback: a default here would be an English literal in JSX on an Arabic
+   * page (§9), which is what this used to be in the seller and admin portals.
    */
-  labels?: { toDark: string; toLight: string };
+  labels: { toDark: string; toLight: string };
 }
-
-const FALLBACK_LABELS = { toDark: "Switch to dark mode", toLight: "Switch to light mode" };
 
 const VARIANT: Record<NonNullable<ThemeToggleProps["variant"]>, string> = {
   raised: "border border-border bg-surface-2 text-ink-3 shadow-elev-2 hover:bg-surface-1 hover:text-ink-1",
   ghost: "text-ink-2 hover:bg-ink-1/[0.06] hover:text-ink-1",
 };
 
-export function ThemeToggle({ className, variant = "raised", size = "md", labels = FALLBACK_LABELS }: ThemeToggleProps) {
+export function ThemeToggle({ className, variant = "raised", size = "md", labels }: ThemeToggleProps) {
   const [dark, setDark] = React.useState(false);
 
   React.useEffect(() => {

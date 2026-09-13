@@ -1402,7 +1402,9 @@
       "messages": "الرسائل",
       "messagesUnread": "الرسائل ({count} غير مقروءة)",
       "accountMenu": "قائمة الحساب",
-      "accountMenuFor": "قائمة الحساب لـ {name}"
+      "accountMenuFor": "قائمة الحساب لـ {name}",
+      "themeToDark": "التبديل إلى الوضع الداكن",
+      "themeToLight": "التبديل إلى الوضع الفاتح"
     },
     "score": {
       "title": "درجة الأداء",
