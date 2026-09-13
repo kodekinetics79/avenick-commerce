@@ -51,6 +51,13 @@ export type CatalogDetailSource = {
     reviewSummary: { averageRating: number | null; reviewCount: number };
     city: string;
     country: string;
+    /**
+     * The approved, unexpired SellerDocument a verification mark may cite —
+     * its type and review date, never the file. null when there is none, which
+     * the page renders as no verification mark at all. Optional so an older
+     * service shape still projects (as null).
+     */
+    verification?: { type: string; reviewedAt: Date | string } | null;
   };
   reviews: Array<{
     id: string;
@@ -120,7 +127,22 @@ export function toCatalogDetailDto(source: CatalogDetailSource, channel: "B2C" |
           : "UNCONFIRMED" as const,
       })),
     brand: source.brand ? { nameEn: source.brand.nameEn, nameAr: source.brand.nameAr } : null,
-    seller: source.seller,
+    // Field by field, like every other relation here. Passing the service's
+    // seller object through whole meant anything later added to its select —
+    // the document relation behind the verification mark, for one — would reach
+    // the browser the moment it was selected.
+    seller: {
+      id: source.seller.id,
+      businessNameEn: source.seller.businessNameEn,
+      businessNameAr: source.seller.businessNameAr,
+      tier: source.seller.tier,
+      city: source.seller.city,
+      country: source.seller.country,
+      reviewSummary: source.seller.reviewSummary,
+      verification: source.seller.verification
+        ? { type: source.seller.verification.type, reviewedAt: source.seller.verification.reviewedAt }
+        : null,
+    },
     reviews: source.reviews.map(({ id, rating, title, body, isVerified, createdAt, user }) => ({
       id, rating, title, body, isVerified, createdAt, user,
     })),

@@ -656,6 +656,18 @@
         "VERIFIED": "Verified",
         "GOLD": "Gold",
         "PLATINUM": "Platinum"
+      },
+      "verifiedBasis": "{document} reviewed {date}",
+      "document": {
+        "COMMERCIAL_REGISTRATION": "Commercial registration",
+        "TRADE_LICENSE": "Trade licence",
+        "VAT_CERTIFICATE": "VAT certificate",
+        "SASO_CERTIFICATE": "SASO certificate",
+        "SFDA_APPROVAL": "SFDA approval",
+        "HALAL_CERTIFICATE": "Halal certificate",
+        "ESMA_CERTIFICATE": "ESMA certificate",
+        "ISO_CERTIFICATE": "ISO certificate",
+        "OTHER": "Supporting document"
       }
     },
     "sections": {

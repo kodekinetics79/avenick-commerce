@@ -26,7 +26,7 @@ import {
   Surface,
   type StockState,
 } from "@avenick/ui";
-import { formatCurrency } from "@avenick/utils";
+import { formatCurrency, formatDate } from "@avenick/utils";
 import { MainLayout } from "@/components/layout/main-layout";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
@@ -49,6 +49,7 @@ import {
   buildPriceLadder,
   BUTTON_TYPE,
   FOCUS_INSET,
+  isSellerDocumentType,
   quoteOnlyAction,
   rfqHrefForProduct,
 } from "@/components/product/product-facts";
@@ -725,6 +726,17 @@ export default function ProductPage({
                       tier === "STANDARD" || tier === "VERIFIED" || tier === "GOLD" || tier === "PLATINUM"
                         ? t(`seller.tier.${tier}`)
                         : null,
+                    // Which document an admin approved, and when, in the reader's
+                    // language. A type the tree does not name, or a date that does
+                    // not parse, yields no basis — and therefore no mark.
+                    verifiedBasis: (type, reviewedAt) => {
+                      const reviewed = new Date(reviewedAt);
+                      if (!isSellerDocumentType(type) || Number.isNaN(reviewed.getTime())) return null;
+                      return t("seller.verifiedBasis", {
+                        document: t(`seller.document.${type}`),
+                        date: formatDate(reviewed, locale),
+                      });
+                    },
                   }}
                 />
               )}

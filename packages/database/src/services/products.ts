@@ -729,7 +729,33 @@ export async function getProductBySlug(
       // (no service updates them and the seed no longer does), so selecting
       // them would print a number nobody vouches for. The seller's standing is
       // aggregated from ProductReview below instead.
-      seller: { select: { id: true, businessNameEn: true, businessNameAr: true, tier: true, city: true, country: true } },
+      seller: {
+        select: {
+          id: true,
+          businessNameEn: true,
+          businessNameAr: true,
+          tier: true,
+          city: true,
+          country: true,
+          // THE BASIS A VERIFICATION MARK CITES. The stored tier alone is not
+          // one: the only code that writes SellerTier.VERIFIED is the pilot
+          // importer and the seed scripts, and every seller with live listings
+          // carried it with zero reviewed documents. So the page may say
+          // "Verified" only beside the document an admin actually approved —
+          // the most recently reviewed one that has not lapsed. Type and date
+          // only: the file, its name and the reviewer never leave this function.
+          documents: {
+            where: {
+              status: "APPROVED",
+              reviewedAt: { not: null },
+              OR: [{ expiryDate: null }, { expiryDate: { gt: new Date() } }],
+            },
+            orderBy: { reviewedAt: "desc" },
+            take: 1,
+            select: { type: true, reviewedAt: true },
+          },
+        },
+      },
       compliance: { where: { status: "APPROVED" } },
       variants: { include: { prices: { where: { isActive: true } } } },
       reviews: {
@@ -756,10 +782,15 @@ export async function getProductBySlug(
     _count: { _all: true },
   });
   const { inventory, variants, prices, _count, seller, ...safe } = product;
+  const { documents, ...sellerProfile } = seller;
+  const reviewed = documents[0];
   return {
     ...safe,
     seller: {
-      ...seller,
+      ...sellerProfile,
+      // null, not a guess, when no approved document stands: the page then
+      // renders no verification mark at all rather than an unsupported one.
+      verification: reviewed?.reviewedAt ? { type: reviewed.type, reviewedAt: reviewed.reviewedAt } : null,
       reviewSummary: {
         // null, not 0, when there is nothing to average: the page then shows
         // no rating at all rather than a zero-star seller.

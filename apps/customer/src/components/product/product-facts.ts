@@ -143,6 +143,28 @@ export function quoteOnlyAction(
 }
 
 /**
+ * The SellerDocument types the message tree names. A verification basis is only
+ * printed for one of these, so a new enum value can never reach a buyer raw.
+ */
+export const SELLER_DOCUMENT_TYPES = [
+  "COMMERCIAL_REGISTRATION",
+  "TRADE_LICENSE",
+  "VAT_CERTIFICATE",
+  "SASO_CERTIFICATE",
+  "SFDA_APPROVAL",
+  "HALAL_CERTIFICATE",
+  "ESMA_CERTIFICATE",
+  "ISO_CERTIFICATE",
+  "OTHER",
+] as const;
+
+export type SellerDocumentType = (typeof SELLER_DOCUMENT_TYPES)[number];
+
+export function isSellerDocumentType(value: string): value is SellerDocumentType {
+  return (SELLER_DOCUMENT_TYPES as readonly string[]).includes(value);
+}
+
+/**
  * The RFQ form's address for THIS product, not just for its supplier.
  *
  * The supplier card linked `?supplier=<id>` alone and the buy column

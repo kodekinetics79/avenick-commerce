@@ -656,6 +656,18 @@
         "VERIFIED": "موثّق",
         "GOLD": "ذهبي",
         "PLATINUM": "بلاتيني"
+      },
+      "verifiedBasis": "تمت مراجعة {document} في {date}",
+      "document": {
+        "COMMERCIAL_REGISTRATION": "السجل التجاري",
+        "TRADE_LICENSE": "الرخصة التجارية",
+        "VAT_CERTIFICATE": "شهادة ضريبة القيمة المضافة",
+        "SASO_CERTIFICATE": "شهادة المواصفات السعودية",
+        "SFDA_APPROVAL": "موافقة هيئة الغذاء والدواء",
+        "HALAL_CERTIFICATE": "شهادة الحلال",
+        "ESMA_CERTIFICATE": "شهادة المواصفات الإماراتية",
+        "ISO_CERTIFICATE": "شهادة الأيزو",
+        "OTHER": "مستند داعم"
       }
     },
     "sections": {
