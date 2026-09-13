@@ -486,7 +486,7 @@
     "prop4Desc": "Capture quantities, specifications, target pricing, and delivery needs in one request.",
     "b2bTitle": "Buying at volume?",
     "b2bDesc": "Submit detailed requirements, compare returned quotes, and keep purchasing activity in one workspace.",
-    "b2bCta": "Submit an RFQ",
+    "quoteSignInNote": "Quote requests are sent from a business account. You'll be asked to sign in first if you aren't already.",
     "catIndustrial": "Industrial",
     "catElectronics": "Electronics",
     "catOffice": "Office supplies",

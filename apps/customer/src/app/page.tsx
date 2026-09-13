@@ -675,11 +675,22 @@ export default async function HomePage() {
             <Eyebrow tone="brass">{t("b2bEyebrow")}</Eyebrow>
             <h2 className="u-display mt-2 text-ink-1">{t("b2bTitle")}</h2>
             <p className="u-body mt-3 max-w-desc text-ink-2">{t("b2bDesc")}</p>
+            {/* ONE NAME FOR ONE DESTINATION. This button said "Submit an RFQ"
+                while the hero, the empty catalogue and the footer said
+                "Request a quote" for the same /b2b/rfq/new, so it now uses the
+                same key. The header keeps its shorter "Get a quote" as chrome.
+
+                The note says out loud what the click does. The form sits behind
+                sign-in (an anonymous visitor is sent to /login), and the RFQ
+                API refuses anyone without a company account. The sentence is
+                worded to be true for every viewer, so the page does not need to
+                read the session to decide whether to show it. */}
             <Button variant="primary" size="lg" className="mt-7" asChild>
               <Link href="/b2b/rfq/new">
-                {t("b2bCta")} <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                {t("requestQuote")} <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
               </Link>
             </Button>
+            <p className="u-meta mt-3 max-w-desc text-ink-2">{t("quoteSignInNote")}</p>
           </div>
         </Surface>
       </section>
