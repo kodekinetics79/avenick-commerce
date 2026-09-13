@@ -283,8 +283,15 @@ export interface SearchRecoveryPlan {
   /**
    * The term to offer an RFQ for. Set only when the catalogue reports that it
    * ran the identifier tiers (SKU, part numbers, ERP codes, brand codes) for
-   * this term and nothing matched — the one case where "no listing carries
-   * this part number" is a statement the data supports.
+   * this term and nothing matched — the one case where "no SKU or part number
+   * matches" is a statement the data supports.
+   *
+   * It says that, and not "no listing carries the part number". The service
+   * runs the identifier tiers for ANY single token shaped like one, and a plain
+   * word ("glove") is shaped like one, so the old sentence told a buyer their
+   * word was a part number. The rung itself is right for a plain word — in a
+   * catalogue that is quoted rather than carted, a quote is the one route
+   * forward — so the words changed and the rule did not.
    */
   identifier: string | null;
   /** A shorter query to verify, or null. Never shown until it has been run. */

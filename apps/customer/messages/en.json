@@ -850,7 +850,7 @@
         "eyebrow": "Where to go next",
         "categories": "Categories named like “{query}”",
         "brands": "Brands named like “{query}”",
-        "identifier": "No listing carries the part number “{query}”.",
+        "identifier": "No SKU or part number matches “{query}”.",
         "identifierAction": "Request a quote for it",
         "relaxed": "Dropping the last word finds {count, plural, one {1 listing} other {# listings}}.",
         "relaxedAction": "Search for “{query}”"

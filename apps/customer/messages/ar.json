@@ -850,7 +850,7 @@
         "eyebrow": "إلى أين بعد ذلك",
         "categories": "فئات تحمل اسمًا شبيهًا بـ ”{query}“",
         "brands": "علامات تجارية تحمل اسمًا شبيهًا بـ ”{query}“",
-        "identifier": "لا يوجد منتج مدرج يحمل رقم القطعة ”{query}“.",
+        "identifier": "لا يطابق أي رمز منتج أو رقم قطعة ”{query}“.",
         "identifierAction": "اطلب عرض سعر له",
         "relaxed": "حذف الكلمة الأخيرة يعثر على {count, plural, one {منتج واحد} two {منتجين} few {# منتجات} many {# منتجًا} other {# منتج}}.",
         "relaxedAction": "ابحث عن ”{query}“"
