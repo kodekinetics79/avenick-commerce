@@ -41,6 +41,17 @@ describe("home page product rails", () => {
     expect(rail).not.toContain("scrollbar-hide");
   });
 
+  it("does not hold a swiped-to tile back behind its reveal on a phone", () => {
+    // RevealRoot hides any [data-reveal] off screen at first sighting, and a
+    // tile clipped by the row's own scroller counts as off screen — so every
+    // swipe used to land on an empty plate that faded in afterwards. The
+    // override must out-rank `[data-reveal][data-reveal-state="hidden"]`
+    // (two attribute selectors) and apply only under sm.
+    const rail = productRailSource();
+    expect(rail).toContain("max-sm:[&[data-reveal][data-reveal-state=hidden]]:opacity-100");
+    expect(rail).toContain("max-sm:[&[data-reveal][data-reveal-state=hidden]]:[transform:none]");
+  });
+
   it("continues Top rated on the catalogue's own rating sort", () => {
     expect(page).toMatch(/title=\{t\("topRated"\)\}[\s\S]*?href="\/products\?sort=rating"/);
     expect(sortSelect).toContain('value="rating"');

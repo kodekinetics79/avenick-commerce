@@ -731,6 +731,16 @@ export default async function HomePage() {
  * accessibility regression. Grid auto-flow and overflow are both
  * direction-aware, so the row starts at the inline start in Arabic unaided.
  *
+ * IN THE ROW, A TILE DOES NOT WAIT FOR ITS ENTRANCE. <RevealRoot> hides every
+ * [data-reveal] that is not on screen at first sighting and shows it when it
+ * intersects the viewport. A tile past the edge of this scroller is clipped,
+ * so it counts as off screen, and the tile a buyer had just swiped to arrived
+ * as an empty plate that faded in up to half a second later — 320ms of fade
+ * behind a stagger delay of up to 200ms. That is motion holding back content
+ * someone asked for. So below sm the hidden state is overridden to visible
+ * (at a higher specificity than the reveal rule, without !important) and the
+ * row simply is there; from sm up the grid keeps its staggered entrance.
+ *
  * Do not pass a phone tile limit to ProductGrid from here. A limit that hides
  * tiles past the fourth would hide them inside this row, where they cost no
  * page height at all.
@@ -759,7 +769,11 @@ function ProductRail({
       <div className="max-sm:grid max-sm:auto-cols-[72%] max-sm:grid-flow-col max-sm:gap-stack max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:snap-x max-sm:snap-proximity max-sm:pb-3 max-sm:[&>div]:contents">
         <ProductGrid columns={5}>
           {rows.map((p, i) => (
-            <Reveal key={p["id"] as string} index={i} className="h-full max-sm:snap-start">
+            <Reveal
+              key={p["id"] as string}
+              index={i}
+              className="h-full max-sm:snap-start max-sm:[&[data-reveal][data-reveal-state=hidden]]:opacity-100 max-sm:[&[data-reveal][data-reveal-state=hidden]]:[transform:none]"
+            >
               <ProductCard {...(p as any)} locale={locale} />
             </Reveal>
           ))}
