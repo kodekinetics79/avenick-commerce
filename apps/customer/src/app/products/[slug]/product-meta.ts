@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { db, PUBLIC_CATALOG_SELLER } from "@avenick/database";
+import { canonicalFor } from "@/lib/page-metadata";
 
 /**
  * The product page's server-side facts: whether the URL names a product at
@@ -120,8 +121,11 @@ export function productMetadata(
   const description = summarise(ar ? product.descriptionAr : product.descriptionEn)
     || describe({ name, brand, sku: product.sku });
   // Canonical drops ?b2b, ?currency, ?variantId and ?qty: they change what the
-  // client page resolves, not which product the document is.
-  const canonical = `/products/${product.slug}`;
+  // client page resolves, not which product the document is. It comes from
+  // canonicalFor, as every other page's does: an absolute URL built from this
+  // deployment's origin, and none at all when that origin is unknown.
+  const canonicalValue = canonicalFor(`/products/${product.slug}`).alternates?.canonical;
+  const canonical = typeof canonicalValue === "string" ? canonicalValue : undefined;
   const image = product.images.find((candidate) => candidate.url.trim());
   const alt = image ? ((ar ? image.altAr : image.altEn) || image.altEn || name) : name;
 
@@ -129,7 +133,7 @@ export function productMetadata(
     // No platform suffix: the root layout's title template appends it.
     title: name,
     description,
-    alternates: { canonical },
+    ...(canonical ? { alternates: { canonical } } : {}),
     // Stated in full rather than inherited. A child openGraph object REPLACES
     // the parent's, so leaving images out would drop the site card entirely,
     // and the root pins og:title to the bare platform name.
@@ -138,7 +142,7 @@ export function productMetadata(
       siteName,
       title: name,
       description,
-      url: canonical,
+      ...(canonical ? { url: canonical } : {}),
       images: [image ? { url: image.url, alt } : { url: SITE_SHARE_CARD, alt: siteName }],
     },
     twitter: {

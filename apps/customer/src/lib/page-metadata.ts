@@ -15,13 +15,14 @@ import { selfOrigin } from "@avenick/utils/portal-config";
  * creates the duplicates, so no caller can pass one through by accident.
  *
  * WHY THE URL IS ABSOLUTE HERE AND NOT LEFT TO metadataBase. Next 14.2 resolves
- * a relative canonical against metadataBase and, when there is none, against
- * `http://localhost:<port>` (resolve-url.js, createLocalMetadataBase). The root
- * layout sets metadataBase only when selfOrigin() knows this deployment's
- * address, so a relative canonical on an unconfigured deployment would publish
- * localhost as the page's true address. selfOrigin() returns null rather than a
- * guess, and on null this returns nothing: no canonical is better than a wrong
- * one.
+ * a relative canonical against metadataBase only when there is one; without it,
+ * the relative path is published as it is (resolve-url.js,
+ * resolveAbsoluteUrlWithPathname). The root layout sets metadataBase only when
+ * selfOrigin() knows this deployment's address, so a relative canonical on an
+ * unconfigured deployment would be a bare path with no host. (The localhost
+ * fallback in that file applies to share-card images, not to canonicals.)
+ * selfOrigin() returns null rather than a guess, and on null this returns
+ * nothing: no canonical is better than an incomplete one.
  *
  * Only `alternates` is returned, deliberately. A helper that also rebuilt
  * `openGraph` per page would replace the root's, and with it the image

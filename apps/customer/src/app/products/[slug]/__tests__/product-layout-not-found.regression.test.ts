@@ -15,7 +15,7 @@ vi.mock("react", async (importOriginal) => ({
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
 vi.mock("next/headers", () => ({ cookies: () => ({ get: () => undefined }) }));
 vi.mock("next-intl/server", () => ({ getTranslations: async () => (key: string) => key }));
-vi.mock("@avenick/utils/portal-config", () => ({ platformName: () => "Platform" }));
+vi.mock("@avenick/utils/portal-config", () => ({ platformName: () => "Platform", selfOrigin: () => "https://shop.example" }));
 vi.mock("../product-meta", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../product-meta")>()),
   readProductMeta: mocks.read,

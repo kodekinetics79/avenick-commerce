@@ -1,11 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ findFirst: vi.fn() }));
+const mocks = vi.hoisted(() => ({ findFirst: vi.fn(), selfOrigin: vi.fn((): string | null => "https://shop.example") }));
 
 vi.mock("@avenick/database", () => ({
   db: { product: { findFirst: mocks.findFirst } },
   PUBLIC_CATALOG_SELLER: { is: { deletedAt: null, status: "ACTIVE" } },
 }));
+
+// The canonical is absolute and comes from this deployment's origin, so the
+// origin is stated here rather than inherited from whatever the test process has.
+vi.mock("@avenick/utils/portal-config", () => ({ selfOrigin: mocks.selfOrigin }));
 
 import {
   isUnservable,
@@ -103,15 +107,25 @@ describe("productMetadata", () => {
     const meta = build();
     expect(meta.title).toBe("Wire & Cable Lubricants");
     expect(meta.description).toBe("A clear, low-friction gel for pulling cable through conduit.");
-    expect(meta.alternates).toEqual({ canonical: "/products/pilot-3m-itm-004049-aabf56f5" });
+    expect(meta.alternates).toEqual({ canonical: "https://shop.example/products/pilot-3m-itm-004049-aabf56f5" });
     expect(meta.openGraph).toMatchObject({
       type: "website",
       siteName: "Platform",
       title: "Wire & Cable Lubricants",
-      url: "/products/pilot-3m-itm-004049-aabf56f5",
+      url: "https://shop.example/products/pilot-3m-itm-004049-aabf56f5",
       images: [{ url: "https://images.test/wcl.png", alt: "Gel tub" }],
     });
     expect(meta.twitter).toMatchObject({ title: "Wire & Cable Lubricants", images: ["https://images.test/wcl.png"] });
+  });
+
+  it("names no canonical and no share URL when this deployment's origin is unknown", () => {
+    // With no metadataBase, Next 14.2 publishes a relative canonical as a bare
+    // path. A canonical is meant to be an absolute address, so when the origin
+    // is unknown the page names none rather than a path with no host.
+    mocks.selfOrigin.mockReturnValueOnce(null);
+    const meta = build();
+    expect(meta.alternates).toBeUndefined();
+    expect(meta.openGraph).not.toHaveProperty("url");
   });
 
   it("gives a gated listing a noindex head that does not name it", () => {
