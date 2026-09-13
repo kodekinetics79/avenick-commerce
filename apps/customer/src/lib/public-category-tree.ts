@@ -17,7 +17,8 @@ import { buildCategoryTree, type CategoryRow, type CategoryNode } from "@/lib/ca
  * into this file:
  *
  *  1. `visible` — every active category that directly holds a discoverable
- *     product. Imported catalogues put products on the LEAF, so this is where
+ *     product from a seller the catalogue lists (ACTIVE and not deleted, the
+ *     same rule PUBLIC_CATALOG_SELLER applies to every listing). Imported catalogues put products on the LEAF, so this is where
  *     the evidence lives.
  *  2. `keep` — those, plus every ancestor of one, walked upward. An ancestor
  *     is kept because it is a real path to something, not because it holds
@@ -56,6 +57,16 @@ export async function readPublicCategoryTree(): Promise<CategoryNode[]> {
           AND p."status" = 'ACTIVE'
           AND p."deletedAt" IS NULL
           AND p."isPubliclyDiscoverable" = true
+          -- The seller half of PUBLIC_CATALOG_SELLER. A product behind a
+          -- rejected or deleted seller is off every listing, so a category
+          -- whose only such product is that one must be off the menu and the
+          -- sitemap too, or the tree promises a shelf the listing leaves empty.
+          AND EXISTS (
+            SELECT 1 FROM "SellerProfile" s
+            WHERE s."id" = p."sellerId"
+              AND s."status" = 'ACTIVE'
+              AND s."deletedAt" IS NULL
+          )
       )
   ),
   keep AS (
