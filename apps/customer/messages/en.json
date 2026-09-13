@@ -393,12 +393,20 @@
     "browseProducts": "Browse products"
   },
   "brandsContent": {
+    "eyebrow": "Discovery",
     "title": "Shop by brand",
-    "description": "Browse brands represented in the current marketplace catalog.",
-    "emptyTitle": "No brands yet",
-    "emptyDescription": "Brands will appear here when products are available in the catalog.",
-    "productCount": "{count, plural, one {# product} other {# products}}",
-    "browse": "Browse"
+    "description": "Browse the brands with listings in the catalogue.",
+    "dateline": "Each count is of the listings published for public discovery under that brand.",
+    "listingCount": "{count, plural, one {listing} other {listings}}",
+    "empty": {
+      "eyebrow": "Nothing recorded",
+      "headline": "No brand has a listing in the catalogue yet.",
+      "body": "A brand appears here once a seller publishes a product against it."
+    },
+    "sellerCta": {
+      "headline": "Are you a brand or distributor?",
+      "body": "Apply to sell on {platform}. Applications are reviewed before a storefront goes live."
+    }
   },
   "spatialCommerce": {
     "metadataTitle": "Spatial Commerce Preview",

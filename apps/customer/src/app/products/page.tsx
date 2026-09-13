@@ -733,11 +733,13 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
    * currently selected brand is always present even if it falls outside the cut,
    * or the panel would show a filter as unset while it is in force.
    *
-   * NO COUNT IS PRINTED beside any facet, here or below. `_count.products` on
-   * /api/brands counts ACTIVE, non-deleted products with no discoverability or
-   * seller predicate, so it is a real number about a DIFFERENT set than the one
-   * clicking the facet returns — which is the kind of count FacetRail exists to
-   * refuse. It is used to rank and to exclude, never to display.
+   * NO COUNT IS PRINTED beside any facet, here or below. `_count.products`
+   * from readPublicBrands counts ACTIVE, non-deleted, publicly discoverable
+   * products, but it applies no seller predicate while the catalogue also
+   * requires a live seller (PUBLIC_CATALOG_SELLER). It can therefore exceed
+   * what clicking the facet returns — a number about a slightly DIFFERENT set,
+   * which is the kind of count FacetRail exists to refuse. It is used to rank
+   * and to exclude, never to display.
    */
   const stocked = brands
     .filter((brand) => (brand?._count?.products ?? 0) > 0)
