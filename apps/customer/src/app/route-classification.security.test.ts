@@ -1,5 +1,5 @@
 import { readdirSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
@@ -108,4 +108,25 @@ describe("route classification", () => {
       expect(res.headers.get("x-middleware-rewrite"), `${path} was rewritten to the 404`).toBeNull();
     },
   );
+
+  /**
+   * public/ is the other thing Next serves at a top-level path, and it is not in
+   * src/app, so the list above cannot see it: /hero/workshop-1600.jpg has the
+   * first segment "hero", which names no route. Those files are served because
+   * the middleware's static-asset rule skips them by extension before the
+   * unrouted branch runs. A file added with an extension that rule does not know
+   * would be rewritten to the 404, so every file there is checked here.
+   */
+  it("serves every file in public/ rather than rewriting it to the 404", async () => {
+    const publicRoot = join(appRoot, "..", "..", "public");
+    const files = readdirSync(publicRoot, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => `/${relative(publicRoot, join(entry.parentPath, entry.name)).split(sep).join("/")}`);
+    expect(files.length).toBeGreaterThan(0);
+    for (const path of files) {
+      const res = await visit(path);
+      expect(res.headers.get("x-middleware-rewrite"), `${path} was rewritten to the 404`).toBeNull();
+      expect(res.headers.get("location"), `${path} was redirected`).toBeNull();
+    }
+  });
 });
