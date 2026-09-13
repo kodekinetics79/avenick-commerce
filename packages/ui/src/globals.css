@@ -1344,6 +1344,29 @@ p, .u-lead, .u-body { text-wrap: pretty; }
               0 0 0 calc(2px + var(--ring-width)) hsl(var(--ring));
 }
 
+/* ─── HIT AREA ────────────────────────────────────────────────────────────
+   A control drawn at 30px is the right SIZE for a dense rail and the wrong
+   TARGET for a thumb; 44px is the floor Apple and Material both set. On coarse
+   pointers .u-hit grows an invisible target to at least 44px along each axis
+   that is shorter than that, and leaves the drawn control exactly as it was —
+   the inset resolves to 0 along an axis already 44px or more, so a wide pill
+   grows in height alone.
+
+   IT SETS NO POSITION. A host that is already absolute (the header's search
+   submit) would lose its placement to `relative`, so a static host adds
+   `relative` itself. It rides ::before because ::after belongs to .u-shine and
+   [data-interactive], the two that land on controls; it cannot share a host
+   with [data-rim], [data-specular] or .u-sheen, which own ::before. Neighbouring
+   targets must not overlap — two 30px controls need 14px between them — or a
+   tap beside the gap lands on whichever comes later in the DOM. */
+@media (pointer: coarse) {
+  .u-hit::before {
+    content: "";
+    position: absolute;
+    inset: min(0px, calc((100% - 44px) / 2));
+  }
+}
+
 /* ────────────────────────────────────────────────────────────────────────────
    9. THE SIGNATURES
    ──────────────────────────────────────────────────────────────────────────── */
