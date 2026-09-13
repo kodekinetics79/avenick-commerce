@@ -26,6 +26,7 @@ import { BrandLockup, Button, Divider, Eyebrow, NavItem, StickyGlassBar, Surface
 import { useCartStore } from "@/stores/cart";
 import { useSearchSuggest } from "@/lib/search-suggest-client";
 import { useBrandMenu } from "@/lib/brand-menu-client";
+import { useCategoryMenu } from "@/lib/category-menu-client";
 import { useSession, signOut } from "next-auth/react";
 import { useLocale, useTranslations } from "next-intl";
 import { useDisclosure } from "./disclosure";
@@ -178,23 +179,65 @@ export function Header() {
           },
         ];
 
-  const SHOP_COLUMNS: MegaMenuColumn[] = [
-    {
-      title: t("catalogue"),
-      links: [
-        { href: "/products", label: t("products") },
-        { href: "/brands", label: t("brands") },
-      ],
-    },
-    {
-      title: t("ordersAndSaved"),
-      links: [
-        { href: "/account/orders", label: t("trackOrder") },
-        { href: "/wishlist", label: t("wishlist") },
-        { href: "/cart", label: t("cart") },
-      ],
-    },
-  ];
+  /*
+   * The Shop panel leads with the catalogue's own top-level categories.
+   *
+   * It used to hold five links, and every one repeated a control within a few
+   * hundred pixels: Products was the Shop link itself, Brands the next item in
+   * the bar (which now has its own panel), Wishlist and Cart the icons at the
+   * end of the bar, and Track orders the utility strip's link. Meanwhile the
+   * categories, which are the one way into the catalogue the chrome did not
+   * already offer, appeared only in the home page's sidebar.
+   *
+   * useCategoryMenu() reads /api/categories, which keeps only categories with
+   * something publicly discoverable beneath them, so no link here opens an
+   * empty shelf. The "no invented category tree" rule below is about inventing
+   * one. These are the database's, printed as the catalogue holds them. The
+   * Catalogue column keeps Products, the root of every category, and Wishlist,
+   * because the header's heart icon is held back to xl and between lg and xl
+   * this panel is the bar's only route to it.
+   *
+   * With no categories (a failed request, JavaScript off, the first paint
+   * before hydration) the panel keeps the static columns it has always had
+   * rather than collapsing to a bare link. That fallback is also what keeps the
+   * wishlist reachable at lg in that case.
+   */
+  const categoryMenu = useCategoryMenu(8);
+  const SHOP_COLUMNS: MegaMenuColumn[] =
+    categoryMenu.length > 0
+      ? [
+          {
+            title: t("categories"),
+            links: categoryMenu.map((c) => ({
+              href: `/products?category=${encodeURIComponent(c.slug)}`,
+              label: locale === "ar" && c.nameAr ? c.nameAr : c.nameEn,
+            })),
+          },
+          {
+            title: t("catalogue"),
+            links: [
+              { href: "/products", label: t("products") },
+              { href: "/wishlist", label: t("wishlist") },
+            ],
+          },
+        ]
+      : [
+          {
+            title: t("catalogue"),
+            links: [
+              { href: "/products", label: t("products") },
+              { href: "/brands", label: t("brands") },
+            ],
+          },
+          {
+            title: t("ordersAndSaved"),
+            links: [
+              { href: "/account/orders", label: t("trackOrder") },
+              { href: "/wishlist", label: t("wishlist") },
+              { href: "/cart", label: t("cart") },
+            ],
+          },
+        ];
 
   /*
    * The business panel is grouped by what the pages ARE — sourcing, ordering,
@@ -518,8 +561,9 @@ export function Header() {
                       : [];
               // An entry declares a panel; whether it GETS one depends on there
               // being something to put in it. Only the brands panel is ever
-              // empty — the other two are static — and when it is, this falls
-              // through to the plain link below.
+              // empty (the shop panel falls back to its static columns and the
+              // business panel is static), and when it is, this falls through
+              // to the plain link below.
               if (entry.menu && columns.length > 0) {
                 return (
                   <MegaMenu
