@@ -694,24 +694,37 @@ export function ProductCard({
           page that looks like one product.
         */}
         {/*
-          TIGHTER ON A PHONE, NOT TALLER. A 2-up tile at 390px gives the button
-          141px, and `md`'s 20px of padding either side left 101px for an icon,
-          an 8px gap and "Request availability" — which measured a pixel or two
-          wider, so the label ran through both paddings to the border. Below
-          `sm` the padding and the gap step down, which buys the label about
-          sixteen pixels inside the face.
+          THE LABEL ALONE ON A PHONE. A 2-up tile gives this button 141px at
+          390px and 126px at 360px. The icon, its 8px gap and "Request
+          availability" measure 143px at 13px, so the label ran through both
+          paddings to the border at 390px and past it at 360px and 375px.
 
-          The size, the height and `whitespace-nowrap` stay. Letting the label
-          wrap onto two lines would give tiles in one row different button
-          heights, and ProductGridSkeleton reserves exactly one `h-control-md`
-          for this block — a wrapped label is the layout shift that reservation
-          exists to prevent.
+          Padding cannot fix that, which is why this is not a padding change. The
+          button is full-width, the label does not wrap, and the content is
+          centred. So a label wider than the padding box overflows it evenly on
+          both sides, and its distance from the border depends only on how wide
+          the content is. An earlier version of this fix stepped the padding
+          and gap down below `sm`. It measured "fits" only on tiles that read
+          "Request a quote", and left "Request availability" 0.7px from the
+          border at 390px and 7px beyond it at 360px.
+
+          What does shorten the content is the icon. It is decoration
+          (`aria-hidden`), and the words say the same thing, so below `sm` it
+          steps aside. Measured in the English build: "Request availability"
+          sits 2.9px inside the border at 360px, 7px at 375px and 10.7px at
+          390px. Every shorter label, and every Arabic label, has more room.
+
+          The size, the height, the type and `whitespace-nowrap` stay. Letting
+          the label wrap onto two lines would give tiles in one row different
+          button heights, and ProductGridSkeleton reserves exactly one
+          `h-control-md` for this block. A wrapped label is the layout shift
+          that reservation exists to prevent.
         */}
         <Button
           type="button"
           variant="primary"
           size="md"
-          className="w-full max-sm:gap-1.5 max-sm:px-3"
+          className="w-full"
           onClick={handlePrimaryAction}
           /*
            * NOTHING IS DISABLED ANY MORE. Every branch now has somewhere to go:
@@ -721,9 +734,9 @@ export function ProductCard({
            */
         >
           {purchaseAction === "REQUEST_AVAILABILITY" || purchaseAction === "REQUEST_QUOTE" ? (
-            <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+            <MessageSquare className="h-3.5 w-3.5 max-sm:hidden" aria-hidden="true" />
           ) : (
-            <ShoppingCart className="h-3.5 w-3.5" aria-hidden="true" />
+            <ShoppingCart className="h-3.5 w-3.5 max-sm:hidden" aria-hidden="true" />
           )}
           {purchaseAction === "ADD_TO_CART" ? (
             <CommitLabel idle={tp("addToCart")} committed={tc("added")} done={committed} />

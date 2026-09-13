@@ -92,4 +92,34 @@ describe("ProductCard on a quote-only catalogue", () => {
     const { container } = render(<ProductCard {...quoteOnly} category={undefined} />);
     expect(container.querySelector(".u-micro")).toBeNull();
   });
+
+  /**
+   * THE BUTTON ON A PHONE. At 390px a 2-up tile's button is 141px wide. The
+   * icon, its gap and "Request availability" measured 143px, so the label ran
+   * through both paddings to the border, and at 360px it ran past it.
+   *
+   * The first fix stepped the padding down below `sm`. That cannot move a
+   * centred label that does not wrap: once the label is wider than the padding
+   * box it overflows evenly on both sides. The fix was checked only on a
+   * sandbox where every tile read "Request a quote", so it looked right and
+   * left the long label where it was. The icon is what shortens the content,
+   * and it is decoration, so below `sm` it is hidden. jsdom cannot measure
+   * layout, so this test holds what the measured fix rests on: every label
+   * the tile can show keeps its icon out of the phone layout, and hides it
+   * from assistive technology everywhere.
+   */
+  it.each([
+    ["requestAvailability", { price: 120, currency: "AED", vatRate: 5 }],
+    ["requestQuote", {}],
+    ["addToCart", { price: 120, currency: "AED", vatRate: 5, inStock: true, availabilityStatus: "IN_STOCK" as const }],
+    ["selectOptions", { hasVariants: true, inStock: true, availabilityStatus: "IN_STOCK" as const }],
+  ])("the %s button drops its icon below sm, not its words", (label, props) => {
+    render(<ProductCard {...quoteOnly} {...props} />);
+    const button = screen.getByRole("button", { name: new RegExp(label) });
+    const icon = button.querySelector("svg");
+    expect(icon, "the tile's action has no icon to check").toBeTruthy();
+    expect(icon!.getAttribute("class") ?? "").toMatch(/(^|\s)max-sm:hidden(\s|$)/);
+    expect(icon!.getAttribute("aria-hidden")).toBe("true");
+    expect(button.className).not.toMatch(/(^|\s)(whitespace-normal|flex-wrap|h-auto)(\s|$)/);
+  });
 });
