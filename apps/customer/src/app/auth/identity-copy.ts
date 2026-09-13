@@ -151,6 +151,8 @@ interface IdentityDictionary {
     readonly title: string;
     readonly subtitle: string;
     readonly subtitleRegistered: string;
+    /** Shown when the validated return path is a quote request. */
+    readonly subtitleQuote: string;
     readonly formLabel: string;
     readonly email: string;
     readonly emailPlaceholder: string;
@@ -333,6 +335,11 @@ const EN: IdentityDictionary = {
     // branch ran. This is the sentence that is true in both.
     subtitleRegistered:
       "Registration received. Sign in with that email address — if it was already registered, use your existing password.",
+    // A buyer who pressed "Request availability" or "Request a quote" arrives
+    // here with callbackUrl=/b2b/rfq/new…, and used to be told this page was
+    // about "orders, returns and support tickets" — nothing about the request
+    // they had just asked to make.
+    subtitleQuote: "Sign in to continue your quote request.",
     formLabel: "Sign in",
     email: "Email address",
     emailPlaceholder: "you@example.com",
@@ -546,6 +553,7 @@ const AR: IdentityDictionary = {
     subtitle: "سجّل الدخول لعرض طلباتك ومرتجعاتك وتذاكر الدعم.",
     subtitleRegistered:
       "تم استلام طلب التسجيل. سجّل الدخول بهذا البريد الإلكتروني — وإن كان مسجّلاً من قبل، فاستخدم كلمة المرور الحالية.",
+    subtitleQuote: "سجّل الدخول لمتابعة طلب عرض السعر.",
     formLabel: "تسجيل الدخول",
     email: "البريد الإلكتروني",
     emailPlaceholder: "you@example.com",
@@ -691,4 +699,26 @@ const AR: IdentityDictionary = {
 
 export function identityCopy(locale: IdentityLocale): IdentityDictionary {
   return locale === "ar" ? AR : EN;
+}
+
+/**
+ * The sentence under "Welcome back", chosen from where the visitor is going.
+ *
+ * `returnTo` MUST already be the output of safeReturnTo — this chooses words
+ * from it and never navigates to it. Order matters: "registration received" is
+ * the more urgent fact (it changes which password to use), so it wins over the
+ * quote line when a new registrant is also on their way to a quote.
+ *
+ * Only /b2b/rfq/new counts as a quote request: it is where every storefront
+ * "Request a quote" and "Request availability" control points. A return to the
+ * RFQ list or to one RFQ is a signed-in visitor resuming work, which the
+ * generic line already describes well enough.
+ */
+export function loginSubtitle(
+  t: IdentityDictionary["login"],
+  { justRegistered, returnTo }: { justRegistered: boolean; returnTo: string },
+): string {
+  if (justRegistered) return t.subtitleRegistered;
+  if (returnTo === "/b2b/rfq/new" || returnTo.startsWith("/b2b/rfq/new?")) return t.subtitleQuote;
+  return t.subtitle;
 }
