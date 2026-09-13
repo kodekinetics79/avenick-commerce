@@ -62,7 +62,9 @@
     "deliveryAddresses": "عناوين التسليم",
     "billing": "الفوترة",
     "spendAnalytics": "تحليلات الإنفاق",
-    "allBrands": "كل العلامات التجارية"
+    "allBrands": "كل العلامات التجارية",
+    "themeToDark": "التبديل إلى الوضع الداكن",
+    "themeToLight": "التبديل إلى الوضع الفاتح"
   },
   "auth": {
     "welcomeBack": "مرحباً بعودتك",

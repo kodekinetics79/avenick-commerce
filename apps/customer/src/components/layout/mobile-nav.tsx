@@ -54,6 +54,8 @@ export interface MobileNavProps {
   /** Identity line shown above the session control when there is a session. */
   signedInAs?: string | null;
   action: { href: string; label: string; icon?: React.ElementType };
+  /** The theme switch's accessible names, in the active locale. */
+  themeLabels: { toDark: string; toLight: string };
   isActive: (href: string) => boolean;
 }
 
@@ -75,6 +77,7 @@ export function MobileNav({
   signOut,
   signedInAs,
   action,
+  themeLabels,
   isActive,
 }: MobileNavProps) {
   const pathname = usePathname();
@@ -152,9 +155,15 @@ export function MobileNav({
 
       <Divider className="my-4" />
 
+      {/*
+        One row of 44px touch targets. The theme switch was 38px beside the
+        locale segments LocaleToggle sizes to 44px for exactly this sheet, which
+        made it the smallest target in the row. It keeps the raised chip here:
+        beside a recessed segmented control it is the one button in the row.
+      */}
       <div className="flex items-center gap-2">
         <LocaleToggle size="lg" className="flex-1" />
-        <ThemeToggle />
+        <ThemeToggle size="lg" labels={themeLabels} />
       </div>
     </Layer>
   );

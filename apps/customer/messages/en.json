@@ -62,7 +62,9 @@
     "deliveryAddresses": "Delivery addresses",
     "billing": "Billing",
     "spendAnalytics": "Spend analytics",
-    "allBrands": "All brands"
+    "allBrands": "All brands",
+    "themeToDark": "Switch to dark mode",
+    "themeToLight": "Switch to light mode"
   },
   "auth": {
     "welcomeBack": "Welcome back",

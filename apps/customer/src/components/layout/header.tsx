@@ -106,6 +106,11 @@ export function Header() {
 
   const brand = platformName();
 
+  // The theme switch's accessible names, from the message tree. The primitive
+  // used to carry them as English literals, which is what an Arabic screen
+  // reader heard on the one control in the row that was not translated.
+  const themeLabels = { toDark: t("themeToDark"), toLight: t("themeToLight") };
+
   /*
    * The brands panel, and the one rule that governs whether it opens at all.
    *
@@ -502,7 +507,14 @@ export function Header() {
           <div className="min-w-0 flex-1 lg:max-w-xl">{searchField}</div>
 
           <div className="flex shrink-0 items-center gap-1">
-            <ThemeToggle className="hidden lg:inline-flex" />
+            {/*
+              Ghost, like the wishlist, cart and account controls beside it. It
+              was the one bordered, plated, shadowed chip in a row of flat icons,
+              and raised means actionable (LAW A), so the least important control
+              in the bar read as its main one. It stays at lg and up because
+              below lg it lives in the sheet, whose trigger is lg:hidden.
+            */}
+            <ThemeToggle variant="ghost" labels={themeLabels} className="hidden lg:inline-flex" />
 
             <Link
               href="/wishlist"
@@ -654,6 +666,7 @@ export function Header() {
         signOut={session?.user ? { label: t("signOut"), onSelect: () => signOut({ callbackUrl: "/" }) } : null}
         signedInAs={session?.user ? session.user.name || session.user.email : null}
         action={{ href: "/b2b/rfq/new", label: t("getQuote"), icon: FileText }}
+        themeLabels={themeLabels}
         isActive={isActive}
       />
     </>
