@@ -66,13 +66,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // Searched at any DEPTH. `Array.find` walks roots only, which is why every
   // subcategory page in the storefront rendered the not-found body.
   const cat = findCategory(categories, params.slug);
-  // The unknown-slug fallback was the English literal "Category" for every
-  // visitor. A tab title is a user-visible string, so it comes out of the tree
-  // like every other one.
-  if (!cat) {
-    const t = await getTranslations("catalogue");
-    return { title: t("category.eyebrow") };
-  }
+  // An unknown slug is a 404, decided here as well as in the page. Metadata
+  // resolves before anything is streamed, so a notFound() here always lands as
+  // a real 404 status. The old fallback returned a "Category" title for a page
+  // that did not exist, which gave the 404 document a heading-shaped title for
+  // nothing.
+  if (!cat) notFound();
   // No platform-name suffix: the root layout declares
   // `title.template: "%s | <platform>"`, so appending it here produced
   // "Electronics | Avenick | Avenick". The name also follows the visitor's
