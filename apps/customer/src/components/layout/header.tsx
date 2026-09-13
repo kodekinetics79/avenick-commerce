@@ -56,6 +56,27 @@ import { MobileNav, type MobileNavItem } from "./mobile-nav";
  * build is a setting rather than a design.
  */
 
+/*
+ * A 44px hit area for the bar's small controls, on a coarse pointer only.
+ *
+ * At 390×844 the search submit measured 32×32, and the cart and the menu
+ * trigger 38×38, all under the 44px a thumb needs. Growing the controls would
+ * take the width from the search field, which is already the tightest thing on
+ * a phone's first row. So the VISIBLE control stays the size it is and an
+ * empty ::after, which hit-tests as its host, extends past it. A mouse gets the
+ * control exactly as drawn, which is why this is media-gated rather than
+ * unconditional: on a fine pointer the extension would reach into the next
+ * control's gap.
+ *
+ * The host must already be positioned. None of these carry data-interactive,
+ * data-specular or u-shine, which are the three things in the system that also
+ * paint ::after.
+ */
+const COARSE_HIT_44_FROM_38 =
+  "[@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-[3px] [@media(pointer:coarse)]:after:content-['']";
+const COARSE_HIT_44_FROM_32 =
+  "[@media(pointer:coarse)]:after:absolute [@media(pointer:coarse)]:after:-inset-1.5 [@media(pointer:coarse)]:after:content-['']";
+
 interface NavEntry {
   href: string;
   /** Key in messages/{en,ar}.json → nav. */
@@ -339,7 +360,13 @@ export function Header() {
       <button
         type="submit"
         aria-label={tc("search")}
-        className="u-focus absolute inset-y-0 end-1.5 my-auto grid h-8 w-8 place-items-center rounded-nested text-ink-3 transition-colors duration-hover ease-standard hover:text-ink-1"
+        // 32px drawn, 44px to a thumb: end-1.5 plus the 6px extension is
+        // exactly the 44px the input's pe-11 reserves, so the enlarged area
+        // never reaches typed text.
+        className={cn(
+          "u-focus absolute inset-y-0 end-1.5 my-auto grid h-8 w-8 place-items-center rounded-nested text-ink-3 transition-colors duration-hover ease-standard hover:text-ink-1",
+          COARSE_HIT_44_FROM_32,
+        )}
       >
         <ArrowRight aria-hidden="true" className="h-4 w-4 rtl:rotate-180" />
       </button>
@@ -538,7 +565,9 @@ export function Header() {
           */}
           <div className="min-w-0 flex-1 lg:max-w-xl">{searchField}</div>
 
-          <div className="flex shrink-0 items-center gap-1">
+          {/* gap-1.5 below lg is the 6px the cart's and the menu trigger's two
+              3px hit extensions need to meet without overlapping. */}
+          <div className="flex shrink-0 items-center gap-1.5 lg:gap-1">
             {/*
               Ghost, like the wishlist, cart and account controls beside it. It
               was the one bordered, plated, shadowed chip in a row of flat icons,
@@ -566,7 +595,10 @@ export function Header() {
                   ? t("cartWithCount", { count: itemCount, n: String(itemCount) })
                   : t("cart")
               }
-              className="u-focus relative grid h-control-md w-control-md place-items-center rounded-nested text-ink-2 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1"
+              className={cn(
+                "u-focus relative grid h-control-md w-control-md place-items-center rounded-nested text-ink-2 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1",
+                COARSE_HIT_44_FROM_38,
+              )}
             >
               <ShoppingCart aria-hidden="true" className="h-[1.15rem] w-[1.15rem]" />
               {itemCount > 0 && (
@@ -671,7 +703,10 @@ export function Header() {
               aria-haspopup="dialog"
               aria-expanded={mobileOpen}
               aria-label={t("openMenu")}
-              className="u-focus grid h-control-md w-control-md place-items-center rounded-nested text-ink-2 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1 lg:hidden"
+              className={cn(
+                "u-focus relative grid h-control-md w-control-md place-items-center rounded-nested text-ink-2 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1 lg:hidden",
+                COARSE_HIT_44_FROM_38,
+              )}
             >
               <Menu aria-hidden="true" className="h-5 w-5" />
             </button>
