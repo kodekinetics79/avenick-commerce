@@ -196,11 +196,16 @@ interface IdentityDictionary {
     readonly roleDescriptions: Readonly<Record<string, string>>;
     readonly roleUnknown: string;
   };
+  /*
+   * The personal-account form, and the chooser in front of it. The company
+   * fields that used to live here (CR, VAT, industry, size, country, city)
+   * went with the second company form: "Business account" now hands off to
+   * /b2b/register, whose copy is the buyer suite's own.
+   */
   readonly register: {
     readonly eyebrow: string;
     readonly title: string;
     readonly titleConsumer: string;
-    readonly titleBusiness: string;
     readonly subtitle: (platform: string) => string;
     readonly chooserLabel: string;
     readonly consumerTitle: string;
@@ -216,26 +221,10 @@ interface IdentityDictionary {
     readonly passwordHint: string;
     readonly phone: string;
     readonly phoneHint: string;
-    readonly companySection: string;
-    readonly companyNameEn: string;
-    readonly companyNameAr: string;
-    readonly crNumber: string;
-    readonly vatNumber: string;
-    readonly optional: string;
-    readonly industry: string;
-    readonly industryPlaceholder: string;
-    readonly companySize: string;
-    readonly companySizePlaceholder: string;
-    readonly country: string;
-    readonly countryPlaceholder: string;
-    readonly city: string;
     readonly submit: string;
     readonly hasAccount: string;
     readonly signIn: string;
     readonly failed: string;
-    readonly industryLabels: Readonly<Record<string, string>>;
-    readonly companySizeLabels: Readonly<Record<string, string>>;
-    readonly countryLabels: Readonly<Record<string, string>>;
   };
   readonly forgot: {
     readonly eyebrow: string;
@@ -418,10 +407,12 @@ const EN: IdentityDictionary = {
     roleUnknown: "Company member",
   },
   register: {
-    eyebrow: "Create an account",
-    title: "Register",
+    // The h1 matches the tab title, "Create an account" (auth.registerTitle).
+    // It used to read "Register" under an eyebrow that said "Create an
+    // account" — the tab, the eyebrow and the heading naming the page two ways.
+    eyebrow: "New account",
+    title: "Create an account",
     titleConsumer: "Personal account",
-    titleBusiness: "Business account",
     subtitle: (platform) => `Choose how you will buy on ${platform}.`,
     chooserLabel: "Account type",
     consumerTitle: "Personal account",
@@ -443,51 +434,10 @@ const EN: IdentityDictionary = {
     passwordHint: "At least 8 characters, with an uppercase letter and a number.",
     phone: "Phone",
     phoneHint: "Optional. International format, including the country code.",
-    companySection: "Company details",
-    companyNameEn: "Company name (English)",
-    companyNameAr: "Company name (Arabic)",
-    crNumber: "Commercial registration number",
-    vatNumber: "VAT number",
-    optional: "Optional.",
-    industry: "Industry",
-    industryPlaceholder: "Select an industry",
-    companySize: "Company size",
-    companySizePlaceholder: "Select a size",
-    country: "Country",
-    countryPlaceholder: "Select a country",
-    city: "City",
     submit: "Create account",
     hasAccount: "Already have an account?",
     signIn: "Sign in",
     failed: "Registration failed.",
-    industryLabels: {
-      INDUSTRIAL_SUPPLIES: "Industrial supplies",
-      ELECTRONICS: "Electronics",
-      OFFICE_SUPPLIES: "Office supplies",
-      SAFETY_PPE: "Safety and PPE",
-      FOOD_HOSPITALITY: "Food and hospitality",
-      BUILDING_MATERIALS: "Building materials",
-      HEALTHCARE: "Healthcare",
-      RETAIL: "Retail",
-      MANUFACTURING: "Manufacturing",
-      TECHNOLOGY: "Technology",
-      OTHER: "Other",
-    },
-    companySizeLabels: {
-      MICRO: "Micro",
-      SMALL: "Small",
-      MEDIUM: "Medium",
-      LARGE: "Large",
-      ENTERPRISE: "Enterprise",
-    },
-    countryLabels: {
-      AE: "United Arab Emirates",
-      SA: "Saudi Arabia",
-      QA: "Qatar",
-      KW: "Kuwait",
-      BH: "Bahrain",
-      OM: "Oman",
-    },
   },
   forgot: {
     eyebrow: "Password reset",
@@ -643,10 +593,9 @@ const AR: IdentityDictionary = {
     roleUnknown: "عضو في الشركة",
   },
   register: {
-    eyebrow: "إنشاء حساب",
-    title: "التسجيل",
+    eyebrow: "حساب جديد",
+    title: "إنشاء حساب",
     titleConsumer: "حساب شخصي",
-    titleBusiness: "حساب تجاري",
     subtitle: (platform) => `اختر طريقة الشراء على ${platform}.`,
     chooserLabel: "نوع الحساب",
     consumerTitle: "حساب شخصي",
@@ -662,51 +611,10 @@ const AR: IdentityDictionary = {
     passwordHint: "8 أحرف على الأقل، مع حرف لاتيني كبير ورقم.",
     phone: "رقم الهاتف",
     phoneHint: "اختياري. بالصيغة الدولية، مع رمز الدولة.",
-    companySection: "بيانات الشركة",
-    companyNameEn: "اسم الشركة بالإنجليزية",
-    companyNameAr: "اسم الشركة بالعربية",
-    crNumber: "رقم السجل التجاري",
-    vatNumber: "الرقم الضريبي",
-    optional: "اختياري.",
-    industry: "القطاع",
-    industryPlaceholder: "اختر القطاع",
-    companySize: "حجم الشركة",
-    companySizePlaceholder: "اختر الحجم",
-    country: "الدولة",
-    countryPlaceholder: "اختر الدولة",
-    city: "المدينة",
     submit: "إنشاء الحساب",
     hasAccount: "لديك حساب بالفعل؟",
     signIn: "تسجيل الدخول",
     failed: "تعذّر إتمام التسجيل.",
-    industryLabels: {
-      INDUSTRIAL_SUPPLIES: "التوريدات الصناعية",
-      ELECTRONICS: "الإلكترونيات",
-      OFFICE_SUPPLIES: "المستلزمات المكتبية",
-      SAFETY_PPE: "السلامة ومعدات الوقاية",
-      FOOD_HOSPITALITY: "الأغذية والضيافة",
-      BUILDING_MATERIALS: "مواد البناء",
-      HEALTHCARE: "الرعاية الصحية",
-      RETAIL: "تجارة التجزئة",
-      MANUFACTURING: "التصنيع",
-      TECHNOLOGY: "التقنية",
-      OTHER: "أخرى",
-    },
-    companySizeLabels: {
-      MICRO: "متناهية الصغر",
-      SMALL: "صغيرة",
-      MEDIUM: "متوسطة",
-      LARGE: "كبيرة",
-      ENTERPRISE: "مؤسسة كبرى",
-    },
-    countryLabels: {
-      AE: "الإمارات العربية المتحدة",
-      SA: "المملكة العربية السعودية",
-      QA: "قطر",
-      KW: "الكويت",
-      BH: "البحرين",
-      OM: "سلطنة عُمان",
-    },
   },
   forgot: {
     eyebrow: "إعادة تعيين كلمة المرور",
