@@ -2501,6 +2501,25 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 .u-display { font-size: var(--fs-display); line-height: var(--lh-display); letter-spacing: var(--tr-display); font-weight: var(--fw-head); }
 .u-fig-card { font-size: var(--fs-fig-card); line-height: var(--lh-fig-card); letter-spacing: var(--tr-fig); font-weight: var(--fw-fig-card); }
 
+/* FOCUS ZOOM. iOS Safari zooms the whole page when a text field set under 16px
+   takes focus, and leaves it zoomed once the field blurs. Every field in the
+   product was under that — the header search at --fs-body 15px, the sort select
+   and every <Input> at --fs-ui 13px. The fix is the field's type, never
+   `maximum-scale=1` on the viewport, which takes pinch-zoom away from everyone
+   who needs it.
+   Coarse pointers only, so desktop fields keep the rank they were given. :is()
+   takes the specificity of its most specific branch, input:not(…) at (0,1,1),
+   for select and textarea as well, and that outranks the single-class .u-ui and
+   .text-ui on the field itself whatever the source order. `1em` in font-size is
+   the PARENT's size, so a field inheriting more than 16px keeps it; a field
+   sized above 16px on its own element would be pulled down to its parent's size
+   here, and none is — size a large field from its wrapper. */
+@media (pointer: coarse) {
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="button"], [type="submit"], [type="reset"], [type="image"]), select, textarea) {
+    font-size: max(16px, 1em);
+  }
+}
+
 /* THE HERO RUNG. One class, one weight exemption, one portal.
    HIERARCHY IS SEVEN LEVERS, NOT TWO: size, weight, tracking, colour, family,
    case and space-before. Round one built rank from size and colour alone, which
