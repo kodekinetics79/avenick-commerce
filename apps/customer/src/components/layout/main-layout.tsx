@@ -26,9 +26,8 @@ export function MainLayout({ children, discoveryTrending }: MainLayoutProps) {
     // The provider renders no DOM. It is the bridge that lets the header's
     // phone sheet open the discovery panel below, which has no floating
     // launcher below lg; see components/discovery/discovery-context.tsx. It
-    // wraps the column rather than sitting inside it so the header, a direct
-    // child of this full-height column, keeps the containing block its sticky
-    // positioning depends on.
+    // has to be an ancestor of both the header and the panel, and wrapping the
+    // column that holds them both is the one place that is.
     <DiscoveryProvider>
     <div className="min-h-screen flex flex-col">
       {/*

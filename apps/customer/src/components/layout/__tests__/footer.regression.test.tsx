@@ -23,7 +23,7 @@ const hrefs = (root: HTMLElement) =>
 
 describe("Footer", () => {
   /**
-   * The footer is a server component and never reads the session, yet its
+   * The footer never reads the session, yet its
    * "Company" column carried "Sign in". A signed-in buyer saw "Sign in" on
    * every page while the header beside it said "Sign out". For a visitor with
    * no session it was a duplicate of "My account", which already answers with

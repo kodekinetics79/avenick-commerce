@@ -86,9 +86,10 @@ export function Footer() {
       // engineering readout, and putting it on every page of a shop advertises
       // that the shop breaks.
       //
-      // "Sign in" came out too. The footer is a server component that never
-      // reads the session, so it offered "Sign in" to a buyer who was already
-      // signed in, on every page, while the header beside it said "Sign out".
+      // "Sign in" came out too. The footer never reads the session (it renders
+      // under server and client pages alike), so it offered "Sign in" to a
+      // buyer who was already signed in, on every page, while the header
+      // beside it said "Sign out".
       // For a visitor with no session it was also a duplicate: "My account"
       // already answers with the sign-in page and a callbackUrl back to
       // /account. The header's account menu and the phone sheet own the
