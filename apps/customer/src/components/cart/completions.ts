@@ -75,7 +75,10 @@ export type CompletionAction =
  * product card makes, in the same order, so a row in the drawer and the tile
  * in the grid never disagree about a product:
  *
- *   out of stock            → request availability (RFQ), never the cart
+ *   out of stock            → request availability (RFQ), never the cart. An
+ *                              UNCONFIRMED, unpriced, variant-free row is a
+ *                              quote instead: nothing is known about it, so
+ *                              stock is not the buyer's question.
  *   variants                → the product page, where a real selection is made
  *   no price in this channel → request a quote (RFQ). This catalogue is quoted,
  *                              not carted, for most of its listings, and the
@@ -88,7 +91,7 @@ export function completionAction(row: CartCompletionRow, channel: "B2C" | "B2B")
   // argument, so this row and the grid tile run one decision rather than two
   // that were supposed to agree and did not.
   const canPrice = row.price != null && !!row.currency && row.vatRate != null;
-  const action = productCardPurchaseAction(row.hasVariants, row.inStock, canPrice);
+  const action = productCardPurchaseAction(row.hasVariants, row.inStock, canPrice, row.availabilityStatus);
   if (action === "REQUEST_AVAILABILITY") return { kind: "REQUEST_AVAILABILITY", href: rfqHref(row.sellerId, row.id) };
   if (action === "SELECT_VARIANT") {
     return { kind: "SELECT_VARIANT", href: storefrontProductHref(row.slug, { currency: row.currency, b2b: channel === "B2B" }) };

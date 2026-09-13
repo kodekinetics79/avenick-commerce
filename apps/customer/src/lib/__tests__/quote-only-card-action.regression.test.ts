@@ -35,6 +35,39 @@ describe("quote-only products have a live control", () => {
     expect(productCardPurchaseAction(false, false, true)).toBe("REQUEST_AVAILABILITY");
   });
 
+  /**
+   * THE THIRD HALF. `inStock` is false for two facts: stock recorded as zero,
+   * and no inventory record at all. The live catalogue holds no inventory rows
+   * and no consumer prices, so every tile was UNCONFIRMED and unpriced — and
+   * every one printed "Price on request" above "Request availability", asking
+   * about the one thing that was not the buyer's question.
+   */
+  it("asks for a quote when neither price nor stock is known", () => {
+    expect(productCardPurchaseAction(false, false, false, "UNCONFIRMED")).toBe("REQUEST_QUOTE");
+  });
+
+  it("still asks about availability when only the stock is unknown", () => {
+    // A priced product with no stock evidence. The label stays on stock, and
+    // above all it is NOT carted: this rule changes words, never the cart.
+    expect(productCardPurchaseAction(false, false, true, "UNCONFIRMED")).toBe("REQUEST_AVAILABILITY");
+    // Recorded as out of stock is still a question about stock, priced or not.
+    expect(productCardPurchaseAction(false, false, false, "OUT_OF_STOCK")).toBe("REQUEST_AVAILABILITY");
+    // A variant row with unknown stock is still a question about stock, not a quote
+    // for a product the buyer has not chosen yet.
+    expect(productCardPurchaseAction(true, false, false, "UNCONFIRMED")).toBe("REQUEST_AVAILABILITY");
+  });
+
+  it("the drawer reaches the tile's verdict on an unconfirmed, unpriced row", () => {
+    const row = {
+      id: "p1", slug: "p1", sellerId: "s1", hasVariants: false, inStock: false,
+      availabilityStatus: "UNCONFIRMED" as const, moq: 1, price: null, currency: undefined, vatRate: null,
+    };
+    const action = completionAction(row as never, "B2B");
+    expect(action.kind).toBe("REQUEST_QUOTE");
+    // Both request actions keep the one RFQ contract.
+    expect(action).toMatchObject({ href: "/b2b/rfq/new?supplier=s1&product=p1" });
+  });
+
   it("keeps variants ahead of price: a variant row navigates rather than quoting", () => {
     // The base row has no authoritative price BECAUSE a variant carries it.
     // Quoting from here would ask about a product the buyer has not chosen yet.

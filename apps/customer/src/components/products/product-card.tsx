@@ -248,7 +248,9 @@ export function ProductCard({
    * expression and in none of the other three.
    */
   const canPrice = price != null && !!currency && vatRate != null;
-  const purchaseAction = productCardPurchaseAction(hasVariants, inStock, canPrice);
+  // `availability`, not the raw prop: it is the same resolved value the frame
+  // and the stock dot print, so the label cannot disagree with them.
+  const purchaseAction = productCardPurchaseAction(hasVariants, inStock, canPrice, availability);
 
   function handlePrimaryAction(event: React.MouseEvent<HTMLButtonElement>) {
     const action = purchaseAction;
