@@ -693,11 +693,25 @@ export function ProductCard({
           AA. The rule it bends is a house preference; the thing it buys is a
           page that looks like one product.
         */}
+        {/*
+          TIGHTER ON A PHONE, NOT TALLER. A 2-up tile at 390px gives the button
+          141px, and `md`'s 20px of padding either side left 101px for an icon,
+          an 8px gap and "Request availability" — which measured a pixel or two
+          wider, so the label ran through both paddings to the border. Below
+          `sm` the padding and the gap step down, which buys the label about
+          sixteen pixels inside the face.
+
+          The size, the height and `whitespace-nowrap` stay. Letting the label
+          wrap onto two lines would give tiles in one row different button
+          heights, and ProductGridSkeleton reserves exactly one `h-control-md`
+          for this block — a wrapped label is the layout shift that reservation
+          exists to prevent.
+        */}
         <Button
           type="button"
           variant="primary"
           size="md"
-          className="w-full"
+          className="w-full max-sm:gap-1.5 max-sm:px-3"
           onClick={handlePrimaryAction}
           /*
            * NOTHING IS DISABLED ANY MORE. Every branch now has somewhere to go:
