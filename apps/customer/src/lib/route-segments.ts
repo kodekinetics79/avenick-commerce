@@ -66,4 +66,6 @@ export const KNOWN_TOP_LEVEL_SEGMENTS: readonly string[] = [
   "icon",
   "manifest.webmanifest",
   "opengraph-image",
+  "robots.txt",
+  "sitemap.xml",
 ];
