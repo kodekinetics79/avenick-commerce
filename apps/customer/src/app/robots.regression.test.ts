@@ -40,8 +40,38 @@ describe("robots.txt", () => {
 
   it("keeps crawlers off the private and per-visitor surfaces", () => {
     const { allow, disallow } = rules();
-    for (const path of ["/account/orders", "/orders/1", "/checkout", "/cart", "/wishlist", "/login", "/b2b/team", "/api/orders"]) {
+    for (const path of [
+      "/account/orders",
+      "/orders/1",
+      "/checkout",
+      "/cart",
+      "/wishlist",
+      "/login",
+      "/b2b/team",
+      "/api/orders",
+      "/api/signals/view",
+      "/api/cart/completions",
+    ]) {
       expect(crawlable(path, allow, disallow), `${path} is crawlable`).toBe(false);
+    }
+  });
+
+  /**
+   * The product page is a client component: everything a buyer reads on it
+   * arrives from /api/products/<slug> after the HTML. The first robots.txt
+   * disallowed all of /api/, and a crawler renders with its fetches subject to
+   * robots.txt, so every product URL on the sitemap rendered as an empty shell.
+   */
+  it("lets a crawler's render fetch the catalogue reads public pages make from the browser", () => {
+    const { allow, disallow } = rules();
+    for (const path of [
+      "/api/products/m20-gland",
+      "/api/products/m20-gland?currency=AED",
+      "/api/products/m20-gland/recommendations",
+      "/api/categories",
+      "/api/brands",
+    ]) {
+      expect(crawlable(path, allow, disallow), `${path} is disallowed`).toBe(true);
     }
   });
 
