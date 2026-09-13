@@ -264,7 +264,9 @@ export default async function HomePage() {
           >
 
             <div className="relative grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-              <div className="min-w-0">
+              {/* A size container, so the headline below can be set against
+                  the width it actually has rather than the viewport's. */}
+              <div className="min-w-0 [container-type:inline-size]">
                 <Reveal index={0}>
                   <p className="u-meta font-medium uppercase tracking-[0.14em] text-white/80">
                     {t("heroTagline")}
@@ -274,12 +276,29 @@ export default async function HomePage() {
                 {/* Light over SemiBold, the reference's exact device. Our own
                     words: "THE NEW STANDARD" is Qantara's line, not Avenick's,
                     and a slogan is the one thing in a design file that belongs
-                    to whoever wrote it. */}
+                    to whoever wrote it.
+
+                    THE DEVICE IS TWO LINES, SO THE SIZE FOLLOWS THE COLUMN.
+                    The sizes used to step with the VIEWPORT (44 → 56 → 68px),
+                    but this column is squeezed by the category rail on one side
+                    and the carousel on the other: at 1366, 1440 and 1920 it is
+                    492, 562 and 616px wide, and "Buy with confidence." at 68px
+                    is 617px. The headline therefore set in three or four lines
+                    at every desktop width. The longer line is ≈9.1em, so 10.5%
+                    of the column's width (10.5cqi) fills about 95% of it at any
+                    width, clamped between the old phone size and the old desktop
+                    size. Phones stay at the 2.75rem floor. A browser without
+                    container units keeps that floor everywhere, which is
+                    smaller but still two readable lines, never a broken rule.
+
+                    The {" "} between the spans is the word space. Without it
+                    the heading's text read "clarity.Buy" to anything that reads
+                    textContent — a crawler, a snippet, a copy-paste. */}
                 <Reveal index={1} as="h1" className="mt-4 text-white">
-                  <span className="block text-[2.75rem] font-light leading-[1.05] tracking-[-0.02em] sm:text-[3.5rem] lg:text-[4.25rem]">
+                  <span className="block text-[2.75rem] font-light leading-[1.05] tracking-[-0.02em] supports-[width:1cqi]:text-[length:clamp(2.75rem,10.5cqi,4.25rem)]">
                     {t("heroTitle1")}
-                  </span>
-                  <span className="block text-[2.75rem] font-semibold leading-[1.05] tracking-[-0.02em] sm:text-[3.5rem] lg:text-[4.25rem]">
+                  </span>{" "}
+                  <span className="block text-[2.75rem] font-semibold leading-[1.05] tracking-[-0.02em] supports-[width:1cqi]:text-[length:clamp(2.75rem,10.5cqi,4.25rem)]">
                     {t("heroTitle2")}
                   </span>
                 </Reveal>
