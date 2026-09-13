@@ -45,7 +45,10 @@ export async function getB2B(): Promise<{ t: B2BT; f: B2BFormats; locale: string
  * The suffix is `shell.forBusiness`, the same line the masthead falls back to,
  * so the tab and the page agree about what this workspace is called.
  */
-export async function b2bMetadata(key: B2BKey): Promise<{ title: string }> {
+export async function b2bMetadata(key: B2BKey): Promise<{ title: { absolute: string } }> {
   const t = await getB2BT();
-  return { title: `${t(key)} — ${t("shell.forBusiness", { platform: platformName() })}` };
+  // ABSOLUTE, because the suffix already names the platform. The root layout's
+  // `%s | <platform>` template would name it a second time, and every page in
+  // this suite read "Register your business — Avenick for Business | Avenick".
+  return { title: { absolute: `${t(key)} — ${t("shell.forBusiness", { platform: platformName() })}` } };
 }
