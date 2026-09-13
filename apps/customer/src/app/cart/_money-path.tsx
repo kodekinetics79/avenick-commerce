@@ -85,13 +85,12 @@ export function MoneyRow({ label, value, tone = "default", note }: MoneyRowProps
         <span className="u-ui block text-ink-2">{label}</span>
         {note && <span className="u-meta block text-ink-3">{note}</span>}
       </span>
-      {/* `u-ui`, not `text-ui`. Both set the same rank, but `cn` is
-          tailwind-merge and it classifies every unrecognised `text-*` value as a
-          COLOUR: `text-ui` and `text-ink-1` land in one group and the last one
-          wins, so `text-ui` was being dropped and the breakdown figures were
-          rendering at body rank against a `u-ui` label beside them. The type
-          utilities are the safe form here and they carry the RTL and portal
-          tokens as well. */}
+      {/* `u-ui`, not `text-ui`. Both set the same rank, and the type utilities
+          also carry the RTL and portal tokens, which is why this row uses them.
+          (`cn` used to drop `text-ui` whenever a text colour followed it,
+          because tailwind-merge did not know this system's font-size keys;
+          packages/utils/src/cn.ts now registers them, so either form survives
+          the merge.) */}
       <span
         className={cn(
           "fig u-ui shrink-0",

@@ -685,10 +685,17 @@ async function Pagination({
   const start = Math.max(1, Math.min(page - Math.floor(span / 2), totalPages - span + 1));
   const pages = Array.from({ length: span }, (_, i) => start + i);
 
+  // Each control is drawn at 30px and reaches 44px under a thumb through
+  // .u-hit. Two 44px targets around 30px controls overlap unless 14px separates
+  // them, so the gap opens to 14px on coarse pointers only, and the row wraps
+  // rather than overflowing a phone when the gap grows.
   return (
-    <nav aria-label={t("pagination.label")} className="mt-block flex items-center justify-center gap-1.5">
+    <nav
+      aria-label={t("pagination.label")}
+      className="mt-block flex flex-wrap items-center justify-center gap-1.5 [@media(pointer:coarse)]:gap-3.5"
+    >
       {page > 1 && (
-        <Button variant="ghost" size="sm" asChild>
+        <Button variant="ghost" size="sm" asChild className="relative u-hit">
           <Link href={href(page - 1)} rel="prev">
             {/* A direction-implying icon has to flip in Arabic, or "previous"
                 points at the next page. */}
@@ -710,7 +717,7 @@ async function Pagination({
             {p}
           </span>
         ) : (
-          <Button key={p} variant="ghost" size="sm" asChild>
+          <Button key={p} variant="ghost" size="sm" asChild className="relative u-hit">
             <Link href={href(p)} aria-label={t("pagination.page", { page: String(p) })}>
               {p}
             </Link>
@@ -719,7 +726,7 @@ async function Pagination({
       )}
 
       {page < totalPages && (
-        <Button variant="ghost" size="sm" asChild>
+        <Button variant="ghost" size="sm" asChild className="relative u-hit">
           <Link href={href(page + 1)} rel="next">
             {t("pagination.next")}
             <ChevronRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
