@@ -871,7 +871,15 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 .u-sheen::before {
   content: "";
   position: absolute;
-  inset: 0;
+  /* Oversized, because the drift below moves this layer by up to 2.5% across
+     and 1.5% down — percentages of its OWN box, so 2.7% and 1.6% of the host once
+     the box is 108% wide. At inset: 0 the moved layer uncovered a strip of bare
+     fill along the inline end and the top, about 22px on the desktop hero, and
+     the slab read as a panel inside a panel. 4% covers the travel with margin
+     and moves the gradients' geometry less than a larger overhang would. The
+     host must clip it: the home hero is overflow-clip and rounded, and it is the
+     only host. */
+  inset: -4%;
   z-index: -1;
   border-radius: inherit;
   background:
