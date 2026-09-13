@@ -144,26 +144,27 @@ export default function StatusPage() {
           </Eyebrow>
           <Surface rung={2} className="overflow-hidden">
             <ul>
-              {data.components.map((c) => (
-                <li
-                  key={c.name}
-                  className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline px-4 py-3 first:border-t-0"
-                >
-                  {/* A label, never the endpoint's identifier — see
-                      statusComponentLabel. The detail is shown only when it is a
-                      measured latency; everything else it can say is already on
-                      the pill beside it. */}
-                  <span className="u-body text-ink-1">{statusComponentLabel(t.componentLabels, c.name)}</span>
-                  <span className="flex items-center gap-2">
-                    {statusComponentDetail(c.detail) && (
-                      <span className="u-meta text-ink-3">{statusComponentDetail(c.detail)}</span>
-                    )}
-                    <StatusPill tone={TONE[c.status]} dot>
-                      {label(c.status)}
-                    </StatusPill>
-                  </span>
-                </li>
-              ))}
+              {data.components.map((c) => {
+                const detail = statusComponentDetail(t, c.detail);
+                return (
+                  <li
+                    key={c.name}
+                    className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline px-4 py-3 first:border-t-0"
+                  >
+                    {/* A label, never the endpoint's identifier — see
+                        statusComponentLabel. The detail is shown only when it is
+                        a measured latency, re-set in the reader's language;
+                        everything else it can say is already on the pill. */}
+                    <span className="u-body text-ink-1">{statusComponentLabel(t.componentLabels, c.name)}</span>
+                    <span className="flex items-center gap-2">
+                      {detail && <span className="u-meta text-ink-3">{detail}</span>}
+                      <StatusPill tone={TONE[c.status]} dot>
+                        {label(c.status)}
+                      </StatusPill>
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </Surface>
 

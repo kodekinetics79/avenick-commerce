@@ -36,12 +36,22 @@ describe("status page copy", () => {
   });
 
   it("prints a measured latency and withholds details the pill already states", () => {
-    expect(statusComponentDetail("latency 42ms")).toBe("latency 42ms");
-    expect(statusComponentDetail("CLOSED")).toBeNull();
-    expect(statusComponentDetail("none configured")).toBeNull();
-    expect(statusComponentDetail("2 configured, health not probed")).toBeNull();
-    expect(statusComponentDetail("no synthetic configured")).toBeNull();
-    expect(statusComponentDetail(undefined)).toBeNull();
+    const t = accountCopy("en").status;
+    expect(statusComponentDetail(t, "latency 42ms")).toBe("latency 42ms");
+    expect(statusComponentDetail(t, "CLOSED")).toBeNull();
+    expect(statusComponentDetail(t, "none configured")).toBeNull();
+    expect(statusComponentDetail(t, "2 configured, health not probed")).toBeNull();
+    expect(statusComponentDetail(t, "no synthetic configured")).toBeNull();
+    expect(statusComponentDetail(t, undefined)).toBeNull();
+  });
+
+  it("sets the latency in the reader's language, keeping only the figure from the endpoint", () => {
+    // The endpoint's detail is English. Passed through verbatim, the Arabic page
+    // read "قاعدة البيانات | latency 79ms | تعمل".
+    const detail = statusComponentDetail(accountCopy("ar").status, "latency 79ms");
+    expect(detail).toMatch(/[؀-ۿ]/);
+    expect(detail).toContain("79");
+    expect(detail).not.toMatch(/latency|ms\b/i);
   });
 
   it("keeps the ops phrasing out of the journeys summary", () => {

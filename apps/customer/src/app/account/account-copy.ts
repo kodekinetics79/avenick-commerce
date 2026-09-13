@@ -97,6 +97,12 @@ interface AccountDictionary {
      * is an ops contract that uptime monitors read — only their labels are.
      */
     readonly componentLabels: Readonly<Record<string, string>>;
+    /**
+     * A component's measured latency, in the reader's language. /api/status
+     * sends it as the English phrase "latency 79ms"; the page reads the figure
+     * out of that and sets it here, so an Arabic page never prints the word.
+     */
+    readonly latency: (ms: number) => string;
   };
 }
 
@@ -229,6 +235,7 @@ const EN: AccountDictionary = {
       "external-integrations": "Partner integrations",
       "primary-journeys": "Customer journeys",
     },
+    latency: (ms) => `latency ${ms}ms`,
   },
 };
 
@@ -338,6 +345,9 @@ const AR: AccountDictionary = {
       "external-integrations": "تكاملات الشركاء",
       "primary-journeys": "رحلات العملاء",
     },
+    // Western digits, per DESIGN_SYSTEM.md §2.3: one numeral system across both
+    // locales keeps a figure tabular.
+    latency: (ms) => `زمن الاستجابة ${ms} ملّي ثانية`,
   },
 };
 
@@ -372,9 +382,17 @@ export function statusComponentLabel(
  * "CLOSED", "none configured", "no synthetic configured" — or an English
  * sentence with no Arabic twin. The pill already carries the state, in the
  * reader's language, so those are withheld rather than translated. A latency is
- * different: it is a figure, the same in both languages, and it is the one thing
- * on the row the pill does not already say.
+ * different: it is the one thing on the row the pill does not already say.
+ *
+ * It is NOT passed through as sent. The endpoint's detail is the English phrase
+ * "latency 79ms", and printing it verbatim put that English on the Arabic page
+ * beside Arabic labels and pills. Only the figure is taken from it; the words
+ * come from the dictionary.
  */
-export function statusComponentDetail(detail: string | undefined): string | null {
-  return detail && /^latency \d+ms$/.test(detail) ? detail : null;
+export function statusComponentDetail(
+  t: AccountDictionary["status"],
+  detail: string | undefined,
+): string | null {
+  const measured = detail ? /^latency (\d+)ms$/.exec(detail) : null;
+  return measured ? t.latency(Number(measured[1])) : null;
 }
