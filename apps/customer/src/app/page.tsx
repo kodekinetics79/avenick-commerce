@@ -24,6 +24,7 @@ import { partitionHomeProducts } from "@/lib/home-catalog";
 import { productCardPricePresentation } from "@/lib/product-card-commerce";
 import { HeroCarousel } from "@/components/hero/hero-carousel";
 import { toHeroSlides } from "@/components/hero/hero-slides";
+import { categoryRailRows } from "@/components/hero/category-rail-rows";
 
 export const dynamic = "force-dynamic";
 
@@ -787,8 +788,19 @@ function CategoryRail({
       */}
       <Surface rung={4} className="flex flex-1 flex-col overflow-hidden">
         <p className="u-meta border-b border-hairline px-3.5 py-2.5 font-medium text-ink-2">{label}</p>
+        {/*
+          THE SHAPE, ONE LEVEL DEEPER. Seven top-level rows ended 296px into a
+          646px panel, so over half of this raised surface was empty. Under each
+          root now sit as many of its own children as the band has room for,
+          dealt round-robin and budgeted so the rail can never make the hero row
+          taller (components/hero/category-rail-rows.ts has the arithmetic).
+          They are plain links like their parents, indented to the parent's
+          label, in meta type and second ink so the roots still lead. Same
+          taxonomy, same data, no query — getPublicCategories already returns
+          the tree.
+        */}
         <ul className="flex-1 py-1">
-          {categories.map((category) => {
+          {categoryRailRows(categories).map(({ root: category, children }) => {
             const Icon = categoryIcon(category.iconName, category.slug);
             return (
               <li key={category.slug}>
@@ -802,6 +814,20 @@ function CategoryRail({
                   />
                   <span className="u-ui truncate text-ink-1">{categoryLabel(category, locale)}</span>
                 </Link>
+                {children.length > 0 && (
+                  <ul>
+                    {children.map((child) => (
+                      <li key={child.slug}>
+                        <Link
+                          href={`/products?category=${encodeURIComponent(child.slug)}`}
+                          className="u-focus u-meta block truncate rounded-nested py-1 pe-3.5 ps-10 text-start text-ink-2 transition-colors duration-hover ease-standard hover:bg-surface-2 hover:text-ink-1"
+                        >
+                          {categoryLabel(child, locale)}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             );
           })}
