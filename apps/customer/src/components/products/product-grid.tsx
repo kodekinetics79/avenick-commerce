@@ -36,15 +36,42 @@ const COLUMNS: Record<4 | 5, string> = {
   5: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6",
 };
 
+/**
+ * FOUR TILES ON A PHONE, WHEN THE GRID IS A SAMPLE RATHER THAN AN ANSWER.
+ *
+ * The home page's rails are ten tiles each, which at 2-up is five rows of about
+ * 480px. Three of them made up two thirds of an 11,331px page on a 390px
+ * viewport, and the first of them opened with the same run of products as page
+ * one of /products — so a phone buyer scrolled three screens of the catalogue's
+ * first page before reaching the catalogue.
+ *
+ * `phoneLimit` hides every tile after the fourth below `sm`, so a rail is two
+ * rows there and unchanged from `sm` up. Nothing is removed from the page: the
+ * rows are still rendered, and the rail's "View all" is one tap from the full
+ * set. It is for rails nobody asked for. A result set — /products, /search,
+ * /deals, a category — never passes it; a grid the visitor filtered to get
+ * must show what it found.
+ *
+ * The selector is a literal string for the same reason COLUMNS is a map: a
+ * class assembled at runtime is invisible to Tailwind's scanner. It targets the
+ * grid's DIRECT children, which on the home rails are the <Reveal> wrappers, so
+ * a whole tile is hidden and never half of one.
+ */
+const PHONE_LIMIT = "max-sm:[&>*:nth-child(n+5)]:hidden";
+
 export function ProductGrid({
   columns = 4,
+  phoneLimit = false,
   children,
 }: {
   columns?: 4 | 5;
+  phoneLimit?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <LightGrid className={`grid gap-stack sm:gap-5 ${COLUMNS[columns]}`}>{children}</LightGrid>
+    <LightGrid className={`grid gap-stack sm:gap-5 ${COLUMNS[columns]}${phoneLimit ? ` ${PHONE_LIMIT}` : ""}`}>
+      {children}
+    </LightGrid>
   );
 }
 
