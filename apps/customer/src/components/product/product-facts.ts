@@ -143,6 +143,35 @@ export function quoteOnlyAction(
 }
 
 /**
+ * The RFQ form's address for THIS product, not just for its supplier.
+ *
+ * The supplier card linked `?supplier=<id>` alone and the buy column
+ * `?supplier=&product=`, and the form read neither, so both buttons landed on a
+ * blank request and the buyer retyped the name of the thing they had just been
+ * looking at. The form now resolves `product` — and `variant`, and `qty` — on
+ * the server (app/b2b/rfq/new/product-seed.ts), so the link carries identifiers
+ * only. No name or SKU travels in the URL: the server reads those from the
+ * catalogue under the product API's own visibility rule, which a query string
+ * anyone can type could not be held to.
+ */
+export function rfqHrefForProduct({
+  sellerId,
+  productId,
+  variantId,
+  quantity,
+}: {
+  sellerId: string;
+  productId: string;
+  variantId?: string;
+  quantity?: number;
+}): string {
+  const query = new URLSearchParams({ supplier: sellerId, product: productId });
+  if (variantId) query.set("variant", variantId);
+  if (quantity && Number.isInteger(quantity) && quantity > 0) query.set("qty", String(quantity));
+  return `/b2b/rfq/new?${query.toString()}`;
+}
+
+/**
  * How many of the loaded reviews sit at each star. Counted over the window the
  * catalogue actually returned, never extrapolated to the server's total — the
  * caller labels it as such. A distribution invented from an average is fiction

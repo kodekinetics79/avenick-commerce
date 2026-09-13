@@ -44,7 +44,14 @@ import { ReviewPanel, type Review, type ReviewAccess } from "@/components/produc
 import { SellerCard, type ProductSeller } from "@/components/product/seller-card";
 import { SpecList, type SpecRow } from "@/components/product/spec-list";
 import { ViewBeacon } from "@/components/product/view-beacon";
-import { attributeLabel, buildPriceLadder, BUTTON_TYPE, FOCUS_INSET, quoteOnlyAction } from "@/components/product/product-facts";
+import {
+  attributeLabel,
+  buildPriceLadder,
+  BUTTON_TYPE,
+  FOCUS_INSET,
+  quoteOnlyAction,
+  rfqHrefForProduct,
+} from "@/components/product/product-facts";
 import type { SubmittedReview } from "@/components/product/review-form";
 import { Stars } from "@/components/product/stars";
 
@@ -362,8 +369,16 @@ export default function ProductPage({
   const averageBasisCount = averageIsPartial ? reviewCount : reviewTotal;
 
   const skuText = selection?.sku ?? String(p.sku);
+  // One address for every request on this page, carrying the product, the
+  // chosen variant and the quantity the buyer set, so the RFQ form opens with
+  // the line already written. See rfqHrefForProduct.
   const rfqHref = seller
-    ? `/b2b/rfq/new?supplier=${encodeURIComponent(String(seller.id ?? ""))}&product=${encodeURIComponent(productId)}`
+    ? rfqHrefForProduct({
+        sellerId: String(seller.id ?? ""),
+        productId,
+        variantId: selection?.variantId ?? selectedVariant?.id,
+        quantity: qty,
+      })
     : null;
   // The catalogue's normal state — no price row in this view at all — as
   // opposed to a null selection over bands that do exist. See quoteOnlyAction.
@@ -672,7 +687,7 @@ export default function ProductPage({
                   locale={locale}
                   // When the price panel's primary action already IS the
                   // request, the card does not repeat it one surface lower.
-                  quoteHref={request ? undefined : `/b2b/rfq/new?supplier=${encodeURIComponent(String(seller.id ?? ""))}`}
+                  quoteHref={request ? undefined : rfqHref ?? undefined}
                   labels={{
                     eyebrow: t("seller.eyebrow"),
                     requestQuote: t("seller.requestQuote"),
