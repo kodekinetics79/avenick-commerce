@@ -195,6 +195,15 @@
   --brass:               36 56% 42%;   /* rule + tier + verification ONLY. Never a fill. */
   --brass-ink:           34 60% 34%;
 
+  /* THE BRAND PANEL's two stops (.u-panel-brand), and deliberately absent from
+     .dark. The panel's copy is white in both themes, and dark --primary is a mint
+     built to sit under dark ink: with the panel derived from it, the home
+     headline measured 1.78:1. The first stop is the light --primary, pinned, so
+     the slab is the same deep green on either ground. The contrast test holds
+     both to 4.5:1 against white and fails if either gains a dark value. */
+  --panel-brand-from:   150 92% 26%;
+  --panel-brand-to:     150 92% 20%;
+
   /* ═══ SEMANTICS ═══
      Success sits 32° off --accent so a "verified" chip and a "paid" chip can
      never read as the same colour, and every hue is desaturated — the neon
@@ -916,8 +925,11 @@ p, .u-lead, .u-body { text-wrap: pretty; }
      §9b's governing rule is "never a hex in a component", and the same page
      rejected a different raw hex 200 lines further down for exactly that
      reason, so the file was already arguing with itself. Both stops are now
-     derived from --primary, which means the panel follows the brand hue instead
-     of pinning a copy of it.
+     tokens beside --primary. They were first derived from --primary itself, to
+     follow the brand hue, but dark mode lifts --primary to a mint meant to sit
+     under dark ink and this panel's copy is white in both themes — the headline
+     fell to 1.78:1. So --panel-brand-from / --panel-brand-to are the light brand
+     green, pinned, and do not flip with the theme.
 
    · `.u-drift` — 24s infinite, animating BACKGROUND-POSITION. §8 names that
      property under NEVER and <AmbientField>'s own docstring says it is avoided
@@ -936,8 +948,8 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 .u-panel-brand {
   background-image: linear-gradient(
     calc(107deg * var(--dir)),
-    hsl(var(--primary) / 1) 22%,
-    hsl(150 92% 20%) 99%
+    hsl(var(--panel-brand-from)) 22%,
+    hsl(var(--panel-brand-to)) 99%
   );
 }
 
