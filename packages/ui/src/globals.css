@@ -59,6 +59,11 @@
    hsl(var(--ink-1) / .06).
    ──────────────────────────────────────────────────────────────────────────── */
 :root {
+  /* The browser's half of the theme. Form controls, scrollbars, the date picker
+     and autofill are drawn from this one property, not from any token below, so
+     without it they stayed light on the dark ground. .dark flips it. */
+  color-scheme: light;
+
   /* ═══ SURFACES ═══
      The core defect this system exists to fix: --background and --card were both
      `0 0% 100%`, so a card was a 1px border and a radius. The ground is now
@@ -467,6 +472,8 @@
    Never copy a light-mode shadow stack into this block.
    ──────────────────────────────────────────────────────────────────────────── */
 .dark {
+  color-scheme: dark;   /* see :root — the browser's own controls follow the theme */
+
   /* The ladder is WIDER than round one's. Range between the darkest ground and
      the brightest object is where dark-mode expense comes from, and a 10-point
      L span across five rungs is not a ladder, it is a gradient nobody can see.
