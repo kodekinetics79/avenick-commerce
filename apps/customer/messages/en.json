@@ -744,6 +744,10 @@
       "related": "Same category, brand or specification as this product.",
       "boughtTogether": "Ordered together with this product by other buyers.",
       "trending": "Ranked from catalogue activity, not from your browsing."
+    },
+    "meta": {
+      "description": "{name}, SKU {sku}",
+      "descriptionBrand": "{name} by {brand}, SKU {sku}"
     }
   },
   "catalogue": {

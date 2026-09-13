@@ -1,6 +1,6 @@
 "use client";
 
-import { notFound } from "next/navigation";
+import { notFound, useRouter } from "next/navigation";
 import Link from "next/link";
 import * as React from "react";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -93,6 +93,9 @@ type Section = "description" | "specs" | "reviews" | "shipping";
  * forbids ADDING "use client" to get an animation, not keeping an architecture
  * that predates this round. No fetch, no server action, no permission check and
  * no validation is touched here.
+ *
+ * What a client page cannot do — a document head, and a 404 status for a slug
+ * that names nothing — is done by the server layout beside it (layout.tsx).
  */
 export default function ProductPage({
   params,
@@ -104,6 +107,7 @@ export default function ProductPage({
   const t = useTranslations("pdp");
   const tc = useTranslations("catalogue");
   const locale = useLocale() as "en" | "ar";
+  const router = useRouter();
 
   const [product, setProduct] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -221,8 +225,27 @@ export default function ProductPage({
 
   useEffect(() => {
     fetch(productUrl())
-      .then((r) => r.json())
+      .then((r) => {
+        // A business link (?b2b=true) opened without a live company session — an
+        // expired sign-in, a forwarded link, a buyer who has left their company.
+        // The API refuses the business channel with a 401, and that refusal used
+        // to become `product = null` and a client-side "page not found" for a
+        // product that exists. The flag is a request, not a fact about the
+        // viewer, so it is dropped and the public view answers instead: the
+        // product, or a real not-found if it is not publicly listed.
+        if (r.status === 401 && searchParams.b2b === "true") {
+          const query = new URLSearchParams(window.location.search);
+          query.delete("b2b");
+          const rest = query.toString();
+          router.replace(`/products/${encodeURIComponent(params.slug)}${rest ? `?${rest}` : ""}`);
+          return undefined;
+        }
+        return r.json();
+      })
       .then((data) => {
+        // Still loading: the replaced URL changes searchParams, which re-runs
+        // this effect against the public channel.
+        if (data === undefined) return;
         setProduct(data.data);
         setLoading(false);
         if (data.data) {
@@ -234,7 +257,7 @@ export default function ProductPage({
         }
       })
       .catch(() => setLoading(false));
-  }, [productUrl, searchParams.variantId, searchParams.qty]);
+  }, [productUrl, searchParams.variantId, searchParams.qty, searchParams.b2b, params.slug, router]);
 
   useEffect(() => {
     let cancelled = false;
