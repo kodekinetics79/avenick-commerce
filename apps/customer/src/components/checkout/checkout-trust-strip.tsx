@@ -41,8 +41,8 @@ export function CheckoutTrustStrip({ c, locale }: { c: Copy; locale: "en" | "ar"
   const rows = [
     {
       icon: Store,
-      title: c("checkout.trust.verifiedSellers", "Suppliers don't self-publish"),
-      desc: c("checkout.trust.verifiedSellersDesc", "A supplier's storefront goes live only when the platform activates it."),
+      title: c("checkout.trust.verifiedSellers", "Suppliers don’t self-publish"),
+      desc: c("checkout.trust.verifiedSellersDesc", "A supplier’s storefront goes live only when the platform activates it."),
     },
     {
       icon: CreditCard,
