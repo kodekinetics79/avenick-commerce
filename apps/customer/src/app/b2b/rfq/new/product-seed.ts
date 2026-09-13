@@ -37,6 +37,8 @@ const MAX_QUANTITY = 1_000_000;
 /** The form's own bound on a seeded description (page.tsx, for `?query=`). */
 const MAX_DESCRIPTION = 200;
 
+const SEPARATOR = " · ";
+
 export async function readRfqProductSeed(
   params: { product?: unknown; variant?: unknown; qty?: unknown },
   viewer: { locale: string; isCompanyMember: boolean },
@@ -84,10 +86,16 @@ export async function readRfqProductSeed(
   // A name, the variant when it says something the name does not, and the SKU
   // a supplier actually quotes against — joined by a middot, which is
   // punctuation rather than a word, so no language is imposed on the line.
-  const description = [productName, variantName !== productName ? variantName : "", variant?.sku ?? product.sku]
-    .filter(Boolean)
-    .join(" · ")
-    .slice(0, MAX_DESCRIPTION);
+  //
+  // When that runs past the bound it is the NAME that is shortened, never the
+  // SKU. A product name may be 200 characters on its own, and cutting the
+  // joined line at the end dropped the one part a supplier cannot quote
+  // without: a long name and a missing reference is a line nobody can price.
+  const sku = (variant?.sku ?? product.sku).trim();
+  const named = [productName, variantName !== productName ? variantName : ""].filter(Boolean).join(SEPARATOR);
+  const room = sku ? MAX_DESCRIPTION - sku.length - SEPARATOR.length : MAX_DESCRIPTION;
+  const lead = named.length > room ? `${named.slice(0, Math.max(0, room - 1)).trimEnd()}…` : named;
+  const description = [lead, sku].filter(Boolean).join(SEPARATOR).slice(0, MAX_DESCRIPTION);
 
   // The buyer's own quantity from the product page when it is a quantity the
   // supplier would accept; otherwise the MOQ, because quoting below the minimum

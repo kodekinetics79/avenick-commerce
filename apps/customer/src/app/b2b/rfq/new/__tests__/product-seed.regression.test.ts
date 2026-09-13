@@ -89,6 +89,16 @@ describe("readRfqProductSeed", () => {
     expect(mocks.findFirst.mock.calls[0]![0].select.variants.where).toEqual({ id: { in: ["cvar1"] }, isActive: true });
   });
 
+  it("shortens a long name rather than cutting off the SKU a supplier quotes against", async () => {
+    const longName = `Industrial conduit lubricant ${"x".repeat(190)}`;
+    mocks.findFirst.mockResolvedValue({ ...row, nameEn: longName, variants: [{ nameEn: "5 L drum", nameAr: null, sku: "3M-WCL-5L" }] });
+    const seed = await readRfqProductSeed({ product: "cprod123", variant: "cvar1" }, { locale: "en", isCompanyMember: false });
+    expect(seed?.description.length).toBeLessThanOrEqual(200);
+    expect(seed?.description.endsWith(" · 3M-WCL-5L")).toBe(true);
+    expect(seed?.description.startsWith("Industrial conduit lubricant")).toBe(true);
+    expect(seed?.description).toContain("…");
+  });
+
   it("reads no variant rows when the link names none", async () => {
     mocks.findFirst.mockResolvedValue(row);
     await readRfqProductSeed({ product: "cprod123" }, { locale: "en", isCompanyMember: false });
