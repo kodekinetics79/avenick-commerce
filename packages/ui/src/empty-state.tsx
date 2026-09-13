@@ -62,6 +62,19 @@ export interface EmptyStateProps {
    * own geometry at 5% ink, never a stock illustration. Defaults to FileText.
    */
   glyph?: React.ReactNode;
+  /**
+   * The element the lead sentence is set in. The class list — the provenance
+   * voice at h2 size — is identical whichever tag carries it; only the
+   * document outline changes.
+   *
+   * `p` stays the default because nearly every call site is an empty list INSIDE
+   * a page that already has its own h1, and promoting all of them to headings
+   * would hand a screen reader a second page title on every empty table. The
+   * exception is a plate that IS the page — a 404, a failed render — where the
+   * lead is the only thing that could be the h1, and a page with no h1 at all
+   * is announced as untitled. Those pass `headingLevel="h1"`.
+   */
+  headingLevel?: "p" | "h1" | "h2";
   className?: string;
 }
 
@@ -76,9 +89,11 @@ export function EmptyState({
   variant = "default",
   scale = "default",
   glyph,
+  headingLevel = "p",
   className,
 }: EmptyStateProps) {
   const lead = headline ?? title ?? "";
+  const Lead = headingLevel;
   const explain = body ?? description;
 
   if (variant === "certificate") {
@@ -111,7 +126,7 @@ export function EmptyState({
         {/* The provenance voice at h2 size: this sentence is a statement of fact
             about the data, which is exactly what the serif is reserved for. In
             Arabic it now sets in Noto Naskh rather than falling back silently. */}
-        <p className="u-provenance max-w-desc text-h2 text-ink-1">{lead}</p>
+        <Lead className="u-provenance max-w-desc text-h2 text-ink-1">{lead}</Lead>
 
         {explain && <p className="u-body max-w-desc text-ink-2">{explain}</p>}
 
@@ -133,7 +148,7 @@ export function EmptyState({
 
       {/* The provenance voice, at h2 size. This sentence is a statement of fact
           about the data, which is exactly what the serif is reserved for. */}
-      <p className="u-provenance mx-auto max-w-desc text-h2 text-ink-1">{lead}</p>
+      <Lead className="u-provenance mx-auto max-w-desc text-h2 text-ink-1">{lead}</Lead>
 
       {explain && <p className="u-ui mx-auto mt-2 max-w-desc text-ink-2">{explain}</p>}
 

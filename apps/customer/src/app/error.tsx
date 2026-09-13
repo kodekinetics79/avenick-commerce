@@ -62,8 +62,14 @@ export default function Error({
     <div className="mx-auto flex min-h-[70vh] max-w-shell flex-col items-center justify-center gap-8 px-gutter py-16">
       <BrandMark name={platformName()} size={48} />
 
+      {/* The lead is this screen's title, so it is its h1: EmptyState's default
+          <p> left a failure screen with no heading at all, announced as an
+          untitled page to exactly the reader who most needs to know what
+          happened. This boundary stays standalone — no <MainLayout> — because
+          the header is part of what may have thrown. */}
       <EmptyState
         variant="certificate"
+        headingLevel="h1"
         eyebrow={t("eyebrow")}
         headline={t("headline")}
         body={t("body")}

@@ -137,11 +137,22 @@ interface IdentityDictionary {
     readonly provenance: string;
   };
   readonly surfaces: readonly AccountSurface[];
+  /**
+   * The show-password toggle on every password field the storefront renders —
+   * sign-in, /register and /b2b/register. ONE constant name, never a
+   * "Show"/"Hide" pair: the state is carried by aria-pressed, and a name that
+   * also flips announces the state twice. See components/auth/password-field.
+   */
+  readonly passwordReveal: {
+    readonly label: string;
+  };
   readonly login: {
     readonly eyebrow: string;
     readonly title: string;
     readonly subtitle: string;
     readonly subtitleRegistered: string;
+    /** Shown when the validated return path is a quote request. */
+    readonly subtitleQuote: string;
     readonly formLabel: string;
     readonly email: string;
     readonly emailPlaceholder: string;
@@ -196,11 +207,16 @@ interface IdentityDictionary {
     readonly roleDescriptions: Readonly<Record<string, string>>;
     readonly roleUnknown: string;
   };
+  /*
+   * The personal-account form, and the chooser in front of it. The company
+   * fields that used to live here (CR, VAT, industry, size, country, city)
+   * went with the second company form: "Business account" now hands off to
+   * /b2b/register, whose copy is the buyer suite's own.
+   */
   readonly register: {
     readonly eyebrow: string;
     readonly title: string;
     readonly titleConsumer: string;
-    readonly titleBusiness: string;
     readonly subtitle: (platform: string) => string;
     readonly chooserLabel: string;
     readonly consumerTitle: string;
@@ -216,26 +232,10 @@ interface IdentityDictionary {
     readonly passwordHint: string;
     readonly phone: string;
     readonly phoneHint: string;
-    readonly companySection: string;
-    readonly companyNameEn: string;
-    readonly companyNameAr: string;
-    readonly crNumber: string;
-    readonly vatNumber: string;
-    readonly optional: string;
-    readonly industry: string;
-    readonly industryPlaceholder: string;
-    readonly companySize: string;
-    readonly companySizePlaceholder: string;
-    readonly country: string;
-    readonly countryPlaceholder: string;
-    readonly city: string;
     readonly submit: string;
     readonly hasAccount: string;
     readonly signIn: string;
     readonly failed: string;
-    readonly industryLabels: Readonly<Record<string, string>>;
-    readonly companySizeLabels: Readonly<Record<string, string>>;
-    readonly countryLabels: Readonly<Record<string, string>>;
   };
   readonly forgot: {
     readonly eyebrow: string;
@@ -321,6 +321,9 @@ const EN: IdentityDictionary = {
       basis: "Opens once the company's commercial registration has been verified.",
     },
   ],
+  passwordReveal: {
+    label: "Show password",
+  },
   login: {
     eyebrow: "Sign in",
     title: "Welcome back",
@@ -332,6 +335,11 @@ const EN: IdentityDictionary = {
     // branch ran. This is the sentence that is true in both.
     subtitleRegistered:
       "Registration received. Sign in with that email address — if it was already registered, use your existing password.",
+    // A buyer who pressed "Request availability" or "Request a quote" arrives
+    // here with callbackUrl=/b2b/rfq/new…, and used to be told this page was
+    // about "orders, returns and support tickets" — nothing about the request
+    // they had just asked to make.
+    subtitleQuote: "Sign in to continue your quote request.",
     formLabel: "Sign in",
     email: "Email address",
     emailPlaceholder: "you@example.com",
@@ -418,14 +426,22 @@ const EN: IdentityDictionary = {
     roleUnknown: "Company member",
   },
   register: {
-    eyebrow: "Create an account",
-    title: "Register",
+    // The h1 matches the tab title, "Create an account" (auth.registerTitle).
+    // It used to read "Register" under an eyebrow that said "Create an
+    // account" — the tab, the eyebrow and the heading naming the page two ways.
+    eyebrow: "New account",
+    title: "Create an account",
     titleConsumer: "Personal account",
-    titleBusiness: "Business account",
     subtitle: (platform) => `Choose how you will buy on ${platform}.`,
     chooserLabel: "Account type",
     consumerTitle: "Personal account",
-    consumerBody: "Buy for yourself. No company details are required.",
+    // Not "Buy for yourself": whether a product can be ordered on a personal
+    // account is a channel its supplier sets per product, and on production no
+    // live product had it on. The product page's specifications state it, so
+    // this points there instead of promising a purchase the catalogue may not
+    // allow. (The wishlist needs no account at all — it is browser storage —
+    // so it is not offered as the reason to register either.)
+    consumerBody: "For individuals. A product can be ordered on a personal account only where its supplier sells to individuals; the product page says which.",
     businessTitle: "Business account",
     businessBody: "Buy on behalf of a company. Needs a commercial registration number.",
     changeType: "Change account type",
@@ -437,51 +453,10 @@ const EN: IdentityDictionary = {
     passwordHint: "At least 8 characters, with an uppercase letter and a number.",
     phone: "Phone",
     phoneHint: "Optional. International format, including the country code.",
-    companySection: "Company details",
-    companyNameEn: "Company name (English)",
-    companyNameAr: "Company name (Arabic)",
-    crNumber: "Commercial registration number",
-    vatNumber: "VAT number",
-    optional: "Optional.",
-    industry: "Industry",
-    industryPlaceholder: "Select an industry",
-    companySize: "Company size",
-    companySizePlaceholder: "Select a size",
-    country: "Country",
-    countryPlaceholder: "Select a country",
-    city: "City",
     submit: "Create account",
     hasAccount: "Already have an account?",
     signIn: "Sign in",
     failed: "Registration failed.",
-    industryLabels: {
-      INDUSTRIAL_SUPPLIES: "Industrial supplies",
-      ELECTRONICS: "Electronics",
-      OFFICE_SUPPLIES: "Office supplies",
-      SAFETY_PPE: "Safety and PPE",
-      FOOD_HOSPITALITY: "Food and hospitality",
-      BUILDING_MATERIALS: "Building materials",
-      HEALTHCARE: "Healthcare",
-      RETAIL: "Retail",
-      MANUFACTURING: "Manufacturing",
-      TECHNOLOGY: "Technology",
-      OTHER: "Other",
-    },
-    companySizeLabels: {
-      MICRO: "Micro",
-      SMALL: "Small",
-      MEDIUM: "Medium",
-      LARGE: "Large",
-      ENTERPRISE: "Enterprise",
-    },
-    countryLabels: {
-      AE: "United Arab Emirates",
-      SA: "Saudi Arabia",
-      QA: "Qatar",
-      KW: "Kuwait",
-      BH: "Bahrain",
-      OM: "Oman",
-    },
   },
   forgot: {
     eyebrow: "Password reset",
@@ -569,12 +544,16 @@ const AR: IdentityDictionary = {
       basis: "يُفتح بعد التحقق من السجل التجاري للشركة.",
     },
   ],
+  passwordReveal: {
+    label: "إظهار كلمة المرور",
+  },
   login: {
     eyebrow: "تسجيل الدخول",
     title: "أهلاً بعودتك",
     subtitle: "سجّل الدخول لعرض طلباتك ومرتجعاتك وتذاكر الدعم.",
     subtitleRegistered:
       "تم استلام طلب التسجيل. سجّل الدخول بهذا البريد الإلكتروني — وإن كان مسجّلاً من قبل، فاستخدم كلمة المرور الحالية.",
+    subtitleQuote: "سجّل الدخول لمتابعة طلب عرض السعر.",
     formLabel: "تسجيل الدخول",
     email: "البريد الإلكتروني",
     emailPlaceholder: "you@example.com",
@@ -637,14 +616,13 @@ const AR: IdentityDictionary = {
     roleUnknown: "عضو في الشركة",
   },
   register: {
-    eyebrow: "إنشاء حساب",
-    title: "التسجيل",
+    eyebrow: "حساب جديد",
+    title: "إنشاء حساب",
     titleConsumer: "حساب شخصي",
-    titleBusiness: "حساب تجاري",
     subtitle: (platform) => `اختر طريقة الشراء على ${platform}.`,
     chooserLabel: "نوع الحساب",
     consumerTitle: "حساب شخصي",
-    consumerBody: "الشراء لنفسك. لا تُطلب أي بيانات شركة.",
+    consumerBody: "للأفراد. لا يُطلب المنتج بحساب شخصي إلا إذا كان مورّده يبيع للأفراد، وتوضح صفحة المنتج ذلك.",
     businessTitle: "حساب تجاري",
     businessBody: "الشراء نيابة عن شركة. يتطلب رقم سجل تجاري.",
     changeType: "تغيير نوع الحساب",
@@ -656,51 +634,10 @@ const AR: IdentityDictionary = {
     passwordHint: "8 أحرف على الأقل، مع حرف لاتيني كبير ورقم.",
     phone: "رقم الهاتف",
     phoneHint: "اختياري. بالصيغة الدولية، مع رمز الدولة.",
-    companySection: "بيانات الشركة",
-    companyNameEn: "اسم الشركة بالإنجليزية",
-    companyNameAr: "اسم الشركة بالعربية",
-    crNumber: "رقم السجل التجاري",
-    vatNumber: "الرقم الضريبي",
-    optional: "اختياري.",
-    industry: "القطاع",
-    industryPlaceholder: "اختر القطاع",
-    companySize: "حجم الشركة",
-    companySizePlaceholder: "اختر الحجم",
-    country: "الدولة",
-    countryPlaceholder: "اختر الدولة",
-    city: "المدينة",
     submit: "إنشاء الحساب",
     hasAccount: "لديك حساب بالفعل؟",
     signIn: "تسجيل الدخول",
     failed: "تعذّر إتمام التسجيل.",
-    industryLabels: {
-      INDUSTRIAL_SUPPLIES: "التوريدات الصناعية",
-      ELECTRONICS: "الإلكترونيات",
-      OFFICE_SUPPLIES: "المستلزمات المكتبية",
-      SAFETY_PPE: "السلامة ومعدات الوقاية",
-      FOOD_HOSPITALITY: "الأغذية والضيافة",
-      BUILDING_MATERIALS: "مواد البناء",
-      HEALTHCARE: "الرعاية الصحية",
-      RETAIL: "تجارة التجزئة",
-      MANUFACTURING: "التصنيع",
-      TECHNOLOGY: "التقنية",
-      OTHER: "أخرى",
-    },
-    companySizeLabels: {
-      MICRO: "متناهية الصغر",
-      SMALL: "صغيرة",
-      MEDIUM: "متوسطة",
-      LARGE: "كبيرة",
-      ENTERPRISE: "مؤسسة كبرى",
-    },
-    countryLabels: {
-      AE: "الإمارات العربية المتحدة",
-      SA: "المملكة العربية السعودية",
-      QA: "قطر",
-      KW: "الكويت",
-      BH: "البحرين",
-      OM: "سلطنة عُمان",
-    },
   },
   forgot: {
     eyebrow: "إعادة تعيين كلمة المرور",
@@ -762,4 +699,26 @@ const AR: IdentityDictionary = {
 
 export function identityCopy(locale: IdentityLocale): IdentityDictionary {
   return locale === "ar" ? AR : EN;
+}
+
+/**
+ * The sentence under "Welcome back", chosen from where the visitor is going.
+ *
+ * `returnTo` MUST already be the output of safeReturnTo — this chooses words
+ * from it and never navigates to it. Order matters: "registration received" is
+ * the more urgent fact (it changes which password to use), so it wins over the
+ * quote line when a new registrant is also on their way to a quote.
+ *
+ * Only /b2b/rfq/new counts as a quote request: it is where every storefront
+ * "Request a quote" and "Request availability" control points. A return to the
+ * RFQ list or to one RFQ is a signed-in visitor resuming work, which the
+ * generic line already describes well enough.
+ */
+export function loginSubtitle(
+  t: IdentityDictionary["login"],
+  { justRegistered, returnTo }: { justRegistered: boolean; returnTo: string },
+): string {
+  if (justRegistered) return t.subtitleRegistered;
+  if (returnTo === "/b2b/rfq/new" || returnTo.startsWith("/b2b/rfq/new?")) return t.subtitleQuote;
+  return t.subtitle;
 }

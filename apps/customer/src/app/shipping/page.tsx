@@ -57,7 +57,7 @@ export default async function ShippingPage() {
             before that confirmation.
           </p>
           <p>
-            That is not caution for its own sake: orders are fulfilled by approved suppliers from
+            That is not caution for its own sake: orders are fulfilled by suppliers from
             their own locations, and which supplier serves a given line — and from where — is settled
             when the order is processed, not when it is placed.
           </p>
@@ -70,7 +70,7 @@ export default async function ShippingPage() {
             بناقل أو مدة توصيل قبل ذلك التأكيد.
           </p>
           <p>
-            وليس ذلك تحفظًا لذاته: فالطلبات ينفّذها موردون معتمدون من مواقعهم، وتحديد المورّد الذي
+            وليس ذلك تحفظًا لذاته: فالطلبات ينفّذها الموردون من مواقعهم، وتحديد المورّد الذي
             يخدم بندًا بعينه — ومن أين — يتم عند معالجة الطلب لا عند تقديمه.
           </p>
         </>

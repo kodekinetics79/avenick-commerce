@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { MainLayout } from "@/components/layout/main-layout";
-import { Eyebrow, PageHeader, Surface } from "@avenick/ui";
+import { PolicyShell, type PolicySection } from "@/components/legal/policy-shell";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
 
 export const metadata = {
@@ -11,20 +11,12 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
-interface LegalSection {
-  id: string;
-  titleEn: string;
-  titleAr: string;
-  contentEn: React.ReactNode;
-  contentAr: React.ReactNode;
-}
-
 /**
  * Built per request: the legal contact address is deployment configuration
  * (platformContacts) and is never typed into the terms. With no address
  * configured, the section points at the support portal instead.
  */
-function buildSections(legalEmail: string | null): LegalSection[] {
+function buildSections(legalEmail: string | null): PolicySection[] {
   // The operator's name appears throughout the agreement; it is read once from
   // the resolver so a renamed deployment does not bind users to the old name.
   const name = platformName();
@@ -34,14 +26,17 @@ function buildSections(legalEmail: string | null): LegalSection[] {
   const supportLink = (ar: boolean) => (
     <Link href="/support" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">{ar ? "بوابة الدعم الفني" : "support portal"}</Link>
   );
+  const contactLink = (ar: boolean) => (
+    <Link href="/contact" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">{ar ? "صفحة الاتصال" : "contact page"}</Link>
+  );
   return [
   {
     id: "terms",
-    titleEn: "1. Acceptance of Terms",
+    titleEn: "1. Acceptance of terms",
     titleAr: "١. قبول الشروط والأحكام",
     contentEn: (
       <>
-        <p>By registering for, accessing, or using the {name} B2B/B2C trading platform, you agree to be bound by these Terms of Service. These terms constitute a legally binding agreement between you (and your company, if registering as a business entity) and {name}.</p>
+        <p>By registering for, accessing, or using the {name} trading platform, you agree to be bound by these Terms of Service. These terms constitute a legally binding agreement between you (and your company, if registering as a business entity) and {name}.</p>
         <p>If you do not agree with any part of these terms, you must not access the platform or use our services.</p>
       </>
     ),
@@ -54,7 +49,7 @@ function buildSections(legalEmail: string | null): LegalSection[] {
   },
   {
     id: "accounts",
-    titleEn: "2. Registration & Account Roles",
+    titleEn: "2. Registration and account roles",
     titleAr: "٢. التسجيل وأدوار الحسابات",
     contentEn: (
       <>
@@ -71,7 +66,7 @@ function buildSections(legalEmail: string | null): LegalSection[] {
   },
   {
     id: "credit",
-    titleEn: "3. B2B Credit & Payment Terms",
+    titleEn: "3. B2B credit and payment terms",
     titleAr: "٣. الائتمان التجاري وشروط الدفع",
     contentEn: (
       <>
@@ -88,7 +83,7 @@ function buildSections(legalEmail: string | null): LegalSection[] {
   },
   {
     id: "procurement",
-    titleEn: "4. Procurement & RFQ Rules",
+    titleEn: "4. Procurement and RFQ rules",
     titleAr: "٤. قواعد المشتريات وطلبات عرض الأسعار",
     contentEn: (
       <>
@@ -105,7 +100,7 @@ function buildSections(legalEmail: string | null): LegalSection[] {
   },
   {
     id: "disputes",
-    titleEn: "5. Buyer Protection & Disputes",
+    titleEn: "5. Buyer protection and disputes",
     titleAr: "٥. حماية المشتري والنزاعات",
     contentEn: (
       <>
@@ -122,22 +117,28 @@ function buildSections(legalEmail: string | null): LegalSection[] {
   },
   {
     id: "governing-law",
-    titleEn: "6. Governing Law",
+    titleEn: "6. Governing law",
     titleAr: "٦. القانون الحاكم والولاية القضائية",
     contentEn: (
       <>
-        <p>The governing law and dispute forum must be stated in the executed customer agreement for the deployed tenant. This demo does not assign a jurisdiction by default. Contact the legal desk before relying on these terms for a live transaction.</p>
+        {/* This section called the live storefront "this demo" and sent readers
+            to a "legal desk" that no page names. What is true is narrower and
+            is all it says now: these terms name no governing law or forum, and
+            a signed agreement that does name them governs. No jurisdiction is
+            stated because none is recorded — lib/company.ts deliberately
+            resolves the GCC trading entity to null until it is configured. */}
+        <p>These terms do not name a governing law or a forum for disputes. Where a written agreement between you and {name} names them, that agreement applies. If none does, ask through the {contactLink(false)} before relying on these terms for a transaction.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>يجب تحديد القانون الحاكم وجهة الفصل في النزاعات ضمن اتفاقية العميل الموقعة للبيئة المنشورة. لا تحدد هذه البيئة التجريبية اختصاصاً قضائياً افتراضياً. يرجى التواصل مع القسم القانوني قبل الاعتماد على هذه الشروط في معاملة فعلية.</p>
+        <p>لا تحدد هذه الشروط قانوناً حاكماً ولا جهةً للفصل في النزاعات. فإن حدّدتهما اتفاقية مكتوبة بينكم وبين {name} فتسري تلك الاتفاقية، وإن لم توجد اتفاقية كهذه فاستفسروا عبر {contactLink(true)} قبل الاعتماد على هذه الشروط في أي معاملة.</p>
       </>
     ),
   },
   {
     id: "questions",
-    titleEn: "7. Contact Legal Team",
+    titleEn: "7. Contacting the legal team",
     titleAr: "٧. الاتصال بالقسم القانوني",
     contentEn: (
       <>
@@ -159,103 +160,26 @@ export default async function TermsPage() {
   const isAr = locale === "ar";
   const SECTIONS = buildSections(platformContacts().legal);
 
+  // The layout — header, table of contents, one ruled sheet — is <PolicyShell>,
+  // the same shell every other information page uses. This page carried its
+  // own copy of it, which is how the terms came to look like a different site
+  // from the contact page linked beside them in the footer.
+  //
+  // No "last updated" date: nothing records when this text changed, so a typed
+  // date would be a claim the platform cannot back. The shell's default
+  // dateline says that outright.
   return (
     <MainLayout>
-      {/* The brass reading hairline is mounted ONCE, by <MainLayout>, for every
-          route in this app. A second <ScrollProgress> here stacked a second
-          position:fixed, scroll-timeline-animated layer on exactly the same 2px
-          band — two compositor layers and two running animations drawing one
-          rule. "One per document" is the budget, and MainLayout already spends
-          it. */}
-      <div className="mx-auto max-w-6xl px-4 py-block">
-        <PageHeader
-          eyebrow={isAr ? "الشؤون القانونية" : "Legal"}
-          title={isAr ? "شروط الخدمة" : "Terms of Service"}
-          description={
-            isAr
-              ? "يرجى قراءة شروط الخدمة بعناية قبل استخدام المنصة."
-              : `Please read these terms carefully before using the ${platformName()} platform.`
-          }
-          // No "last updated" date: nothing records when this text changed, so a
-          // typed date would be a claim the platform cannot back. Saying that
-          // outright is better than an empty corner where a date should be.
-          dateline={
-            isAr
-              ? "لا يسجل النظام تاريخ آخر تعديل لهذا النص، فلا يُعرض تاريخ"
-              : "No revision date is shown because none is recorded"
-          }
-          linkComponent={Link}
-        />
-
-
-        {/* The table of contents was `hidden lg:block`, so on a phone a
-            seven-section legal document had no navigation at all — you scrolled
-            it or you did not read it. A <details> disclosure needs no client
-            component, works before hydration and with scripting off, and the
-            chevron is drawn from two rotated borders, so there is nothing to
-            mirror in Arabic. */}
-        <details className="u-facet mb-stack border-y border-hairline lg:hidden">
-          <summary className="u-focus">
-            <span className="u-micro text-ink-3">{isAr ? "جدول المحتويات" : "Table of contents"}</span>
-            <span className="u-facet__chev" aria-hidden="true" />
-          </summary>
-          <nav aria-label={isAr ? "جدول المحتويات" : "Table of contents"} className="flex flex-col pb-3">
-            {SECTIONS.map((sec) => (
-              <a
-                key={sec.id}
-                href={`#${sec.id}`}
-                className="u-focus u-ui rounded-e-nested border-s-2 border-hairline py-1.5 ps-3 text-ink-2"
-              >
-                {isAr ? sec.titleAr : sec.titleEn}
-              </a>
-            ))}
-          </nav>
-        </details>
-        <div className="grid grid-cols-1 items-start gap-block lg:grid-cols-[240px_minmax(0,1fr)]">
-          {/* The sidebar carried `hidden lg:sticky` and no `lg:block`, so it was
-              hidden at every breakpoint and the table of contents never appeared
-              on any screen. */}
-          <aside className="hidden lg:block">
-            <div className="lg:sticky lg:top-24">
-              <Eyebrow as="h2">{isAr ? "جدول المحتويات" : "Table of Contents"}</Eyebrow>
-              <nav
-                aria-label={isAr ? "جدول المحتويات" : "Table of contents"}
-                className="mt-3 flex flex-col"
-              >
-                {SECTIONS.map((sec) => (
-                  <a
-                    key={sec.id}
-                    href={`#${sec.id}`}
-                    // border-s, not border-l: the marker sits at the reading
-                    // start in both directions. Hover changes colour rather than
-                    // weight — animating font-weight reflows the whole list.
-                    className="u-focus u-ui rounded-e-nested border-s-2 border-hairline py-1.5 ps-3 text-ink-3 transition-colors duration-press ease-standard hover:border-border-strong hover:text-ink-1"
-                  >
-                    {isAr ? sec.titleAr : sec.titleEn}
-                  </a>
-                ))}
-              </nav>
-            </div>
-          </aside>
-
-          {/* One document, ruled into sections — not seven independently
-              bordered cards, each with its own shadow and its own icon tile. */}
-          <Surface rung={2} className="overflow-hidden">
-            {SECTIONS.map((sec, i) => (
-              <section
-                key={sec.id}
-                id={sec.id}
-                className={`scroll-mt-24 p-6 lg:p-8 ${i > 0 ? "border-t border-hairline" : ""}`}
-              >
-                <h2 className="u-h2 text-ink-1">{isAr ? sec.titleAr : sec.titleEn}</h2>
-                <div className="u-body mt-3 max-w-prose space-y-4 text-ink-2 [&_strong]:font-semibold [&_strong]:text-ink-1">
-                  {isAr ? sec.contentAr : sec.contentEn}
-                </div>
-              </section>
-            ))}
-          </Surface>
-        </div>
-      </div>
+      <PolicyShell
+        isAr={isAr}
+        eyebrowEn="Legal"
+        eyebrowAr="الشؤون القانونية"
+        titleEn="Terms of Service"
+        titleAr="شروط الخدمة"
+        descriptionEn={`Please read these terms carefully before using the ${platformName()} platform.`}
+        descriptionAr="يرجى قراءة شروط الخدمة بعناية قبل استخدام المنصة."
+        sections={SECTIONS}
+      />
     </MainLayout>
   );
 }

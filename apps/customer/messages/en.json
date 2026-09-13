@@ -305,8 +305,8 @@
     },
     "trust": {
       "eyebrow": "Buyer protection",
-      "verifiedSellers": "Verified sellers",
-      "verifiedSellersDesc": "Business documentation is reviewed before a seller can list.",
+      "verifiedSellers": "Suppliers don’t self-publish",
+      "verifiedSellersDesc": "A supplier’s storefront goes live only when the platform activates it.",
       "paymentOptions": "Payment methods on this platform",
       "paymentOptionsDesc": "{methods}. Which of these are enabled today is stated at the payment step.",
       "pricedFirst": "Priced before you pay",
@@ -980,11 +980,10 @@
     "eyebrow": "Page not found",
     "code": "404",
     "headline": "This address does not resolve to a page.",
-    "body": "The link may be out of date, or the page may have been removed. The catalogue, your account and support are all still reachable below.",
+    "body": "The link may be out of date, or the page may have been removed. The catalogue and support are linked below, and your account is in the header.",
     "home": "Go to the storefront",
     "products": "Browse the catalogue",
-    "support": "Contact support",
-    "markLabel": "{brand} home"
+    "support": "Contact support"
   },
   "errorPage": {
     "eyebrow": "Page not loaded",

@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { MainLayout } from "@/components/layout/main-layout";
-import { Eyebrow, PageHeader, Surface } from "@avenick/ui";
+import { PolicyShell, type PolicySection } from "@/components/legal/policy-shell";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
 
 export const metadata = {
@@ -11,21 +11,13 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
-interface LegalSection {
-  id: string;
-  titleEn: string;
-  titleAr: string;
-  contentEn: React.ReactNode;
-  contentAr: React.ReactNode;
-}
-
 /**
  * Built per request rather than at module load because the contact address is
  * deployment configuration (platformContacts) and must never be typed into the
  * policy. With no address configured, the policy points at the support portal
  * — the one contact channel this codebase actually operates.
  */
-function buildSections(privacyEmail: string | null): LegalSection[] {
+function buildSections(privacyEmail: string | null): PolicySection[] {
   const name = platformName();
   const emailLink = privacyEmail ? (
     <a href={`mailto:${privacyEmail}`} className="u-focus rounded-nested font-medium text-primary-ink hover:underline">{privacyEmail}</a>
@@ -53,7 +45,7 @@ function buildSections(privacyEmail: string | null): LegalSection[] {
   },
   {
     id: "data-collection",
-    titleEn: "2. Information We Collect",
+    titleEn: "2. Information we collect",
     titleAr: "٢. المعلومات التي نجمعها",
     contentEn: (
       <>
@@ -78,11 +70,11 @@ function buildSections(privacyEmail: string | null): LegalSection[] {
   },
   {
     id: "data-use",
-    titleEn: "3. How We Use Your Information",
+    titleEn: "3. How we use your information",
     titleAr: "٣. كيفية استخدام معلوماتكم",
     contentEn: (
       <>
-        <p>We process your data to deliver a secure, efficient B2B/B2C trading environment. Specifically, we use it to:</p>
+        <p>We process your data to deliver a secure, efficient trading environment. Specifically, we use it to:</p>
         <ul className="list-disc ps-5 space-y-1 mt-2">
           <li>Facilitate RFQ distribution, quote comparisons, and order fulfillment.</li>
           <li>Apply the payment terms already approved and recorded on your company account.</li>
@@ -93,7 +85,7 @@ function buildSections(privacyEmail: string | null): LegalSection[] {
     ),
     contentAr: (
       <>
-        <p>نقوم بمعالجة بياناتكم لتوفير بيئة تجارية آمنة وفعالة للشركات والأفراد. وبشكل خاص، نستخدمها لـ:</p>
+        <p>نقوم بمعالجة بياناتكم لتوفير بيئة تجارية آمنة وفعالة. وبشكل خاص، نستخدمها لـ:</p>
         <ul className="list-disc ps-5 space-y-1 mt-2">
           <li>تسهيل توزيع طلبات عروض الأسعار، ومقارنة العروض، وتلبية الطلبات.</li>
           <li>تطبيق شروط الدفع المعتمدة والمسجلة مسبقاً في حساب شركتكم.</li>
@@ -105,7 +97,7 @@ function buildSections(privacyEmail: string | null): LegalSection[] {
   },
   {
     id: "gcc-compliance",
-    titleEn: "4. Privacy Laws & Compliance",
+    titleEn: "4. Privacy laws and compliance",
     titleAr: "٤. قوانين الخصوصية والامتثال لها",
     contentEn: (
       <>
@@ -113,7 +105,7 @@ function buildSections(privacyEmail: string | null): LegalSection[] {
         <ul className="list-disc ps-5 space-y-2 mt-2">
           <li><strong>Jurisdiction:</strong> Applicable privacy requirements are confirmed during customer onboarding and contracting.</li>
           <li><strong>Data location:</strong> Hosting and transfer details are documented for the deployed customer environment.</li>
-          <li><strong>No implied certification:</strong> Availability of the demo does not itself represent legal or regulatory certification in any country.</li>
+          <li><strong>No implied certification:</strong> Operating this platform does not in itself represent legal or regulatory certification in any country.</li>
         </ul>
       </>
     ),
@@ -123,14 +115,14 @@ function buildSections(privacyEmail: string | null): LegalSection[] {
         <ul className="list-disc ps-5 space-y-2 mt-2">
           <li><strong>الاختصاص القانوني:</strong> يتم تأكيد متطلبات الخصوصية أثناء إعداد حساب العميل والتعاقد.</li>
           <li><strong>موقع البيانات:</strong> يتم توثيق تفاصيل الاستضافة والنقل لبيئة العميل المنشورة.</li>
-          <li><strong>لا اعتماد ضمني:</strong> إتاحة البيئة التجريبية لا تعني اعتماداً قانونياً أو تنظيمياً في أي دولة.</li>
+          <li><strong>لا اعتماد ضمني:</strong> تشغيل هذه المنصة لا يعني بذاته اعتماداً قانونياً أو تنظيمياً في أي دولة.</li>
         </ul>
       </>
     ),
   },
   {
     id: "user-rights",
-    titleEn: "5. Your Data Rights",
+    titleEn: "5. Your data rights",
     titleAr: "٥. حقوق البيانات الخاصة بكم",
     contentEn: (
       <>
@@ -147,7 +139,7 @@ function buildSections(privacyEmail: string | null): LegalSection[] {
   },
   {
     id: "support",
-    titleEn: "6. Questions & Support",
+    titleEn: "6. Questions and support",
     titleAr: "٦. الأسئلة والدعم الفني",
     contentEn: (
       <>
@@ -169,103 +161,22 @@ export default async function PrivacyPage() {
   const isAr = locale === "ar";
   const SECTIONS = buildSections(platformContacts().privacy);
 
+  // The layout is <PolicyShell>, shared with every other information page; see
+  // the note there on why a policy is one ruled sheet rather than a card per
+  // section. No "last updated" date is typed, because nothing records one — the
+  // shell's default dateline says so.
   return (
     <MainLayout>
-      {/* The brass reading hairline is mounted ONCE, by <MainLayout>, for every
-          route in this app. A second <ScrollProgress> here stacked a second
-          position:fixed, scroll-timeline-animated layer on exactly the same 2px
-          band — two compositor layers and two running animations drawing one
-          rule. "One per document" is the budget, and MainLayout already spends
-          it. */}
-      <div className="mx-auto max-w-6xl px-4 py-block">
-        <PageHeader
-          eyebrow={isAr ? "الشؤون القانونية" : "Legal"}
-          title={isAr ? "سياسة الخصوصية" : "Privacy Policy"}
-          description={
-            isAr
-              ? "تعرف على كيفية حماية بياناتك الشخصية والتجارية بموجب اللوائح الخليجية."
-              : "How your personal and business data is handled under GCC guidelines."
-          }
-          // No "last updated" date: nothing records when this text changed, so a
-          // typed date would be a claim the platform cannot back. Saying that
-          // outright is better than an empty corner where a date should be.
-          dateline={
-            isAr
-              ? "لا يسجل النظام تاريخ آخر تعديل لهذا النص، فلا يُعرض تاريخ"
-              : "No revision date is shown because none is recorded"
-          }
-          linkComponent={Link}
-        />
-
-
-        {/* The table of contents was `hidden lg:block`, so on a phone a
-            seven-section legal document had no navigation at all — you scrolled
-            it or you did not read it. A <details> disclosure needs no client
-            component, works before hydration and with scripting off, and the
-            chevron is drawn from two rotated borders, so there is nothing to
-            mirror in Arabic. */}
-        <details className="u-facet mb-stack border-y border-hairline lg:hidden">
-          <summary className="u-focus">
-            <span className="u-micro text-ink-3">{isAr ? "جدول المحتويات" : "Table of contents"}</span>
-            <span className="u-facet__chev" aria-hidden="true" />
-          </summary>
-          <nav aria-label={isAr ? "جدول المحتويات" : "Table of contents"} className="flex flex-col pb-3">
-            {SECTIONS.map((sec) => (
-              <a
-                key={sec.id}
-                href={`#${sec.id}`}
-                className="u-focus u-ui rounded-e-nested border-s-2 border-hairline py-1.5 ps-3 text-ink-2"
-              >
-                {isAr ? sec.titleAr : sec.titleEn}
-              </a>
-            ))}
-          </nav>
-        </details>
-        <div className="grid grid-cols-1 items-start gap-block lg:grid-cols-[240px_minmax(0,1fr)]">
-          {/* The sidebar carried `hidden lg:sticky` and no `lg:block`, so it was
-              hidden at every breakpoint and the table of contents never appeared
-              on any screen. */}
-          <aside className="hidden lg:block">
-            <div className="lg:sticky lg:top-24">
-              <Eyebrow as="h2">{isAr ? "جدول المحتويات" : "Table of Contents"}</Eyebrow>
-              <nav
-                aria-label={isAr ? "جدول المحتويات" : "Table of contents"}
-                className="mt-3 flex flex-col"
-              >
-                {SECTIONS.map((sec) => (
-                  <a
-                    key={sec.id}
-                    href={`#${sec.id}`}
-                    // border-s, not border-l: the marker sits at the reading
-                    // start in both directions. Hover changes colour rather than
-                    // weight — animating font-weight reflows the whole list.
-                    className="u-focus u-ui rounded-e-nested border-s-2 border-hairline py-1.5 ps-3 text-ink-3 transition-colors duration-press ease-standard hover:border-border-strong hover:text-ink-1"
-                  >
-                    {isAr ? sec.titleAr : sec.titleEn}
-                  </a>
-                ))}
-              </nav>
-            </div>
-          </aside>
-
-          {/* One document, ruled into sections — not six independently bordered
-              cards, each with its own shadow and its own icon tile. */}
-          <Surface rung={2} className="overflow-hidden">
-            {SECTIONS.map((sec, i) => (
-              <section
-                key={sec.id}
-                id={sec.id}
-                className={`scroll-mt-24 p-6 lg:p-8 ${i > 0 ? "border-t border-hairline" : ""}`}
-              >
-                <h2 className="u-h2 text-ink-1">{isAr ? sec.titleAr : sec.titleEn}</h2>
-                <div className="u-body mt-3 max-w-prose space-y-4 text-ink-2 [&_strong]:font-semibold [&_strong]:text-ink-1">
-                  {isAr ? sec.contentAr : sec.contentEn}
-                </div>
-              </section>
-            ))}
-          </Surface>
-        </div>
-      </div>
+      <PolicyShell
+        isAr={isAr}
+        eyebrowEn="Legal"
+        eyebrowAr="الشؤون القانونية"
+        titleEn="Privacy Policy"
+        titleAr="سياسة الخصوصية"
+        descriptionEn="How your personal and business data is handled under GCC guidelines."
+        descriptionAr="تعرف على كيفية حماية بياناتك الشخصية والتجارية بموجب اللوائح الخليجية."
+        sections={SECTIONS}
+      />
     </MainLayout>
   );
 }

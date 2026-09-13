@@ -91,6 +91,18 @@ interface AccountDictionary {
     readonly polled: (time: string, seconds: number) => string;
     readonly waiting: string;
     readonly labels: Readonly<Record<string, string>>;
+    /**
+     * What each /api/status component is, in words a buyer reads. The KEYS are
+     * the endpoint's component names and are never changed here — /api/status
+     * is an ops contract that uptime monitors read — only their labels are.
+     */
+    readonly componentLabels: Readonly<Record<string, string>>;
+    /**
+     * A component's measured latency, in the reader's language. /api/status
+     * sends it as the English phrase "latency 79ms"; the page reads the figure
+     * out of that and sets it here, so an Arabic page never prints the word.
+     */
+    readonly latency: (ms: number) => string;
   };
 }
 
@@ -203,7 +215,9 @@ const EN: AccountDictionary = {
     // journeys and integrations this endpoint never measures.
     processHealth: (label) => `Process health: ${label}`,
     journeys: (label) => `Customer journeys: ${label}`,
-    noJourneySynthetic: "no journey synthetic has run against this deployment",
+    // "no journey synthetic has run against this deployment" was the ops
+    // runbook's sentence printed to a buyer. The fact is kept; the jargon is not.
+    noJourneySynthetic: "not yet checked automatically",
     components: "Components",
     polled: (time, seconds) => `Last polled ${time} · refreshed every ${seconds}s`,
     waiting: "Waiting for the first poll",
@@ -214,6 +228,14 @@ const EN: AccountDictionary = {
       unverified: "Unverified",
       not_configured: "Not configured",
     },
+    componentLabels: {
+      api: "Storefront service",
+      database: "Database",
+      "database-circuit": "Database connection guard",
+      "external-integrations": "Partner integrations",
+      "primary-journeys": "Customer journeys",
+    },
+    latency: (ms) => `latency ${ms}ms`,
   },
 };
 
@@ -305,7 +327,7 @@ const AR: AccountDictionary = {
     unreachable: "تعذّر الوصول إلى نقطة حالة النظام",
     processHealth: (label) => `حالة التشغيل: ${label}`,
     journeys: (label) => `رحلات العملاء: ${label}`,
-    noJourneySynthetic: "لم يُنفَّذ أي فحص آلي لرحلات العملاء على هذا الإصدار",
+    noJourneySynthetic: "لم تُفحص آلياً بعد",
     components: "المكوّنات",
     polled: (time, seconds) => `آخر استعلام ${time} · يُحدَّث كل ${seconds} ثانية`,
     waiting: "بانتظار أول استعلام",
@@ -316,9 +338,61 @@ const AR: AccountDictionary = {
       unverified: "غير مُتحقَّق منها",
       not_configured: "غير مُهيّأة",
     },
+    componentLabels: {
+      api: "خدمة المتجر",
+      database: "قاعدة البيانات",
+      "database-circuit": "حماية الاتصال بقاعدة البيانات",
+      "external-integrations": "تكاملات الشركاء",
+      "primary-journeys": "رحلات العملاء",
+    },
+    // Western digits, per DESIGN_SYSTEM.md §2.3: one numeral system across both
+    // locales keeps a figure tabular.
+    latency: (ms) => `زمن الاستجابة ${ms} ملّي ثانية`,
   },
 };
 
 export function accountCopy(locale: IdentityLocale): AccountDictionary {
   return locale === "ar" ? AR : EN;
+}
+
+/**
+ * A status component's name as the page prints it.
+ *
+ * The page used to print `c.name.replace(/-/g, " ")` under a CSS `capitalize`,
+ * which put "Database Circuit" and "Primary Journeys" — the endpoint's internal
+ * identifiers — in front of a buyer. A name this dictionary does not know yet
+ * still renders, de-hyphenated with its first letter raised, so a component
+ * added to /api/status appears rather than vanishing; it just reads like an
+ * identifier until it is given a label here.
+ */
+export function statusComponentLabel(
+  labels: AccountDictionary["status"]["componentLabels"],
+  name: string,
+): string {
+  const known = labels[name];
+  if (known) return known;
+  const spaced = name.replace(/-/g, " ");
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+/**
+ * The one component detail worth printing beside its pill: a measured latency.
+ *
+ * Every other detail /api/status sends is either the pill again in ops words —
+ * "CLOSED", "none configured", "no synthetic configured" — or an English
+ * sentence with no Arabic twin. The pill already carries the state, in the
+ * reader's language, so those are withheld rather than translated. A latency is
+ * different: it is the one thing on the row the pill does not already say.
+ *
+ * It is NOT passed through as sent. The endpoint's detail is the English phrase
+ * "latency 79ms", and printing it verbatim put that English on the Arabic page
+ * beside Arabic labels and pills. Only the figure is taken from it; the words
+ * come from the dictionary.
+ */
+export function statusComponentDetail(
+  t: AccountDictionary["status"],
+  detail: string | undefined,
+): string | null {
+  const measured = detail ? /^latency (\d+)ms$/.exec(detail) : null;
+  return measured ? t.latency(Number(measured[1])) : null;
 }

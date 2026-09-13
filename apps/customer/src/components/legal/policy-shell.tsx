@@ -20,6 +20,19 @@ import { Eyebrow, PageHeader, Surface } from "@avenick/ui";
  * legal page that renders half-translated is worse than one that is honestly
  * English-only, and making the Arabic optional is how it drifts.
  *
+ * ONE DOCUMENT, RULED INTO SECTIONS — not a stack of cards. This shell first
+ * rendered each section as its own bordered, shadowed <Surface>, while the
+ * three pages it was written to replace still carried their original layout: a
+ * single surface divided by hairlines, set at reading measure. The footer links
+ * Privacy, Terms and Cookies beside About and Contact, so a reader moving
+ * between them watched the page change shape — a 43px versus 160px left edge,
+ * four cards versus one sheet, and body copy about 131 characters wide here
+ * against about 82 there. A policy is one document a person reads top to
+ * bottom; stacking it as independent cards gives every section the visual
+ * weight of a separate object and says nothing true. So the sections are ruled
+ * inside one surface, and the prose is held to `max-w-prose`, the measure the
+ * legal pages already used.
+ *
  * The table of contents is a <details> on small screens and a sticky aside on
  * large ones. The disclosure needs no client component, works before hydration
  * and with scripting off, and its chevron is drawn from rotated borders, so
@@ -120,16 +133,23 @@ export function PolicyShell({
           </div>
         </aside>
 
-        <div className="flex flex-col gap-stack">
-          {sections.map((sec) => (
-            <Surface key={sec.id} rung={2} id={sec.id} as="section" className="scroll-mt-24 p-6">
+        {/* One rung-2 sheet; a hairline between sections, never a card per
+            section. `max-w-prose` holds the body to a reading measure — at
+            1440px the full column is over 1000px, about 131 characters a line. */}
+        <Surface rung={2} className="overflow-hidden">
+          {sections.map((sec, i) => (
+            <section
+              key={sec.id}
+              id={sec.id}
+              className={`scroll-mt-24 p-6 lg:p-8 ${i > 0 ? "border-t border-hairline" : ""}`}
+            >
               <h2 className="u-h3 text-ink-1">{isAr ? sec.titleAr : sec.titleEn}</h2>
-              <div className="u-body mt-3 flex flex-col gap-3 text-ink-2">
+              <div className="u-body mt-3 flex max-w-prose flex-col gap-3 text-ink-2 [&_strong]:font-semibold [&_strong]:text-ink-1">
                 {isAr ? sec.contentAr : sec.contentEn}
               </div>
-            </Surface>
+            </section>
           ))}
-        </div>
+        </Surface>
       </div>
     </div>
   );

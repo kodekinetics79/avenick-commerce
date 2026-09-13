@@ -30,7 +30,9 @@ export const dynamic = "force-dynamic";
  *      that the storefront promises no delivery window in advance. A returns
  *      page that then guaranteed a collection date would make the product argue
  *      with itself in front of a buyer.
- *   2. THIS IS A MARKETPLACE. Goods are sold by approved suppliers, so the
+ *   2. THIS IS A MARKETPLACE. Goods are sold by the suppliers who list them —
+ *      not "approved" suppliers: no document review is guaranteed on every
+ *      path to a live storefront (see the suppliers note on /about) — so the
  *      supplier's own terms govern where they are stricter or more generous,
  *      and the page says which is which rather than implying one uniform policy
  *      the platform cannot enforce on every seller.
