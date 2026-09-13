@@ -33,6 +33,20 @@ describe("the cookies policy matches what the storefront stores", () => {
     expect(text).toMatch(/One thing is counted: when a product page opens/);
   });
 
+  it("names every browser store the storefront writes, including the checkout draft", () => {
+    // Section 3 opens "Everything the storefront stores in your browser falls
+    // into one of these categories", and the first rewrite left out the one
+    // store that holds an address: checkout-form.tsx's sessionStorage draft.
+    const checkout = read(appRoot, "src/components/checkout/checkout-form.tsx");
+    expect(checkout).toMatch(/const DRAFT_KEY = "avenick-checkout-draft"/);
+    expect(checkout).toMatch(/sessionStorage\.setItem\(DRAFT_KEY/);
+    expect(text).toMatch(/Session storage \(not a cookie\):<\/strong> while you check out, the delivery address/);
+    expect(text).toMatch(/تخزين الجلسة \(ليس ملف تعريف ارتباط\)/);
+    // It says "kept with the count", not "not in our database": the rate-limit
+    // store holding both short-lived records is Redis wherever it is configured.
+    expect(text).not.toMatch(/written to our database|في قاعدة بياناتنا/);
+  });
+
   it("describes a count that stores nothing identifying — because the table has nowhere to put it", () => {
     const schema = read(repoRoot, "packages/database/prisma/schema.prisma");
     const model = schema.slice(schema.indexOf("model ProductViewSignal {"));
