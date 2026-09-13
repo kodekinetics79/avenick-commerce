@@ -16,6 +16,7 @@ import {
   type TrendingProduct,
   type ViewedProduct,
 } from "./interest-signals";
+import { useDiscoveryHost } from "./discovery-context";
 import { isDismissed } from "./history-storage";
 import { useCatalogueLabels, useDiscoverySignals } from "./use-discovery";
 
@@ -43,12 +44,25 @@ import { useCatalogueLabels, useDiscoverySignals } from "./use-discovery";
  * storefront's blur budget is already spent on the header.
  *
  * BEHAVIOUR. It is a disclosure, not a dialog: it never traps focus and never
- * covers the page uninvited. Closed, it is one small pill in the corner, lifted
- * clear of the product page's mobile buy bar. It shares the header's
- * `useDisclosure`, which is what gives it Escape-to-close with focus returned to
- * the trigger, outside-click close, close-on-navigation, and a trigger that is a
- * real <button> reporting aria-expanded. There is no hover trigger, because a
+ * covers the page uninvited. It shares the header's `useDisclosure`, which is
+ * what gives it Escape-to-close with focus returned to the trigger,
+ * outside-click close, close-on-navigation, and a trigger that is a real
+ * <button> reporting aria-expanded. There is no hover trigger, because a
  * keyboard or touch visitor never hovers.
+ *
+ * WHERE IT IS OPENED FROM. At lg and up, closed, it is one small pill in the
+ * corner. Below lg there is no pill. It used to be one, lifted 5.5rem to clear
+ * the product page's buy bar, and that lift was right for the buy bar and wrong
+ * for what it then landed on: at 390×844 it covered the product page's
+ * wishlist heart (a tap meant for the wishlist hit-tested to the launcher), the
+ * end of the cart's "Request a quote", a chip row on search and the help band's
+ * copy. A floating control that sits over "the one control the page exists
+ * for" is what this panel promised never to be. On a phone it is opened from
+ * the menu sheet, through the bridge in ./discovery-context. The panel reports
+ * whether it has anything to say and registers its own opener, so the sheet
+ * offers the row only when the panel would render, and the disclosure above
+ * still owns open and close. The OPEN panel keeps the lift, so it still never
+ * sits on the buy bar.
  */
 
 const PANEL_ID = "discovery-panel";
@@ -95,6 +109,22 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
   );
 
   const hidden = React.useMemo(() => isDismissed(dismissedAt, Date.now()), [dismissedAt]);
+  const available = ready && !hidden && hasSomethingToSay(plan);
+
+  // The chrome's side of the bridge. Reported rather than recomputed there,
+  // because only this component knows whether it would render anything.
+  const host = useDiscoveryHost();
+  React.useEffect(() => {
+    host?.setAvailable(available);
+  }, [host, available]);
+  React.useEffect(() => {
+    if (!host) return;
+    host.registerOpener(() => setOpen(true));
+    return () => {
+      host.registerOpener(null);
+      host.setAvailable(false);
+    };
+  }, [host, setOpen]);
   // Anything at all recorded by this browser — a product opened, a category
   // browsed, a search run. Distinct from `basis.views`, because a visitor who
   // has only browsed categories still has a trail worth naming and clearing.
@@ -102,7 +132,7 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
 
   // Nothing renders until localStorage has been read, which also means the
   // server and the first client paint agree: both are empty.
-  if (!ready || hidden || !hasSomethingToSay(plan)) return null;
+  if (!available) return null;
 
   const closeAndReturnFocus = () => {
     setOpen(false);
@@ -120,7 +150,9 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
         "fixed z-sticky end-4 print:hidden",
         // Clear of the product page's `fixed inset-x-0 bottom-0` buy bar below
         // lg, and of an iOS home indicator, so the helper never sits on top of
-        // the one control the page exists for.
+        // the one control the page exists for. Below lg this now positions only
+        // the OPEN panel: closed, there is nothing here to tap (see
+        // BEHAVIOUR above), so the lift no longer lands a control over content.
         "bottom-[calc(env(safe-area-inset-bottom,0px)+5.5rem)] lg:bottom-6",
       ].join(" ")}
     >
@@ -182,7 +214,9 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
         </div>
       )}
 
-      <Button {...triggerProps} variant="secondary" size="sm" className="shadow-elev-3">
+      {/* The pill exists at lg and up only. Below lg the menu sheet opens the
+          panel; a floating pill there covered in-flow controls on every page. */}
+      <Button {...triggerProps} variant="secondary" size="sm" className="hidden shadow-elev-3 lg:inline-flex">
         <Compass className="h-4 w-4" aria-hidden="true" />
         {t("launcher")}
       </Button>

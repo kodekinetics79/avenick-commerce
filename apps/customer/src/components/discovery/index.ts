@@ -8,6 +8,7 @@
  * imports it.
  */
 export { DiscoveryPanel, type DiscoveryPanelProps } from "./discovery-panel";
+export { DiscoveryProvider, useDiscoveryLauncher } from "./discovery-context";
 export { recordProductView, useDiscoverySignals } from "./use-discovery";
 export type { DiscoveryHistory, DiscoveryPlan, TrendingProduct, ViewedProduct } from "./interest-signals";
 export { buildDiscoveryPlan } from "./interest-signals";

@@ -9,6 +9,7 @@ import {
   ArrowRight,
   Briefcase,
   ChevronDown,
+  Compass,
   FileText,
   Heart,
   Home,
@@ -27,6 +28,7 @@ import { useCartStore } from "@/stores/cart";
 import { useSearchSuggest } from "@/lib/search-suggest-client";
 import { useBrandMenu } from "@/lib/brand-menu-client";
 import { useCategoryMenu } from "@/lib/category-menu-client";
+import { useDiscoveryLauncher } from "@/components/discovery/discovery-context";
 import { useSession, signOut } from "next-auth/react";
 import { useLocale, useTranslations } from "next-intl";
 import { useDisclosure } from "./disclosure";
@@ -115,6 +117,7 @@ export function Header() {
   const locale = useLocale();
   const t = useTranslations("nav");
   const tc = useTranslations("common");
+  const tDiscovery = useTranslations("discovery");
   const pathname = usePathname();
   const router = useRouter();
   const { data: session, status } = useSession();
@@ -134,6 +137,10 @@ export function Header() {
   const itemCount = mounted ? storeCount : 0;
 
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  // The discovery panel has no floating launcher below lg, so the sheet opens
+  // it. `available` is the panel's own report of whether it has anything to
+  // say; see components/discovery/discovery-context.tsx.
+  const discovery = useDiscoveryLauncher();
   const account = useDisclosure("header-account-menu");
 
   // Active is computed from the real route, never guessed. "/" would otherwise
@@ -834,6 +841,21 @@ export function Header() {
         signIn={{ href: "/login", label: t("signIn"), icon: LogIn }}
         signOut={session?.user ? { label: t("signOut"), onSelect: () => signOut({ callbackUrl: "/" }) } : null}
         signedInAs={session?.user ? session.user.name || session.user.email : null}
+        // Close the sheet first, then open the panel: the panel is a passive
+        // disclosure one rung below the sheet, and it must not open underneath a
+        // modal the visitor is about to dismiss anyway.
+        discovery={
+          discovery?.available
+            ? {
+                label: tDiscovery("launcher"),
+                icon: Compass,
+                onSelect: () => {
+                  setMobileOpen(false);
+                  discovery.open();
+                },
+              }
+            : null
+        }
         action={{ href: "/b2b/rfq/new", label: t("getQuote"), icon: FileText }}
         themeLabels={themeLabels}
         isActive={isActive}
