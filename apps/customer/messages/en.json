@@ -393,7 +393,17 @@
   "deals": {
     "title": "Featured products",
     "description": "Current catalogue listings and their published prices.",
-    "browseProducts": "Browse products"
+    "browseProducts": "Browse products",
+    "eyebrow": "Discovery",
+    "dateline": "At most {limit} listings from the catalogue feed, in the order it returned them, and only those carrying a published price · no ranking, promotion or discount is applied",
+    "categoryNav": "Browse by category",
+    "browseCategory": "Browse a category",
+    "all": "All",
+    "empty": {
+      "eyebrow": "Nothing published",
+      "headline": "The catalogue returned no priced listings.",
+      "body": "A product appears here once a seller publishes it with a price in a currency this storefront serves."
+    }
   },
   "brandsContent": {
     "title": "Shop by brand",
@@ -488,14 +498,6 @@
     "statProducts": "Catalog products",
     "statCompanies": "Business accounts",
     "trustedBrands": "Brands on the marketplace",
-    "prop1Title": "Supplier due diligence",
-    "prop1Desc": "Business documentation may be reviewed before marketplace access.",
-    "prop2Title": "Clear order review",
-    "prop2Desc": "Review pricing, VAT and delivery details before ordering. Bank transfer is supported; online payment methods remain unavailable until provider certification.",
-    "prop3Title": "GCC delivery details",
-    "prop3Desc": "Set delivery addresses in supported GCC markets. Coverage, timing and tracking are confirmed for each order during processing.",
-    "prop4Title": "Structured RFQs",
-    "prop4Desc": "Capture quantities, specifications, target pricing, and delivery needs in one request.",
     "b2bTitle": "Buying at volume?",
     "b2bDesc": "Submit detailed requirements, compare returned quotes, and keep purchasing activity in one workspace.",
     "catIndustrial": "Industrial",
@@ -530,8 +532,6 @@
     "catalogEmptyEyebrow": "Nothing published",
     "catalogEmptyHeadline": "No supplier lists a product in this storefront yet.",
     "catalogEmptyBody": "Listings appear here once a supplier publishes one and it becomes discoverable. A quote request reaches suppliers directly in the meantime.",
-    "propsEyebrow": "How the platform works",
-    "propsTitle": "What happens between a requirement and a delivered order",
     "b2bEyebrow": "B2B sourcing",
     "shopByCategory": "Shop by category",
     "browseAllProducts": "Browse all products",
