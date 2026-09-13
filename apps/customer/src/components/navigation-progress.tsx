@@ -4,26 +4,63 @@ import * as React from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 
 /**
- * A slim animated top-bar progress indicator that fires immediately
- * on Next.js client-side navigations. It intercepts <a> clicks and
- * the router pathname/search changes to show progress.
+ * The navigation hairline: a readout that a click on an internal link has been
+ * taken and the next page is on its way.
+ *
+ * WHAT IT REPLACES. This file shipped with the first storefront commit and was
+ * never taken through the design system. It drew a three-stop gradient bar with
+ * an indigo neon glow (`shadow-[0_0_10px_rgba(99,102,241,0.7)…]`) on a green
+ * brand, animated its `width` every 50ms, sat at z-[9999] above every dialog,
+ * and laid a second full-viewport overlay over the page to dim it. Every one of
+ * those is named somewhere in packages/ui/DESIGN_SYSTEM.md: a glow utility is
+ * banned outright (§9), `width` is not on the list of things that may animate
+ * (§8), and a sixth brass-coloured gesture with its own look is §10.13.
+ *
+ * WHAT IT IS NOW. The system's one gesture in another posture: the same 2px
+ * brass rule as the active nav mark, the section marks and the reading
+ * hairline, drawn with `scaleX` from the inline start. Its transform-origin is
+ * the --origin-inline-start token, so it draws from the right in Arabic with no
+ * branch here. It does not reuse `.u-scroll-progress`, and that is deliberate:
+ * that class carries a scroll-driven animation, and globals.css hides every
+ * copy of it but the one the header hosts. It sits on the `progress` z rung,
+ * above the sticky header and below every layer, so a dialog is never painted
+ * over.
+ *
+ * REDUCED MOTION. The creep is movement, so a visitor who asked for less of it
+ * does not get one. The rule appears at its resting length and fades when the
+ * route lands. The readout survives, and only the travel is gone. The media
+ * query is read once, on mount, the way the header's disclosures read theirs.
  */
 export function NavigationProgress() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [loading, setLoading] = React.useState(false);
   const [progress, setProgress] = React.useState(0);
+  const [reducedMotion, setReducedMotion] = React.useState(false);
   const timerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const reducedRef = React.useRef(false);
   const prevPathRef = React.useRef(pathname + searchParams.toString());
+
+  React.useEffect(() => {
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    reducedRef.current = reduced;
+    setReducedMotion(reduced);
+  }, []);
 
   // Start the progress bar
   const start = React.useCallback(() => {
     setLoading(true);
-    setProgress(0);
 
     // Clear any existing timer
     if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
 
+    if (reducedRef.current) {
+      setProgress(90);
+      return;
+    }
+
+    setProgress(0);
     // Rapidly move to ~85% then slow down
     let p = 0;
     timerRef.current = setInterval(() => {
@@ -92,29 +129,25 @@ export function NavigationProgress() {
 
   if (!loading && progress === 0) return null;
 
-  return (
-    <>
-      {/* Slim progress bar at the very top of the viewport */}
-      <div className="fixed top-0 left-0 right-0 z-[9999] h-[3px]">
-        <div
-          className="h-full bg-gradient-to-r from-primary via-accent to-primary shadow-[0_0_10px_rgba(99,102,241,0.7),0_0_5px_rgba(99,102,241,0.4)]"
-          style={{
-            width: `${progress}%`,
-            transition: progress === 100 ? "width 0.3s ease-out, opacity 0.3s ease" : "width 0.1s linear",
-            opacity: progress === 100 ? 0 : 1,
-          }}
-        />
-      </div>
+  const done = progress === 100;
 
-      {/* Subtle full-screen overlay */}
-      <div
-        className="fixed inset-0 z-[9998] pointer-events-none"
-        style={{
-          backgroundColor: "rgba(0,0,0,0.02)",
-          opacity: loading ? 1 : 0,
-          transition: "opacity 0.3s ease",
-        }}
-      />
-    </>
+  return (
+    <div
+      aria-hidden="true"
+      data-navigation-progress=""
+      className="pointer-events-none fixed inset-x-0 top-0 z-progress h-[2px] bg-brass"
+      style={{
+        transform: `scaleX(${progress / 100})`,
+        transformOrigin: "var(--origin-inline-start)",
+        opacity: done ? 0 : 1,
+        // Progress is linear (§8). The exit is the opacity alone, on the exit
+        // curve, and it is over before the 300ms unmount below. Under reduced
+        // motion there is no transform transition at all: the rule does not
+        // travel, it is simply there and then gone.
+        transition: reducedMotion
+          ? "opacity var(--t-panel) var(--ease-exit)"
+          : "transform 100ms linear, opacity var(--t-panel) var(--ease-exit)",
+      }}
+    />
   );
 }
