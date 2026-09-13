@@ -18,9 +18,22 @@ type Params = { params: { slug: string } };
  */
 const read = cache(readProductMeta);
 
+/**
+ * NOT notFound() here, on purpose; the layout body below refuses the URL. When
+ * generateMetadata throws a not-found, Next 14.2 resolves the head a second
+ * time for the not-found view over the SAME segment tree, which runs this
+ * function again, which throws again, and the second failure leaves the 404
+ * with no head at all: no <title>, only the framework's noindex. Measured on
+ * /products/<unknown>: the soft 404 this replaced at least said the platform's
+ * name, and the first version of this layout said nothing.
+ *
+ * So an unservable slug gets a noindex head from here, which is also what
+ * reaches the server HTML while a root loading boundary is still streaming the
+ * status as 200. The layout body's notFound() supplies the plate and the 404.
+ */
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const result = await read(params.slug);
-  if (isUnservable(result)) notFound();
+  if (isUnservable(result)) return { robots: { index: false, follow: false } };
   if (result.kind !== "found") return {};
 
   const locale = cookies().get("AVENICK_LOCALE")?.value === "ar" ? "ar" : "en";
