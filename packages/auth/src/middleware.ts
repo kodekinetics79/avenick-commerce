@@ -31,7 +31,14 @@ const PUBLIC_PATHS: Record<PortalType, string[]> = {
     // itself — it renders a sign-in prompt and the registration path — so
     // gating it here sent every prospective B2B buyer to a generic login with
     // no explanation, which is the one visitor this door exists to catch.
-    "/b2b/register"],
+    "/b2b/register",
+    // The colleague's door beside it. Someone whose company is already
+    // registered applies to join it here, and by definition has no account
+    // yet. /b2b/register links to it and the page handles a visitor with no
+    // session itself, so gating it turned that link into a sign-in wall for
+    // the one person it was written for. It is a single page with no subtree,
+    // which is what makes a prefix entry safe.
+    "/b2b/join"],
   seller: ["/login", "/register"],
   admin: ["/login"],
 };

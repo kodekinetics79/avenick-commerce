@@ -100,7 +100,7 @@ describe("route classification", () => {
     expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
   });
 
-  it.each(["/", "/products", "/categories/some-slug", "/about", "/b2b", "/b2b/register", "/robots.txt", "/sitemap.xml"])(
+  it.each(["/", "/products", "/categories/some-slug", "/about", "/b2b", "/b2b/register", "/b2b/join", "/robots.txt", "/sitemap.xml"])(
     "leaves %s to the page",
     async (path) => {
       const res = await visit(path);
