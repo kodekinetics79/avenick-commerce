@@ -47,6 +47,11 @@ describe("the cookies policy matches what the storefront stores", () => {
     expect(text).not.toMatch(/written to our database|في قاعدة بياناتنا/);
   });
 
+  it("sets the cookie name as code, not as Markdown backticks JSX prints literally", () => {
+    expect(text).not.toContain("`AVENICK_LOCALE`");
+    expect(text).toContain('<code className="u-mono" dir="ltr">AVENICK_LOCALE</code>');
+  });
+
   it("describes a count that stores nothing identifying — because the table has nowhere to put it", () => {
     const schema = read(repoRoot, "packages/database/prisma/schema.prisma");
     const model = schema.slice(schema.indexOf("model ProductViewSignal {"));

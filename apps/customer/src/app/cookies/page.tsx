@@ -115,7 +115,7 @@ const SECTIONS: PolicySection[] = [
         <p>Everything the storefront stores in your browser falls into one of these categories:</p>
         <ul className="list-disc ps-5 space-y-2 mt-2">
           <li><strong>Necessary cookies:</strong> the session, CSRF and sign-in return-address cookies set when you sign in, which account sign-in, company approval workflows and checkout depend on. The site cannot function properly without these.</li>
-          <li><strong>Functional cookies:</strong> your active language (`AVENICK_LOCALE`), set when you use the language switch and kept for a year.</li>
+          <li><strong>Functional cookies:</strong> your active language (<code className="u-mono" dir="ltr">AVENICK_LOCALE</code>), set when you use the language switch and kept for a year.</li>
           <li><strong>Local storage (not a cookie):</strong> your cart, your wishlist and your light/dark theme choice. Also the Discovery trail: up to {VIEW_LIMIT} products you opened, {CATEGORY_VISIT_LIMIT} category visits and {SEARCH_LIMIT} search terms, each dropped after {daysEn(TRAIL_SECONDS)}; and, if you hide the Discovery panel, the time you hid it, which is honoured for {daysEn(DISMISSAL_SECONDS)}. The panel itself can clear the trail.</li>
           <li><strong>Session storage (not a cookie):</strong> while you check out, the delivery address you entered, the payment method you chose and any code you typed, so that stepping back to the cart does not lose them. It is kept for that browser tab only, and is removed when the order is placed or the tab is closed.</li>
         </ul>
@@ -127,7 +127,7 @@ const SECTIONS: PolicySection[] = [
         <p>كل ما يخزنه المتجر في متصفحكم يندرج ضمن إحدى هذه الفئات:</p>
         <ul className="list-disc ps-5 space-y-2 mt-2">
           <li><strong>ملفات أساسية ولازمة:</strong> ملفات الجلسة وحماية CSRF وعنوان العودة بعد تسجيل الدخول، وتُنشأ عند تسجيل الدخول، ويعتمد عليها تسجيل الدخول وتدفقات اعتماد أوامر الشراء للشركات وإجراءات الدفع. لا يمكن للموقع العمل بدونها.</li>
-          <li><strong>ملفات وظيفية:</strong> تفضيل اللغة النشطة (`AVENICK_LOCALE`)، ويُضبط عند استخدام زر تبديل اللغة ويُحتفظ به لمدة سنة.</li>
+          <li><strong>ملفات وظيفية:</strong> تفضيل اللغة النشطة (<code className="u-mono" dir="ltr">AVENICK_LOCALE</code>)، ويُضبط عند استخدام زر تبديل اللغة ويُحتفظ به لمدة سنة.</li>
           <li><strong>التخزين المحلي (ليس ملف تعريف ارتباط):</strong> سلة التسوق وقائمة الأمنيات واختيار المظهر (الفاتح أو الداكن). وكذلك سجل الاستكشاف: حتى {VIEW_LIMIT} من المنتجات التي فتحتموها، و{CATEGORY_VISIT_LIMIT} من زيارات الفئات، و{SEARCH_LIMIT} من عبارات البحث، ويُحذف كلٌّ منها بعد {daysAr(TRAIL_SECONDS)}؛ وإذا أخفيتم لوحة الاستكشاف، يُحفظ وقت إخفائها ويُعمل به لمدة {daysAr(DISMISSAL_SECONDS)}. ويمكن مسح السجل من اللوحة نفسها.</li>
           <li><strong>تخزين الجلسة (ليس ملف تعريف ارتباط):</strong> أثناء إتمام الطلب، عنوان التوصيل الذي أدخلتموه وطريقة الدفع التي اخترتموها وأي رمز كتبتموه، حتى لا تضيع إذا عدتم إلى السلة. ويبقى ذلك في علامة التبويب هذه فقط، ويُحذف عند تقديم الطلب أو إغلاق علامة التبويب.</li>
         </ul>
@@ -142,13 +142,13 @@ const SECTIONS: PolicySection[] = [
     contentEn: (
       <>
         <p>You can manage or disable cookies in your browser settings (for example Chrome, Safari or Edge). Blocking the necessary cookies stops you signing in, and with it checkout and the company workspace.</p>
-        <p>The language cookie `AVENICK_LOCALE` can be changed at any time with the language switch in the storefront header. Clearing this site&apos;s data in your browser removes the cart, the wishlist, the theme choice and the Discovery trail.</p>
+        <p>The language cookie <code className="u-mono" dir="ltr">AVENICK_LOCALE</code> can be changed at any time with the language switch in the storefront header. Clearing this site&apos;s data in your browser removes the cart, the wishlist, the theme choice and the Discovery trail.</p>
       </>
     ),
     contentAr: (
       <>
         <p>يمكنكم إدارة ملفات تعريف الارتباط أو تعطيلها من إعدادات متصفحكم (مثل كروم أو سفاري أو إيدج). ويؤدي حظر الملفات الأساسية إلى تعذّر تسجيل الدخول، ومعه إتمام الطلب ومساحة عمل الشركة.</p>
-        <p>يمكن تعديل ملف تعريف ارتباط اللغة `AVENICK_LOCALE` في أي وقت باستخدام زر تبديل اللغة في ترويسة المتجر. ومسح بيانات هذا الموقع من متصفحكم يزيل السلة وقائمة الأمنيات واختيار المظهر وسجل الاستكشاف.</p>
+        <p>يمكن تعديل ملف تعريف ارتباط اللغة <code className="u-mono" dir="ltr">AVENICK_LOCALE</code> في أي وقت باستخدام زر تبديل اللغة في ترويسة المتجر. ومسح بيانات هذا الموقع من متصفحكم يزيل السلة وقائمة الأمنيات واختيار المظهر وسجل الاستكشاف.</p>
       </>
     ),
   },
