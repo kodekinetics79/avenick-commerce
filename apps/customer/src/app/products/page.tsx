@@ -710,7 +710,13 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
   const buildUrl = (updates: Record<string, string | undefined>) => catalogHref(searchParams, updates);
 
   const inStockOnly = filters.inStock;
-  const activeCategory = categories.find((cat) => cat.slug === filters.category);
+  // At any DEPTH. `categories.find` searched the roots only, so a subcategory
+  // in force — which is where every tile's category chip and the category
+  // page's "See the full category" link land — had no name, and the applied
+  // chip fell back to the raw slug: "Category: pilot-wiring-devices-…".
+  const activeCategory = filters.category
+    ? findCategory(categories as CategoryNode[], filters.category)
+    : undefined;
 
   /*
    * BRANDS THAT ACTUALLY HAVE SOMETHING TO SELL.
@@ -1011,6 +1017,19 @@ function FilterSidebarSkeleton() {
   );
 }
 
+/** The h1 for a category in force: its name, or "Category" when the tree does not know it. */
+async function categoryHeading(slug: string): Promise<string> {
+  const t = await getTranslations("catalogue");
+  const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
+  try {
+    const within = findCategory((await readPublicCategoryTree()) as unknown as CategoryNode[], slug);
+    if (within) return t("title.category", { category: categoryLabel(within, locale) });
+  } catch (error) {
+    console.error("Unable to name the category in force", error);
+  }
+  return t("category.eyebrow");
+}
+
 export default async function ProductsPage({ searchParams }: { searchParams: SearchParams }) {
   const t = await getTranslations("catalogue");
 
@@ -1025,10 +1044,22 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
   // page reached the message tree: on the Arabic build it printed the Arabic
   // twice, and on the English build it printed a language the reader had not
   // asked for. The tree carries both settings now.
+  //
+  // A CATEGORY IS NAMED, NOT KEYED. `title.category` is "{category}", and it
+  // was called with no argument — so next-intl printed its fallback, the key
+  // path, and every /products?category=… page carried "catalogue.title.category"
+  // as its h1. Every top-category chip, facet link and search pill leads here.
+  // The name comes from the same public tree the sidebar lists, searched at any
+  // depth, in the visitor's language. A slug the tree does not know — an
+  // unknown one, or a category with nothing published beneath it — is headed
+  // "Category", exactly as /categories/[slug] titles one, rather than echoing a
+  // slug back as though it were a name. A failed read is the same heading: the
+  // grid below is about to say what it found either way, and a page head must
+  // not 500 over its label.
   const title = searchParams.search
     ? t("title.search", { query: searchParams.search })
     : searchParams.category
-    ? t("title.category")
+    ? await categoryHeading(searchParams.category)
     : t("title.all");
 
   return (
