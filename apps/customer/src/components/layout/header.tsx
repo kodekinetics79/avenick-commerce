@@ -64,10 +64,19 @@ interface NavEntry {
   icon: React.ElementType;
   /** Present when this entry also opens a mega-menu panel. */
   menu?: "shop" | "business" | "brands";
+  /**
+   * Classes for this entry in the DESKTOP bar only, and only for a plain link
+   * (an entry with no panel). The sheet lists every entry at every width, so
+   * an entry the bar steps back from stays one tap away on a phone.
+   */
+  desktopClassName?: string;
 }
 
 const NAV: NavEntry[] = [
-  { href: "/", labelKey: "home", icon: Home },
+  // Held back to xl in the bar. The logo beside it is already the home link at
+  // every width, and between lg and xl the bar has no room for a second one:
+  // with it, the search field measured 118px at 1024 and showed "Se".
+  { href: "/", labelKey: "home", icon: Home, desktopClassName: "hidden xl:flex" },
   { href: "/products", labelKey: "shop", icon: Store, menu: "shop" },
   // Deals stays out of primary navigation until governed active promotions
   // exist. The page currently lists ordinary catalog products, so presenting it
@@ -250,7 +259,12 @@ export function Header() {
         type="search"
         name="q"
         aria-label={tc("searchPlaceholder")}
-        placeholder={tc("searchPlaceholder")}
+        // The visible hint is the one word that fits every field this bar
+        // draws. "Search the marketplace" was cut to "Search the marke" on
+        // every phone, where the text box between the icon and the submit
+        // button holds about seventeen characters. The accessible name keeps
+        // the full phrase, because a screen reader has no width to run out of.
+        placeholder={tc("search")}
         // Recessed: an input is the textbook case for rung 1, and it also gives
         // the field an opaque plate of its own inside the blurred bar.
         data-rung={1}
@@ -349,7 +363,7 @@ export function Header() {
       height, which the motion contract forbids because it relayouts every frame.
     */
     <>
-      <div className="border-b border-hairline">
+      <div className="border-b border-hairline print:hidden">
         <div className="mx-auto flex max-w-shell items-center justify-between gap-4 px-gutter py-1.5">
           {/*
             LAW E. This sentence is the residue of a hardening pass that removed
@@ -419,7 +433,11 @@ export function Header() {
         they carry body text. With JS off, before hydration, or with no
         scroll-timeline support, the bar is simply always glass.
       */}
-      <StickyGlassBar as="header" progress>
+      {/* print:hidden, here and on the utility strip above: a buyer who prints
+          a product or policy page into a procurement file wants the page, and
+          the printout used to open with the delivery strip, the bar and a
+          search field. */}
+      <StickyGlassBar as="header" progress className="print:hidden">
         <div className="mx-auto flex max-w-shell items-center gap-2 px-gutter sm:gap-3">
           <Link
             href="/"
@@ -445,12 +463,16 @@ export function Header() {
               initial on the old plate instead. See BrandMark's docstring.
             */}
             {/* Below sm the mark carries the brand on its own, so the whole
-                width the wordmark would take goes to the search field. */}
+                width the wordmark would take goes to the search field. The
+                same trade is made again between lg and xl, where the primary
+                nav joins the bar: the wordmark returns at xl. The link keeps
+                the brand as its accessible name at every width. */}
             <BrandLockup
               name={brand}
               size={32}
               animated
               wordmarkFrom="sm"
+              wordmarkClassName="lg:hidden xl:inline"
               className="gap-2.5"
             />
           </Link>
@@ -492,17 +514,27 @@ export function Header() {
                   active={active}
                   orientation="horizontal"
                   linkComponent={Link}
+                  className={entry.desktopClassName}
                 />
               );
             })}
           </nav>
 
           {/*
-            Search is the centre of a storefront header, so it takes the whole
-            middle of the bar at every width instead of the 20rem it used to be
-            squeezed into at the far end — and on a phone it is on the FIRST
-            row rather than wrapped onto a second one, which is what kept the
-            sticky chrome to a single 64px line there.
+            Search is the centre of a storefront header, so it takes whatever
+            the middle of the bar has left, up to max-w-xl, instead of the 20rem
+            it used to be squeezed into at the far end. On a phone it is on the
+            FIRST row rather than wrapped onto a second one, which is what kept
+            the sticky chrome to a single 64px line there.
+
+            "Whatever is left" was very little between lg and xl, where the nav
+            joins the bar: 118px at 1024, 189px at 1100, with the placeholder
+            cut to "Se". The bar carried two things twice there, the Home item
+            beside a logo that is the home link and the wordmark beside a mark
+            that already carries the brand, and both step back until xl. The
+            quote action and the theme switch stay. The quote action is the
+            chrome's one primary fill, and the theme switch has no other home at
+            lg and up.
           */}
           <div className="min-w-0 flex-1 lg:max-w-xl">{searchField}</div>
 
