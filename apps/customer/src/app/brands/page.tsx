@@ -11,8 +11,10 @@ import { getTranslations } from "next-intl/server";
 import { canonicalFor } from "@/lib/page-metadata";
 
 // The tab read the English literal "Brands" for every visitor, above an h1 that
-// says "Shop by brand". Both now come from brandsContent.title, so the tab and
-// the heading agree in either language.
+// says "Shop by brand". The tab now comes from brandsContent.title, whose English
+// value is that heading's words, so the two agree in English. The heading below
+// is still the English literal, so an Arabic session reads an Arabic tab above
+// an English h1 until the page body reads the same key.
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("brandsContent");
   return { title: t("title"), description: t("metaDescription"), ...canonicalFor("/brands") };
