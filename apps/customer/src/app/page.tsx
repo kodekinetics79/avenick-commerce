@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, BadgeCheck, CreditCard, PackageSearch, ShieldCheck, Sparkles, Undo2 } from "lucide-react";
+import { ArrowRight, Building2, ClipboardCheck, PackageSearch, Undo2 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import {
@@ -24,6 +24,7 @@ import { partitionHomeProducts } from "@/lib/home-catalog";
 import { productCardPricePresentation } from "@/lib/product-card-commerce";
 import { HeroCarousel } from "@/components/hero/hero-carousel";
 import { toHeroSlides } from "@/components/hero/hero-slides";
+import { categoryRailRows } from "@/components/hero/category-rail-rows";
 
 export const dynamic = "force-dynamic";
 
@@ -264,7 +265,9 @@ export default async function HomePage() {
           >
 
             <div className="relative grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-              <div className="min-w-0">
+              {/* A size container, so the headline below can be set against
+                  the width it actually has rather than the viewport's. */}
+              <div className="min-w-0 [container-type:inline-size]">
                 <Reveal index={0}>
                   <p className="u-meta font-medium uppercase tracking-[0.14em] text-white/80">
                     {t("heroTagline")}
@@ -274,12 +277,29 @@ export default async function HomePage() {
                 {/* Light over SemiBold, the reference's exact device. Our own
                     words: "THE NEW STANDARD" is Qantara's line, not Avenick's,
                     and a slogan is the one thing in a design file that belongs
-                    to whoever wrote it. */}
+                    to whoever wrote it.
+
+                    THE DEVICE IS TWO LINES, SO THE SIZE FOLLOWS THE COLUMN.
+                    The sizes used to step with the VIEWPORT (44 → 56 → 68px),
+                    but this column is squeezed by the category rail on one side
+                    and the carousel on the other: at 1366, 1440 and 1920 it is
+                    492, 562 and 616px wide, and "Buy with confidence." at 68px
+                    is 617px. The headline therefore set in three or four lines
+                    at every desktop width. The longer line is ≈9.1em, so 10.5%
+                    of the column's width (10.5cqi) fills about 95% of it at any
+                    width, clamped between the old phone size and the old desktop
+                    size. Phones stay at the 2.75rem floor. A browser without
+                    container units keeps that floor everywhere, which is
+                    smaller but still two readable lines, never a broken rule.
+
+                    The {" "} between the spans is the word space. Without it
+                    the heading's text read "clarity.Buy" to anything that reads
+                    textContent — a crawler, a snippet, a copy-paste. */}
                 <Reveal index={1} as="h1" className="mt-4 text-white">
-                  <span className="block text-[2.75rem] font-light leading-[1.05] tracking-[-0.02em] sm:text-[3.5rem] lg:text-[4.25rem]">
+                  <span className="block text-[2.75rem] font-light leading-[1.05] tracking-[-0.02em] supports-[width:1cqi]:text-[length:clamp(2.75rem,10.5cqi,4.25rem)]">
                     {t("heroTitle1")}
-                  </span>
-                  <span className="block text-[2.75rem] font-semibold leading-[1.05] tracking-[-0.02em] sm:text-[3.5rem] lg:text-[4.25rem]">
+                  </span>{" "}
+                  <span className="block text-[2.75rem] font-semibold leading-[1.05] tracking-[-0.02em] supports-[width:1cqi]:text-[length:clamp(2.75rem,10.5cqi,4.25rem)]">
                     {t("heroTitle2")}
                   </span>
                 </Reveal>
@@ -426,89 +446,6 @@ export default async function HomePage() {
         />
       )}
 
-      {/* ─── Buyer protection ─────────────────────────────
-          The reference's layout: four assurances beside a photograph, with a
-          percentage badge over its lower corner. The CONTENT is Avenick's, and
-          each line is checkable —
-
-            verified sellers   SellerProfile reaches ACTIVE only through the
-                               approval gate in services/admin.ts
-            payment options    the real PaymentMethod enum: MADA, Apple Pay,
-                               card, bank transfer, STC Pay. The reference says
-                               "PayPal", which is neither offered here nor the
-                               right rail for the Gulf.
-            priced up front    VAT and delivery are computed at checkout before
-                               the order is placed (services/orders.ts)
-            returns            the ReturnRequest lifecycle, REQUESTED through
-                               REFUNDED
-
-          The badge reads 100% rather than the reference's 99.8%. 99.8% of what
-          is the question it cannot answer — twelve orders exist, so any success
-          rate quoted from them is noise dressed as evidence. "Every seller is
-          verified before listing" is a different KIND of claim: it is true by
-          construction, because listing requires approval. It fills the same
-          slot and survives being asked about. */}
-      <section className="mx-auto max-w-shell px-gutter py-block">
-        <Surface rung={2} className="overflow-hidden">
-          <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
-            <div className="p-6 sm:p-8">
-              <Eyebrow tone="brass">{t("protectEyebrow")}</Eyebrow>
-              <h2 className="u-h2 mt-2 text-ink-1">{t("protectTitle")}</h2>
-              <p className="u-ui mt-1.5 text-ink-2">{t("protectSub")}</p>
-
-              <ul className="mt-6 space-y-4">
-                {[
-                  { icon: ShieldCheck, titleKey: "protect1Title", descKey: "protect1Desc" },
-                  { icon: CreditCard, titleKey: "protect2Title", descKey: "protect2Desc" },
-                  { icon: BadgeCheck, titleKey: "protect3Title", descKey: "protect3Desc" },
-                  { icon: Undo2, titleKey: "protect4Title", descKey: "protect4Desc" },
-                ].map(({ icon: Icon, titleKey, descKey }) => (
-                  <li key={titleKey} className="flex items-start gap-3">
-                    {/* The reference's soft-green icon chip, taken from our own
-                        primary-soft token rather than its raw #e4fff1 — the raw
-                        hex has no dark counterpart and this panel has to work on
-                        both grounds. */}
-                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-nested bg-primary-soft text-primary-ink">
-                      <Icon className="h-4 w-4" aria-hidden="true" />
-                    </span>
-                    <span className="min-w-0">
-                      <h3 className="u-ui font-medium text-ink-1">{t(titleKey)}</h3>
-                      <p className="u-meta mt-0.5 text-ink-2">{t(descKey)}</p>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              <Button variant="primary" size="md" className="mt-7" asChild>
-                <Link href="/support">{t("propsEyebrow")}</Link>
-              </Button>
-            </div>
-
-            {/* The photograph, and the badge standing on its corner. Hidden
-                below lg: at phone width it would be a 200px letterbox carrying
-                no information the four lines above have not already given. */}
-            <div className="relative hidden min-h-[22rem] lg:block">
-              <Image
-                src="/hero/workshop-1600.jpg"
-                alt=""
-                aria-hidden="true"
-                fill
-                sizes="(min-width: 1024px) 45vw, 0px"
-                className="object-cover"
-              />
-              {/* Glass, because this badge is lying on a photograph — the image
-                      blurs and saturates behind it rather than being covered.
-                      The same panel on a flat ground would just be a lighter
-                      box, which is why the four rows opposite do not get it. */}
-              <Surface rung={4} glass className="absolute bottom-6 end-6 w-40 p-4 text-center">
-                <p className="u-display text-primary-ink">{t("protectStat")}</p>
-                <p className="u-meta mt-1 text-ink-2">{t("protectStatLabel")}</p>
-              </Surface>
-            </div>
-          </div>
-        </Surface>
-      </section>
-
       {/* ─── More products ────────────────────────────────── */}
       {/* No badge: "NEW" was stamped on every product regardless of age. The
           section is dropped entirely when the feed holds nothing the catalog
@@ -540,6 +477,110 @@ export default async function HomePage() {
         locale={locale}
       />
 
+      {/* ─── Buyer protection ─────────────────────────────
+          The reference's layout: assurances beside a photograph. Every row is
+          a rule the code enforces on an order, and each one names where —
+
+            re-checked on submit  services/orders.ts prices the lines on the
+                                  server and re-reads stock inside the order
+                                  transaction, refusing a short line; a purchase
+                                  order must still match its own server-priced
+                                  total. Delivery terms are NOT settled at that
+                                  point — they are confirmed while the order is
+                                  processed, which is what the utility bar says
+                                  on every page.
+            bank transfer         the only method api/orders/route.ts accepts:
+                                  it answers 503 for MADA, Apple Pay, card and
+                                  STC Pay. A transfer is marked paid only after
+                                  finance verifies the funds
+                                  (orders.next.AWAIT_BANK_TRANSFER).
+            returns               customer-returns.ts accepts a return only
+                                  against a DELIVERED order, and the lifecycle
+                                  runs REQUESTED through REFUNDED (workflow.ts)
+
+          WHAT CAME OFF, SO IT DOES NOT COME BACK. This panel used to promise
+          "Complete buyer protection — your order is protected from payment
+          through to delivery", and there is no escrow: Terms §5 says so, which
+          is why the button goes there. It listed "MADA, Apple Pay, card, bank
+          transfer and STC Pay", which is the PaymentMethod enum — a schema, not
+          what the order route takes. It said VAT and delivery were "computed
+          and shown before you pay" above a rail of "Price on request" tiles,
+          when a purchase order carries no computed delivery charge at all.
+          And it ran a "Verified sellers" row under a "100% — Sellers verified
+          before listing" badge, defended as true by construction because
+          listing needs approval. It was not: approveSeller moves
+          PENDING_REVIEW to ACTIVE without looking at a document, and
+          pilot-catalog.ts upserts its sellers straight to ACTIVE without
+          approval at all — when this was checked, every live listing belonged
+          to a seller with no document on file. A verification claim needs a
+          code gate on reviewed documents first, and then a sentence rather
+          than a percentage.
+
+          It sits after New arrivals rather than directly under the hero: a
+          buyer sees products before the rules for ordering them, and the
+          panel breaks what was a run of three product rails. */}
+      <section className="mx-auto max-w-shell px-gutter py-block">
+        <Surface rung={2} className="overflow-hidden">
+          <div className="grid gap-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+            <div className="p-6 sm:p-8">
+              <Eyebrow tone="brass">{t("protectEyebrow")}</Eyebrow>
+              <h2 className="u-h2 mt-2 text-ink-1">{t("protectTitle")}</h2>
+              <p className="u-ui mt-1.5 text-ink-2">{t("protectSub")}</p>
+
+              {/* In the order an order lives them: submitted, paid, returned.
+                  The keys are called literally rather than through a mapped
+                  key string, so the message-key regression test sees every one
+                  of them in both languages. */}
+              <ul className="mt-6 space-y-4">
+                {[
+                  { icon: ClipboardCheck, title: t("protect3Title"), desc: t("protect3Desc") },
+                  { icon: Building2, title: t("protect2Title"), desc: t("protect2Desc") },
+                  { icon: Undo2, title: t("protect4Title"), desc: t("protect4Desc") },
+                ].map(({ icon: Icon, title, desc }) => (
+                  <li key={title} className="flex items-start gap-3">
+                    {/* The reference's soft-green icon chip, taken from our own
+                        primary-soft token rather than its raw #e4fff1 — the raw
+                        hex has no dark counterpart and this panel has to work on
+                        both grounds. */}
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-nested bg-primary-soft text-primary-ink">
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0">
+                      <h3 className="u-ui font-medium text-ink-1">{title}</h3>
+                      <p className="u-meta mt-0.5 text-ink-2">{desc}</p>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* To the section of the Terms that states these limits in full.
+                  It used to be labelled "How the platform works" and open the
+                  help centre, which is neither what the label said nor where
+                  the limits are written. */}
+              <Button variant="secondary" size="md" className="mt-7" asChild>
+                <Link href="/terms#disputes">{t("protectCta")}</Link>
+              </Button>
+            </div>
+
+            {/* The photograph, and nothing on it. It is decorative (empty alt,
+                hidden from assistive technology) and it asserts nothing about
+                any seller. Hidden below lg: at phone width it would be a 200px
+                letterbox carrying no information the rows beside it have not
+                already given. */}
+            <div className="relative hidden min-h-[22rem] lg:block">
+              <Image
+                src="/hero/workshop-1600.jpg"
+                alt=""
+                aria-hidden="true"
+                fill
+                sizes="(min-width: 1024px) 45vw, 0px"
+                className="object-cover"
+              />
+            </div>
+          </div>
+        </Surface>
+      </section>
+
       <ProductRail
         rows={railFor.featured}
         eyebrow={t("catalogEyebrow")}
@@ -556,6 +597,7 @@ export default async function HomePage() {
         subtitle={t("topRatedSub")}
         viewAll={t("viewAll")}
         locale={locale}
+        href="/products?sort=rating"
       />
 
       {/* ─── Brands ───────────────────────────────────────
@@ -633,11 +675,22 @@ export default async function HomePage() {
             <Eyebrow tone="brass">{t("b2bEyebrow")}</Eyebrow>
             <h2 className="u-display mt-2 text-ink-1">{t("b2bTitle")}</h2>
             <p className="u-body mt-3 max-w-desc text-ink-2">{t("b2bDesc")}</p>
+            {/* ONE NAME FOR ONE DESTINATION. This button said "Submit an RFQ"
+                while the hero, the empty catalogue and the footer said
+                "Request a quote" for the same /b2b/rfq/new, so it now uses the
+                same key. The header keeps its shorter "Get a quote" as chrome.
+
+                The note says out loud what the click does. The form sits behind
+                sign-in (an anonymous visitor is sent to /login), and the RFQ
+                API refuses anyone without a company account. The sentence is
+                worded to be true for every viewer, so the page does not need to
+                read the session to decide whether to show it. */}
             <Button variant="primary" size="lg" className="mt-7" asChild>
               <Link href="/b2b/rfq/new">
-                {t("b2bCta")} <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                {t("requestQuote")} <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
               </Link>
             </Button>
+            <p className="u-meta mt-3 max-w-desc text-ink-2">{t("quoteSignInNote")}</p>
           </div>
         </Surface>
       </section>
@@ -652,6 +705,45 @@ export default async function HomePage() {
  * carousels, and it renders nothing at all when it has no rows — a heading over
  * an empty grid reads as a grid that failed to paint, which is worse than the
  * section being absent.
+ *
+ * "VIEW ALL" GOES WHERE THE RAIL'S OWN ORDER CONTINUES. All three rails used to
+ * link to plain /products. That is right for New arrivals and More from the
+ * marketplace — the catalogue's default order is newest first — and wrong for
+ * Top rated, whose continuation is /products?sort=rating.
+ *
+ * ON A PHONE, A ROW; FROM sm UP, THE GRID. Ten tiles in ProductGrid's two
+ * phone columns are five rows of about 480px, so three rails were 7,700px of
+ * an 11,300px page, and the first product card sat on the third screen. Below
+ * sm the SAME tiles are laid out as one horizontal row — 72% of the width each,
+ * so the next tile shows at the edge — that scrolls under the thumb with
+ * proximity snapping. Nothing is removed: every tile and its control is still
+ * there, one swipe away rather than five screens down.
+ *
+ * WHY NOT <Rail>, AND WHY NOT TWO RENDERINGS. <Rail> is a horizontal scroller at
+ * every width and cannot become the grid at sm. Rendering the tiles twice — a
+ * Rail for phones, the grid for everything else, one of them display:none —
+ * would hydrate thirty extra ProductCard client components on the busiest
+ * route. So the wrapper below turns ProductGrid's single root element into
+ * `display: contents` under sm, which hands the tiles to this scroller, and
+ * does nothing at all from sm up. The scrollbar is NOT hidden: this row has no
+ * prev/next controls, so the scrollbar and the edge of the next tile are its
+ * only affordances, and hiding a scrollbar with nothing in its place is an
+ * accessibility regression. Grid auto-flow and overflow are both
+ * direction-aware, so the row starts at the inline start in Arabic unaided.
+ *
+ * IN THE ROW, A TILE DOES NOT WAIT FOR ITS ENTRANCE. <RevealRoot> hides every
+ * [data-reveal] that is not on screen at first sighting and shows it when it
+ * intersects the viewport. A tile past the edge of this scroller is clipped,
+ * so it counts as off screen, and the tile a buyer had just swiped to arrived
+ * as an empty plate that faded in up to half a second later — 320ms of fade
+ * behind a stagger delay of up to 200ms. That is motion holding back content
+ * someone asked for. So below sm the hidden state is overridden to visible
+ * (at a higher specificity than the reveal rule, without !important) and the
+ * row simply is there; from sm up the grid keeps its staggered entrance.
+ *
+ * Do not pass a phone tile limit to ProductGrid from here. A limit that hides
+ * tiles past the fourth would hide them inside this row, where they cost no
+ * page height at all.
  */
 function ProductRail({
   rows,
@@ -660,6 +752,7 @@ function ProductRail({
   subtitle,
   viewAll,
   locale,
+  href = "/products",
 }: {
   rows: Array<Record<string, any>>;
   eyebrow: string;
@@ -667,17 +760,25 @@ function ProductRail({
   subtitle: string;
   viewAll: string;
   locale: "en" | "ar";
+  /** Where "View all" continues this rail. Defaults to the catalogue, newest first. */
+  href?: string;
 }) {
   if (rows.length === 0) return null;
   return (
-    <Section eyebrow={eyebrow} title={title} subtitle={subtitle} href="/products" linkLabel={viewAll}>
-      <ProductGrid columns={5}>
-        {rows.map((p, i) => (
-          <Reveal key={p["id"] as string} index={i} className="h-full">
-            <ProductCard {...(p as any)} locale={locale} />
-          </Reveal>
-        ))}
-      </ProductGrid>
+    <Section eyebrow={eyebrow} title={title} subtitle={subtitle} href={href} linkLabel={viewAll}>
+      <div className="max-sm:grid max-sm:auto-cols-[72%] max-sm:grid-flow-col max-sm:gap-stack max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:snap-x max-sm:snap-proximity max-sm:pb-3 max-sm:[&>div]:contents">
+        <ProductGrid columns={5}>
+          {rows.map((p, i) => (
+            <Reveal
+              key={p["id"] as string}
+              index={i}
+              className="h-full max-sm:snap-start max-sm:[&[data-reveal][data-reveal-state=hidden]]:opacity-100 max-sm:[&[data-reveal][data-reveal-state=hidden]]:[transform:none]"
+            >
+              <ProductCard {...(p as any)} locale={locale} />
+            </Reveal>
+          ))}
+        </ProductGrid>
+      </div>
     </Section>
   );
 }
@@ -747,8 +848,21 @@ function CategoryRail({
       */}
       <Surface rung={4} className="flex flex-1 flex-col overflow-hidden">
         <p className="u-meta border-b border-hairline px-3.5 py-2.5 font-medium text-ink-2">{label}</p>
+        {/*
+          THE SHAPE, ONE LEVEL DEEPER. Seven top-level rows ended 296px into a
+          646px panel, so over half of this raised surface was empty. Under each
+          root now sit as many of its own children as the band has room for,
+          dealt round-robin and budgeted so the rail can never make the hero row
+          taller (components/hero/category-rail-rows.ts has the arithmetic).
+          The band is shorter from lg to xl, where the carousel column is
+          narrower, so the rows that only the xl band has room for are hidden
+          below xl rather than stretching the hero there. They are plain links
+          like their parents, indented to the parent's label, in meta type and
+          second ink so the roots still lead. Same taxonomy, same data, no
+          query — getPublicCategories already returns the tree.
+        */}
         <ul className="flex-1 py-1">
-          {categories.map((category) => {
+          {categoryRailRows(categories).map(({ root: category, children, compact }) => {
             const Icon = categoryIcon(category.iconName, category.slug);
             return (
               <li key={category.slug}>
@@ -762,6 +876,20 @@ function CategoryRail({
                   />
                   <span className="u-ui truncate text-ink-1">{categoryLabel(category, locale)}</span>
                 </Link>
+                {children.length > 0 && (
+                  <ul>
+                    {children.map((child, index) => (
+                      <li key={child.slug} className={index < compact ? undefined : "hidden xl:block"}>
+                        <Link
+                          href={`/products?category=${encodeURIComponent(child.slug)}`}
+                          className="u-focus u-meta block truncate rounded-nested py-1 pe-3.5 ps-10 text-start text-ink-2 transition-colors duration-hover ease-standard hover:bg-surface-2 hover:text-ink-1"
+                        >
+                          {categoryLabel(child, locale)}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             );
           })}
