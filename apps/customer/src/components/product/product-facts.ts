@@ -142,6 +142,34 @@ export function quoteOnlyAction(
     : "REQUEST_QUOTE";
 }
 
+export type CrumbCategory = { slug: string; nameEn: string; nameAr: string | null };
+
+/**
+ * The category rung of the product breadcrumb, or null when there should be none.
+ *
+ * The trail used to jump from "Products" straight to the item: the service
+ * loaded the category and the DTO dropped it, so a buyer arriving from search or
+ * a shared link had no way up to the shelf. Two cases still get no crumb.
+ *
+ *   - The category page would not list this product. The public category tree
+ *     only includes categories with a publicly discoverable product beneath them,
+ *     so a business-only listing's category may be a 404.
+ *   - The crumb would only repeat the product. Imported catalogues often name a
+ *     leaf category and its only product the same thing ("Wire & Cable
+ *     Lubricants › Wire & Cable Lubricants"), and an echo is not a trail.
+ */
+export function breadcrumbCategory(
+  product: { isPubliclyDiscoverable?: unknown; category?: CrumbCategory | null },
+  productName: string,
+  locale: "en" | "ar",
+): { href: string; name: string } | null {
+  const category = product.category;
+  if (!category || product.isPubliclyDiscoverable !== true) return null;
+  const name = (locale === "ar" ? category.nameAr?.trim() || category.nameEn : category.nameEn).trim();
+  if (!name || name.toLocaleLowerCase() === productName.trim().toLocaleLowerCase()) return null;
+  return { href: `/categories/${encodeURIComponent(category.slug)}`, name };
+}
+
 /**
  * The SellerDocument types the message tree names. A verification basis is only
  * printed for one of these, so a new enum value can never reach a buyer raw.

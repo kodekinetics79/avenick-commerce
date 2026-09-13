@@ -37,6 +37,8 @@ export type CatalogDetailSource = {
   inventory: Array<{ variantId: string | null; available: number }>;
   variants: DetailVariant[];
   brand?: { nameEn: string; nameAr: string | null } | null;
+  /** The service loads the whole row; the DTO keeps the slug and names. */
+  category?: { slug: string; nameEn: string; nameAr: string; isActive?: boolean } | null;
   seller: {
     id: string;
     businessNameEn: string;
@@ -127,6 +129,11 @@ export function toCatalogDetailDto(source: CatalogDetailSource, channel: "B2C" |
           : "UNCONFIRMED" as const,
       })),
     brand: source.brand ? { nameEn: source.brand.nameEn, nameAr: source.brand.nameAr } : null,
+    // For the breadcrumb. An inactive category has no page to link to, so it is
+    // not sent; the id, parent and imagery never were needed by the page.
+    category: source.category && source.category.isActive !== false
+      ? { slug: source.category.slug, nameEn: source.category.nameEn, nameAr: source.category.nameAr }
+      : null,
     // Field by field, like every other relation here. Passing the service's
     // seller object through whole meant anything later added to its select —
     // the document relation behind the verification mark, for one — would reach

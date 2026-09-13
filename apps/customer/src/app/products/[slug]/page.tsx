@@ -46,8 +46,10 @@ import { SpecList, type SpecRow } from "@/components/product/spec-list";
 import { ViewBeacon } from "@/components/product/view-beacon";
 import {
   attributeLabel,
+  breadcrumbCategory,
   buildPriceLadder,
   BUTTON_TYPE,
+  type CrumbCategory,
   FOCUS_INSET,
   isSellerDocumentType,
   quoteOnlyAction,
@@ -373,6 +375,11 @@ export default function ProductPage({
   const primaryName = locale === "ar" ? nameAr || nameEn : nameEn;
   const secondaryName = locale === "ar" ? (nameAr ? nameEn : "") : nameAr;
   const brandName = brand ? (locale === "ar" ? brand.nameAr || brand.nameEn : brand.nameEn) : null;
+  const categoryCrumb = breadcrumbCategory(
+    { isPubliclyDiscoverable: p.isPubliclyDiscoverable, category: p.category as CrumbCategory | null | undefined },
+    primaryName,
+    locale,
+  );
 
   const reviews = (p.reviews as Review[]) ?? [];
   const reviewCount = reviews.length;
@@ -489,8 +496,26 @@ export default function ProductPage({
               <li><Link href="/" className="u-focus rounded-sm hover:text-ink-1">{t("home")}</Link></li>
               {/* A chevron implies a reading direction, so it flips in Arabic. */}
               <li aria-hidden="true"><ChevronRight className="h-3 w-3 rtl:rotate-180" /></li>
-              <li><Link href="/products" className="u-focus rounded-sm hover:text-ink-1">{t("allProducts")}</Link></li>
-              <li aria-hidden="true"><ChevronRight className="h-3 w-3 rtl:rotate-180" /></li>
+              {/* On a phone the category is the more useful rung than the
+                  catalogue root, and three crumbs fit where four squeeze the
+                  product's own name to a few characters, so "Products" stands
+                  down below sm whenever a category takes its place. */}
+              <li className={categoryCrumb ? "max-sm:hidden" : undefined}>
+                <Link href="/products" className="u-focus rounded-sm hover:text-ink-1">{t("allProducts")}</Link>
+              </li>
+              <li aria-hidden="true" className={categoryCrumb ? "max-sm:hidden" : undefined}>
+                <ChevronRight className="h-3 w-3 rtl:rotate-180" />
+              </li>
+              {categoryCrumb && (
+                <>
+                  <li className="min-w-0">
+                    <Link href={categoryCrumb.href} className="u-focus block truncate rounded-sm hover:text-ink-1">
+                      {categoryCrumb.name}
+                    </Link>
+                  </li>
+                  <li aria-hidden="true"><ChevronRight className="h-3 w-3 rtl:rotate-180" /></li>
+                </>
+              )}
               <li className="min-w-0"><span aria-current="page" className="block truncate font-medium text-ink-1">{primaryName}</span></li>
             </ol>
           </nav>
