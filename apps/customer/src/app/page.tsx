@@ -597,6 +597,7 @@ export default async function HomePage() {
         subtitle={t("topRatedSub")}
         viewAll={t("viewAll")}
         locale={locale}
+        href="/products?sort=rating"
       />
 
       {/* ─── Brands ───────────────────────────────────────
@@ -693,6 +694,35 @@ export default async function HomePage() {
  * carousels, and it renders nothing at all when it has no rows — a heading over
  * an empty grid reads as a grid that failed to paint, which is worse than the
  * section being absent.
+ *
+ * "VIEW ALL" GOES WHERE THE RAIL'S OWN ORDER CONTINUES. All three rails used to
+ * link to plain /products. That is right for New arrivals and More from the
+ * marketplace — the catalogue's default order is newest first — and wrong for
+ * Top rated, whose continuation is /products?sort=rating.
+ *
+ * ON A PHONE, A ROW; FROM sm UP, THE GRID. Ten tiles in ProductGrid's two
+ * phone columns are five rows of about 480px, so three rails were 7,700px of
+ * an 11,300px page, and the first product card sat on the third screen. Below
+ * sm the SAME tiles are laid out as one horizontal row — 72% of the width each,
+ * so the next tile shows at the edge — that scrolls under the thumb with
+ * proximity snapping. Nothing is removed: every tile and its control is still
+ * there, one swipe away rather than five screens down.
+ *
+ * WHY NOT <Rail>, AND WHY NOT TWO RENDERINGS. <Rail> is a horizontal scroller at
+ * every width and cannot become the grid at sm. Rendering the tiles twice — a
+ * Rail for phones, the grid for everything else, one of them display:none —
+ * would hydrate thirty extra ProductCard client components on the busiest
+ * route. So the wrapper below turns ProductGrid's single root element into
+ * `display: contents` under sm, which hands the tiles to this scroller, and
+ * does nothing at all from sm up. The scrollbar is NOT hidden: this row has no
+ * prev/next controls, so the scrollbar and the edge of the next tile are its
+ * only affordances, and hiding a scrollbar with nothing in its place is an
+ * accessibility regression. Grid auto-flow and overflow are both
+ * direction-aware, so the row starts at the inline start in Arabic unaided.
+ *
+ * Do not pass a phone tile limit to ProductGrid from here. A limit that hides
+ * tiles past the fourth would hide them inside this row, where they cost no
+ * page height at all.
  */
 function ProductRail({
   rows,
@@ -701,6 +731,7 @@ function ProductRail({
   subtitle,
   viewAll,
   locale,
+  href = "/products",
 }: {
   rows: Array<Record<string, any>>;
   eyebrow: string;
@@ -708,17 +739,21 @@ function ProductRail({
   subtitle: string;
   viewAll: string;
   locale: "en" | "ar";
+  /** Where "View all" continues this rail. Defaults to the catalogue, newest first. */
+  href?: string;
 }) {
   if (rows.length === 0) return null;
   return (
-    <Section eyebrow={eyebrow} title={title} subtitle={subtitle} href="/products" linkLabel={viewAll}>
-      <ProductGrid columns={5}>
-        {rows.map((p, i) => (
-          <Reveal key={p["id"] as string} index={i} className="h-full">
-            <ProductCard {...(p as any)} locale={locale} />
-          </Reveal>
-        ))}
-      </ProductGrid>
+    <Section eyebrow={eyebrow} title={title} subtitle={subtitle} href={href} linkLabel={viewAll}>
+      <div className="max-sm:grid max-sm:auto-cols-[72%] max-sm:grid-flow-col max-sm:gap-stack max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:snap-x max-sm:snap-proximity max-sm:pb-3 max-sm:[&>div]:contents">
+        <ProductGrid columns={5}>
+          {rows.map((p, i) => (
+            <Reveal key={p["id"] as string} index={i} className="h-full max-sm:snap-start">
+              <ProductCard {...(p as any)} locale={locale} />
+            </Reveal>
+          ))}
+        </ProductGrid>
+      </div>
     </Section>
   );
 }
