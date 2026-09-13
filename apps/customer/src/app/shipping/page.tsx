@@ -3,8 +3,10 @@ import Link from "next/link";
 import { MainLayout } from "@/components/layout/main-layout";
 import { PolicyShell, type PolicySection } from "@/components/legal/policy-shell";
 import { platformName } from "@avenick/utils/portal-config";
+import { canonicalFor } from "@/lib/page-metadata";
 
 export const metadata = {
+  ...canonicalFor("/shipping"),
   title: "Delivery",
   description: `${platformName()} delivery — coverage, how charges and timing are confirmed, and what to do if an order arrives damaged.`,
 };

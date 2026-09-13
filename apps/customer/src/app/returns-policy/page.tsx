@@ -3,8 +3,10 @@ import Link from "next/link";
 import { MainLayout } from "@/components/layout/main-layout";
 import { PolicyShell, type PolicySection } from "@/components/legal/policy-shell";
 import { platformName } from "@avenick/utils/portal-config";
+import { canonicalFor } from "@/lib/page-metadata";
 
 export const metadata = {
+  ...canonicalFor("/returns-policy"),
   title: "Returns and refunds",
   description: `${platformName()} returns and refunds policy — eligibility, the request process, and how refunds are issued.`,
 };

@@ -44,10 +44,11 @@ import { isDurableB2BMember } from "@/lib/b2b-access";
 import { backendUrl, requestBaseUrl } from "@/lib/backend";
 import { SUPPORTED_COUNTRIES } from "@/lib/market-context";
 import { platformName } from "@avenick/utils/portal-config";
+import { canonicalFor } from "@/lib/page-metadata";
 
 export const dynamic = "force-dynamic";
 export async function generateMetadata() {
-  return b2bMetadata("meta.register");
+  return { ...(await b2bMetadata("meta.register")), ...canonicalFor("/b2b/register") };
 }
 
 // Each line describes a capability the portal implements, in the terms the

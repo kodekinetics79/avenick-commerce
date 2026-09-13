@@ -4,8 +4,10 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { PolicyShell, type PolicySection } from "@/components/legal/policy-shell";
 import { OFFICE_AR, companyHeadquarters, formatAddress, gccOffices, gccTradingEntity } from "@/lib/company";
 import { platformContacts, platformName } from "@avenick/utils/portal-config";
+import { canonicalFor } from "@/lib/page-metadata";
 
 export const metadata = {
+  ...canonicalFor("/contact"),
   title: "Contact",
   description: `How to reach ${platformName()} — support, legal and privacy contacts, and the company address.`,
 };

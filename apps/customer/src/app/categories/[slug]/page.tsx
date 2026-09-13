@@ -15,6 +15,7 @@ import { toCatalogListDto } from "@/lib/catalog-list-dto";
 import { categoryTrail, findCategory, type CategoryNode } from "@/lib/category-tree";
 import { toCardRow, type CardRow } from "@/lib/product-card-row";
 import { readPublicCategoryTree } from "@/lib/public-category-tree";
+import { canonicalFor } from "@/lib/page-metadata";
 
 interface Props { params: { slug: string } }
 
@@ -78,7 +79,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // locale, the same way the h1 below does — a tab title in a different
   // language from the page it labels is the same defect, one layer up.
   const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
-  return { title: locale === "ar" && cat.nameAr?.trim() ? cat.nameAr : cat.nameEn };
+  return {
+    title: locale === "ar" && cat.nameAr?.trim() ? cat.nameAr : cat.nameEn,
+    // /products?category=<slug> lists the same catalogue and names this page as
+    // its canonical, so this page names itself.
+    ...canonicalFor(`/categories/${cat.slug}`),
+  };
 }
 
 export default async function CategoryPage({ params }: Props) {

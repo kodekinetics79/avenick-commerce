@@ -55,6 +55,7 @@ import { findCategory, type CategoryNode } from "@/lib/category-tree";
 import { toCardRow, type CardRow } from "@/lib/product-card-row";
 import { readPublicBrands } from "@/lib/public-brands";
 import { readPublicCategoryTree } from "@/lib/public-category-tree";
+import { canonicalFor, NOINDEX_FOLLOW } from "@/lib/page-metadata";
 
 // No platform-name suffix here. The root layout declares
 // `title.template: "%s | <platform>"`, so appending it again rendered
@@ -66,19 +67,44 @@ import { readPublicCategoryTree } from "@/lib/public-category-tree";
 // bookmark and every share card say, so an Arabic session read the whole page
 // in Arabic under an English tab. It follows the same three cases the h1 does,
 // out of the same message tree.
+//
+// A search is a page made of the visitor's own words, so it is kept out of the
+// index (see NOINDEX_FOLLOW) and names no canonical. Every other variant of this
+// URL names one: a category filter is the same listing /categories/<slug>
+// publishes, and ?sort, ?page and the facets are views of /products itself.
 export async function generateMetadata({
   searchParams,
 }: {
   searchParams: SearchParams;
 }): Promise<Metadata> {
   const t = await getTranslations("catalogue");
+  const title = searchParams.search
+    ? t("title.search", { query: searchParams.search })
+    : searchParams.category
+    ? t("title.category")
+    : t("title.all");
+  if (searchParams.search) return { title, robots: NOINDEX_FOLLOW };
+  const canonicalPath = await catalogueCanonicalPath(searchParams.category);
   return {
-    title: searchParams.search
-      ? t("title.search", { query: searchParams.search })
-      : searchParams.category
-      ? t("title.category")
-      : t("title.all"),
+    title,
+    description: t("metaDescription"),
+    ...(canonicalPath ? canonicalFor(canonicalPath) : {}),
   };
+}
+
+/**
+ * The page a catalogue URL is a view of. A category that does not resolve, or a
+ * tree that cannot be read, names no canonical rather than pointing a crawler at
+ * a /categories/<slug> that would 404.
+ */
+async function catalogueCanonicalPath(category: string | undefined): Promise<string | null> {
+  if (!category) return "/products";
+  try {
+    const node = findCategory(await readPublicCategoryTree(), category);
+    return node ? `/categories/${node.slug}` : null;
+  } catch {
+    return null;
+  }
 }
 
 export const dynamic = "force-dynamic";

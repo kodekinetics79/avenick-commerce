@@ -35,6 +35,7 @@ import {
   type VerifiedBrandMatch,
 } from "@/lib/search-recovery";
 import { readPublicBrands } from "@/lib/public-brands";
+import { NOINDEX_FOLLOW } from "@/lib/page-metadata";
 
 // No platform-name suffix. The root layout declares
 // `title.template: "%s | <platform>"`, so appending it here rendered
@@ -45,6 +46,12 @@ import { readPublicBrands } from "@/lib/public-brands";
 // the tab, the history entry, the bookmark and every share card. An Arabic
 // session read the whole page in Arabic under an English tab. It says the same
 // two things the h1 does, from the same message tree.
+//
+// Never indexed, with or without a query. Any /search?q=<anything> answered an
+// indexable 200 whose title and h1 repeat the query, so the index could be
+// filled with pages nobody chose to publish; the empty form is a search box, not
+// a page. `follow` stays on so the product links still count. page-metadata.ts
+// explains why this is a meta tag and not a robots.txt rule.
 export async function generateMetadata({
   searchParams,
 }: {
@@ -52,7 +59,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const t = await getTranslations("catalogue");
   const query = (searchParams.q ?? "").trim();
-  return { title: query ? t("title.search", { query }) : t("search.titleEmpty") };
+  return {
+    title: query ? t("title.search", { query }) : t("search.titleEmpty"),
+    robots: NOINDEX_FOLLOW,
+  };
 }
 
 export const dynamic = "force-dynamic";

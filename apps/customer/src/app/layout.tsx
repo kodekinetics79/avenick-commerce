@@ -38,14 +38,22 @@ export async function generateMetadata(): Promise<Metadata> {
     // icon.tsx, apple-icon.tsx and opengraph-image.tsx are file conventions and
     // are wired automatically; this names the manifest, which is not.
     manifest: "/manifest.webmanifest",
-    openGraph: {
-      type: "website",
-      siteName: name,
-      title: name,
-      description: t("metaDescription"),
-      ...(origin ? { url: origin } : {}),
-    },
-    twitter: { card: "summary_large_image", title: name, description: t("metaDescription") },
+    // Only what is true of EVERY page: the kind of site and its name. This block
+    // used to carry `title: name`, the root description and `url: origin`, and
+    // no route overrides openGraph, so every page on the storefront — a product,
+    // a category, the cart — shared as "Avenick", with the home page's sentence,
+    // at the home page's address.
+    //
+    // Leaving title and description out lets Next fill og:title, og:description
+    // and their twitter:* twins from each page's own resolved title (template
+    // included) and description (resolve-metadata.js, inheritFromMetadata). That
+    // is also why pages must not rebuild openGraph themselves: a page-level
+    // openGraph replaces this one, and the image opengraph-image.tsx attaches here
+    // would go with it. og:url is omitted, not recomputed: it is optional, a
+    // scraper uses the URL it fetched, and each indexable page names its
+    // canonical through lib/page-metadata.ts instead.
+    openGraph: { type: "website", siteName: name },
+    twitter: { card: "summary_large_image" },
   };
 }
 

@@ -21,6 +21,7 @@ import {
 } from "@avenick/ui";
 import { IDENTITY_LABEL_CLASS, IdentitySelect } from "../auth/identity-controls";
 import { LOCALE_COOKIE, toIdentityLocale } from "../auth/identity-copy";
+import { canonicalFor } from "@/lib/page-metadata";
 
 /**
  * The tab title is a user-visible string like any other, and it was the last
@@ -34,6 +35,12 @@ export async function generateMetadata() {
   const isAr = toIdentityLocale((await cookies()).get(LOCALE_COOKIE)?.value) === "ar";
   return {
     title: `${isAr ? "مركز المساعدة والدعم" : "Help centre"}`,
+    // The page header's own lede, word for word, so the search result says what
+    // the page says. It used to inherit the site-wide marketplace sentence.
+    description: isAr
+      ? "ابحث عن إجابات للأسئلة الشائعة أو افتح تذكرة دعم وتابع حالتها."
+      : "Read the answers to the common questions, or open a support ticket and follow its status.",
+    ...canonicalFor("/support"),
   };
 }
 

@@ -2,8 +2,10 @@ import { cookies } from "next/headers";
 import { MainLayout } from "@/components/layout/main-layout";
 import { Eyebrow, PageHeader, Surface } from "@avenick/ui";
 import { platformName } from "@avenick/utils/portal-config";
+import { canonicalFor } from "@/lib/page-metadata";
 
 export const metadata = {
+  ...canonicalFor("/cookies"),
   title: `Cookies Policy`,
   description: `${platformName()} cookies policy, user tracking management, and data settings.`,
 };

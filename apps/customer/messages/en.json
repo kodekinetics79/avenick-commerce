@@ -18,7 +18,7 @@
     "freeDelivery": "Delivery terms are confirmed while your order is processed",
     "searchPlaceholder": "Search the marketplace",
     "skipToContent": "Skip to content",
-    "metaDescription": "A GCC marketplace for business and consumer buying: search a supplier catalogue, order directly, or submit an RFQ for volume requirements."
+    "metaDescription": "A GCC marketplace for business buying: search a supplier catalogue, request quotes, and order through a reviewed company account."
   },
   "nav": {
     "home": "Home",
@@ -388,8 +388,8 @@
     }
   },
   "deals": {
-    "title": "Marketplace offers",
-    "description": "Marketplace promotions are not currently available.",
+    "title": "Featured products",
+    "description": "Current catalogue listings and their published prices.",
     "browseProducts": "Browse products"
   },
   "brandsContent": {
@@ -398,7 +398,8 @@
     "emptyTitle": "No brands yet",
     "emptyDescription": "Brands will appear here when products are available in the catalog.",
     "productCount": "{count, plural, one {# product} other {# products}}",
-    "browse": "Browse"
+    "browse": "Browse",
+    "metaDescription": "Brands listed in the supplier catalogue, each linked to its products."
   },
   "spatialCommerce": {
     "metadataTitle": "Spatial Commerce Preview",
@@ -547,7 +548,8 @@
     "brandsEyebrow": "Brands",
     "brandsTitle": "Brands in the catalogue",
     "brandsSub": "Manufacturers whose products are listed by sellers on this marketplace",
-    "brandsAll": "Browse brands"
+    "brandsAll": "Browse brands",
+    "metaTitle": "B2B sourcing marketplace for the GCC"
   },
   "footer": {
     "helpTitle": "Need a hand?",
@@ -903,7 +905,8 @@
       "IN_STOCK": "In stock",
       "OUT_OF_STOCK": "Out of stock",
       "UNCONFIRMED": "Availability unconfirmed"
-    }
+    },
+    "metaDescription": "Browse the supplier catalogue by category, brand and minimum order quantity."
   },
   "discovery": {
     "eyebrow": "Discovery",
@@ -948,7 +951,7 @@
     "metaTitle": "Wishlist"
   },
   "status": {
-    "metaTitle": "Platform status"
+    "metaTitle": "System status"
   },
   "notFound": {
     "eyebrow": "Page not found",

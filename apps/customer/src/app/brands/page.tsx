@@ -6,8 +6,17 @@ import { fetchBackendJson } from "@/lib/backend";
 import { platformName } from "@avenick/utils/portal-config";
 import { SELLER_REGISTER_URL } from "@/lib/portal-urls";
 import { readPublicBrands } from "@/lib/public-brands";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+import { canonicalFor } from "@/lib/page-metadata";
 
-export const metadata = { title: "Brands" };
+// The tab read the English literal "Brands" for every visitor, above an h1 that
+// says "Shop by brand". Both now come from brandsContent.title, so the tab and
+// the heading agree in either language.
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("brandsContent");
+  return { title: t("title"), description: t("metaDescription"), ...canonicalFor("/brands") };
+}
 // Live catalog data — must not prerender at build time (no DB on build machines).
 export const dynamic = "force-dynamic";
 
