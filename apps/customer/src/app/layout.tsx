@@ -7,6 +7,9 @@ import { AuthProvider } from "@/components/auth-provider";
 import { NavigationProgress } from "@/components/navigation-progress";
 import { AmbientField, EnvironmentFlags, RevealRoot } from "@avenick/ui";
 import { platformName, selfOrigin } from "@avenick/utils/portal-config";
+import { appIconPath } from "@/components/seo/app-icons";
+import { JsonLd } from "@/components/seo/json-ld";
+import { siteIdentity } from "@/components/seo/structured-data";
 import "./globals.css";
 
 // "The leading platform" (المنصة الرائدة) was a market-position claim nothing
@@ -88,6 +91,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const locale = cookieStore.get("AVENICK_LOCALE")?.value ?? "en";
   const messages = await getMessages();
   const dir = locale === "ar" ? "rtl" : "ltr";
+  // The site's name, address and logo as structured data, on every page. Only
+  // when this deployment knows its own address: every URL in it must be
+  // absolute, and selfOrigin() returns null rather than a guess. The logo is the
+  // 512px plated icon, the size search engines ask a logo to clear.
+  const origin = selfOrigin("customer");
 
   return (
     // data-portal is what selects this app's posture in the shared token file:
@@ -119,6 +127,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           />
         )}
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('avenick-theme');var m=window.matchMedia('(prefers-color-scheme: dark)').matches;if(t==='dark'||(!t&&m)){document.documentElement.classList.add('dark');}}catch(e){}})();` }} />
+        {origin && <JsonLd data={{ "@graph": siteIdentity(origin, platformName(), appIconPath(512)) }} />}
       </head>
       <body>
         {/*

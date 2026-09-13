@@ -16,6 +16,7 @@ import { categoryTrail, findCategory, type CategoryNode } from "@/lib/category-t
 import { toCardRow, type CardRow } from "@/lib/product-card-row";
 import { readPublicCategoryTree } from "@/lib/public-category-tree";
 import { canonicalFor } from "@/lib/page-metadata";
+import { readCategoryTreeOnce } from "@/components/seo/category-breadcrumb";
 
 interface Props { params: { slug: string } }
 
@@ -63,7 +64,9 @@ async function movingInCategory(category: CategoryNode, locale: "en" | "ar"): Pr
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const categories = (await readPublicCategoryTree()) as unknown as CategoryNode[];
+  // The request-cached read, shared with the breadcrumb markup the segment
+  // layout renders, so the structured data adds no query of its own.
+  const categories = (await readCategoryTreeOnce()) as unknown as CategoryNode[];
   // Searched at any DEPTH. `Array.find` walks roots only, which is why every
   // subcategory page in the storefront rendered the not-found body.
   const cat = findCategory(categories, params.slug);
