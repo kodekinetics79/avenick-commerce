@@ -40,9 +40,14 @@ import { ValidatedTextField, type ValidatedTextFieldProps } from "@/components/b
  * No motion: the glyph swap is the readout, and it lands immediately (LAW D).
  */
 
+// On a touch screen the 24px glyph is a small target on a line it shares with
+// the field's label. The coarse-pointer extension grows it to 44px wide and
+// 34px tall, sideways and upward only: the field starts 4px below the icon, so
+// a target that reached down would take taps meant for the input.
 const TOGGLE =
   "u-focus absolute end-0 top-[-2px] grid h-6 w-6 place-items-center rounded-nested text-ink-3 " +
-  "transition-colors duration-press ease-standard hover:text-ink-1 aria-pressed:text-ink-1";
+  "transition-colors duration-press ease-standard hover:text-ink-1 aria-pressed:text-ink-1 " +
+  "[@media(pointer:coarse)]:before:absolute [@media(pointer:coarse)]:before:content-[''] [@media(pointer:coarse)]:before:-inset-x-2.5 [@media(pointer:coarse)]:before:-top-2.5 [@media(pointer:coarse)]:before:bottom-0";
 
 function useReveal() {
   const wrapper = React.useRef<HTMLDivElement>(null);
