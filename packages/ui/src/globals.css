@@ -2799,6 +2799,13 @@ p, .u-lead, .u-body { text-wrap: pretty; }
     transition: none !important;
   }
 
+  /* The fresnel shoulder is a masked conic gradient on [data-rim]::before. With
+     background graphics off, which is Chrome's print default, a printed product
+     page showed its price panel as an empty rounded box: the text was in the
+     PDF's text layer but not painted. Hiding this one layer restored it, and
+     paper cannot render a shoulder anyway. */
+  [data-rim]::before { display: none !important; }
+
   /* Printing drops backgrounds by default. The brand panel's copy is white in
      both themes, so without its fill that copy is white on white paper; this one
      surface keeps its fill. */

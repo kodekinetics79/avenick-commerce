@@ -59,6 +59,10 @@ describe("print stylesheet", () => {
     expect(body).toMatch(/transition:\s*none\s*!important/);
   });
 
+  it("keeps the rim's masked shoulder off paper, which printed the price panel blank", () => {
+    expect(declarationsFor(block, "[data-rim]::before")).toMatch(/display:\s*none\s*!important/);
+  });
+
   it("keeps the brand panel's fill, which its white copy depends on", () => {
     expect(declarationsFor(block, ".u-panel-brand")).toMatch(/(^|[;\s])print-color-adjust:\s*exact/);
   });

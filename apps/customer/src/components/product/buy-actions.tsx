@@ -76,7 +76,7 @@ export function BuyActions({
     // ("the quantity cannot go below it") describes a control that is not here.
     return (
       <div className="space-y-3">
-        <Button asChild variant="primary" size="lg" className="w-full">
+        <Button asChild variant="primary" size="lg" className="w-full print:hidden">
           <Link href={request.href}>
             <MessageSquare className="h-4 w-4" aria-hidden="true" />
             {request.action === "REQUEST_QUOTE" ? ts("requestQuote") : t("requestAvailability")}
@@ -89,7 +89,7 @@ export function BuyActions({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 print:hidden">
         {/* Named as a group so the live quantity is not announced as a bare
             number with no idea what it counts, and NOT clipped: the ± buttons
             are flush to the well's edges, so an overflow-hidden here would
@@ -173,7 +173,7 @@ export function BuyActions({
       )}
 
       {!inStock && requestAvailabilityHref && (
-        <Button asChild variant="secondary" size="lg" className="w-full">
+        <Button asChild variant="secondary" size="lg" className="w-full print:hidden">
           <Link href={requestAvailabilityHref}>
             <MessageSquare className="h-4 w-4" aria-hidden="true" />
             {t("requestAvailability")}
