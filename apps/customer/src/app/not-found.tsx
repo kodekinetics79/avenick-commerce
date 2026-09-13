@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Compass } from "lucide-react";
-import { BrandMark, Button, EmptyState } from "@avenick/ui";
-import { platformName } from "@avenick/utils/portal-config";
+import { Button, EmptyState } from "@avenick/ui";
+import { MainLayout } from "@/components/layout/main-layout";
 
 /**
  * 404.
@@ -24,8 +24,8 @@ import { platformName } from "@avenick/utils/portal-config";
  *   · Every string as an English/Arabic slash pair — "Page not found / الصفحة
  *     غير موجودة" — which §9 bans and which reads as half-translated to both
  *     audiences at once.
- *   · A full search form duplicating the one the header already renders on this
- *     very page. LAW G: check for the duplicate before you count the options.
+ *   · A full search form duplicating the one the header renders. LAW G: check
+ *     for the duplicate before you count the options.
  *   · `-translate-x-1` on the back arrow: a physical direction, so it pointed
  *     the wrong way in Arabic.
  *
@@ -40,19 +40,32 @@ import { platformName } from "@avenick/utils/portal-config";
  * that needed it is gone, and `router.back()` went with it — a browser has a
  * back button, and a control that only sometimes has somewhere to go is worse
  * than no control.
+ *
+ * THE HEADER THAT WAS ASSUMED AND NOT THERE. The note above removed the search
+ * box as a duplicate of "the one the header renders on this very page" — but
+ * app/layout.tsx mounts no header; every storefront page brings its own through
+ * <MainLayout>, and this file never did. So a mistyped product link landed on a
+ * mark, a plate and two text links: no search, no categories, no account, no
+ * footer, and the only way to keep shopping was the one button. It now renders
+ * inside <MainLayout> like every other page, which is what makes the LAW G
+ * argument true. The standalone brand-mark link went with the change: the
+ * header carries the mark, and two marks stacked on one screen is the kind of
+ * repetition that reads as unfinished.
+ *
+ * AND THE PAGE HAD NO h1. EmptyState set its lead in a <p>, so a 404 — the
+ * page a screen reader most needs to name — was announced as untitled. The
+ * lead is the page's title here, so it is set as one (`headingLevel="h1"`);
+ * the provenance styling is unchanged.
  */
 export default async function NotFound() {
   const t = await getTranslations("notFound");
-  const brand = platformName();
 
   return (
-    <div className="mx-auto flex min-h-[70vh] max-w-shell flex-col items-center justify-center gap-8 px-gutter py-16">
-      <Link href="/" aria-label={t("markLabel", { brand })} className="u-focus rounded-nested">
-        <BrandMark name={brand} size={48} />
-      </Link>
-
+    <MainLayout>
+      <div className="mx-auto flex max-w-shell flex-col items-center gap-8 px-gutter py-section">
       <EmptyState
         variant="certificate"
+        headingLevel="h1"
         eyebrow={`${t("eyebrow")} · ${t("code")}`}
         headline={t("headline")}
         body={t("body")}
@@ -77,6 +90,7 @@ export default async function NotFound() {
           <Link href="/support">{t("support")}</Link>
         </Button>
       </div>
-    </div>
+      </div>
+    </MainLayout>
   );
 }

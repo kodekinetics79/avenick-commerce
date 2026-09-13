@@ -484,7 +484,18 @@ export default function CartPage() {
   if (items.length === 0) {
     return (
       <MainLayout>
-        <div className="mx-auto max-w-4xl px-4 py-section">
+        {/*
+          THE SAME CONTAINER AND THE SAME HEADER AS THE OTHER TWO BRANCHES. This
+          branch used to open its own `max-w-4xl py-section` box with the plate
+          alone, so the "Your cart" h1 the skeleton paints on first render was
+          removed a frame later for the most common cart there is — an empty
+          one — and the page was left with no h1 at all. That also broke the
+          skeleton's own promise that nothing moves when the lines land. The
+          header now persists across hydration; the plate keeps its reading
+          measure through max-w-4xl, the same measure it has on /wishlist.
+        */}
+        <div className="mx-auto max-w-6xl px-4 py-block">
+          <PageHeader eyebrow={c("cart.eyebrow", "Cart")} title={pageTitle} dateline={pageDateline} />
           {/*
             THE CERTIFICATE. Not a centred grey apology in a card — a composed,
             left-aligned plate with the brass rule across its top edge, faint
@@ -512,6 +523,7 @@ export default function CartPage() {
                 </Link>
               </Button>
             }
+            className="max-w-4xl"
           />
         </div>
       </MainLayout>
