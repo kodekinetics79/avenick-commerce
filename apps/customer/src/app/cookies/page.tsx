@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { MainLayout } from "@/components/layout/main-layout";
-import { Eyebrow, PageHeader, Surface } from "@avenick/ui";
+import { PolicyShell, type PolicySection } from "@/components/legal/policy-shell";
 import { platformName } from "@avenick/utils/portal-config";
 
 export const metadata = {
@@ -10,18 +10,10 @@ export const metadata = {
 
 export const dynamic = "force-dynamic";
 
-interface LegalSection {
-  id: string;
-  titleEn: string;
-  titleAr: string;
-  contentEn: React.ReactNode;
-  contentAr: React.ReactNode;
-}
-
-const SECTIONS: LegalSection[] = [
+const SECTIONS: PolicySection[] = [
   {
     id: "what-are-cookies",
-    titleEn: "1. What Are Cookies",
+    titleEn: "1. What cookies are",
     titleAr: "١. ما هي ملفات تعريف الارتباط",
     contentEn: (
       <>
@@ -38,7 +30,7 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "how-we-use",
-    titleEn: "2. How We Use Cookies",
+    titleEn: "2. How we use cookies",
     titleAr: "٢. كيف نستخدم ملفات تعريف الارتباط",
     contentEn: (
       <>
@@ -65,7 +57,7 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "types",
-    titleEn: "3. Types of Cookies We Use",
+    titleEn: "3. Types of cookies we use",
     titleAr: "٣. أنواع ملفات تعريف الارتباط التي نستخدمها",
     contentEn: (
       <>
@@ -92,7 +84,7 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "management",
-    titleEn: "4. Managing Cookie Preferences",
+    titleEn: "4. Managing cookie preferences",
     titleAr: "٤. إدارة تفضيلات ملفات تعريف الارتباط",
     contentEn: (
       <>
@@ -109,7 +101,7 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "third-parties",
-    titleEn: "5. Third-party Tracking",
+    titleEn: "5. Third-party tracking",
     titleAr: "٥. التتبع بواسطة أطراف ثالثة",
     contentEn: (
       <>
@@ -124,7 +116,7 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "updates",
-    titleEn: "6. Policy Updates",
+    titleEn: "6. Policy updates",
     titleAr: "٦. تحديثات هذه السياسة",
     contentEn: (
       <>
@@ -144,102 +136,22 @@ export default async function CookiesPage() {
   const locale = cookieStore.get("AVENICK_LOCALE")?.value ?? "en";
   const isAr = locale === "ar";
 
+  // The layout is <PolicyShell>, shared with every other information page; see
+  // the note there on why a policy is one ruled sheet rather than a card per
+  // section. No "last updated" date is typed, because nothing records one — the
+  // shell's default dateline says so.
   return (
     <MainLayout>
-      {/* The brass reading hairline is mounted ONCE, by <MainLayout>, for every
-          route in this app. A second <ScrollProgress> here stacked a second
-          position:fixed, scroll-timeline-animated layer on exactly the same 2px
-          band — two compositor layers and two running animations drawing one
-          rule. "One per document" is the budget, and MainLayout already spends
-          it. */}
-      <div className="mx-auto max-w-6xl px-4 py-block">
-        <PageHeader
-          eyebrow={isAr ? "الشؤون القانونية" : "Legal"}
-          title={isAr ? "سياسة ملفات تعريف الارتباط" : "Cookies Policy"}
-          description={
-            isAr
-              ? "يوضح هذا الدليل ما تخزنه المنصة في متصفحكم ولماذا."
-              : "What the platform stores in your browser, and why."
-          }
-          // No "last updated" date: nothing records when this text changed, so a
-          // typed date would be a claim the platform cannot back. Saying that
-          // outright is better than an empty corner where a date should be.
-          dateline={
-            isAr
-              ? "لا يسجل النظام تاريخ آخر تعديل لهذا النص، فلا يُعرض تاريخ"
-              : "No revision date is shown because none is recorded"
-          }
-        />
-
-
-        {/* The table of contents was `hidden lg:block`, so on a phone a
-            seven-section legal document had no navigation at all — you scrolled
-            it or you did not read it. A <details> disclosure needs no client
-            component, works before hydration and with scripting off, and the
-            chevron is drawn from two rotated borders, so there is nothing to
-            mirror in Arabic. */}
-        <details className="u-facet mb-stack border-y border-hairline lg:hidden">
-          <summary className="u-focus">
-            <span className="u-micro text-ink-3">{isAr ? "جدول المحتويات" : "Table of contents"}</span>
-            <span className="u-facet__chev" aria-hidden="true" />
-          </summary>
-          <nav aria-label={isAr ? "جدول المحتويات" : "Table of contents"} className="flex flex-col pb-3">
-            {SECTIONS.map((sec) => (
-              <a
-                key={sec.id}
-                href={`#${sec.id}`}
-                className="u-focus u-ui rounded-e-nested border-s-2 border-hairline py-1.5 ps-3 text-ink-2"
-              >
-                {isAr ? sec.titleAr : sec.titleEn}
-              </a>
-            ))}
-          </nav>
-        </details>
-        <div className="grid grid-cols-1 items-start gap-block lg:grid-cols-[240px_minmax(0,1fr)]">
-          {/* The sidebar carried `hidden lg:sticky` and no `lg:block`, so it was
-              hidden at every breakpoint and the table of contents never appeared
-              on any screen. */}
-          <aside className="hidden lg:block">
-            <div className="lg:sticky lg:top-24">
-              <Eyebrow as="h2">{isAr ? "جدول المحتويات" : "Table of Contents"}</Eyebrow>
-              <nav
-                aria-label={isAr ? "جدول المحتويات" : "Table of contents"}
-                className="mt-3 flex flex-col"
-              >
-                {SECTIONS.map((sec) => (
-                  <a
-                    key={sec.id}
-                    href={`#${sec.id}`}
-                    // border-s, not border-l: the marker sits at the reading
-                    // start in both directions. Hover changes colour rather than
-                    // weight — animating font-weight reflows the whole list.
-                    className="u-focus u-ui rounded-e-nested border-s-2 border-hairline py-1.5 ps-3 text-ink-3 transition-colors duration-press ease-standard hover:border-border-strong hover:text-ink-1"
-                  >
-                    {isAr ? sec.titleAr : sec.titleEn}
-                  </a>
-                ))}
-              </nav>
-            </div>
-          </aside>
-
-          {/* One document, ruled into sections — not one independently bordered
-              card per section, each with its own shadow and its own icon tile. */}
-          <Surface rung={2} className="overflow-hidden">
-            {SECTIONS.map((sec, i) => (
-              <section
-                key={sec.id}
-                id={sec.id}
-                className={`scroll-mt-24 p-6 lg:p-8 ${i > 0 ? "border-t border-hairline" : ""}`}
-              >
-                <h2 className="u-h2 text-ink-1">{isAr ? sec.titleAr : sec.titleEn}</h2>
-                <div className="u-body mt-3 max-w-prose space-y-4 text-ink-2 [&_strong]:font-semibold [&_strong]:text-ink-1">
-                  {isAr ? sec.contentAr : sec.contentEn}
-                </div>
-              </section>
-            ))}
-          </Surface>
-        </div>
-      </div>
+      <PolicyShell
+        isAr={isAr}
+        eyebrowEn="Legal"
+        eyebrowAr="الشؤون القانونية"
+        titleEn="Cookies Policy"
+        titleAr="سياسة ملفات تعريف الارتباط"
+        descriptionEn="What the platform stores in your browser, and why."
+        descriptionAr="يوضح هذا الدليل ما تخزنه المنصة في متصفحكم ولماذا."
+        sections={SECTIONS}
+      />
     </MainLayout>
   );
 }
