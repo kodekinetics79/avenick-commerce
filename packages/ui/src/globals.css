@@ -2766,3 +2766,44 @@ p, .u-lead, .u-body { text-wrap: pretty; }
     transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease !important;
   }
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   14. PRINT — a buyer files a product page or a policy into a procurement pack.
+   Paper gets the content and not the room it sits in. This block hides only
+   decoration and system chrome, and fixes what paper cannot do; it hides no
+   page content. Chrome a page builds for itself — a fixed buy bar, the footer —
+   takes `print:hidden` where it is built, because only that page knows it is
+   chrome.
+   ──────────────────────────────────────────────────────────────────────────── */
+@media print {
+  /* The field and the progress hairline are position: fixed, and Chromium
+     repeats a fixed element on every sheet. The sticky header (.u-chrome) is
+     navigation paper cannot use, and the grain is texture. */
+  .u-field,
+  .u-scroll-progress,
+  .u-chrome,
+  [data-grain]::after { display: none !important; }
+
+  /* A staged reveal the reader has not scrolled to is still at opacity 0 when a
+     print is taken — <RevealRoot> hides it while it is off screen and lifts it on
+     arrival — so paper would carry a blank hole where that content is. The
+     hidden state is (0,2,0), hence !important; the transition goes too, so
+     nothing prints mid-fade. Everything prints as it would once revealed. */
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  /* Printing drops backgrounds by default. The brand panel's copy is white in
+     both themes, so without its fill that copy is white on white paper; this one
+     surface keeps its fill. */
+  .u-panel-brand {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* A heading stays with what it heads; a spec row or a photograph stays whole. */
+  h1, h2, h3 { break-after: avoid; }
+  img, tr { break-inside: avoid; }
+}
