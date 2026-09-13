@@ -46,9 +46,11 @@ const COLUMNS: Record<4 | 5, string> = {
  * first page before reaching the catalogue.
  *
  * `phoneLimit` hides every tile after the fourth below `sm`, so a rail is two
- * rows there and unchanged from `sm` up. Nothing is removed from the page: the
- * rows are still rendered, and the rail's "View all" is one tap from the full
- * set. It is for rails nobody asked for. A result set — /products, /search,
+ * rows there and unchanged from `sm` up. The hidden tiles stay in the markup,
+ * but `display: none` takes them out of the accessibility tree as well as out
+ * of sight, so a phone screen reader hears four tiles too. What keeps the
+ * rest reachable is the rail's "View all", one tap from the full set. That is
+ * why this is for rails nobody asked for. A result set — /products, /search,
  * /deals, a category — never passes it; a grid the visitor filtered to get
  * must show what it found.
  *

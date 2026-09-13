@@ -31,9 +31,12 @@ import { DEFAULT_SORT, SORT_CHOICES, type CatalogSort } from "./catalog-filters"
  * desktop instrument's size and a phone's mis-tap: this select sits alone at
  * the end of the result head, where nothing competes for the height. From `sm`
  * up it returns to the small control beside the dateline. Its 13px type is the
- * other half of the phone problem — iOS Safari zooms the page into any field
- * set under 16px when it is focused — and that is fixed once for every field
- * in the shared stylesheet rather than here, one control at a time.
+ * other half of the phone problem, and it is NOT solved here: iOS Safari zooms
+ * the page into any field set under 16px when it is focused, and the header
+ * search, the sign-in form and the registration fields all share it. That
+ * belongs in one coarse-pointer rule in the shared stylesheet, not in a
+ * per-control override. Until that rule exists, focusing this select on an
+ * iPhone still zooms the page.
  */
 export function SortSelect() {
   const router = useRouter();
