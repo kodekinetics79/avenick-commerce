@@ -75,6 +75,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // a real 404 status. The old fallback returned a "Category" title for a page
   // that did not exist, which gave the 404 document a heading-shaped title for
   // nothing.
+  // KNOWN LIMIT, measured on a production build: Next 14.2 answers a notFound()
+  // thrown from metadata with its error document. The 404 status is right, but
+  // the server HTML has no header or heading, and the not-found page paints once
+  // JavaScript runs. The product layout makes the same trade and says why.
   if (!cat) notFound();
   // No platform-name suffix: the root layout declares
   // `title.template: "%s | <platform>"`, so appending it here produced

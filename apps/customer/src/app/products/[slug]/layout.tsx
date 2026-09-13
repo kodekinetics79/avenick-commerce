@@ -52,6 +52,14 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * hydration, without waiting for the client's product fetch. The page's
  * own client-side notFound() stays for what only it can see: a listing this
  * viewer's channel may not open.
+ *
+ * KNOWN LIMIT, measured on a production build. Next 14.2 answers a notFound()
+ * thrown here with its error document: the 404 status and the noindex are
+ * right, but the server HTML carries no header, heading or links, and the root
+ * not-found page paints only once JavaScript runs. An unmatched top-level path
+ * does get the full page in its HTML, because the middleware rewrites it to the
+ * not-found route instead of throwing. Before this layout the same URL answered
+ * 200 over a loading splash, so the status is the gain and the HTML is the cost.
  */
 export default async function ProductLayout({ children, params }: Params & { children: React.ReactNode }) {
   if (isUnservable(await read(params.slug))) notFound();
