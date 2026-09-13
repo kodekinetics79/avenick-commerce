@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CHILD_ROW_PX,
   MAX_CHILDREN_PER_ROOT,
+  RAIL_LIST_LG_PX,
   RAIL_LIST_PX,
   ROOT_ROW_PX,
   categoryRailRows,
@@ -22,13 +23,49 @@ function root(slug: string, childCount: number): Node {
  * listed only the seven top-level categories, leaving over half of the panel
  * empty. It now shows the taxonomy one level deeper, within a row budget that
  * must never make the rail taller than the band it shares with the hero.
+ *
+ * The first version of that budget was one number, set against the xl band
+ * (596px). From lg to xl the carousel column is narrower and the band is
+ * shorter — 538px in Arabic — so seven roots with their eight budgeted
+ * children grew the hero row by 48px at every width from 1024 to 1279. The
+ * rows past the lg budget are now shown from xl up only.
  */
 describe("categoryRailRows", () => {
-  it("fits the live catalogue's seven roots without growing the band, in Arabic line heights", () => {
+  it("fits the live catalogue's seven roots without growing the xl band, in Arabic line heights", () => {
     const budget = childRowBudget(7);
     expect(budget).toBeGreaterThan(7);
     expect(7 * ROOT_ROW_PX + budget * CHILD_ROW_PX).toBeLessThanOrEqual(RAIL_LIST_PX);
     expect(7 * ROOT_ROW_PX + (budget + 1) * CHILD_ROW_PX).toBeGreaterThan(RAIL_LIST_PX);
+  });
+
+  it("shows below xl only the rows that fit the shorter lg band", () => {
+    const roots = Array.from({ length: 7 }, (_, i) => root(`r${i}`, 3));
+    const rows = categoryRailRows(roots);
+    const compactRows = rows.reduce((sum, row) => sum + row.compact, 0);
+    const allRows = rows.reduce((sum, row) => sum + row.children.length, 0);
+
+    expect(RAIL_LIST_LG_PX).toBeLessThan(RAIL_LIST_PX);
+    expect(compactRows).toBe(childRowBudget(7, RAIL_LIST_LG_PX));
+    expect(7 * ROOT_ROW_PX + compactRows * CHILD_ROW_PX).toBeLessThanOrEqual(RAIL_LIST_LG_PX);
+    expect(allRows).toBe(childRowBudget(7));
+    expect(allRows).toBeGreaterThan(compactRows);
+    // Never more compact rows than shown rows, root by root.
+    for (const row of rows) expect(row.compact).toBeLessThanOrEqual(row.children.length);
+  });
+
+  it("keeps the xl-only rows to the last ones dealt, so the lg rail is the xl rail with its tail removed", () => {
+    const roots = [root("a", 3), root("b", 3), root("c", 3)];
+    const rows = categoryRailRows(roots, 5, 3);
+    expect(rows.map((row) => row.children.map((c) => c.slug))).toEqual([["a-1", "a-2"], ["b-1", "b-2"], ["c-1"]]);
+    expect(rows.map((row) => row.compact)).toEqual([1, 1, 1]);
+  });
+
+  it("never lets the compact budget exceed the full one", () => {
+    const rows = categoryRailRows([root("a", 3), root("b", 3)], 2, 10);
+    expect(rows.map((row) => [row.children.length, row.compact])).toEqual([
+      [1, 1],
+      [1, 1],
+    ]);
   });
 
   it("deals first children to every root before any root gets a second", () => {
@@ -58,6 +95,6 @@ describe("categoryRailRows", () => {
   });
 
   it("treats a root with no children array as a root with no children", () => {
-    expect(categoryRailRows([{ slug: "bare" } as Node], 10)).toEqual([{ root: { slug: "bare" }, children: [] }]);
+    expect(categoryRailRows([{ slug: "bare" } as Node], 10)).toEqual([{ root: { slug: "bare" }, children: [], compact: 0 }]);
   });
 });

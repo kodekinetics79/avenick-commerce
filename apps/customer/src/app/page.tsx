@@ -840,13 +840,15 @@ function CategoryRail({
           root now sit as many of its own children as the band has room for,
           dealt round-robin and budgeted so the rail can never make the hero row
           taller (components/hero/category-rail-rows.ts has the arithmetic).
-          They are plain links like their parents, indented to the parent's
-          label, in meta type and second ink so the roots still lead. Same
-          taxonomy, same data, no query — getPublicCategories already returns
-          the tree.
+          The band is shorter from lg to xl, where the carousel column is
+          narrower, so the rows that only the xl band has room for are hidden
+          below xl rather than stretching the hero there. They are plain links
+          like their parents, indented to the parent's label, in meta type and
+          second ink so the roots still lead. Same taxonomy, same data, no
+          query — getPublicCategories already returns the tree.
         */}
         <ul className="flex-1 py-1">
-          {categoryRailRows(categories).map(({ root: category, children }) => {
+          {categoryRailRows(categories).map(({ root: category, children, compact }) => {
             const Icon = categoryIcon(category.iconName, category.slug);
             return (
               <li key={category.slug}>
@@ -862,8 +864,8 @@ function CategoryRail({
                 </Link>
                 {children.length > 0 && (
                   <ul>
-                    {children.map((child) => (
-                      <li key={child.slug}>
+                    {children.map((child, index) => (
+                      <li key={child.slug} className={index < compact ? undefined : "hidden xl:block"}>
                         <Link
                           href={`/products?category=${encodeURIComponent(child.slug)}`}
                           className="u-focus u-meta block truncate rounded-nested py-1 pe-3.5 ps-10 text-start text-ink-2 transition-colors duration-hover ease-standard hover:bg-surface-2 hover:text-ink-1"
