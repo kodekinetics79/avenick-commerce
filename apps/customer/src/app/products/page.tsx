@@ -65,8 +65,16 @@ import { canonicalFor, NOINDEX_FOLLOW } from "@/lib/page-metadata";
 // English literal "Products" for every visitor. A document title is a
 // user-visible string: it is what the browser tab, the history entry, the
 // bookmark and every share card say, so an Arabic session read the whole page
-// in Arabic under an English tab. It follows the same three cases the h1 does,
-// out of the same message tree.
+// in Arabic under an English tab. It follows the same three cases as the page
+// heading, out of the same message tree.
+//
+// THE CATEGORY CASE NEEDS THE CATEGORY'S NAME. catalogue.title.category is the
+// message "{category}", and it was called with no value, so next-intl answered
+// with its fallback: every /products?category=<slug> tab read
+// "catalogue.title.category | Avenick". The name is now read from the public
+// tree, in the visitor's locale, as /categories/<slug> names it. A slug the tree
+// does not hold gets the plain catalogue title rather than the raw parameter,
+// which is visitor input and does not belong in a title.
 //
 // A search is a page made of the visitor's own words, so it is kept out of the
 // index (see NOINDEX_FOLLOW) and names no canonical. Every other variant of this
@@ -78,30 +86,32 @@ export async function generateMetadata({
   searchParams: SearchParams;
 }): Promise<Metadata> {
   const t = await getTranslations("catalogue");
-  const title = searchParams.search
-    ? t("title.search", { query: searchParams.search })
-    : searchParams.category
-    ? t("title.category")
-    : t("title.all");
-  if (searchParams.search) return { title, robots: NOINDEX_FOLLOW };
-  const canonicalPath = await catalogueCanonicalPath(searchParams.category);
+  if (searchParams.search) {
+    return { title: t("title.search", { query: searchParams.search }), robots: NOINDEX_FOLLOW };
+  }
+  if (!searchParams.category) {
+    return { title: t("title.all"), description: t("metaDescription"), ...canonicalFor("/products") };
+  }
+  const category = await publicCategoryBySlug(searchParams.category);
+  if (!category) return { title: t("title.all"), description: t("metaDescription") };
+  const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
   return {
-    title,
+    title: t("title.category", {
+      category: locale === "ar" ? category.nameAr?.trim() || category.nameEn : category.nameEn,
+    }),
     description: t("metaDescription"),
-    ...(canonicalPath ? canonicalFor(canonicalPath) : {}),
+    ...canonicalFor(`/categories/${category.slug}`),
   };
 }
 
 /**
- * The page a catalogue URL is a view of. A category that does not resolve, or a
- * tree that cannot be read, names no canonical rather than pointing a crawler at
- * a /categories/<slug> that would 404.
+ * The public category a ?category= slug names, or null. A slug the tree does not
+ * hold, or a tree that cannot be read, names no canonical rather than pointing a
+ * crawler at a /categories/<slug> that would 404.
  */
-async function catalogueCanonicalPath(category: string | undefined): Promise<string | null> {
-  if (!category) return "/products";
+async function publicCategoryBySlug(slug: string): Promise<CategoryNode | null> {
   try {
-    const node = findCategory(await readPublicCategoryTree(), category);
-    return node ? `/categories/${node.slug}` : null;
+    return findCategory(await readPublicCategoryTree(), slug) ?? null;
   } catch {
     return null;
   }
