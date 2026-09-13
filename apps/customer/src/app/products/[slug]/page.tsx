@@ -1,6 +1,6 @@
 "use client";
 
-import { notFound } from "next/navigation";
+import { notFound, useRouter } from "next/navigation";
 import Link from "next/link";
 import * as React from "react";
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -26,7 +26,7 @@ import {
   Surface,
   type StockState,
 } from "@avenick/ui";
-import { formatCurrency } from "@avenick/utils";
+import { formatCurrency, formatDate } from "@avenick/utils";
 import { MainLayout } from "@/components/layout/main-layout";
 import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
@@ -41,10 +41,22 @@ import { BuyActions } from "@/components/product/buy-actions";
 import { PricePanel } from "@/components/product/price-panel";
 import { ProductGallery, type GalleryImage } from "@/components/product/product-gallery";
 import { ReviewPanel, type Review, type ReviewAccess } from "@/components/product/review-panel";
+import { SectionNav } from "@/components/product/section-nav";
 import { SellerCard, type ProductSeller } from "@/components/product/seller-card";
 import { SpecList, type SpecRow } from "@/components/product/spec-list";
 import { ViewBeacon } from "@/components/product/view-beacon";
-import { attributeLabel, buildPriceLadder, BUTTON_TYPE, FOCUS_INSET } from "@/components/product/product-facts";
+import {
+  attributeLabel,
+  bilingualName,
+  breadcrumbCategory,
+  buildPriceLadder,
+  BUTTON_TYPE,
+  type CrumbCategory,
+  FOCUS_INSET,
+  isSellerDocumentType,
+  quoteOnlyAction,
+  rfqHrefForProduct,
+} from "@/components/product/product-facts";
 import type { SubmittedReview } from "@/components/product/review-form";
 import { Stars } from "@/components/product/stars";
 
@@ -86,6 +98,9 @@ type Section = "description" | "specs" | "reviews" | "shipping";
  * forbids ADDING "use client" to get an animation, not keeping an architecture
  * that predates this round. No fetch, no server action, no permission check and
  * no validation is touched here.
+ *
+ * What a client page cannot do — a document head, and a 404 status for a slug
+ * that names nothing — is done by the server layout beside it (layout.tsx).
  */
 export default function ProductPage({
   params,
@@ -95,7 +110,9 @@ export default function ProductPage({
   searchParams: { currency?: string; b2b?: string; variantId?: string; qty?: string };
 }) {
   const t = useTranslations("pdp");
+  const tc = useTranslations("catalogue");
   const locale = useLocale() as "en" | "ar";
+  const router = useRouter();
 
   const [product, setProduct] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -213,8 +230,27 @@ export default function ProductPage({
 
   useEffect(() => {
     fetch(productUrl())
-      .then((r) => r.json())
+      .then((r) => {
+        // A business link (?b2b=true) opened without a live company session — an
+        // expired sign-in, a forwarded link, a buyer who has left their company.
+        // The API refuses the business channel with a 401, and that refusal used
+        // to become `product = null` and a client-side "page not found" for a
+        // product that exists. The flag is a request, not a fact about the
+        // viewer, so it is dropped and the public view answers instead: the
+        // product, or a real not-found if it is not publicly listed.
+        if (r.status === 401 && searchParams.b2b === "true") {
+          const query = new URLSearchParams(window.location.search);
+          query.delete("b2b");
+          const rest = query.toString();
+          router.replace(`/products/${encodeURIComponent(params.slug)}${rest ? `?${rest}` : ""}`);
+          return undefined;
+        }
+        return r.json();
+      })
       .then((data) => {
+        // Still loading: the replaced URL changes searchParams, which re-runs
+        // this effect against the public channel.
+        if (data === undefined) return;
         setProduct(data.data);
         setLoading(false);
         if (data.data) {
@@ -226,7 +262,7 @@ export default function ProductPage({
         }
       })
       .catch(() => setLoading(false));
-  }, [productUrl, searchParams.variantId, searchParams.qty]);
+  }, [productUrl, searchParams.variantId, searchParams.qty, searchParams.b2b, params.slug, router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -335,12 +371,18 @@ export default function ProductPage({
 
   // The product's own name in the reader's own language, with the other language
   // carried beneath it. The previous version pinned the headline to nameEn in
-  // both builds, so the Arabic page opened with an English title.
+  // both builds, so the Arabic page opened with an English title. The line
+  // beneath is omitted when the other column only repeats the name, which is
+  // every live product today: see bilingualName.
   const nameEn = String(p.nameEn ?? "");
   const nameAr = p.nameAr ? String(p.nameAr) : "";
-  const primaryName = locale === "ar" ? nameAr || nameEn : nameEn;
-  const secondaryName = locale === "ar" ? (nameAr ? nameEn : "") : nameAr;
+  const { primary: primaryName, secondary: secondaryName } = bilingualName(nameEn, nameAr, locale);
   const brandName = brand ? (locale === "ar" ? brand.nameAr || brand.nameEn : brand.nameEn) : null;
+  const categoryCrumb = breadcrumbCategory(
+    { isPubliclyDiscoverable: p.isPubliclyDiscoverable, category: p.category as CrumbCategory | null | undefined },
+    primaryName,
+    locale,
+  );
 
   const reviews = (p.reviews as Review[]) ?? [];
   const reviewCount = reviews.length;
@@ -361,9 +403,27 @@ export default function ProductPage({
   const averageBasisCount = averageIsPartial ? reviewCount : reviewTotal;
 
   const skuText = selection?.sku ?? String(p.sku);
+  // One address for every request on this page, carrying the product, the
+  // chosen variant and the quantity the buyer set, so the RFQ form opens with
+  // the line already written. See rfqHrefForProduct.
   const rfqHref = seller
-    ? `/b2b/rfq/new?supplier=${encodeURIComponent(String(seller.id ?? ""))}&product=${encodeURIComponent(productId)}`
+    ? rfqHrefForProduct({
+        sellerId: String(seller.id ?? ""),
+        productId,
+        variantId: selection?.variantId ?? selectedVariant?.id,
+        quantity: qty,
+      })
     : null;
+  // The catalogue's normal state — no price row in this view at all — as
+  // opposed to a null selection over bands that do exist. See quoteOnlyAction.
+  const quoteAction = quoteOnlyAction(p, selectedVariantId, !!selection);
+  const request = quoteAction && rfqHref ? { href: rfqHref, action: quoteAction } : null;
+  // The phone bar follows the buyer down the page, so it must never follow them
+  // with a control that cannot be pressed. A quote-only product offers its
+  // request; a priced line that cannot be bought right now offers the same
+  // availability request the buy column offers beneath its cart button.
+  const barRequest = request
+    ?? (selection && !inStock && rfqHref ? { href: rfqHref, action: "REQUEST_AVAILABILITY" as const } : null);
 
   const SECTIONS: { id: Section; label: string }[] = [
     { id: "description", label: t("sections.description") },
@@ -418,6 +478,7 @@ export default function ProductPage({
       onQty={setQty}
       onAdd={addToCart}
       requestAvailabilityHref={rfqHref}
+      request={request}
     />
   );
 
@@ -438,8 +499,26 @@ export default function ProductPage({
               <li><Link href="/" className="u-focus rounded-sm hover:text-ink-1">{t("home")}</Link></li>
               {/* A chevron implies a reading direction, so it flips in Arabic. */}
               <li aria-hidden="true"><ChevronRight className="h-3 w-3 rtl:rotate-180" /></li>
-              <li><Link href="/products" className="u-focus rounded-sm hover:text-ink-1">{t("allProducts")}</Link></li>
-              <li aria-hidden="true"><ChevronRight className="h-3 w-3 rtl:rotate-180" /></li>
+              {/* On a phone the category is the more useful rung than the
+                  catalogue root, and three crumbs fit where four squeeze the
+                  product's own name to a few characters, so "Products" stands
+                  down below sm whenever a category takes its place. */}
+              <li className={categoryCrumb ? "max-sm:hidden" : undefined}>
+                <Link href="/products" className="u-focus rounded-sm hover:text-ink-1">{t("allProducts")}</Link>
+              </li>
+              <li aria-hidden="true" className={categoryCrumb ? "max-sm:hidden" : undefined}>
+                <ChevronRight className="h-3 w-3 rtl:rotate-180" />
+              </li>
+              {categoryCrumb && (
+                <>
+                  <li className="min-w-0">
+                    <Link href={categoryCrumb.href} className="u-focus block truncate rounded-sm hover:text-ink-1">
+                      {categoryCrumb.name}
+                    </Link>
+                  </li>
+                  <li aria-hidden="true"><ChevronRight className="h-3 w-3 rtl:rotate-180" /></li>
+                </>
+              )}
               <li className="min-w-0"><span aria-current="page" className="block truncate font-medium text-ink-1">{primaryName}</span></li>
             </ol>
           </nav>
@@ -482,20 +561,27 @@ export default function ProductPage({
                       <p className="u-lead mt-1 text-ink-2" dir={locale === "ar" ? "ltr" : "rtl"}>{secondaryName}</p>
                     )}
                   </div>
-                  <Button
-                    variant={wishlisted ? "secondary" : "ghost"}
-                    size="icon"
-                    className="shrink-0"
-                    disabled={!selection}
-                    aria-label={wishlisted ? t("wishlistRemove") : t("wishlistAdd")}
-                    aria-pressed={wishlisted}
-                    onClick={() => selection && toggle({ ...toStorefrontWishlistItem(p, params.slug, selection, qty, isB2B ? "B2B" : "B2C", images[0]?.url), priceTiered })}
-                  >
-                    {/* An icon-only control never carries meaning in the glyph
-                        alone: the accessible name is on the button above, and the
-                        filled state is one class rather than a second icon. */}
-                    <Heart className={`h-5 w-5 ${wishlisted ? "fill-current text-danger-ink" : ""}`} aria-hidden="true" />
-                  </Button>
+                  {/* Not rendered for a quote-only product. A wishlist line is a
+                      priced line — the cart reads its price back as the unit
+                      price — so there is nothing here to save, and a heart that
+                      is permanently disabled on 383 of 385 products is a dead
+                      control in the most looked-at corner of the page. */}
+                  {!quoteAction && (
+                    <Button
+                      variant={wishlisted ? "secondary" : "ghost"}
+                      size="icon"
+                      className="shrink-0 print:hidden"
+                      disabled={!selection}
+                      aria-label={wishlisted ? t("wishlistRemove") : t("wishlistAdd")}
+                      aria-pressed={wishlisted}
+                      onClick={() => selection && toggle({ ...toStorefrontWishlistItem(p, params.slug, selection, qty, isB2B ? "B2B" : "B2C", images[0]?.url), priceTiered })}
+                    >
+                      {/* An icon-only control never carries meaning in the glyph
+                          alone: the accessible name is on the button above, and the
+                          filled state is one class rather than a second icon. */}
+                      <Heart className={`h-5 w-5 ${wishlisted ? "fill-current text-danger-ink" : ""}`} aria-hidden="true" />
+                    </Button>
+                  )}
                 </div>
 
                 {/* The fact row. SKU is a first-class comparison attribute for a
@@ -506,9 +592,12 @@ export default function ProductPage({
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                   {/* The same dot the seller's inventory table and the admin
                       stock console show, with the state carried in words beside
-                      it — colour is never the only channel. It appears here and
-                      under the frame it desaturates, because those are the two
-                      things it governs and they are in two different columns. */}
+                      it — colour is never the only channel. At lg it also
+                      appears under the frame it desaturates, because those are
+                      the two things it governs and they sit in two different
+                      columns. Below lg the columns stack, and that copy stands
+                      down so a phone does not read the same fact twice in one
+                      screen; this one, beside the name and the price, stays. */}
                   <AvailabilityDot state={availability} label={t(`availability.${availability}`)} />
                   <span className="u-meta text-ink-3">
                     {t("sku")} <span className="u-mono text-ink-2">{skuText}</span>
@@ -602,6 +691,8 @@ export default function ProductPage({
                   isB2B={isB2B}
                   ladder={ladder}
                   onSetQty={setQty}
+                  quoteOnly={!!quoteAction}
+                  requestedCurrency={searchParams.currency?.toUpperCase()}
                 >
                   {buyActions}
                 </PricePanel>
@@ -621,12 +712,18 @@ export default function ProductPage({
                 order processing actually does. One hairline-divided panel rather
                 than three bordered tiles, and the icons carry no hue: ten
                 colours saying nothing is the loudest amateur signal there is.
+
+                "Price checked at order" is only rendered when there is a price
+                to check. Under "Price on request" it assured the buyer about a
+                figure the page had just told them does not exist.
               */}
-              <CellGrid cols={{ base: 1, sm: 3 }} density="compact">
-                <div className="flex items-start gap-2 text-start">
-                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
-                  <span className="u-meta text-ink-2">{t("assurance.priceChecked")}</span>
-                </div>
+              <CellGrid cols={{ base: 1, sm: quoteAction ? 2 : 3 }} density="compact">
+                {!quoteAction && (
+                  <div className="flex items-start gap-2 text-start">
+                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
+                    <span className="u-meta text-ink-2">{t("assurance.priceChecked")}</span>
+                  </div>
+                )}
                 <div className="flex items-start gap-2 text-start">
                   <Truck className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
                   <span className="u-meta text-ink-2">{t("assurance.delivery")}</span>
@@ -639,11 +736,13 @@ export default function ProductPage({
                 </Link>
               </CellGrid>
 
-              {seller && rfqHref && (
+              {seller && (
                 <SellerCard
                   seller={seller}
                   locale={locale}
-                  quoteHref={`/b2b/rfq/new?supplier=${encodeURIComponent(String(seller.id ?? ""))}`}
+                  // When the price panel's primary action already IS the
+                  // request, the card does not repeat it one surface lower.
+                  quoteHref={request ? undefined : rfqHref ?? undefined}
                   labels={{
                     eyebrow: t("seller.eyebrow"),
                     requestQuote: t("seller.requestQuote"),
@@ -658,6 +757,17 @@ export default function ProductPage({
                       tier === "STANDARD" || tier === "VERIFIED" || tier === "GOLD" || tier === "PLATINUM"
                         ? t(`seller.tier.${tier}`)
                         : null,
+                    // Which document an admin approved, and when, in the reader's
+                    // language. A type the tree does not name, or a date that does
+                    // not parse, yields no basis — and therefore no mark.
+                    verifiedBasis: (type, reviewedAt) => {
+                      const reviewed = new Date(reviewedAt);
+                      if (!isSellerDocumentType(type) || Number.isNaN(reviewed.getTime())) return null;
+                      return t("seller.verifiedBasis", {
+                        document: t(`seller.document.${type}`),
+                        date: formatDate(reviewed, locale),
+                      });
+                    },
                   }}
                 />
               )}
@@ -666,42 +776,9 @@ export default function ProductPage({
 
           {/* Sections */}
           <div className="mt-block">
-            {/*
-              Plain anchors rather than buttons that call window.scrollTo: they
-              are keyboard-native, they work before hydration and with JavaScript
-              off, and the smooth scroll comes from the stylesheet, which is
-              already switched off under prefers-reduced-motion. The active mark
-              is the same drawn brass rule everything else on this page uses.
-
-              The bar is a SIBLING of the content panel rather than its first
-              child. An ancestor with `overflow: hidden` becomes the scroll box a
-              sticky element sticks inside, and because that box never scrolls
-              itself the bar would simply never stick — it would ride up the page
-              with the panel. It also sits one step BELOW the site header in the
-              stacking order, so a header that wraps taller on a narrow viewport
-              covers this rather than the other way round.
-
-              The focus ring is drawn inside each anchor: the strip scrolls
-              horizontally, and a scroll container clips an outward ring.
-            */}
-            <Surface as="nav" rung={1} aria-label={t("sections.label")} className="sticky top-16 z-20 rounded-b-none">
-              <ul className="flex overflow-x-auto scrollbar-hide">
-                {SECTIONS.map((entry) => (
-                  <li key={entry.id}>
-                    <a
-                      href={`#${entry.id}`}
-                      aria-current={section === entry.id ? "true" : undefined}
-                      className={`${FOCUS_INSET} relative flex h-row items-center whitespace-nowrap px-5 u-ui font-medium transition-colors duration-press ease-standard ${
-                        section === entry.id ? "text-ink-1" : "text-ink-3 hover:text-ink-1"
-                      }`}
-                    >
-                      {entry.label}
-                      <Divider drawn on={section === entry.id} className="absolute inset-x-0 bottom-0" />
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </Surface>
+            {/* A sibling of the content panel, never its child. See SectionNav
+                for why, and for how the strip shows a phone that it scrolls. */}
+            <SectionNav label={t("sections.label")} sections={SECTIONS} active={section} />
 
             {/* The panel's top edge is square and unruled because the nav above
                 supplies both; when the nav is stuck, the panel scrolls underneath
@@ -776,8 +853,9 @@ export default function ProductPage({
                     { icon: RotateCcw, title: t("shipping.returns"), desc: t("shipping.returnsBody") },
                     // "Contact your account manager" named a service that exists
                     // nowhere in this product. Quotations do exist, and they are
-                    // reachable from the supplier card above, so the line points
-                    // at the mechanism that is actually implemented.
+                    // reachable from above — the supplier card on a priced
+                    // listing, the price panel's own action on a quote-only one —
+                    // so the line points at the mechanism that is implemented.
                     { icon: FileText, title: t("shipping.business"), desc: t("shipping.businessBody") },
                   ].map(({ icon: Icon, title, desc }) => (
                     <div key={title} className="flex gap-3">
@@ -806,7 +884,7 @@ export default function ProductPage({
             ] as const
           ).map(({ key, rows }) =>
             rows.length === 0 ? null : (
-              <section key={key} aria-labelledby={`rail-${key}`} className="mt-12 lg:col-span-12">
+              <section key={key} aria-labelledby={`rail-${key}`} className="mt-12 lg:col-span-12 print:hidden">
                 <h2 id={`rail-${key}`} className="u-h2 text-ink-1">{t(`sections.${key}`)}</h2>
                 <p className="u-meta mt-1 text-ink-3">{t(`railReason.${key}`)}</p>
                 <div className="mt-5">
@@ -837,9 +915,17 @@ export default function ProductPage({
         8px: this bar wraps to two lines on a 320px phone with a long currency
         and a long label, and a fixed offset makes the same gesture travel a
         different visual distance depending on what the bar happens to contain.
+
+        NOT PRINTED, and neither are the wishlist heart, the section nav or the
+        selling rails. Buyers print or save product pages into approval and
+        procurement files. A position: fixed bar prints across the photograph,
+        the other three are controls or suggestions that do nothing on paper,
+        and the rails alone added pages of other products to a one-SKU printout.
+        What prints is the record: trail, name, SKU, price or quote state,
+        supplier, description, specifications and terms.
       */}
       <div
-        className={`fixed inset-x-0 bottom-0 z-sticky lg:hidden transition-[opacity,transform] duration-panel ease-standard motion-reduce:transform-none ${
+        className={`fixed inset-x-0 bottom-0 z-sticky lg:hidden print:hidden transition-[opacity,transform] duration-panel ease-standard motion-reduce:transform-none ${
           buyBarVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-[14%] opacity-0"
         }`}
         aria-hidden={!buyBarVisible}
@@ -856,30 +942,44 @@ export default function ProductPage({
                 )}
                 vat={isB2B ? t("price.exclVat") : t("price.inclVat")}
               />
+            ) : quoteAction ? (
+              // The tile's words, in ordinary ink: the normal state of this
+              // catalogue, not an error.
+              <p className="truncate u-ui text-ink-2">{tc("quoteOnRequest")}</p>
             ) : (
               <p className="truncate u-ui text-danger-ink">{t("price.none")}</p>
             )}
           </div>
-          <Button
-            size="lg"
-            variant="primary"
-            className="ms-auto min-w-[9rem] flex-1"
-            disabled={!inStock || !selection || !buyBarVisible}
-            tabIndex={buyBarVisible ? undefined : -1}
-            onClick={addToCart}
-          >
-            {/* The SAME wipe as the control in the buy column, not a string
-                swap. One gesture in one posture: a cross-fade here would put
-                every frame of the label at partial opacity on the one control a
-                buyer on a phone is watching most closely, and two different
-                confirmations for one action is how a system starts reading as
-                assembled rather than designed. */}
-            <CommitLabel
-              done={added !== null}
-              idle={t("buy.addToCart")}
-              committed={t("buy.addedShort")}
-            />
-          </Button>
+          {barRequest ? (
+            <Button asChild size="lg" variant="primary" className="ms-auto min-w-[9rem] flex-1">
+              {/* Withdrawn with the bar exactly as the cart button is: out of
+                  the tab order, and inside the aria-hidden container. */}
+              <Link href={barRequest.href} tabIndex={buyBarVisible ? undefined : -1}>
+                {barRequest.action === "REQUEST_QUOTE" ? t("seller.requestQuote") : t("buy.requestAvailability")}
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              size="lg"
+              variant="primary"
+              className="ms-auto min-w-[9rem] flex-1"
+              disabled={!inStock || !selection || !buyBarVisible}
+              tabIndex={buyBarVisible ? undefined : -1}
+              onClick={addToCart}
+            >
+              {/* The SAME wipe as the control in the buy column, not a string
+                  swap. One gesture in one posture: a cross-fade here would put
+                  every frame of the label at partial opacity on the one control a
+                  buyer on a phone is watching most closely, and two different
+                  confirmations for one action is how a system starts reading as
+                  assembled rather than designed. */}
+              <CommitLabel
+                done={added !== null}
+                idle={t("buy.addToCart")}
+                committed={t("buy.addedShort")}
+              />
+            </Button>
+          )}
         </Surface>
       </div>
     </MainLayout>

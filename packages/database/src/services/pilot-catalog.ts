@@ -188,7 +188,13 @@ async function ensureSeller(client: CatalogClient, sellerKey: string, testPasswo
   });
   const seller = await client.sellerProfile.upsert({
     where: { userId: user.id },
-    update: { businessNameEn: config.name, status: SellerStatus.ACTIVE, tier: SellerTier.VERIFIED },
+    // STANDARD, on create AND on update. These are synthetic sellers the
+    // importer invents to hold client catalogue rows — their own description
+    // below says it is test data — and nothing reviewed a document for any of
+    // them. Stamping VERIFIED here put a "Verified" mark on every product page
+    // they sell, and because this is an upsert, a data fix alone would be undone
+    // by the next import. A tier is earned elsewhere or not at all.
+    update: { businessNameEn: config.name, status: SellerStatus.ACTIVE, tier: SellerTier.STANDARD },
     create: {
       userId: user.id,
       businessNameEn: config.name,
@@ -200,7 +206,7 @@ async function ensureSeller(client: CatalogClient, sellerKey: string, testPasswo
       country: "SA",
       city: config.city,
       description: "Pilot seller created from client-supplied industrial catalog data. This is test data and is not a claim of manufacturer authorization.",
-      tier: SellerTier.VERIFIED,
+      tier: SellerTier.STANDARD,
       status: SellerStatus.ACTIVE,
       commissionRate: 5,
     },

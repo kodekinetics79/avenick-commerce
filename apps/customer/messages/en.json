@@ -622,7 +622,9 @@
       "totalRow": "Total including VAT",
       "basis": "Published price for this selection at this quantity · price, tax and availability are revalidated when the order is submitted",
       "none": "No applicable price is available for this selection and quantity.",
-      "noneBasis": "Prices are published per currency and per quantity band; none of the published bands covers this combination"
+      "noneBasis": "Prices are published per currency and per quantity band; none of the published bands covers this combination",
+      "onRequestBasis": "No price is published for {channel, select, B2B {business orders} other {consumer orders}} of this listing",
+      "onRequestBasisCurrency": "No price in {currency} is published for {channel, select, B2B {business orders} other {consumer orders}} of this listing"
     },
     "ladder": {
       "title": "Volume pricing",
@@ -662,6 +664,18 @@
         "VERIFIED": "Verified",
         "GOLD": "Gold",
         "PLATINUM": "Platinum"
+      },
+      "verifiedBasis": "{document} reviewed {date}",
+      "document": {
+        "COMMERCIAL_REGISTRATION": "Commercial registration",
+        "TRADE_LICENSE": "Trade licence",
+        "VAT_CERTIFICATE": "VAT certificate",
+        "SASO_CERTIFICATE": "SASO certificate",
+        "SFDA_APPROVAL": "SFDA approval",
+        "HALAL_CERTIFICATE": "Halal certificate",
+        "ESMA_CERTIFICATE": "ESMA certificate",
+        "ISO_CERTIFICATE": "ISO certificate",
+        "OTHER": "Supporting document"
       }
     },
     "sections": {
@@ -750,6 +764,10 @@
       "related": "Same category, brand or specification as this product.",
       "boughtTogether": "Ordered together with this product by other buyers.",
       "trending": "Ranked from catalogue activity, not from your browsing."
+    },
+    "meta": {
+      "description": "{name}, SKU {sku}",
+      "descriptionBrand": "{name} by {brand}, SKU {sku}"
     }
   },
   "catalogue": {
