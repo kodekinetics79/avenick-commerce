@@ -374,36 +374,53 @@ export function ProductCard({
             to read at 5-up as well as 2-up, and the reference earns its
             tightness by carrying a name, a rating and a price and nothing else.
             This one additionally carries the supplier, the SKU, the VAT basis,
-            the MOQ, the channel and the availability — so the spacing has to
-            work harder rather than the tile growing taller.
+            the MOQ, the channel and the availability — so the spacing works
+            harder, and the tile grows only where a fact does not fit: the
+            record is two lines, because the catalogue's SKUs left no room for
+            the category beside them (see the record below).
 
             THE INFORMATION ORDER IS THE REFERENCE'S: frame, rating, name,
             price, then the one action. The trade facts are threaded into that
-            order rather than appended after it — the record line rides above
-            the rating where the reference has nothing, and availability rides
-            the end of the price row where the reference puts its stock mark. */}
+            order rather than appended after it — the record rides above the
+            rating where the reference has nothing, and availability rides the
+            end of the price row where the reference puts its stock mark. */}
         <div className="flex flex-col gap-1 p-3.5">
-          {/* The record line: what it is filed under, and what it is called in a
-              purchase order. Two facts, one row, at the lowest rank on the card.
+          {/* The record: what it is filed under, then what it is called in a
+              purchase order. Two facts, TWO LINES, at the lowest rank on the
+              card.
+
+              It was one justify-between row, and that did not survive the
+              catalogue's real SKUs. The SKU could not shrink and the eyebrow
+              could, so at 26–30 monospace characters ("PILOT-MENNEKES-130-
+              0030420") the SKU took the whole row: the eyebrow measured 0px on
+              every phone tile and two or three letters on a 5-up desktop tile
+              ("PL…"), and on a 141px phone row the SKU itself ran past the
+              tile's clipped edge. The row was dense and said neither thing.
+
+              So each fact gets the full width. The eyebrow truncates, because a
+              category's first words still name it and the product page carries
+              the rest. The SKU WRAPS rather than truncating: it is the
+              identifier a buyer copies into a purchase order, and its
+              distinguishing part is the tail, which is exactly what an ellipsis
+              removes. `overflow-wrap: anywhere` breaks at the hyphens first and
+              mid-token only when a run is wider than the tile.
+
+              A wrapped SKU makes one tile's record a line taller than its
+              neighbour's. That is the variance the rating row already brings,
+              and it is absorbed the same way: the action block is `mt-auto`, so
+              the buttons in a row still share a line.
 
               The eyebrow names the category or the seller, in the visitor's own
               language. When neither is known it is left out — printing the
               platform name there read as "sold by the platform", which is never
-              true of a listing.
+              true of a listing — and the SKU simply becomes the first line.
 
               It is metadata ink rather than --primary-ink: on a grid of 24 this
               is the lowest-rank line on the card, and 24 indigo eyebrows compete
               with the one thing that should carry colour, the price. */}
-          <div className="flex items-baseline justify-between gap-2">
-            {filedUnder ? (
-              <Eyebrow className="min-w-0 truncate">{filedUnder}</Eyebrow>
-            ) : (
-              // Nothing to file it under and no supplier name in this language:
-              // an empty <Eyebrow> is still a flex child and still eats the gap,
-              // so the SKU simply moves to the start of the row.
-              <span className="min-w-0" />
-            )}
-            <span className="u-mono u-meta shrink-0 text-ink-3">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            {filedUnder && <Eyebrow className="truncate">{filedUnder}</Eyebrow>}
+            <span className="u-mono u-meta block text-ink-3 [overflow-wrap:anywhere]">
               <span className="sr-only">{tc("skuLabel")} </span>
               {sku}
             </span>

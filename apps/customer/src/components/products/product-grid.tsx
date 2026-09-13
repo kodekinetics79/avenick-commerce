@@ -52,7 +52,7 @@ export function ProductGrid({
  * Stands in for a grid of <ProductCard>s while the catalog query resolves.
  *
  * It occupies the same box as the loaded card — the SAME <ImageFrame> at the
- * same 4:5 ratio, on the same lit plate, then the record line, two title lines,
+ * same 4:5 ratio, on the same lit plate, then the two record lines, two title lines,
  * a figure at card rank and a full-width control — so the page does not visibly
  * reassemble itself when the products land. The plate is already lit before the
  * photograph arrives, which is the whole point of a skeleton: a page that
@@ -107,9 +107,16 @@ export function ProductGridSkeleton({
                 it every tile jumps 2px the moment the products land. */}
             <div className="h-0.5" />
             <div className="flex flex-col gap-1 p-3.5">
-              <div className="flex items-baseline justify-between gap-2">
-                <Skeleton className="h-2.5 w-16" />
-                <Skeleton className="h-2.5 w-12" />
+              {/* The record: the eyebrow line and the SKU line, stacked as the
+                  card stacks them, each in a box of its own line's height so
+                  the title below lands where the loaded card's does. */}
+              <div className="flex flex-col gap-0.5">
+                <div className="flex h-[var(--lh-micro)] items-center">
+                  <Skeleton className="h-2.5 w-20" />
+                </div>
+                <div className="flex h-[var(--lh-meta)] items-center">
+                  <Skeleton className="h-2.5 w-28" />
+                </div>
               </div>
               {/* The title block reserves the SAME two lines of the ACTIVE
                   script's own leading that the card's <h3> does — not two 16px

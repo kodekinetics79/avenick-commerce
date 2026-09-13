@@ -64,4 +64,32 @@ describe("ProductCard on a quote-only catalogue", () => {
     expect(screen.getByRole("button", { name: /requestAvailability/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /addToCart/ })).toBeNull();
   });
+
+  /**
+   * THE RECORD. The category and the SKU shared one row, the SKU could not
+   * shrink, and the catalogue's SKUs run to thirty monospace characters — so
+   * the category measured 0px on every phone tile and the SKU ran past the
+   * tile's clipped edge. Layout is not measurable here; what is, is the rule the
+   * fix rests on: the purchase-order identifier is printed whole and nothing
+   * on its way up to the card is allowed to cut it with an ellipsis or a clamp.
+   */
+  it("prints the whole SKU and never truncates it", () => {
+    const { container } = render(<ProductCard {...quoteOnly} />);
+    const sku = [...container.querySelectorAll("span")].find((el) =>
+      [...el.childNodes].some((node) => node.nodeType === Node.TEXT_NODE && node.textContent === quoteOnly.sku),
+    );
+    expect(sku, "the SKU is not printed whole").toBeTruthy();
+
+    for (let el: HTMLElement | null = sku!; el && el !== container; el = el.parentElement) {
+      expect(el.className, `an ancestor of the SKU cuts it: <${el.tagName.toLowerCase()} class="${el.className}">`).not.toMatch(
+        /(^|\s)(truncate|text-ellipsis|line-clamp-\d)(\s|$)/,
+      );
+    }
+    expect(screen.getByText(quoteOnly.category)).toBeTruthy();
+  });
+
+  it("leaves the eyebrow out, not blank, when there is nothing to file it under", () => {
+    const { container } = render(<ProductCard {...quoteOnly} category={undefined} />);
+    expect(container.querySelector(".u-micro")).toBeNull();
+  });
 });
