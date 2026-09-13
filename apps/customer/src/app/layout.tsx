@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations } from "next-intl/server";
@@ -56,6 +56,30 @@ export async function generateMetadata(): Promise<Metadata> {
     twitter: { card: "summary_large_image" },
   };
 }
+
+/**
+ * The browser's own chrome — the mobile address bar, the installed window's
+ * title bar — painted the colour of the page ground rather than the browser's
+ * default. There was no theme-color at all, so a dark-theme visitor on Android
+ * got a white bar above a near-black page.
+ *
+ * The two values are the literal grounds: --surface-0 in :root is
+ * hsl(36 20% 97.5%) = #faf9f7, the same paper the manifest's theme_color names,
+ * and in .dark it is hsl(232 18% 4%) = #08090c. They are literals because a meta
+ * tag cannot read a CSS custom property; if either token moves, these move with it.
+ *
+ * KNOWN LIMIT. This follows the SYSTEM preference. The header's ThemeToggle can
+ * override that, and it records the override in localStorage, which a server-
+ * rendered tag cannot see. A visitor who picks light on a dark system keeps a dark
+ * bar until the toggle updates the tag itself. That fix belongs to ThemeToggle in
+ * packages/ui and is handed off, not guessed at here.
+ */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#faf9f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#08090c" },
+  ],
+};
 
 export const dynamic = "force-dynamic";
 
