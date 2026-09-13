@@ -28,7 +28,8 @@ import { cn } from "@avenick/utils";
  * so `.u-hit` grows an invisible target around each button on coarse pointers
  * only, and the gap between the two widens to --space-stack there. Each target
  * reaches 7px past its circle, so the 8px desktop gap would let them overlap by
- * 6px and a tap just inside "previous" would scroll forward.
+ * 6px, and a tap just beside "previous" — inside its target, outside its circle —
+ * would land on "next", which comes later in the DOM, and scroll forward.
  *
  * This is a client island purely for the two buttons; the rail itself is markup.
  * A page never becomes a client page to use it — children are rendered on the

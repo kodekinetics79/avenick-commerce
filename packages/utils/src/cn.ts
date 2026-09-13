@@ -17,10 +17,10 @@ import { extendTailwindMerge } from "tailwind-merge";
  *
  *   · colour, then size — `bg-primary text-primary-foreground px-5 text-ui` came
  *     back as `bg-primary px-5 text-ui`. That is the primary Button's own variant
- *     plus its own size, so every filled button's label lost its foreground
- *     token and inherited ink instead: 3.4:1 on the green in light theme, 1.6:1
- *     in dark. Every other Button variant and size lost its text colour the
- *     same way.
+ *     plus its own size, so every filled button with a text label lost its
+ *     foreground token and inherited ink instead: 3.4:1 on the green in light
+ *     theme, 1.6:1 in dark. Every other variant lost its text colour the same
+ *     way, at every size except `icon`, which sets no type size.
  *   · size, then colour — `text-meta … text-primary-ink` came back without
  *     `text-meta`. That is Badge's base plus its own variant, so badges rendered
  *     at whatever size their parent happened to be. cart/_money-path.tsx had

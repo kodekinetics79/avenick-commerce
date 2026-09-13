@@ -1346,7 +1346,8 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 
 /* ─── HIT AREA ────────────────────────────────────────────────────────────
    A control drawn at 30px is the right SIZE for a dense rail and the wrong
-   TARGET for a thumb; 44px is the floor Apple and Material both set. On coarse
+   TARGET for a thumb; 44px is Apple's minimum and WCAG 2.5.5's target size
+   (Material asks for 48dp, so this is a floor, not a ceiling). On coarse
    pointers .u-hit grows an invisible target to at least 44px along each axis
    that is shorter than that, and leaves the drawn control exactly as it was —
    the inset resolves to 0 along an axis already 44px or more, so a wide pill
@@ -1358,7 +1359,8 @@ p, .u-lead, .u-body { text-wrap: pretty; }
    [data-interactive], the two that land on controls; it cannot share a host
    with [data-rim], [data-specular] or .u-sheen, which own ::before. Neighbouring
    targets must not overlap — two 30px controls need 14px between them — or a
-   tap beside the gap lands on whichever comes later in the DOM. */
+   tap in the overlap lands on whichever comes later in the DOM, even when it is
+   visibly nearer the other. */
 @media (pointer: coarse) {
   .u-hit::before {
     content: "";
@@ -2534,9 +2536,11 @@ p, .u-lead, .u-body { text-wrap: pretty; }
    takes the specificity of its most specific branch, input:not(…) at (0,1,1),
    for select and textarea as well, and that outranks the single-class .u-ui and
    .text-ui on the field itself whatever the source order. `1em` in font-size is
-   the PARENT's size, so a field inheriting more than 16px keeps it; a field
-   sized above 16px on its own element would be pulled down to its parent's size
-   here, and none is — size a large field from its wrapper. */
+   the PARENT's size, so on these pointers a field is 16px or its parent's size,
+   whichever is larger, and its own size class stops counting in both
+   directions: a field sized above 16px on its own element is pulled down to its
+   parent's size (none is — size a large field from its wrapper), and a small
+   field inside a parent above 16px rises to that parent's size, not to 16px. */
 @media (pointer: coarse) {
   :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="button"], [type="submit"], [type="reset"], [type="image"]), select, textarea) {
     font-size: max(16px, 1em);

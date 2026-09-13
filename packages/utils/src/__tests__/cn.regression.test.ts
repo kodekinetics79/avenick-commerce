@@ -14,8 +14,9 @@ import { cn } from "../cn";
  * colours in one list collapse to the last. So
  * `cn("bg-primary text-primary-foreground px-5 text-ui")` returned
  * `"bg-primary px-5 text-ui"` — which is the primary Button's variant plus its
- * size, so every filled button in three portals painted its label in inherited
- * ink: 3.4:1 on the green in light theme and 1.6:1 in dark. Badge lost its
+ * size, so every filled button in three portals — at every size but `icon`,
+ * which sets no type size — painted its label in inherited ink: 3.4:1 on the
+ * green in light theme and 1.6:1 in dark. Badge lost its
  * SIZE the same way in the other order.
  *
  * The scale is read from the Tailwind config here, so a size added there and
