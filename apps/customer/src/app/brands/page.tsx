@@ -7,7 +7,6 @@ import { platformName } from "@avenick/utils/portal-config";
 import { SELLER_REGISTER_URL } from "@/lib/portal-urls";
 import { readPublicBrands } from "@/lib/public-brands";
 import type { Metadata } from "next";
-import { getTranslations } from "next-intl/server";
 import { canonicalFor } from "@/lib/page-metadata";
 
 // The tab read the English literal "Brands" for every visitor, above an h1 that
