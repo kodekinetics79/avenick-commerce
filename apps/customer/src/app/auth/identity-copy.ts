@@ -137,6 +137,15 @@ interface IdentityDictionary {
     readonly provenance: string;
   };
   readonly surfaces: readonly AccountSurface[];
+  /**
+   * The show-password toggle on every password field the storefront renders —
+   * sign-in, /register and /b2b/register. ONE constant name, never a
+   * "Show"/"Hide" pair: the state is carried by aria-pressed, and a name that
+   * also flips announces the state twice. See components/auth/password-field.
+   */
+  readonly passwordReveal: {
+    readonly label: string;
+  };
   readonly login: {
     readonly eyebrow: string;
     readonly title: string;
@@ -310,6 +319,9 @@ const EN: IdentityDictionary = {
       basis: "Opens once the company's commercial registration has been verified.",
     },
   ],
+  passwordReveal: {
+    label: "Show password",
+  },
   login: {
     eyebrow: "Sign in",
     title: "Welcome back",
@@ -525,6 +537,9 @@ const AR: IdentityDictionary = {
       basis: "يُفتح بعد التحقق من السجل التجاري للشركة.",
     },
   ],
+  passwordReveal: {
+    label: "إظهار كلمة المرور",
+  },
   login: {
     eyebrow: "تسجيل الدخول",
     title: "أهلاً بعودتك",

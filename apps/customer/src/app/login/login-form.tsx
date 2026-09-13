@@ -7,6 +7,7 @@ import { signInWithCredentials } from "@avenick/auth/client";
 import { messageForSignInError } from "@avenick/auth/sign-in-messages";
 import { safeReturnTo } from "@avenick/auth/safe-redirect";
 import { Input, Button, Surface } from "@avenick/ui";
+import { PasswordInput } from "@/components/auth/password-field";
 import { FormErrorSlot } from "../auth/auth-shell";
 import { identityCopy, type IdentityLocale } from "../auth/identity-copy";
 
@@ -120,10 +121,13 @@ export function LoginForm({ locale }: { locale: IdentityLocale }) {
         required
       />
       <div>
-        <Input
+        {/* A show-password toggle: sign-in is rate-limited, so a character
+            mistyped on a phone keyboard costs an attempt against a budget. See
+            <PasswordInput> for why the control is on the label line. */}
+        <PasswordInput
           id="login-password"
           name="password"
-          type="password"
+          revealLabel={identityCopy(locale).passwordReveal.label}
           label={t.password}
           autoComplete="current-password"
           placeholder="••••••••"

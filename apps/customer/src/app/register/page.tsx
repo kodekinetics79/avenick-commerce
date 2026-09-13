@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import { ArrowLeft, Building2, ChevronRight, User } from "lucide-react";
 import { Divider, Input, Button } from "@avenick/ui";
+import { PasswordInput } from "@/components/auth/password-field";
 import { AuthShell, FormErrorSlot } from "../auth/auth-shell";
 import { identityCopy, toIdentityLocale } from "../auth/identity-copy";
 import { platformName } from "@avenick/utils/portal-config";
@@ -235,10 +236,11 @@ export default function RegisterPage() {
             />
             {/* The password rule used to live in the placeholder, where it
                 disappeared the moment you started typing. A hint stays put, and
-                its line is also the space an error will occupy. */}
-            <Input
+                its line is also the space an error will occupy. The toggle lets
+                an applicant check the rule against what they actually typed. */}
+            <PasswordInput
               id="reg-password"
-              type="password"
+              revealLabel={identityCopy(locale).passwordReveal.label}
               label={t.password}
               autoComplete="new-password"
               placeholder="••••••••"

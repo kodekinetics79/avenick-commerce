@@ -31,6 +31,8 @@ import {
   type SurfaceTone,
 } from "@avenick/ui";
 import { MainLayout } from "@/components/layout/main-layout";
+import { ValidatedPasswordField } from "@/components/auth/password-field";
+import { identityCopy, toIdentityLocale } from "@/app/auth/identity-copy";
 import {
   ValidatedForm,
   ValidatedSelectField,
@@ -696,7 +698,10 @@ export default async function B2BRegisterPage({
                   <ValidatedTextField name="lastName" label={t("register.field.lastName")} required minLength={2} maxLength={50} autoComplete="family-name" />
                   <ValidatedTextField type="email" name="email" label={t("register.field.email")} required autoComplete="email" />
                   <ValidatedTextField type="tel" name="phone" label={t("register.field.phone")} hint={t("register.field.phone.hint")} pattern="\+[1-9][0-9]{7,14}" autoComplete="tel" />
-                  <ValidatedTextField type="password" name="password" label={t("register.field.password")} hint={t("register.field.password.hint")} required minLength={8} autoComplete="new-password" />
+                  {/* The show-password toggle's name comes from the identity copy,
+                      the one place the storefront's sign-in and registration forms
+                      share it, so all three forms say it the same way. */}
+                  <ValidatedPasswordField name="password" label={t("register.field.password")} hint={t("register.field.password.hint")} required minLength={8} autoComplete="new-password" revealLabel={identityCopy(toIdentityLocale(locale)).passwordReveal.label} />
                   <ValidatedSelectField name="language" label={t("register.field.language")} defaultValue={locale === "ar" ? "AR" : "EN"}>
                     {LANGUAGE_VALUES.map((v) => (
                       <option key={v} value={v}>{t(LANGUAGE_LABELS[v])}</option>
