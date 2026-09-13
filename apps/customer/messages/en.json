@@ -751,7 +751,7 @@
       "category": "{category}",
       "search": "Results for “{query}”"
     },
-    "productsCount": "{count, plural, =0 {No products} one {1 product} other {# products}}",
+    "productsNoun": "{count, plural, one {product} other {products}}",
     "forQuery": "for “{query}”",
     "showingAll": "Showing every published listing.",
     "showingAllFiltered": "Showing every listing that matches these filters.",
@@ -825,7 +825,7 @@
       "prompt": "Enter a keyword above to search the catalogue.",
       "titleEmpty": "Search the catalogue",
       "titleResults": "Results for “{query}”",
-      "productsFound": "{count, plural, =0 {No products} one {1 product} other {# products}} found",
+      "productsFound": "{count, plural, one {product} other {products}} found",
       "ranked": "Ranked by how closely each match fits your term.",
       "rankedTruncated": "Ranked by how closely each match fits your term · showing the first {shown}.",
       "moreNotShown": "{count, plural, one {1 further match is} other {# further matches are}} not shown here ({formatted} in total).",

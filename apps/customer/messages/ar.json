@@ -751,7 +751,7 @@
       "category": "{category}",
       "search": "نتائج البحث عن ”{query}“"
     },
-    "productsCount": "{count, plural, =0 {لا توجد منتجات} one {منتج واحد} two {منتجان} few {# منتجات} many {# منتجًا} other {# منتج}}",
+    "productsNoun": "{count, plural, zero {منتج} one {منتج} two {منتجان} few {منتجات} many {منتجًا} other {منتج}}",
     "forQuery": "عن ”{query}“",
     "showingAll": "تُعرض جميع المنتجات المنشورة.",
     "showingAllFiltered": "تُعرض جميع المنتجات المطابقة لعوامل التصفية هذه.",
@@ -825,7 +825,7 @@
       "prompt": "أدخل كلمة في الأعلى للبحث في الكتالوج.",
       "titleEmpty": "ابحث في الكتالوج",
       "titleResults": "نتائج البحث عن ”{query}“",
-      "productsFound": "{count, plural, =0 {لم يُعثر على منتجات} one {عُثر على منتج واحد} two {عُثر على منتجين} few {عُثر على # منتجات} many {عُثر على # منتجًا} other {عُثر على # منتج}}",
+      "productsFound": "{count, plural, zero {منتج مطابق} one {منتج مطابق} two {منتجان مطابقان} few {منتجات مطابقة} many {منتجًا مطابقًا} other {منتج مطابق}}",
       "ranked": "مرتبة حسب مدى مطابقة كل نتيجة لكلمة البحث.",
       "rankedTruncated": "مرتبة حسب مدى مطابقة كل نتيجة لكلمة البحث · تُعرض أول {shown}.",
       "moreNotShown": "{count, plural, one {نتيجة إضافية واحدة غير معروضة} two {نتيجتان إضافيتان غير معروضتين} few {# نتائج إضافية غير معروضة} other {# نتيجة إضافية غير معروضة}} هنا ({formatted} إجمالًا).",

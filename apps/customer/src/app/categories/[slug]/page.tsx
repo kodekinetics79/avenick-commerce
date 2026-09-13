@@ -212,9 +212,13 @@ export default async function CategoryPage({ params }: Props) {
             )}
 
             <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b-2 border-border-strong pb-3">
+              {/* The figure is the <Num>; the message is only the noun it
+                  counts. `productsCount` carried the number as well, so this
+                  head read "120 120 products". `count` still goes in, because
+                  the noun's plural form depends on it. */}
               <p className="u-ui flex flex-wrap items-baseline gap-x-1.5 text-ink-2">
                 <Num value={total} rank="inline" />
-                <span>{t("productsCount", { count: total })}</span>
+                <span>{t("productsNoun", { count: total })}</span>
               </p>
               <Dateline>
                 {total > products.length
@@ -261,12 +265,17 @@ export default async function CategoryPage({ params }: Props) {
 
             {/* This route has no pagination. Rather than let 24 cards imply the
                 whole category, it says how many are not shown and hands the
-                visitor the catalogue surface that does paginate. */}
+                visitor the catalogue surface that does paginate.
+
+                `count` is the listings NOT shown; `formatted` is the message's
+                "({formatted} in total)", so it is the whole category. Both were
+                the not-shown figure once, and the sentence then said "96
+                further listings are not shown here (96 in total)". */}
             {total > products.length && (
               <p className="u-ui mt-block text-ink-2">
                 {t("category.moreNotShown", {
                   count: total - products.length,
-                  formatted: String(total - products.length),
+                  formatted: String(total),
                 })}{" "}
                 <Link
                   href={`/products?category=${encodeURIComponent(params.slug)}`}

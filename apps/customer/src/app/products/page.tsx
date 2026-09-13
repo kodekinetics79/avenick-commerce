@@ -524,12 +524,17 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
       <CatalogueLeadView lead={lead} searchParams={searchParams} locale={cardLocale} wantsB2B={wantsB2B} />
 
       {/* The result head. A figure, the noun it counts, and a provenance line
-          saying exactly what the twenty-four cards below are a slice of. */}
+          saying exactly what the twenty-four cards below are a slice of.
+
+          The figure is the <Num> and the message is the noun ALONE. It was
+          `productsCount`, whose message carried the number as well, so the head
+          read "383 383 products". `count` still goes in: the noun's plural
+          form — and in Arabic its case — depends on it. */}
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b-2 border-border-strong pb-3">
         <div className="min-w-0">
           <p className="u-ui flex flex-wrap items-baseline gap-x-1.5 text-ink-2">
             <Num value={total} rank="inline" />
-            <span>{t("productsCount", { count: total })}</span>
+            <span>{t("productsNoun", { count: total })}</span>
             {searchParams.search && (
               <span className="truncate">{t("forQuery", { query: searchParams.search })}</span>
             )}
