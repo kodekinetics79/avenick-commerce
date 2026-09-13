@@ -117,14 +117,69 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
   React.useEffect(() => {
     host?.setAvailable(available);
   }, [host, available]);
+  /*
+   * FOCUS, WHEN THE SHEET OPENS IT. A pill trigger holds focus while its panel
+   * is open and gets it back on Escape. The sheet row that opens the panel
+   * below lg does neither: the sheet closes around it, and the dialog restores
+   * focus to no trigger at all. Keyboard-only at a narrow width, focus was on
+   * <body> the moment the panel opened and again when it closed, and a screen
+   * reader announced nothing.
+   *
+   * So when the chrome opens the panel, focus moves to the panel's heading,
+   * once no modal dialog is left in the document. Focusing it any sooner would
+   * put focus inside content the closing sheet still marks aria-hidden. When
+   * the panel closes or is hidden, focus returns to the control the chrome
+   * named, but only if it would otherwise be lost: on <body>, or on the pill
+   * the disclosure tried to focus, which is not drawn below lg. Focus that
+   * Tab has already moved elsewhere stays there, and a close caused by
+   * navigating away leaves focus to the new page.
+   */
+  const fromChrome = React.useRef<{ returnFocusTo: HTMLElement | null; path: string } | null>(null);
+  const headingRef = React.useRef<HTMLHeadingElement | null>(null);
   React.useEffect(() => {
     if (!host) return;
-    host.registerOpener(() => setOpen(true));
+    host.registerOpener((returnFocusTo) => {
+      fromChrome.current = { returnFocusTo, path: window.location.pathname };
+      setOpen(true);
+    });
     return () => {
       host.registerOpener(null);
       host.setAvailable(false);
     };
   }, [host, setOpen]);
+
+  const shown = open && available;
+  React.useEffect(() => {
+    const request = fromChrome.current;
+    if (!request) return;
+
+    if (shown) {
+      let frame = 0;
+      let frames = 0;
+      const focusWhenNoModal = () => {
+        if (document.querySelector('[role="dialog"]')) {
+          // A modal that is still there after a second is not the sheet
+          // closing, and focus is its business, not this panel's.
+          if (++frames < 60) frame = requestAnimationFrame(focusWhenNoModal);
+          return;
+        }
+        headingRef.current?.focus({ preventScroll: true });
+      };
+      frame = requestAnimationFrame(focusWhenNoModal);
+      return () => cancelAnimationFrame(frame);
+    }
+
+    fromChrome.current = null;
+    const landed = document.activeElement;
+    const pill = triggerProps.ref.current;
+    const lost =
+      !landed || landed === document.body || (landed === pill && pill.getClientRects().length === 0);
+    if (lost && request.path === window.location.pathname && request.returnFocusTo?.isConnected) {
+      request.returnFocusTo.focus({ preventScroll: true });
+    }
+    // triggerProps.ref is a ref object; only the shown state drives this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shown]);
   // Anything at all recorded by this browser — a product opened, a category
   // browsed, a search run. Distinct from `basis.views`, because a visitor who
   // has only browsed categories still has a trail worth naming and clearing.
@@ -168,7 +223,10 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
             <div className="flex items-start gap-3 border-b border-hairline p-4 pb-3">
               <div className="min-w-0 flex-1">
                 <Eyebrow className="mb-1">{t("eyebrow")}</Eyebrow>
-                <h2 id={headingId} className="u-ui font-medium text-ink-1">
+                {/* tabIndex -1 and no ring: it is where focus lands when the
+                    sheet opens the panel (see FOCUS above), not a control, and
+                    a ring on a heading would dress it as one. */}
+                <h2 id={headingId} ref={headingRef} tabIndex={-1} className="u-ui font-medium text-ink-1 outline-none">
                   {hasOwnSignal ? t("heading.fromYourBrowsing") : t("heading.fromCatalogue")}
                 </h2>
               </div>

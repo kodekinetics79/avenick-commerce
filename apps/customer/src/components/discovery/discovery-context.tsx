@@ -22,7 +22,11 @@ import * as React from "react";
  *    offers a panel that would render nothing.
  *  - `open`: a request to open it. The panel registers the opener, so its
  *    disclosure keeps Escape, outside-click and close-on-navigation exactly as
- *    they were.
+ *    they were. The caller passes the control focus should return to when the
+ *    panel closes. The row that asked is inside a sheet that has just closed,
+ *    and the panel's own pill is not drawn below lg, so without one a keyboard
+ *    or screen-reader visitor was left on <body> twice: once when the panel
+ *    opened and again when it closed.
  *
  * Two contexts rather than one, so the panel's registration handles never
  * change identity. Only the launcher side re-renders when availability flips.
@@ -33,12 +37,13 @@ import * as React from "react";
 
 interface DiscoveryHost {
   setAvailable: (available: boolean) => void;
-  registerOpener: (open: (() => void) | null) => void;
+  registerOpener: (open: ((returnFocusTo: HTMLElement | null) => void) | null) => void;
 }
 
 interface DiscoveryLauncher {
   available: boolean;
-  open: () => void;
+  /** Open the panel. `returnFocusTo` gets focus back when it closes. */
+  open: (returnFocusTo?: HTMLElement | null) => void;
 }
 
 const HostContext = React.createContext<DiscoveryHost | null>(null);
@@ -46,7 +51,7 @@ const LauncherContext = React.createContext<DiscoveryLauncher | null>(null);
 
 export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
   const [available, setAvailable] = React.useState(false);
-  const opener = React.useRef<(() => void) | null>(null);
+  const opener = React.useRef<((returnFocusTo: HTMLElement | null) => void) | null>(null);
 
   const host = React.useMemo<DiscoveryHost>(
     () => ({
@@ -58,7 +63,7 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const open = React.useCallback(() => opener.current?.(), []);
+  const open = React.useCallback((returnFocusTo?: HTMLElement | null) => opener.current?.(returnFocusTo ?? null), []);
   const launcher = React.useMemo<DiscoveryLauncher>(() => ({ available, open }), [available, open]);
 
   return (

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { DiscoveryPlan } from "../interest-signals";
 import { DiscoveryPanel } from "../discovery-panel";
 import { DiscoveryProvider, useDiscoveryLauncher } from "../discovery-context";
@@ -84,6 +84,48 @@ describe("the discovery launcher on a phone", () => {
 
     act(() => launcher!.open());
     expect(screen.getByRole("region")).toHaveProperty("id", "discovery-panel");
+  });
+
+  /**
+   * Keyboard-only at a narrow width, the sheet's Discovery row opened the panel
+   * with focus on <body>, and Escape left it there. The sheet closed around the
+   * row, the dialog restored focus to no trigger (it has none), and the pill
+   * the disclosure hands focus back to is not drawn below lg. Measured live:
+   * document.activeElement was BODY at +50ms, +300ms and +900ms after Enter,
+   * and again after Escape.
+   */
+  it("takes focus into the panel once the sheet is gone, and back to the menu control on Escape", async () => {
+    const menu = document.createElement("button");
+    document.body.appendChild(menu);
+    const closingSheet = document.createElement("div");
+    closingSheet.setAttribute("role", "dialog");
+    document.body.appendChild(closingSheet);
+
+    render(
+      <DiscoveryProvider>
+        <ChromeProbe />
+        <DiscoveryPanel />
+      </DiscoveryProvider>,
+    );
+
+    act(() => launcher!.open(menu));
+    const heading = document.getElementById("discovery-panel-heading");
+    expect(heading).not.toBeNull();
+
+    // While a modal is still in the document, focus is left alone: moving it
+    // now would put it inside content the sheet still marks aria-hidden.
+    await act(() => new Promise((resolve) => requestAnimationFrame(() => resolve(undefined))));
+    expect(document.activeElement).not.toBe(heading);
+
+    closingSheet.remove();
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+
+    act(() => {
+      fireEvent.keyDown(document, { key: "Escape" });
+    });
+    expect(document.getElementById("discovery-panel")).toBeNull();
+    expect(document.activeElement).toBe(menu);
+    menu.remove();
   });
 
   /**

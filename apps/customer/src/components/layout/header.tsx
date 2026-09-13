@@ -141,6 +141,9 @@ export function Header() {
   // it. `available` is the panel's own report of whether it has anything to
   // say; see components/discovery/discovery-context.tsx.
   const discovery = useDiscoveryLauncher();
+  // Where focus goes back to when a panel the sheet opened closes: the control
+  // that opened the sheet, since the sheet row itself is gone by then.
+  const menuTriggerRef = React.useRef<HTMLButtonElement | null>(null);
   const account = useDisclosure("header-account-menu");
 
   // Active is computed from the real route, never guessed. "/" would otherwise
@@ -802,6 +805,7 @@ export function Header() {
             </Button>
 
             <button
+              ref={menuTriggerRef}
               type="button"
               onClick={() => setMobileOpen(true)}
               // It opens a dialog, not an inline disclosure, so haspopup names
@@ -851,7 +855,7 @@ export function Header() {
                 icon: Compass,
                 onSelect: () => {
                   setMobileOpen(false);
-                  discovery.open();
+                  discovery.open(menuTriggerRef.current);
                 },
               }
             : null
