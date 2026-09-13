@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useLocale } from "next-intl";
 import { platformName } from "@avenick/utils/portal-config";
 import { Dateline, Divider, Eyebrow, StatusPill, Surface, type PillTone } from "@avenick/ui";
 import { toIdentityLocale } from "../auth/identity-copy";
-import { accountCopy } from "../account/account-copy";
+import { accountCopy, statusComponentDetail, statusComponentLabel } from "../account/account-copy";
 
 // Deliberately standalone: no MainLayout, no backend data layer, no shared data
 // fetching. A status page must render even when the rest of the app is degraded,
@@ -19,6 +20,11 @@ import { accountCopy } from "../account/account-copy";
 // alternative was the hardcoded #16a34a / #e5e7eb / #6b7280 palette this file
 // used to carry, which had no dark-mode values and rendered as light-grey chrome
 // on a dark ground — and an English-only page in an Arabic build.
+//
+// Standalone is not the same as a dead end. With no header, the page had no
+// link at all: a buyer who arrived from the help centre could only leave with
+// the back button. The masthead's platform name is now a plain next/link to the
+// storefront — a link, not a data dependency, so the rule above still holds.
 
 type ComponentStatus = "operational" | "degraded" | "down" | "unverified" | "not_configured";
 
@@ -94,7 +100,11 @@ export default function StatusPage() {
           family — plus the brass rule that separates it in space, which is the
           same .u-drawn gesture as active nav and the certificate's top edge. */}
       <Divider drawn on className="w-14" />
-      <Eyebrow className="mt-4">{platformName()}</Eyebrow>
+      <Eyebrow className="mt-4">
+        <Link href="/" className="u-focus rounded-nested hover:text-ink-1">
+          {platformName()}
+        </Link>
+      </Eyebrow>
       {/* THE FAMILY IS PER-DIRECTION, not per-page. `.u-display` deliberately
           sets no font-family, so it inherits the body face the [dir] block
           already chose. Pinning `font-display` on its own resolved to
@@ -139,9 +149,15 @@ export default function StatusPage() {
                   key={c.name}
                   className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline px-4 py-3 first:border-t-0"
                 >
-                  <span className="u-body capitalize text-ink-1">{c.name.replace(/-/g, " ")}</span>
+                  {/* A label, never the endpoint's identifier — see
+                      statusComponentLabel. The detail is shown only when it is a
+                      measured latency; everything else it can say is already on
+                      the pill beside it. */}
+                  <span className="u-body text-ink-1">{statusComponentLabel(t.componentLabels, c.name)}</span>
                   <span className="flex items-center gap-2">
-                    {c.detail && <span className="u-meta text-ink-3">{c.detail}</span>}
+                    {statusComponentDetail(c.detail) && (
+                      <span className="u-meta text-ink-3">{statusComponentDetail(c.detail)}</span>
+                    )}
                     <StatusPill tone={TONE[c.status]} dot>
                       {label(c.status)}
                     </StatusPill>
