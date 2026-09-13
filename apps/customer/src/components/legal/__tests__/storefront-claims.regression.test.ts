@@ -64,6 +64,17 @@ describe("information pages make no claim the platform cannot back", () => {
     expect(identityCopy("en").register.consumerBody).toMatch(/product page/i);
   });
 
+  it("keeps the brands page seller band to what holds on every activation path", () => {
+    // The Arabic said applications are reviewed before ANY store launches, a
+    // claim about every live storefront; the operator catalogue script activates
+    // sellers with no application at all. Both languages now say what holds on
+    // every path: a storefront goes live only when the platform activates it.
+    for (const tree of [en, ar]) {
+      expect(tree.brandsContent.sellerCta.body).not.toMatch(/reviewed|documentation|تُراجَع|مراجعة|المستندات/i);
+      expect(tree.brandsContent.sellerCta.body).toContain("{platform}");
+    }
+  });
+
   it("keeps the checkout trust strip to what holds on every activation path", () => {
     for (const tree of [en, ar]) {
       const { verifiedSellers, verifiedSellersDesc } = tree.checkout.trust;

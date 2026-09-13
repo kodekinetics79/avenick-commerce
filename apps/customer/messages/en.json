@@ -418,7 +418,7 @@
     },
     "sellerCta": {
       "headline": "Are you a brand or distributor?",
-      "body": "Apply to sell on {platform}. Applications are reviewed before a storefront goes live."
+      "body": "Apply to sell on {platform}. A storefront goes live only when the platform activates it."
     },
     "metaDescription": "Brands listed in the supplier catalogue, each linked to its products."
   },

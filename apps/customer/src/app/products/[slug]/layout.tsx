@@ -27,9 +27,8 @@ const read = cache(readProductMeta);
  * /products/<unknown>: the soft 404 this replaced at least said the platform's
  * name, and the first version of this layout said nothing.
  *
- * So an unservable slug gets a noindex head from here, which is also what
- * reaches the server HTML while a root loading boundary is still streaming the
- * status as 200. The layout body's notFound() supplies the plate and the 404.
+ * So an unservable slug gets a noindex head from here, and the layout body's
+ * notFound() supplies the plate and the 404.
  */
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const result = await read(params.slug);
@@ -48,8 +47,9 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
 
 /**
  * A slug that names nothing is refused HERE, on the server, before the client
- * page has rendered anything — so the not-found plate, its noindex and the 404
- * status all arrive in the first response instead of after hydration. The page's
+ * page has rendered anything — so the 404 status and the noindex arrive in the
+ * first response, and the not-found plate's data arrives with them and paints at
+ * hydration, without waiting for the client's product fetch. The page's
  * own client-side notFound() stays for what only it can see: a listing this
  * viewer's channel may not open.
  */
