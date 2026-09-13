@@ -26,6 +26,17 @@ import { DEFAULT_SORT, SORT_CHOICES, type CatalogSort } from "./catalog-filters"
  *
  * Sorts that the DATABASE cannot perform across the whole result set are not
  * offered. See SORT_CHOICES for why price is not among them.
+ *
+ * THE MEDIUM CONTROL HEIGHT ON A PHONE. The small one is 30px, which is a
+ * desktop instrument's size and a phone's mis-tap: this select sits alone at
+ * the end of the result head, where nothing competes for the height. From `sm`
+ * up it returns to the small control beside the dateline. Its 13px type is the
+ * other half of the phone problem, and it is NOT solved here: iOS Safari zooms
+ * the page into any field set under 16px when it is focused, and the header
+ * search, the sign-in form and the registration fields all share it. That
+ * belongs in one coarse-pointer rule in the shared stylesheet, not in a
+ * per-control override. Until that rule exists, focusing this select on an
+ * iPhone still zooms the page.
  */
 export function SortSelect() {
   const router = useRouter();
@@ -53,7 +64,7 @@ export function SortSelect() {
         value={current}
         onChange={handleChange}
         data-rung={1}
-        className="u-focus u-ui h-control-sm rounded-nested border border-input bg-surface-1 pe-2 ps-2 text-ink-1 transition-colors duration-hover ease-standard hover:border-border-strong"
+        className="u-focus u-ui h-control-md sm:h-control-sm rounded-nested border border-input bg-surface-1 pe-2 ps-2 text-ink-1 transition-colors duration-hover ease-standard hover:border-border-strong"
       >
         <option value="newest">{t("sortOptions.newest")}</option>
         <option value="name_asc">{t("sortOptions.nameAsc")}</option>

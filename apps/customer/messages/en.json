@@ -394,11 +394,19 @@
   },
   "brandsContent": {
     "title": "Shop by brand",
-    "description": "Browse brands represented in the current marketplace catalog.",
-    "emptyTitle": "No brands yet",
-    "emptyDescription": "Brands will appear here when products are available in the catalog.",
-    "productCount": "{count, plural, one {# product} other {# products}}",
-    "browse": "Browse"
+    "description": "Browse the brands with listings in the catalogue.",
+    "eyebrow": "Discovery",
+    "dateline": "Each count is of the listings published for public discovery under that brand.",
+    "listingsNoun": "{count, plural, one {listing} other {listings}}",
+    "empty": {
+      "eyebrow": "Nothing recorded",
+      "headline": "No brand has a listing in the catalogue yet.",
+      "body": "A brand appears here once a seller publishes a product against it."
+    },
+    "sellerCta": {
+      "headline": "Are you a brand or distributor?",
+      "body": "Apply to sell on {platform}. Applications are reviewed before a storefront goes live."
+    }
   },
   "spatialCommerce": {
     "metadataTitle": "Spatial Commerce Preview",
@@ -751,7 +759,6 @@
       "category": "{category}",
       "search": "Results for “{query}”"
     },
-    "productsCount": "{count, plural, =0 {No products} one {1 product} other {# products}}",
     "forQuery": "for “{query}”",
     "showingAll": "Showing every published listing.",
     "showingAllFiltered": "Showing every listing that matches these filters.",
@@ -825,7 +832,7 @@
       "prompt": "Enter a keyword above to search the catalogue.",
       "titleEmpty": "Search the catalogue",
       "titleResults": "Results for “{query}”",
-      "productsFound": "{count, plural, =0 {No products} one {1 product} other {# products}} found",
+      "productsFound": "{count, plural, one {product} other {products}} found",
       "ranked": "Ranked by how closely each match fits your term.",
       "rankedTruncated": "Ranked by how closely each match fits your term · showing the first {shown}.",
       "moreNotShown": "{count, plural, one {1 further match is} other {# further matches are}} not shown here ({formatted} in total).",
@@ -850,7 +857,7 @@
         "eyebrow": "Where to go next",
         "categories": "Categories named like “{query}”",
         "brands": "Brands named like “{query}”",
-        "identifier": "No listing carries the part number “{query}”.",
+        "identifier": "No SKU or part number matches “{query}”.",
         "identifierAction": "Request a quote for it",
         "relaxed": "Dropping the last word finds {count, plural, one {1 listing} other {# listings}}.",
         "relaxedAction": "Search for “{query}”"
@@ -903,7 +910,8 @@
       "IN_STOCK": "In stock",
       "OUT_OF_STOCK": "Out of stock",
       "UNCONFIRMED": "Availability unconfirmed"
-    }
+    },
+    "productsNoun": "{count, plural, one {product} other {products}}"
   },
   "discovery": {
     "eyebrow": "Discovery",

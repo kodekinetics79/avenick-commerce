@@ -463,6 +463,9 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
                 {/* `total` is the database count across the whole result set. This
                     line used to read products.length, which is capped at the page
                     size and so under-reported every search wider than one page. */}
+                {/* The figure is the <Num>, and the message is the noun phrase
+                    alone. It used to carry the number too, and read "100 100
+                    products found". */}
                 <Num value={total} rank="inline" />
                 <span>{t("search.productsFound", { count: total })}</span>
               </p>
@@ -508,10 +511,13 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
 
             {/* More matched than one page holds. This page has no pagination, so
                 say so and hand the visitor a surface that does, rather than
-                letting 24 rows imply the whole result set. */}
+                letting 24 rows imply the whole result set. `formatted` fills
+                "({formatted} in total)", so it is the whole result set, not the
+                remainder — passing the remainder read "76 further matches are
+                not shown here (76 in total)". */}
             {total > products.length && (
               <p className="u-ui mt-block text-ink-2">
-                {t("search.moreNotShown", { count: total - products.length, formatted: String(total - products.length) })}{" "}
+                {t("search.moreNotShown", { count: total - products.length, formatted: String(total) })}{" "}
                 <Link
                   href={`/products?search=${encodeURIComponent(query)}`}
                   className={INLINE_LINK}

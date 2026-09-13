@@ -524,12 +524,17 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
       <CatalogueLeadView lead={lead} searchParams={searchParams} locale={cardLocale} wantsB2B={wantsB2B} />
 
       {/* The result head. A figure, the noun it counts, and a provenance line
-          saying exactly what the twenty-four cards below are a slice of. */}
+          saying exactly what the twenty-four cards below are a slice of.
+
+          The figure is the <Num> and the message is the noun ALONE. It was
+          `productsCount`, whose message carried the number as well, so the head
+          read "383 383 products". `count` still goes in: the noun's plural
+          form — and in Arabic its case — depends on it. */}
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b-2 border-border-strong pb-3">
         <div className="min-w-0">
           <p className="u-ui flex flex-wrap items-baseline gap-x-1.5 text-ink-2">
             <Num value={total} rank="inline" />
-            <span>{t("productsCount", { count: total })}</span>
+            <span>{t("productsNoun", { count: total })}</span>
             {searchParams.search && (
               <span className="truncate">{t("forQuery", { query: searchParams.search })}</span>
             )}
@@ -710,7 +715,13 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
   const buildUrl = (updates: Record<string, string | undefined>) => catalogHref(searchParams, updates);
 
   const inStockOnly = filters.inStock;
-  const activeCategory = categories.find((cat) => cat.slug === filters.category);
+  // At any DEPTH. `categories.find` searched the roots only, so a subcategory
+  // in force — which is where every tile's category chip and the category
+  // page's "See the full category" link land — had no name, and the applied
+  // chip fell back to the raw slug: "Category: pilot-wiring-devices-…".
+  const activeCategory = filters.category
+    ? findCategory(categories as CategoryNode[], filters.category)
+    : undefined;
 
   /*
    * BRANDS THAT ACTUALLY HAVE SOMETHING TO SELL.
@@ -722,11 +733,13 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
    * currently selected brand is always present even if it falls outside the cut,
    * or the panel would show a filter as unset while it is in force.
    *
-   * NO COUNT IS PRINTED beside any facet, here or below. `_count.products` on
-   * /api/brands counts ACTIVE, non-deleted products with no discoverability or
-   * seller predicate, so it is a real number about a DIFFERENT set than the one
-   * clicking the facet returns — which is the kind of count FacetRail exists to
-   * refuse. It is used to rank and to exclude, never to display.
+   * NO COUNT IS PRINTED beside any facet, here or below. `_count.products`
+   * from readPublicBrands counts ACTIVE, non-deleted, publicly discoverable
+   * products, but it applies no seller predicate while the catalogue also
+   * requires a live seller (PUBLIC_CATALOG_SELLER). It can therefore exceed
+   * what clicking the facet returns — a number about a slightly DIFFERENT set,
+   * which is the kind of count FacetRail exists to refuse. It is used to rank
+   * and to exclude, never to display.
    */
   const stocked = brands
     .filter((brand) => (brand?._count?.products ?? 0) > 0)
@@ -1011,6 +1024,19 @@ function FilterSidebarSkeleton() {
   );
 }
 
+/** The h1 for a category in force: its name, or "Category" when the tree does not know it. */
+async function categoryHeading(slug: string): Promise<string> {
+  const t = await getTranslations("catalogue");
+  const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
+  try {
+    const within = findCategory((await readPublicCategoryTree()) as unknown as CategoryNode[], slug);
+    if (within) return t("title.category", { category: categoryLabel(within, locale) });
+  } catch (error) {
+    console.error("Unable to name the category in force", error);
+  }
+  return t("category.eyebrow");
+}
+
 export default async function ProductsPage({ searchParams }: { searchParams: SearchParams }) {
   const t = await getTranslations("catalogue");
 
@@ -1025,10 +1051,22 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
   // page reached the message tree: on the Arabic build it printed the Arabic
   // twice, and on the English build it printed a language the reader had not
   // asked for. The tree carries both settings now.
+  //
+  // A CATEGORY IS NAMED, NOT KEYED. `title.category` is "{category}", and it
+  // was called with no argument — so next-intl printed its fallback, the key
+  // path, and every /products?category=… page carried "catalogue.title.category"
+  // as its h1. Every top-category chip, facet link and search pill leads here.
+  // The name comes from the same public tree the sidebar lists, searched at any
+  // depth, in the visitor's language. A slug the tree does not know — an
+  // unknown one, or a category with nothing published beneath it — is headed
+  // "Category", exactly as /categories/[slug] titles one, rather than echoing a
+  // slug back as though it were a name. A failed read is the same heading: the
+  // grid below is about to say what it found either way, and a page head must
+  // not 500 over its label.
   const title = searchParams.search
     ? t("title.search", { query: searchParams.search })
     : searchParams.category
-    ? t("title.category")
+    ? await categoryHeading(searchParams.category)
     : t("title.all");
 
   return (

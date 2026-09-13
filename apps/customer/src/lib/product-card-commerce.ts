@@ -7,7 +7,9 @@ export type ProductCardPurchaseAction =
 /**
  * What the one control on a product row does.
  *
- *   out of stock             → request availability (RFQ), never the cart
+ *   not in stock             → request availability (RFQ), never the cart —
+ *                              UNLESS nothing is known about price or stock
+ *                              either, which is a quote (see below)
  *   variants                 → the product page, where a real selection is made
  *   no price in this channel → request a quote (RFQ)
  *   otherwise                → an authoritative cart line at MOQ
@@ -28,13 +30,31 @@ export type ProductCardPurchaseAction =
  *
  * `canPrice` means a cart line can actually be built: a price, a currency and a
  * VAT rate. Not "a number exists somewhere".
+ *
+ * WHY `availability` IS AN ARGUMENT. `inStock` is a boolean, and the list DTO
+ * sets it false for two different facts: a product whose stock was recorded as
+ * zero (OUT_OF_STOCK), and a product with no inventory record at all
+ * (UNCONFIRMED). Stock-ahead-of-price is right for the first — the buyer knows
+ * what it costs and is asking whether they can have it. For the second it put
+ * "Price on request" above a button reading "Request availability" on every
+ * tile of a catalogue that holds no inventory rows and no consumer prices,
+ * asking the one question that was not the buyer's.
+ *
+ * So the quote wins only when NOTHING is known: unconfirmed stock, no price, no
+ * variants. A priced product with unconfirmed stock still asks about
+ * availability and is still never carted — this changes a label, never what
+ * reaches the cart. Both actions open the same RFQ form. A caller that does not
+ * pass `availability` keeps the old answer.
  */
 export function productCardPurchaseAction(
   hasVariants: boolean,
   inStock = true,
   canPrice = true,
+  availability?: "IN_STOCK" | "OUT_OF_STOCK" | "UNCONFIRMED",
 ): ProductCardPurchaseAction {
-  if (!inStock) return "REQUEST_AVAILABILITY";
+  if (!inStock) {
+    return availability === "UNCONFIRMED" && !canPrice && !hasVariants ? "REQUEST_QUOTE" : "REQUEST_AVAILABILITY";
+  }
   if (hasVariants) return "SELECT_VARIANT";
   return canPrice ? "ADD_TO_CART" : "REQUEST_QUOTE";
 }
