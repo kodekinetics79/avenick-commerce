@@ -137,7 +137,12 @@ export function quoteOnlyAction(
   if (hasChannelPrice) return null;
   const variant = selectedVariantId ? product.variants.find((candidate) => candidate.id === selectedVariantId) : undefined;
   const inStock = variant ? variant.inStock === true : product.inventory[0]?.inStock === true;
-  return productCardPurchaseAction(false, inStock, false) === "REQUEST_AVAILABILITY"
+  // The tile passes the availability STATUS as well as the boolean, and so must
+  // this: with no price and no stock record at all ("UNCONFIRMED"), the tile asks
+  // for a quote, and a product page asking the same buyer for "availability"
+  // about the same product is the storefront disagreeing with itself.
+  const availability = variant ? variant.availabilityStatus : product.inventory[0]?.status;
+  return productCardPurchaseAction(false, inStock, false, availability) === "REQUEST_AVAILABILITY"
     ? "REQUEST_AVAILABILITY"
     : "REQUEST_QUOTE";
 }

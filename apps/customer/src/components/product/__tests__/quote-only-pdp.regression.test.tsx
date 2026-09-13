@@ -48,13 +48,23 @@ const band = { type: "B2C", currency: "AED", minQty: 10, maxQty: null, price: 12
 
 describe("quoteOnlyAction separates a quote-only product from a band gap", () => {
   it("names a quote-only product when no price row reached this view", () => {
-    expect(quoteOnlyAction(noPrices, undefined, false)).toBe("REQUEST_AVAILABILITY");
+    // No price and no stock record ("UNCONFIRMED"): the tile's rule asks for a
+    // quote, so this page does too (lib/__tests__/quote-only-card-action).
+    expect(quoteOnlyAction(noPrices, undefined, false)).toBe("REQUEST_QUOTE");
     expect(quoteOnlyAction({ ...noPrices, inventory: [{ inStock: true, availableQty: 5 }] }, undefined, false))
       .toBe("REQUEST_QUOTE");
   });
 
   it("is null whenever a selection resolved", () => {
     expect(quoteOnlyAction(noPrices, undefined, true)).toBeNull();
+  });
+
+  it("still asks about availability, as the tile does, when stock is RECORDED as zero", () => {
+    // Out of stock is a question about stock, priced or not. Before this page
+    // passed the availability status, it could not tell this case from the
+    // unconfirmed one above and gave both the same label.
+    const outOfStock = { ...noPrices, inventory: [{ inStock: false, availableQty: 0, status: "OUT_OF_STOCK" as const }] };
+    expect(quoteOnlyAction(outOfStock, undefined, false)).toBe("REQUEST_AVAILABILITY");
   });
 
   it("is null when prices exist but none covers the selection — that gap keeps its own copy", () => {
