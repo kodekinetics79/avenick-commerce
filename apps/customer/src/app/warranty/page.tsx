@@ -3,8 +3,10 @@ import Link from "next/link";
 import { MainLayout } from "@/components/layout/main-layout";
 import { PolicyShell, type PolicySection } from "@/components/legal/policy-shell";
 import { platformName } from "@avenick/utils/portal-config";
+import { canonicalFor } from "@/lib/page-metadata";
 
 export const metadata = {
+  ...canonicalFor("/warranty"),
   title: "Warranty claims",
   description: `${platformName()} warranty claims — who honours a warranty, what to send, and how a claim is handled.`,
 };
@@ -48,7 +50,7 @@ export default async function WarrantyPage() {
       contentEn: (
         <>
           <p>
-            Goods are sold by approved suppliers, and a warranty is given by the manufacturer or by
+            Goods are sold by the suppliers who list them, and a warranty is given by the manufacturer or by
             that supplier. {name} does not issue a warranty of its own and does not repair goods; it
             routes your claim to the party who owes the remedy and records what happens to it.
           </p>
@@ -63,7 +65,7 @@ export default async function WarrantyPage() {
       contentAr: (
         <>
           <p>
-            تُباع البضائع عبر موردين معتمدين، والضمان يقدّمه المصنّع أو ذلك المورّد. ولا تصدر {name}{" "}
+            تُباع البضائع عبر الموردين الذين يعرضونها، والضمان يقدّمه المصنّع أو ذلك المورّد. ولا تصدر {name}{" "}
             ضمانًا خاصًا بها ولا تتولى الإصلاح؛ بل تحيل مطالبتك إلى الجهة الملزمة بالمعالجة وتسجّل ما
             يجري عليها.
           </p>

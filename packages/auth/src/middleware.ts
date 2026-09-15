@@ -21,15 +21,24 @@ const PUBLIC_PATHS: Record<PortalType, string[]> = {
     // visitor with no session: a shopper deciding whether to buy is exactly the
     // person who reads the returns policy, and a warranty page behind a login
     // wall is indistinguishable from not having one. They were 307ing to
-    // /login the moment they were added, because anything absent from this list
-    // is private by default — which is the right default, and the reason a new
-    // public page has to be named here.
+    // /login the moment they were added, because any ROUTE absent from this
+    // list is private by default — which is the right default, and the reason a
+    // new public page has to be named here. (A path that names no route at all
+    // is a different question, answered by `knownTopLevelSegments` below: it is
+    // a 404, not a sign-in page.)
     "/about", "/contact", "/shipping", "/returns-policy", "/warranty",
     // The company-registration door. The page handles a visitor with no session
     // itself — it renders a sign-in prompt and the registration path — so
     // gating it here sent every prospective B2B buyer to a generic login with
     // no explanation, which is the one visitor this door exists to catch.
-    "/b2b/register"],
+    "/b2b/register",
+    // The colleague's door beside it. Someone whose company is already
+    // registered applies to join it here, and by definition has no account
+    // yet. /b2b/register links to it and the page handles a visitor with no
+    // session itself, so gating it turned that link into a sign-in wall for
+    // the one person it was written for. It is a single page with no subtree,
+    // which is what makes a prefix entry safe.
+    "/b2b/join"],
   seller: ["/login", "/register"],
   admin: ["/login"],
 };
@@ -99,6 +108,37 @@ function isPublicApiPath(pathname: string, portal: PortalType): boolean {
   return PUBLIC_API_PATHS[portal].some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
+/**
+ * Where a request for a path that names no route is sent.
+ *
+ * A folder whose name starts with an underscore is a private folder in the App
+ * Router and is excluded from routing, so no file anybody adds can ever be
+ * served at this path. Rewriting to it is therefore a rewrite to "nothing", and
+ * Next answers that the way it answers any unmatched URL: app/not-found.tsx,
+ * with a 404 status, and the address bar still showing what the visitor typed.
+ */
+const UNROUTED_PATH = "/_unrouted";
+
+export interface MiddlewareOptions {
+  /**
+   * Every first path segment the app can route. When given, a path whose first
+   * segment is not listed is answered with the app's 404 page instead of being
+   * sent to sign in. See apps/customer/src/lib/route-segments.ts for why the
+   * list lives in the app and why the branch fails closed.
+   *
+   * Omitted by the seller and admin portals, whose behaviour is unchanged: an
+   * operator console has no anonymous audience for a 404 page to serve, and
+   * every path on it still goes to sign in.
+   */
+  knownTopLevelSegments?: readonly string[];
+}
+
+function namesNoRoute(pathname: string, knownTopLevelSegments: readonly string[]): boolean {
+  if (pathname === "/") return false;
+  const firstSegment = pathname.split("/")[1] ?? "";
+  return !knownTopLevelSegments.includes(firstSegment);
+}
+
 function isPublicPath(pathname: string, portal: PortalType): boolean {
   if (PUBLIC_EXACT_PATHS[portal].includes(pathname)) return true;
   return PUBLIC_PATHS[portal].some(
@@ -125,7 +165,11 @@ function isPublicPath(pathname: string, portal: PortalType): boolean {
  * using next-auth/jwt directly — which is edge-safe. The parameter is kept so a
  * split deployment that genuinely needs a different resolver can still pass one.
  */
-export function createMiddleware(portal: PortalType, authFn?: () => Promise<Session | null>) {
+export function createMiddleware(
+  portal: PortalType,
+  authFn?: () => Promise<Session | null>,
+  options: MiddlewareOptions = {},
+) {
   return async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
@@ -139,6 +183,15 @@ export function createMiddleware(portal: PortalType, authFn?: () => Promise<Sess
       isStaticAsset(pathname)
     ) {
       return NextResponse.next();
+    }
+
+    // Before the public check and before any session is read: a path that names
+    // no route is a 404 for a visitor, a signed-in buyer and a crawler alike, so
+    // who is asking does not change the answer. This branch only ever withholds
+    // a page — it rewrites to the 404 and never lets a request through — so it
+    // cannot open anything the checks below would have closed.
+    if (options.knownTopLevelSegments && namesNoRoute(pathname, options.knownTopLevelSegments)) {
+      return NextResponse.rewrite(new URL(UNROUTED_PATH, request.url));
     }
 
     if (isPublicPath(pathname, portal) || isPublicApiPath(pathname, portal)) {

@@ -1,7 +1,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { MapPin, MessageSquare } from "lucide-react";
-import { Button, Eyebrow, StatusPill, Surface, TierMark } from "@avenick/ui";
+import { Button, Dateline, Eyebrow, StatusPill, Surface, TierMark } from "@avenick/ui";
+import { bilingualName } from "./product-facts";
 import { Stars } from "./stars";
 
 export type ProductSeller = {
@@ -12,19 +13,31 @@ export type ProductSeller = {
   city?: unknown;
   country?: unknown;
   reviewSummary?: { averageRating: number | null; reviewCount: number };
+  /** The approved, unexpired SellerDocument a verification mark cites, or null. */
+  verification?: { type?: unknown; reviewedAt?: unknown } | null;
 };
 
 /**
  * The supplier card.
  *
- * NO SEAL, AND THAT IS THE POINT. <TierMark verified> exists and is the most
- * beautiful gesture in this system — a single arc of brass light travelling once
- * around the mark — and it requires a `basis`: the SellerDocument that was
- * reviewed and when. The storefront detail DTO does not carry one. A brass arc
- * around a badge reading "Verified" with no reviewed document behind it is a
- * fabricated trust signal rendered in CSS, which is the one unsurvivable failure
- * on this platform. So the card renders the tier the seller actually has and
- * nothing more, and the seal arrives on the day the DTO carries the citation.
+ * "VERIFIED" IS A CITATION OR IT IS NOTHING. <TierMark verified> — a single arc
+ * of brass light travelling once around the mark — requires a `basis`: the
+ * SellerDocument that was reviewed and when. An earlier version withheld that
+ * seal because the DTO carried no citation, and rendered "the tier the seller
+ * actually has" instead — which printed the same word, "Verified", in the same
+ * brass. That reasoning assumed the stored tier was a reviewed fact, and it was
+ * not: the only code that writes SellerTier.VERIFIED is the pilot importer and
+ * the seed scripts, and every seller with live listings carried it with zero
+ * approved documents. The storefront was printing a verification claim on
+ * every product page that no review had produced. The word needs the same basis
+ * the seal does.
+ *
+ * So a VERIFIED seller renders the seal only when the DTO carries an approved,
+ * unexpired document, with that document and its review date as the basis —
+ * the mark's accessible name, and a provenance line under the location. Without
+ * one, NO tier mark renders: a neutral pill reading "Verified" would still be
+ * the claim, just quieter. GOLD and PLATINUM keep the brass tier pill and
+ * STANDARD a neutral one; none of those words says a document was reviewed.
  *
  * The rating is aggregated from this seller's product reviews by the service and
  * is ABSENT when they have none — a supplier with no reviews shows no star
@@ -53,19 +66,49 @@ export function SellerCard({
      * the pill is then not rendered at all rather than falling back to the enum.
      */
     tier: (tier: string) => string | null;
+    /**
+     * The verification citation — "Trade licence reviewed 14 Feb 2026" — in the
+     * reader's language. Returns null for a document type the message tree does
+     * not name or a date that does not parse, and the mark is then not rendered.
+     */
+    verifiedBasis: (type: string, reviewedAt: string | Date) => string | null;
   };
-  quoteHref: string;
+  /**
+   * Omitted when the price panel above already offers the same request as its
+   * primary action. Two controls to one destination in one column is the
+   * duplicate LAW G asks you to look for before counting options.
+   */
+  quoteHref?: string;
 }) {
   const nameEn = seller.businessNameEn ? String(seller.businessNameEn) : "";
   const nameAr = seller.businessNameAr ? String(seller.businessNameAr) : "";
-  const primaryName = locale === "ar" ? nameAr || nameEn : nameEn;
-  const secondaryName = locale === "ar" ? (nameAr ? nameEn : "") : nameAr;
+  // Five of nine seller profiles store the English trading name in the Arabic
+  // column as well, and the card printed it twice. See bilingualName.
+  const { primary: primaryName, secondary: secondaryName } = bilingualName(nameEn, nameAr, locale);
   const tier = seller.tier ? String(seller.tier) : "";
   const tierLabel = tier ? labels.tier(tier) : null;
   const city = seller.city ? String(seller.city) : "";
   const country = seller.country ? String(seller.country) : "";
   const summary = seller.reviewSummary;
   const hasRating = !!summary && summary.averageRating !== null && summary.reviewCount > 0;
+
+  const verification = seller.verification;
+  const reviewedAt = verification?.reviewedAt;
+  const basis = tier === "VERIFIED" && typeof verification?.type === "string"
+    && (typeof reviewedAt === "string" || reviewedAt instanceof Date)
+    ? labels.verifiedBasis(verification.type, reviewedAt)
+    : null;
+
+  // TierMark is the only component permitted to emit brass, and a tier is one
+  // of its three permitted uses. A tier the mark does not recognise stays a
+  // neutral pill rather than being dressed up as an accolade.
+  const tierMark = tier === "VERIFIED"
+    ? (tierLabel && basis ? <TierMark verified verifiedLabel={tierLabel} basis={basis} /> : null)
+    : tierLabel && (tier === "GOLD" || tier === "PLATINUM")
+      ? <TierMark tier={tier} label={tierLabel} />
+      : tierLabel
+        ? <StatusPill tone="neutral">{tierLabel}</StatusPill>
+        : null;
 
   return (
     <Surface rung={2} className="p-4 sm:p-5">
@@ -87,6 +130,13 @@ export function SellerCard({
             </p>
           )}
 
+          {basis && tierMark && (
+            // The citation, printed. The seal's accessible name already carries
+            // it, so this copy is hidden from assistive technology rather than
+            // announced twice.
+            <Dateline className="mt-1.5" aria-hidden="true">{basis}</Dateline>
+          )}
+
           {hasRating && summary && summary.averageRating !== null && (
             <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
               <Stars value={summary.averageRating} className="h-3.5 w-3.5" />
@@ -96,24 +146,24 @@ export function SellerCard({
           )}
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-2">
-          {/* TierMark is the only component permitted to emit brass, and a tier
-              is one of its three permitted uses. A tier the mark does not
-              recognise stays a neutral pill rather than being dressed up as an
-              accolade. */}
-          {tierLabel && (tier === "GOLD" || tier === "PLATINUM" || tier === "VERIFIED") ? (
-            <TierMark tier={tier} label={tierLabel} />
-          ) : tierLabel ? (
-            <StatusPill tone="neutral">{tierLabel}</StatusPill>
-          ) : null}
+        {(tierMark || quoteHref) && (
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            {tierMark}
 
-          <Button asChild variant="secondary" size="sm">
-            <Link href={quoteHref}>
-              <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
-              {labels.requestQuote}
-            </Link>
-          </Button>
-        </div>
+            {quoteHref && (
+              // 30px tall at size sm, which is under the 44px a thumb needs.
+              // Below sm the card stacks and there is room, so the control takes
+              // the large control height there and stays compact beside the name
+              // on wider screens.
+              <Button asChild variant="secondary" size="sm" className="max-sm:h-control-lg">
+                <Link href={quoteHref}>
+                  <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+                  {labels.requestQuote}
+                </Link>
+              </Button>
+            )}
+          </div>
+        )}
       </div>
     </Surface>
   );

@@ -2,6 +2,7 @@ import type * as React from "react";
 import { formatCurrency } from "@avenick/utils";
 import { resolveStorefrontSelection, type StorefrontProduct } from "@/lib/catalog-commercial";
 import type { Currency } from "@/lib/market-context";
+import { productCardPurchaseAction } from "@/lib/product-card-commerce";
 
 /**
  * The facts the product detail page is built out of, kept in a module with NO
@@ -94,6 +95,155 @@ export function nextBandOffer(ladder: PriceBand[], qty: number): { band: PriceBa
   if (!next) return null;
   if (current && next.unitPrice >= current.unitPrice) return null;
   return { band: next, more: next.minQty - qty };
+}
+
+/**
+ * What the buy column offers when this view of the product carries NO price at
+ * all — or null when it does.
+ *
+ * WHY THIS EXISTS. 383 of the 385 live listings publish only business price
+ * bands, and the anonymous detail DTO filters price rows by channel, so for
+ * almost every visitor `resolveStorefrontSelection` returns null. The page used
+ * to treat that null as ONE state and render it as an error: danger-ink "No
+ * applicable price is available…", a basis line saying none of the published
+ * bands covered the combination (false — the bands exist, in another channel),
+ * a locked stepper and a disabled Add to cart, with the RFQ link demoted to a
+ * secondary button beneath it. The tiles on the same page had already been
+ * taught the opposite: a product this storefront cannot price is a product to
+ * quote, not an error state (product-card-commerce.ts).
+ *
+ * So null is now TWO states. Prices exist in this view but no band covers the
+ * selection (a quantity or currency gap) — that is still the genuine gap, and
+ * still says so. No price row in this view at all, on the product or on any
+ * variant — that is the catalogue's normal quote-only state, and this returns
+ * the action for it.
+ *
+ * THE LABEL IS THE TILE'S RULE, not a second one. `productCardPurchaseAction`
+ * decides "request availability" versus "request a quote" from stock, and the
+ * page asks it the same question with the same stock fact the tile had, so the
+ * button a buyer pressed on the grid and the button on the page they land on
+ * say the same words. `hasVariants` goes in as false on purpose: the tile
+ * routes a variant-bearing row HERE so a variant can be chosen, and on this
+ * page one already has been, so the selected variant's own stock decides.
+ */
+export function quoteOnlyAction(
+  product: Pick<StorefrontProduct, "prices" | "variants" | "inventory">,
+  selectedVariantId: string | undefined,
+  hasSelection: boolean,
+): "REQUEST_QUOTE" | "REQUEST_AVAILABILITY" | null {
+  if (hasSelection) return null;
+  const hasChannelPrice = product.prices.length > 0
+    || product.variants.some((variant) => (variant.prices ?? []).length > 0);
+  if (hasChannelPrice) return null;
+  const variant = selectedVariantId ? product.variants.find((candidate) => candidate.id === selectedVariantId) : undefined;
+  const inStock = variant ? variant.inStock === true : product.inventory[0]?.inStock === true;
+  // The tile passes the availability STATUS as well as the boolean, and so must
+  // this: with no price and no stock record at all ("UNCONFIRMED"), the tile asks
+  // for a quote, and a product page asking the same buyer for "availability"
+  // about the same product is the storefront disagreeing with itself.
+  const availability = variant ? variant.availabilityStatus : product.inventory[0]?.status;
+  return productCardPurchaseAction(false, inStock, false, availability) === "REQUEST_AVAILABILITY"
+    ? "REQUEST_AVAILABILITY"
+    : "REQUEST_QUOTE";
+}
+
+/**
+ * The name to lead with in the reader's language, and the other language's name
+ * to carry beneath it, or "" when there is nothing different to carry.
+ *
+ * The bilingual secondary line is deliberate: a GCC procurement buyer routinely
+ * needs the English trade name of an Arabic listing, and the reverse. But it was
+ * printed whenever the other column was non-empty. All 385 live products, and
+ * five of nine seller profiles, store the English name in the Arabic column too,
+ * so every product page printed its title twice. The second copy was set
+ * right-to-left and pushed to the inline end, where it read as a layout fault.
+ * An echo is not a translation, so an identical string is not repeated.
+ */
+export function bilingualName(nameEn: string, nameAr: string, locale: "en" | "ar"): { primary: string; secondary: string } {
+  const en = nameEn.trim();
+  const ar = nameAr.trim();
+  const primary = locale === "ar" ? ar || en : en;
+  const other = locale === "ar" ? (ar ? en : "") : ar;
+  return { primary, secondary: other && other !== primary ? other : "" };
+}
+
+export type CrumbCategory = { slug: string; nameEn: string; nameAr: string | null };
+
+/**
+ * The category rung of the product breadcrumb, or null when there should be none.
+ *
+ * The trail used to jump from "Products" straight to the item: the service
+ * loaded the category and the DTO dropped it, so a buyer arriving from search or
+ * a shared link had no way up to the shelf. Two cases still get no crumb.
+ *
+ *   - The category page would not list this product. The public category tree
+ *     only includes categories with a publicly discoverable product beneath them,
+ *     so a business-only listing's category may be a 404.
+ *   - The crumb would only repeat the product. Imported catalogues often name a
+ *     leaf category and its only product the same thing ("Wire & Cable
+ *     Lubricants › Wire & Cable Lubricants"), and an echo is not a trail.
+ */
+export function breadcrumbCategory(
+  product: { isPubliclyDiscoverable?: unknown; category?: CrumbCategory | null },
+  productName: string,
+  locale: "en" | "ar",
+): { href: string; name: string } | null {
+  const category = product.category;
+  if (!category || product.isPubliclyDiscoverable !== true) return null;
+  const name = (locale === "ar" ? category.nameAr?.trim() || category.nameEn : category.nameEn).trim();
+  if (!name || name.toLocaleLowerCase() === productName.trim().toLocaleLowerCase()) return null;
+  return { href: `/categories/${encodeURIComponent(category.slug)}`, name };
+}
+
+/**
+ * The SellerDocument types the message tree names. A verification basis is only
+ * printed for one of these, so a new enum value can never reach a buyer raw.
+ */
+export const SELLER_DOCUMENT_TYPES = [
+  "COMMERCIAL_REGISTRATION",
+  "TRADE_LICENSE",
+  "VAT_CERTIFICATE",
+  "SASO_CERTIFICATE",
+  "SFDA_APPROVAL",
+  "HALAL_CERTIFICATE",
+  "ESMA_CERTIFICATE",
+  "ISO_CERTIFICATE",
+  "OTHER",
+] as const;
+
+export type SellerDocumentType = (typeof SELLER_DOCUMENT_TYPES)[number];
+
+export function isSellerDocumentType(value: string): value is SellerDocumentType {
+  return (SELLER_DOCUMENT_TYPES as readonly string[]).includes(value);
+}
+
+/**
+ * The RFQ form's address for THIS product, not just for its supplier.
+ *
+ * The supplier card linked `?supplier=<id>` alone and the buy column
+ * `?supplier=&product=`, and the form read neither, so both buttons landed on a
+ * blank request and the buyer retyped the name of the thing they had just been
+ * looking at. The form now resolves `product` — and `variant`, and `qty` — on
+ * the server (app/b2b/rfq/new/product-seed.ts), so the link carries identifiers
+ * only. No name or SKU travels in the URL: the server reads those from the
+ * catalogue under the product API's own visibility rule, which a query string
+ * anyone can type could not be held to.
+ */
+export function rfqHrefForProduct({
+  sellerId,
+  productId,
+  variantId,
+  quantity,
+}: {
+  sellerId: string;
+  productId: string;
+  variantId?: string;
+  quantity?: number;
+}): string {
+  const query = new URLSearchParams({ supplier: sellerId, product: productId });
+  if (variantId) query.set("variant", variantId);
+  if (quantity && Number.isInteger(quantity) && quantity > 0) query.set("qty", String(quantity));
+  return `/b2b/rfq/new?${query.toString()}`;
 }
 
 /**

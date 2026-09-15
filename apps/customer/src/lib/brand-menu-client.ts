@@ -71,8 +71,8 @@ function load(): Promise<BrandMenuEntry[]> {
  * code sitting in the brand table with 7 real listings behind it — at the top,
  * above every name a buyer would recognise. Ordering the panel by how much each
  * brand actually has to sell is a real rule rather than a way of hiding that
- * row, and /brands still lists every one of them, from the last link in the
- * panel and from the Shop panel beside it.
+ * row, and /brands still lists every one of them, one link away at the end of
+ * this panel.
  */
 export function useBrandMenu(limit = 6): BrandMenuEntry[] {
   const [brands, setBrands] = React.useState<BrandMenuEntry[]>([]);

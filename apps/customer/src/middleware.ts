@@ -1,6 +1,7 @@
 import { createMiddleware } from "@avenick/auth/middleware";
 import { NextResponse, type NextRequest } from "next/server";
 import { shouldBlockSpatialCommerceRequest } from "@/lib/spatial-commerce-flag";
+import { KNOWN_TOP_LEVEL_SEGMENTS } from "@/lib/route-segments";
 
 // No auth instance is passed: importing it here pulled the credentials provider,
 // and therefore Prisma, into the edge bundle, where it threw during module
@@ -8,9 +9,15 @@ import { shouldBlockSpatialCommerceRequest } from "@/lib/spatial-commerce-flag";
 // resolves the session from the JWT cookie instead, which is what the instance
 // did anyway under the jwt session strategy.
 //
-// spatial-commerce-flag reads process.env and nothing else, so the flag check
-// stays edge-safe for the same reason.
-const authenticatedMiddleware = createMiddleware("customer");
+// spatial-commerce-flag reads process.env and nothing else, and route-segments
+// is a constant array, so both stay edge-safe for the same reason.
+//
+// The segment list is what lets a mistyped URL reach the 404 page instead of
+// the sign-in form; route-segments.ts explains the mechanism and why it fails
+// closed.
+const authenticatedMiddleware = createMiddleware("customer", undefined, {
+  knownTopLevelSegments: KNOWN_TOP_LEVEL_SEGMENTS,
+});
 
 export default function middleware(request: NextRequest) {
   // A disabled feature is absent, not forbidden: 404 rather than 403, so the

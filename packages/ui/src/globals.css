@@ -59,6 +59,11 @@
    hsl(var(--ink-1) / .06).
    ──────────────────────────────────────────────────────────────────────────── */
 :root {
+  /* The browser's half of the theme. Form controls, scrollbars, the date picker
+     and autofill are drawn from this one property, not from any token below, so
+     without it they stayed light on the dark ground. .dark flips it. */
+  color-scheme: light;
+
   /* ═══ SURFACES ═══
      The core defect this system exists to fix: --background and --card were both
      `0 0% 100%`, so a card was a 1px border and a radius. The ground is now
@@ -194,6 +199,15 @@
   --accent-edge:        200 62% 19%;
   --brass:               36 56% 42%;   /* rule + tier + verification ONLY. Never a fill. */
   --brass-ink:           34 60% 34%;
+
+  /* THE BRAND PANEL's two stops (.u-panel-brand), and deliberately absent from
+     .dark. The panel's copy is white in both themes, and dark --primary is a mint
+     built to sit under dark ink: with the panel derived from it, the home
+     headline measured 1.78:1. The first stop is the light --primary, pinned, so
+     the slab is the same deep green on either ground. The contrast test holds
+     both to 4.5:1 against white and fails if either gains a dark value. */
+  --panel-brand-from:   150 92% 26%;
+  --panel-brand-to:     150 92% 20%;
 
   /* ═══ SEMANTICS ═══
      Success sits 32° off --accent so a "verified" chip and a "paid" chip can
@@ -458,6 +472,8 @@
    Never copy a light-mode shadow stack into this block.
    ──────────────────────────────────────────────────────────────────────────── */
 .dark {
+  color-scheme: dark;   /* see :root — the browser's own controls follow the theme */
+
   /* The ladder is WIDER than round one's. Range between the darkest ground and
      the brightest object is where dark-mode expense comes from, and a 10-point
      L span across five rungs is not a ladder, it is a gradient nobody can see.
@@ -871,7 +887,15 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 .u-sheen::before {
   content: "";
   position: absolute;
-  inset: 0;
+  /* Oversized, because the drift below moves this layer by up to 2.5% across
+     and 1.5% down — percentages of its OWN box, so 2.7% and 1.6% of the host once
+     the box is 108% wide. At inset: 0 the moved layer uncovered a strip of bare
+     fill along the inline end and the top, about 22px on the desktop hero, and
+     the slab read as a panel inside a panel. 4% covers the travel with margin
+     and moves the gradients' geometry less than a larger overhang would. The
+     host must clip it: the home hero is overflow-clip and rounded, and it is the
+     only host. */
+  inset: -4%;
   z-index: -1;
   border-radius: inherit;
   background:
@@ -908,8 +932,11 @@ p, .u-lead, .u-body { text-wrap: pretty; }
      §9b's governing rule is "never a hex in a component", and the same page
      rejected a different raw hex 200 lines further down for exactly that
      reason, so the file was already arguing with itself. Both stops are now
-     derived from --primary, which means the panel follows the brand hue instead
-     of pinning a copy of it.
+     tokens beside --primary. They were first derived from --primary itself, to
+     follow the brand hue, but dark mode lifts --primary to a mint meant to sit
+     under dark ink and this panel's copy is white in both themes — the headline
+     fell to 1.78:1. So --panel-brand-from / --panel-brand-to are the light brand
+     green, pinned, and do not flip with the theme.
 
    · `.u-drift` — 24s infinite, animating BACKGROUND-POSITION. §8 names that
      property under NEVER and <AmbientField>'s own docstring says it is avoided
@@ -928,8 +955,8 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 .u-panel-brand {
   background-image: linear-gradient(
     calc(107deg * var(--dir)),
-    hsl(var(--primary) / 1) 22%,
-    hsl(150 92% 20%) 99%
+    hsl(var(--panel-brand-from)) 22%,
+    hsl(var(--panel-brand-to)) 99%
   );
 }
 
@@ -1315,6 +1342,31 @@ p, .u-lead, .u-body { text-wrap: pretty; }
   box-shadow: var(--elev-3),
               0 0 0 2px hsl(var(--ring-offset-surface)),
               0 0 0 calc(2px + var(--ring-width)) hsl(var(--ring));
+}
+
+/* ─── HIT AREA ────────────────────────────────────────────────────────────
+   A control drawn at 30px is the right SIZE for a dense rail and the wrong
+   TARGET for a thumb; 44px is Apple's minimum and WCAG 2.5.5's target size
+   (Material asks for 48dp, so this is a floor, not a ceiling). On coarse
+   pointers .u-hit grows an invisible target to at least 44px along each axis
+   that is shorter than that, and leaves the drawn control exactly as it was —
+   the inset resolves to 0 along an axis already 44px or more, so a wide pill
+   grows in height alone.
+
+   IT SETS NO POSITION. A host that is already absolute (the header's search
+   submit) would lose its placement to `relative`, so a static host adds
+   `relative` itself. It rides ::before because ::after belongs to .u-shine and
+   [data-interactive], the two that land on controls; it cannot share a host
+   with [data-rim], [data-specular] or .u-sheen, which own ::before. Neighbouring
+   targets must not overlap — two 30px controls need 14px between them — or a
+   tap in the overlap lands on whichever comes later in the DOM, even when it is
+   visibly nearer the other. */
+@media (pointer: coarse) {
+  .u-hit::before {
+    content: "";
+    position: absolute;
+    inset: min(0px, calc((100% - 44px) / 2));
+  }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────
@@ -2380,17 +2432,33 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 .u-badge-pulse[data-pulse="on"] { animation: badge-pulse 320ms 1; }
 .u-badge-pulse[data-tone="danger"] { color: hsl(var(--danger-ink)); }
 
-/* The label wipe. A clip-path edge travels from the inline start, so no frame of
-   the label is ever half-transparent and unreadable — which is exactly what a
-   cross-fade between two strings produces. The confirmed layer sits underneath
-   at FULL opacity the whole time. inset() takes physical edges and has no
-   logical form, so the two directions are written out; that is the mandatory
-   second mechanism for any physical-direction value in this system. */
+/* The label wipe. ONE clip-path edge travels from the inline start, and each
+   layer is shown only on its own side of it: the confirmed label (__to) behind
+   the edge, the resting label (__from) ahead of it. Both stay at FULL opacity
+   the whole time, so no frame is ever half-transparent and unreadable — which is
+   exactly what a cross-fade between two strings produces.
+
+   BOTH LAYERS ARE CLIPPED, and that is the whole mechanism. This used to clip
+   only __from and leave the confirmed label "underneath", on the theory that the
+   top layer hid it. Text hides nothing: only its glyphs are opaque. Every
+   Add to cart button in the storefront painted both labels in one cell and read
+   "AAdddedd to cart" at rest. The two clips are complements — __from's left
+   inset and __to's right inset travel 0 → 100% and 100% → 0 on one shared
+   transition — so their visible spans tile the label at every frame and never
+   overlap. commit-wipe.regression.test.ts resolves these rules and checks that.
+
+   inset() takes physical edges and has no logical form, so the two directions
+   are written out; that is the mandatory second mechanism for any
+   physical-direction value in this system. The on-state rule for __to outranks
+   the RTL off-state rule by specificity, so it needs no RTL twin of its own. */
 .u-wipe { display: inline-grid; }
-.u-wipe > * { grid-area: 1 / 1; }
-.u-wipe__from { transition: clip-path 200ms var(--ease-in-out); clip-path: inset(0 0 0 0); }
+.u-wipe > * { grid-area: 1 / 1; transition: clip-path 200ms var(--ease-in-out); }
+.u-wipe__from { clip-path: inset(0 0 0 0); }
 .u-wipe[data-state="on"] .u-wipe__from { clip-path: inset(0 0 0 100%); }
 [dir="rtl"] .u-wipe[data-state="on"] .u-wipe__from { clip-path: inset(0 100% 0 0); }
+.u-wipe__to { clip-path: inset(0 100% 0 0); }
+[dir="rtl"] .u-wipe__to { clip-path: inset(0 0 0 100%); }
+.u-wipe[data-state="on"] .u-wipe__to { clip-path: inset(0 0 0 0); }
 
 /* ═══ STATE LAYERS ═══
    Retires roughly forty hand-tuned hover/press tokens that had drifted apart.
@@ -2457,6 +2525,27 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 .u-h1    { font-size: var(--fs-h1);    line-height: var(--lh-h1);   letter-spacing: var(--tr-h1);   font-weight: var(--fw-head); }
 .u-display { font-size: var(--fs-display); line-height: var(--lh-display); letter-spacing: var(--tr-display); font-weight: var(--fw-head); }
 .u-fig-card { font-size: var(--fs-fig-card); line-height: var(--lh-fig-card); letter-spacing: var(--tr-fig); font-weight: var(--fw-fig-card); }
+
+/* FOCUS ZOOM. iOS Safari zooms the whole page when a text field set under 16px
+   takes focus, and leaves it zoomed once the field blurs. Every field in the
+   product was under that — the header search at --fs-body 15px, the sort select
+   and every <Input> at --fs-ui 13px. The fix is the field's type, never
+   `maximum-scale=1` on the viewport, which takes pinch-zoom away from everyone
+   who needs it.
+   Coarse pointers only, so desktop fields keep the rank they were given. :is()
+   takes the specificity of its most specific branch, input:not(…) at (0,1,1),
+   for select and textarea as well, and that outranks the single-class .u-ui and
+   .text-ui on the field itself whatever the source order. `1em` in font-size is
+   the PARENT's size, so on these pointers a field is 16px or its parent's size,
+   whichever is larger, and its own size class stops counting in both
+   directions: a field sized above 16px on its own element is pulled down to its
+   parent's size (none is — size a large field from its wrapper), and a small
+   field inside a parent above 16px rises to that parent's size, not to 16px. */
+@media (pointer: coarse) {
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="button"], [type="submit"], [type="reset"], [type="image"]), select, textarea) {
+    font-size: max(16px, 1em);
+  }
+}
 
 /* THE HERO RUNG. One class, one weight exemption, one portal.
    HIERARCHY IS SEVEN LEVERS, NOT TWO: size, weight, tracking, colour, family,
@@ -2680,4 +2769,52 @@ p, .u-lead, .u-body { text-wrap: pretty; }
   a, button, [role="button"], .u-ledger-row, .u-state, .u-state-wash, .qty-ladder tbody tr {
     transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease !important;
   }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   14. PRINT — a buyer files a product page or a policy into a procurement pack.
+   Paper gets the content and not the room it sits in. This block hides only
+   decoration and system chrome, and fixes what paper cannot do; it hides no
+   page content. Chrome a page builds for itself — a fixed buy bar, the footer —
+   takes `print:hidden` where it is built, because only that page knows it is
+   chrome.
+   ──────────────────────────────────────────────────────────────────────────── */
+@media print {
+  /* The field and the progress hairline are position: fixed, and Chromium
+     repeats a fixed element on every sheet. The sticky header (.u-chrome) is
+     navigation paper cannot use, and the grain is texture. */
+  .u-field,
+  .u-scroll-progress,
+  .u-chrome,
+  [data-grain]::after { display: none !important; }
+
+  /* A staged reveal the reader has not scrolled to is still at opacity 0 when a
+     print is taken — <RevealRoot> hides it while it is off screen and lifts it on
+     arrival — so paper would carry a blank hole where that content is. The
+     hidden state is (0,2,0), hence !important; the transition goes too, so
+     nothing prints mid-fade. Everything prints as it would once revealed. */
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  /* The fresnel shoulder is a masked conic gradient on [data-rim]::before. With
+     background graphics off, which is Chrome's print default, a printed product
+     page showed its price panel as an empty rounded box: the text was in the
+     PDF's text layer but not painted. Hiding this one layer restored it, and
+     paper cannot render a shoulder anyway. */
+  [data-rim]::before { display: none !important; }
+
+  /* Printing drops backgrounds by default. The brand panel's copy is white in
+     both themes, so without its fill that copy is white on white paper; this one
+     surface keeps its fill. */
+  .u-panel-brand {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* A heading stays with what it heads; a spec row or a photograph stays whole. */
+  h1, h2, h3 { break-after: avoid; }
+  img, tr { break-inside: avoid; }
 }

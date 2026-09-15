@@ -248,7 +248,9 @@ export function ProductCard({
    * expression and in none of the other three.
    */
   const canPrice = price != null && !!currency && vatRate != null;
-  const purchaseAction = productCardPurchaseAction(hasVariants, inStock, canPrice);
+  // `availability`, not the raw prop: it is the same resolved value the frame
+  // and the stock dot print, so the label cannot disagree with them.
+  const purchaseAction = productCardPurchaseAction(hasVariants, inStock, canPrice, availability);
 
   function handlePrimaryAction(event: React.MouseEvent<HTMLButtonElement>) {
     const action = purchaseAction;
@@ -372,36 +374,53 @@ export function ProductCard({
             to read at 5-up as well as 2-up, and the reference earns its
             tightness by carrying a name, a rating and a price and nothing else.
             This one additionally carries the supplier, the SKU, the VAT basis,
-            the MOQ, the channel and the availability — so the spacing has to
-            work harder rather than the tile growing taller.
+            the MOQ, the channel and the availability — so the spacing works
+            harder, and the tile grows only where a fact does not fit: the
+            record is two lines, because the catalogue's SKUs left no room for
+            the category beside them (see the record below).
 
             THE INFORMATION ORDER IS THE REFERENCE'S: frame, rating, name,
             price, then the one action. The trade facts are threaded into that
-            order rather than appended after it — the record line rides above
-            the rating where the reference has nothing, and availability rides
-            the end of the price row where the reference puts its stock mark. */}
+            order rather than appended after it — the record rides above the
+            rating where the reference has nothing, and availability rides the
+            end of the price row where the reference puts its stock mark. */}
         <div className="flex flex-col gap-1 p-3.5">
-          {/* The record line: what it is filed under, and what it is called in a
-              purchase order. Two facts, one row, at the lowest rank on the card.
+          {/* The record: what it is filed under, then what it is called in a
+              purchase order. Two facts, TWO LINES, at the lowest rank on the
+              card.
+
+              It was one justify-between row, and that did not survive the
+              catalogue's real SKUs. The SKU could not shrink and the eyebrow
+              could, so at 26–30 monospace characters ("PILOT-MENNEKES-130-
+              0030420") the SKU took the whole row: the eyebrow measured 0px on
+              every phone tile and two or three letters on a 5-up desktop tile
+              ("PL…"), and on a 141px phone row the SKU itself ran past the
+              tile's clipped edge. The row was dense and said neither thing.
+
+              So each fact gets the full width. The eyebrow truncates, because a
+              category's first words still name it and the product page carries
+              the rest. The SKU WRAPS rather than truncating: it is the
+              identifier a buyer copies into a purchase order, and its
+              distinguishing part is the tail, which is exactly what an ellipsis
+              removes. `overflow-wrap: anywhere` breaks at the hyphens first and
+              mid-token only when a run is wider than the tile.
+
+              A wrapped SKU makes one tile's record a line taller than its
+              neighbour's. That is the variance the rating row already brings,
+              and it is absorbed the same way: the action block is `mt-auto`, so
+              the buttons in a row still share a line.
 
               The eyebrow names the category or the seller, in the visitor's own
               language. When neither is known it is left out — printing the
               platform name there read as "sold by the platform", which is never
-              true of a listing.
+              true of a listing — and the SKU simply becomes the first line.
 
               It is metadata ink rather than --primary-ink: on a grid of 24 this
               is the lowest-rank line on the card, and 24 indigo eyebrows compete
               with the one thing that should carry colour, the price. */}
-          <div className="flex items-baseline justify-between gap-2">
-            {filedUnder ? (
-              <Eyebrow className="min-w-0 truncate">{filedUnder}</Eyebrow>
-            ) : (
-              // Nothing to file it under and no supplier name in this language:
-              // an empty <Eyebrow> is still a flex child and still eats the gap,
-              // so the SKU simply moves to the start of the row.
-              <span className="min-w-0" />
-            )}
-            <span className="u-mono u-meta shrink-0 text-ink-3">
+          <div className="flex min-w-0 flex-col gap-0.5">
+            {filedUnder && <Eyebrow className="truncate">{filedUnder}</Eyebrow>}
+            <span className="u-mono u-meta block text-ink-3 [overflow-wrap:anywhere]">
               <span className="sr-only">{tc("skuLabel")} </span>
               {sku}
             </span>
@@ -674,6 +693,33 @@ export function ProductCard({
           AA. The rule it bends is a house preference; the thing it buys is a
           page that looks like one product.
         */}
+        {/*
+          THE LABEL ALONE ON A PHONE. A 2-up tile gives this button 141px at
+          390px and 126px at 360px. The icon, its 8px gap and "Request
+          availability" measure 143px at 13px, so the label ran through both
+          paddings to the border at 390px and past it at 360px and 375px.
+
+          Padding cannot fix that, which is why this is not a padding change. The
+          button is full-width, the label does not wrap, and the content is
+          centred. So a label wider than the padding box overflows it evenly on
+          both sides, and its distance from the border depends only on how wide
+          the content is. An earlier version of this fix stepped the padding
+          and gap down below `sm`. It measured "fits" only on tiles that read
+          "Request a quote", and left "Request availability" 0.7px from the
+          border at 390px and 7px beyond it at 360px.
+
+          What does shorten the content is the icon. It is decoration
+          (`aria-hidden`), and the words say the same thing, so below `sm` it
+          steps aside. Measured in the English build: "Request availability"
+          sits 2.9px inside the border at 360px, 7px at 375px and 10.7px at
+          390px. Every shorter label, and every Arabic label, has more room.
+
+          The size, the height, the type and `whitespace-nowrap` stay. Letting
+          the label wrap onto two lines would give tiles in one row different
+          button heights, and ProductGridSkeleton reserves exactly one
+          `h-control-md` for this block. A wrapped label is the layout shift
+          that reservation exists to prevent.
+        */}
         <Button
           type="button"
           variant="primary"
@@ -688,9 +734,9 @@ export function ProductCard({
            */
         >
           {purchaseAction === "REQUEST_AVAILABILITY" || purchaseAction === "REQUEST_QUOTE" ? (
-            <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+            <MessageSquare className="h-3.5 w-3.5 max-sm:hidden" aria-hidden="true" />
           ) : (
-            <ShoppingCart className="h-3.5 w-3.5" aria-hidden="true" />
+            <ShoppingCart className="h-3.5 w-3.5 max-sm:hidden" aria-hidden="true" />
           )}
           {purchaseAction === "ADD_TO_CART" ? (
             <CommitLabel idle={tp("addToCart")} committed={tc("added")} done={committed} />

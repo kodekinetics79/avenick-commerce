@@ -69,6 +69,25 @@ test.describe("protected pages send anonymous visitors to sign in, and say where
   }
 });
 
+/**
+ * The other direction of the same boundary: a URL that names no page is a 404,
+ * not a sign-in page. Every unmatched storefront path used to answer
+ * `307 -> /login`, so a dead link greeted a visitor who had never held an account
+ * with "Welcome back" and no crawler ever saw the 404.
+ */
+test.describe("a URL that names no page answers 404, not the sign-in page", () => {
+  for (const path of ["/definitely-not-a-route", "/this-page-does-not-exist"]) {
+    test(`customer ${path} answers 404 without a redirect`, async ({ request }) => {
+      const response = await request.get(url("customer", path), { maxRedirects: 0 });
+      expect(
+        response.status(),
+        `${path} answered HTTP ${response.status()} ${response.headers()["location"] ?? ""} to an anonymous visitor`,
+      ).toBe(404);
+      expect(response.headers()["location"]).toBeUndefined();
+    });
+  }
+});
+
 test.describe("protected APIs refuse anonymous callers with JSON, not a redirect", () => {
   for (const { portal, path } of [
     { portal: "customer" as const, path: "/api/orders" },
@@ -177,7 +196,7 @@ test.describe("the public category tree", () => {
 
 test.describe("the business door", () => {
   /**
-   * `/b2b` is the header's "For business" link and the footer's "B2B portal".
+   * `/b2b` is the header's "For business" link and the footer's "Business account".
    * It is the workspace, and it handles a visitor it cannot place by redirecting
    * to /b2b/register — the door built for a prospect. While the middleware gated
    * it, that redirect could never run and the one visitor the door exists to

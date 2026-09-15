@@ -1975,7 +1975,9 @@
         "settings": "Settings",
         "shippingZones": "Shipping zones"
       },
-      "shippingZones": "Shipping zones"
+      "shippingZones": "Shipping zones",
+      "themeToDark": "Switch to dark mode",
+      "themeToLight": "Switch to light mode"
     },
     "availability": {
       "notes": {

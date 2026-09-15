@@ -37,6 +37,7 @@ export function BuyActions({
   onQty,
   onAdd,
   requestAvailabilityHref,
+  request = null,
 }: {
   qty: number;
   moq: number;
@@ -54,12 +55,41 @@ export function BuyActions({
   onQty: (next: number) => void;
   onAdd: () => void;
   requestAvailabilityHref: string | null;
+  /**
+   * Set when this view carries no price at all (see `quoteOnlyAction`): the
+   * column then offers the ONE thing a buyer can do with the product.
+   */
+  request?: { href: string; action: "REQUEST_QUOTE" | "REQUEST_AVAILABILITY" } | null;
 }) {
   const t = useTranslations("pdp.buy");
+  const ts = useTranslations("pdp.seller");
+  const tl = useTranslations("pdp.ladder");
+
+  if (request) {
+    // QUOTE-ONLY IS A PATH, NOT A DEAD END. The stepper and the cart button are
+    // not rendered disabled here, they are not rendered: a quantity well locked
+    // at the MOQ and a cart button that can never be pressed are two controls
+    // announcing that the page is broken, over a product whose whole commercial
+    // route is the request below. That request is the primary action — the one
+    // raised, filled control in the column, as it already is on the tile.
+    // The MOQ stays as a fact, in the ladder's own words: the stepper's version
+    // ("the quantity cannot go below it") describes a control that is not here.
+    return (
+      <div className="space-y-3">
+        <Button asChild variant="primary" size="lg" className="w-full print:hidden">
+          <Link href={request.href}>
+            <MessageSquare className="h-4 w-4" aria-hidden="true" />
+            {request.action === "REQUEST_QUOTE" ? ts("requestQuote") : t("requestAvailability")}
+          </Link>
+        </Button>
+        {moq > 1 && <p className="fig u-meta text-ink-2">{tl("moq", { qty: moq })}</p>}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3 print:hidden">
         {/* Named as a group so the live quantity is not announced as a bare
             number with no idea what it counts, and NOT clipped: the ± buttons
             are flush to the well's edges, so an overflow-hidden here would
@@ -143,7 +173,7 @@ export function BuyActions({
       )}
 
       {!inStock && requestAvailabilityHref && (
-        <Button asChild variant="secondary" size="lg" className="w-full">
+        <Button asChild variant="secondary" size="lg" className="w-full print:hidden">
           <Link href={requestAvailabilityHref}>
             <MessageSquare className="h-4 w-4" aria-hidden="true" />
             {t("requestAvailability")}

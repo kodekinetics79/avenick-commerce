@@ -110,7 +110,7 @@ export function Layer({
               </div>
               <DialogPrimitive.Close
                 aria-label={closeLabel}
-                className="u-focus -me-1 -mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-nested text-ink-3 transition-colors duration-press ease-standard hover:bg-ink-1/5 hover:text-ink-1"
+                className="u-focus u-hit relative -me-1 -mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-nested text-ink-3 transition-colors duration-press ease-standard hover:bg-ink-1/5 hover:text-ink-1"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </DialogPrimitive.Close>

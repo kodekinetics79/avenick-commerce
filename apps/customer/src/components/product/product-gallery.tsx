@@ -138,8 +138,15 @@ export function ProductGallery({
         </ImageFrame>
       </Surface>
 
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <AvailabilityDot state={availability} label={availabilityLabel} />
+      {/* The availability dot under the frame renders at lg only. At lg the frame
+          and the buy column sit side by side, and each dot belongs to what it is
+          next to. Below lg they stack, and the title's own dot is a thumb's
+          scroll below this one, so a phone read "Availability unconfirmed" twice
+          in its first screen and a quarter. The frame's copy stands down there;
+          the one beside the name and price stays. When a lone image leaves the
+          row nothing else to show, the row goes too, taking its gap with it. */}
+      <div className={`flex flex-wrap items-center justify-between gap-x-4 gap-y-2 ${images.length === 1 ? "max-lg:hidden" : ""}`}>
+        <AvailabilityDot state={availability} label={availabilityLabel} className="max-lg:hidden" />
         {/* No live region on the position readout: each thumbnail carries
             aria-pressed, which is what announces the change to a screen reader.
             A second announcement of the same fact is noise. */}

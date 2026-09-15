@@ -23,6 +23,14 @@ import { cn } from "@avenick/utils";
  * Arabic because scrollLeft is negative there and `left: -delta` still means
  * "towards the inline start" once multiplied through.
  *
+ * They are DRAWN at the dense control height and HIT at 44px on a touch screen.
+ * A 30px circle is the right size for the rail and the wrong target for a thumb,
+ * so `.u-hit` grows an invisible target around each button on coarse pointers
+ * only, and the gap between the two widens to --space-stack there. Each target
+ * reaches 7px past its circle, so the 8px desktop gap would let them overlap by
+ * 6px, and a tap just beside "previous" — inside its target, outside its circle —
+ * would land on "next", which comes later in the DOM, and scroll forward.
+ *
  * This is a client island purely for the two buttons; the rail itself is markup.
  * A page never becomes a client page to use it — children are rendered on the
  * server and passed through.
@@ -77,12 +85,12 @@ export function Rail({ prevLabel, nextLabel, label, className, children, ...prop
       >
         {children}
       </div>
-      <div className="mt-tight flex justify-end gap-tight">
+      <div className="mt-tight flex justify-end gap-tight [@media(pointer:coarse)]:gap-stack">
         <button
           type="button"
           aria-label={prevLabel}
           onClick={() => nudge(-1)}
-          className="u-focus flex h-control-sm w-control-sm items-center justify-center rounded-pill border border-border text-ink-2"
+          className="u-focus u-hit relative flex h-control-sm w-control-sm items-center justify-center rounded-pill border border-border text-ink-2"
         >
           {/* The chevrons are mirrored by the RTL variant rather than swapped in
               JS: the icon is presentational and the label carries the meaning. */}
@@ -92,7 +100,7 @@ export function Rail({ prevLabel, nextLabel, label, className, children, ...prop
           type="button"
           aria-label={nextLabel}
           onClick={() => nudge(1)}
-          className="u-focus flex h-control-sm w-control-sm items-center justify-center rounded-pill border border-border text-ink-2"
+          className="u-focus u-hit relative flex h-control-sm w-control-sm items-center justify-center rounded-pill border border-border text-ink-2"
         >
           <ChevronRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
         </button>

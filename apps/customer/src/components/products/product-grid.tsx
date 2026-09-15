@@ -36,15 +36,44 @@ const COLUMNS: Record<4 | 5, string> = {
   5: "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6",
 };
 
+/**
+ * FOUR TILES ON A PHONE, WHEN THE GRID IS A SAMPLE RATHER THAN AN ANSWER.
+ *
+ * The home page's rails are ten tiles each, which at 2-up is five rows of about
+ * 480px. Three of them made up two thirds of an 11,331px page on a 390px
+ * viewport, and the first of them opened with the same run of products as page
+ * one of /products — so a phone buyer scrolled three screens of the catalogue's
+ * first page before reaching the catalogue.
+ *
+ * `phoneLimit` hides every tile after the fourth below `sm`, so a rail is two
+ * rows there and unchanged from `sm` up. The hidden tiles stay in the markup,
+ * but `display: none` takes them out of the accessibility tree as well as out
+ * of sight, so a phone screen reader hears four tiles too. What keeps the
+ * rest reachable is the rail's "View all", one tap from the full set. That is
+ * why this is for rails nobody asked for. A result set — /products, /search,
+ * /deals, a category — never passes it; a grid the visitor filtered to get
+ * must show what it found.
+ *
+ * The selector is a literal string for the same reason COLUMNS is a map: a
+ * class assembled at runtime is invisible to Tailwind's scanner. It targets the
+ * grid's DIRECT children, which on the home rails are the <Reveal> wrappers, so
+ * a whole tile is hidden and never half of one.
+ */
+const PHONE_LIMIT = "max-sm:[&>*:nth-child(n+5)]:hidden";
+
 export function ProductGrid({
   columns = 4,
+  phoneLimit = false,
   children,
 }: {
   columns?: 4 | 5;
+  phoneLimit?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <LightGrid className={`grid gap-stack sm:gap-5 ${COLUMNS[columns]}`}>{children}</LightGrid>
+    <LightGrid className={`grid gap-stack sm:gap-5 ${COLUMNS[columns]}${phoneLimit ? ` ${PHONE_LIMIT}` : ""}`}>
+      {children}
+    </LightGrid>
   );
 }
 
@@ -52,7 +81,7 @@ export function ProductGrid({
  * Stands in for a grid of <ProductCard>s while the catalog query resolves.
  *
  * It occupies the same box as the loaded card — the SAME <ImageFrame> at the
- * same 4:5 ratio, on the same lit plate, then the record line, two title lines,
+ * same 4:5 ratio, on the same lit plate, then the two record lines, two title lines,
  * a figure at card rank and a full-width control — so the page does not visibly
  * reassemble itself when the products land. The plate is already lit before the
  * photograph arrives, which is the whole point of a skeleton: a page that
@@ -107,9 +136,16 @@ export function ProductGridSkeleton({
                 it every tile jumps 2px the moment the products land. */}
             <div className="h-0.5" />
             <div className="flex flex-col gap-1 p-3.5">
-              <div className="flex items-baseline justify-between gap-2">
-                <Skeleton className="h-2.5 w-16" />
-                <Skeleton className="h-2.5 w-12" />
+              {/* The record: the eyebrow line and the SKU line, stacked as the
+                  card stacks them, each in a box of its own line's height so
+                  the title below lands where the loaded card's does. */}
+              <div className="flex flex-col gap-0.5">
+                <div className="flex h-[var(--lh-micro)] items-center">
+                  <Skeleton className="h-2.5 w-20" />
+                </div>
+                <div className="flex h-[var(--lh-meta)] items-center">
+                  <Skeleton className="h-2.5 w-28" />
+                </div>
               </div>
               {/* The title block reserves the SAME two lines of the ACTIVE
                   script's own leading that the card's <h3> does — not two 16px

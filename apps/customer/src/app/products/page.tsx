@@ -53,8 +53,9 @@ import { categoryLabel } from "@/lib/catalog-categories";
 import { toCatalogListDto } from "@/lib/catalog-list-dto";
 import { findCategory, type CategoryNode } from "@/lib/category-tree";
 import { toCardRow, type CardRow } from "@/lib/product-card-row";
-import { readPublicBrands } from "@/lib/public-brands";
+import { readPublicBrands, type PublicBrand } from "@/lib/public-brands";
 import { readPublicCategoryTree } from "@/lib/public-category-tree";
+import { listingCanonicalFor, NOINDEX_FOLLOW } from "@/lib/page-metadata";
 
 // No platform-name suffix here. The root layout declares
 // `title.template: "%s | <platform>"`, so appending it again rendered
@@ -64,21 +65,88 @@ import { readPublicCategoryTree } from "@/lib/public-category-tree";
 // English literal "Products" for every visitor. A document title is a
 // user-visible string: it is what the browser tab, the history entry, the
 // bookmark and every share card say, so an Arabic session read the whole page
-// in Arabic under an English tab. It follows the same three cases the h1 does,
-// out of the same message tree.
+// in Arabic under an English tab. It follows the same three cases as the page
+// heading, out of the same message tree.
+//
+// THE CATEGORY CASE NEEDS THE CATEGORY'S NAME. catalogue.title.category is the
+// message "{category}", and it was called with no value, so next-intl answered
+// with its fallback: every /products?category=<slug> tab read
+// "catalogue.title.category | Avenick". The name is now read from the public
+// tree, in the visitor's locale, as /categories/<slug> names it. A slug the tree
+// does not hold gets the plain catalogue title rather than the raw parameter,
+// which is visitor input and does not belong in a title.
+//
+// A search is a page made of the visitor's own words, so it is kept out of the
+// index (see NOINDEX_FOLLOW) and names no canonical. The first page of every
+// other variant names one: a category filter is the same listing
+// /categories/<slug> publishes, and ?sort and the facets are views of /products
+// itself. A page past the first names none — it lists different products, and
+// pointing it at page one would tell a crawler those products are a duplicate of
+// page one's (see listingCanonicalFor).
 export async function generateMetadata({
   searchParams,
 }: {
   searchParams: SearchParams;
 }): Promise<Metadata> {
   const t = await getTranslations("catalogue");
+  if (searchParams.search) {
+    return { title: t("title.search", { query: searchParams.search }), robots: NOINDEX_FOLLOW };
+  }
+  // A BRAND LISTING IS ITS OWN PAGE. /products?brand=<slug> is the only address a
+  // brand has — there is no /brands/<slug> — and it lists only that brand's
+  // products. It was titled "All products" and named /products as its canonical,
+  // which told a crawler every brand listing duplicates the whole catalogue and
+  // should be folded into it. It is titled with the brand and names no canonical:
+  // canonicalFor keeps paths only, and none is better than a wrong one.
+  if (searchParams.brand && !searchParams.category) {
+    const brand = await publicBrandBySlug(searchParams.brand);
+    return {
+      title: brand ? t("title.brand", { brand: brandLabel(brand, cookies().get("AVENICK_LOCALE")?.value) }) : t("title.all"),
+      description: t("metaDescription"),
+    };
+  }
+  if (!searchParams.category) {
+    return { title: t("title.all"), description: t("metaDescription"), ...listingCanonicalFor("/products", searchParams.page) };
+  }
+  const category = await publicCategoryBySlug(searchParams.category);
+  if (!category) return { title: t("title.all"), description: t("metaDescription") };
+  const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
   return {
-    title: searchParams.search
-      ? t("title.search", { query: searchParams.search })
-      : searchParams.category
-      ? t("title.category")
-      : t("title.all"),
+    title: t("title.category", {
+      category: locale === "ar" ? category.nameAr?.trim() || category.nameEn : category.nameEn,
+    }),
+    description: t("metaDescription"),
+    // A brand narrows the category to part of it, so /categories/<slug> is not
+    // this page's canonical either.
+    ...(searchParams.brand ? {} : listingCanonicalFor(`/categories/${category.slug}`, searchParams.page)),
   };
+}
+
+/** The public brand a ?brand= slug names, or null when it names none or the list cannot be read. */
+async function publicBrandBySlug(slug: string): Promise<PublicBrand | null> {
+  try {
+    return (await readPublicBrands()).find((brand) => brand.slug === slug) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** A brand's name in the reader's language, falling back to the English name. */
+function brandLabel(brand: PublicBrand, locale: string | undefined): string {
+  return locale === "ar" ? brand.nameAr?.trim() || brand.nameEn : brand.nameEn;
+}
+
+/**
+ * The public category a ?category= slug names, or null. A slug the tree does not
+ * hold, or a tree that cannot be read, names no canonical rather than pointing a
+ * crawler at a /categories/<slug> that would 404.
+ */
+async function publicCategoryBySlug(slug: string): Promise<CategoryNode | null> {
+  try {
+    return findCategory(await readPublicCategoryTree(), slug) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export const dynamic = "force-dynamic";
@@ -524,12 +592,17 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
       <CatalogueLeadView lead={lead} searchParams={searchParams} locale={cardLocale} wantsB2B={wantsB2B} />
 
       {/* The result head. A figure, the noun it counts, and a provenance line
-          saying exactly what the twenty-four cards below are a slice of. */}
+          saying exactly what the twenty-four cards below are a slice of.
+
+          The figure is the <Num> and the message is the noun ALONE. It was
+          `productsCount`, whose message carried the number as well, so the head
+          read "383 383 products". `count` still goes in: the noun's plural
+          form — and in Arabic its case — depends on it. */}
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b-2 border-border-strong pb-3">
         <div className="min-w-0">
           <p className="u-ui flex flex-wrap items-baseline gap-x-1.5 text-ink-2">
             <Num value={total} rank="inline" />
-            <span>{t("productsCount", { count: total })}</span>
+            <span>{t("productsNoun", { count: total })}</span>
             {searchParams.search && (
               <span className="truncate">{t("forQuery", { query: searchParams.search })}</span>
             )}
@@ -641,10 +714,17 @@ async function Pagination({
   const start = Math.max(1, Math.min(page - Math.floor(span / 2), totalPages - span + 1));
   const pages = Array.from({ length: span }, (_, i) => start + i);
 
+  // Each control is drawn at 30px and reaches 44px under a thumb through
+  // .u-hit. Two 44px targets around 30px controls overlap unless 14px separates
+  // them, so the gap opens to 14px on coarse pointers only, and the row wraps
+  // rather than overflowing a phone when the gap grows.
   return (
-    <nav aria-label={t("pagination.label")} className="mt-block flex items-center justify-center gap-1.5">
+    <nav
+      aria-label={t("pagination.label")}
+      className="mt-block flex flex-wrap items-center justify-center gap-1.5 [@media(pointer:coarse)]:gap-3.5"
+    >
       {page > 1 && (
-        <Button variant="ghost" size="sm" asChild>
+        <Button variant="ghost" size="sm" asChild className="relative u-hit">
           <Link href={href(page - 1)} rel="prev">
             {/* A direction-implying icon has to flip in Arabic, or "previous"
                 points at the next page. */}
@@ -666,7 +746,7 @@ async function Pagination({
             {p}
           </span>
         ) : (
-          <Button key={p} variant="ghost" size="sm" asChild>
+          <Button key={p} variant="ghost" size="sm" asChild className="relative u-hit">
             <Link href={href(p)} aria-label={t("pagination.page", { page: String(p) })}>
               {p}
             </Link>
@@ -675,7 +755,7 @@ async function Pagination({
       )}
 
       {page < totalPages && (
-        <Button variant="ghost" size="sm" asChild>
+        <Button variant="ghost" size="sm" asChild className="relative u-hit">
           <Link href={href(page + 1)} rel="next">
             {t("pagination.next")}
             <ChevronRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
@@ -710,7 +790,13 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
   const buildUrl = (updates: Record<string, string | undefined>) => catalogHref(searchParams, updates);
 
   const inStockOnly = filters.inStock;
-  const activeCategory = categories.find((cat) => cat.slug === filters.category);
+  // At any DEPTH. `categories.find` searched the roots only, so a subcategory
+  // in force — which is where every tile's category chip and the category
+  // page's "See the full category" link land — had no name, and the applied
+  // chip fell back to the raw slug: "Category: pilot-wiring-devices-…".
+  const activeCategory = filters.category
+    ? findCategory(categories as CategoryNode[], filters.category)
+    : undefined;
 
   /*
    * BRANDS THAT ACTUALLY HAVE SOMETHING TO SELL.
@@ -722,11 +808,13 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
    * currently selected brand is always present even if it falls outside the cut,
    * or the panel would show a filter as unset while it is in force.
    *
-   * NO COUNT IS PRINTED beside any facet, here or below. `_count.products` on
-   * /api/brands counts ACTIVE, non-deleted products with no discoverability or
-   * seller predicate, so it is a real number about a DIFFERENT set than the one
-   * clicking the facet returns — which is the kind of count FacetRail exists to
-   * refuse. It is used to rank and to exclude, never to display.
+   * NO COUNT IS PRINTED beside any facet, here or below. `_count.products`
+   * from readPublicBrands counts ACTIVE, non-deleted, publicly discoverable
+   * products, but it applies no seller predicate while the catalogue also
+   * requires a live seller (PUBLIC_CATALOG_SELLER). It can therefore exceed
+   * what clicking the facet returns — a number about a slightly DIFFERENT set,
+   * which is the kind of count FacetRail exists to refuse. It is used to rank
+   * and to exclude, never to display.
    */
   const stocked = brands
     .filter((brand) => (brand?._count?.products ?? 0) > 0)
@@ -1011,6 +1099,19 @@ function FilterSidebarSkeleton() {
   );
 }
 
+/** The h1 for a category in force: its name, or "Category" when the tree does not know it. */
+async function categoryHeading(slug: string): Promise<string> {
+  const t = await getTranslations("catalogue");
+  const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
+  try {
+    const within = findCategory((await readPublicCategoryTree()) as unknown as CategoryNode[], slug);
+    if (within) return t("title.category", { category: categoryLabel(within, locale) });
+  } catch (error) {
+    console.error("Unable to name the category in force", error);
+  }
+  return t("category.eyebrow");
+}
+
 export default async function ProductsPage({ searchParams }: { searchParams: SearchParams }) {
   const t = await getTranslations("catalogue");
 
@@ -1025,10 +1126,30 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
   // page reached the message tree: on the Arabic build it printed the Arabic
   // twice, and on the English build it printed a language the reader had not
   // asked for. The tree carries both settings now.
+  //
+  // A CATEGORY IS NAMED, NOT KEYED. `title.category` is "{category}", and it
+  // was called with no argument — so next-intl printed its fallback, the key
+  // path, and every /products?category=… page carried "catalogue.title.category"
+  // as its h1. Every top-category chip, facet link and search pill leads here.
+  // The name comes from the same public tree the sidebar lists, searched at any
+  // depth, in the visitor's language. A slug the tree does not know — an
+  // unknown one, or a category with nothing published beneath it — is headed
+  // "Category", exactly as /categories/[slug] titles one, rather than echoing a
+  // slug back as though it were a name. A failed read is the same heading: the
+  // grid below is about to say what it found either way, and a page head must
+  // not 500 over its label.
+  //
+  // A brand listing is headed with the brand, for the same reason its tab is
+  // (see generateMetadata): it lists one brand, not all products.
+  const brandInForce = !searchParams.search && !searchParams.category && searchParams.brand
+    ? await publicBrandBySlug(searchParams.brand)
+    : null;
   const title = searchParams.search
     ? t("title.search", { query: searchParams.search })
     : searchParams.category
-    ? t("title.category")
+    ? await categoryHeading(searchParams.category)
+    : brandInForce
+    ? t("title.brand", { brand: brandLabel(brandInForce, cookies().get("AVENICK_LOCALE")?.value) })
     : t("title.all");
 
   return (

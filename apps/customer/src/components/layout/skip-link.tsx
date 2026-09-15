@@ -21,9 +21,16 @@ export function SkipLink() {
   return (
     <a
       href="#main-content"
-      // A token pair rather than a raw colour, and a named elevation rung rather
-      // than the deprecated `shadow-elevated` alias.
-      className="u-ui sr-only focus:not-sr-only focus:absolute focus:top-3 focus:start-3 focus:z-layer focus:rounded-nested focus:bg-primary focus:px-4 focus:py-2 focus:font-medium focus:text-primary-foreground focus:shadow-elev-4"
+      // A token pair rather than a raw colour. The focus ring is the system's
+      // own `u-focus` ring, the same one every other control in the chrome
+      // draws. Without it this link was the first thing a keyboard user
+      // reached on every page, and it was the one control wearing the browser's
+      // default blue outline. The ring REPLACES the elevation shadow this link
+      // used to carry rather than sitting beside it: `u-focus` paints with
+      // box-shadow, so the two would fight for the same property, and a link
+      // that is invisible until it is focused loses no elevation cue by
+      // dropping it.
+      className="u-focus u-ui sr-only focus:not-sr-only focus:absolute focus:top-3 focus:start-3 focus:z-layer focus:rounded-nested focus:bg-primary focus:px-4 focus:py-2 focus:font-medium focus:text-primary-foreground"
     >
       {t("skipToContent")}
     </a>

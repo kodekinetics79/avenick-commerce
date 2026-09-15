@@ -45,6 +45,10 @@ export function Footer() {
         { label: t("brands"), href: "/brands" },
         { label: t("wishlist"), href: "/wishlist" },
         { label: t("trackOrder"), href: "/account/orders" },
+        // The account sits with the buyer's own things — orders and the
+        // wishlist — rather than under "Company" beside About and Contact,
+        // which are facts about the platform, not doors into an account.
+        { label: t("myAccount"), href: "/account" },
       ],
     },
     {
@@ -81,19 +85,29 @@ export function Footer() {
       // About and Contact. It is a real page and it works; it is also an
       // engineering readout, and putting it on every page of a shop advertises
       // that the shop breaks.
+      //
+      // "Sign in" came out too. The footer never reads the session (it renders
+      // under server and client pages alike), so it offered "Sign in" to a
+      // buyer who was already signed in, on every page, while the header
+      // beside it said "Sign out".
+      // For a visitor with no session it was also a duplicate: "My account"
+      // already answers with the sign-in page and a callbackUrl back to
+      // /account. The header's account menu and the phone sheet own the
+      // session control, because they are the chrome that knows the session.
       title: t("company"),
       links: [
         { label: t("about"), href: "/about" },
         { label: t("contact"), href: "/contact" },
         { label: t("support"), href: "/support" },
-        { label: t("myAccount"), href: "/account" },
-        { label: t("signIn"), href: "/login" },
       ],
     },
   ];
 
   return (
-    <footer className="border-t border-border">
+    // print:hidden — a buyer printing a product or a policy page into a
+    // procurement file wants the page, not four columns of links and a help
+    // band. The help band is part of this element, so it goes with it.
+    <footer className="border-t border-border print:hidden">
       {/*
         This band used to hold a newsletter form. There is no subscriber model
         and no handler behind it, so "Subscribe" accepted an address and did
@@ -144,7 +158,7 @@ export function Footer() {
           {/*
             The support address is configuration, not copy. An environment
             without one shows no address rather than a mailbox nobody reads;
-            the help-center link above still reaches a ticket queue.
+            the help centre link above still reaches a ticket queue.
           */}
           {support && (
             <p className="mt-5 flex items-center gap-2">

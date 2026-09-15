@@ -1975,7 +1975,9 @@
         "settings": "الإعدادات",
         "shippingZones": "مناطق الشحن"
       },
-      "shippingZones": "مناطق الشحن"
+      "shippingZones": "مناطق الشحن",
+      "themeToDark": "التبديل إلى الوضع الداكن",
+      "themeToLight": "التبديل إلى الوضع الفاتح"
     },
     "availability": {
       "notes": {

@@ -7,13 +7,23 @@ import { ProductCard } from "@/components/products/product-card";
 import { ProductGrid } from "@/components/products/product-grid";
 import { fetchBackendJson } from "@/lib/backend";
 import { categoryLabel, getPublicCategories } from "@/lib/catalog-categories";
+import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
+import { canonicalFor } from "@/lib/page-metadata";
 
-// The page is titled "Featured Products" rather than "Deals" because the
+// The page is titled "Featured products" rather than "Deals" because the
 // catalog computes no promotion, no campaign and no discount — the old title
 // and its struck-through prices were removed during hardening and must not
 // come back. The Dateline below says exactly what the selection is, which is
 // the only remaining imprecision in the word "featured".
-export const metadata = { title: "Featured Products" };
+//
+// The tab used to read the English literal "Featured Products" above an h1
+// reading "Featured products", in both languages. It now comes from deals.title,
+// which the stale "Marketplace offers" copy used to occupy and nothing read.
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("deals");
+  return { title: t("title"), description: t("description"), ...canonicalFor("/deals") };
+}
 // Live catalog data — must not prerender at build time (no DB on build machines).
 export const dynamic = "force-dynamic";
 
@@ -21,6 +31,7 @@ const FEED_LIMIT = 12;
 
 export default async function DealsPage() {
   const locale = (cookies().get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
+  const t = await getTranslations("deals");
   // Filter chips are the catalog's own top-level categories (those with
   // products to show), not a list typed into this page.
   const [{ products }, categories] = await Promise.all([
@@ -67,9 +78,9 @@ export default async function DealsPage() {
             a sale the catalog cannot support. The heading now sits on the same
             underrule as every other page in the storefront. */}
         <PageHeader
-          eyebrow="Discovery"
-          title="Featured products"
-          description="Current catalogue listings and their published prices."
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
           // LAW E. "Featured" is the honest limit of what this page is: it is a
           // slice of the catalog feed, in the order the catalog returned it.
           //
@@ -77,7 +88,7 @@ export default async function DealsPage() {
           // 12 and may return fewer, and the map above then drops every listing
           // with no published cardPrice — so the grid is frequently shorter than
           // 12 while the line underneath asserted 12. Both limits are stated.
-          dateline={`At most ${FEED_LIMIT} listings from the catalogue feed, in the order it returned them, and only those carrying a published price · no ranking, promotion or discount is applied`}
+          dateline={t("dateline", { limit: FEED_LIMIT })}
           linkComponent={Link}
         />
 
@@ -86,15 +97,15 @@ export default async function DealsPage() {
             this page, so they are labelled as somewhere to go rather than
             dressed as filter chips that would appear to act on the grid below. */}
         {categories.length > 0 && (
-          <nav aria-label="Browse by category" className="mb-block">
-            <Eyebrow as="h2" className="mb-2">Browse a category</Eyebrow>
+          <nav aria-label={t("categoryNav")} className="mb-block">
+            <Eyebrow as="h2" className="mb-2">{t("browseCategory")}</Eyebrow>
             <div className="-mx-4 flex gap-2 overflow-x-auto scrollbar-hide px-4 pb-2">
               <Link
                 href="/deals"
                 aria-current="page"
                 className="u-focus u-meta shrink-0 whitespace-nowrap rounded-pill border border-border-strong px-3 py-1 font-medium text-ink-1"
               >
-                {locale === "ar" ? "الكل" : "All"}
+                {t("all")}
               </Link>
               {categories.map((cat) => (
                 <Link
@@ -111,13 +122,13 @@ export default async function DealsPage() {
 
         {deals.length === 0 ? (
           <EmptyState
-            eyebrow="Nothing published"
-            headline="The catalogue returned no priced listings."
-            body="A product appears here once a seller publishes it with a price in a currency this storefront serves."
+            eyebrow={t("empty.eyebrow")}
+            headline={t("empty.headline")}
+            body={t("empty.body")}
             icon={<PackageSearch className="h-3.5 w-3.5" aria-hidden="true" />}
             action={
               <Button variant="secondary" size="sm" asChild>
-                <Link href="/products">Browse all products</Link>
+                <Link href="/products">{t("browseProducts")}</Link>
               </Button>
             }
           />

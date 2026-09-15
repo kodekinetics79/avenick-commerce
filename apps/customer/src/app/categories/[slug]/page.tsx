@@ -15,6 +15,8 @@ import { toCatalogListDto } from "@/lib/catalog-list-dto";
 import { categoryTrail, findCategory, type CategoryNode } from "@/lib/category-tree";
 import { toCardRow, type CardRow } from "@/lib/product-card-row";
 import { readPublicCategoryTree } from "@/lib/public-category-tree";
+import { canonicalFor } from "@/lib/page-metadata";
+import { readCategoryTreeOnce } from "@/components/seo/category-breadcrumb";
 
 interface Props { params: { slug: string } }
 
@@ -62,24 +64,34 @@ async function movingInCategory(category: CategoryNode, locale: "en" | "ar"): Pr
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const categories = (await readPublicCategoryTree()) as unknown as CategoryNode[];
+  // The request-cached read, shared with the breadcrumb markup the segment
+  // layout renders, so the structured data adds no query of its own.
+  const categories = (await readCategoryTreeOnce()) as unknown as CategoryNode[];
   // Searched at any DEPTH. `Array.find` walks roots only, which is why every
   // subcategory page in the storefront rendered the not-found body.
   const cat = findCategory(categories, params.slug);
-  // The unknown-slug fallback was the English literal "Category" for every
-  // visitor. A tab title is a user-visible string, so it comes out of the tree
-  // like every other one.
-  if (!cat) {
-    const t = await getTranslations("catalogue");
-    return { title: t("category.eyebrow") };
-  }
+  // An unknown slug is a 404, decided here as well as in the page. Metadata
+  // resolves before anything is streamed, so a notFound() here always lands as
+  // a real 404 status. The old fallback returned a "Category" title for a page
+  // that did not exist, which gave the 404 document a heading-shaped title for
+  // nothing.
+  // KNOWN LIMIT, measured on a production build: Next 14.2 answers a notFound()
+  // thrown from metadata with its error document. The 404 status is right, but
+  // the server HTML has no header or heading, and the not-found page paints once
+  // JavaScript runs. The product layout makes the same trade and says why.
+  if (!cat) notFound();
   // No platform-name suffix: the root layout declares
   // `title.template: "%s | <platform>"`, so appending it here produced
   // "Electronics | Avenick | Avenick". The name also follows the visitor's
   // locale, the same way the h1 below does — a tab title in a different
   // language from the page it labels is the same defect, one layer up.
   const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
-  return { title: locale === "ar" && cat.nameAr?.trim() ? cat.nameAr : cat.nameEn };
+  return {
+    title: locale === "ar" && cat.nameAr?.trim() ? cat.nameAr : cat.nameEn,
+    // /products?category=<slug> lists the same catalogue and names this page as
+    // its canonical, so this page names itself.
+    ...canonicalFor(`/categories/${cat.slug}`),
+  };
 }
 
 export default async function CategoryPage({ params }: Props) {
@@ -212,9 +224,13 @@ export default async function CategoryPage({ params }: Props) {
             )}
 
             <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b-2 border-border-strong pb-3">
+              {/* The figure is the <Num>; the message is only the noun it
+                  counts. `productsCount` carried the number as well, so this
+                  head read "120 120 products". `count` still goes in, because
+                  the noun's plural form depends on it. */}
               <p className="u-ui flex flex-wrap items-baseline gap-x-1.5 text-ink-2">
                 <Num value={total} rank="inline" />
-                <span>{t("productsCount", { count: total })}</span>
+                <span>{t("productsNoun", { count: total })}</span>
               </p>
               <Dateline>
                 {total > products.length
@@ -261,12 +277,17 @@ export default async function CategoryPage({ params }: Props) {
 
             {/* This route has no pagination. Rather than let 24 cards imply the
                 whole category, it says how many are not shown and hands the
-                visitor the catalogue surface that does paginate. */}
+                visitor the catalogue surface that does paginate.
+
+                `count` is the listings NOT shown; `formatted` is the message's
+                "({formatted} in total)", so it is the whole category. Both were
+                the not-shown figure once, and the sentence then said "96
+                further listings are not shown here (96 in total)". */}
             {total > products.length && (
               <p className="u-ui mt-block text-ink-2">
                 {t("category.moreNotShown", {
                   count: total - products.length,
-                  formatted: String(total - products.length),
+                  formatted: String(total),
                 })}{" "}
                 <Link
                   href={`/products?category=${encodeURIComponent(params.slug)}`}

@@ -3,7 +3,7 @@ import { Header } from "./header";
 import { Footer } from "./footer";
 import { SkipLink } from "./skip-link";
 import { RouteFade } from "./route-fade";
-import { DiscoveryPanel, type TrendingProduct } from "@/components/discovery";
+import { DiscoveryPanel, DiscoveryProvider, type TrendingProduct } from "@/components/discovery";
 import { CartDrawerConnected } from "@/components/cart/cart-drawer-connected";
 
 export interface MainLayoutProps {
@@ -23,6 +23,12 @@ export interface MainLayoutProps {
 
 export function MainLayout({ children, discoveryTrending }: MainLayoutProps) {
   return (
+    // The provider renders no DOM. It is the bridge that lets the header's
+    // phone sheet open the discovery panel below, which has no floating
+    // launcher below lg; see components/discovery/discovery-context.tsx. It
+    // has to be an ancestor of both the header and the panel, and wrapping the
+    // column that holds them both is the one place that is.
+    <DiscoveryProvider>
     <div className="min-h-screen flex flex-col">
       {/*
         The reading hairline: a 2px brass rule that draws itself across the top
@@ -76,5 +82,6 @@ export function MainLayout({ children, discoveryTrending }: MainLayoutProps) {
         <DiscoveryPanel trending={discoveryTrending} />
       </Suspense>
     </div>
+    </DiscoveryProvider>
   );
 }

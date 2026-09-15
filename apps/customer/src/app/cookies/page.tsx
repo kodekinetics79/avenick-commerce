@@ -1,27 +1,68 @@
 import { cookies } from "next/headers";
 import { MainLayout } from "@/components/layout/main-layout";
-import { Eyebrow, PageHeader, Surface } from "@avenick/ui";
+import { PolicyShell, type PolicySection } from "@/components/legal/policy-shell";
+import { resetTtlLabel } from "@/app/auth/identity-copy";
+import { CATEGORY_VISIT_LIMIT, SEARCH_LIMIT, SIGNAL_TTL_MS, VIEW_LIMIT } from "@/components/discovery/interest-signals";
+import { DISMISSAL_TTL_MS } from "@/components/discovery/history-storage";
 import { platformName } from "@avenick/utils/portal-config";
+import { canonicalFor } from "@/lib/page-metadata";
 
 export const metadata = {
+  ...canonicalFor("/cookies"),
   title: `Cookies Policy`,
   description: `${platformName()} cookies policy, user tracking management, and data settings.`,
 };
 
 export const dynamic = "force-dynamic";
 
-interface LegalSection {
-  id: string;
-  titleEn: string;
-  titleAr: string;
-  contentEn: React.ReactNode;
-  contentAr: React.ReactNode;
-}
+/**
+ * WHAT THIS POLICY DESCRIBES, AND WHERE EACH FACT IS READ FROM.
+ *
+ * It said "no browsing statistics are collected". That was written on 2 Sep; on
+ * 5 Sep the product view beacon shipped (components/product/view-beacon.tsx →
+ * POST /api/signals/view), and from then on every product page counted a view.
+ * The policy had not moved. It also listed browser storage as the cart, the
+ * wishlist and the theme, while the Discovery panel keeps a trail of products,
+ * categories and searches in localStorage; warned that blocking cookies breaks
+ * "B2C shopping checkout flows" nobody can reach; and said partners "may place
+ * cookies" under a Content-Security-Policy that admits no third-party script or
+ * frame. So every section below states what the code does:
+ *
+ *   view count      ProductViewSignal (schema.prisma) holds productId, a UTC day
+ *                   and a count — no user, address, device or session column.
+ *   the two records route.ts: a per-address ingest cap (60s window) and a
+ *                   salted, truncated SHA-256 fence of address+product+day (24h
+ *                   window), both in the rate-limit store, never in Postgres.
+ *                   That store is Upstash Redis wherever it is configured, so
+ *                   the policy says neither record is kept WITH THE COUNT and
+ *                   each expires on its own — true of either store — rather
+ *                   than "not written to our database", which a Redis store
+ *                   makes arguable.
+ *   local trail     interest-signals.ts and history-storage.ts. The limits and
+ *                   ages are IMPORTED, not typed, so the policy cannot quote a
+ *                   number the panel no longer uses.
+ *   checkout draft  checkout-form.tsx keeps the address, payment choice and
+ *                   typed code in sessionStorage ("avenick-checkout-draft") and
+ *                   clears it once an order is accepted. A list that says it is
+ *                   "everything the storefront stores in your browser" has to
+ *                   name it — it is the one item that holds an address.
+ *   other hosts     the Google Fonts @import in packages/ui/src/globals.css, and
+ *                   manufacturer image hosts in next.config.mjs remotePatterns
+ *                   (images are unoptimized, so the browser fetches them).
+ *
+ * The regression test beside components/legal checks the route windows and the
+ * table's columns against these sentences.
+ */
+const DAY_SECONDS = 24 * 60 * 60;
+const TRAIL_SECONDS = SIGNAL_TTL_MS / 1000;
+const DISMISSAL_SECONDS = DISMISSAL_TTL_MS / 1000;
+const daysEn = (seconds: number) => `${seconds / DAY_SECONDS} days`;
+const daysAr = (seconds: number) => resetTtlLabel("ar", seconds, "");
 
-const SECTIONS: LegalSection[] = [
+const SECTIONS: PolicySection[] = [
   {
     id: "what-are-cookies",
-    titleEn: "1. What Are Cookies",
+    titleEn: "1. What cookies are",
     titleAr: "١. ما هي ملفات تعريف الارتباط",
     contentEn: (
       <>
@@ -38,93 +79,99 @@ const SECTIONS: LegalSection[] = [
   },
   {
     id: "how-we-use",
-    titleEn: "2. How We Use Cookies",
+    titleEn: "2. How we use cookies",
     titleAr: "٢. كيف نستخدم ملفات تعريف الارتباط",
     contentEn: (
       <>
-        <p>{platformName()} uses cookies and browser storage only to make the storefront work. Specifically, they:</p>
+        <p>{platformName()} uses cookies and browser storage to make the storefront work. Specifically, they:</p>
         <ul className="list-disc ps-5 space-y-1 mt-2">
-          <li>Keep you securely signed in to your B2B or consumer account.</li>
+          <li>Keep you securely signed in to your account.</li>
           <li>Remember your language preference (Arabic or English).</li>
-          <li>Persist items inside your shopping cart and wishlist, and your light/dark theme choice, in your browser&apos;s local storage as you navigate between products.</li>
+          <li>Keep your shopping cart, your wishlist and your light/dark theme choice in your browser&apos;s local storage as you move between pages.</li>
+          <li>Remember, in your browser&apos;s local storage, the products you recently opened, the categories you browsed and your recent searches, so the Discovery panel can suggest where to look next. That trail stays in your browser.</li>
         </ul>
-        <p>We do not run analytics or advertising cookies, and no browsing statistics are collected.</p>
+        <p>We do not set analytics or advertising cookies. One thing is counted: when a product page opens, it tells the platform that the product was viewed. What is stored is the number of views each product received on each day, which ranks the products shown as trending. That count holds no account, network address, device or browser detail, and nothing that identifies you.</p>
+        <p>Two short-lived records make the count possible. Neither is stored with the count, and each expires on its own. Your network address is used for up to a minute to cap how many view reports one address can send. A one-way digest of your address, the product and the date, from which the address cannot be recovered, lets each visitor count once per product per day; it lapses within 24 hours.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>تستخدم المنصة ملفات تعريف الارتباط وتخزين المتصفح فقط لتشغيل المتجر. وبشكل خاص، فهي:</p>
+        <p>تستخدم المنصة ملفات تعريف الارتباط وتخزين المتصفح لتشغيل المتجر. وبشكل خاص، فهي:</p>
         <ul className="list-disc ps-5 space-y-1 mt-2">
-          <li>تبقيكم مسجلين الدخول بأمان إلى حساباتكم التجارية أو الشخصية.</li>
+          <li>تبقيكم مسجلين الدخول بأمان إلى حساباتكم.</li>
           <li>تحفظ اختياركم اللغوي المفضل (العربية أو الإنجليزية).</li>
-          <li>تحفظ المنتجات المضافة إلى سلة التسوق وقائمة الأمنيات واختيار المظهر (الفاتح أو الداكن) في التخزين المحلي لمتصفحكم أثناء التنقل بين الصفحات.</li>
+          <li>تحفظ سلة التسوق وقائمة الأمنيات واختيار المظهر (الفاتح أو الداكن) في التخزين المحلي لمتصفحكم أثناء التنقل بين الصفحات.</li>
+          <li>تحفظ في التخزين المحلي لمتصفحكم المنتجات التي فتحتموها مؤخراً والفئات التي تصفحتموها وعمليات بحثكم الأخيرة، لتقترح عليكم لوحة الاستكشاف أين تبحثون بعد ذلك. ويبقى هذا السجل في متصفحكم.</li>
         </ul>
-        <p>لا نستخدم ملفات تعريف ارتباط للتحليلات أو الإعلانات، ولا نجمع أي إحصاءات تصفح.</p>
+        <p>لا نضع ملفات تعريف ارتباط للتحليلات أو الإعلانات. ونحتسب أمراً واحداً فقط: عند فتح صفحة منتج، تُبلغ الصفحة المنصة بأن المنتج قد شوهد. وما يُخزَّن هو عدد مشاهدات كل منتج في كل يوم، ويُستخدم لترتيب المنتجات المعروضة ضمن الأكثر رواجاً. ولا يتضمن هذا العدد أي حساب أو عنوان شبكة أو بيانات جهاز أو متصفح، ولا أي شيء يدل على هويتكم.</p>
+        <p>ويعتمد هذا الاحتساب على سجلين قصيري الأجل، لا يُحفظ أيٌّ منهما مع عدد المشاهدات، وينتهي كلٌّ منهما من تلقاء نفسه: يُستخدم عنوان شبكتكم لمدة أقصاها دقيقة واحدة لتحديد عدد بلاغات المشاهدة التي يمكن أن تصدر من عنوان واحد، وتُستخدم بصمة أحادية الاتجاه لعنوانكم مع المنتج والتاريخ — لا يمكن استرجاع العنوان منها — لاحتساب كل زائر مرة واحدة لكل منتج في اليوم، وتسقط خلال 24 ساعة.</p>
       </>
     ),
   },
   {
     id: "types",
-    titleEn: "3. Types of Cookies We Use",
+    titleEn: "3. Types of cookies we use",
     titleAr: "٣. أنواع ملفات تعريف الارتباط التي نستخدمها",
     contentEn: (
       <>
         <p>Everything the storefront stores in your browser falls into one of these categories:</p>
         <ul className="list-disc ps-5 space-y-2 mt-2">
-          <li><strong>Necessary Cookies:</strong> The session and CSRF cookies set at sign-in, which account login, B2B approval workflows, and checkout depend on. The site cannot function properly without these.</li>
-          <li><strong>Functional Cookies:</strong> Your active language (`AVENICK_LOCALE`), stored so it persists across sessions.</li>
-          <li><strong>Local Storage (not a cookie):</strong> Your cart, wishlist, and light/dark theme choice, kept in your browser&apos;s local storage and never sent to us as tracking data.</li>
+          <li><strong>Necessary cookies:</strong> the session, CSRF and sign-in return-address cookies set when you sign in, which account sign-in, company approval workflows and checkout depend on. The site cannot function properly without these.</li>
+          <li><strong>Functional cookies:</strong> your active language (<code className="u-mono" dir="ltr">AVENICK_LOCALE</code>), set when you use the language switch and kept for a year.</li>
+          <li><strong>Local storage (not a cookie):</strong> your cart, your wishlist and your light/dark theme choice. Also the Discovery trail: up to {VIEW_LIMIT} products you opened, {CATEGORY_VISIT_LIMIT} category visits and {SEARCH_LIMIT} search terms, each dropped after {daysEn(TRAIL_SECONDS)}; and, if you hide the Discovery panel, the time you hid it, which is honoured for {daysEn(DISMISSAL_SECONDS)}. The panel itself can clear the trail.</li>
+          <li><strong>Session storage (not a cookie):</strong> while you check out, the delivery address you entered, the payment method you chose and any code you typed, so that stepping back to the cart does not lose them. It is kept for that browser tab only, and is removed when the order is placed or the tab is closed.</li>
         </ul>
-        <p>There is no performance or analytics category: the platform sets no analytics cookies.</p>
+        <p>There is no performance, analytics or advertising category. The product view count described above is not a cookie and stores nothing in your browser.</p>
       </>
     ),
     contentAr: (
       <>
         <p>كل ما يخزنه المتجر في متصفحكم يندرج ضمن إحدى هذه الفئات:</p>
         <ul className="list-disc ps-5 space-y-2 mt-2">
-          <li><strong>ملفات أساسية ولازمة:</strong> ملفات الجلسة وحماية CSRF التي تُنشأ عند تسجيل الدخول، ويعتمد عليها تسجيل الدخول وتدفقات اعتماد أوامر الشراء B2B وإجراءات الدفع. لا يمكن للموقع العمل بدونها.</li>
-          <li><strong>ملفات وظيفية:</strong> تفضيل اللغة النشطة (`AVENICK_LOCALE`) لاسترجاعه عند الزيارات القادمة.</li>
-          <li><strong>التخزين المحلي (ليس ملف تعريف ارتباط):</strong> سلة التسوق وقائمة الأمنيات واختيار المظهر (الفاتح أو الداكن)، تُحفظ في التخزين المحلي لمتصفحكم ولا تُرسل إلينا كبيانات تتبع.</li>
+          <li><strong>ملفات أساسية ولازمة:</strong> ملفات الجلسة وحماية CSRF وعنوان العودة بعد تسجيل الدخول، وتُنشأ عند تسجيل الدخول، ويعتمد عليها تسجيل الدخول وتدفقات اعتماد أوامر الشراء للشركات وإجراءات الدفع. لا يمكن للموقع العمل بدونها.</li>
+          <li><strong>ملفات وظيفية:</strong> تفضيل اللغة النشطة (<code className="u-mono" dir="ltr">AVENICK_LOCALE</code>)، ويُضبط عند استخدام زر تبديل اللغة ويُحتفظ به لمدة سنة.</li>
+          <li><strong>التخزين المحلي (ليس ملف تعريف ارتباط):</strong> سلة التسوق وقائمة الأمنيات واختيار المظهر (الفاتح أو الداكن). وكذلك سجل الاستكشاف: حتى {VIEW_LIMIT} من المنتجات التي فتحتموها، و{CATEGORY_VISIT_LIMIT} من زيارات الفئات، و{SEARCH_LIMIT} من عبارات البحث، ويُحذف كلٌّ منها بعد {daysAr(TRAIL_SECONDS)}؛ وإذا أخفيتم لوحة الاستكشاف، يُحفظ وقت إخفائها ويُعمل به لمدة {daysAr(DISMISSAL_SECONDS)}. ويمكن مسح السجل من اللوحة نفسها.</li>
+          <li><strong>تخزين الجلسة (ليس ملف تعريف ارتباط):</strong> أثناء إتمام الطلب، عنوان التوصيل الذي أدخلتموه وطريقة الدفع التي اخترتموها وأي رمز كتبتموه، حتى لا تضيع إذا عدتم إلى السلة. ويبقى ذلك في علامة التبويب هذه فقط، ويُحذف عند تقديم الطلب أو إغلاق علامة التبويب.</li>
         </ul>
-        <p>لا توجد فئة للأداء أو التحليلات: المنصة لا تضع أي ملفات تعريف ارتباط تحليلية.</p>
+        <p>لا توجد فئة للأداء أو التحليلات أو الإعلانات. واحتساب مشاهدات المنتجات الموضّح أعلاه ليس ملف تعريف ارتباط ولا يخزّن شيئاً في متصفحكم.</p>
       </>
     ),
   },
   {
     id: "management",
-    titleEn: "4. Managing Cookie Preferences",
+    titleEn: "4. Managing cookie preferences",
     titleAr: "٤. إدارة تفضيلات ملفات تعريف الارتباط",
     contentEn: (
       <>
-        <p>You can manage or disable cookies by adjusting your internet browser settings (e.g. Chrome, Safari, Edge). Please note that blocking essential cookies will disrupt B2B dashboard authentication and B2C shopping checkout flows.</p>
-        <p>Our bilingual preference cookie `AVENICK_LOCALE` can be modified anytime using the language toggle in our storefront header.</p>
+        <p>You can manage or disable cookies in your browser settings (for example Chrome, Safari or Edge). Blocking the necessary cookies stops you signing in, and with it checkout and the company workspace.</p>
+        <p>The language cookie <code className="u-mono" dir="ltr">AVENICK_LOCALE</code> can be changed at any time with the language switch in the storefront header. Clearing this site&apos;s data in your browser removes the cart, the wishlist, the theme choice and the Discovery trail.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>يمكنكم إدارة أو تعطيل ملفات تعريف الارتباط من خلال ضبط إعدادات متصفح الإنترنت الخاص بكم (مثل كروم، سفاري، إيدج). ويرجى العلم بأن حظر الكوكيز الأساسية سيؤدي لتعطيل مصادقة بوابة B2B وسلة تسوق B2C.</p>
-        <p>يمكن تعديل ملف تعريف ارتباط التفضيل اللغوي `AVENICK_LOCALE` في أي وقت باستخدام زر تبديل اللغة في شريط ترويسة الموقع.</p>
+        <p>يمكنكم إدارة ملفات تعريف الارتباط أو تعطيلها من إعدادات متصفحكم (مثل كروم أو سفاري أو إيدج). ويؤدي حظر الملفات الأساسية إلى تعذّر تسجيل الدخول، ومعه إتمام الطلب ومساحة عمل الشركة.</p>
+        <p>يمكن تعديل ملف تعريف ارتباط اللغة <code className="u-mono" dir="ltr">AVENICK_LOCALE</code> في أي وقت باستخدام زر تبديل اللغة في ترويسة المتجر. ومسح بيانات هذا الموقع من متصفحكم يزيل السلة وقائمة الأمنيات واختيار المظهر وسجل الاستكشاف.</p>
       </>
     ),
   },
   {
     id: "third-parties",
-    titleEn: "5. Third-party Tracking",
-    titleAr: "٥. التتبع بواسطة أطراف ثالثة",
+    titleEn: "5. Third parties",
+    titleAr: "٥. الأطراف الثالثة",
     contentEn: (
       <>
-        <p>We may integrate trusted third-party services (such as regional GCC logistics trackers or payment processing gateways) to deliver seamless ordering. These partners may place cookies on your device to track delivery status or complete payments.</p>
+        <p>The storefront loads no third-party scripts and embeds no third-party frames. Two kinds of file are fetched from other hosts: the typefaces, which come from Google Fonts, and some product images, which load directly from the host that serves them, such as a manufacturer&apos;s own website. Those hosts receive the request as they would from any page that uses their files.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>قد نقوم بدمج خدمات موثوقة لأطراف ثالثة (مثل أنظمة تتبع الشحنات الإقليمية أو بوابات الدفع الإلكتروني) لتسهيل المعاملات. وقد يضع هؤلاء الشركاء ملفات تعريف ارتباط على أجهزتكم لتتبع حالة التسليم أو إكمال عمليات الدفع.</p>
+        <p>لا يحمّل المتجر أي نصوص برمجية من أطراف ثالثة، ولا يضمّن إطارات منها. ويُجلب نوعان من الملفات من مواقع أخرى: الخطوط، وتأتي من Google Fonts، وبعض صور المنتجات، وتُحمَّل مباشرة من الخادم الذي يستضيفها، كموقع الشركة المصنّعة. وتتلقى تلك المواقع الطلب كما تتلقاه من أي صفحة تستخدم ملفاتها.</p>
       </>
     ),
   },
   {
     id: "updates",
-    titleEn: "6. Policy Updates",
+    titleEn: "6. Policy updates",
     titleAr: "٦. تحديثات هذه السياسة",
     contentEn: (
       <>
@@ -144,102 +191,22 @@ export default async function CookiesPage() {
   const locale = cookieStore.get("AVENICK_LOCALE")?.value ?? "en";
   const isAr = locale === "ar";
 
+  // The layout is <PolicyShell>, shared with every other information page; see
+  // the note there on why a policy is one ruled sheet rather than a card per
+  // section. No "last updated" date is typed, because nothing records one — the
+  // shell's default dateline says so.
   return (
     <MainLayout>
-      {/* The brass reading hairline is mounted ONCE, by <MainLayout>, for every
-          route in this app. A second <ScrollProgress> here stacked a second
-          position:fixed, scroll-timeline-animated layer on exactly the same 2px
-          band — two compositor layers and two running animations drawing one
-          rule. "One per document" is the budget, and MainLayout already spends
-          it. */}
-      <div className="mx-auto max-w-6xl px-4 py-block">
-        <PageHeader
-          eyebrow={isAr ? "الشؤون القانونية" : "Legal"}
-          title={isAr ? "سياسة ملفات تعريف الارتباط" : "Cookies Policy"}
-          description={
-            isAr
-              ? "يوضح هذا الدليل ما تخزنه المنصة في متصفحكم ولماذا."
-              : "What the platform stores in your browser, and why."
-          }
-          // No "last updated" date: nothing records when this text changed, so a
-          // typed date would be a claim the platform cannot back. Saying that
-          // outright is better than an empty corner where a date should be.
-          dateline={
-            isAr
-              ? "لا يسجل النظام تاريخ آخر تعديل لهذا النص، فلا يُعرض تاريخ"
-              : "No revision date is shown because none is recorded"
-          }
-        />
-
-
-        {/* The table of contents was `hidden lg:block`, so on a phone a
-            seven-section legal document had no navigation at all — you scrolled
-            it or you did not read it. A <details> disclosure needs no client
-            component, works before hydration and with scripting off, and the
-            chevron is drawn from two rotated borders, so there is nothing to
-            mirror in Arabic. */}
-        <details className="u-facet mb-stack border-y border-hairline lg:hidden">
-          <summary className="u-focus">
-            <span className="u-micro text-ink-3">{isAr ? "جدول المحتويات" : "Table of contents"}</span>
-            <span className="u-facet__chev" aria-hidden="true" />
-          </summary>
-          <nav aria-label={isAr ? "جدول المحتويات" : "Table of contents"} className="flex flex-col pb-3">
-            {SECTIONS.map((sec) => (
-              <a
-                key={sec.id}
-                href={`#${sec.id}`}
-                className="u-focus u-ui rounded-e-nested border-s-2 border-hairline py-1.5 ps-3 text-ink-2"
-              >
-                {isAr ? sec.titleAr : sec.titleEn}
-              </a>
-            ))}
-          </nav>
-        </details>
-        <div className="grid grid-cols-1 items-start gap-block lg:grid-cols-[240px_minmax(0,1fr)]">
-          {/* The sidebar carried `hidden lg:sticky` and no `lg:block`, so it was
-              hidden at every breakpoint and the table of contents never appeared
-              on any screen. */}
-          <aside className="hidden lg:block">
-            <div className="lg:sticky lg:top-24">
-              <Eyebrow as="h2">{isAr ? "جدول المحتويات" : "Table of Contents"}</Eyebrow>
-              <nav
-                aria-label={isAr ? "جدول المحتويات" : "Table of contents"}
-                className="mt-3 flex flex-col"
-              >
-                {SECTIONS.map((sec) => (
-                  <a
-                    key={sec.id}
-                    href={`#${sec.id}`}
-                    // border-s, not border-l: the marker sits at the reading
-                    // start in both directions. Hover changes colour rather than
-                    // weight — animating font-weight reflows the whole list.
-                    className="u-focus u-ui rounded-e-nested border-s-2 border-hairline py-1.5 ps-3 text-ink-3 transition-colors duration-press ease-standard hover:border-border-strong hover:text-ink-1"
-                  >
-                    {isAr ? sec.titleAr : sec.titleEn}
-                  </a>
-                ))}
-              </nav>
-            </div>
-          </aside>
-
-          {/* One document, ruled into sections — not one independently bordered
-              card per section, each with its own shadow and its own icon tile. */}
-          <Surface rung={2} className="overflow-hidden">
-            {SECTIONS.map((sec, i) => (
-              <section
-                key={sec.id}
-                id={sec.id}
-                className={`scroll-mt-24 p-6 lg:p-8 ${i > 0 ? "border-t border-hairline" : ""}`}
-              >
-                <h2 className="u-h2 text-ink-1">{isAr ? sec.titleAr : sec.titleEn}</h2>
-                <div className="u-body mt-3 max-w-prose space-y-4 text-ink-2 [&_strong]:font-semibold [&_strong]:text-ink-1">
-                  {isAr ? sec.contentAr : sec.contentEn}
-                </div>
-              </section>
-            ))}
-          </Surface>
-        </div>
-      </div>
+      <PolicyShell
+        isAr={isAr}
+        eyebrowEn="Legal"
+        eyebrowAr="الشؤون القانونية"
+        titleEn="Cookies Policy"
+        titleAr="سياسة ملفات تعريف الارتباط"
+        descriptionEn="What the platform stores in your browser, and why."
+        descriptionAr="يوضح هذا الدليل ما تخزنه المنصة في متصفحكم ولماذا."
+        sections={SECTIONS}
+      />
     </MainLayout>
   );
 }

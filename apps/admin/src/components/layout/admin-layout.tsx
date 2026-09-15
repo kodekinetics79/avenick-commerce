@@ -698,7 +698,7 @@ export function AdminLayout({ children, pendingCount = 0 }: { children: React.Re
             {/* Only a build that is not a production build gets a badge; a
                 production build must not claim to be anything else. */}
             {process.env.NODE_ENV !== "production" && <StatusPill tone="warning">{t("nav.devBuild")}</StatusPill>}
-            <ThemeToggle />
+            <ThemeToggle labels={{ toDark: t("nav.themeToDark"), toLight: t("nav.themeToLight") }} />
             {/* The notification bell that used to sit here is deleted. It was a
                 button with no handler behind it, standing in for a notification
                 system this platform does not have; the only real number it

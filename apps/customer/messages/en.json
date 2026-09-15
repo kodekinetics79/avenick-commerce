@@ -18,7 +18,7 @@
     "freeDelivery": "Delivery terms are confirmed while your order is processed",
     "searchPlaceholder": "Search the marketplace",
     "skipToContent": "Skip to content",
-    "metaDescription": "A GCC marketplace for business and consumer buying: search a supplier catalogue, order directly, or submit an RFQ for volume requirements."
+    "metaDescription": "A GCC marketplace for business buying: search a supplier catalogue, request quotes, and order through a reviewed company account."
   },
   "nav": {
     "home": "Home",
@@ -35,7 +35,7 @@
     "dashboard": "Dashboard",
     "signIn": "Sign in",
     "signOut": "Sign out",
-    "trackOrder": "Track orders",
+    "trackOrder": "Orders",
     "getQuote": "Get a quote",
     "myAccount": "My account",
     "primaryNav": "Primary navigation",
@@ -62,7 +62,10 @@
     "deliveryAddresses": "Delivery addresses",
     "billing": "Billing",
     "spendAnalytics": "Spend analytics",
-    "allBrands": "All brands"
+    "allBrands": "All brands",
+    "themeToDark": "Switch to dark mode",
+    "themeToLight": "Switch to light mode",
+    "registerCompany": "Register a company"
   },
   "auth": {
     "welcomeBack": "Welcome back",
@@ -302,8 +305,8 @@
     },
     "trust": {
       "eyebrow": "Buyer protection",
-      "verifiedSellers": "Verified sellers",
-      "verifiedSellersDesc": "Business documentation is reviewed before a seller can list.",
+      "verifiedSellers": "Suppliers don’t self-publish",
+      "verifiedSellersDesc": "A supplier’s storefront goes live only when the platform activates it.",
       "paymentOptions": "Payment methods on this platform",
       "paymentOptionsDesc": "{methods}. Which of these are enabled today is stated at the payment step.",
       "pricedFirst": "Priced before you pay",
@@ -388,17 +391,36 @@
     }
   },
   "deals": {
-    "title": "Marketplace offers",
-    "description": "Marketplace promotions are not currently available.",
-    "browseProducts": "Browse products"
+    "title": "Featured products",
+    "description": "Current catalogue listings and their published prices.",
+    "browseProducts": "Browse products",
+    "eyebrow": "Discovery",
+    "dateline": "At most {limit} listings from the catalogue feed, in the order it returned them, and only those carrying a published price · no ranking, promotion or discount is applied",
+    "categoryNav": "Browse by category",
+    "browseCategory": "Browse a category",
+    "all": "All",
+    "empty": {
+      "eyebrow": "Nothing published",
+      "headline": "The catalogue returned no priced listings.",
+      "body": "A product appears here once a seller publishes it with a price in a currency this storefront serves."
+    }
   },
   "brandsContent": {
     "title": "Shop by brand",
-    "description": "Browse brands represented in the current marketplace catalog.",
-    "emptyTitle": "No brands yet",
-    "emptyDescription": "Brands will appear here when products are available in the catalog.",
-    "productCount": "{count, plural, one {# product} other {# products}}",
-    "browse": "Browse"
+    "description": "Browse the brands with listings in the catalogue.",
+    "eyebrow": "Discovery",
+    "dateline": "Each count is of the listings published for public discovery under that brand.",
+    "listingsNoun": "{count, plural, one {listing} other {listings}}",
+    "empty": {
+      "eyebrow": "Nothing recorded",
+      "headline": "No brand has a listing in the catalogue yet.",
+      "body": "A brand appears here once a seller publishes a product against it."
+    },
+    "sellerCta": {
+      "headline": "Are you a brand or distributor?",
+      "body": "Apply to sell on {platform}. A storefront goes live only when the platform activates it."
+    },
+    "metaDescription": "Brands listed in the supplier catalogue, each linked to its products."
   },
   "spatialCommerce": {
     "metadataTitle": "Spatial Commerce Preview",
@@ -464,7 +486,7 @@
     "bestSellers": "Products to explore",
     "bestSellersSub": "Browse a selection from the current catalog",
     "featuredProducts": "More from the marketplace",
-    "featuredProductsSub": "Continue exploring products across key categories",
+    "featuredProductsSub": "More recently listed products from the catalogue",
     "viewAll": "View all",
     "heroTagline": "A modern marketplace for GCC trade",
     "heroTitle1": "Source with clarity.",
@@ -476,17 +498,8 @@
     "statProducts": "Catalog products",
     "statCompanies": "Business accounts",
     "trustedBrands": "Brands on the marketplace",
-    "prop1Title": "Supplier due diligence",
-    "prop1Desc": "Business documentation may be reviewed before marketplace access.",
-    "prop2Title": "Clear order review",
-    "prop2Desc": "Review pricing, VAT and delivery details before ordering. Bank transfer is supported; online payment methods remain unavailable until provider certification.",
-    "prop3Title": "GCC delivery details",
-    "prop3Desc": "Set delivery addresses in supported GCC markets. Coverage, timing and tracking are confirmed for each order during processing.",
-    "prop4Title": "Structured RFQs",
-    "prop4Desc": "Capture quantities, specifications, target pricing, and delivery needs in one request.",
     "b2bTitle": "Buying at volume?",
     "b2bDesc": "Submit detailed requirements, compare returned quotes, and keep purchasing activity in one workspace.",
-    "b2bCta": "Submit an RFQ",
     "catIndustrial": "Industrial",
     "catElectronics": "Electronics",
     "catOffice": "Office supplies",
@@ -519,8 +532,6 @@
     "catalogEmptyEyebrow": "Nothing published",
     "catalogEmptyHeadline": "No supplier lists a product in this storefront yet.",
     "catalogEmptyBody": "Listings appear here once a supplier publishes one and it becomes discoverable. A quote request reaches suppliers directly in the meantime.",
-    "propsEyebrow": "How the platform works",
-    "propsTitle": "What happens between a requirement and a delivered order",
     "b2bEyebrow": "B2B sourcing",
     "shopByCategory": "Shop by category",
     "browseAllProducts": "Browse all products",
@@ -532,37 +543,36 @@
     "topRated": "Top rated",
     "topRatedSub": "Highest rated by buyers, from three reviews or more",
     "protectEyebrow": "Buyer protection",
-    "protectTitle": "Complete buyer protection",
-    "protectSub": "Your order is protected from payment through to delivery",
-    "protect1Title": "Verified sellers",
-    "protect1Desc": "Business documentation is reviewed before a seller can list.",
-    "protect2Title": "Multiple payment options",
-    "protect2Desc": "MADA, Apple Pay, card, bank transfer and STC Pay.",
-    "protect3Title": "Priced before you commit",
-    "protect3Desc": "VAT and delivery are computed and shown before you pay.",
+    "protectTitle": "Checks on every order",
+    "protectSub": "What the platform enforces on an order, from submission to return",
+    "protect2Title": "Pay by bank transfer",
+    "protect2Desc": "Orders are paid by bank transfer and marked paid once finance verifies the funds. Card, mada, Apple Pay and STC Pay remain unavailable until payment initiation is certified.",
+    "protect3Title": "Re-checked when you submit",
+    "protect3Desc": "Price, VAT and availability are re-checked when an order is submitted; delivery terms are confirmed while it is processed.",
     "protect4Title": "Returns you can track",
     "protect4Desc": "Raise a return against a delivered order and follow it to refund.",
-    "protectStat": "100%",
-    "protectStatLabel": "Sellers verified before listing",
     "brandsEyebrow": "Brands",
     "brandsTitle": "Brands in the catalogue",
     "brandsSub": "Manufacturers whose products are listed by sellers on this marketplace",
-    "brandsAll": "Browse brands"
+    "brandsAll": "Browse brands",
+    "quoteSignInNote": "Quote requests are sent from a business account. You'll be asked to sign in first if you aren't already.",
+    "protectCta": "Read the buyer protection terms",
+    "metaTitle": "B2B sourcing marketplace for the GCC"
   },
   "footer": {
-    "helpTitle": "Need a hand?",
-    "helpBody": "Order questions go to the help center; bulk pricing goes through a quote request.",
-    "helpCenter": "Help center",
-    "requestQuote": "Request a quote",
-    "tagline": "B2B-first. B2C-ready. Built for modern industrial supply and procurement.",
+    "helpTitle": "Questions about an order or a price?",
+    "helpBody": "Open a support ticket about an order, or request a quote for pricing on a product.",
+    "helpCenter": "Help centre",
+    "requestQuote": "Get a quote",
+    "tagline": "Industrial supply for businesses in the GCC: search the catalogue and request a quote.",
     "supportEmailAria": "Support email: {address}",
     "shop": "Shop",
     "allProducts": "All products",
     "brands": "Brands",
     "wishlist": "Wishlist",
-    "trackOrder": "Track orders",
+    "trackOrder": "Orders",
     "forBusiness": "For business",
-    "b2bPortal": "B2B portal",
+    "b2bPortal": "Business account",
     "quotes": "Quotes",
     "becomeSeller": "Become a seller",
     "returns": "Returns",
@@ -614,7 +624,9 @@
       "totalRow": "Total including VAT",
       "basis": "Published price for this selection at this quantity · price, tax and availability are revalidated when the order is submitted",
       "none": "No applicable price is available for this selection and quantity.",
-      "noneBasis": "Prices are published per currency and per quantity band; none of the published bands covers this combination"
+      "noneBasis": "Prices are published per currency and per quantity band; none of the published bands covers this combination",
+      "onRequestBasis": "No price is published for {channel, select, B2B {business orders} other {consumer orders}} of this listing",
+      "onRequestBasisCurrency": "No price in {currency} is published for {channel, select, B2B {business orders} other {consumer orders}} of this listing"
     },
     "ladder": {
       "title": "Volume pricing",
@@ -654,6 +666,18 @@
         "VERIFIED": "Verified",
         "GOLD": "Gold",
         "PLATINUM": "Platinum"
+      },
+      "verifiedBasis": "{document} reviewed {date}",
+      "document": {
+        "COMMERCIAL_REGISTRATION": "Commercial registration",
+        "TRADE_LICENSE": "Trade licence",
+        "VAT_CERTIFICATE": "VAT certificate",
+        "SASO_CERTIFICATE": "SASO certificate",
+        "SFDA_APPROVAL": "SFDA approval",
+        "HALAL_CERTIFICATE": "Halal certificate",
+        "ESMA_CERTIFICATE": "ESMA certificate",
+        "ISO_CERTIFICATE": "ISO certificate",
+        "OTHER": "Supporting document"
       }
     },
     "sections": {
@@ -742,6 +766,10 @@
       "related": "Same category, brand or specification as this product.",
       "boughtTogether": "Ordered together with this product by other buyers.",
       "trending": "Ranked from catalogue activity, not from your browsing."
+    },
+    "meta": {
+      "description": "{name}, SKU {sku}",
+      "descriptionBrand": "{name} by {brand}, SKU {sku}"
     }
   },
   "catalogue": {
@@ -749,9 +777,9 @@
     "title": {
       "all": "All products",
       "category": "{category}",
-      "search": "Results for “{query}”"
+      "search": "Results for “{query}”",
+      "brand": "{brand}"
     },
-    "productsCount": "{count, plural, =0 {No products} one {1 product} other {# products}}",
     "forQuery": "for “{query}”",
     "showingAll": "Showing every published listing.",
     "showingAllFiltered": "Showing every listing that matches these filters.",
@@ -825,7 +853,7 @@
       "prompt": "Enter a keyword above to search the catalogue.",
       "titleEmpty": "Search the catalogue",
       "titleResults": "Results for “{query}”",
-      "productsFound": "{count, plural, =0 {No products} one {1 product} other {# products}} found",
+      "productsFound": "{count, plural, one {product} other {products}} found",
       "ranked": "Ranked by how closely each match fits your term.",
       "rankedTruncated": "Ranked by how closely each match fits your term · showing the first {shown}.",
       "moreNotShown": "{count, plural, one {1 further match is} other {# further matches are}} not shown here ({formatted} in total).",
@@ -850,7 +878,7 @@
         "eyebrow": "Where to go next",
         "categories": "Categories named like “{query}”",
         "brands": "Brands named like “{query}”",
-        "identifier": "No listing carries the part number “{query}”.",
+        "identifier": "No SKU or part number matches “{query}”.",
         "identifierAction": "Request a quote for it",
         "relaxed": "Dropping the last word finds {count, plural, one {1 listing} other {# listings}}.",
         "relaxedAction": "Search for “{query}”"
@@ -903,7 +931,9 @@
       "IN_STOCK": "In stock",
       "OUT_OF_STOCK": "Out of stock",
       "UNCONFIRMED": "Availability unconfirmed"
-    }
+    },
+    "productsNoun": "{count, plural, one {product} other {products}}",
+    "metaDescription": "Browse the supplier catalogue by category, brand and minimum order quantity."
   },
   "discovery": {
     "eyebrow": "Discovery",
@@ -948,17 +978,16 @@
     "metaTitle": "Wishlist"
   },
   "status": {
-    "metaTitle": "Platform status"
+    "metaTitle": "System status"
   },
   "notFound": {
     "eyebrow": "Page not found",
     "code": "404",
     "headline": "This address does not resolve to a page.",
-    "body": "The link may be out of date, or the page may have been removed. The catalogue, your account and support are all still reachable below.",
+    "body": "The link may be out of date, or the page may have been removed. The catalogue and support are linked below, and your account is in the header.",
     "home": "Go to the storefront",
     "products": "Browse the catalogue",
-    "support": "Contact support",
-    "markLabel": "{brand} home"
+    "support": "Contact support"
   },
   "errorPage": {
     "eyebrow": "Page not loaded",

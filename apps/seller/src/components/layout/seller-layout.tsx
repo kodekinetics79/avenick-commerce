@@ -834,7 +834,7 @@ export function SellerLayout({
             </div>
 
             <div className="flex shrink-0 items-center gap-1">
-              <ThemeToggle />
+              <ThemeToggle labels={{ toDark: t("shell.themeToDark"), toLight: t("shell.themeToLight") }} />
               <NotificationBell />
               <Link
                 href="/messages"

@@ -753,7 +753,10 @@ second display plate.
 **`<EmptyState>`** — adds `variant?: "default" | "certificate"` · `scale?: "default" | "hero"`
 · `glyph?`. The default variant is unchanged, so all 117 existing call sites keep their box.
 The certificate variant **throws without an `action`**. It also lost its `"use client"`
-directive, which it never needed.
+directive, which it never needed. `headingLevel?: "p" | "h1" | "h2"` (default `"p"`) changes
+only the element that carries the lead, never its classes: use `"h1"` only where the plate
+**is** the page — the 404, the error boundary, an empty cart — so that page has a heading at
+all, and leave every plate inside a page as `"p"`.
 > **The marketplace move, and it is fully true:** when a category is empty, the one action is
 > the RFQ route. *"No supplier lists this yet — request a quote"* turns the emptiest surface
 > in the product into its most differentiated one.
@@ -815,6 +818,7 @@ document, not a discussion.**
 | `.u-badge-pulse` / `.u-wipe` | the commit gestures | — |
 | `.u-state` / `.u-state-wash` | oklab state layers | unlimited |
 | `.u-pop` | `@starting-style` popover entry | — |
+| `.u-hit` | an invisible 44px touch target on coarse pointers; sets no position, so the host must already be positioned; rides `::before`, so never on a `[data-rim]`, `[data-specular]` or `.u-sheen` host; two 30px neighbours need 14px between them | unlimited |
 | `[data-rim]` | the fresnel shoulder | unlimited |
 | `[data-grain]` / `[data-rule-ground]` | texture and ruling | ≤3 per viewport, never on a scroller or a table |
 

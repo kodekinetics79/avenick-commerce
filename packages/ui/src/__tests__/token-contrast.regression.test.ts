@@ -85,6 +85,34 @@ describe("colour token contrast", () => {
   });
 
   /**
+   * The home hero's brand panel carries WHITE copy in both themes — its headline,
+   * eyebrow and description are text-white — so its fill cannot follow --primary,
+   * which dark mode lifts to a mint built to sit under dark ink. When the panel's
+   * first stop was hsl(var(--primary)), dark theme put the headline on
+   * rgb(100,216,158) at 1.78:1, under even the 3:1 large-text floor.
+   */
+  describe("brand panel", () => {
+    const onWhite = (name: string, theme: "light" | "dark") =>
+      (1 + 0.05) / (luminance(toRgb(token(name, theme))) + 0.05);
+
+    it.each(["panel-brand-from", "panel-brand-to"])("keeps white copy legible on --%s in both themes", (name) => {
+      expect(onWhite(name, "light")).toBeGreaterThanOrEqual(AA_TEXT);
+      expect(onWhite(name, "dark")).toBeGreaterThanOrEqual(AA_TEXT);
+    });
+
+    it("does not flip with the theme, and the utility paints from its own stops", () => {
+      // token() reads the LAST definition for dark, so a redefinition in the
+      // .dark block is exactly what this catches.
+      expect(token("panel-brand-from", "dark")).toEqual(token("panel-brand-from", "light"));
+      expect(token("panel-brand-to", "dark")).toEqual(token("panel-brand-to", "light"));
+      const panel = css.match(/\.u-panel-brand\s*\{[^}]*\}/)?.[0] ?? "";
+      expect(panel).toContain("var(--panel-brand-from)");
+      expect(panel).toContain("var(--panel-brand-to)");
+      expect(panel).not.toContain("var(--primary");
+    });
+  });
+
+  /**
    * Brand, trade and register have to stay TELLABLE APART, not merely legible.
    * Moving the brand to green put it 34° from verdigris, which measured as the
    * closest pair in the system — closer than trade is to register, the two it

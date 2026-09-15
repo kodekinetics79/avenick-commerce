@@ -3,7 +3,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { Skeleton } from "@avenick/ui";
 import { AuthShell } from "../auth/auth-shell";
-import { identityCopy, LOCALE_COOKIE, toIdentityLocale } from "../auth/identity-copy";
+import { identityCopy, LOCALE_COOKIE, loginSubtitle, toIdentityLocale } from "../auth/identity-copy";
 import { LoginForm } from "./login-form";
 
 import type { Metadata } from "next";
@@ -32,17 +32,21 @@ export async function generateMetadata(): Promise<Metadata> {
  * /api/auth/register/consumer/route.ts) — so the browser genuinely does not know
  * which branch ran. The sentence chosen below is the one true in both.
  *
- * `callbackUrl` is read here for ONE purpose: to keep it attached to the
- * registration link below. It is not used to navigate — the island still owns
- * that, and still validates independently — but it has to survive this page or
- * the buyer loses it. A visitor sent here from /checkout has no account by
+ * `callbackUrl` is read here for TWO purposes, and navigation is neither of
+ * them. It keeps the destination attached to the registration link below, and
+ * it chooses the subtitle: a buyer sent here by "Request a quote" is told they
+ * are signing in to continue that request, where they used to read a sentence
+ * about orders, returns and support tickets. It is still not used to navigate —
+ * the island owns that, and still validates independently — but it has to
+ * survive this page or the buyer loses it. A visitor sent here from /checkout has no account by
  * definition; they follow "Register", and until this link carried the parameter
  * the destination died at the first hop, leaving a newly registered buyer on
  * /account/orders wondering where their basket went.
  *
  * It is validated here anyway, with the same `safeReturnTo` the island uses. A
  * value that reaches an href is a value an attacker can aim, and "it is only a
- * link" is how open redirects ship.
+ * link" is how open redirects ship. The subtitle is chosen from the VALIDATED
+ * value too, so an unsafe callback reads as no callback in the copy as well.
  */
 export default async function LoginPage({
   searchParams,
@@ -67,7 +71,7 @@ export default async function LoginPage({
       locale={locale}
       eyebrow={t.eyebrow}
       title={t.title}
-      subtitle={justRegistered ? t.subtitleRegistered : t.subtitle}
+      subtitle={loginSubtitle(t, { justRegistered, returnTo })}
       footer={
         <p className="u-meta text-ink-3">
           {t.noAccount}{" "}
