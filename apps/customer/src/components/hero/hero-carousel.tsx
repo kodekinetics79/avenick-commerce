@@ -188,7 +188,7 @@ export function HeroCarousel({ slides, className }: HeroCarouselProps) {
                     the independent `translate` on this box, decorative by
                     construction because it holds nothing but the photograph. */}
                 <div className="u-slide__object relative aspect-square w-full">
-                  <div className="u-float absolute inset-0">
+                  <div className="absolute inset-0">
                     {slide.imageUrl ? (
                       <Image
                         src={slide.imageUrl}
