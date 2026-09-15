@@ -1,12 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
 import { getSellerDashboard } from "../services/products";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
+
+const run = integrationSuite();
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const users: string[] = [], sellers: string[] = [], products: string[] = [];
 let categoryId = "", orderId = "", sellerAId = "", sellerBId = "";
 
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const [buyer, ownerA, ownerB] = await Promise.all([
     db.user.create({ data: { email: `dash-buyer-${stamp}@example.test`, firstName: "Dash", lastName: "Buyer", role: "CONSUMER", status: "ACTIVE" } }),
     db.user.create({ data: { email: `dash-a-${stamp}@example.test`, firstName: "Dash", lastName: "A", role: "SELLER_OWNER", status: "ACTIVE" } }),
@@ -37,6 +41,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   if (orderId) await db.order.deleteMany({ where: { id: orderId } });
   await db.product.deleteMany({ where: { id: { in: products } } });
   if (categoryId) await db.category.deleteMany({ where: { id: categoryId } });
@@ -44,7 +49,7 @@ afterAll(async () => {
   await db.user.deleteMany({ where: { id: { in: users } } });
 });
 
-describe("seller dashboard multi-seller projection", () => {
+run("seller dashboard multi-seller projection", () => {
   it("returns only each seller's own commercial value", async () => {
     const [a, b] = await Promise.all([getSellerDashboard(sellerAId), getSellerDashboard(sellerBId)]);
     expect(a.recentOrders.find((order) => order.id === orderId)?.total).toBe(105);

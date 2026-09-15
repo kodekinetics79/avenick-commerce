@@ -1,0 +1,46 @@
+-- A cutoff instant that lets an existing session be revoked. This is a live
+-- security fix on the WEB, not a mobile feature.
+--
+-- THE BUG, TODAY. @avenick/auth uses `session: { strategy: "jwt" }` with
+-- `maxAge: 30 * 24 * 60 * 60` (packages/auth/src/config.ts:107). A JWT session
+-- carries no server-side row, so there is nothing to delete: the password-reset
+-- redeem route says so in its own comment
+-- (apps/customer/src/app/api/auth/password-reset/redeem/route.ts:118-123) and
+-- clears the Session table, which nothing writes to. The consequence is that
+-- resetting a password does NOT sign the thief out. A stolen session cookie
+-- keeps working for up to thirty days after the victim has done the one thing
+-- the product tells them to do about it.
+--
+-- THE FIX. Compare the token's issued-at against a per-user cutoff. Any session
+-- minted before `sessionsValidAfter` is rejected; setting the column to now()
+-- invalidates every session in existence for that user in one write. Password
+-- reset sets it. So does "sign out of all devices", and so does an admin
+-- suspending an account.
+--
+-- WHY NO INDEX. The check runs inside `guarded()`, which already does
+-- `db.user.findUnique({ where: { id: session.user.id }, select: { role, status,
+-- deletedAt } })` on every authenticated request (packages/auth/src/api.ts).
+-- Adding this column to that existing `select` costs one more field on a lookup
+-- that is already by primary key — no extra round trip, no extra index, and no
+-- index could help a lookup that is already the PK. An index here would be pure
+-- write cost on the User table.
+--
+-- Purely additive: one nullable column on User. NULL is the correct and
+-- deliberate value for every existing row — it means "no cutoff has ever been
+-- set for this user", which is exactly true, and the check must read NULL as
+-- "allow" so that adding the column signs nobody out. No default, no backfill,
+-- nothing dropped or altered. On PostgreSQL 11+ adding a nullable column with
+-- no default is a metadata-only change: it does not rewrite the User table and
+-- does not hold a long lock.
+--
+-- Written by hand rather than taken from `migrate diff`, for the reason the
+-- shipping-zones migration gives: the generated script also carries unrelated
+-- pre-existing drift (an ApprovalPolicy default), which is deliberately NOT
+-- touched here.
+--
+-- THIS IS THE SCHEMA HALF ONLY. The column changes nothing until `guarded()`
+-- compares against it and the password-reset path writes it. Until that lands,
+-- the thirty-day window is still open.
+
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN "sessionsValidAfter" TIMESTAMP(3);

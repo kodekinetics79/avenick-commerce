@@ -3,6 +3,9 @@ import { db } from "../index";
 import { createCustomerReturnRequests } from "../services/customer-returns";
 import { getSellerOrderProjections } from "../services/seller-order-projections";
 import { setReturnStatus } from "../services/workflow";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
+
+const run = integrationSuite();
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const ids = { users: [] as string[], sellers: [] as string[], products: [] as string[] };
@@ -10,6 +13,7 @@ let categoryId = "", orderId = "", buyerId = "", ownerAId = "", sellerAId = "", 
 let itemAId = "", itemBId = "";
 
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const [buyer, ownerA, ownerB] = await Promise.all([
     db.user.create({ data: { email: `closure-buyer-${stamp}@example.test`, firstName: "Buyer", lastName: "Closure", role: "CONSUMER", status: "ACTIVE" } }),
     db.user.create({ data: { email: `closure-a-${stamp}@example.test`, firstName: "Owner", lastName: "A", role: "SELLER_OWNER", status: "ACTIVE" } }),
@@ -42,6 +46,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   await db.auditLog.deleteMany({ where: { actorId: { in: ids.users } } });
   if (orderId) await db.order.deleteMany({ where: { id: orderId } });
   await db.product.deleteMany({ where: { id: { in: ids.products } } });
@@ -50,7 +55,7 @@ afterAll(async () => {
   await db.user.deleteMany({ where: { id: { in: ids.users } } });
 });
 
-describe("marketplace release isolation closure", () => {
+run("marketplace release isolation closure", () => {
   it("projects only the requesting seller's line values", async () => {
     const a = await getSellerOrderProjections(sellerAId, {});
     const b = await getSellerOrderProjections(sellerBId, {});

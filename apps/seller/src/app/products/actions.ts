@@ -8,16 +8,20 @@ import {
   generateProductIssues,
   lockInventoryStockRows,
   lockProductCommercialRows,
+  ProductArchiveBlockedError,
+  archiveSellerListing,
   refreshProductHealth,
   requireCurrentSellerActor,
+  restoreSellerListing,
   resolveTaxJurisdiction,
   type Country,
   type Currency,
   type PricingType,
   type ProductStatus,
 } from "@avenick/database";
+import { getTranslations } from "next-intl/server";
 import { log } from "@avenick/observability";
-import { slugify } from "@avenick/utils";
+import { RECORD_ID, slugify } from "@avenick/utils";
 import { platformName } from "@avenick/utils/portal-config";
 import { isKeyInUploadNamespace } from "@avenick/utils/browser-upload-policy";
 import { isObjectStorageConfigured, objectPublicUrl } from "@avenick/utils/s3";
@@ -1371,4 +1375,98 @@ export async function importProductsCsv(rows: ImportRow[], options: {
     revalidatePath("/issues");
   }
   return result;
+}
+
+// ─── ARCHIVE AND RESTORE ─────────────────────────────────────────────────────
+
+export type ArchiveProductState =
+  | { ok: true; archivedAt: string }
+  | { ok: false; error: string; blocked?: boolean };
+
+export type RestoreProductState = { ok: true } | { ok: false; error: string };
+
+/**
+ * Remove a listing from the catalogue.
+ *
+ * Product.deletedAt was read by every catalogue query and written by nothing, so
+ * a seller could create and edit a listing but never take one down: a mistyped
+ * SKU or a discontinued line stayed in the catalogue permanently. The service is
+ * the authority — it re-resolves the actor inside its transaction, fences on the
+ * product lock, and refuses while stock is reserved or order lines are open —
+ * and this layer turns each refusal into a sentence.
+ */
+export async function archiveProductAction(productId: unknown): Promise<ArchiveProductState> {
+  const t = await getTranslations("sellerCatalog");
+  const parsed = z.string().trim().regex(RECORD_ID).safeParse(productId);
+  if (!parsed.success) return { ok: false, error: t("archive.errors.unknownProduct") };
+
+  let context: Awaited<ReturnType<typeof requireSellerPermission>>;
+  try {
+    context = await requireSellerPermission("catalog.manage");
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Seller permission required")) {
+      return { ok: false, error: t("archive.errors.permissionWithdrawn") };
+    }
+    throw error;
+  }
+
+  try {
+    const result = await archiveSellerListing({
+      productId: parsed.data,
+      sellerId: context.seller.id,
+      actorId: context.userId,
+    });
+    revalidatePath("/products");
+    revalidatePath("/inventory");
+    revalidatePath("/dashboard");
+    return { ok: true, archivedAt: result.archivedAt.toISOString() };
+  } catch (error) {
+    // A blocked archive is an expected outcome with a fixable cause, so the
+    // service's own sentence — which carries the count — is shown verbatim
+    // rather than replaced by a generic failure.
+    if (error instanceof ProductArchiveBlockedError) {
+      return { ok: false, blocked: true, error: error.message };
+    }
+    if (error instanceof Error && error.message.startsWith("Product not found")) {
+      return { ok: false, error: t("archive.errors.unknownProduct") };
+    }
+    if (error instanceof Error && error.message.startsWith("Current seller")) {
+      return { ok: false, error: t("archive.errors.permissionWithdrawn") };
+    }
+    log.error("seller product archive failed", error, { scope: "products.actions", productId: parsed.data });
+    return { ok: false, error: t("archive.errors.notArchived") };
+  }
+}
+
+/** Put an archived listing back, as a draft. */
+export async function restoreProductAction(productId: unknown): Promise<RestoreProductState> {
+  const t = await getTranslations("sellerCatalog");
+  const parsed = z.string().trim().regex(RECORD_ID).safeParse(productId);
+  if (!parsed.success) return { ok: false, error: t("archive.errors.unknownProduct") };
+
+  let context: Awaited<ReturnType<typeof requireSellerPermission>>;
+  try {
+    context = await requireSellerPermission("catalog.manage");
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Seller permission required")) {
+      return { ok: false, error: t("archive.errors.permissionWithdrawn") };
+    }
+    throw error;
+  }
+
+  try {
+    await restoreSellerListing({
+      productId: parsed.data,
+      sellerId: context.seller.id,
+      actorId: context.userId,
+    });
+    revalidatePath("/products");
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Archived product not found")) {
+      return { ok: false, error: t("archive.errors.notArchived404") };
+    }
+    log.error("seller product restore failed", error, { scope: "products.actions", productId: parsed.data });
+    return { ok: false, error: t("archive.errors.notRestored") };
+  }
 }

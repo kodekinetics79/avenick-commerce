@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
-import { integrationSuite, integrationDbEnabled } from "../testing/integration-db";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
 import { setUserStatus } from "../services/admin";
 import { getRFQForBuyer } from "../services/rfq";
 import {

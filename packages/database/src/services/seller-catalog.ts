@@ -1,4 +1,4 @@
-import { AuditAction, type Currency, type Prisma, type PricingType } from "@prisma/client";
+import { AuditAction, type Currency, type OrderStatus, type Prisma, type PricingType } from "@prisma/client";
 import { db } from "../client";
 import { lockProductCommercialRows, requireCurrentSellerActor } from "./checkout-invariants";
 
@@ -186,5 +186,158 @@ export async function updateSellerCatalogListing(input: SellerCatalogMutation & 
       },
     });
     return product;
+  });
+}
+
+// ─── ARCHIVE AND RESTORE ─────────────────────────────────────────────────────
+//
+// `Product.deletedAt` was read by every catalogue query in the codebase and
+// written by nothing: a seller could create and edit a listing but never remove
+// one. A SKU typed wrong, a line that was discontinued, a product uploaded to
+// the wrong account — all of it stayed in the catalogue for good, and the only
+// approximation available was pausing the listing, which is a different
+// statement ("temporarily not for sale") stored in a different column.
+//
+// Archiving is a SOFT delete on purpose, and must stay one. Order lines, quotes,
+// commissions and payout items all point at Product rows; a hard delete would
+// either fail on those foreign keys or, worse, take the history with it. Setting
+// deletedAt removes the listing from every catalogue, search and seller list —
+// they all already filter on it — while every past order still resolves what was
+// bought.
+
+/** Why an archive attempt was refused. The UI names the blocker; it never guesses. */
+export type ArchiveBlockedReason = "RESERVED_STOCK" | "OPEN_ORDER_LINES";
+
+export class ProductArchiveBlockedError extends Error {
+  readonly reason: ArchiveBlockedReason;
+  /** Units reserved, or open lines, depending on the reason. */
+  readonly count: number;
+
+  constructor(reason: ArchiveBlockedReason, count: number) {
+    super(
+      reason === "RESERVED_STOCK"
+        ? `This listing has ${count} unit${count === 1 ? "" : "s"} of stock reserved against open orders. Fulfil or release them before archiving it.`
+        : `This listing has ${count} order line${count === 1 ? "" : "s"} still to fulfil. Complete or cancel them before archiving it.`,
+    );
+    this.name = "ProductArchiveBlockedError";
+    this.reason = reason;
+    this.count = count;
+  }
+}
+
+/**
+ * Order-line states that still owe a buyer something from this listing.
+ *
+ * Everything up to and including PROCESSING: the seller has not handed the goods
+ * over yet. SHIPPED and later are on their way and no longer depend on the
+ * listing being visible, and CANCELLED / REFUNDED owe nothing.
+ */
+const OPEN_ORDER_ITEM_STATUSES: OrderStatus[] = [
+  "PENDING_PAYMENT",
+  "PAYMENT_CONFIRMED",
+  "CONFIRMED",
+  "PROCESSING",
+];
+
+/**
+ * Archive one of the seller's own listings.
+ *
+ * Refuses while the listing still owes anybody something. Reserved stock is
+ * inventory checkout has already promised to a buyer, and an open order line is
+ * a commitment the seller has not discharged; archiving out from under either
+ * would leave a reservation pointing at a listing that no longer appears
+ * anywhere its owner can see it. Both are stated with their counts so the seller
+ * knows what to clear rather than being told "no".
+ */
+export async function archiveSellerListing(input: { productId: string; sellerId: string; actorId: string }) {
+  return db.$transaction(async (tx) => {
+    await requireCurrentSellerActor(tx, input.actorId, input.sellerId, "catalog.manage");
+    await lockProductCommercialRows(tx, [input.productId]);
+
+    const current = await tx.product.findFirst({
+      where: { id: input.productId, sellerId: input.sellerId, deletedAt: null },
+      select: { id: true, status: true, sku: true, nameEn: true },
+    });
+    if (!current) throw new Error("Product not found in this seller account");
+
+    const reserved = await tx.inventoryStock.aggregate({
+      where: { productId: current.id },
+      _sum: { reservedQty: true },
+    });
+    const reservedQty = reserved._sum.reservedQty ?? 0;
+    if (reservedQty > 0) throw new ProductArchiveBlockedError("RESERVED_STOCK", reservedQty);
+
+    const openLines = await tx.orderItem.count({
+      where: { productId: current.id, status: { in: OPEN_ORDER_ITEM_STATUSES } },
+    });
+    if (openLines > 0) throw new ProductArchiveBlockedError("OPEN_ORDER_LINES", openLines);
+
+    const archivedAt = new Date();
+    // Compare-and-set on deletedAt: two archive clicks from two tabs must
+    // produce one archive and one honest "already archived", not two audit rows
+    // claiming the listing was removed twice.
+    const applied = await tx.product.updateMany({
+      where: { id: current.id, sellerId: input.sellerId, deletedAt: null },
+      data: { deletedAt: archivedAt },
+    });
+    if (applied.count !== 1) throw new Error("Product not found in this seller account");
+
+    await tx.auditLog.create({
+      data: {
+        actorId: input.actorId,
+        sellerId: input.sellerId,
+        entityType: "Product",
+        entityId: current.id,
+        action: AuditAction.DELETE,
+        before: { status: current.status, sku: current.sku, nameEn: current.nameEn, deletedAt: null },
+        after: { archived: true, deletedAt: archivedAt.toISOString(), source: "SELLER_SELF_SERVICE" },
+      },
+    });
+
+    return { productId: current.id, archivedAt };
+  });
+}
+
+/**
+ * Put an archived listing back.
+ *
+ * An archive nobody can undo is a delete with a softer name, and a seller who
+ * archives the wrong SKU would have to re-key the whole listing — the SKU
+ * included, which is unique across the marketplace and still held by the
+ * archived row. It returns as a DRAFT rather than to whatever status it had:
+ * the catalogue moved on while it was gone, so it is re-published deliberately
+ * through the same review the listing went through the first time, never
+ * restored straight back into the storefront.
+ */
+export async function restoreSellerListing(input: { productId: string; sellerId: string; actorId: string }) {
+  return db.$transaction(async (tx) => {
+    await requireCurrentSellerActor(tx, input.actorId, input.sellerId, "catalog.manage");
+    await lockProductCommercialRows(tx, [input.productId]);
+
+    const current = await tx.product.findFirst({
+      where: { id: input.productId, sellerId: input.sellerId, deletedAt: { not: null } },
+      select: { id: true, status: true, sku: true, deletedAt: true },
+    });
+    if (!current) throw new Error("Archived product not found in this seller account");
+
+    const applied = await tx.product.updateMany({
+      where: { id: current.id, sellerId: input.sellerId, deletedAt: { not: null } },
+      data: { deletedAt: null, status: "DRAFT" },
+    });
+    if (applied.count !== 1) throw new Error("Archived product not found in this seller account");
+
+    await tx.auditLog.create({
+      data: {
+        actorId: input.actorId,
+        sellerId: input.sellerId,
+        entityType: "Product",
+        entityId: current.id,
+        action: AuditAction.UPDATE,
+        before: { archived: true, deletedAt: current.deletedAt?.toISOString() ?? null, status: current.status },
+        after: { archived: false, deletedAt: null, status: "DRAFT", source: "SELLER_SELF_SERVICE" },
+      },
+    });
+
+    return { productId: current.id, status: "DRAFT" as const };
   });
 }

@@ -2,6 +2,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Prisma, db } from "../index";
 import { adjustInventory } from "../services/inventory";
 import { secureCreateOrder } from "../services/secure-checkout";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
+
+const run = integrationSuite();
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const created = { users: [] as string[], sellers: [] as string[], products: [] as string[], orders: [] as string[] };
@@ -14,6 +17,7 @@ let warehouseId = "";
 let locationId = "";
 
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const [buyer, owner] = await Promise.all([
     db.user.create({ data: { email: `stock-race-buyer-${stamp}@example.test`, firstName: "Stock", lastName: "Buyer", role: "CONSUMER", status: "ACTIVE" } }),
     db.user.create({ data: { email: `stock-race-owner-${stamp}@example.test`, firstName: "Stock", lastName: "Owner", role: "SELLER_OWNER", status: "ACTIVE" } }),
@@ -46,6 +50,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   await db.order.deleteMany({ where: { id: { in: created.orders } } });
   if (stockId) {
     await db.auditLog.deleteMany({ where: { entityType: "InventoryStock", entityId: stockId } });
@@ -109,7 +114,7 @@ async function raceAdjustmentAndCheckout(first: "adjustment" | "checkout") {
   if (order.status === "fulfilled") expect(stock).toMatchObject({ qty: 10, reservedQty: 7 });
 }
 
-describe("shared inventory adjustment and checkout lock", () => {
+run("shared inventory adjustment and checkout lock", () => {
   it("preserves reserved <= on-hand when adjustment queues first", async () => {
     await raceAdjustmentAndCheckout("adjustment");
   });

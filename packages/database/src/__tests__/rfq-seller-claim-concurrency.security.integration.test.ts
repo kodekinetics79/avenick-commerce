@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
 import { decideRFQ, submitQuote } from "../services/rfq";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
+
+const run = integrationSuite();
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const created = { users: [] as string[], sellers: [] as string[] };
@@ -12,6 +15,7 @@ let actorAId = "";
 let actorBId = "";
 
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const buyer = await db.user.create({ data: {
     email: `rfq-buyer-${stamp}@example.test`, firstName: "RFQ", lastName: "Buyer",
     role: "CONSUMER", status: "ACTIVE",
@@ -34,6 +38,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   if (rfqIds.length > 0) {
     await db.auditLog.deleteMany({ where: { entityType: "RFQRequest", entityId: { in: rfqIds } } });
     await db.rFQRequest.deleteMany({ where: { id: { in: rfqIds } } });
@@ -62,7 +67,7 @@ async function createOpenRfq(label: string) {
   return rfq;
 }
 
-describe("unassigned RFQ seller claim", () => {
+run("unassigned RFQ seller claim", () => {
   it("rejects duplicate item ids without claiming or partially quoting the RFQ", async () => {
     const rfq = await createOpenRfq("DUPLICATE");
     const firstItemId = rfq.items[0]!.id;

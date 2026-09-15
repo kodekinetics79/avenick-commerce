@@ -1,0 +1,99 @@
+name: avenick
+description: Avenick Commerce — the Meridian/SIJILL design system on Flutter.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State
+  flutter_riverpod: ^3.0.0
+  riverpod_annotation: ^3.0.0
+  # Direct: `Override` (used by the golden harness) is not re-exported from
+  # flutter_riverpod's barrel in 3.x.
+  riverpod: ^3.0.0
+
+  # Routing
+  go_router: ^14.0.0
+
+  # Networking — owned by the networking engineer; declared here so that
+  # engineer never has to edit this file.
+  dio: ^5.7.0
+  freezed_annotation: ^3.0.0
+  json_annotation: ^4.9.0
+
+  # Platform
+  flutter_secure_storage: ^9.0.0
+  cached_network_image: ^3.4.0
+
+  # Formatting / i18n
+  intl: ^0.20.2
+
+  # Icons
+  lucide_icons_flutter: ^3.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  build_runner: ^2.4.13
+  freezed: ^3.0.0
+  json_serializable: ^6.8.0
+  riverpod_generator: ^3.0.0
+  flutter_lints: ^5.0.0
+  alchemist: ^0.12.0
+
+flutter:
+  uses-material-design: true
+
+  # ---------------------------------------------------------------------
+  # FONTS — declared, but COMMENTED OUT until the binaries are committed.
+  #
+  # Flutter validates every font asset at bundle time, so leaving these live
+  # with no files fails `flutter run`, `flutter test` and CI with
+  # "unable to locate asset entry in pubspec.yaml". The block below is the
+  # finished declaration: drop the five files into apps/mobile/fonts/ and
+  # delete the leading `# ` from each line. Nothing else changes.
+  #
+  # Until then every glyph falls back to the platform face, which means the
+  # optical-size ramp in lib/theme/typography.dart is inert — the
+  # `fontVariations` are sent to a font that has no axes and are silently
+  # ignored. The layout is right; the letterforms are not.
+  #
+  # Required files:
+  #   fonts/InterVariable.ttf            variable — axes opsz 14..32, wght 100..900
+  #   fonts/IBMPlexSansArabic-Regular.ttf
+  #   fonts/IBMPlexSansArabic-Medium.ttf
+  #   fonts/IBMPlexSansArabic-SemiBold.ttf
+  #   fonts/NotoKufiArabic-Regular.ttf
+  #   fonts/NotoKufiArabic-SemiBold.ttf
+  #
+  # Inter is ONE family with ONE variable file on purpose. Weight and optical
+  # size are chosen per TextStyle via `fontVariations`, never by picking one of
+  # four static cuts — see lib/theme/typography.dart.
+  #
+  # fonts:
+  #   - family: Inter
+  #     fonts:
+  #       - asset: fonts/InterVariable.ttf
+  #
+  #   - family: IBM Plex Sans Arabic
+  #     fonts:
+  #       - asset: fonts/IBMPlexSansArabic-Regular.ttf
+  #         weight: 400
+  #       - asset: fonts/IBMPlexSansArabic-Medium.ttf
+  #         weight: 500
+  #       - asset: fonts/IBMPlexSansArabic-SemiBold.ttf
+  #         weight: 600
+  #
+  #   - family: Noto Kufi Arabic
+  #     fonts:
+  #       - asset: fonts/NotoKufiArabic-Regular.ttf
+  #         weight: 400
+  #       - asset: fonts/NotoKufiArabic-SemiBold.ttf
+  #         weight: 600

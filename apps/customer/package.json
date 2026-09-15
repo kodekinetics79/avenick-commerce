@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@avenick/auth": "workspace:*",
+    "@avenick/contracts": "workspace:*",
     "@avenick/database": "workspace:*",
     "@avenick/observability": "workspace:*",
     "@avenick/types": "workspace:*",

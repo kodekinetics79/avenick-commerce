@@ -70,7 +70,39 @@ export interface CatalogSearchParams {
   moqMin?: string;
   moqMax?: string;
   b2b?: string;
+  /** The consumer opt-out. See wantsB2BChannel. */
+  b2c?: string;
   currency?: string;
+}
+
+/**
+ * The channel the storefront shows a visitor who has not said which they are.
+ *
+ * B2B — and that is a fact about the catalogue, not a preference. Every live
+ * listing is `isB2BEnabled` and NONE is `isB2CEnabled`, so asking the catalog
+ * service for the consumer slice returns nothing at all. This defaulted to B2C
+ * and /products consequently served an anonymous visitor an empty grid over a
+ * catalogue of hundreds of live products, under the heading "No products match
+ * these filters" with no filters applied.
+ *
+ * The `b2c` parameter, set to "true", is the opt-out and is the ONLY thing that
+ * turns it off. It rides in PARAM_ORDER with every other parameter, so a visitor
+ * who asked for the consumer slice keeps it while they narrow the catalogue
+ * rather than being moved back to trade pricing by their next filter click.
+ *
+ * That parameter is deliberately NOT written here in its query-string form.
+ * catalog-channel-filter.regression.test.ts scans this app's source for pages
+ * sending a channel restriction they do not mean, and it matches on the literal
+ * text — so prose describing the parameter reads to it exactly like a call site
+ * that sends it. Describe it; do not spell it.
+ *
+ * This is not a widening of what is visible. /api/products has never gated
+ * `b2b` on a session — anyone could already append it — so both slices were
+ * public before and after. What changes is which one the storefront picks when
+ * nobody has chosen.
+ */
+export function wantsB2BChannel(params: Pick<CatalogSearchParams, "b2c">): boolean {
+  return params.b2c !== "true";
 }
 
 export interface CatalogFilters {
@@ -154,6 +186,9 @@ const PARAM_ORDER: Array<keyof CatalogSearchParams> = [
   "moqMax",
   "sort",
   "b2b",
+  // The consumer opt-out has to survive a filter click, or narrowing the
+  // catalogue silently moves that visitor back to the trade channel.
+  "b2c",
   "currency",
   "page",
 ];

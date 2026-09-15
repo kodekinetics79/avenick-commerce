@@ -1743,7 +1743,8 @@
         "headline": "No supplier accounts have been created yet.",
         "body": "Supplier accounts appear here as soon as a business registers.",
         "showAll": "Show every supplier"
-      }
+      },
+      "addSeller": "Add seller"
     },
     "pendingSellers": {
       "eyebrow": "Onboarding",
@@ -1888,6 +1889,86 @@
         "created": "Category created",
         "saved": "Category saved"
       }
+    },
+    "newSeller": {
+      "metaTitle": "Add a seller",
+      "eyebrow": "Supply base",
+      "title": "Add a seller",
+      "description": "Open a supplier account and its owner login from the platform side.",
+      "dateline": "Creates the organisation and one owner user in a single transaction · recorded in the audit trail against you",
+      "commitEyebrow": "This creates a login the supplier can sign in with",
+      "submit": "Create seller account",
+      "cancel": "Cancel",
+      "business": {
+        "eyebrow": "The business",
+        "title": "Registered business",
+        "description": "Identity as it appears on the trade licence. Only the platform can change these later."
+      },
+      "owner": {
+        "eyebrow": "The owner",
+        "title": "Owner login",
+        "description": "The person who will sign in to Seller Central and can add staff.",
+        "credentialNote": "Send these credentials to the owner over a channel you trust, and ask them to change the password after their first sign-in. This platform does not email them."
+      },
+      "terms": {
+        "eyebrow": "Platform terms",
+        "title": "Standing and commercial terms",
+        "description": "What this account may do, and what the platform charges it."
+      },
+      "fields": {
+        "businessNameEn": "Business name (English)",
+        "businessNameAr": "Business name (Arabic)",
+        "crNumber": "Commercial registration number",
+        "crNumberHint": "Unique across the platform.",
+        "vatNumber": "VAT number",
+        "type": "Business type",
+        "country": "Country",
+        "city": "City",
+        "description": "Description",
+        "descriptionPlaceholder": "What they supply and who they serve",
+        "firstName": "First name",
+        "lastName": "Last name",
+        "email": "Email address",
+        "emailHint": "This is the address they sign in with.",
+        "phone": "Phone number",
+        "password": "Initial password",
+        "passwordHint": "At least 8 characters, with an uppercase letter and a number.",
+        "language": "Preferred language",
+        "status": "Opening status",
+        "statusHintAdmin": "Creates the application in the review queue. Opening an account straight into trading requires a super admin.",
+        "statusHintSuper": "Opening an account for trading skips the review queue. It is recorded as such in the audit trail.",
+        "tier": "Tier",
+        "commissionRate": "Commission rate (%)",
+        "commissionRateHint": "Percentage of order value, to two decimal places."
+      },
+      "statusOption": {
+        "PENDING_REVIEW": "Put in the review queue",
+        "ACTIVE": "Open for trading now"
+      },
+      "created": {
+        "title": "Seller account created",
+        "bodyPending": "The organisation and the owner login for {email} exist. The account is in the review queue and cannot trade until it is approved.",
+        "bodyActive": "The organisation and the owner login for {email} exist. The account is open for trading now.",
+        "deliverCredentials": "The password is not shown again. Send it to the owner over a channel you trust and ask them to change it after their first sign-in.",
+        "openRecord": "Open the seller record",
+        "addAnother": "Add another seller"
+      },
+      "errors": {
+        "checkTheForm": "Check the highlighted fields and try again.",
+        "rateLimited": "Too many accounts created from this login recently. Please wait before creating another.",
+        "emailTaken": "An account already exists for this email address.",
+        "crTaken": "This commercial registration number is already registered to another seller.",
+        "phoneTaken": "This phone number is already registered to another account.",
+        "activeNeedsSuperAdmin": "Only a super admin can open an account straight into trading. Put it in the review queue instead.",
+        "authorityWithdrawn": "Your administrator access is no longer current. Sign in again.",
+        "notCreated": "The seller account was not created. Nothing was saved."
+      }
+    },
+    "sellerTier": {
+      "STANDARD": "Standard",
+      "VERIFIED": "Verified",
+      "GOLD": "Gold",
+      "PLATINUM": "Platinum"
     }
   },
   "adminShell": {
