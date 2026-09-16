@@ -37,8 +37,12 @@ import type { HeroSlide } from "./hero-slides";
  * and the carousel caption's, this route sits exactly at the ≤3 blurred
  * surfaces budget, of which ≤1 is display.
  *
- * The slab's own material — .u-panel-brand, .u-sheen and the tiled grain — is
- * unchanged and rides on the stage element itself.
+ * THE GROUND STAYS .u-panel-brand. A near-black band was tried here and
+ * reverted: on a paper page it read as slate rather than ink at every alpha,
+ * and §3.1's warning about a dark section inside a light one turned out to
+ * be right. The range this hero gained is in TYPE and COMPOSITION instead —
+ * the display rung, the stage's planes and the frosted plinth. .u-sheen and
+ * the tiled grain ride on the stage element itself.
  */
 export async function HeroSection({
   slides,
@@ -54,7 +58,7 @@ export async function HeroSection({
     <HeroStage
       planes={3}
       data-grain=""
-      className="u-sheen u-panel-brand relative min-w-0 overflow-clip rounded-3xl p-8 sm:p-12 lg:p-14"
+      className="u-sheen u-panel-brand relative min-w-0 overflow-clip rounded-[1.75rem] p-8 sm:p-12 lg:p-16"
       /* Decorative only, and aria-hidden by <HeroStage>. The plate is the
          system's generated object: a mirrored conic field that is correct in
          both reading directions. Its own grain is off — the slab above it
@@ -77,7 +81,7 @@ export async function HeroSection({
           has rather than the viewport's. */}
       <HeroCopy className="min-w-0 [container-type:inline-size]">
         <Reveal index={0}>
-          <p className="u-meta font-medium uppercase tracking-[0.14em] text-white/80">{t("heroTagline")}</p>
+          <p className="u-meta font-semibold uppercase tracking-[0.2em] text-white/85">{t("heroTagline")}</p>
         </Reveal>
 
         {/* Light over SemiBold, and the size follows the COLUMN, not the
@@ -92,16 +96,16 @@ export async function HeroSection({
             heading's text reads "clarity.Buy" to anything that reads
             textContent — a crawler, a snippet, a copy-paste. */}
         <Reveal index={1} as="h1" className="text-white">
-          <span className="block text-[2.75rem] font-light leading-[1.05] tracking-[-0.02em] supports-[width:1cqi]:text-[length:clamp(2.75rem,10.5cqi,4.25rem)]">
+          <span className="block text-[3rem] font-light leading-[0.98] tracking-[-0.03em] supports-[width:1cqi]:text-[length:clamp(3rem,12cqi,5.25rem)]">
             {t("heroTitle1")}
           </span>{" "}
-          <span className="block text-[2.75rem] font-semibold leading-[1.05] tracking-[-0.02em] supports-[width:1cqi]:text-[length:clamp(2.75rem,10.5cqi,4.25rem)]">
+          <span className="block text-[3rem] font-semibold leading-[0.98] tracking-[-0.03em] supports-[width:1cqi]:text-[length:clamp(3rem,12cqi,5.25rem)]">
             {t("heroTitle2")}
           </span>
         </Reveal>
 
         <Reveal index={2}>
-          <p className="u-ui max-w-desc text-white/85">{t("heroDesc")}</p>
+          <p className="u-lead max-w-desc text-white/75">{t("heroDesc")}</p>
         </Reveal>
 
         {/* A figure this size in this position is read as an offer, so it

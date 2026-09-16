@@ -598,7 +598,10 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
           `productsCount`, whose message carried the number as well, so the head
           read "383 383 products". `count` still goes in: the noun's plural
           form — and in Arabic its case — depends on it. */}
-      <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b-2 border-border-strong pb-3">
+      <div
+        data-glass="true"
+        className="u-chrome sticky top-0 z-sticky mb-5 flex flex-wrap items-end justify-between gap-3 -mx-2 rounded-b-[var(--radius)] border-b-2 border-border-strong px-2 pb-3 lg:top-[4.5rem]"
+      >
         <div className="min-w-0">
           <p className="u-ui flex flex-wrap items-baseline gap-x-1.5 text-ink-2">
             <Num value={total} rank="inline" />
