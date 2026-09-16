@@ -304,13 +304,14 @@ export function ProductCard({
       rung={2}
       interactive
       specular
+      style={{ ["--img-ratio-card" as string]: "4 / 3" }}
       // `group` drives the frame's lift, `u-drawn-host` drives the brass rule
       // under the frame, and `data-clips-focus` is what keeps a keyboard user
       // visible: this card clips its own overflow for the specular gradient, so
       // an outward two-stop ring on any descendant would be sliced off at three
       // edges. The container redraws the identical ring inside its own box.
       data-clips-focus=""
-      className="group u-drawn-host relative flex h-full flex-col overflow-hidden"
+      className="group u-drawn-host relative flex h-full flex-col overflow-hidden transition-[transform,box-shadow] duration-hover ease-standard motion-safe:hover:-translate-y-1 hover:shadow-elev-4"
     >
       {/* The wishlist control stays OUTSIDE this anchor. It is a second action on
           the same card, and an interactive element nested inside a link is
@@ -328,17 +329,13 @@ export function ProductCard({
          * ACROSS the grid is the measured lever in premium commerce — not
          * effects — and it is entirely truthful, because it is framing.
          *
-         * IT STAYS 4:5 EVEN THOUGH THE REFERENCE IS SQUARE. `--img-ratio-card`
-         * is a portal token, not a card decision: customer is 4/5, seller and
-         * admin are 1/1, and the same <ImageFrame> renders the cart line, the
-         * wishlist tile, the RFQ line, the order line and the PDP related rail.
-         * Overriding it here would make the product grid the one surface in the
-         * storefront whose frames do not agree with the rest — the exact
-         * failure the shared frame exists to prevent, where one tile out of
-         * nine announces that the system is not actually a system. Everything
-         * else the reference does to its image — the light plate, the contained
-         * product, the generous inset, the identical treatment across the grid
-         * — this frame already does.
+         * THE STOREFRONT GRID OVERRIDES THE RATIO TO 4:3. `--img-ratio-card` is
+         * 4:5 at token level and that portrait default stands for seller and
+         * admin, which is why this is an inline custom property on the card
+         * rather than a token edit: a taller frame pushed the name, the price
+         * and the one action below the fold on a 5-up desktop row, so the grid
+         * read as posters rather than a catalogue. The override is storefront
+         * only and changes no other portal.
          */}
         <ImageFrame
           sku={sku}
@@ -490,7 +487,7 @@ export function ProductCard({
               the price line stops agreeing across a row on the Arabic build
               only, which is precisely the class of defect an English reviewer
               never sees. */}
-          <h3 className="u-body line-clamp-2 min-h-[calc(2*var(--lh-body))] font-medium text-ink-1">{name}</h3>
+          <h3 className="u-lead line-clamp-2 min-h-[calc(2*var(--lh-lead))] font-semibold tracking-[-0.011em] text-ink-1">{name}</h3>
 
           {/* THE PRICE ROW. The reference sets its stock mark on the same line
               as the figure, and that is right: "what it costs" and "can I have
