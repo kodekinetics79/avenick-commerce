@@ -22,7 +22,7 @@ import { categoryLabel, getPublicCategories, type PublicCategory } from "@/lib/c
 import { loadHomeRails } from "@/lib/home-rails";
 import { partitionHomeProducts } from "@/lib/home-catalog";
 import { productCardPricePresentation } from "@/lib/product-card-commerce";
-import { HeroCarousel } from "@/components/hero/hero-carousel";
+import { HeroSection } from "@/components/hero/hero-section";
 import { toHeroSlides } from "@/components/hero/hero-slides";
 import { categoryRailRows } from "@/components/hero/category-rail-rows";
 import type { Metadata } from "next";
@@ -255,122 +255,14 @@ export default async function HomePage() {
             allLabel={t("allProducts")}
           />
 
-          {/* The panel's material is .u-panel-brand now — a utility in
-              globals.css derived from --primary, rather than a gradient written
-              inline here. See that rule for what came off this element and why:
-              an inline gradient with two colour literals, `.u-drift` (24s
-              infinite, animating background-position — the property §8 names
-              under NEVER, and the product's fourth infinite animation against a
-              budget of two), and a 320px blurred `#eff6ff` bloom, which is a
-              glow, and §3.10 says there are none.
-
-              `.u-sheen` stays. Its drift is a transform on a low-alpha ::before
-              rather than a repaint, and its whole intent is to be noticed only
-              as the surface not being flat.
-
-              `data-grain` is new here and is the reason the panel stopped
-              reading as a flat fill once the drift came off. It is the register's
-              own grain — the same tiled noise the ambient field carries, at
-              --field-noise, thinned to 70% above 2dppx — and it is a MATERIAL
-              rather than an effect: it gives the green a surface to be, which a
-              two-stop gradient on its own does not have. It rides ::after, so it
-              composes with .u-sheen's ::before instead of replacing it; that is
-              also why [data-rim] is NOT on this element, since its ::before
-              would win on source order and delete the specular pass. */}
-          <div
-            data-grain=""
-            className="u-sheen u-panel-brand relative flex min-w-0 flex-col justify-center overflow-clip rounded-3xl p-8 sm:p-12 lg:p-14"
-          >
-
-            <div className="relative grid items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] xl:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] 2xl:grid-cols-[minmax(0,1fr)_minmax(0,26rem)]">
-              {/* A size container, so the headline below can be set against
-                  the width it actually has rather than the viewport's. */}
-              <div className="min-w-0 [container-type:inline-size]">
-                <Reveal index={0}>
-                  <p className="u-meta font-medium uppercase tracking-[0.14em] text-white/80">
-                    {t("heroTagline")}
-                  </p>
-                </Reveal>
-
-                {/* Light over SemiBold, the reference's exact device. Our own
-                    words: "THE NEW STANDARD" is Qantara's line, not Avenick's,
-                    and a slogan is the one thing in a design file that belongs
-                    to whoever wrote it.
-
-                    THE DEVICE IS TWO LINES, SO THE SIZE FOLLOWS THE COLUMN.
-                    The sizes used to step with the VIEWPORT (44 → 56 → 68px),
-                    but this column is squeezed by the category rail on one side
-                    and the carousel on the other: at 1366, 1440 and 1920 it is
-                    492, 562 and 616px wide, and "Buy with confidence." at 68px
-                    is 617px. The headline therefore set in three or four lines
-                    at every desktop width. The longer line is ≈9.1em, so 10.5%
-                    of the column's width (10.5cqi) fills about 95% of it at any
-                    width, clamped between the old phone size and the old desktop
-                    size. Phones stay at the 2.75rem floor. A browser without
-                    container units keeps that floor everywhere, which is
-                    smaller but still two readable lines, never a broken rule.
-
-                    The {" "} between the spans is the word space. Without it
-                    the heading's text read "clarity.Buy" to anything that reads
-                    textContent — a crawler, a snippet, a copy-paste. */}
-                <Reveal index={1} as="h1" className="mt-4 text-white">
-                  <span className="block text-[2.75rem] font-light leading-[1.05] tracking-[-0.02em] supports-[width:1cqi]:text-[length:clamp(2.75rem,10.5cqi,4.25rem)]">
-                    {t("heroTitle1")}
-                  </span>{" "}
-                  <span className="block text-[2.75rem] font-semibold leading-[1.05] tracking-[-0.02em] supports-[width:1cqi]:text-[length:clamp(2.75rem,10.5cqi,4.25rem)]">
-                    {t("heroTitle2")}
-                  </span>
-                </Reveal>
-
-                <Reveal index={2}>
-                  <p className="u-ui mt-5 max-w-desc text-white/85">{t("heroDesc")}</p>
-                </Reveal>
-
-                {/* The reference's $749.99 sits here, between the copy and
-                    the button. It renders only when the catalogue actually
-                    exposes a price for the specimen — a figure this size in
-                    this position is read as an offer, and "Price on request"
-                    set at 60px would be a headline made out of an absence —
-                    AND only while the object beside it is a single product.
-                    With the carousel turning, a static figure here would be an
-                    offer for a product that is off screen half the time; each
-                    slide's own glass caption carries its figure instead. */}
-                {specimenHasPrice && mapped.length === 1 && (
-                  <Reveal index={3}>
-                    <p className="mt-6 text-[2.5rem] font-bold leading-none text-white">{specimenPriceLine}</p>
-                  </Reveal>
-                )}
-
-                <Reveal index={4}>
-                  <div className="mt-8 flex flex-wrap items-center gap-3">
-                    {/* White pill on the slab, exactly as the reference draws
-                        its primary action. `secondary` already renders a light
-                        fill with dark ink and carries the key edge, so it is the
-                        existing variant rather than a bespoke button. */}
-                    <Button variant="secondary" size="lg" className="u-shine" asChild>
-                      <Link href="/products">
-                        {t("allProducts")} <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
-                      </Link>
-                    </Button>
-                    <Button variant="ghost" size="lg" className="text-white hover:bg-white/10 hover:text-white" asChild>
-                      <Link href="/b2b/rfq/new">{t("requestQuote")}</Link>
-                    </Button>
-                  </div>
-                </Reveal>
-              </div>
-
-              {/* The object. Real listings at scale — the reference's stock
-                  gear replaced by things a buyer can actually click. Held to
-                  lg and up exactly as the single specimen was: on a phone the
-                  copy and the call to action are the hero, and a 20rem object
-                  above them would push the action under the fold. */}
-              {mapped.length > 0 ? (
-                <Reveal index={2} className="hidden lg:block">
-                  <HeroCarousel slides={toHeroSlides(mapped, { locale })} />
-                </Reveal>
-              ) : null}
-            </div>
-          </div>
+          {/* The hero is <HeroSection>: the system's stage composition, with the
+              slab's material on it. See that file for why the depth planes, the
+              display-glass panel and the generated plate belong there and not
+              in this page. */}
+          <HeroSection
+            slides={mapped.length > 0 ? toHeroSlides(mapped, { locale }) : []}
+            priceLine={specimenHasPrice && mapped.length === 1 ? specimenPriceLine : null}
+          />
         </div>
       </section>
 
@@ -687,7 +579,15 @@ export default async function HomePage() {
           at 3.5% ink behind body copy it stops being felt and starts reading as
           ruled-paper homework. The brass rule carries the register mark instead.
         */}
+        {/* THE BAND USES ITS WIDTH. The copy sat in a max-w-xl column with the
+            action beneath it, so two thirds of a full-shell band was empty
+            ground. The footer's help band already composes exactly these two
+            parts — a statement at the inline start, its action at the inline
+            end — and this now matches it. Nothing was added to fill the space:
+            a hole in a layout is answered by composition, never by invented
+            content. */}
         <Surface rung={1} className="overflow-hidden p-8 lg:p-12">
+          <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
           <div className="max-w-xl">
             <span className="u-drawn mb-5 w-14" data-on="true" aria-hidden="true" />
             <Eyebrow tone="brass">{t("b2bEyebrow")}</Eyebrow>
@@ -703,12 +603,15 @@ export default async function HomePage() {
                 API refuses anyone without a company account. The sentence is
                 worded to be true for every viewer, so the page does not need to
                 read the session to decide whether to show it. */}
-            <Button variant="primary" size="lg" className="mt-7" asChild>
+          </div>
+          <div className="shrink-0 lg:text-end">
+            <Button variant="primary" size="lg" asChild>
               <Link href="/b2b/rfq/new">
                 {t("requestQuote")} <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
               </Link>
             </Button>
-            <p className="u-meta mt-3 max-w-desc text-ink-2">{t("quoteSignInNote")}</p>
+            <p className="u-meta mt-3 max-w-desc text-ink-2 lg:max-w-[22rem]">{t("quoteSignInNote")}</p>
+          </div>
           </div>
         </Surface>
       </section>
@@ -1052,7 +955,7 @@ function SectionHead({
       <div className="mt-4 flex items-end justify-between gap-4 border-b border-hairline pb-4">
         <div className="min-w-0">
           <Eyebrow>{eyebrow}</Eyebrow>
-          <h2 className="u-h2 mt-1 text-ink-1">{title}</h2>
+          <h2 className="u-h1 mt-1 text-ink-1">{title}</h2>
           {subtitle && <p className="u-meta mt-1.5 text-ink-2">{subtitle}</p>}
         </div>
         {href && linkLabel && <ViewAllLink href={href} label={linkLabel} />}
