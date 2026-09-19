@@ -9,9 +9,9 @@
 - Production enable flag: `SPATIAL_COMMERCE_3D_ENABLED=true`
 - Development fixture flag: `SPATIAL_COMMERCE_FIXTURES=true`
 
-The route is authenticated and deny-by-default. Fixture rows are available only when both flags are true and `NODE_ENV` is not `production`. Enabling the route in production never enables fixture catalog, price, availability, or inventory data.
+The route is authenticated and deny-by-default. Fixture rows are available only when both flags are true and the deployment is local/test or a Vercel preview. Vercel previews build with `NODE_ENV=production`, so `VERCEL_ENV` distinguishes review deployments from the live storefront; `VERCEL_ENV=production` always disables fixtures. Enabling the route in production never enables fixture catalog, price, availability, or inventory data.
 
-Feature status: accepted as a gated Phase 1 shell with the platform-wide dependency and future-production-data limitations below. It is not approval for a public production rollout or for later spatial cart/model phases.
+Feature status: accepted as a gated Phase 1 shell with the platform-wide dependency and future-production-data limitations below. An explicitly enabled review deployment now exposes the preview from the B2B dashboard; this is not approval for a public production rollout or for later spatial cart/model phases.
 
 ## Architecture decisions
 
@@ -43,7 +43,7 @@ Feature status: accepted as a gated Phase 1 shell with the platform-wide depende
 - `pnpm --filter @avenick/customer typecheck`: passed.
 - `pnpm --filter @avenick/customer lint`: passed without warnings.
 - `SPATIAL_COMMERCE_3D_ENABLED=true SPATIAL_COMMERCE_FIXTURES=true pnpm --filter @avenick/customer build`: passed in production mode. The build logged the repository-pre-existing caught missing-`DATABASE_URL` brand-export error plus existing bcrypt/OTel/jose Edge-runtime warnings.
-- Production bundle scan for `FIX-MECH`, fixture IDs, descriptions, and prices: passed; no fixture records exist in `.next/static` or `.next/server`, even when both flags are set during the production build.
+- Production safety build with `VERCEL_ENV=production` and both feature flags set: passed; runtime fixture mode remained disabled and the fixture accessor remained fail-closed. No fixture records exist in `.next/static` or any browser bundle. The synthetic records remain in one private server route bundle because preview and production compile the same route source; they contain no customer identity and cannot be returned by the production runtime.
 - Production routes manifest contains the spatial CSP, `frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`, restricted permissions, and `Cache-Control: private, no-store`.
 - Production build: shared first-load JavaScript 87.5 kB; `/products` 198 kB; `/products/[slug]` 203 kB; spatial shell 197 kB (6.8 kB compressed route code) before optional viewer chunks.
 - Lazy viewer chunks: 130,007 + 378,783 + 339,599 + 4,481 raw bytes (approximately 223 kB gzip in total). They are dynamically imported and absent from unrelated route entry manifests.

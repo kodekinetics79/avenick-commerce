@@ -15,6 +15,16 @@ async function expectNoAxeViolations(page: Page) {
   expect(results.violations).toEqual([]);
 }
 
+test("business workspace exposes the spatial explorer preview entry", async ({ page }) => {
+  await page.goto("/b2b");
+
+  const entry = page.getByRole("link", { name: /Open spatial explorer|فتح المستكشف المكاني/ });
+  await expect(entry).toBeVisible();
+  await entry.click();
+  await expect(page).toHaveURL(/\/b2b\/spatial-commerce$/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText(/Mechanical SKU explorer|مستكشف/);
+});
+
 test("desktop shell synchronizes repeated SKU selection with the scene", async ({ page }) => {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
