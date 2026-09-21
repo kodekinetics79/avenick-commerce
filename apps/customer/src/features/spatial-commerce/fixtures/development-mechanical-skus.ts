@@ -1,3 +1,4 @@
+import { isSpatialFixtureEnvironment } from "@/lib/spatial-commerce-flag";
 import type { MechanicalSku } from "../domain/contracts";
 import type { SkuSpatialBinding } from "../domain/bindings";
 
@@ -63,9 +64,12 @@ const SYNTHETIC_MECHANICAL_FIXTURE: DevelopmentMechanicalFixture = {
 
 /** Production deliberately cannot obtain this synthetic, identity-free fixture. */
 export function getDevelopmentMechanicalFixture(
+  env: Record<string, string | undefined> = process.env,
 ): DevelopmentMechanicalFixture {
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("Development mechanical SKU fixtures are unavailable in production.");
+  if (!isSpatialFixtureEnvironment(env)) {
+    throw new Error(
+      "Development mechanical SKU fixtures are unavailable outside local, test, and preview environments.",
+    );
   }
 
   return SYNTHETIC_MECHANICAL_FIXTURE;

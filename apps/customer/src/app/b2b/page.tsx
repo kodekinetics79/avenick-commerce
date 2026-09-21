@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronRight, FileText, Inbox, Users } from "lucide-react";
+import { ChevronRight, Cuboid, FileText, Inbox, Users } from "lucide-react";
 import {
   Button,
   CellGrid,
@@ -19,6 +19,7 @@ import { getB2B, b2bMetadata } from "@/components/b2b/i18n";
 import type { B2BKey } from "@/components/b2b/messages";
 import { toneRule } from "@/components/b2b/rules";
 import { fetchB2BJson } from "@/lib/b2b";
+import { getSpatialCommerceRuntime, SPATIAL_COMMERCE_ROUTE } from "@/lib/spatial-commerce-flag";
 
 export async function generateMetadata() {
   return b2bMetadata("shell.workspace");
@@ -63,6 +64,7 @@ export default async function B2BDashboardPage() {
   const { t, f } = await getB2B();
   const { company, companyCurrency, lifetimeSpendByCurrency, pendingApprovals, openRFQs, recentOrders, reorderItems } = data;
   const creditLimit = company.creditLimit ? Number(company.creditLimit) : null;
+  const spatialRuntime = getSpatialCommerceRuntime();
 
   /*
    * What is open on this company's desk, above the fold, before anything else.
@@ -171,6 +173,40 @@ export default async function B2BDashboardPage() {
           </Surface>
         )}
         </section>
+
+        {spatialRuntime.fixtureMode ? (
+          <section aria-labelledby="spatial-explorer-heading">
+            <Surface rung={1} className="overflow-hidden">
+              <div className="u-drawn w-14" data-on="true" aria-hidden="true" />
+              <div className="flex flex-col gap-4 p-4 sm:p-5 md:flex-row md:items-center md:justify-between">
+                <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-nested bg-primary-soft text-primary-ink">
+                    <Cuboid className="h-5 w-5" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Eyebrow>{t("dash.spatial.eyebrow")}</Eyebrow>
+                      <StatusPill>{t("dash.spatial.badge")}</StatusPill>
+                    </div>
+                    <h2 id="spatial-explorer-heading" className="u-h2 mt-1 text-ink-1">
+                      {t("dash.spatial.title")}
+                    </h2>
+                    <p className="u-body mt-1 max-w-3xl text-ink-2">
+                      {t("dash.spatial.body")}
+                    </p>
+                    <Dateline className="mt-2">{t("dash.spatial.fixture")}</Dateline>
+                  </div>
+                </div>
+                <Button asChild variant="secondary" className="shrink-0 self-start md:self-auto">
+                  <Link href={SPATIAL_COMMERCE_ROUTE}>
+                    {t("dash.spatial.action")}
+                    <ChevronRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                  </Link>
+                </Button>
+              </div>
+            </Surface>
+          </section>
+        ) : null}
 
         {/* ══ POSITION ══════════════════════════════════════════════════════
             One panel divided by hairlines, not four floating boxes. Every

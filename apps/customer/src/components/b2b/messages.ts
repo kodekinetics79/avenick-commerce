@@ -98,6 +98,12 @@ const en = {
 
   /* ── Dashboard ──────────────────────────────────────────────────────────── */
   "dash.eyebrow": "Overview",
+  "dash.spatial.eyebrow": "Interactive procurement",
+  "dash.spatial.badge": "3D preview",
+  "dash.spatial.title": "Explore an assembly by SKU",
+  "dash.spatial.body": "Select a part number in the standard SKU list and see the matching component highlighted in the 3D assembly. The list remains the authoritative buying path.",
+  "dash.spatial.fixture": "Preview workspace · synthetic demonstration SKUs · nothing here can be ordered",
+  "dash.spatial.action": "Open spatial explorer",
   "dash.desk.eyebrow": "Open now",
   "dash.desk.heading": "What is open on this company's desk",
   "dash.desk.basis": "Counts this company's purchase orders awaiting approval and its requests for quotation still open. These are the company's queues, not the viewer's.",
@@ -929,6 +935,12 @@ const ar: Record<B2BKey, string> = {
 
   /* ── Dashboard ──────────────────────────────────────────────────────────── */
   "dash.eyebrow": "نظرة عامة",
+  "dash.spatial.eyebrow": "مشتريات تفاعلية",
+  "dash.spatial.badge": "معاينة ثلاثية الأبعاد",
+  "dash.spatial.title": "استكشف التجميعة حسب رمز الصنف",
+  "dash.spatial.body": "اختر رقم القطعة من قائمة رموز الأصناف القياسية لتُميَّز القطعة المطابقة داخل التجميعة ثلاثية الأبعاد. تبقى القائمة مسار الشراء المعتمد.",
+  "dash.spatial.fixture": "مساحة معاينة · رموز أصناف تجريبية اصطناعية · لا يمكن طلب أي عنصر منها",
+  "dash.spatial.action": "فتح المستكشف المكاني",
   "dash.desk.eyebrow": "مفتوح الآن",
   "dash.desk.heading": "ما هو مفتوح على مكتب هذه الشركة",
   "dash.desk.basis": "يحصي أوامر شراء هذه الشركة المنتظرة للاعتماد وطلبات عروض الأسعار التي ما زالت مفتوحة. هذه طوابير الشركة لا طوابير المستخدم وحده.",
