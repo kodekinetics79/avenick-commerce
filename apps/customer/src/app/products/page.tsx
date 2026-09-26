@@ -38,6 +38,7 @@ import {
   catalogHref,
   formatRatingFloor,
   parseCatalogFilters,
+  resetCatalogSortHref,
   sortNarrowsToReviewed,
   type CatalogSearchParams,
 } from "@/components/products/catalog-filters";
@@ -521,9 +522,10 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
      * filters themselves, named and individually removable, because "no products
      * match these filters" is only actionable if you can see which filters.
      */
-    const narrowedByFilters = applied.length > (filters.category ? 1 : 0);
-    // Removes every filter and keeps the search term, the sort and the governed
-    // storefront context. The widest useful step, not a reset to the front page.
+    const ratingSortRecovery = sortNarrowsToReviewed(filters);
+    const narrowedByFilters = applied.length > (filters.category ? 1 : 0) || ratingSortRecovery;
+    // Clearing filters must also remove a sort that excludes unreviewed rows.
+    // Search and the governed storefront context survive.
     const clearFiltersHref = catalogHref(searchParams, {
       category: undefined,
       brand: undefined,
@@ -531,13 +533,20 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
       minRating: undefined,
       moqMin: undefined,
       moqMax: undefined,
+      sort: filters.sort === "rating" ? undefined : searchParams.sort,
     });
     return (
       <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="u-ui text-ink-2">
+            <Num value={total} rank="inline" /> {t("productsNoun", { count: total })}
+          </p>
+          <SortSelect />
+        </div>
         <EmptyState
           variant="certificate"
           glyph={refused ? <AlertCircle /> : <PackageSearch />}
-          eyebrow={refused ? t("refused.eyebrow") : t("empty.eyebrow")}
+          eyebrow={refused ? t("refused.eyebrow") : narrowedByFilters ? t("filters.label") : t("empty.eyebrow")}
           headline={
             refused
               ? t("refused.headline", { query: searchParams.search ?? "", min: String(refused.minLength) })
@@ -561,7 +570,11 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
               : t("empty.filters.body")
           }
           action={
-            !refused && narrowedByFilters ? (
+            !refused && ratingSortRecovery ? (
+              <Button variant="secondary" size="md" asChild>
+                <Link href={resetCatalogSortHref(searchParams)}>{t("sortOptions.newest")}</Link>
+              </Button>
+            ) : !refused && narrowedByFilters ? (
               <Button variant="secondary" size="md" asChild>
                 <Link href={clearFiltersHref}>{t("empty.clearFilters")}</Link>
               </Button>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createRFQ, getRFQsForBuyer } from "@avenick/database";
 import { z } from "zod";
 import { getServerB2BContext } from "@/lib/b2b-server";
+import { companyCurrencyForCountry } from "@/lib/company-currency";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
   const rfq = await createRFQ({
     buyerId: ctx.userId,
     companyId: ctx.companyId,
+    currency: companyCurrencyForCountry(ctx.company.country),
     notes: parsed.data.notes,
     requiredBy: parsed.data.requiredBy ? new Date(parsed.data.requiredBy) : undefined,
     items: parsed.data.items,

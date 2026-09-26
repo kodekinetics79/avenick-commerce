@@ -26,7 +26,7 @@ beforeEach(() => {
   delete process.env.CUSTOMER_URL;
   delete process.env.VERCEL_URL;
   delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
-  process.env.NEXTAUTH_URL = "https://avenick-commerce.onrender.com";
+  delete process.env.NEXTAUTH_URL;
 });
 
 afterEach(() => {
@@ -57,7 +57,8 @@ describe("which origin a server-side read calls", () => {
     expect(fetchMock.mock.calls[0]![0]).toBe("https://avenick-commerce.onrender.com/api/categories");
   });
 
-  it("falls back to the incoming origin when nothing is configured", async () => {
+  it("falls back to the exact deployment origin when no canonical origin is configured", async () => {
+    process.env.VERCEL_URL = "avenick-commerce.onrender.com";
     arriveAs("avenick-commerce.onrender.com");
 
     await expect(fetchBackendJson("/api/categories")).resolves.toEqual(["ok"]);
@@ -85,4 +86,47 @@ describe("which origin a server-side read calls", () => {
     process.env.NEXT_PUBLIC_BACKEND_URL = "https://api.avenick.com";
     expect(getBackendBaseUrl()).toBe("https://api.avenick.com");
   });
+  it("reads the catalog on the configured canonical host when the public WWW alias is not listed", async () => {
+    process.env.NEXTAUTH_URL = "https://avenick.com";
+    arriveAs("www.avenick.com");
+    store.cookies = [{ name: "session", value: "fixture-session" }];
+    await expect(fetchBackendJson("/api/products?page=1")).resolves.toEqual(["ok"]);
+    expect(fetchMock).toHaveBeenCalledWith("https://avenick.com/api/products?page=1", expect.objectContaining({
+      headers: expect.objectContaining({ cookie: "session=fixture-session" }),
+    }));
+  });
+
+  it("never sends cookies to a forged host when only the canonical customer origin is configured", async () => {
+    process.env.NEXTAUTH_URL = "https://avenick.com";
+    arriveAs("attacker.example.com");
+    await fetchBackendJson("/api/products");
+    expect(fetchMock.mock.calls[0]![0]).toBe("https://avenick.com/api/products");
+  });
+
+  it("prefers the explicit customer portal over the authentication origin", async () => {
+    process.env.NEXTAUTH_URL = "https://avenick.com";
+    process.env.NEXT_PUBLIC_CUSTOMER_PORTAL_URL = "https://customer.example.com/";
+    arriveAs("www.avenick.com");
+    await fetchBackendJson("/api/products");
+    expect(fetchMock.mock.calls[0]![0]).toBe("https://customer.example.com/api/products");
+  });
+
+  it.each(["https://user:pass@avenick.com", "https://avenick.com/unexpected", "javascript:alert(1)"])(
+    "fails closed for an invalid canonical configuration: %s", async (origin) => {
+      process.env.NEXTAUTH_URL = origin;
+      arriveAs("www.avenick.com");
+      await expect(fetchBackendJson("/api/products")).rejects.toThrow(/invalid/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["//attacker.example.com/api/products", "\\\\attacker.example.com/api/products"])(
+    "rejects an origin-changing API path: %s", async (path) => {
+      process.env.NEXTAUTH_URL = "https://avenick.com";
+      arriveAs("www.avenick.com");
+      await expect(fetchBackendJson(path)).rejects.toThrow(/trusted application origin/);
+      expect(fetchMock).not.toHaveBeenCalled();
+    },
+  );
+
 });
