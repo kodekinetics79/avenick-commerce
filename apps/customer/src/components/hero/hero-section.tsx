@@ -58,7 +58,7 @@ export async function HeroSection({
     <HeroStage
       planes={3}
       data-grain=""
-      className="u-sheen u-panel-brand relative min-w-0 overflow-clip rounded-[1.75rem] p-8 sm:p-12 lg:p-16"
+      className="u-sheen u-panel-brand relative min-w-0 overflow-clip rounded-[1.75rem] p-6 sm:p-12 lg:p-16"
       /* Decorative only, and aria-hidden by <HeroStage>. The plate is the
          system's generated object: a mirrored conic field that is correct in
          both reading directions. Its own grain is off — the slab above it
@@ -81,7 +81,7 @@ export async function HeroSection({
           has rather than the viewport's. */}
       <HeroCopy className="min-w-0 [container-type:inline-size]">
         <Reveal index={0}>
-          <p className="u-meta font-semibold uppercase tracking-[0.2em] text-white/85">{t("heroTagline")}</p>
+          <p className="u-meta font-semibold uppercase tracking-[0.2em] rtl:tracking-normal text-white/85">{t("heroTagline")}</p>
         </Reveal>
 
         {/* Light over SemiBold, and the size follows the COLUMN, not the
@@ -89,17 +89,18 @@ export async function HeroSection({
             that the category rail already narrows, so a viewport-stepped size
             set in three or four lines at every desktop width. The longer line
             is ≈9.1em, so 10.5cqi fills about 95% of the well at any width.
-            A browser without container units keeps the 2.75rem floor, which is
-            smaller but still two readable lines.
+            Narrow screens use a 2.25rem floor to keep buying actions in view.
+            Shared hero tokens own script-aware leading, tracking and typeface;
+            Arabic must not inherit tightly stacked Latin glyph metrics.
 
             The {" "} between the spans is the word space. Without it the
             heading's text reads "clarity.Buy" to anything that reads
             textContent — a crawler, a snippet, a copy-paste. */}
-        <Reveal index={1} as="h1" className="text-white">
-          <span className="block text-[3rem] font-light leading-[0.98] tracking-[-0.03em] supports-[width:1cqi]:text-[length:clamp(3rem,12cqi,5.25rem)]">
+        <Reveal index={1} as="h1" className="u-hero text-white">
+          <span className="block text-[2.25rem] font-light rtl:font-normal supports-[width:1cqi]:text-[length:clamp(2.25rem,12cqi,5.25rem)]">
             {t("heroTitle1")}
           </span>{" "}
-          <span className="block text-[3rem] font-semibold leading-[0.98] tracking-[-0.03em] supports-[width:1cqi]:text-[length:clamp(3rem,12cqi,5.25rem)]">
+          <span className="block text-[2.25rem] font-semibold supports-[width:1cqi]:text-[length:clamp(2.25rem,12cqi,5.25rem)]">
             {t("heroTitle2")}
           </span>
         </Reveal>

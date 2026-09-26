@@ -2286,8 +2286,10 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 .u-facet-shell[open] > summary .u-facet__chev { transform: rotate(-135deg); }
 
 @media (min-width: 1024px) {
-  .u-facet-shell > summary { display: none; }
-  .u-facet-shell::details-content { content-visibility: visible; }
+  @supports selector(::details-content) {
+    .u-facet-shell > summary { display: none; }
+    .u-facet-shell::details-content { content-visibility: visible; }
+  }
 }
 
 /* A note that explains a facet goes when the facet goes. The rating note tells

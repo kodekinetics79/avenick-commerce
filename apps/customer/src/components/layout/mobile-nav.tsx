@@ -93,8 +93,41 @@ export function MobileNav({
   const ActionIcon = action.icon;
   const DiscoveryIcon = discovery?.icon;
 
-  // A tap on a row navigates client-side, which leaves the sheet mounted over
-  // the page it just took you to. The route is the signal that it is done.
+  // Layer has no Dialog.Trigger: the header owns the opener. Remember it before
+  // the portal takes focus, and restore it only if navigation left focus idle.
+  const opener = React.useRef<HTMLElement | null>(null);
+  React.useLayoutEffect(() => {
+    if (open && document.activeElement instanceof HTMLElement &&
+        !document.activeElement.closest('[role="dialog"]')) {
+      opener.current = document.activeElement;
+    }
+  }, [open]);
+  React.useEffect(() => {
+    if (open || !opener.current) return;
+    const target = opener.current;
+    const timer = window.setTimeout(() => {
+      const active = document.activeElement;
+      const exitingSheet = active?.closest('[role="dialog"][data-state="closed"]');
+      if (target.isConnected && (active === document.body || exitingSheet)) {
+        target.focus({ preventScroll: true });
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [open]);
+
+  function dismissOnNavigation(event: React.MouseEvent<HTMLAnchorElement>) {
+    if (
+      event.defaultPrevented || event.button !== 0 ||
+      event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ||
+      (event.currentTarget.target && event.currentTarget.target !== "_self") ||
+      event.currentTarget.hasAttribute("download")
+    ) return;
+    // Includes Enter activation and links whose only change is the query.
+    // Leave the event intact so Next and the browser still perform navigation.
+    onOpenChange(false);
+  }
+
+  // Also dismiss after navigation initiated outside these links.
   //
   // The first run is skipped deliberately: the effect fires once on mount, and
   // an unconditional close there would slam the sheet shut on any caller that
@@ -119,7 +152,7 @@ export function MobileNav({
       closeLabel={closeLabel}
       footer={
         <Button asChild variant="primary" size="lg" className="w-full">
-          <Link href={action.href}>
+          <Link href={action.href} onClick={dismissOnNavigation}>
             {ActionIcon && <ActionIcon className="h-4 w-4" aria-hidden="true" />}
             {action.label}
           </Link>
@@ -128,7 +161,7 @@ export function MobileNav({
     >
       <nav aria-label={navLabel} className="space-y-0.5">
         {items.map((item) => (
-          <MobileRow key={item.href} item={item} active={isActive(item.href)} />
+          <MobileRow key={item.href} item={item} active={isActive(item.href)} onClick={dismissOnNavigation} />
         ))}
         {discovery && (
           <button
@@ -151,7 +184,7 @@ export function MobileNav({
       </Eyebrow>
       <nav aria-label={accountLabel} className="space-y-0.5">
         {accountItems.map((item) => (
-          <MobileRow key={item.href} item={item} active={isActive(item.href)} />
+          <MobileRow key={item.href} item={item} active={isActive(item.href)} onClick={dismissOnNavigation} />
         ))}
       </nav>
 
@@ -171,7 +204,7 @@ export function MobileNav({
             <span className="truncate">{signOut.label}</span>
           </button>
         ) : (
-          <MobileRow item={signIn} active={isActive(signIn.href)} />
+          <MobileRow item={signIn} active={isActive(signIn.href)} onClick={dismissOnNavigation} />
         )}
       </div>
 
@@ -191,11 +224,16 @@ export function MobileNav({
   );
 }
 
-function MobileRow({ item, active }: { item: MobileNavItem; active: boolean }) {
+function MobileRow({ item, active, onClick }: {
+  item: MobileNavItem;
+  active: boolean;
+  onClick: React.MouseEventHandler<HTMLAnchorElement>;
+}) {
   const Icon = item.icon;
   return (
     <Link
       href={item.href}
+      onClick={onClick}
       aria-current={active ? "page" : undefined}
       data-active={active ? "true" : "false"}
       // Raised current position — the same mark as <NavItem>, at touch density.
