@@ -232,6 +232,11 @@ export function sortNarrowsToReviewed(filters: CatalogFilters): boolean {
   return filters.sort === "rating" && filters.minRating == null;
 }
 
+/** Recover unreviewed listings without losing the buyer's category or context. */
+export function resetCatalogSortHref(current: CatalogSearchParams): string {
+  return catalogHref(current, { sort: DEFAULT_SORT });
+}
+
 /**
  * The query string /api/products is called with.
  *

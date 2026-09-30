@@ -316,12 +316,24 @@ export async function submitQuote(input: SubmitQuoteInput) {
         status: "QUOTED",
         quoteVersion: nextQuoteVersion,
         totalQuoted,
-        ...(input.notes ? { notes: input.notes } : {}),
       },
     });
     if (claimed.count !== 1) throw new Error("This RFQ is assigned to another seller");
     for (const quoted of canonicalQuote) {
       await tx.rFQItem.update({ where: { id: quoted.item.id }, data: { unitQuoted: quoted.unitQuoted } });
+    }
+    // RFQ notes are the buyer's requirements; seller commentary belongs to
+    // the attributed RFQ conversation and commits with this quote revision.
+    const sellerNote = input.notes?.trim();
+    if (sellerNote) {
+      await tx.message.create({
+        data: {
+          rfqId: input.rfqId,
+          senderId: input.actorId,
+          senderType: "SELLER",
+          body: sellerNote,
+        },
+      });
     }
     await tx.auditLog.create({
       data: {
