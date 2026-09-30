@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { db, getSellerDashboard } from "@avenick/database";
+import { countSellerActionableRfqInvitations, db, getSellerDashboard } from "@avenick/database";
 import { getServerSellerContext, sellerHasPermission } from "@/lib/seller-server";
 
 export async function GET() {
@@ -16,7 +16,7 @@ export async function GET() {
     // still SUBMITTED"), which is empty by construction — submitQuote is the
     // only writer of RFQRequest.sellerId and it sets QUOTED in the same
     // update — so two RFQ numbers that could never agree left the payload.
-    const [dashboard, expiringDocs] = await Promise.all([
+    const [dashboard, expiringDocs, rfqCount] = await Promise.all([
       getSellerDashboard(ctx.seller.id),
       db.sellerDocument.count({
         where: {
@@ -24,10 +24,11 @@ export async function GET() {
           expiryDate: { gte: new Date(), lte: new Date(Date.now() + 30 * 86400000) },
         },
       }),
+      countSellerActionableRfqInvitations(ctx.seller.id),
     ]);
     return NextResponse.json({
       success: true,
-      data: { seller: ctx.seller, dashboard, expiringDocs },
+      data: { seller: ctx.seller, dashboard: { ...dashboard, rfqCount }, expiringDocs },
     });
   } catch {
     return NextResponse.json({ success: false, error: "Failed" }, { status: 500 });

@@ -1,4 +1,5 @@
 import { db, Prisma } from "../index";
+import { PERFORMANCE_WINDOW_DAYS, scoreFromSignals } from "./seller-settings";
 
 // ─── EXECUTIVE DASHBOARD ──────────────────────────────────────────────────────
 
@@ -306,6 +307,8 @@ export async function getExecutiveDashboardData() {
 // ─── SUPPLIER PERFORMANCE ─────────────────────────────────────────────────────
 
 export async function getSupplierPerformance() {
+  const now = new Date();
+  const since = new Date(now.getTime() - PERFORMANCE_WINDOW_DAYS * 86_400_000);
   const rows = await db.$queryRaw<Array<{
     id: string;
     name: string;
@@ -317,6 +320,13 @@ export async function getSupplierPerformance() {
     ontime: bigint;
     health: number | null;
     rating: number | null;
+    orderitemsinwindow: bigint;
+    shippeditemsinwindow: bigint;
+    rfqsinwindow: bigint;
+    activeproducts: bigint;
+    healthyproducts: bigint;
+    currentdocuments: bigint;
+    approveddocuments: bigint;
   }>>`
     SELECT sp.id, sp."businessNameEn" AS name, sp.tier::text AS tier,
       COALESCE((SELECT SUM(oi.total) FROM "OrderItem" oi JOIN "Order" o ON o.id = oi."orderId"
@@ -331,6 +341,33 @@ export async function getSupplierPerformance() {
         JOIN "Product" p ON p.id = lhs."productId" WHERE p."sellerId" = sp.id) AS health,
       (SELECT AVG(pr.rating)::float FROM "ProductReview" pr
         JOIN "Product" p ON p.id = pr."productId" WHERE p."sellerId" = sp.id) AS rating
+      ,(SELECT COUNT(*) FROM "OrderItem" oi JOIN "Order" o ON o.id = oi."orderId"
+        WHERE oi."sellerId" = sp.id AND oi."createdAt" >= ${since}
+          AND oi.status <> 'CANCELLED' AND o."paymentStatus" = 'PAID' AND o.status <> 'CANCELLED') AS orderitemsinwindow
+      ,(SELECT COUNT(*) FROM "OrderItem" oi JOIN "Order" o ON o.id = oi."orderId"
+        WHERE oi."sellerId" = sp.id AND oi."createdAt" >= ${since}
+          AND oi.status <> 'CANCELLED' AND o."paymentStatus" = 'PAID' AND o.status <> 'CANCELLED'
+          AND (oi.status IN ('SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RETURN_REQUESTED', 'RETURNED')
+            OR o.status IN ('SHIPPED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'RETURN_REQUESTED', 'RETURNED'))) AS shippeditemsinwindow
+      ,(SELECT COUNT(*) FROM "RFQRequest" rfq WHERE rfq."sellerId" = sp.id
+          AND rfq."createdAt" >= ${since} AND rfq.status NOT IN ('DRAFT', 'CANCELLED')) AS rfqsinwindow
+      ,(SELECT COUNT(*) FROM "Product" p WHERE p."sellerId" = sp.id
+          AND p.status = 'ACTIVE' AND p."deletedAt" IS NULL) AS activeproducts
+      ,(SELECT COUNT(*) FROM "Product" p WHERE p."sellerId" = sp.id
+          AND p.status = 'ACTIVE' AND p."deletedAt" IS NULL
+          AND NOT EXISTS (SELECT 1 FROM "ProductIssue" pi WHERE pi."productId" = p.id AND pi."resolvedAt" IS NULL)) AS healthyproducts
+      ,(SELECT COUNT(*) FROM (
+          SELECT DISTINCT ON (sd.type) sd.status, sd."expiryDate"
+          FROM "SellerDocument" sd WHERE sd."sellerId" = sp.id
+          ORDER BY sd.type, sd."uploadedAt" DESC
+        ) current_document) AS currentdocuments
+      ,(SELECT COUNT(*) FROM (
+          SELECT DISTINCT ON (sd.type) sd.status, sd."expiryDate"
+          FROM "SellerDocument" sd WHERE sd."sellerId" = sp.id
+          ORDER BY sd.type, sd."uploadedAt" DESC
+        ) current_document
+        WHERE current_document.status = 'APPROVED'
+          AND (current_document."expiryDate" IS NULL OR current_document."expiryDate" > ${now})) AS approveddocuments
     FROM "SellerProfile" sp
     WHERE sp.status = 'ACTIVE' AND sp."deletedAt" IS NULL
     ORDER BY gmv DESC`;
@@ -341,15 +378,16 @@ export async function getSupplierPerformance() {
     const onTimePct = shipments > 0 ? Math.round((Number(r.ontime) / shipments) * 100) : null;
     const returnRate = orders > 0 ? Math.round((Number(r.returns) / orders) * 1000) / 10 : 0;
     const health = r.health ? Math.round(r.health) : null;
-    // Composite score: listing health (40%), on-time (30%), rating (20%), low returns (10%).
-    const parts: number[] = [];
-    if (health !== null) parts.push(health * 0.4);
-    if (onTimePct !== null) parts.push(onTimePct * 0.3);
-    if (r.rating) parts.push((r.rating / 5) * 100 * 0.2);
-    parts.push(Math.max(0, 100 - returnRate * 10) * 0.1);
-    const denominator =
-      (health !== null ? 0.4 : 0) + (onTimePct !== null ? 0.3 : 0) + (r.rating ? 0.2 : 0) + 0.1;
-    const score = Math.round(parts.reduce((s, p) => s + p, 0) / (denominator || 1));
+    // One score definition is used by both seller and admin surfaces. In
+    // particular, a new seller no longer receives a fabricated perfect score
+    // from the old low-return component's empty denominator.
+    const performance = scoreFromSignals({
+      orderItemsInWindow: Number(r.orderitemsinwindow),
+      rfqsInWindow: Number(r.rfqsinwindow),
+      fulfilment: { good: Number(r.shippeditemsinwindow), total: Number(r.orderitemsinwindow) },
+      listing: { good: Number(r.healthyproducts), total: Number(r.activeproducts) },
+      compliance: { good: Number(r.approveddocuments), total: Number(r.currentdocuments) },
+    });
 
     return {
       id: r.id,
@@ -361,7 +399,7 @@ export async function getSupplierPerformance() {
       returnRate,
       health,
       rating: r.rating ? Math.round(r.rating * 10) / 10 : null,
-      score,
+      score: performance?.score ?? null,
     };
   });
 }

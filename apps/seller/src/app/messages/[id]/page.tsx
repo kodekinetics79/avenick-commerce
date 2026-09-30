@@ -6,10 +6,11 @@ import { Building2, FileText, Lock, Package } from "lucide-react";
 import { isRecordId } from "@avenick/utils";
 import {
   countSellerUnreadMessages,
+  getSellerRfqInvitationAccess,
   getSellerThread,
   markThreadRead,
   MESSAGE_BODY_MAX_LENGTH,
-  sellerRfqPosture,
+  sellerInvitationCanSubmit,
   SELLER_MESSAGING_PERMISSION,
 } from "@avenick/database";
 import {
@@ -72,7 +73,21 @@ export default async function SellerThreadPage({ params }: { params: { id: strin
 
   const canQuote = sellerHasPermission({ user: { role: userRole }, membership }, "quotes.submit");
   const rfq = thread.rfq;
-  const rfqPosture = rfq ? sellerRfqPosture(rfq, seller.id) : null;
+  const invitation = rfq ? await getSellerRfqInvitationAccess({ rfqId: rfq.id, sellerId: seller.id }) : null;
+  const latestQuote = invitation?.quotes[0];
+  const rfqPosture = invitation
+    ? latestQuote
+      ? "quoted"
+      : sellerInvitationCanSubmit({
+          invitationStatus: invitation.status,
+          rfqStatus: invitation.rfq.status,
+          acceptedQuoteId: invitation.rfq.acceptedQuoteId,
+          responseDueAt: invitation.rfq.responseDueAt,
+          expiresAt: invitation.rfq.expiresAt,
+        })
+        ? "open"
+        : "closed"
+    : null;
   // /quotes?rfq= only forwards to the per-RFQ page for a member holding
   // quotes.submit; without it the seller lands on the unfiltered history list.
   // Send each reader where they will actually arrive, and label it that way.

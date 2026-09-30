@@ -1,12 +1,11 @@
 import {
   computeSellerPerformanceScore,
+  countSellerActionableRfqInvitations,
   db,
   getSellerDashboard,
   MIN_ORDER_ITEMS_FOR_SCORE,
   MIN_RFQS_FOR_SCORE,
   PERFORMANCE_WINDOW_DAYS,
-  SELLER_RFQ_INBOX_WHERE,
-  UNASSIGNED_RFQ_OPEN_STATUSES,
 } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { OnboardingChecklist } from "@/components/onboarding-checklist";
@@ -63,11 +62,7 @@ export default async function DashboardPage() {
     // quote — the rows that page flags "Needs response". The full inbox count
     // is not used here because it also holds every RFQ this seller already
     // claimed, whatever its status, and this card promises work to do.
-    db.rFQRequest.count({
-      where: {
-        AND: [SELLER_RFQ_INBOX_WHERE(seller.id), { status: { in: [...UNASSIGNED_RFQ_OPEN_STATUSES] } }],
-      },
-    }),
+    countSellerActionableRfqInvitations(seller.id),
     // SellerProfile.accountHealth is never recomputed (schema default 100; the
     // seed no longer writes it), so it is not shown anywhere. The score below is derived from the
     // seller's own paid orders, listings and current documents (RFQs quoted
@@ -159,7 +154,7 @@ export default async function DashboardPage() {
           description={seller.businessNameEn}
         />
 
-        <OnboardingChecklist seller={seller} />
+        <OnboardingChecklist seller={seller} permissions={membership.permissions} />
 
         {/* ══ THE MASTHEAD ══
             The one thing on this page with real scale.

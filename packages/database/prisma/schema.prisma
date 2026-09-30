@@ -235,6 +235,24 @@ enum RFQStatus {
   CANCELLED
 }
 
+enum RFQSupplierInvitationStatus {
+  INVITED
+  VIEWED
+  DECLINED
+  QUOTED
+  CLOSED
+}
+
+enum RFQQuoteStatus {
+  DRAFT
+  SUBMITTED
+  SUPERSEDED
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+  EXPIRED
+}
+
 enum MessageSenderType {
   BUYER
   SELLER
@@ -397,28 +415,34 @@ model User {
   /// demand, not to sign the whole userbase out the day it is added.
   sessionsValidAfter DateTime?
 
-  sellerProfile      SellerProfile?
-  adminProfile       AdminProfile?
-  companyMember      CompanyMember?
-  companyJoinRequest CompanyJoinRequest?
-  addresses          Address[]
-  cart               Cart?
-  orders             Order[]
-  sessions           Session[]
-  notifications      Notification[]
-  auditLogs          AuditLog[]
+  sellerProfile           SellerProfile?
+  adminProfile            AdminProfile?
+  companyMember           CompanyMember?
+  companyJoinRequest      CompanyJoinRequest?
+  addresses               Address[]
+  cart                    Cart?
+  orders                  Order[]
+  sessions                Session[]
+  notifications           Notification[]
+  auditLogs               AuditLog[]
   /// Companies this admin verified, and company documents they reviewed. Named
   /// relations because User already relates to AuditLog and would otherwise be
   /// ambiguous.
-  companiesVerified  Company[]           @relation("CompanyVerifiedBy")
-  documentsReviewed  CompanyDocument[]   @relation("CompanyDocumentReviewer")
-  sentMessages       Message[]           @relation("SentMessages")
-  customerActivities CustomerActivity[]
-  reviews            ProductReview[]
-  supportTickets     SupportTicket[]
-  sellerMemberships  SellerMembership[]
-  refreshTokens      RefreshToken[]
-  deviceTokens       DeviceToken[]
+  companiesVerified       Company[]               @relation("CompanyVerifiedBy")
+  documentsReviewed       CompanyDocument[]       @relation("CompanyDocumentReviewer")
+  sentMessages            Message[]               @relation("SentMessages")
+  customerActivities      CustomerActivity[]
+  reviews                 ProductReview[]
+  supportTickets          SupportTicket[]
+  sellerMemberships       SellerMembership[]
+  rfqInvitationsSent      RFQSupplierInvitation[] @relation("RFQInvitationInviter")
+  rfqQuotesSubmitted      RFQQuote[]              @relation("RFQQuoteSubmitter")
+  rfqQuotesAccepted       RFQQuote[]              @relation("RFQQuoteAccepter")
+  rfqRequests             RFQRequest[]            @relation("RFQBuyer")
+  purchaseOrdersRequested PurchaseOrder[]         @relation("PurchaseOrderRequester")
+  purchaseOrdersApproved  PurchaseOrder[]         @relation("PurchaseOrderApprover")
+  refreshTokens           RefreshToken[]
+  deviceTokens            DeviceToken[]
 
   @@index([email])
   @@index([role, status])
@@ -527,6 +551,7 @@ model Company {
   @@index([country])
   @@index([status, submittedAt])
   @@index([crExpiresOn])
+  @@index([verifiedById])
 }
 
 /// An application from a person who is NOT yet a member to join a company that
@@ -618,7 +643,15 @@ model PurchaseOrder {
   approverId                    String?
   status                        POStatus  @default(DRAFT)
   currency                      Currency  @default(AED)
-  total                         Decimal   @db.Decimal(12, 2)
+  /// Structured commercial provenance is populated for quote-sourced POs.
+  /// Nullable fields preserve legacy/manual PO rows during expand/cutover.
+  subtotal                      Decimal?  @db.Decimal(14, 2)
+  vatAmount                     Decimal?  @db.Decimal(14, 2)
+  freightAmount                 Decimal?  @db.Decimal(14, 2)
+  freightVatRate                Decimal?  @db.Decimal(5, 2)
+  freightVatAmount              Decimal?  @db.Decimal(14, 2)
+  total                         Decimal   @db.Decimal(14, 2)
+  sourceRfqQuoteId              String?   @unique
   requiredDate                  DateTime?
   notes                         String?
   rejectionReason               String?
@@ -629,9 +662,12 @@ model PurchaseOrder {
   createdAt                     DateTime  @default(now())
   updatedAt                     DateTime  @updatedAt
 
-  company Company             @relation(fields: [companyId], references: [id])
-  orders  Order[]
-  items   PurchaseOrderItem[]
+  company        Company             @relation(fields: [companyId], references: [id])
+  requester      User                @relation("PurchaseOrderRequester", fields: [requesterId], references: [id], onDelete: Restrict)
+  approver       User?               @relation("PurchaseOrderApprover", fields: [approverId], references: [id], onDelete: Restrict)
+  sourceRfqQuote RFQQuote?           @relation(fields: [sourceRfqQuoteId], references: [id], onDelete: Restrict)
+  orders         Order[]
+  items          PurchaseOrderItem[]
 
   @@index([companyId, status])
   @@index([requesterId])
@@ -671,6 +707,8 @@ model SellerProfile {
   payouts              SellerPayout[]
   warehouses           Warehouse[]
   rfqRequests          RFQRequest[]
+  rfqInvitations       RFQSupplierInvitation[]
+  rfqQuotes            RFQQuote[]
   messageThreads       MessageThread[]
   sellerCustomers      SellerCustomer[]
   commissions          Commission[]
@@ -680,6 +718,7 @@ model SellerProfile {
   savedViews           SavedView[]
   sellerMemberships    SellerMembership[]
   financialAdjustments SellerFinancialAdjustment[]
+  purchaseOrderItems   PurchaseOrderItem[]
 
   @@index([status])
   @@index([country])
@@ -734,6 +773,7 @@ model CompanyDocument {
   reviewer User?   @relation("CompanyDocumentReviewer", fields: [reviewedById], references: [id])
 
   @@index([companyId, type])
+  @@index([reviewedById])
   @@index([status, uploadedAt])
 }
 
@@ -876,6 +916,7 @@ model Product {
   externalProductLinks  ExternalProductLink[]
   availabilitySnapshots AvailabilitySnapshot[]
   viewSignals           ProductViewSignal[]
+  rfqQuoteItems         RFQQuoteItem[]
 
   @@index([sellerId, status])
   @@index([categoryId])
@@ -916,6 +957,7 @@ model ProductVariant {
   inventory             InventoryStock[]
   purchaseOrderItems    PurchaseOrderItem[]
   availabilitySnapshots AvailabilitySnapshot[]
+  rfqQuoteItems         RFQQuoteItem[]
 
   @@index([productId])
 }
@@ -1339,26 +1381,35 @@ model TaxInvoice {
 // ─── RFQ ──────────────────────────────────────────────────────────────────────
 
 model RFQRequest {
-  id           String    @id @default(cuid())
-  rfqNumber    String    @unique
-  buyerId      String
-  companyId    String?
-  sellerId     String?
-  status       RFQStatus @default(DRAFT)
-  currency     Currency  @default(AED)
-  notes        String?
-  totalQuoted  Decimal?  @db.Decimal(12, 2)
-  quoteVersion Int       @default(0)
-  requiredBy   DateTime?
-  expiresAt    DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id              String    @id @default(cuid())
+  rfqNumber       String    @unique
+  buyerId         String
+  companyId       String?
+  sellerId        String?
+  creationKey     String?
+  status          RFQStatus @default(DRAFT)
+  currency        Currency  @default(AED)
+  notes           String?
+  totalQuoted     Decimal?  @db.Decimal(12, 2)
+  quoteVersion    Int       @default(0)
+  acceptedQuoteId String?   @unique
+  requiredBy      DateTime?
+  responseDueAt   DateTime?
+  awardByAt       DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  company  Company?       @relation(fields: [companyId], references: [id])
-  seller   SellerProfile? @relation(fields: [sellerId], references: [id])
-  items    RFQItem[]
-  messages Message[]
+  company       Company?                @relation(fields: [companyId], references: [id])
+  seller        SellerProfile?          @relation(fields: [sellerId], references: [id])
+  buyer         User                    @relation("RFQBuyer", fields: [buyerId], references: [id], onDelete: Restrict)
+  acceptedQuote RFQQuote?               @relation("AcceptedRFQQuote", fields: [acceptedQuoteId], references: [id], onDelete: Restrict)
+  items         RFQItem[]
+  messages      Message[]
+  invitations   RFQSupplierInvitation[]
+  quotes        RFQQuote[]              @relation("RFQQuotes")
 
+  @@unique([companyId, creationKey])
   @@index([buyerId, status])
   @@index([sellerId, status])
   @@index([companyId])
@@ -1373,11 +1424,118 @@ model RFQItem {
   unitQuoted Decimal? @db.Decimal(12, 2)
   notes      String?
 
-  rfq     RFQRequest @relation(fields: [rfqId], references: [id], onDelete: Cascade)
-  product Product?   @relation(fields: [productId], references: [id])
+  rfq        RFQRequest     @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  product    Product?       @relation(fields: [productId], references: [id])
+  quoteItems RFQQuoteItem[]
 
   @@index([rfqId])
   @@index([productId])
+}
+
+/// A supplier explicitly invited to compete on one RFQ. Seller RFQ access is
+/// invitation-scoped; quote rows are commercial responses, not access grants.
+model RFQSupplierInvitation {
+  id          String                      @id @default(cuid())
+  rfqId       String
+  sellerId    String
+  invitedById String
+  status      RFQSupplierInvitationStatus @default(INVITED)
+  invitedAt   DateTime                    @default(now())
+  viewedAt    DateTime?
+  respondedAt DateTime?
+  closedAt    DateTime?
+
+  rfq       RFQRequest    @relation(fields: [rfqId], references: [id], onDelete: Restrict)
+  seller    SellerProfile @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  invitedBy User          @relation("RFQInvitationInviter", fields: [invitedById], references: [id], onDelete: Restrict)
+  quotes    RFQQuote[]
+
+  @@unique([rfqId, sellerId])
+  @@unique([id, rfqId, sellerId])
+  @@index([sellerId, status, invitedAt])
+  @@index([rfqId, status])
+  @@index([invitedById])
+}
+
+/// One immutable commercial revision from one invited supplier. Requoting
+/// inserts another row and supersedes the prior revision; it never overwrites
+/// prices a buyer may already have reviewed.
+model RFQQuote {
+  id                    String         @id @default(cuid())
+  invitationId          String
+  rfqId                 String
+  sellerId              String
+  revision              Int
+  status                RFQQuoteStatus @default(DRAFT)
+  currency              Currency
+  subtotal              Decimal        @db.Decimal(14, 2)
+  vatAmount             Decimal        @db.Decimal(14, 2)
+  freightAmount         Decimal        @default(0) @db.Decimal(14, 2)
+  freightVatRate        Decimal        @default(0) @db.Decimal(5, 2)
+  freightVatAmount      Decimal        @default(0) @db.Decimal(14, 2)
+  total                 Decimal        @db.Decimal(14, 2)
+  validUntil            DateTime
+  leadTimeDays          Int
+  paymentTermsDays      Int
+  notes                 String?
+  commercialFingerprint String         @db.VarChar(64)
+  submissionKey         String
+  requestFingerprint    String         @db.VarChar(64)
+  submittedById         String
+  submittedAt           DateTime?
+  acceptedById          String?
+  acceptedAt            DateTime?
+  supersededById        String?        @unique
+  createdAt             DateTime       @default(now())
+
+  invitation          RFQSupplierInvitation @relation(fields: [invitationId, rfqId, sellerId], references: [id, rfqId, sellerId], onDelete: Restrict)
+  rfq                 RFQRequest            @relation("RFQQuotes", fields: [rfqId], references: [id], onDelete: Restrict)
+  acceptedFor         RFQRequest?           @relation("AcceptedRFQQuote")
+  seller              SellerProfile         @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  submittedBy         User                  @relation("RFQQuoteSubmitter", fields: [submittedById], references: [id], onDelete: Restrict)
+  acceptedBy          User?                 @relation("RFQQuoteAccepter", fields: [acceptedById], references: [id], onDelete: Restrict)
+  supersededBy        RFQQuote?             @relation("RFQQuoteSupersession", fields: [supersededById], references: [id], onDelete: Restrict)
+  supersedes          RFQQuote?             @relation("RFQQuoteSupersession")
+  items               RFQQuoteItem[]
+  sourcePurchaseOrder PurchaseOrder?
+
+  @@unique([rfqId, sellerId, revision])
+  @@unique([sellerId, submissionKey])
+  @@index([invitationId, rfqId, sellerId])
+  @@index([invitationId, status, submittedAt])
+  @@index([rfqId, status, submittedAt])
+  @@index([sellerId, status, submittedAt])
+  @@index([submittedById])
+  @@index([acceptedById])
+}
+
+/// Immutable seller-owned product mapping and money snapshot for one RFQ line.
+model RFQQuoteItem {
+  id            String   @id @default(cuid())
+  quoteId       String
+  rfqItemId     String
+  productId     String
+  variantId     String?
+  sku           String
+  nameEn        String
+  quantity      Int
+  unitPrice     Decimal  @db.Decimal(14, 4)
+  vatRate       Decimal  @db.Decimal(5, 2)
+  lineSubtotal  Decimal  @db.Decimal(14, 2)
+  lineVatAmount Decimal  @db.Decimal(14, 2)
+  lineTotal     Decimal  @db.Decimal(14, 2)
+  createdAt     DateTime @default(now())
+
+  quote             RFQQuote           @relation(fields: [quoteId], references: [id], onDelete: Restrict)
+  rfqItem           RFQItem            @relation(fields: [rfqItemId], references: [id], onDelete: Restrict)
+  product           Product            @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant           ProductVariant?    @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  purchaseOrderItem PurchaseOrderItem?
+
+  @@unique([quoteId, rfqItemId])
+  @@index([rfqItemId])
+  @@index([productId])
+  @@index([variantId])
 }
 
 // ─── MESSAGING ────────────────────────────────────────────────────────────────
@@ -1879,6 +2037,7 @@ model IntegrationCompanyRoute {
 
   @@unique([tenantKey, companyId, connectionId, purpose])
   @@index([tenantKey, companyId, purpose])
+  @@index([companyId])
   @@index([connectionId])
 }
 
@@ -1897,6 +2056,7 @@ model ExternalAccountLink {
   company            Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([tenantKey, companyId, system])
+  @@index([companyId])
   @@index([system, externalCustomerId])
 }
 
@@ -1914,6 +2074,7 @@ model ExternalProductLink {
   product           Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   @@unique([tenantKey, productId, system])
+  @@index([productId])
   @@index([system, externalProductId])
 }
 
@@ -1937,6 +2098,8 @@ model AvailabilitySnapshot {
   variant           ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
 
   @@index([tenantKey, productId, observedAt])
+  @@index([productId])
+  @@index([variantId])
   @@index([expiresAt])
 }
 
@@ -2032,6 +2195,7 @@ model OrderIntegrationState {
   order               Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@unique([tenantKey, orderId, system])
+  @@index([orderId])
   @@index([state, updatedAt])
 }
 
@@ -2074,27 +2238,31 @@ model OrderLinePriceTrace {
 /// approval. Placement revalidates current price and stock, but this line remains
 /// the evidence of what was approved and why.
 model PurchaseOrderItem {
-  id               String   @id @default(cuid())
-  purchaseOrderId  String
-  productId        String
-  variantId        String?
-  sellerId         String
-  sku              String
-  nameEn           String
-  quantity         Int
-  unitPrice        Decimal  @db.Decimal(14, 4)
-  vatRate          Decimal  @db.Decimal(5, 2)
-  lineSubtotal     Decimal  @db.Decimal(14, 2)
-  priceSourceId    String?
-  priceExplanation Json?
-  createdAt        DateTime @default(now())
+  id                   String   @id @default(cuid())
+  purchaseOrderId      String
+  productId            String
+  variantId            String?
+  sellerId             String
+  sku                  String
+  nameEn               String
+  quantity             Int
+  unitPrice            Decimal  @db.Decimal(14, 4)
+  vatRate              Decimal  @db.Decimal(5, 2)
+  lineSubtotal         Decimal  @db.Decimal(14, 2)
+  priceSourceId        String?
+  priceExplanation     Json?
+  sourceRfqQuoteItemId String?  @unique
+  createdAt            DateTime @default(now())
 
-  purchaseOrder PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  product       Product         @relation(fields: [productId], references: [id])
-  variant       ProductVariant? @relation(fields: [variantId], references: [id])
+  purchaseOrder      PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product            Product         @relation(fields: [productId], references: [id])
+  variant            ProductVariant? @relation(fields: [variantId], references: [id])
+  seller             SellerProfile   @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+  sourceRfqQuoteItem RFQQuoteItem?   @relation(fields: [sourceRfqQuoteItemId], references: [id], onDelete: Restrict)
 
   @@index([purchaseOrderId])
   @@index([productId])
+  @@index([variantId])
   @@index([sellerId])
 }
 

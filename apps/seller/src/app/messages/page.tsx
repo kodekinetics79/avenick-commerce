@@ -1,14 +1,13 @@
 import { requireSellerPermission } from "@/lib/auth";
 import { sellerHasPermission } from "@/lib/seller-permissions";
 import {
+  countSellerRfqInvitations,
   countSellerUnreadMessages,
-  db,
-  getRFQsForSeller,
+  listSellerRfqInvitations,
   listSellerThreads,
-  sellerRfqPosture,
+  sellerInvitationPosture,
+  SELLER_INVITED_RFQ_LIMIT,
   SELLER_MESSAGING_PERMISSION,
-  SELLER_RFQ_INBOX_LIMIT,
-  SELLER_RFQ_INBOX_WHERE,
   THREAD_INBOX_LIMIT,
 } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
@@ -48,9 +47,11 @@ const RFQ_STATUS_TONE: Record<string, PillTone> = {
   SUBMITTED:    "warning",
   UNDER_REVIEW: "warning",
   QUOTED:       "primary",
+  SUPERSEDED:   "neutral",
   NEGOTIATING:  "primary",
   ACCEPTED:     "success",
   REJECTED:     "danger",
+  WITHDRAWN:    "neutral",
   EXPIRED:      "neutral",
   CANCELLED:    "neutral",
 };
@@ -83,7 +84,7 @@ interface RfqRowView {
    * the page, so the day the buyer asked for reads as today rather than as past.
    */
   due: { days: number; passed: boolean } | null;
-  posture: ReturnType<typeof sellerRfqPosture>;
+  posture: ReturnType<typeof sellerInvitationPosture>;
 }
 
 /**
@@ -221,40 +222,49 @@ export default async function MessagesPage() {
   // is told so on the row instead of being sent to a page that throws.
   const canQuote = sellerHasPermission({ user: { role: userRole }, membership }, "quotes.submit");
 
-  const [threads, unreadCount, rawRfqs, rfqTotal] = await Promise.all([
+  const [threads, unreadCount, invitations, rfqTotal] = await Promise.all([
     listSellerThreads(seller.id),
     countSellerUnreadMessages(seller.id),
-    // Same visibility as the quote pages: open unclaimed RFQs plus this
-    // seller's own. The old query listed only claimed RFQs, so an inbox with
-    // nothing to quote in it was the normal state.
-    getRFQsForSeller(seller.id),
-    // getRFQsForSeller returns the newest SELLER_RFQ_INBOX_LIMIT rows. The
-    // count uses the same predicate, so the notice below can say how much of
-    // the inbox is off-screen instead of letting a full page read as "all".
-    db.rFQRequest.count({ where: SELLER_RFQ_INBOX_WHERE(seller.id) }),
+    listSellerRfqInvitations(seller.id),
+    countSellerRfqInvitations(seller.id),
   ]);
 
   // One clock for the whole render, so every row's required-by reading is taken
   // at the same instant.
   const now = new Date();
   const fmtD = (d: Date | null) => (d ? format(d, "MMM d, yyyy") : t("common.notStated"));
-  const rfqInbox: RfqRowView[] = rawRfqs.map((r) => ({
+  const rfqInbox: RfqRowView[] = invitations.map((invitation) => {
+    const r = invitation.rfq;
+    const latestQuote = invitation.quotes[0];
+    const posture = sellerInvitationPosture({
+      invitationStatus: invitation.status,
+      rfqStatus: r.status,
+      acceptedQuoteId: r.acceptedQuoteId,
+      responseDueAt: r.responseDueAt,
+      expiresAt: r.expiresAt,
+      latestQuoteStatus: latestQuote?.status ?? null,
+    }, now);
+    return {
     id: r.id,
     rfqNumber: r.rfqNumber,
-    status: r.status,
+    // A request-level QUOTED state may belong to another supplier. Present this
+    // seller's own quote revision when it exists; otherwise an actionable
+    // invitation remains Open.
+    status: latestQuote?.status ?? (posture === "open" ? "SUBMITTED" : r.status),
     buyerCompany: r.company?.nameEn ?? t("common.directBuyer"),
     description: r.items[0]?.nameEn ?? t("common.itemCount", { count: r.items.length, n: String(r.items.length) }),
-    receivedAt: format(r.createdAt, "MMM d, yyyy"),
-    dueBy: fmtD(r.requiredBy),
+    receivedAt: format(invitation.invitedAt, "MMM d, yyyy"),
+    dueBy: fmtD(r.responseDueAt ?? r.requiredBy),
     // Null when the request carries no required-by date, which is a real state:
     // a buyer is not obliged to name one, and inventing a window for them would
     // be exactly the kind of fiction this codebase spent a programme removing.
     // `passed` is derived from the same day count, never from an instant
     // comparison: a date is past when its DAY is behind today, not when its
     // UTC-midnight timestamp is behind this second.
-    due: r.requiredBy ? passedOrDue(daysUntil(r.requiredBy, now)) : null,
-    posture: sellerRfqPosture(r, seller.id),
-  }));
+    due: r.responseDueAt ? passedOrDue(daysUntil(r.responseDueAt, now)) : null,
+    posture,
+  };
+  });
   const pendingRfqs = rfqInbox.filter((r) => r.posture === "open");
   // Counted from the same rows the list below renders, so the masthead figure can
   // never claim a number the page cannot show.
@@ -264,7 +274,7 @@ export default async function MessagesPage() {
   // scanning this page cannot miss the requests still waiting on them.
   const settledRfqs = rfqInbox.filter((r) => r.posture !== "open");
   const quotedRfqs = rfqInbox.filter((r) => r.posture === "quoted");
-  const rfqCapped = rawRfqs.length >= SELLER_RFQ_INBOX_LIMIT;
+  const rfqCapped = invitations.length >= SELLER_INVITED_RFQ_LIMIT;
   const threadsCapped = threads.length >= THREAD_INBOX_LIMIT;
 
   return (
@@ -345,7 +355,7 @@ export default async function MessagesPage() {
 
               <Dateline className="mt-3">
                 {rfqCapped
-                  ? t("inbox.countedCapped", { limit: String(SELLER_RFQ_INBOX_LIMIT), total: String(rfqTotal) })
+                  ? t("inbox.countedCapped", { limit: String(SELLER_INVITED_RFQ_LIMIT), total: String(rfqTotal) })
                   : t("inbox.countedListed")}
               </Dateline>
             </div>

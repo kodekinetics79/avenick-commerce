@@ -1,5 +1,9 @@
 # Avenick Commerce — Design System
 
+> **Historical document — superseded.** The current design authority is
+> `DESIGN.md` and `packages/ui/DESIGN_SYSTEM.md` (SIJILL). The blue/green,
+> generic rounded-card direction below is retained only as migration history.
+
 **Brand:** Avenick Commerce · **Descriptor:** Modern Trade OS
 **Tagline:** B2B-first. B2C-ready. Built for modern trade.
 

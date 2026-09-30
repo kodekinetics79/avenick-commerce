@@ -2,12 +2,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ context: vi.fn(), create: vi.fn() }));
 vi.mock("@/lib/b2b-server", () => ({ getServerB2BContext: mocks.context }));
-vi.mock("@avenick/database", () => ({ createRFQ: mocks.create }));
+vi.mock("@avenick/database", () => ({ createInvitedRFQ: mocks.create }));
 
 import { POST } from "../../app/api/b2b/rfqs/route";
 
 const payload = {
   notes: "Subject: Pumps · Delivery: Riyadh · Keep original requirements",
+  requiredBy: "2026-11-30T12:00:00.000Z",
+  responseDueAt: "2026-10-15T12:00:00.000Z",
+  awardByAt: "2026-10-31T12:00:00.000Z",
+  creationKey: "rfq-create-1",
+  sellerIds: ["seller-a", "seller-b"],
   items: [{ nameEn: "Industrial pump", quantity: 2, notes: "Target price" }],
 };
 const post = (body: unknown) => POST(new Request("http://localhost/api/b2b/rfqs", {
@@ -33,7 +38,13 @@ describe("RFQ creation currency authority", () => {
         expect(response.status).toBe(201);
         expect(await response.json()).toEqual({ success: true, data: { id: "created-rfq" } });
         expect(mocks.create).toHaveBeenLastCalledWith({
-          ...payload, buyerId: "member", companyId: "company", currency, requiredBy: undefined,
+          ...payload,
+          buyerId: "member",
+          companyId: "company",
+          currency,
+          requiredBy: new Date(payload.requiredBy),
+          responseDueAt: new Date(payload.responseDueAt),
+          awardByAt: new Date(payload.awardByAt),
         });
       }
       expect(mocks.create).toHaveBeenCalledTimes(2);

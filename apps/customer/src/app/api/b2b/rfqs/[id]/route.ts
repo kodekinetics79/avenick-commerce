@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { decideRFQ, getRFQForBuyer } from "@avenick/database";
+import { decideRFQ, getBuyerRFQDealLedger } from "@avenick/database";
 import { z } from "zod";
 import { getServerB2BContext } from "@/lib/b2b-server";
 
@@ -16,9 +16,9 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     return NextResponse.json({ success: false, error: "Company account required" }, { status: 401 });
   }
 
-  const rfq = await getRFQForBuyer({
+  const rfq = await getBuyerRFQDealLedger({
     rfqId: params.id,
-    buyerId: ctx.userId,
+    actorId: ctx.userId,
     companyId: ctx.companyId,
   });
   if (!rfq) return NextResponse.json({ success: false, error: "RFQ not found" }, { status: 404 });
