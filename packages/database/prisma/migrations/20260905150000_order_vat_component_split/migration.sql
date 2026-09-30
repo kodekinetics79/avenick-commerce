@@ -1,0 +1,58 @@
+-- Persist the two halves of an order's VAT, instead of only their sum.
+--
+-- WHAT IS LOST TODAY. `composeOrderTotals`
+-- (packages/database/src/services/checkout-invariants.ts:264-290) computes
+-- seven figures, including `goodsVatAmount` and `shippingVatAmount`, and sums
+-- them into `vatAmount`. The checkout then writes five of the seven:
+-- services/orders.ts:486 destructures `const { vatAmount, total } = totals;`
+-- and the two components are discarded on the floor. The Order table has no
+-- column for them.
+--
+-- WHY THAT MATTERS. Two questions cannot be answered from this database:
+--
+--   1. A tax authority — or the platform's own accountants — asking which
+--      portion of declared VAT was charged on freight rather than on goods.
+--      The figure was computed at checkout and thrown away.
+--   2. A partial refund that returns the goods but not the delivery. It must
+--      refund the goods VAT and retain the freight VAT, and it currently has
+--      no way to tell them apart in a stored order. Recomputing means guessing
+--      the rate that applied on the day, which is precisely the kind of
+--      reconstruction that produces a wrong number on an invoice.
+--
+-- packages/contracts/src/orders.ts already models this gap honestly: its
+-- PersistedOrderTotalsSchema makes both components nullable and asserts they
+-- sum to vatAmount only when both are present. These columns are what let that
+-- schema eventually become an exact mirror of composeOrderTotals.
+--
+-- NULLABLE, WITH NO BACKFILL, ON PURPOSE. Historical orders genuinely do not
+-- have this data. It was never recorded, and it cannot be honestly recovered:
+-- the rate in force at the time, whether freight was zero-rated in that place
+-- of supply, and whether the order predates VAT being charged on delivery at
+-- all are not knowable from the stored row. Writing `shippingVatAmount = 0` or
+-- deriving `goodsVatAmount = vatAmount` would be worse than a NULL, because a
+-- reader cannot distinguish an invented figure from a measured one, and both
+-- would be presented to an auditor as fact. NULL says "not recorded", which is
+-- the truth. No DEFAULT is set for the same reason: a default would silently
+-- make every future row that forgets to write these claim a split it never
+-- computed.
+--
+-- Precision matches every other money column on Order — subtotal, vatAmount,
+-- shippingAmount, discountAmount and total are all DECIMAL(12,2) — so the
+-- components round and sum in exactly the same arithmetic as the figure they
+-- decompose.
+--
+-- Purely additive: two nullable columns on Order. Nothing is altered, dropped
+-- or backfilled, and no existing total changes. On PostgreSQL 11+ adding a
+-- nullable column with no default is a metadata-only change: it does not
+-- rewrite the Order table and does not hold a long lock.
+--
+-- Written by hand rather than taken from `migrate diff`, for the reason the
+-- shipping-zones migration gives: the generated script also carries unrelated
+-- pre-existing drift (an ApprovalPolicy default), which is deliberately NOT
+-- touched here.
+
+-- AlterTable
+ALTER TABLE "Order" ADD COLUMN "goodsVatAmount" DECIMAL(12,2);
+
+-- AlterTable
+ALTER TABLE "Order" ADD COLUMN "shippingVatAmount" DECIMAL(12,2);

@@ -11,7 +11,11 @@
     "./guards": "./src/guards.ts",
     "./api": "./src/api.ts",
     "./sign-in-messages": "./src/sign-in-messages.ts",
-    "./rate-limit": "./src/rate-limit.ts"
+    "./rate-limit": "./src/rate-limit.ts",
+    "./credentials": "./src/credentials.ts",
+    "./session-revocation": "./src/session-revocation.ts",
+    "./app-secret": "./src/app-secret.ts",
+    "./access-token": "./src/access-token.ts"
   },
   "dependencies": {
     "@avenick/database": "workspace:*",

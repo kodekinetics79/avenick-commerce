@@ -3,6 +3,9 @@ import { db } from "../index";
 import { finalizeInternalOrderPayment } from "../services/payments";
 import { secureCreateOrder } from "../services/secure-checkout";
 import { advanceSellerOrderItems } from "../services/seller-fulfillment";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
+
+const run = integrationSuite();
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const ids = {
@@ -17,6 +20,7 @@ const productIds: string[] = [];
 const stockBefore = new Map<string, { qty: number; reservedQty: number }>();
 
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const buyer = await db.user.create({ data: { email: `industrial-cycle-buyer-${stamp}@example.test`, firstName: "Cycle", lastName: "Buyer", role: "CONSUMER", status: "ACTIVE" } });
   buyerId = buyer.id;
   ids.users.push(buyer.id);
@@ -52,6 +56,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   const items = ids.orders.length ? await db.orderItem.findMany({ where: { orderId: { in: ids.orders } }, select: { id: true } }) : [];
   await db.orderLinePriceTrace.deleteMany({ where: { orderItemId: { in: items.map(({ id }) => id) } } });
   await db.commission.deleteMany({ where: { orderId: { in: ids.orders } } });
@@ -68,7 +73,7 @@ afterAll(async () => {
   await db.user.deleteMany({ where: { id: { in: ids.users } } });
 });
 
-describe("industrial multi-seller full sale cycle", () => {
+run("industrial multi-seller full sale cycle", () => {
   it("creates multiple fresh sandbox orders and advances every seller through delivery without crossing scopes", async () => {
     const baskets = [
       [{ productId: productIds[0]!, quantity: 2 }],

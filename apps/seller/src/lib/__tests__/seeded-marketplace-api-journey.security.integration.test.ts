@@ -8,6 +8,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { GET as getSellerOrders } from "@/app/api/seller/orders/route";
 import { importProductsCsv } from "@/app/products/actions";
+import { integrationSuite, integrationDbEnabled } from "@avenick/database/testing";
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const created = { users: [] as string[], sellers: [] as string[], products: [] as string[] };
@@ -31,7 +32,7 @@ function sessionFor(userId: string) {
 }
 
 beforeAll(async () => {
-  if (!process.env.DATABASE_URL) return;
+  if (!integrationDbEnabled()) return;
   const [buyer, ownerA, staffFulfillment, staffCatalog, ownerB] = await Promise.all([
     db.user.create({ data: { email: `api-buyer-${stamp}@example.test`, firstName: "API", lastName: "Buyer", role: "CONSUMER", status: "ACTIVE" } }),
     db.user.create({ data: { email: `api-seller-a-owner-${stamp}@example.test`, firstName: "Seller A", lastName: "Owner", role: "SELLER_OWNER", status: "ACTIVE" } }),
@@ -89,7 +90,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (!process.env.DATABASE_URL) return;
+  if (!integrationDbEnabled()) return;
   if (orderId) await db.order.deleteMany({ where: { id: orderId } });
   if (stockId) await db.inventoryStock.deleteMany({ where: { id: stockId } });
   if (locationId) await db.inventoryLocation.deleteMany({ where: { id: locationId } });
@@ -100,7 +101,7 @@ afterAll(async () => {
   await db.user.deleteMany({ where: { id: { in: created.users } } });
 });
 
-describe.skipIf(!process.env.DATABASE_URL)("seeded-role marketplace API journey", () => {
+integrationSuite()("seeded-role marketplace API journey", () => {
   async function setCatalogPermissions(permissions: string[]) {
     return db.$transaction(async (tx) => {
       await lockUserCommerceRows(tx, [catalogStaffId]);

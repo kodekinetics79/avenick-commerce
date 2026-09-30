@@ -7,7 +7,7 @@ import {
   DEPLOYED_INTEGRATION_INBOX_HANDLERS,
   processIntegrationInboxMessage,
 } from "@avenick/database";
-import { integrationSuite } from "@avenick/database/testing";
+import { integrationDbEnabled, integrationSuite } from "@avenick/database/testing";
 import { POST } from "./route";
 
 const run = integrationSuite("parallel");
