@@ -524,7 +524,9 @@ BEGIN
   THEN
     RAISE EXCEPTION 'quote item provenance requires a quote-sourced purchase order';
   END IF;
-  RETURN NEW;
+  -- DELETE triggers must return OLD; returning NEW (NULL for DELETE) silently
+  -- cancels deletion of ordinary, non-quote PO lines and breaks FK cleanup.
+  RETURN CASE WHEN TG_OP = 'DELETE' THEN OLD ELSE NEW END;
 END;
 $$ LANGUAGE plpgsql;
 

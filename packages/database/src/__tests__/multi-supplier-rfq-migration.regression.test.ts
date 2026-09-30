@@ -23,4 +23,14 @@ describe("multi-supplier RFQ migration", () => {
     expect(migration).toMatch(/SELECT\s+q\.\*\s+INTO\s+source_quote/i);
     expect(migration).toMatch(/SELECT\s+r\."companyId"\s+INTO\s+source_company_id/i);
   });
+
+  it("returns OLD from the PO-line guard during DELETE", () => {
+    const guard = migration.match(
+      /CREATE OR REPLACE FUNCTION "guard_quote_sourced_purchase_order_item"\(\)[\s\S]*?\$\$ LANGUAGE plpgsql;/,
+    )?.[0];
+
+    expect(guard).toBeDefined();
+    expect(guard).toMatch(/RETURN\s+CASE\s+WHEN\s+TG_OP\s*=\s*'DELETE'\s+THEN\s+OLD\s+ELSE\s+NEW\s+END;/i);
+    expect(guard).not.toMatch(/RETURN\s+NEW\s*;/i);
+  });
 });
