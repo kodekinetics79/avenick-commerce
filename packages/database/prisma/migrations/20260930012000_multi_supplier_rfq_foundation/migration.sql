@@ -403,10 +403,23 @@ BEGIN
   END IF;
 
   IF NEW."sourceRfqQuoteId" IS NOT NULL THEN
-    SELECT q, r."companyId" INTO source_quote, source_company_id
+    -- A typed row variable cannot share a multi-target INTO list in PL/pgSQL.
+    -- Load the quote and its company in separate, explicit lookups so a clean
+    -- PostgreSQL migration can compile this trigger before any data exists.
+    SELECT q.* INTO source_quote
     FROM "RFQQuote" q
-    JOIN "RFQRequest" r ON r."id" = q."rfqId"
     WHERE q."id" = NEW."sourceRfqQuoteId";
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'quote-sourced purchase order requires an existing quote';
+    END IF;
+
+    SELECT r."companyId" INTO source_company_id
+    FROM "RFQRequest" r
+    WHERE r."id" = source_quote."rfqId";
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'quote-sourced purchase order requires an existing RFQ';
+    END IF;
+
     IF source_quote."status" <> 'ACCEPTED'
       OR source_company_id IS DISTINCT FROM NEW."companyId"
       OR source_quote."currency" IS DISTINCT FROM NEW."currency"
