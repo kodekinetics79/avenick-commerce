@@ -37,6 +37,17 @@ async function authenticatedContext(browser: Browser, persona: keyof typeof PERS
   });
 }
 
+async function assertInvitation(context: BrowserContext, rfqId: string, expectedSeller: string) {
+  const response = await context.request.get(url("seller", "/api/seller/rfqs"));
+  expect(response.status(), `${expectedSeller} could not read its RFQ inbox`).toBe(200);
+  const body = await response.json();
+  expect(body.data.seller.businessNameEn).toBe(expectedSeller);
+  expect(
+    body.data.inbox.map((row: { rfq: { id: string } }) => row.rfq.id),
+    `${expectedSeller} was not invited to the RFQ created through the buyer UI`,
+  ).toContain(rfqId);
+}
+
 async function selectFirstOption(page: Page, trigger: Locator) {
   await trigger.click();
   await page.getByRole("option").first().click();
@@ -116,11 +127,21 @@ test.describe("RFQ to purchase order certification", () => {
       await expect(sellerBResult).toBeVisible();
       await sellerBResult.click();
 
+      // Force the selected-supplier state to render before submitting. The
+      // search result and selected card deliberately use the same company
+      // label, so clear the results and prove that both selected cards remain.
+      await supplierSearch.fill("");
+      await expect(form.getByText(SELLER_A, { exact: true })).toHaveCount(1);
+      await expect(form.getByText(SELLER_B, { exact: true })).toHaveCount(1);
+
       await form.locator("button[type=submit]").last().click();
       await buyerPage.waitForURL(/\/b2b\/rfq\/[A-Za-z0-9_-]+$/);
       const rfqId = new URL(buyerPage.url()).pathname.split("/").pop();
       expect(rfqId, "RFQ creation did not produce a record id").toBeTruthy();
       await evidence(buyerPage, testInfo, "rfq-created-and-two-suppliers-invited.png");
+
+      await assertInvitation(sellerA, rfqId!, SELLER_A);
+      await assertInvitation(sellerB, rfqId!, SELLER_B);
 
       const sellerAPage = await sellerA.newPage();
       await submitSellerQuote(sellerAPage, rfqId!, "125", "40", testInfo, "seller-a-quote-submitted.png");
