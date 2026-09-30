@@ -72,7 +72,7 @@ async function submitSellerQuote(page: Page, rfqId: string, unitPrice: string, f
   await form.locator("button[type=submit]").click();
 
   await page.waitForURL((current) => current.pathname === "/quotes/submit" && current.searchParams.get("submitted") === "1");
-  await expect(page.getByRole("status")).toBeVisible();
+  await expect(page.locator('[role="status"][data-tone="success"]')).toBeVisible();
   await evidence(page, testInfo, evidenceName);
 }
 
