@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
 import { secureCreateOrder } from "../services/secure-checkout";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
+
+const run = integrationSuite();
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 let buyerId = "";
@@ -19,6 +22,7 @@ let stockId = "";
 const createdOrderIds: string[] = [];
 
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const buyer = await db.user.create({
     data: {
       email: `secure-buyer-${stamp}@example.test`,
@@ -163,6 +167,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   if (createdOrderIds.length) {
     await db.order.deleteMany({ where: { id: { in: createdOrderIds } } });
   }
@@ -181,7 +186,7 @@ afterAll(async () => {
   }
 });
 
-describe("secureCreateOrder", () => {
+run("secureCreateOrder", () => {
   it("rejects a direct checkout request below product MOQ", async () => {
     await db.product.update({ where: { id: productId }, data: { moq: 10 } });
     try {

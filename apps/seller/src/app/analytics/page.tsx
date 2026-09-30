@@ -1,6 +1,6 @@
 import { requireSellerPermission } from "@/lib/auth";
 import { SellerLayout } from "@/components/layout/seller-layout";
-import { db } from "@avenick/database";
+import { LISTING_TRAFFIC_WINDOW_DAYS, db, loadSellerListingTraffic } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
 import {
   CellGrid,
@@ -13,9 +13,10 @@ import {
   Stat,
   Surface,
 } from "@avenick/ui";
-import { TrendingUp, ShoppingCart, Wallet, Package } from "lucide-react";
+import { TrendingUp, ShoppingCart, Wallet, Package, Eye } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { ColumnChart } from "./column-chart";
+import { StatusPill } from "@avenick/ui";
 
 export async function generateMetadata() {
   const t = await getTranslations("sellerShell.analytics");
@@ -34,6 +35,24 @@ export default async function AnalyticsPage() {
   const t = await getTranslations("sellerShell.analytics");
   const tMonth = await getTranslations("sellerShell.months");
   const monthLabel = (index: number) => tMonth(MONTH_KEYS[index]!);
+  const tTraffic = await getTranslations("sellerShell.analytics.traffic");
+  /** One decimal place: conversion moves in tenths, and rounding to whole
+   *  percents makes a 0.4% listing and a 1.4% listing print the same. */
+  const pct = (share: number) => `${(share * 100).toFixed(1)}%`;
+
+  // Views the storefront already records, which until now only the customer-side
+  // trending ranker read. See loadSellerListingTraffic for why this is separate
+  // from the currency-scoped figures below.
+  //
+  // Caught, not awaited bare: this is ONE section of a page whose other four
+  // are computed from order lines and are fine without it. A view-signal read
+  // that fails — a cold database, a timeout, an environment where the signal
+  // table has not been migrated yet — must not take down the whole of a
+  // seller's analytics. The same shape the admin approvals queue uses for its
+  // counts: a failed read renders as a stated gap, never as a zero, because
+  // "0 views" and "we could not ask" are different facts and only one of them
+  // is a finding about the listing.
+  const traffic = await loadSellerListingTraffic(seller.id).catch(() => null);
 
   const allItems = await db.orderItem.findMany({
     where: { sellerId: seller.id, order: { status: { notIn: ["CANCELLED", "PENDING_PAYMENT"] } } },
@@ -255,6 +274,142 @@ export default async function AnalyticsPage() {
             </div>
           </>
         )}
+
+        {/* ── Traffic and conversion ─────────────────────────────────────────
+            Revenue says what was bought. This says what was LOOKED AT and not
+            bought, which is the only figure on the page that distinguishes a
+            listing with a price/photo/copy problem from one with a
+            discoverability problem — they are identical on every chart above
+            and call for opposite work. */}
+        <Surface as="section" rung={2} className="p-5">
+          <SectionHeader
+            icon={Eye}
+            eyebrow={tTraffic("eyebrow")}
+            title={tTraffic("title")}
+            description={tTraffic("description", { days: String(LISTING_TRAFFIC_WINDOW_DAYS) })}
+          />
+
+          {traffic === null ? (
+            <EmptyState
+              eyebrow={tTraffic("unread.eyebrow")}
+              headline={tTraffic("unread.headline")}
+              body={tTraffic("unread.body")}
+            />
+          ) : traffic.rows.length === 0 ? (
+            <EmptyState
+              eyebrow={tTraffic("empty.eyebrow")}
+              headline={tTraffic("empty.headline")}
+              body={tTraffic("empty.body", { days: String(LISTING_TRAFFIC_WINDOW_DAYS) })}
+            />
+          ) : (
+            <>
+              <CellGrid className="mb-4">
+                <Stat
+                  label={tTraffic("kpi.views")}
+                  value={traffic.totals.views.toLocaleString("en-US")}
+                  rank="inline"
+                  note={tTraffic("kpi.viewsNote")}
+                />
+                <Stat
+                  label={tTraffic("kpi.units")}
+                  value={traffic.totals.unitsOrdered.toLocaleString("en-US")}
+                  rank="inline"
+                  note={tTraffic("kpi.unitsNote")}
+                />
+                <Stat
+                  label={tTraffic("kpi.conversion")}
+                  // Never a zero for "nobody looked": that is unmeasured, and
+                  // the em dash is what this portal prints for unmeasured.
+                  value={traffic.totals.conversion === null ? "—" : pct(traffic.totals.conversion)}
+                  rank="inline"
+                  note={tTraffic("kpi.conversionNote")}
+                />
+              </CellGrid>
+
+              <LedgerTable
+                rows={traffic.rows}
+                getRowKey={(row) => row.productId}
+                dateline={tTraffic("dateline", { days: String(LISTING_TRAFFIC_WINDOW_DAYS) })}
+                columns={[
+                  {
+                    key: "listing",
+                    label: tTraffic("columns.listing"),
+                    render: (row) => (
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-ink-1">{row.nameEn}</p>
+                        <p className="u-meta u-mono truncate text-ink-3">{row.sku}</p>
+                      </div>
+                    ),
+                  },
+                  {
+                    key: "status",
+                    label: tTraffic("columns.status"),
+                    hideOnMobile: true,
+                    render: (row) => (
+                      <StatusPill tone={row.status === "ACTIVE" ? "success" : "neutral"}>
+                        {row.status.replace(/_/g, " ")}
+                      </StatusPill>
+                    ),
+                  },
+                  {
+                    key: "views",
+                    label: tTraffic("columns.views"),
+                    numeric: true,
+                    render: (row) => row.views.toLocaleString("en-US"),
+                  },
+                  {
+                    key: "units",
+                    label: tTraffic("columns.units"),
+                    numeric: true,
+                    render: (row) => row.unitsOrdered.toLocaleString("en-US"),
+                  },
+                  {
+                    key: "conversion",
+                    label: tTraffic("columns.conversion"),
+                    numeric: true,
+                    render: (row) =>
+                      row.conversion === null ? (
+                        <span className="text-ink-3" title={tTraffic("noViewsTitle")}>—</span>
+                      ) : (
+                        pct(row.conversion)
+                      ),
+                  },
+                  {
+                    key: "sales",
+                    label: tTraffic("columns.sales"),
+                    numeric: true,
+                    hideOnMobile: true,
+                    render: (row) => (row.orderedProductSales === null ? "—" : money(row.orderedProductSales)),
+                  },
+                ]}
+                // Unreachable: the branch above renders the empty state instead
+                // of the table. LedgerTable requires the prop, and repeating the
+                // same blank here keeps the two from ever disagreeing.
+                empty={
+                  <EmptyState
+                    eyebrow={tTraffic("empty.eyebrow")}
+                    headline={tTraffic("empty.headline")}
+                    body={tTraffic("empty.body", { days: String(LISTING_TRAFFIC_WINDOW_DAYS) })}
+                  />
+                }
+              />
+
+              <Dateline className="mt-3">
+                {tTraffic("provenance")}
+                {traffic.excludedLineCount > 0 && (
+                  <>
+                    {" "}
+                    {tTraffic("excluded", {
+                      count: traffic.excludedLineCount,
+                      n: String(traffic.excludedLineCount),
+                      currencies: traffic.excludedCurrencies.join(", "),
+                    })}
+                  </>
+                )}
+              </Dateline>
+            </>
+          )}
+        </Surface>
       </div>
     </SellerLayout>
   );

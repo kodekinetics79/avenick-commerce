@@ -1,0 +1,6576 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Avenick Mobile API",
+    "version": "1.0.0",
+    "description": "The versioned surface the Avenick Flutter app consumes. Generated from the zod schemas in @avenick/contracts — never edited by hand. Every response is `{ data, meta? }`; every failure is `{ error: { code, message, requestId, fieldErrors? } }`."
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "Same-origin. /v1 paths are relative to this."
+    }
+  ],
+  "tags": [
+    {
+      "name": "auth",
+      "description": "Tokens, refresh, revocation and OTP."
+    },
+    {
+      "name": "cart",
+      "description": "The server cart, which absorbs the device's offline cart."
+    },
+    {
+      "name": "checkout",
+      "description": "Pricing a basket. The only place a total is stated."
+    },
+    {
+      "name": "catalogue",
+      "description": "Products, categories and brands."
+    },
+    {
+      "name": "orders",
+      "description": "Placing and reading orders."
+    },
+    {
+      "name": "rfqs",
+      "description": "Requests for quote — the buying journey for a quote-only catalogue."
+    },
+    {
+      "name": "me",
+      "description": "Identity and account lifecycle."
+    },
+    {
+      "name": "addresses",
+      "description": "Ship-to addresses."
+    },
+    {
+      "name": "devices",
+      "description": "Push-notification registration."
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Access token from POST /v1/auth/token, /refresh or /otp/verify."
+      }
+    },
+    "schemas": {
+      "Image": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "width": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 20000
+          },
+          "height": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 20000
+          },
+          "blurhash": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 128
+          },
+          "alt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 300
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "additionalProperties": false
+      },
+      "PageMeta": {
+        "type": "object",
+        "properties": {
+          "cursor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "cursor",
+          "hasMore"
+        ],
+        "additionalProperties": false
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "enum": [
+              "unauthenticated",
+              "forbidden",
+              "not_found",
+              "validation_failed",
+              "rate_limited",
+              "conflict",
+              "payment_required",
+              "upstream_unavailable",
+              "internal"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "requestId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "fieldErrors": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            }
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "requestId"
+        ],
+        "additionalProperties": false
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ApiError"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "AuthPrincipal": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 320,
+            "format": "email"
+          },
+          "firstName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "CONSUMER",
+              "COMPANY_ADMIN",
+              "COMPANY_BUYER",
+              "COMPANY_APPROVER",
+              "SELLER_OWNER",
+              "SELLER_STAFF",
+              "ADMIN",
+              "SUPER_ADMIN"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "AR",
+              "EN"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "firstName",
+          "lastName",
+          "role",
+          "language"
+        ],
+        "additionalProperties": false
+      },
+      "TokenPair": {
+        "type": "object",
+        "properties": {
+          "tokenType": {
+            "type": "string",
+            "enum": [
+              "Bearer"
+            ]
+          },
+          "accessToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "expiresIn": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 86400
+          },
+          "refreshToken": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "refreshExpiresIn": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 31536000
+          },
+          "principal": {
+            "$ref": "#/components/schemas/AuthPrincipal"
+          }
+        },
+        "required": [
+          "tokenType",
+          "accessToken",
+          "expiresIn",
+          "refreshToken",
+          "refreshExpiresIn",
+          "principal"
+        ],
+        "additionalProperties": false
+      },
+      "OtpChallenge": {
+        "type": "object",
+        "properties": {
+          "challengeId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "codeLength": {
+            "type": "integer",
+            "minimum": 4,
+            "maximum": 8
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "resendAfter": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "challengeId",
+          "codeLength",
+          "expiresAt",
+          "resendAfter"
+        ],
+        "additionalProperties": false
+      },
+      "Revocation": {
+        "type": "object",
+        "properties": {
+          "revokedCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "revokedCount"
+        ],
+        "additionalProperties": false
+      },
+      "CartLine": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "productId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "variantId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "sellerId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "sku": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "nameEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "nameAr": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "image": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Image"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "B2C",
+              "B2B"
+            ]
+          },
+          "qty": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9999
+          },
+          "moq": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "unitPrice": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "AED",
+              "SAR",
+              "QAR",
+              "KWD",
+              "OMR",
+              "BHD",
+              "USD"
+            ]
+          },
+          "vatRatePercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "priceTiered": {
+            "type": "boolean"
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "IN_STOCK",
+              "OUT_OF_STOCK",
+              "UNCONFIRMED"
+            ]
+          },
+          "sellableInChannel": {
+            "type": "boolean"
+          },
+          "lineTotal": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          }
+        },
+        "required": [
+          "id",
+          "productId",
+          "variantId",
+          "sellerId",
+          "slug",
+          "sku",
+          "nameEn",
+          "nameAr",
+          "image",
+          "channel",
+          "qty",
+          "moq",
+          "unitPrice",
+          "currency",
+          "vatRatePercent",
+          "priceTiered",
+          "availability",
+          "sellableInChannel",
+          "lineTotal"
+        ],
+        "additionalProperties": false
+      },
+      "Cart": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "AED",
+              "SAR",
+              "QAR",
+              "KWD",
+              "OMR",
+              "BHD",
+              "USD"
+            ]
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CartLine"
+            },
+            "maxItems": 500
+          },
+          "itemCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "subtotal": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "currency",
+          "lines",
+          "itemCount",
+          "subtotal",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CartMergeRejection": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "variantId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "product_not_found",
+              "product_unavailable",
+              "variant_not_found",
+              "channel_not_enabled",
+              "currency_not_priced",
+              "below_moq",
+              "insufficient_stock",
+              "quantity_limit"
+            ]
+          },
+          "acceptedQty": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0
+          }
+        },
+        "required": [
+          "productId",
+          "variantId",
+          "reason",
+          "acceptedQty"
+        ],
+        "additionalProperties": false
+      },
+      "CartMergeResult": {
+        "type": "object",
+        "properties": {
+          "cart": {
+            "$ref": "#/components/schemas/Cart"
+          },
+          "rejected": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CartMergeRejection"
+            }
+          }
+        },
+        "required": [
+          "cart",
+          "rejected"
+        ],
+        "additionalProperties": false
+      },
+      "ShippingAddress": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "line1": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 240
+          },
+          "line2": {
+            "type": "string",
+            "maxLength": 240
+          },
+          "city": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "country": {
+            "type": "string",
+            "enum": [
+              "AE",
+              "SA",
+              "QA",
+              "KW",
+              "OM",
+              "BH"
+            ]
+          },
+          "postalCode": {
+            "type": "string",
+            "maxLength": 20
+          }
+        },
+        "required": [
+          "label",
+          "line1",
+          "city",
+          "country"
+        ],
+        "additionalProperties": false
+      },
+      "QuoteLine": {
+        "type": "object",
+        "properties": {
+          "productId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "variantId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "sellerId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "sku": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "nameEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "nameAr": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "quantity": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 100000
+          },
+          "unitPrice": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "vatRatePercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "vatAmount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "lineTotal": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          }
+        },
+        "required": [
+          "productId",
+          "variantId",
+          "sellerId",
+          "sku",
+          "nameEn",
+          "nameAr",
+          "quantity",
+          "unitPrice",
+          "vatRatePercent",
+          "vatAmount",
+          "lineTotal"
+        ],
+        "additionalProperties": false
+      },
+      "ShippingQuote": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "priced",
+              "unpriced_no_zones",
+              "unavailable"
+            ]
+          },
+          "zoneName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "amount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "vatRatePercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "estimatedDaysMin": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 365
+          },
+          "estimatedDaysMax": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 365
+          }
+        },
+        "required": [
+          "status",
+          "zoneName",
+          "amount",
+          "vatRatePercent",
+          "estimatedDaysMin",
+          "estimatedDaysMax"
+        ],
+        "additionalProperties": false
+      },
+      "AppliedPromotion": {
+        "type": "object",
+        "properties": {
+          "promotionId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "couponCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 40
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "discountAmount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          }
+        },
+        "required": [
+          "promotionId",
+          "couponCode",
+          "label",
+          "discountAmount"
+        ],
+        "additionalProperties": false
+      },
+      "OrderTotals": {
+        "type": "object",
+        "properties": {
+          "subtotal": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "discountAmount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "goodsVatAmount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "shippingAmount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "shippingVatAmount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "vatAmount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "total": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          }
+        },
+        "required": [
+          "subtotal",
+          "discountAmount",
+          "goodsVatAmount",
+          "shippingAmount",
+          "shippingVatAmount",
+          "vatAmount",
+          "total"
+        ],
+        "additionalProperties": false
+      },
+      "CheckoutQuote": {
+        "type": "object",
+        "properties": {
+          "quoteId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "AED",
+              "SAR",
+              "QAR",
+              "KWD",
+              "OMR",
+              "BHD",
+              "USD"
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "B2C",
+              "B2B"
+            ]
+          },
+          "vatRatePercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/QuoteLine"
+            },
+            "minItems": 1,
+            "maxItems": 500
+          },
+          "shipping": {
+            "$ref": "#/components/schemas/ShippingQuote"
+          },
+          "promotions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppliedPromotion"
+            }
+          },
+          "totals": {
+            "$ref": "#/components/schemas/OrderTotals"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "quoteId",
+          "currency",
+          "channel",
+          "vatRatePercent",
+          "lines",
+          "shipping",
+          "promotions",
+          "totals",
+          "expiresAt"
+        ],
+        "additionalProperties": false
+      },
+      "RatingSummary": {
+        "type": "object",
+        "properties": {
+          "average": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 5
+          },
+          "count": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "average",
+          "count"
+        ],
+        "additionalProperties": false
+      },
+      "CardPrice": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "AED",
+              "SAR",
+              "QAR",
+              "KWD",
+              "OMR",
+              "BHD",
+              "USD"
+            ]
+          },
+          "vatRatePercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "isFrom": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "amount",
+          "currency",
+          "vatRatePercent",
+          "isFrom"
+        ],
+        "additionalProperties": false
+      },
+      "PriceBand": {
+        "type": "object",
+        "properties": {
+          "channel": {
+            "type": "string",
+            "enum": [
+              "B2C",
+              "B2B"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "AED",
+              "SAR",
+              "QAR",
+              "KWD",
+              "OMR",
+              "BHD",
+              "USD"
+            ]
+          },
+          "minQty": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "maxQty": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "exclusiveMinimum": 0
+          },
+          "price": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "vatRatePercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "channel",
+          "currency",
+          "minQty",
+          "maxQty",
+          "price",
+          "vatRatePercent"
+        ],
+        "additionalProperties": false
+      },
+      "ProductVariant": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "sku": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "nameEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "nameAr": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ]
+            }
+          },
+          "prices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriceBand"
+            }
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "IN_STOCK",
+              "OUT_OF_STOCK",
+              "UNCONFIRMED"
+            ]
+          },
+          "availableQty": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "sku",
+          "nameEn",
+          "nameAr",
+          "attributes",
+          "prices",
+          "availability",
+          "availableQty"
+        ],
+        "additionalProperties": false
+      },
+      "SellerSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "businessNameEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "businessNameAr": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "STANDARD",
+              "VERIFIED",
+              "GOLD",
+              "PLATINUM"
+            ]
+          },
+          "city": {
+            "type": "string",
+            "maxLength": 120
+          },
+          "country": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "rating": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RatingSummary"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "businessNameEn",
+          "businessNameAr",
+          "tier",
+          "city",
+          "country",
+          "rating"
+        ],
+        "additionalProperties": false
+      },
+      "ProductCard": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "nameEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "nameAr": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "image": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Image"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "price": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CardPrice"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "moq": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "IN_STOCK",
+              "OUT_OF_STOCK",
+              "UNCONFIRMED"
+            ]
+          },
+          "priceTiered": {
+            "type": "boolean"
+          },
+          "rating": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RatingSummary"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "brandName": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "sellableInChannel": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "nameEn",
+          "nameAr",
+          "image",
+          "price",
+          "moq",
+          "availability",
+          "priceTiered",
+          "rating",
+          "brandName",
+          "sellableInChannel"
+        ],
+        "additionalProperties": false
+      },
+      "ProductDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "sku": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "nameEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "nameAr": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "descriptionEn": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 5000
+          },
+          "descriptionAr": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 5000
+          },
+          "images": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Image"
+            },
+            "maxItems": 50
+          },
+          "prices": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PriceBand"
+            }
+          },
+          "variants": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductVariant"
+            },
+            "maxItems": 200
+          },
+          "moq": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "availability": {
+            "type": "string",
+            "enum": [
+              "IN_STOCK",
+              "OUT_OF_STOCK",
+              "UNCONFIRMED"
+            ]
+          },
+          "availableQty": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "origin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "weightKg": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "exclusiveMinimum": 0,
+            "maximum": 100000
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 60
+            },
+            "maxItems": 20
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "B2C",
+              "B2B"
+            ]
+          },
+          "brand": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "nameEn": {
+                "type": "string",
+                "maxLength": 120
+              },
+              "nameAr": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 120
+              }
+            },
+            "required": [
+              "id",
+              "nameEn",
+              "nameAr"
+            ],
+            "additionalProperties": false
+          },
+          "category": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "slug": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 160,
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "nameEn": {
+                "type": "string",
+                "maxLength": 120
+              },
+              "nameAr": {
+                "type": "string",
+                "maxLength": 120
+              }
+            },
+            "required": [
+              "id",
+              "slug",
+              "nameEn",
+              "nameAr"
+            ],
+            "additionalProperties": false
+          },
+          "seller": {
+            "$ref": "#/components/schemas/SellerSummary"
+          },
+          "rating": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RatingSummary"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "sellableInChannel": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "sku",
+          "nameEn",
+          "nameAr",
+          "descriptionEn",
+          "descriptionAr",
+          "images",
+          "prices",
+          "variants",
+          "moq",
+          "availability",
+          "availableQty",
+          "origin",
+          "weightKg",
+          "tags",
+          "channel",
+          "brand",
+          "category",
+          "seller",
+          "rating",
+          "sellableInChannel"
+        ],
+        "additionalProperties": false
+      },
+      "Category": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "nameEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "nameAr": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "parentId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "depth": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 16
+          },
+          "image": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Image"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "productCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "nameEn",
+          "nameAr",
+          "parentId",
+          "depth",
+          "image",
+          "productCount"
+        ],
+        "additionalProperties": false
+      },
+      "Brand": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "nameEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "nameAr": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "logo": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Image"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "productCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "nameEn",
+          "nameAr",
+          "logo",
+          "productCount"
+        ],
+        "additionalProperties": false
+      },
+      "PersistedOrderTotals": {
+        "type": "object",
+        "properties": {
+          "subtotal": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "discountAmount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "shippingAmount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "vatAmount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "goodsVatAmount": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "shippingVatAmount": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "total": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          }
+        },
+        "required": [
+          "subtotal",
+          "discountAmount",
+          "shippingAmount",
+          "vatAmount",
+          "goodsVatAmount",
+          "shippingVatAmount",
+          "total"
+        ],
+        "additionalProperties": false
+      },
+      "OrderItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "productId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "variantId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "sellerId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "slug": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 160,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "sku": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "nameEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "nameAr": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "image": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Image"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "quantity": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "unitPrice": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "vatRatePercent": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "vatAmount": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "total": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING_PAYMENT",
+              "PAYMENT_CONFIRMED",
+              "CONFIRMED",
+              "PROCESSING",
+              "SHIPPED",
+              "OUT_FOR_DELIVERY",
+              "DELIVERED",
+              "CANCELLED",
+              "REFUNDED",
+              "RETURN_REQUESTED",
+              "RETURNED"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "productId",
+          "variantId",
+          "sellerId",
+          "slug",
+          "sku",
+          "nameEn",
+          "nameAr",
+          "image",
+          "quantity",
+          "unitPrice",
+          "vatRatePercent",
+          "vatAmount",
+          "total",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "OrderStatusEvent": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING_PAYMENT",
+              "PAYMENT_CONFIRMED",
+              "CONFIRMED",
+              "PROCESSING",
+              "SHIPPED",
+              "OUT_FOR_DELIVERY",
+              "DELIVERED",
+              "CANCELLED",
+              "REFUNDED",
+              "RETURN_REQUESTED",
+              "RETURNED"
+            ]
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          },
+          "occurredAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "occurredAt"
+        ],
+        "additionalProperties": false
+      },
+      "Shipment": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PICKED_UP",
+              "IN_TRANSIT",
+              "OUT_FOR_DELIVERY",
+              "DELIVERED",
+              "FAILED",
+              "RETURNED"
+            ]
+          },
+          "carrier": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "trackingNumber": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 120
+          },
+          "trackingUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "estimatedDelivery": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "carrier",
+          "trackingNumber",
+          "trackingUrl",
+          "estimatedDelivery"
+        ],
+        "additionalProperties": false
+      },
+      "OrderCard": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "orderNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING_PAYMENT",
+              "PAYMENT_CONFIRMED",
+              "CONFIRMED",
+              "PROCESSING",
+              "SHIPPED",
+              "OUT_FOR_DELIVERY",
+              "DELIVERED",
+              "CANCELLED",
+              "REFUNDED",
+              "RETURN_REQUESTED",
+              "RETURNED"
+            ]
+          },
+          "paymentStatus": {
+            "type": "string",
+            "enum": [
+              "UNPAID",
+              "PAID",
+              "PARTIALLY_PAID",
+              "REFUNDED",
+              "FAILED"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "B2C",
+              "B2B"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "AED",
+              "SAR",
+              "QAR",
+              "KWD",
+              "OMR",
+              "BHD",
+              "USD"
+            ]
+          },
+          "total": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "itemCount": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "thumbnail": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Image"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "placedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "orderNumber",
+          "status",
+          "paymentStatus",
+          "type",
+          "currency",
+          "total",
+          "itemCount",
+          "thumbnail",
+          "placedAt"
+        ],
+        "additionalProperties": false
+      },
+      "OrderDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "orderNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING_PAYMENT",
+              "PAYMENT_CONFIRMED",
+              "CONFIRMED",
+              "PROCESSING",
+              "SHIPPED",
+              "OUT_FOR_DELIVERY",
+              "DELIVERED",
+              "CANCELLED",
+              "REFUNDED",
+              "RETURN_REQUESTED",
+              "RETURNED"
+            ]
+          },
+          "paymentStatus": {
+            "type": "string",
+            "enum": [
+              "UNPAID",
+              "PAID",
+              "PARTIALLY_PAID",
+              "REFUNDED",
+              "FAILED"
+            ]
+          },
+          "paymentMethod": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "MADA",
+              "APPLE_PAY",
+              "CREDIT_CARD",
+              "BANK_TRANSFER",
+              "STC_PAY",
+              "MOCK"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "B2C",
+              "B2B"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "AED",
+              "SAR",
+              "QAR",
+              "KWD",
+              "OMR",
+              "BHD",
+              "USD"
+            ]
+          },
+          "totals": {
+            "$ref": "#/components/schemas/PersistedOrderTotals"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItem"
+            },
+            "minItems": 1,
+            "maxItems": 500
+          },
+          "shippingAddress": {
+            "$ref": "#/components/schemas/ShippingAddress"
+          },
+          "shipments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Shipment"
+            },
+            "maxItems": 50
+          },
+          "statusHistory": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderStatusEvent"
+            },
+            "maxItems": 200
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "vatInvoiceUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "placedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "orderNumber",
+          "status",
+          "paymentStatus",
+          "paymentMethod",
+          "type",
+          "currency",
+          "totals",
+          "items",
+          "shippingAddress",
+          "shipments",
+          "statusHistory",
+          "notes",
+          "vatInvoiceUrl",
+          "placedAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "PlacedOrder": {
+        "type": "object",
+        "properties": {
+          "order": {
+            "$ref": "#/components/schemas/OrderDetail"
+          },
+          "replayed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "order",
+          "replayed"
+        ],
+        "additionalProperties": false
+      },
+      "RfqSeller": {
+        "type": "object",
+        "properties": {
+          "businessNameEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "tier": {
+            "type": "string",
+            "enum": [
+              "STANDARD",
+              "VERIFIED",
+              "GOLD",
+              "PLATINUM"
+            ]
+          }
+        },
+        "required": [
+          "businessNameEn",
+          "tier"
+        ],
+        "additionalProperties": false
+      },
+      "RfqItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "productId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "nameEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "quantity": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "unitQuoted": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "id",
+          "productId",
+          "nameEn",
+          "quantity",
+          "unitQuoted",
+          "notes"
+        ],
+        "additionalProperties": false
+      },
+      "RfqCard": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "rfqNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SUBMITTED",
+              "UNDER_REVIEW",
+              "QUOTED",
+              "NEGOTIATING",
+              "ACCEPTED",
+              "REJECTED",
+              "EXPIRED",
+              "CANCELLED"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "AED",
+              "SAR",
+              "QAR",
+              "KWD",
+              "OMR",
+              "BHD",
+              "USD"
+            ]
+          },
+          "itemCount": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "totalQuoted": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "quoteVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "seller": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RfqSeller"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "requiredBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "messageCount": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "id",
+          "rfqNumber",
+          "status",
+          "currency",
+          "itemCount",
+          "totalQuoted",
+          "quoteVersion",
+          "seller",
+          "requiredBy",
+          "createdAt",
+          "messageCount"
+        ],
+        "additionalProperties": false
+      },
+      "RfqDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "rfqNumber": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "DRAFT",
+              "SUBMITTED",
+              "UNDER_REVIEW",
+              "QUOTED",
+              "NEGOTIATING",
+              "ACCEPTED",
+              "REJECTED",
+              "EXPIRED",
+              "CANCELLED"
+            ]
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "AED",
+              "SAR",
+              "QAR",
+              "KWD",
+              "OMR",
+              "BHD",
+              "USD"
+            ]
+          },
+          "itemCount": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
+          "totalQuoted": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 9999999999.99
+          },
+          "quoteVersion": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "seller": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RfqSeller"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "requiredBy": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "messageCount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RfqItem"
+            },
+            "minItems": 1,
+            "maxItems": 50
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          },
+          "expiresAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "rfqNumber",
+          "status",
+          "currency",
+          "itemCount",
+          "totalQuoted",
+          "quoteVersion",
+          "seller",
+          "requiredBy",
+          "createdAt",
+          "messageCount",
+          "items",
+          "notes",
+          "expiresAt",
+          "updatedAt"
+        ],
+        "additionalProperties": false
+      },
+      "CompanyMembership": {
+        "type": "object",
+        "properties": {
+          "companyId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "nameEn": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "nameAr": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 200
+          },
+          "country": {
+            "type": "string",
+            "enum": [
+              "AE",
+              "SA",
+              "QA",
+              "KW",
+              "OM",
+              "BH"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING_VERIFICATION",
+              "ACTIVE",
+              "SUSPENDED",
+              "REJECTED",
+              "INFO_REQUESTED"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "CONSUMER",
+              "COMPANY_ADMIN",
+              "COMPANY_BUYER",
+              "COMPANY_APPROVER",
+              "SELLER_OWNER",
+              "SELLER_STAFF",
+              "ADMIN",
+              "SUPER_ADMIN"
+            ]
+          }
+        },
+        "required": [
+          "companyId",
+          "nameEn",
+          "nameAr",
+          "country",
+          "status",
+          "role"
+        ],
+        "additionalProperties": false
+      },
+      "Me": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 320,
+            "format": "email"
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\+[1-9]\\d{7,14}$"
+          },
+          "firstName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "lastName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "firstNameAr": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 50
+          },
+          "lastNameAr": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 50
+          },
+          "avatar": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Image"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "CONSUMER",
+              "COMPANY_ADMIN",
+              "COMPANY_BUYER",
+              "COMPANY_APPROVER",
+              "SELLER_OWNER",
+              "SELLER_STAFF",
+              "ADMIN",
+              "SUPER_ADMIN"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "ACTIVE",
+              "SUSPENDED",
+              "BANNED"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "AR",
+              "EN"
+            ]
+          },
+          "emailVerified": {
+            "type": "boolean"
+          },
+          "phoneVerified": {
+            "type": "boolean"
+          },
+          "company": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CompanyMembership"
+              },
+              {
+                "type": [
+                  "object",
+                  "null"
+                ]
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "phone",
+          "firstName",
+          "lastName",
+          "firstNameAr",
+          "lastNameAr",
+          "avatar",
+          "role",
+          "status",
+          "language",
+          "emailVerified",
+          "phoneVerified",
+          "company",
+          "createdAt"
+        ],
+        "additionalProperties": false
+      },
+      "AccountDeletion": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "scheduled"
+            ]
+          },
+          "requestedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "erasesAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "status",
+          "requestedAt",
+          "erasesAt"
+        ],
+        "additionalProperties": false
+      },
+      "Address": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "line1": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 240
+          },
+          "line2": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 240
+          },
+          "city": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "country": {
+            "type": "string",
+            "enum": [
+              "AE",
+              "SA",
+              "QA",
+              "KW",
+              "OM",
+              "BH"
+            ]
+          },
+          "postalCode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20
+          },
+          "latitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": -180,
+            "maximum": 180
+          },
+          "isDefault": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "line1",
+          "line2",
+          "city",
+          "country",
+          "postalCode",
+          "latitude",
+          "longitude",
+          "isDefault"
+        ],
+        "additionalProperties": false
+      },
+      "AddressDeleted": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "deleted": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "deleted"
+        ],
+        "additionalProperties": false
+      },
+      "Device": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "ios",
+              "android"
+            ]
+          },
+          "appVersion": {
+            "type": "string",
+            "maxLength": 40
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "AR",
+              "EN"
+            ]
+          },
+          "registeredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "deviceId",
+          "platform",
+          "appVersion",
+          "language",
+          "registeredAt",
+          "lastSeenAt"
+        ],
+        "additionalProperties": false
+      },
+      "DeviceDeleted": {
+        "type": "object",
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "deleted": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          }
+        },
+        "required": [
+          "deviceId",
+          "deleted"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "parameters": {}
+  },
+  "paths": {
+    "/v1/auth/token": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Exchange credentials for a token pair",
+        "security": [],
+        "requestBody": {
+          "description": "Password grant.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "maxLength": 320,
+                    "format": "email"
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 128
+                  },
+                  "deviceId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "email",
+                  "password",
+                  "deviceId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A token pair.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TokenPair"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Rotate a refresh token for a new pair",
+        "security": [],
+        "requestBody": {
+          "description": "The stored refresh token and its device.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  "deviceId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "refreshToken",
+                  "deviceId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A new token pair; the old refresh token is now invalid.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TokenPair"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/revoke": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Revoke one refresh token, or every session on the account",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Exactly one of refreshToken or allSessions.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4096
+                  },
+                  "allSessions": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "How many tokens stopped working.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Revocation"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/otp/request": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Send a one-time code by SMS",
+        "description": "Answers identically for a registered and an unregistered number: a differing answer is an account-enumeration oracle.",
+        "security": [],
+        "requestBody": {
+          "description": "The phone to challenge.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "phone": {
+                    "type": "string",
+                    "pattern": "^\\+[1-9]\\d{7,14}$"
+                  },
+                  "deviceId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "language": {
+                    "type": "string",
+                    "enum": [
+                      "AR",
+                      "EN"
+                    ]
+                  }
+                },
+                "required": [
+                  "phone",
+                  "deviceId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The challenge to verify against.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OtpChallenge"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A dependency this platform does not control failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/otp/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Verify a one-time code and sign in",
+        "security": [],
+        "requestBody": {
+          "description": "The challenge and the code.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "challengeId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "code": {
+                    "type": "string",
+                    "pattern": "^\\d{4,8}$"
+                  },
+                  "deviceId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  }
+                },
+                "required": [
+                  "challengeId",
+                  "code",
+                  "deviceId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A token pair.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/TokenPair"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cart": {
+      "get": {
+        "tags": [
+          "cart"
+        ],
+        "summary": "The signed-in account's cart",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The cart. Reports a subtotal, never a total — see POST /v1/checkout/quote.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Cart"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cart/items": {
+      "post": {
+        "tags": [
+          "cart"
+        ],
+        "summary": "Add a line to the cart",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Identity and quantity; the server resolves the price.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "productId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "variantId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "qty": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9999
+                  },
+                  "channel": {
+                    "type": "string",
+                    "enum": [
+                      "B2C",
+                      "B2B"
+                    ],
+                    "default": "B2C"
+                  }
+                },
+                "required": [
+                  "productId",
+                  "qty"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The cart after the addition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Cart"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request contradicts current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cart/items/{id}": {
+      "patch": {
+        "tags": [
+          "cart"
+        ],
+        "summary": "Set a line's quantity",
+        "description": "A line with priceTiered=true is repriced by the server; the resolved unitPrice may change.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "The new quantity.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "qty": {
+                    "type": "integer",
+                    "exclusiveMinimum": 0,
+                    "maximum": 9999
+                  }
+                },
+                "required": [
+                  "qty"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The cart after the change.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Cart"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request contradicts current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "cart"
+        ],
+        "summary": "Remove a line",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The cart after the removal.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Cart"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/cart/merge": {
+      "post": {
+        "tags": [
+          "cart"
+        ],
+        "summary": "Fold an offline cart into the account's cart",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Offline lines and the merge strategy.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "strategy": {
+                    "type": "string",
+                    "enum": [
+                      "sum",
+                      "replace"
+                    ]
+                  },
+                  "lines": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "productId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "variantId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "qty": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 9999
+                        },
+                        "channel": {
+                          "type": "string",
+                          "enum": [
+                            "B2C",
+                            "B2B"
+                          ],
+                          "default": "B2C"
+                        }
+                      },
+                      "required": [
+                        "productId",
+                        "qty"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1,
+                    "maxItems": 500
+                  }
+                },
+                "required": [
+                  "strategy",
+                  "lines"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The merged cart, and every line that could not be taken.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CartMergeResult"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/checkout/quote": {
+      "post": {
+        "tags": [
+          "checkout"
+        ],
+        "summary": "Price a basket for a destination",
+        "description": "The only endpoint that states a total. `totals` mirrors composeOrderTotals exactly: goodsVatAmount and shippingVatAmount are separate, required fields and vatAmount is their sum. Delivery carries the destination's VAT at the same statutory rate the goods do.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Lines, destination and currency.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "cartId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "productId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "variantId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 100000
+                        }
+                      },
+                      "required": [
+                        "productId",
+                        "quantity"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1,
+                    "maxItems": 500
+                  },
+                  "shippingAddress": {
+                    "$ref": "#/components/schemas/ShippingAddress"
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": [
+                      "AED",
+                      "SAR",
+                      "QAR",
+                      "KWD",
+                      "OMR",
+                      "BHD",
+                      "USD"
+                    ]
+                  },
+                  "channel": {
+                    "type": "string",
+                    "enum": [
+                      "B2C",
+                      "B2B"
+                    ],
+                    "default": "B2C"
+                  },
+                  "couponCode": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 40,
+                    "pattern": "^[A-Za-z0-9_-]+$"
+                  }
+                },
+                "required": [
+                  "items",
+                  "shippingAddress",
+                  "currency"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The priced quote.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/CheckoutQuote"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request contradicts current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A dependency this platform does not control failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/products": {
+      "get": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "Browse the catalogue",
+        "description": "Cursor-paginated. There is no total count by design: an unbounded count() beside every page query is the cheapest external way to load this database.",
+        "security": [],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 24
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "required": false,
+            "name": "search",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            },
+            "required": false,
+            "name": "categorySlug",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            },
+            "required": false,
+            "name": "brandSlug",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "B2C",
+                "B2B"
+              ],
+              "default": "B2C"
+            },
+            "required": false,
+            "name": "channel",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "AED",
+                "SAR",
+                "QAR",
+                "KWD",
+                "OMR",
+                "BHD",
+                "USD"
+              ]
+            },
+            "required": false,
+            "name": "currency",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "boolean"
+            },
+            "required": false,
+            "name": "inStock",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 5
+            },
+            "required": false,
+            "name": "minRating",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "required": false,
+            "name": "moqMin",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000
+            },
+            "required": false,
+            "name": "moqMax",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "newest",
+                "name_asc",
+                "moq_asc",
+                "rating"
+              ],
+              "default": "newest"
+            },
+            "required": false,
+            "name": "sort",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of lean product cards.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ProductCard"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/products/{slug}": {
+      "get": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "One product, in full",
+        "security": [],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160,
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            },
+            "required": true,
+            "name": "slug",
+            "in": "path"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "B2C",
+                "B2B"
+              ],
+              "default": "B2C"
+            },
+            "required": false,
+            "name": "channel",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "AED",
+                "SAR",
+                "QAR",
+                "KWD",
+                "OMR",
+                "BHD",
+                "USD"
+              ]
+            },
+            "required": false,
+            "name": "currency",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The full product.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ProductDetail"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/categories": {
+      "get": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "The category tree, flattened",
+        "description": "Depth-first order, each node carrying parentId and depth. Only branches with a discoverable product beneath them are present.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Every visible category.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Category"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/brands": {
+      "get": {
+        "tags": [
+          "catalogue"
+        ],
+        "summary": "Brands with active products",
+        "security": [],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 24
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of brands.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Brand"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders": {
+      "get": {
+        "tags": [
+          "orders"
+        ],
+        "summary": "The account's orders",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "required": false,
+            "name": "cursor",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 24
+            },
+            "required": false,
+            "name": "limit",
+            "in": "query"
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING_PAYMENT",
+                "PAYMENT_CONFIRMED",
+                "CONFIRMED",
+                "PROCESSING",
+                "SHIPPED",
+                "OUT_FOR_DELIVERY",
+                "DELIVERED",
+                "CANCELLED",
+                "REFUNDED",
+                "RETURN_REQUESTED",
+                "RETURNED"
+              ]
+            },
+            "required": false,
+            "name": "status",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A page of order cards.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrderCard"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PageMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "orders"
+        ],
+        "summary": "Place an order",
+        "description": "Prices, discounts, VAT and freight are resolved server-side; the request carries identity and quantity only. Send an Idempotency-Key header: a retry of the same submission returns the original order with replayed=true instead of creating a second one. B2C only — a B2B order must go through the governed purchase-order workflow, which has no endpoint on this surface. Card and wallet methods are refused with 503 until a payment-session flow exists; BANK_TRANSFER is the method that completes.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
+          }
+        ],
+        "requestBody": {
+          "description": "Lines, destination, currency and payment method.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "productId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "variantId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 100000
+                        }
+                      },
+                      "required": [
+                        "productId",
+                        "quantity"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1,
+                    "maxItems": 500
+                  },
+                  "shippingAddress": {
+                    "$ref": "#/components/schemas/ShippingAddress"
+                  },
+                  "paymentMethod": {
+                    "type": "string",
+                    "enum": [
+                      "MADA",
+                      "APPLE_PAY",
+                      "CREDIT_CARD",
+                      "BANK_TRANSFER",
+                      "STC_PAY",
+                      "MOCK"
+                    ]
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": [
+                      "AED",
+                      "SAR",
+                      "QAR",
+                      "KWD",
+                      "OMR",
+                      "BHD",
+                      "USD"
+                    ]
+                  },
+                  "couponCode": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 40,
+                    "pattern": "^[A-Za-z0-9_-]+$"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "items",
+                  "shippingAddress",
+                  "paymentMethod",
+                  "currency"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The placed order, and whether this response replayed an existing one.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/PlacedOrder"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request contradicts current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A dependency this platform does not control failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/orders/{id}": {
+      "get": {
+        "tags": [
+          "orders"
+        ],
+        "summary": "One order, in full",
+        "description": "totals.goodsVatAmount and totals.shippingVatAmount are nullable here, unlike on a quote: the Order table stores a single collapsed vatAmount and the two components are not persisted.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The full order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrderDetail"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rfqs": {
+      "get": {
+        "tags": [
+          "rfqs"
+        ],
+        "summary": "The buyer's requests for quote",
+        "description": "The caller's own RFQs, plus their company's when they hold an active membership. Returned whole and capped at 50: the buyer service reads a fixed page with no cursor.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The buyer's RFQs, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RfqCard"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "rfqs"
+        ],
+        "summary": "Ask for a quote",
+        "description": "The action a quote-only product offers instead of Add to Cart. A line naming a catalogue product takes its name from the catalogue; a free-text line must carry its own. One RFQ is answered by at most one supplier — see the RfqDetail description.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "The lines, the currency to be quoted in, and when they are needed.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "productId": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 128
+                        },
+                        "nameEn": {
+                          "type": "string",
+                          "minLength": 2,
+                          "maxLength": 300
+                        },
+                        "quantity": {
+                          "type": "integer",
+                          "exclusiveMinimum": 0,
+                          "maximum": 1000000
+                        },
+                        "notes": {
+                          "type": "string",
+                          "maxLength": 500
+                        }
+                      },
+                      "required": [
+                        "quantity"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "minItems": 1,
+                    "maxItems": 50
+                  },
+                  "currency": {
+                    "type": "string",
+                    "enum": [
+                      "AED",
+                      "SAR",
+                      "QAR",
+                      "KWD",
+                      "OMR",
+                      "BHD",
+                      "USD"
+                    ]
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "requiredBy": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                },
+                "required": [
+                  "items",
+                  "currency"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The submitted request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RfqDetail"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rfqs/{id}": {
+      "get": {
+        "tags": [
+          "rfqs"
+        ],
+        "summary": "One request, with its quoted lines",
+        "description": "RFQRequest.sellerId is a single nullable supplier and submitQuote is its only writer, so a request carries at most ONE supplier's prices. There is no multi-supplier comparison to return, and this surface does not pretend otherwise.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request and its lines.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RfqDetail"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/rfqs/{id}/decision": {
+      "post": {
+        "tags": [
+          "rfqs"
+        ],
+        "summary": "Accept or reject a quote",
+        "description": "expectedQuoteVersion is compared against the stored version under the RFQ's advisory lock, so a decision made against a quote the supplier has since revised is refused rather than binding the buyer to a price they never saw.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "The decision and the quote version it was made against.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "decision": {
+                    "type": "string",
+                    "enum": [
+                      "ACCEPTED",
+                      "REJECTED"
+                    ]
+                  },
+                  "expectedQuoteVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "decision",
+                  "expectedQuoteVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The request after the decision.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RfqDetail"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request contradicts current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/me": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "The signed-in identity",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The profile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Me"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Change the profile",
+        "description": "Changing phone re-enters verification, so phoneVerified may come back false.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "At least one field.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 50
+                  },
+                  "lastName": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 50
+                  },
+                  "firstNameAr": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 2,
+                    "maxLength": 50
+                  },
+                  "lastNameAr": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "minLength": 2,
+                    "maxLength": 50
+                  },
+                  "phone": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^\\+[1-9]\\d{7,14}$"
+                  },
+                  "language": {
+                    "type": "string",
+                    "enum": [
+                      "AR",
+                      "EN"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated profile.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Me"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request contradicts current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/account": {
+      "delete": {
+        "tags": [
+          "me"
+        ],
+        "summary": "Schedule account deletion",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "Typed confirmation.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "confirmEmail": {
+                    "type": "string",
+                    "maxLength": 320,
+                    "format": "email"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "confirmEmail"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "When the erasure happens.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AccountDeletion"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request contradicts current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/addresses": {
+      "get": {
+        "tags": [
+          "addresses"
+        ],
+        "summary": "The account's addresses",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every address on the account.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Address"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "addresses"
+        ],
+        "summary": "Add an address",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "The new address.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "line1": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 240
+                  },
+                  "line2": {
+                    "type": "string",
+                    "maxLength": 240
+                  },
+                  "city": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "country": {
+                    "type": "string",
+                    "enum": [
+                      "AE",
+                      "SA",
+                      "QA",
+                      "KW",
+                      "OM",
+                      "BH"
+                    ]
+                  },
+                  "postalCode": {
+                    "type": "string",
+                    "maxLength": 20
+                  },
+                  "latitude": {
+                    "type": "number",
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitude": {
+                    "type": "number",
+                    "minimum": -180,
+                    "maximum": 180
+                  },
+                  "isDefault": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                },
+                "required": [
+                  "label",
+                  "line1",
+                  "city",
+                  "country"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The created address.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Address"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/addresses/{id}": {
+      "get": {
+        "tags": [
+          "addresses"
+        ],
+        "summary": "One address",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The address.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Address"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "addresses"
+        ],
+        "summary": "Change an address",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "requestBody": {
+          "description": "At least one field.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 50
+                  },
+                  "line1": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 240
+                  },
+                  "line2": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 240
+                  },
+                  "city": {
+                    "type": "string",
+                    "minLength": 2,
+                    "maxLength": 120
+                  },
+                  "country": {
+                    "type": "string",
+                    "enum": [
+                      "AE",
+                      "SA",
+                      "QA",
+                      "KW",
+                      "OM",
+                      "BH"
+                    ]
+                  },
+                  "postalCode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "maxLength": 20
+                  },
+                  "latitude": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": -90,
+                    "maximum": 90
+                  },
+                  "longitude": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": -180,
+                    "maximum": 180
+                  },
+                  "isDefault": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The updated address.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Address"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "addresses"
+        ],
+        "summary": "Remove an address",
+        "description": "Orders keep their own address snapshot, so removing one never rewrites history.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "id",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The address is gone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AddressDeleted"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Authenticated, but not permitted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The request contradicts current state.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/devices": {
+      "post": {
+        "tags": [
+          "devices"
+        ],
+        "summary": "Register or refresh a push token",
+        "description": "Idempotent on deviceId: a rotated token updates the row rather than creating a second one.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "description": "The installation and its push token.",
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "deviceId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  "pushToken": {
+                    "type": "string",
+                    "minLength": 16,
+                    "maxLength": 4096
+                  },
+                  "platform": {
+                    "type": "string",
+                    "enum": [
+                      "ios",
+                      "android"
+                    ]
+                  },
+                  "appVersion": {
+                    "type": "string",
+                    "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$"
+                  },
+                  "osVersion": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "language": {
+                    "type": "string",
+                    "enum": [
+                      "AR",
+                      "EN"
+                    ]
+                  },
+                  "timeZone": {
+                    "type": "string",
+                    "maxLength": 64
+                  }
+                },
+                "required": [
+                  "deviceId",
+                  "pushToken",
+                  "platform",
+                  "appVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The registered device.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Device"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "devices"
+        ],
+        "summary": "Stop pushing to a device",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "required": true,
+            "name": "deviceId",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The device is deregistered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/DeviceDeleted"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request failed schema or business validation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or expired credential.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such resource, or none visible to this caller.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Throttled. Honour the Retry-After header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unexpected fault. Report the requestId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "webhooks": {}
+}

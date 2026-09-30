@@ -343,6 +343,30 @@ enum ReturnStatus {
   REFUNDED
 }
 
+/// Why a refresh token stopped working. REUSE_DETECTED is the one that matters:
+/// every other value is routine, that one means a rotated token was replayed.
+enum RefreshTokenRevokedReason {
+  ROTATED
+  REUSE_DETECTED
+  SIGNED_OUT
+  ALL_SESSIONS_REVOKED
+  PASSWORD_RESET
+  ADMIN_REVOKED
+  USER_DEACTIVATED
+}
+
+/// What an OTP challenge is being answered for. Kept distinct because signing in
+/// with a code and proving a number you already own are different authorities.
+enum OtpPurpose {
+  SIGN_IN
+  VERIFY_PHONE
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+}
+
 // ─── USER & SESSION ───────────────────────────────────────────────────────────
 
 model User {
@@ -364,6 +388,15 @@ model User {
   updatedAt     DateTime   @updatedAt
   deletedAt     DateTime?
 
+  /// Sessions issued BEFORE this instant are rejected. The web session is a
+  /// NextAuth JWT with a 30-day maxAge and no server-side row, so there is
+  /// nothing to delete when a password is reset — a stolen cookie otherwise
+  /// keeps working for the rest of that month. Setting this to now() revokes
+  /// every existing session for the user in one write. NULL means no cutoff has
+  /// ever been set, and MUST be read as "allow": the column exists to revoke on
+  /// demand, not to sign the whole userbase out the day it is added.
+  sessionsValidAfter DateTime?
+
   sellerProfile      SellerProfile?
   adminProfile       AdminProfile?
   companyMember      CompanyMember?
@@ -384,6 +417,8 @@ model User {
   reviews            ProductReview[]
   supportTickets     SupportTicket[]
   sellerMemberships  SellerMembership[]
+  refreshTokens      RefreshToken[]
+  deviceTokens       DeviceToken[]
 
   @@index([email])
   @@index([role, status])
@@ -1117,7 +1152,17 @@ model Order {
   fulfillment        FulfillmentType @default(SELLER_FULFILLED)
   currency           Currency        @default(AED)
   subtotal           Decimal         @db.Decimal(12, 2)
+  /// Declared tax: goods VAT plus delivery VAT. Always recorded.
   vatAmount          Decimal         @db.Decimal(12, 2)
+  /// The two halves of `vatAmount`, which `composeOrderTotals` computes and,
+  /// before these columns existed, discarded. NULL means "this order predates
+  /// the split being recorded" — not zero. Historical orders are not
+  /// backfilled, because the rate and the place-of-supply treatment in force on
+  /// the day are not recoverable from the stored row, and an invented component
+  /// is indistinguishable from a measured one to everyone who reads it after.
+  /// Recorded together or not at all; when present they sum to `vatAmount`.
+  goodsVatAmount     Decimal?        @db.Decimal(12, 2)
+  shippingVatAmount  Decimal?        @db.Decimal(12, 2)
   shippingAmount     Decimal         @default(0) @db.Decimal(12, 2)
   discountAmount     Decimal         @default(0) @db.Decimal(12, 2)
   total              Decimal         @db.Decimal(12, 2)
@@ -2159,4 +2204,142 @@ model ProductViewSignal {
   /// The read: every bucket from the window start onward. bucketDate leads
   /// because the window is the filter; the unique index above cannot serve it.
   @@index([bucketDate, productId])
+}
+
+// ─── MOBILE IDENTITY & SESSIONS ───────────────────────────────────────────────
+
+/// One issued refresh token, stored HASHED, for the native client.
+///
+/// The web apps authenticate with a NextAuth cookie session. A Flutter client
+/// cannot participate in that: it has no cookie jar shared with a browser, it
+/// backgrounds for days, and it must be able to sign one device out without
+/// signing the account out everywhere. `Session` is not that table — it holds an
+/// opaque token with an expiry and no device, no lineage and no revocation
+/// reason, and nothing in this repository writes to it.
+///
+/// ROTATION, AND WHY THE ROW OUTLIVES ITS USE. A refresh token is spendable
+/// exactly once: redeeming it mints a successor, stamps this row `revokedAt`
+/// with reason ROTATED, and points `replacedById` at the successor. The row is
+/// kept rather than deleted precisely so that presenting an already-rotated
+/// token is DISTINGUISHABLE from presenting a token that never existed. The
+/// first is a replay — the attacker holds a copy of a token the real device has
+/// already spent — and the response is to revoke the whole `familyId`, which
+/// signs out both the thief and the victim's device and forces a fresh sign-in.
+/// A schema that deleted spent tokens would answer "unknown token" to a replay
+/// and learn nothing.
+model RefreshToken {
+  id            String                     @id @default(cuid())
+  userId        String
+  /// SHA-256 hex of the opaque token; the token itself is never stored. A fast
+  /// digest is correct HERE and wrong for OtpChallenge.codeHash below: this
+  /// input is 256 bits of randomness, so there is no search space to exhaust,
+  /// and the refresh path needs an indexed exact-match lookup on every call.
+  tokenHash     String                     @unique @db.VarChar(64)
+  /// Rotation lineage. Every successor inherits its predecessor's familyId, so
+  /// one replayed token revokes everything descended from the same sign-in.
+  familyId      String
+  /// The installation this token is bound to. A refresh presenting a different
+  /// deviceId is not this device.
+  deviceId      String
+  userAgent     String?
+  ipAddress     String?
+  expiresAt     DateTime
+  revokedAt     DateTime?
+  revokedReason RefreshTokenRevokedReason?
+  replacedById  String?                    @unique
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The successor minted when this token was redeemed. One each way: a fork in
+  /// the lineage would mean one token was rotated twice, which is the replay
+  /// this table exists to catch, so the database refuses it rather than
+  /// recording it.
+  replacedBy RefreshToken? @relation("RefreshTokenRotation", fields: [replacedById], references: [id])
+  replaces   RefreshToken? @relation("RefreshTokenRotation")
+
+  /// "Sign out of all devices", and the device list a user is shown.
+  @@index([userId, revokedAt])
+  /// Reuse detection's response: revoke the entire lineage in one UPDATE.
+  @@index([familyId])
+  /// The pruning sweep, which otherwise seq-scans a table that grows with every
+  /// refresh of every installation.
+  @@index([expiresAt])
+}
+
+/// A phone OTP challenge — the identity flow a GCC consumer app leads with.
+///
+/// `User.phone` is already `@unique` and `User.phoneVerified` already exists;
+/// neither is duplicated here. This table holds only the in-flight challenge.
+///
+/// DELIBERATELY NO userId AND NO RELATION TO User. The row is keyed by the phone
+/// number as typed, whether or not it belongs to an account. Resolving a user at
+/// request time and storing the result would turn this table into an
+/// account-enumeration oracle: the endpoint has to answer identically for a
+/// registered and an unregistered number, and it cannot do that while its own
+/// storage records which one it was.
+///
+/// `resendAfter` and `codeLength`, which the mobile contract returns, are policy
+/// constants applied to `createdAt` — deriving them keeps one definition of the
+/// policy instead of a column that can disagree with the code that set it.
+model OtpChallenge {
+  id         String     @id @default(cuid())
+  phone      String
+  /// The code under a KEYED or DELIBERATELY SLOW hash — HMAC-SHA-256 with a
+  /// server-side secret, or bcrypt — never a bare digest. A six-digit code has a
+  /// search space of one million, so a plain SHA-256 here is recoverable by
+  /// exhaustion in milliseconds by anyone who can read this table, which defeats
+  /// the point of not storing the code. Untyped String rather than VarChar(64)
+  /// so the algorithm can change without a migration: bcrypt is 60 characters,
+  /// an HMAC hex digest is 64.
+  codeHash   String
+  purpose    OtpPurpose
+  expiresAt  DateTime
+  /// Verification attempts against THIS challenge. The cap is what stops a
+  /// million-guess walk of a six-digit code; the indexes below stop the attacker
+  /// simply requesting a fresh challenge for each guess.
+  attempts   Int        @default(0)
+  consumedAt DateTime?
+  ipAddress  String?
+  /// Binds the challenge to the installation that requested it — the contract
+  /// sends deviceId on both request and verify — so a code issued to one device
+  /// cannot be redeemed from another.
+  deviceId   String?
+  createdAt  DateTime   @default(now())
+
+  /// Rate limiting per PHONE: how many challenges this number has been sent in
+  /// the window. createdAt trails so the window is a range scan within one phone.
+  @@index([phone, createdAt])
+  /// Rate limiting per IP, which is the separate question — one address walking
+  /// many numbers never trips a per-phone limit. Both limits are needed, so both
+  /// indexes are.
+  @@index([ipAddress, createdAt])
+  /// The pruning sweep. A retained challenge is a hash of a live-ish credential.
+  @@index([expiresAt])
+}
+
+/// One push registration for one installation.
+model DeviceToken {
+  id         String         @id @default(cuid())
+  userId     String
+  /// The APNs or FCM token. Unique because a push token identifies a DEVICE,
+  /// not a person: reinstalling or switching accounts hands the same token to a
+  /// different user, so registering it again must MOVE it rather than leave a
+  /// second row that delivers one notification twice — or delivers it to the
+  /// account that used to hold the phone.
+  token      String         @unique
+  platform   DevicePlatform
+  /// The device's own BCP-47 tag, e.g. "ar-AE". Not the Language enum: this is
+  /// the OS locale a notification is composed in, and it is frequently neither
+  /// AR nor EN. The account's `language` remains the fallback.
+  locale     String?
+  appVersion String?
+  revokedAt  DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// The fan-out: every live push target for one user.
+  @@index([userId, revokedAt])
 }

@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
 import { advanceSellerOrderItems } from "../services/seller-fulfillment";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
+
+const run = integrationSuite();
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const created = { users: [] as string[], sellers: [] as string[], products: [] as string[] };
@@ -12,6 +15,7 @@ let sellerAStaffId = "";
 let sellerBProductId = "";
 
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const [buyer, ownerA, staffA, ownerB] = await Promise.all([
     db.user.create({ data: { email: `journey-buyer-${stamp}@example.test`, firstName: "Buyer", lastName: "Journey", role: "CONSUMER", status: "ACTIVE" } }),
     db.user.create({ data: { email: `journey-owner-a-${stamp}@example.test`, firstName: "Owner", lastName: "A", role: "SELLER_OWNER", status: "ACTIVE" } }),
@@ -62,6 +66,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   if (orderId) await db.order.deleteMany({ where: { id: orderId } });
   await db.auditLog.deleteMany({ where: { actorId: { in: created.users } } });
   await db.product.deleteMany({ where: { id: { in: created.products } } });
@@ -70,7 +75,7 @@ afterAll(async () => {
   await db.user.deleteMany({ where: { id: { in: created.users } } });
 });
 
-describe("representative two-seller actor journey", () => {
+run("representative two-seller actor journey", () => {
   it("fixtures owner/staff capabilities distinctly for Seller A and owner-only Seller B", async () => {
     const membership = await db.sellerMembership.findUnique({ where: { userId: sellerAStaffId } });
     expect(membership).toMatchObject({ sellerId: sellerAId, isActive: true });

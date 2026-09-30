@@ -1,6 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "../index";
 import { setReturnStatus } from "../services/workflow";
+import { integrationDbEnabled, integrationSuite } from "../testing/integration-db";
+
+const run = integrationSuite();
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const ids = { users: [] as string[], sellers: [] as string[], products: [] as string[], returns: [] as string[] };
@@ -13,6 +16,7 @@ let sellerTwoId = "";
 let payoutId = "";
 
 beforeAll(async () => {
+  if (!integrationDbEnabled()) return;
   const buyer = await db.user.create({ data: { email: `returns-buyer-${stamp}@example.test`, firstName: "Return", lastName: "Buyer", role: "CONSUMER", status: "ACTIVE" } });
   const ownerOne = await db.user.create({ data: { email: `returns-one-${stamp}@example.test`, firstName: "Seller", lastName: "One", role: "SELLER_OWNER", status: "ACTIVE" } });
   const ownerTwo = await db.user.create({ data: { email: `returns-two-${stamp}@example.test`, firstName: "Seller", lastName: "Two", role: "SELLER_OWNER", status: "ACTIVE" } });
@@ -67,6 +71,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (!integrationDbEnabled()) return;
   await db.auditLog.deleteMany({ where: { entityType: "ReturnRequest", entityId: { in: ids.returns } } });
   if (payoutId) await db.sellerPayout.deleteMany({ where: { id: payoutId } });
   if (orderId) await db.commission.deleteMany({ where: { orderId } });
@@ -78,7 +83,7 @@ afterAll(async () => {
   await db.user.deleteMany({ where: { id: { in: ids.users } } });
 });
 
-describe("marketplace return isolation", () => {
+run("marketplace return isolation", () => {
   it("caps a return to the target seller's own lines", async () => {
     const result = await setReturnStatus({ returnId: ids.returns[0]!, status: "REFUNDED", actorId, refundReference: `REF-A-${stamp}` });
     expect(Number(result.refundAmount)).toBe(105);

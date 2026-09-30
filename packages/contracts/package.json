@@ -1,0 +1,29 @@
+{
+  "name": "@avenick/contracts",
+  "version": "1.0.0",
+  "private": true,
+  "exports": {
+    ".": "./src/index.ts",
+    "./enums": "./src/enums.ts",
+    "./primitives": "./src/primitives.ts",
+    "./envelope": "./src/envelope.ts",
+    "./openapi.json": "./openapi.json"
+  },
+  "scripts": {
+    "contracts:openapi": "tsx src/openapi/generate.ts",
+    "contracts:verify": "node scripts/verify-openapi-contract.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@asteasolutions/zod-to-openapi": "^7.3.4",
+    "@avenick/config": "workspace:*",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

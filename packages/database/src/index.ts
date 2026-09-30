@@ -39,6 +39,7 @@ export * from "./services/rfq";
 export * from "./services/data-rights";
 export * from "./services/seller-registration";
 export * from "./services/seller-settings";
+export * from "./services/seller-traffic";
 export * from "./services/seller-documents";
 export * from "./services/messaging";
 export * from "./services/product-reviews";
