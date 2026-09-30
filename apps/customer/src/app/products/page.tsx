@@ -673,6 +673,7 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
               sellerId={p.sellerId}
               sellerName={p.seller?.businessNameEn}
               sellerNameAr={p.seller?.businessNameAr ?? undefined}
+              rating={p.rating}
               /*
                * What it is filed under, in the visitor's language — but only on
                * a grid that is not ALREADY one category. On /products?category=X

@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
-import { RECORD_ID } from "@avenick/utils";
 import { fetchSellerBackend } from "@/lib/backend";
+import { SellerQuotePayloadSchema, type SellerQuotePayload } from "@/lib/seller-quote-contract";
 import { z } from "zod";
 
 export type QuoteActionState = { error?: string; ok?: boolean };
@@ -17,25 +17,14 @@ export type QuoteActionState = { error?: string; ok?: boolean };
  * RECORD_ID guard (why it is stricter than zod's .cuid()) is documented in
  * @avenick/utils/record-id.
  */
-function submitQuoteSchema(t: (key: string, values?: Record<string, string | number>) => string) {
-  return z.object({
-    rfqId: z.string().regex(RECORD_ID, t("quoteErrors.rfqNotIdentified")),
-    notes: z.string().trim().max(1000).optional(),
-    items: z
-      .array(z.object({ itemId: z.string().min(1), unitQuoted: z.number().positive() }))
-      .min(1),
-  });
-}
-
 export async function submitQuoteAction(
   _prev: QuoteActionState,
   formData: FormData,
 ): Promise<QuoteActionState> {
   const t = await getTranslations("sellerRelations");
-  const schema = submitQuoteSchema(t);
-  let payload: z.infer<ReturnType<typeof submitQuoteSchema>>;
+  let payload: SellerQuotePayload;
   try {
-    payload = schema.parse(JSON.parse(String(formData.get("payload") ?? "{}")));
+    payload = SellerQuotePayloadSchema.parse(JSON.parse(String(formData.get("payload") ?? "{}")));
   } catch (e) {
     const message = e instanceof z.ZodError ? e.issues[0]?.message : t("quoteErrors.invalidPayload");
     return { error: message ?? t("quoteErrors.invalidPayload") };
@@ -44,15 +33,16 @@ export async function submitQuoteAction(
   try {
     // Encoding is the containment; the schema above is the guard. Keep both —
     // encodeURIComponent holds even if the id shape is ever widened.
-    await fetchSellerBackend(`/api/seller/rfqs/${encodeURIComponent(payload.rfqId)}`, {
-      method: "PATCH",
+    await fetchSellerBackend(`/api/seller/rfqs/${encodeURIComponent(payload.rfqId)}/quotes`, {
+      method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ items: payload.items, notes: payload.notes }),
+      body: JSON.stringify(payload),
     });
   } catch (e) {
     return { error: e instanceof Error ? e.message : t("quoteErrors.submitFailed") };
   }
 
   revalidatePath("/quotes");
-  redirect("/quotes");
+  revalidatePath(`/quotes/submit?rfq=${encodeURIComponent(payload.rfqId)}`);
+  redirect(`/quotes/submit?rfq=${encodeURIComponent(payload.rfqId)}&submitted=1`);
 }

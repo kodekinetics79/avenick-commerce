@@ -859,6 +859,7 @@
       "datelineCapped": "Your {limit} most recently updated quotations · every figure below describes these rows, not your lifetime total",
       "datelineAll": "Every quotation you have submitted to buyers",
       "rfqInbox": "RFQ inbox",
+      "revision": "Revision {revision}",
       "tableCapped": "The {limit} most recently updated quotes; older quotes are not listed here yet.",
       "stats": {
         "listedNewest": "Listed (newest {limit})",
@@ -877,6 +878,8 @@
         "items": "Items",
         "quotedTotal": "Quoted total",
         "requiredBy": "Required by",
+        "validUntil": "Valid until",
+        "submittedAt": "Submitted",
         "status": "Status"
       },
       "empty": {
@@ -892,6 +895,25 @@
       "lineCount": "{count, plural, one {{n} line} other {{n} lines}}",
       "pricedIn": "priced in {currency}",
       "neededBy": "needed by {date}",
+      "submitted": "Revision {revision} submitted",
+      "submittedBody": "The buyer can now review this immutable commercial version.",
+      "latestRevision": "Latest revision · v{revision}",
+      "serverCalculated": "Recorded totals calculated by the server",
+      "subtotal": "Item net",
+      "vat": "Item VAT",
+      "freight": "Freight net",
+      "validUntil": "Valid until",
+      "revisionNotice": "Submitting again creates immutable revision {next}; the current version remains in the audit history.",
+      "closedTitle": "This invitation is closed for submissions.",
+      "closedBody": "The response window, request, or supplier invitation is no longer open. Existing revisions remain in quote history.",
+      "noProducts": {
+        "eyebrow": "Catalogue mapping required",
+        "headline": "No active B2B product is available to map to these lines.",
+        "body": "Every quoted line must identify a product owned by this seller so an awarded quote can become an exact purchase-order draft.",
+        "action": "Add a product"
+      },
+      "respondBy": "Respond by {date}",
+      "revise": "Create revision {revision}",
       "whatTheBuyerAsked": "What the buyer asked for",
       "newQuote": "New quote",
       "chooseTitle": "Choose a request to quote",
@@ -911,6 +933,29 @@
         "lineTotal": "Line total"
       },
       "unitPriceFor": "Unit price for {item}",
+      "completeEveryLine": "Map and price every requested line before submitting.",
+      "validityRequired": "Choose a future quote-validity date.",
+      "requestedQuantity": "Requested quantity · {quantity}",
+      "productLabel": "Seller product",
+      "productFor": "Seller product for {item}",
+      "selectProduct": "Select a product",
+      "variantLabel": "Variant (optional)",
+      "variantFor": "Variant for {item}",
+      "selectVariant": "No variant",
+      "vatRateLabel": "VAT rate (%)",
+      "estimatedLineTotal": "Estimated line total",
+      "commercialTerms": "Commercial terms",
+      "freightAmount": "Freight net ({currency})",
+      "freightVatRate": "Freight VAT rate (%)",
+      "validUntil": "Quote valid until",
+      "leadTimeDays": "Lead time (days)",
+      "paymentTermsDays": "Payment terms (days)",
+      "estimatedTotal": "Estimated grand total",
+      "estimateBreakdown": "Item net {subtotal} + item VAT {vat} + freight {freight} + freight VAT {freightVat}",
+      "linesCompleteMeter": "Quote-line completion",
+      "linesComplete": "{complete} of {total} lines complete",
+      "submitRevision": "Submit revision {revision}",
+      "serverCalculationNote": "The server validates ownership, quantities, VAT, and totals before recording the quote.",
       "priceEveryLine": "Enter a positive unit price for every line item.",
       "submitFailed": "Couldn't submit the quote — please retry.",
       "notesLabel": "Notes to the buyer (optional)",
@@ -1522,14 +1567,14 @@
           "missing": "Still missing: {fields}."
         },
         "product": {
-          "label": "Add your first product",
+          "label": "Publish your first product",
           "cta": "Add a product",
-          "detail": "{count, plural, one {{n} product in your catalogue.} other {{n} products in your catalogue.}}"
+          "detail": "{count, plural, one {{n} active product available to buyers.} other {{n} active products available to buyers.}}"
         },
         "documents": {
           "label": "Upload compliance documents",
           "cta": "Upload documents",
-          "filed": "{count, plural, one {{n} document filed. Each is reviewed before it counts as approved.} other {{n} documents filed. Each is reviewed before it counts as approved.}}",
+          "approved": "{approved} of {count, plural, one {{n} required document approved.} other {{n} required documents approved.}}",
           "none": "Nothing filed yet."
         },
         "payout": {
@@ -1539,10 +1584,10 @@
           "missing": "No bank details recorded, so payouts cannot be settled."
         },
         "sale": {
-          "label": "Make your first sale",
+          "label": "Make your first paid sale",
           "cta": "Review your listings",
-          "received": "{count, plural, one {{n} order line received.} other {{n} order lines received.}}",
-          "none": "No buyer has ordered from you yet."
+          "received": "{count, plural, one {{n} paid order line received.} other {{n} paid order lines received.}}",
+          "none": "No buyer has completed a paid order with you yet."
         }
       }
     },

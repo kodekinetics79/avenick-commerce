@@ -12,7 +12,11 @@ export default async function ProductsPage({ searchParams }: { searchParams?: { 
   const t = await getTranslations("sellerCatalog");
   const { seller, membership } = await requireSellerAnyPermission(["catalog.view", "catalog.manage"]);
   const permissions = membership.permissions ?? [];
-  const canManage = permissions.includes("*") || (permissions.includes("catalog.manage") && permissions.includes("pricing.manage"));
+  // Catalogue editors may reach the existing edit flow even when pricing is
+  // deliberately withheld; the form and server actions already gate price
+  // fields independently. Requiring both permissions here made valid catalog
+  // staff read-only and blocked new assortment from reaching review.
+  const canManage = permissions.includes("*") || permissions.includes("catalog.manage");
 
   const products = await db.product.findMany({
     where: { sellerId: seller.id, deletedAt: null },

@@ -10,6 +10,7 @@ export interface LogAuditInput {
   ipAddress?: string;
   userAgent?: string;
   sellerId?: string;
+  companyId?: string;
 }
 
 /** Write an audit entry. Use inside transactions via `tx ?? db`. */
@@ -26,6 +27,7 @@ export function logAudit(input: LogAuditInput, tx?: Prisma.TransactionClient) {
       ipAddress: input.ipAddress,
       userAgent: input.userAgent,
       sellerId: input.sellerId,
+      companyId: input.companyId,
     },
   });
 }

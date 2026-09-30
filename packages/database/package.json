@@ -25,6 +25,7 @@
     "db:enrich:demo-products": "tsx prisma/enrich-demo-products.ts",
     "db:provision:industrial-demo": "tsx prisma/provision-industrial-demo.ts",
     "db:import-pilot": "tsx prisma/import-pilot-catalog.ts",
+    "db:encrypt-seller-bank-details": "tsx scripts/encrypt-seller-bank-details.ts",
     "demo:reviews": "node scripts/demo-reviews.mjs",
     "demo:brand-logos": "node scripts/demo-brand-logos.mjs",
     "db:studio": "prisma studio",

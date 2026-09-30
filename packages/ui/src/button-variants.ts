@@ -10,7 +10,8 @@
  *
  * The variants are pure styling logic with no client concern, so they live in
  * their own module that carries no directive and can be called from either
- * side. button.tsx re-exports them, so existing imports keep working.
+ * side. The package barrel exports this module directly, avoiding a duplicate
+ * client-module export that caused production-build warnings.
  */
 import { cva, type VariantProps } from "class-variance-authority";
 

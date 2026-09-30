@@ -17,6 +17,7 @@ import { SelectField, TextField } from "@/components/b2b/controls";
 import { useB2BT } from "@/components/b2b/use-b2b-t";
 import type { B2BKey } from "@/components/b2b/messages";
 import { submitRFQ } from "../actions";
+import { SupplierSelector, type SupplierOption } from "./supplier-selector";
 
 type Priority = "NORMAL" | "URGENT" | "CRITICAL";
 
@@ -27,6 +28,7 @@ interface RFQItem {
   unit: string;
   targetPrice: string;
   specs: string;
+  productId?: string;
 }
 
 export interface RFQCategoryOption {
@@ -74,6 +76,9 @@ export function NewRFQForm({
   currency,
   initialDescription,
   initialQuantity,
+  initialProductId,
+  initialSuppliers,
+  allowSingleSupplier,
 }: {
   /** Catalog categories loaded by the server page; empty when none could be loaded. */
   categories: RFQCategoryOption[];
@@ -87,14 +92,26 @@ export function NewRFQForm({
   initialDescription?: string;
   /** Seeds the first line's quantity — the product's MOQ, or the page's own quantity above it. */
   initialQuantity?: string;
+  /** Catalogue identity retained when the request starts from a product. */
+  initialProductId?: string;
+  /** The product's actual active seller, resolved on the server rather than trusted from the URL. */
+  initialSuppliers: SupplierOption[];
+  /** A specific product/supplier hand-off may intentionally request one private quote. */
+  allowSingleSupplier: boolean;
 }) {
   const t = useB2BT();
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [priority, setPriority] = useState<Priority>("NORMAL");
+  const [suppliers, setSuppliers] = useState<SupplierOption[]>(initialSuppliers);
+  const [creationKey] = useState(() =>
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `rfq-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
   const [items, setItems] = useState<RFQItem[]>([
-    { id: "1", description: initialDescription ?? "", quantity: initialQuantity ?? "", unit: "pcs", targetPrice: "", specs: "" },
+    { id: "1", description: initialDescription ?? "", quantity: initialQuantity ?? "", unit: "pcs", targetPrice: "", specs: "", productId: initialProductId },
   ]);
 
   const priorityRefs = useRef<Partial<Record<Priority, HTMLButtonElement | null>>>({});
@@ -144,12 +161,23 @@ export function NewRFQForm({
     const title = String(form.get("title") ?? "").trim();
     const category = String(form.get("category") ?? "").trim();
     const requiredBy = String(form.get("requiredBy") ?? "").trim();
+    const responseDueAt = String(form.get("responseDueAt") ?? "").trim();
+    const awardByAt = String(form.get("awardByAt") ?? "").trim();
     const city = String(form.get("city") ?? "").trim();
     const extraNotes = String(form.get("notes") ?? "").trim();
 
     const validItems = items.filter((i) => i.description.trim() && Number(i.quantity) > 0);
     if (validItems.length === 0) {
       setError(t("newRfq.error.noItems"));
+      return;
+    }
+    const minimumSuppliers = allowSingleSupplier ? 1 : 2;
+    if (suppliers.length < minimumSuppliers) {
+      setError(t(allowSingleSupplier ? "newRfq.error.noSupplier" : "newRfq.error.twoSuppliers"));
+      return;
+    }
+    if (!responseDueAt || !awardByAt || !requiredBy || new Date(responseDueAt) >= new Date(awardByAt) || new Date(awardByAt) >= new Date(requiredBy)) {
+      setError(t("newRfq.error.deadlines"));
       return;
     }
 
@@ -165,9 +193,14 @@ export function NewRFQForm({
           .filter(Boolean)
           .join(" · ") || undefined,
       requiredBy: requiredBy || undefined,
+      responseDueAt,
+      awardByAt,
+      creationKey,
+      sellerIds: suppliers.map((supplier) => supplier.id),
       items: validItems.map((i) => ({
         nameEn: i.description.trim(),
         quantity: Number(i.quantity),
+        productId: i.productId,
         // The target price carries the buyer's company currency; a target with
         // no known currency is recorded per unit only rather than labelled
         // with a currency the buyer never chose.
@@ -213,9 +246,8 @@ export function NewRFQForm({
             <Dateline className="mt-1.5">{t("newRfq.done.basis")}</Dateline>
           </div>
 
-          {/* Steps describe the implemented single-supplier RFQ flow. Automatic
-              distribution to matching suppliers and side-by-side comparison are
-              not implemented — an RFQ carries at most one supplier. */}
+          {/* Steps describe the implemented private invitation flow. Only the
+              suppliers explicitly selected above receive this RFQ. */}
           <Surface rung={1} className="overflow-hidden">
             <div className="u-drawn w-14" data-on="true" aria-hidden="true" />
             <div className="p-5">
@@ -292,6 +324,25 @@ export function NewRFQForm({
               </Field>
               {/* No "Preferred supplier" field: the RFQ API accepts none, so an
                   input here would silently discard what the buyer typed. */}
+            </div>
+          </Surface>
+
+          <Surface rung={2} className="p-5">
+            <h2 className="u-h3 mb-1 text-ink-1">{t("newRfq.suppliers.title")}</h2>
+            <Dateline className="mb-4">{t("newRfq.suppliers.basis")}</Dateline>
+            <SupplierSelector selected={suppliers} onChange={setSuppliers} allowSingleSupplier={allowSingleSupplier} />
+          </Surface>
+
+          <Surface rung={2} className="p-5">
+            <h2 className="u-h3 mb-1 text-ink-1">{t("newRfq.deadlines.title")}</h2>
+            <Dateline className="mb-4">{t("newRfq.deadlines.basis")}</Dateline>
+            <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
+              <Field label={t("newRfq.field.responseDue")} htmlFor="rfq-response-due" required>
+                <TextField id="rfq-response-due" name="responseDueAt" type="date" required />
+              </Field>
+              <Field label={t("newRfq.field.awardBy")} htmlFor="rfq-award-by" required>
+                <TextField id="rfq-award-by" name="awardByAt" type="date" required />
+              </Field>
             </div>
           </Surface>
 

@@ -416,6 +416,7 @@ export default async function B2BRegisterPage({
               <h2 className="u-h3 text-ink-1">{t("status.stages")}</h2>
               <Timeline
                 className="mt-4"
+                currentLabel={t("status.current")}
                 steps={[
                   {
                     label: t("status.step.received"),

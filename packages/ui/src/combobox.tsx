@@ -20,6 +20,8 @@ interface ComboboxProps {
   searchPlaceholder?: string;
   emptyText?: string;
   locale?: "ar" | "en";
+  ariaLabelledBy?: string;
+  searchLabel?: string;
   disabled?: boolean;
   className?: string;
 }
@@ -32,16 +34,25 @@ export function Combobox({
   searchPlaceholder = "Search…",
   emptyText = "No results",
   locale = "en",
+  ariaLabelledBy,
+  searchLabel,
   disabled,
   className,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
+  const [activeIndex, setActiveIndex] = React.useState(0);
+  const searchRef = React.useRef<HTMLInputElement>(null);
+  const listboxId = React.useId();
 
-  const filtered = options.filter((opt) => {
-    const label = locale === "ar" && opt.labelAr ? opt.labelAr : opt.label;
-    return label.toLowerCase().includes(query.toLowerCase());
-  });
+  const filtered = React.useMemo(
+    () =>
+      options.filter((opt) => {
+        const label = locale === "ar" && opt.labelAr ? opt.labelAr : opt.label;
+        return label.toLocaleLowerCase(locale).includes(query.toLocaleLowerCase(locale));
+      }),
+    [locale, options, query],
+  );
 
   const selected = options.find((o) => o.value === value);
   const displayLabel = selected
@@ -50,31 +61,82 @@ export function Combobox({
       : selected.label
     : placeholder;
 
+  const choose = (option: ComboboxOption) => {
+    onValueChange?.(value === option.value ? "" : option.value);
+    setOpen(false);
+    setQuery("");
+  };
+
+  React.useEffect(() => {
+    if (!open || !filtered[activeIndex]) return;
+    document.getElementById(`${listboxId}-${activeIndex}`)?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, filtered, listboxId, open]);
+
   return (
-    <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
+    <PopoverPrimitive.Root
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (nextOpen) {
+          const selectedIndex = filtered.findIndex((option) => option.value === value);
+          setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0);
+        }
+      }}
+    >
       <PopoverPrimitive.Trigger asChild>
         <Button
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          aria-haspopup="listbox"
+          aria-controls={listboxId}
+          aria-labelledby={ariaLabelledBy}
           className={cn("w-full justify-between font-normal", className)}
           disabled={disabled}
         >
           <span className={cn(!selected && "text-muted-foreground")}>{displayLabel}</span>
-          <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-50" />
+          <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-50" aria-hidden="true" />
         </Button>
       </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Content className="w-[var(--radix-popover-trigger-width)] p-0 bg-popover border border-border rounded-xl shadow-lg z-50">
+      <PopoverPrimitive.Content
+        className="z-50 w-[var(--radix-popover-trigger-width)] rounded-panel border border-hairline bg-surface-2 p-0 shadow-elev-3"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          searchRef.current?.focus();
+        }}
+      >
         <div className="flex items-center border-b border-border px-3">
-          <Search className="me-2 h-4 w-4 shrink-0 text-muted-foreground" />
+          <Search className="me-2 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
           <input
-            className="flex h-10 w-full bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+            ref={searchRef}
+            className="u-focus flex h-10 w-full bg-transparent py-3 text-sm text-ink-1 outline-none placeholder:text-ink-3"
             placeholder={searchPlaceholder}
+            aria-label={searchLabel ?? searchPlaceholder}
+            aria-controls={listboxId}
+            aria-activedescendant={filtered[activeIndex] ? `${listboxId}-${activeIndex}` : undefined}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setActiveIndex(0);
+            }}
+            onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing) return;
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setActiveIndex((index) => Math.min(index + 1, Math.max(filtered.length - 1, 0)));
+              } else if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setActiveIndex((index) => Math.max(index - 1, 0));
+              } else if (event.key === "Enter" && filtered[activeIndex]) {
+                event.preventDefault();
+                choose(filtered[activeIndex]);
+              } else if (event.key === "Escape") {
+                setOpen(false);
+              }
+            }}
           />
         </div>
-        <div className="max-h-48 overflow-y-auto p-1">
+        <div id={listboxId} role="listbox" className="max-h-48 overflow-y-auto p-1">
           {filtered.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">{emptyText}</p>
           ) : (
@@ -84,19 +146,20 @@ export function Combobox({
               return (
                 <button
                   key={opt.value}
+                  id={`${listboxId}-${filtered.indexOf(opt)}`}
                   type="button"
+                  role="option"
+                  aria-selected={isSelected}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm",
-                    "hover:bg-accent hover:text-accent-foreground cursor-pointer",
-                    isSelected && "bg-accent",
+                    "u-focus flex min-h-11 w-full cursor-pointer items-center gap-2 rounded-nested px-3 py-2 text-sm text-ink-1",
+                    "hover:bg-accent hover:text-accent-foreground",
+                    isSelected && "bg-accent text-accent-foreground",
+                    filtered[activeIndex]?.value === opt.value && "outline outline-2 -outline-offset-2 outline-ring",
                   )}
-                  onClick={() => {
-                    onValueChange?.(isSelected ? "" : opt.value);
-                    setOpen(false);
-                    setQuery("");
-                  }}
+                  onMouseMove={() => setActiveIndex(filtered.indexOf(opt))}
+                  onClick={() => choose(opt)}
                 >
-                  <Check className={cn("h-4 w-4", isSelected ? "opacity-100" : "opacity-0")} />
+                  <Check className={cn("h-4 w-4", isSelected ? "opacity-100" : "opacity-0")} aria-hidden="true" />
                   {label}
                 </button>
               );
