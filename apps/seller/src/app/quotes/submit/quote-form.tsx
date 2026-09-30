@@ -195,7 +195,7 @@ export function QuoteForm({
                   <p className="u-ui font-medium text-ink-1">{item.nameEn}</p>
                   {item.notes && <p className="u-meta text-ink-2">{item.notes}</p>}
                 </div>
-                <Dateline>{t("quoteForm.requestedQuantity", { n: String(item.quantity) })}</Dateline>
+                <Dateline>{t("quoteForm.requestedQuantity", { quantity: String(item.quantity) })}</Dateline>
               </div>
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                 <Field label={t("quoteForm.productLabel")} htmlFor={`product-${item.id}`} required>
@@ -276,7 +276,7 @@ export function QuoteForm({
           })}</Dateline>
           <div className="mt-2 max-w-xs">
             <Meter value={validLines.length} max={items.length} tone={complete ? "success" : "neutral"} label={t("quoteForm.linesCompleteMeter")} />
-            <p className="u-meta mt-1 text-ink-3">{t("quoteForm.linesComplete", { complete: String(validLines.length), count: items.length, n: String(items.length) })}</p>
+            <p className="u-meta mt-1 text-ink-3">{t("quoteForm.linesComplete", { complete: String(validLines.length), total: String(items.length) })}</p>
           </div>
         </div>
         <div className="text-end">

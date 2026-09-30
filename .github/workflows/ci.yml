@@ -244,8 +244,8 @@ jobs:
       #
       # `--project=authenticated` pulls in its `auth-setup` dependency, which
       # signs all six personas in through the real login form.
-      - name: Playwright — authenticated tenant isolation and portal boundaries
-        run: pnpm --filter @avenick/e2e exec playwright test --project=authenticated
+      - name: Playwright — authenticated isolation and RFQ-to-PO certification (headed Chrome)
+        run: E2E_ALLOW_CERTIFICATION_WRITES=1 xvfb-run --auto-servernum pnpm --filter @avenick/e2e exec playwright test --headed --workers=1 --project=authenticated --project=rfq-to-po-certification
 
       - name: Puppeteer — storefront journeys
         run: pnpm --filter @avenick/e2e run e2e:puppeteer
