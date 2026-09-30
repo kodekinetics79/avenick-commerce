@@ -135,7 +135,10 @@ test.describe("RFQ to purchase order certification", () => {
       await expect(form.getByText(SELLER_B, { exact: true })).toHaveCount(1);
 
       await form.locator("button[type=submit]").last().click();
-      await buyerPage.waitForURL(/\/b2b\/rfq\/[A-Za-z0-9_-]+$/);
+      await buyerPage.waitForURL((current) => {
+        const match = current.pathname.match(/^\/b2b\/rfq\/([A-Za-z0-9_-]+)$/);
+        return Boolean(match?.[1] && match[1] !== "new");
+      });
       const rfqId = new URL(buyerPage.url()).pathname.split("/").pop();
       expect(rfqId, "RFQ creation did not produce a record id").toBeTruthy();
       await evidence(buyerPage, testInfo, "rfq-created-and-two-suppliers-invited.png");
