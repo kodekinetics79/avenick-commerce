@@ -5,6 +5,7 @@ import { cn } from "@avenick/utils";
 import { Button, Dateline, Eyebrow, Meter, Num, Surface } from "@avenick/ui";
 import { ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import { hasPayoutDetails, missingProfileFields, type ProfileFields } from "@/app/onboarding/readiness";
+import { documentIsInDate, selectGoverningDocuments } from "@/app/onboarding/document-selection";
 
 /**
  * Server component — computes real store-setup completion and renders a
@@ -20,23 +21,40 @@ import { hasPayoutDetails, missingProfileFields, type ProfileFields } from "@/ap
  */
 export async function OnboardingChecklist({
   seller,
+  permissions,
 }: {
-  seller: ProfileFields & { id: string; bankDetails: unknown };
+  seller: ProfileFields & { id: string; bankDetails: unknown; vatNumber: string | null };
+  permissions?: string[];
 }) {
   const t = await getTranslations("sellerShell.onboarding");
-  const [productCount, docCount, orderCount] = await Promise.all([
+  const [activeProductCount, documents, paidOrderCount] = await Promise.all([
     // deletedAt: null, matching /onboarding's identical count. Without it a
     // seller whose only product had been deleted was told this step was done —
     // an unearned tick is a fabricated claim like any other, and the two pages
     // disagreeing about the same store is exactly what readiness.ts exists to
     // stop.
-    db.product.count({ where: { sellerId: seller.id, deletedAt: null } }),
-    db.sellerDocument.count({ where: { sellerId: seller.id } }),
-    db.orderItem.count({ where: { sellerId: seller.id } }),
+    db.product.count({ where: { sellerId: seller.id, deletedAt: null, status: "ACTIVE" } }),
+    db.sellerDocument.findMany({
+      where: { sellerId: seller.id },
+      select: { type: true, status: true, expiryDate: true, uploadedAt: true },
+    }),
+    db.orderItem.count({ where: { sellerId: seller.id, order: { paymentStatus: "PAID" } } }),
   ]);
 
   const missingProfile = missingProfileFields(seller);
   const payoutReady = hasPayoutDetails(seller.bankDetails);
+  const can = (permission: string) => permissions?.includes("*") === true || permissions?.includes(permission) === true;
+  const now = new Date();
+  const governingDocuments = selectGoverningDocuments(documents, now);
+  const requiredDocumentTypes = [
+    "COMMERCIAL_REGISTRATION",
+    "TRADE_LICENSE",
+    ...(seller.vatNumber?.trim() ? ["VAT_CERTIFICATE"] : []),
+  ];
+  const approvedRequiredCount = requiredDocumentTypes.filter((type) => {
+    const document = governingDocuments.get(type)?.governing;
+    return document?.status === "APPROVED" && documentIsInDate(document, now);
+  }).length;
 
   const steps = [
     {
@@ -45,6 +63,8 @@ export async function OnboardingChecklist({
       cta: t("steps.profile.cta"),
       done: missingProfile.length === 0,
       href: "/settings",
+      viewPermission: "settings.manage",
+      actionPermission: "settings.manage",
       // The counted rows, named. A step that says "done" without saying what it
       // read is the kind of claim this codebase spent a hardening programme
       // removing. The field names interpolated into steps.profile.missing come
@@ -60,17 +80,25 @@ export async function OnboardingChecklist({
       key: "product",
       label: t("steps.product.label"),
       cta: t("steps.product.cta"),
-      done: productCount > 0,
+      done: activeProductCount > 0,
       href: "/products",
-      detail: t("steps.product.detail", { count: productCount, n: String(productCount) }),
+      viewPermission: "catalog.view",
+      actionPermission: "catalog.manage",
+      detail: t("steps.product.detail", { count: activeProductCount, n: String(activeProductCount) }),
     },
     {
       key: "documents",
       label: t("steps.documents.label"),
       cta: t("steps.documents.cta"),
-      done: docCount > 0,
+      done: approvedRequiredCount === requiredDocumentTypes.length,
       href: "/documents",
-      detail: docCount > 0 ? t("steps.documents.filed", { count: docCount, n: String(docCount) }) : t("steps.documents.none"),
+      viewPermission: "documents.view",
+      actionPermission: "documents.manage",
+      detail: t("steps.documents.approved", {
+        approved: String(approvedRequiredCount),
+        count: requiredDocumentTypes.length,
+        n: String(requiredDocumentTypes.length),
+      }),
     },
     {
       key: "payout",
@@ -78,15 +106,19 @@ export async function OnboardingChecklist({
       cta: t("steps.payout.cta"),
       done: payoutReady,
       href: "/settings",
+      viewPermission: "settings.manage",
+      actionPermission: "settings.manage",
       detail: payoutReady ? t("steps.payout.done") : t("steps.payout.missing"),
     },
     {
       key: "sale",
       label: t("steps.sale.label"),
       cta: t("steps.sale.cta"),
-      done: orderCount > 0,
-      href: "/orders",
-      detail: orderCount > 0 ? t("steps.sale.received", { count: orderCount, n: String(orderCount) }) : t("steps.sale.none"),
+      done: paidOrderCount > 0,
+      href: "/products",
+      viewPermission: "catalog.view",
+      actionPermission: "catalog.view",
+      detail: paidOrderCount > 0 ? t("steps.sale.received", { count: paidOrderCount, n: String(paidOrderCount) }) : t("steps.sale.none"),
     },
   ];
 
@@ -94,7 +126,7 @@ export async function OnboardingChecklist({
   const pct = Math.round((done / steps.length) * 100);
   if (done === steps.length) return null;
 
-  const next = steps.find((s) => !s.done);
+  const next = steps.find((step) => !step.done && can(step.actionPermission));
 
   return (
     // Rung 1. Setup progress is context for the dashboard rather than an object
@@ -131,12 +163,9 @@ export async function OnboardingChecklist({
       </Dateline>
 
       <ul className="mt-4 grid gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3">
-        {steps.map((step) => (
-          <li key={step.key}>
-            <Link
-              href={step.href}
-              className="u-focus flex items-start gap-2 rounded-nested py-1.5 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.03]"
-            >
+        {steps.map((step) => {
+          const content = (
+            <>
               {step.done ? (
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success-ink" aria-hidden="true" />
               ) : (
@@ -151,9 +180,23 @@ export async function OnboardingChecklist({
                 <span className={cn("u-ui block font-medium", step.done ? "text-ink-2" : "text-ink-1")}>{step.label}</span>
                 <span className="u-meta block text-ink-2">{step.detail}</span>
               </span>
-            </Link>
-          </li>
-        ))}
+            </>
+          );
+          return (
+            <li key={step.key}>
+              {can(step.viewPermission) ? (
+                <Link
+                  href={step.href}
+                  className="u-focus flex items-start gap-2 rounded-nested py-1.5 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.03]"
+                >
+                  {content}
+                </Link>
+              ) : (
+                <div className="flex items-start gap-2 py-1.5">{content}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </Surface>
   );

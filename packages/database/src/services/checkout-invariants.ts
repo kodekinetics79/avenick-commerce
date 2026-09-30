@@ -79,6 +79,30 @@ export async function requireCurrentAdminActor(
   return actor;
 }
 
+/** Resolve current company authority inside the mutation transaction. */
+export async function requireCurrentCompanyActor(
+  tx: Pick<Prisma.TransactionClient, "$executeRaw" | "companyMember">,
+  input: { companyId: string; actorId: string },
+  allowedRoles?: readonly Extract<UserRole, "COMPANY_ADMIN" | "COMPANY_BUYER" | "COMPANY_APPROVER">[],
+) {
+  await lockUserCommerceRows(tx, [input.actorId]);
+  const actor = await tx.companyMember.findFirst({
+    where: { companyId: input.companyId, userId: input.actorId },
+    include: {
+      user: { select: { role: true, status: true, deletedAt: true } },
+      company: { select: { status: true, deletedAt: true } },
+    },
+  });
+  if (!actor?.isActive || actor.user.status !== "ACTIVE" || actor.user.deletedAt
+    || actor.company.status !== "ACTIVE" || actor.company.deletedAt || actor.role !== actor.user.role) {
+    throw new Error("An active current company membership is required");
+  }
+  if (allowedRoles && !allowedRoles.includes(actor.role as typeof allowedRoles[number])) {
+    throw new Error(`Current company role required: ${allowedRoles.join(" or ")}`);
+  }
+  return actor;
+}
+
 /** Resolve current seller organization and capability after locking the actor. */
 export async function requireCurrentSellerActor(
   tx: Pick<Prisma.TransactionClient, "$executeRaw" | "user">,

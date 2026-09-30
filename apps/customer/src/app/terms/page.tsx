@@ -89,14 +89,14 @@ function buildSections(legalEmail: string | null): PolicySection[] {
     titleAr: "٤. قواعد المشتريات وطلبات عرض الأسعار",
     contentEn: (
       <>
-        <p>When you submit a Request for Quotation (RFQ), it is recorded and may be assigned to a supplier. {name} does not guarantee that an RFQ is distributed to multiple suppliers or that a quote will be returned. Quotations received from suppliers are binding offers valid until the expiration date specified on the quote.</p>
-        <p>Upon accepting a quotation, the platform automatically drafts a Purchase Order (PO). If approval policies are configured, the PO will wait for approval from your designated Company Approver before converting to a formal order.</p>
+        <p>When you submit a Request for Quotation (RFQ), it is recorded and may be assigned to one supplier. {name} does not guarantee that an RFQ is distributed to multiple suppliers or that a quote will be returned. Any validity period or commercial terms stated by the supplier must be confirmed before ordering.</p>
+        <p>Accepting a quotation records your decision and closes the RFQ. It does not currently create an order or Purchase Order (PO), notify the supplier, or carry the quoted price into a later PO. Buyers must confirm with the supplier and raise a PO separately; catalogue pricing is revalidated at that stage.</p>
       </>
     ),
     contentAr: (
       <>
-        <p>عند إرسال طلب عرض أسعار (RFQ)، يتم تسجيله وقد يُسنَد إلى مورد. ولا تضمن {name} توزيع الطلب على عدة موردين أو ورود عرض أسعار. وتعتبر عروض الأسعار الواردة من الموردين عروضاً ملزمة وسارية المفعول حتى تاريخ انتهاء الصلاحية المحدد في العرض.</p>
-        <p>عند قبول عرض الأسعار، تقوم المنصة تلقائياً بصياغة أمر الشراء (PO). وفي حالة تهيئة سياسات الموافقة، سينتظر أمر الشراء موافقة المفوّض المعيّن قبل تحويله إلى طلب رسمي.</p>
+        <p>عند إرسال طلب عرض أسعار (RFQ)، يتم تسجيله وقد يُسنَد إلى مورد واحد. ولا تضمن {name} توزيع الطلب على عدة موردين أو ورود عرض أسعار. ويجب تأكيد أي مدة صلاحية أو شروط تجارية يذكرها المورد قبل تقديم الطلب.</p>
+        <p>يسجل قبول عرض السعر قرارك ويغلق طلب العرض، لكنه لا ينشئ حالياً طلباً أو أمر شراء (PO)، ولا يرسل إشعاراً إلى المورد، ولا ينقل السعر المعروض إلى أمر شراء لاحق. يجب على المشتري التأكيد مع المورد وإنشاء أمر شراء بشكل منفصل، حيث يُعاد التحقق من أسعار الكتالوج في تلك المرحلة.</p>
       </>
     ),
   },

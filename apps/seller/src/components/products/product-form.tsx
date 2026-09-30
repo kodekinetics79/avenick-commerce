@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { platformName } from "@avenick/utils/portal-config";
 import {
   AlertCircle,
@@ -209,6 +209,7 @@ export function ProductForm({
 }: ProductFormProps) {
   const router = useRouter();
   const t = useTranslations("sellerCatalog");
+  const locale = useLocale().startsWith("ar") ? "ar" : "en";
   const { toast } = useToast();
 
   const originOptions: ProductFormOption[] = ORIGIN_CODES.map((code) => ({
@@ -669,13 +670,9 @@ export function ProductForm({
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
-          {/* Not a <label>: Combobox renders a button, and a <label> cannot be
-              associated with one, so the label written here before pointed at
-              nothing. Combobox also forwards no id or aria-labelledby, so until
-              it does (raised as a packages/ui request) the caption is tied to
-              the control through a named group — which assistive technology does
-              announce on entry — and the trigger's own name still comes from the
-              placeholder or the chosen value. */}
+          {/* The shared combobox takes ariaLabelledBy because its trigger is a
+              button rather than a native input. The group keeps the error and
+              control together; the id now directly names the trigger as well. */}
           <div role="group" aria-labelledby={categoryLabelId}>
             <span className={LABEL} id={categoryLabelId}>
               {t("form.details.category")}
@@ -686,7 +683,10 @@ export function ProductForm({
               onValueChange={(value) => set("categoryId", value)}
               placeholder={t("form.details.categoryPlaceholder")}
               searchPlaceholder={t("form.details.categorySearch")}
+              searchLabel={t("form.details.categorySearch")}
               emptyText={t("form.details.categoryEmpty")}
+              locale={locale}
+              ariaLabelledBy={categoryLabelId}
             />
             {fieldError("categoryId") && <p className={FIELD_ERROR}>{fieldError("categoryId")}</p>}
           </div>
@@ -700,7 +700,10 @@ export function ProductForm({
               onValueChange={(value) => set("brandId", value)}
               placeholder={t("form.details.brandPlaceholder")}
               searchPlaceholder={t("form.details.brandSearch")}
+              searchLabel={t("form.details.brandSearch")}
               emptyText={t("form.details.brandEmpty")}
+              locale={locale}
+              ariaLabelledBy={brandLabelId}
             />
             {fieldError("brandId") && <p className={FIELD_ERROR}>{fieldError("brandId")}</p>}
           </div>

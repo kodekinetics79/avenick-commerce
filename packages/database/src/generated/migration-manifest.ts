@@ -39,4 +39,7 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260905180000_company_registration_evidence",
   "20260906060000_reconcile_registration_evidence",
   "20260907120000_company_join_requests",
+  "20260930010000_complete_fk_index_coverage",
+  "20260930011000_commerce_write_guards",
+  "20260930012000_multi_supplier_rfq_foundation",
 ];

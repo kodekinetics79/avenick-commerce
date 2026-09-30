@@ -31,13 +31,43 @@ beforeEach(() => {
   mocks.findFirst.mockReset();
 });
 
-const row = { nameEn: "Wire & Cable Lubricant", nameAr: "مزلق الأسلاك والكابلات", sku: "3M-WCL-1", moq: 72, variants: [] };
+const seller = {
+  id: "seller1",
+  businessNameEn: "Gulf Industrial Supply",
+  businessNameAr: null,
+  city: "Riyadh",
+  country: "SA",
+  tier: "VERIFIED",
+  documents: [],
+};
+const row = {
+  id: "cprod123",
+  nameEn: "Wire & Cable Lubricant",
+  nameAr: "مزلق الأسلاك والكابلات",
+  sku: "3M-WCL-1",
+  moq: 72,
+  seller,
+  variants: [],
+};
 
 describe("readRfqProductSeed", () => {
   it("seeds the line with the product's name, SKU and MOQ", async () => {
     mocks.findFirst.mockResolvedValue(row);
     const seed = await readRfqProductSeed({ product: "cprod123" }, { locale: "en", isCompanyMember: false });
-    expect(seed).toEqual({ description: "Wire & Cable Lubricant · 3M-WCL-1", quantity: "72" });
+    expect(seed).toEqual({
+      productId: "cprod123",
+      description: "Wire & Cable Lubricant · 3M-WCL-1",
+      quantity: "72",
+      supplier: {
+        id: "seller1",
+        businessNameEn: "Gulf Industrial Supply",
+        businessNameAr: null,
+        city: "Riyadh",
+        country: "SA",
+        tier: "VERIFIED",
+        verification: null,
+      },
+    });
   });
 
   it("reads under the product API's rule: active, live seller, and discoverable for a viewer without a company", async () => {
@@ -83,15 +113,16 @@ describe("readRfqProductSeed", () => {
   });
 
   it("names the chosen variant and quotes against its SKU", async () => {
-    mocks.findFirst.mockResolvedValue({ ...row, variants: [{ nameEn: "5 L drum", nameAr: null, sku: "3M-WCL-5L" }] });
+    mocks.findFirst.mockResolvedValue({ ...row, variants: [{ id: "cvar1", nameEn: "5 L drum", nameAr: null, sku: "3M-WCL-5L" }] });
     const seed = await readRfqProductSeed({ product: "cprod123", variant: "cvar1" }, { locale: "en", isCompanyMember: false });
     expect(seed?.description).toBe("Wire & Cable Lubricant · 5 L drum · 3M-WCL-5L");
+    expect(seed?.variantId).toBe("cvar1");
     expect(mocks.findFirst.mock.calls[0]![0].select.variants.where).toEqual({ id: { in: ["cvar1"] }, isActive: true });
   });
 
   it("shortens a long name rather than cutting off the SKU a supplier quotes against", async () => {
     const longName = `Industrial conduit lubricant ${"x".repeat(190)}`;
-    mocks.findFirst.mockResolvedValue({ ...row, nameEn: longName, variants: [{ nameEn: "5 L drum", nameAr: null, sku: "3M-WCL-5L" }] });
+    mocks.findFirst.mockResolvedValue({ ...row, nameEn: longName, variants: [{ id: "cvar1", nameEn: "5 L drum", nameAr: null, sku: "3M-WCL-5L" }] });
     const seed = await readRfqProductSeed({ product: "cprod123", variant: "cvar1" }, { locale: "en", isCompanyMember: false });
     expect(seed?.description.length).toBeLessThanOrEqual(200);
     expect(seed?.description.endsWith(" · 3M-WCL-5L")).toBe(true);

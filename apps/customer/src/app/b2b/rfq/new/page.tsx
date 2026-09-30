@@ -51,6 +51,9 @@ export default async function NewRFQPage({
     <NewRFQForm
       initialDescription={productSeed?.description ?? typedQuery}
       initialQuantity={productSeed?.quantity}
+      initialProductId={productSeed?.productId}
+      initialSuppliers={productSeed ? [productSeed.supplier] : []}
+      allowSingleSupplier={Boolean(productSeed)}
       categories={categories.map((c) => ({ slug: c.slug, label: categoryLabel(c, locale) }))}
       currency={ctx ? companyCurrencyForCountry(ctx.company.country) : null}
     />

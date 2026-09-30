@@ -41,8 +41,11 @@ export default async function PerformancePage() {
   const t = await getTranslations("adminShell.performance");
 
   const suppliers = await getSupplierPerformance();
-  const avg = suppliers.length > 0 ? Math.round(suppliers.reduce((s, x) => s + x.score, 0) / suppliers.length) : 0;
-  const atRisk = suppliers.filter((s) => s.score < 70).length;
+  const scoredSuppliers = suppliers.filter((supplier): supplier is typeof supplier & { score: number } => supplier.score !== null);
+  const avg = scoredSuppliers.length > 0
+    ? Math.round(scoredSuppliers.reduce((sum, supplier) => sum + supplier.score, 0) / scoredSuppliers.length)
+    : null;
+  const atRisk = scoredSuppliers.filter((supplier) => supplier.score < 70).length;
   const withOnTime = suppliers.filter((s) => s.onTimePct !== null);
   const avgOnTime = withOnTime.length > 0 ? Math.round(withOnTime.reduce((s, x) => s + (x.onTimePct ?? 0), 0) / withOnTime.length) : null;
   const avgReturn = suppliers.length > 0 ? Math.round((suppliers.reduce((s, x) => s + x.returnRate, 0) / suppliers.length) * 10) / 10 : 0;
@@ -61,18 +64,18 @@ export default async function PerformancePage() {
         <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
           <Stat
             label={t("avgScore")}
-            value={suppliers.length > 0 ? avg : "—"}
-            unit={suppliers.length > 0 ? "/100" : undefined}
+            value={avg ?? "—"}
+            unit={avg !== null ? "/100" : undefined}
             rank="section"
             icon={Award}
-            chip={suppliers.length > 0 ? scoreTone(avg) : "neutral"}
+            chip={avg !== null ? scoreTone(avg) : "neutral"}
             // The count goes in twice: as a number so ICU selects the plural form
             // — Arabic has six — and as a string so the digits stay Western
             // inside the Arabic sentence.
             note={
-              suppliers.length > 0
-                ? t("avgScoreNote", { count: suppliers.length, value: String(suppliers.length) })
-                : undefined
+              scoredSuppliers.length > 0
+                ? t("avgScoreNote", { count: scoredSuppliers.length, value: String(scoredSuppliers.length) })
+                : t("avgScoreNone")
             }
           />
           <Stat
@@ -146,13 +149,19 @@ export default async function PerformancePage() {
               // legal inside phrasing content.
               render: (s) => (
                 <div className="flex items-center gap-2">
-                  <Meter
-                    className="min-w-[5rem] flex-1"
-                    value={s.score}
-                    tone={scoreTone(s.score)}
-                    label={t("table.scoreMeter", { name: s.name, score: String(s.score) })}
-                  />
-                  <span className="fig w-7 text-end text-ink-1">{s.score}</span>
+                  {s.score !== null ? (
+                    <>
+                      <Meter
+                        className="min-w-[5rem] flex-1"
+                        value={s.score}
+                        tone={scoreTone(s.score)}
+                        label={t("table.scoreMeter", { name: s.name, score: String(s.score) })}
+                      />
+                      <span className="fig w-7 text-end text-ink-1">{s.score}</span>
+                    </>
+                  ) : (
+                    <span className="text-ink-3">{t("table.notEnoughData")}</span>
+                  )}
                 </div>
               ),
             },

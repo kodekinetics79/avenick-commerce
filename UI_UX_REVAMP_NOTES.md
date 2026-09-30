@@ -1,5 +1,9 @@
 # UI/UX Revamp — Design System & App Shell
 
+> **Historical document — superseded.** Use `DESIGN.md` and
+> `packages/ui/DESIGN_SYSTEM.md` (SIJILL) for current visual and behavioral
+> decisions. This file describes an earlier migration checkpoint only.
+
 Scope: **visual foundation + app shell only** (no business-module logic changed).
 Goal: premium, enterprise-grade, GCC-business-ready SaaS feel.
 

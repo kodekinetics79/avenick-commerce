@@ -2239,18 +2239,19 @@
     "performance": {
       "eyebrow": "Supplier network",
       "title": "Supplier Performance",
-      "description": "Scorecards computed from live orders, shipments, returns, reviews, and listing health.",
-      "dateline": "Weights: listing health 40 · on-time delivery 30 · rating 20 · returns 10. A reporting view — no score on this screen can be edited.",
+      "description": "Scorecards computed from each supplier's recent fulfilment, listing health, and compliance evidence.",
+      "dateline": "Trailing 90 days · fulfilment 50 · listing health 25 · compliance 25. Suppliers without enough activity remain unscored.",
       "readOnly": "Read only",
       "avgScore": "Avg supplier score",
-      "avgScoreNote": "{count, plural, one {Across {value} active supplier} other {Across {value} active suppliers}}",
+      "avgScoreNote": "{count, plural, one {Across {value} supplier with enough activity} other {Across {value} suppliers with enough activity}}",
+      "avgScoreNone": "No supplier has enough 90-day activity to score yet",
       "avgOnTime": "Avg on-time delivery",
       "avgOnTimeDateline": "{count, plural, one {Over the {value} supplier with a recorded delivery} other {Over the {value} suppliers with a recorded delivery}}",
       "avgOnTimeNone": "No supplier has a recorded delivery yet",
       "avgReturnRate": "Avg return rate",
       "atRisk": "Suppliers at risk",
       "atRiskNote": "Scoring below 70",
-      "atRiskBanner": "{count, plural, one {<strong>{value} supplier</strong> scoring below 70 — review listing health, delivery reliability, and return rates.} other {<strong>{value} suppliers</strong> scoring below 70 — review listing health, delivery reliability, and return rates.}}",
+      "atRiskBanner": "{count, plural, one {<strong>{value} supplier</strong> scoring below 70 — review fulfilment, listing health, and compliance.} other {<strong>{value} suppliers</strong> scoring below 70 — review fulfilment, listing health, and compliance.}}",
       "tier": {
         "PLATINUM": "Platinum",
         "GOLD": "Gold",
@@ -2263,6 +2264,7 @@
         "columnSupplier": "Supplier",
         "columnScore": "Score",
         "scoreMeter": "{name} score: {score} of 100",
+        "notEnoughData": "Not enough data",
         "columnGmv": "GMV (as recorded)",
         "columnOrders": "Orders",
         "columnOnTime": "On-time",
@@ -2273,7 +2275,7 @@
         "empty": {
           "eyebrow": "Nothing recorded",
           "headline": "No active supplier has a scorecard yet.",
-          "body": "A supplier appears here once their account is active; the score is computed from their own orders, shipments, returns, reviews and listing health."
+          "body": "A supplier appears here once their account is active; scoring begins only after enough recent orders or RFQ activity exists."
         }
       }
     },
