@@ -8,7 +8,7 @@ import { isDurableB2BMember } from "./b2b-access";
 export type B2BActionState = { error?: string; ok?: boolean; message?: string };
 
 export async function fetchB2BJson<T>(path: string, init?: RequestInit) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   return fetchBackendJsonWithCookies<T>(path, init, cookieHeaderFromStore(cookieStore));
 }
 

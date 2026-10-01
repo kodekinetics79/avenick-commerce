@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { AlertCircle, Send } from "lucide-react";
 import {
@@ -55,6 +55,10 @@ interface LatestQuoteInput {
 }
 
 type LineDraft = { productId: string; variantId: string; unitPrice: string; vatRate: string };
+type QuoteFieldErrors = Record<string, string>;
+
+const MAX_AMOUNT = 999_999_999_999.99;
+const MAX_UNIT_PRICE = 999_999_999_999.9999;
 
 function dateInputValue(value: string) {
   const parsed = new Date(value);
@@ -62,7 +66,10 @@ function dateInputValue(value: string) {
 }
 
 function newSubmissionKey() {
-  return globalThis.crypto?.randomUUID?.() ?? `quote-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `quote-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
 }
 
 export function QuoteForm({
@@ -82,33 +89,61 @@ export function QuoteForm({
 }) {
   const t = useTranslations("sellerRelations");
   const priorByLine = new Map(latestQuote?.items.map((item) => [item.rfqItemId, item]) ?? []);
-  const [lines, setLines] = useState<Record<string, LineDraft>>(() => Object.fromEntries(items.map((item) => {
-    const prior = priorByLine.get(item.id);
-    return [item.id, {
-      productId: prior?.productId ?? "",
-      variantId: prior?.variantId ?? "",
-      unitPrice: prior ? String(prior.unitPrice) : "",
-      vatRate: prior ? String(prior.vatRate) : "0",
-    }];
-  })));
-  const [freightAmount, setFreightAmount] = useState(latestQuote ? String(latestQuote.freightAmount) : "0");
-  const [freightVatRate, setFreightVatRate] = useState(latestQuote ? String(latestQuote.freightVatRate) : "0");
-  const [validUntil, setValidUntil] = useState(latestQuote ? dateInputValue(latestQuote.validUntil) : defaultValidUntil);
-  const [leadTimeDays, setLeadTimeDays] = useState(latestQuote ? String(latestQuote.leadTimeDays) : "7");
-  const [paymentTermsDays, setPaymentTermsDays] = useState(latestQuote ? String(latestQuote.paymentTermsDays) : "30");
+  const [lines, setLines] = useState<Record<string, LineDraft>>(() =>
+    Object.fromEntries(
+      items.map((item) => {
+        const prior = priorByLine.get(item.id);
+        return [
+          item.id,
+          {
+            productId: prior?.productId ?? "",
+            variantId: prior?.variantId ?? "",
+            unitPrice: prior ? String(prior.unitPrice) : "",
+            vatRate: prior ? String(prior.vatRate) : "0",
+          },
+        ];
+      }),
+    ),
+  );
+  const [freightAmount, setFreightAmount] = useState(
+    latestQuote ? String(latestQuote.freightAmount) : "0",
+  );
+  const [freightVatRate, setFreightVatRate] = useState(
+    latestQuote ? String(latestQuote.freightVatRate) : "0",
+  );
+  const [validUntil, setValidUntil] = useState(
+    latestQuote ? dateInputValue(latestQuote.validUntil) : defaultValidUntil,
+  );
+  const [leadTimeDays, setLeadTimeDays] = useState(
+    latestQuote ? String(latestQuote.leadTimeDays) : "7",
+  );
+  const [paymentTermsDays, setPaymentTermsDays] = useState(
+    latestQuote ? String(latestQuote.paymentTermsDays) : "30",
+  );
   const [notes, setNotes] = useState(latestQuote?.notes ?? "");
   const [submissionKey] = useState(newSubmissionKey);
   const [state, setState] = useState<QuoteActionState>({});
   const [pending, setPending] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<QuoteFieldErrors>({});
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const selectedProduct = (line: LineDraft) => products.find((product) => product.id === line.productId);
+  const selectedProduct = (line: LineDraft) =>
+    products.find((product) => product.id === line.productId);
   const validLines = items.flatMap((item) => {
     const line = lines[item.id];
     if (!line) return [];
     const unitPrice = Number(line.unitPrice);
     const rate = Number(line.vatRate);
     const product = selectedProduct(line);
-    if (!line.productId || !Number.isFinite(unitPrice) || unitPrice <= 0 || !Number.isFinite(rate) || rate < 0 || rate > 100) return [];
+    if (
+      !line.productId ||
+      !Number.isFinite(unitPrice) ||
+      unitPrice <= 0 ||
+      !Number.isFinite(rate) ||
+      rate < 0 ||
+      rate > 100
+    )
+      return [];
     if (product?.variants.length && !line.variantId) return [];
     return [{ quantity: item.quantity, unitPrice, vatRate: rate }];
   });
@@ -121,19 +156,74 @@ export function QuoteForm({
 
   function updateLine(itemId: string, patch: Partial<LineDraft>) {
     setLines((current) => ({ ...current, [itemId]: { ...current[itemId]!, ...patch } }));
+    setFieldErrors((current) => {
+      const next = { ...current };
+      if ("productId" in patch) {
+        delete next[`${itemId}.productId`];
+        delete next[`${itemId}.variantId`];
+      }
+      if ("variantId" in patch) delete next[`${itemId}.variantId`];
+      if ("unitPrice" in patch) delete next[`${itemId}.unitPrice`];
+      if ("vatRate" in patch) delete next[`${itemId}.vatRate`];
+      return next;
+    });
+  }
+
+  function clearFieldError(key: string) {
+    setFieldErrors((current) => {
+      if (!(key in current)) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
   }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setState({});
-    if (!complete) {
-      setState({ error: t("quoteForm.completeEveryLine") });
+    const errors: QuoteFieldErrors = {};
+    for (const item of items) {
+      const line = lines[item.id]!;
+      const product = selectedProduct(line);
+      const unitPrice = Number(line.unitPrice);
+      const rate = Number(line.vatRate);
+      if (!line.productId)
+        errors[`${item.id}.productId`] = t("quoteForm.validation.productRequired");
+      if (product?.variants.length && !line.variantId)
+        errors[`${item.id}.variantId`] = t("quoteForm.validation.variantRequired");
+      if (!Number.isFinite(unitPrice) || unitPrice <= 0 || unitPrice > MAX_UNIT_PRICE) {
+        errors[`${item.id}.unitPrice`] = t("quoteForm.validation.unitPrice");
+      }
+      if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+        errors[`${item.id}.vatRate`] = t("quoteForm.validation.vatRate");
+      }
+    }
+
+    const freight = Number(freightAmount);
+    const freightVat = Number(freightVatRate);
+    const leadTime = Number(leadTimeDays);
+    const paymentTerms = Number(paymentTermsDays);
+    const validityTimestamp = Date.parse(`${validUntil}T23:59:59.999Z`);
+    if (!Number.isFinite(freight) || freight < 0 || freight > MAX_AMOUNT)
+      errors.freightAmount = t("quoteForm.validation.freightAmount");
+    if (!Number.isFinite(freightVat) || freightVat < 0 || freightVat > 100)
+      errors.freightVatRate = t("quoteForm.validation.vatRate");
+    if (!validUntil || !Number.isFinite(validityTimestamp) || validityTimestamp <= Date.now())
+      errors.validUntil = t("quoteForm.validityRequired");
+    if (!Number.isInteger(leadTime) || leadTime < 0 || leadTime > 3650)
+      errors.leadTimeDays = t("quoteForm.validation.leadTime");
+    if (!Number.isInteger(paymentTerms) || paymentTerms < 0 || paymentTerms > 3650)
+      errors.paymentTermsDays = t("quoteForm.validation.paymentTerms");
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setState({ error: t("quoteForm.validation.summary") });
+      requestAnimationFrame(() =>
+        formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(),
+      );
       return;
     }
-    if (!validUntil) {
-      setState({ error: t("quoteForm.validityRequired") });
-      return;
-    }
+    setFieldErrors({});
 
     const payload = {
       rfqId,
@@ -148,11 +238,11 @@ export function QuoteForm({
           vatRate: Number(line.vatRate),
         };
       }),
-      freightAmount: Number(freightAmount),
-      freightVatRate: Number(freightVatRate),
+      freightAmount: freight,
+      freightVatRate: freightVat,
       validUntil: new Date(`${validUntil}T23:59:59.999Z`).toISOString(),
-      leadTimeDays: Number(leadTimeDays),
-      paymentTermsDays: Number(paymentTermsDays),
+      leadTimeDays: leadTime,
+      paymentTermsDays: paymentTerms,
       notes: notes.trim() || undefined,
     };
 
@@ -163,7 +253,12 @@ export function QuoteForm({
       const result = await submitQuoteAction({}, formData);
       if (result?.error) setState(result);
     } catch (error) {
-      if (error && typeof error === "object" && "digest" in error && String((error as { digest?: string }).digest).includes("NEXT_REDIRECT")) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "digest" in error &&
+        String((error as { digest?: string }).digest).includes("NEXT_REDIRECT")
+      ) {
         throw error;
       }
       setState({ error: t("quoteForm.submitFailed") });
@@ -173,20 +268,27 @@ export function QuoteForm({
   }
 
   if (items.length === 0) {
-    return <EmptyState eyebrow={t("quoteForm.empty.eyebrow")} headline={t("quoteForm.empty.headline")} body={t("quoteForm.empty.body")} />;
+    return (
+      <EmptyState
+        eyebrow={t("quoteForm.empty.eyebrow")}
+        headline={t("quoteForm.empty.headline")}
+        body={t("quoteForm.empty.body")}
+      />
+    );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" noValidate>
       <Surface rung={1} className="divide-y divide-hairline overflow-hidden">
         {items.map((item) => {
           const line = lines[item.id]!;
           const product = selectedProduct(line);
           const unitPrice = Number(line.unitPrice);
           const rate = Number(line.vatRate);
-          const lineTotal = Number.isFinite(unitPrice) && unitPrice > 0 && Number.isFinite(rate)
-            ? item.quantity * unitPrice * (1 + rate / 100)
-            : null;
+          const lineTotal =
+            Number.isFinite(unitPrice) && unitPrice > 0 && Number.isFinite(rate)
+              ? item.quantity * unitPrice * (1 + rate / 100)
+              : null;
           return (
             <fieldset key={item.id} className="p-4">
               <legend className="sr-only">{item.nameEn}</legend>
@@ -195,64 +297,245 @@ export function QuoteForm({
                   <p className="u-ui font-medium text-ink-1">{item.nameEn}</p>
                   {item.notes && <p className="u-meta text-ink-2">{item.notes}</p>}
                 </div>
-                <Dateline>{t("quoteForm.requestedQuantity", { quantity: String(item.quantity) })}</Dateline>
+                <Dateline>
+                  {t("quoteForm.requestedQuantity", { quantity: String(item.quantity) })}
+                </Dateline>
               </div>
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                <Field label={t("quoteForm.productLabel")} htmlFor={`product-${item.id}`} required>
-                  <Select value={line.productId || undefined} onValueChange={(productId) => updateLine(item.id, { productId, variantId: "" })}>
-                    <SelectTrigger id={`product-${item.id}`} aria-label={t("quoteForm.productFor", { item: item.nameEn })}>
-                      <SelectValue placeholder={t("quoteForm.selectProduct")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {products.map((option) => <SelectItem key={option.id} value={option.id}>{option.nameEn} · {option.sku}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </Field>
-                {product?.variants.length ? (
-                  <Field label={t("quoteForm.variantLabel")} htmlFor={`variant-${item.id}`} required>
-                    <Select value={line.variantId || undefined} onValueChange={(variantId) => updateLine(item.id, { variantId })}>
-                      <SelectTrigger id={`variant-${item.id}`} aria-label={t("quoteForm.variantFor", { item: item.nameEn })}>
-                        <SelectValue placeholder={t("quoteForm.selectVariant")} />
+                <Field
+                  label={t("quoteForm.productLabel")}
+                  id={`product-${item.id}`}
+                  required
+                  error={fieldErrors[`${item.id}.productId`]}
+                >
+                  {(a11y) => (
+                    <Select
+                      value={line.productId || undefined}
+                      onValueChange={(productId) =>
+                        updateLine(item.id, { productId, variantId: "" })
+                      }
+                    >
+                      <SelectTrigger
+                        {...a11y}
+                        aria-label={t("quoteForm.productFor", { item: item.nameEn })}
+                      >
+                        <SelectValue placeholder={t("quoteForm.selectProduct")} />
                       </SelectTrigger>
                       <SelectContent>
-                        {product.variants.map((variant) => <SelectItem key={variant.id} value={variant.id}>{variant.nameEn} · {variant.sku}</SelectItem>)}
+                        {products.map((option) => (
+                          <SelectItem key={option.id} value={option.id}>
+                            {option.nameEn} · {option.sku}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
-                  </Field>
-                ) : <div />}
-                <Field label={t("quoteForm.columns.unitPrice", { currency })} htmlFor={`price-${item.id}`} required>
-                  <Input id={`price-${item.id}`} type="number" inputMode="decimal" min="0.0001" step="0.0001" required value={line.unitPrice} onChange={(event) => updateLine(item.id, { unitPrice: event.target.value })} />
+                  )}
                 </Field>
-                <Field label={t("quoteForm.vatRateLabel")} htmlFor={`vat-${item.id}`} required>
-                  <Input id={`vat-${item.id}`} type="number" inputMode="decimal" min="0" max="100" step="0.01" required value={line.vatRate} onChange={(event) => updateLine(item.id, { vatRate: event.target.value })} />
+                {product?.variants.length ? (
+                  <Field
+                    label={t("quoteForm.variantLabel")}
+                    id={`variant-${item.id}`}
+                    required
+                    error={fieldErrors[`${item.id}.variantId`]}
+                  >
+                    {(a11y) => (
+                      <Select
+                        value={line.variantId || undefined}
+                        onValueChange={(variantId) => updateLine(item.id, { variantId })}
+                      >
+                        <SelectTrigger
+                          {...a11y}
+                          aria-label={t("quoteForm.variantFor", { item: item.nameEn })}
+                        >
+                          <SelectValue placeholder={t("quoteForm.selectVariant")} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {product.variants.map((variant) => (
+                            <SelectItem key={variant.id} value={variant.id}>
+                              {variant.nameEn} · {variant.sku}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </Field>
+                ) : (
+                  <div />
+                )}
+                <Field
+                  label={t("quoteForm.columns.unitPrice", { currency })}
+                  id={`price-${item.id}`}
+                  required
+                  error={fieldErrors[`${item.id}.unitPrice`]}
+                >
+                  {(a11y) => (
+                    <Input
+                      {...a11y}
+                      type="number"
+                      inputMode="decimal"
+                      min="0.0001"
+                      max={MAX_UNIT_PRICE}
+                      step="0.0001"
+                      value={line.unitPrice}
+                      onChange={(event) => updateLine(item.id, { unitPrice: event.target.value })}
+                    />
+                  )}
+                </Field>
+                <Field
+                  label={t("quoteForm.vatRateLabel")}
+                  id={`vat-${item.id}`}
+                  required
+                  error={fieldErrors[`${item.id}.vatRate`]}
+                >
+                  {(a11y) => (
+                    <Input
+                      {...a11y}
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={line.vatRate}
+                      onChange={(event) => updateLine(item.id, { vatRate: event.target.value })}
+                    />
+                  )}
                 </Field>
               </div>
-              <p className="u-meta mt-2 text-end text-ink-2">{t("quoteForm.estimatedLineTotal")}: {lineTotal === null ? "—" : `${currency} ${lineTotal.toFixed(2)}`}</p>
+              <p className="u-meta mt-2 text-end text-ink-2">
+                {t("quoteForm.estimatedLineTotal")}:{" "}
+                {lineTotal === null ? "—" : `${currency} ${lineTotal.toFixed(2)}`}
+              </p>
             </fieldset>
           );
         })}
       </Surface>
 
       <Surface rung={2} className="p-4">
-        <Eyebrow as="h2" className="mb-3">{t("quoteForm.commercialTerms")}</Eyebrow>
+        <Eyebrow as="h2" className="mb-3">
+          {t("quoteForm.commercialTerms")}
+        </Eyebrow>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label={t("quoteForm.freightAmount", { currency })} htmlFor="quote-freight" required>
-            <Input id="quote-freight" type="number" min="0" step="0.01" required value={freightAmount} onChange={(event) => setFreightAmount(event.target.value)} />
+          <Field
+            label={t("quoteForm.freightAmount", { currency })}
+            id="quote-freight"
+            required
+            error={fieldErrors.freightAmount}
+          >
+            {(a11y) => (
+              <Input
+                {...a11y}
+                type="number"
+                inputMode="decimal"
+                min="0"
+                max={MAX_AMOUNT}
+                step="0.01"
+                value={freightAmount}
+                onChange={(event) => {
+                  setFreightAmount(event.target.value);
+                  clearFieldError("freightAmount");
+                }}
+              />
+            )}
           </Field>
-          <Field label={t("quoteForm.freightVatRate")} htmlFor="quote-freight-vat" required>
-            <Input id="quote-freight-vat" type="number" min="0" max="100" step="0.01" required value={freightVatRate} onChange={(event) => setFreightVatRate(event.target.value)} />
+          <Field
+            label={t("quoteForm.freightVatRate")}
+            id="quote-freight-vat"
+            required
+            error={fieldErrors.freightVatRate}
+          >
+            {(a11y) => (
+              <Input
+                {...a11y}
+                type="number"
+                inputMode="decimal"
+                min="0"
+                max="100"
+                step="0.01"
+                value={freightVatRate}
+                onChange={(event) => {
+                  setFreightVatRate(event.target.value);
+                  clearFieldError("freightVatRate");
+                }}
+              />
+            )}
           </Field>
-          <Field label={t("quoteForm.validUntil")} htmlFor="quote-valid-until" required>
-            <Input id="quote-valid-until" type="date" required value={validUntil} onChange={(event) => setValidUntil(event.target.value)} />
+          <Field
+            label={t("quoteForm.validUntil")}
+            id="quote-valid-until"
+            required
+            error={fieldErrors.validUntil}
+            hint={t("quoteForm.validUntilHint")}
+          >
+            {(a11y) => (
+              <Input
+                {...a11y}
+                type="date"
+                min={new Date().toISOString().slice(0, 10)}
+                value={validUntil}
+                onChange={(event) => {
+                  setValidUntil(event.target.value);
+                  clearFieldError("validUntil");
+                }}
+              />
+            )}
           </Field>
-          <Field label={t("quoteForm.leadTimeDays")} htmlFor="quote-lead-time" required>
-            <Input id="quote-lead-time" type="number" min="0" max="3650" step="1" required value={leadTimeDays} onChange={(event) => setLeadTimeDays(event.target.value)} />
+          <Field
+            label={t("quoteForm.leadTimeDays")}
+            id="quote-lead-time"
+            required
+            error={fieldErrors.leadTimeDays}
+          >
+            {(a11y) => (
+              <Input
+                {...a11y}
+                type="number"
+                inputMode="numeric"
+                min="0"
+                max="3650"
+                step="1"
+                value={leadTimeDays}
+                onChange={(event) => {
+                  setLeadTimeDays(event.target.value);
+                  clearFieldError("leadTimeDays");
+                }}
+              />
+            )}
           </Field>
-          <Field label={t("quoteForm.paymentTermsDays")} htmlFor="quote-payment-terms" required>
-            <Input id="quote-payment-terms" type="number" min="0" max="3650" step="1" required value={paymentTermsDays} onChange={(event) => setPaymentTermsDays(event.target.value)} />
+          <Field
+            label={t("quoteForm.paymentTermsDays")}
+            id="quote-payment-terms"
+            required
+            error={fieldErrors.paymentTermsDays}
+          >
+            {(a11y) => (
+              <Input
+                {...a11y}
+                type="number"
+                inputMode="numeric"
+                min="0"
+                max="3650"
+                step="1"
+                value={paymentTermsDays}
+                onChange={(event) => {
+                  setPaymentTermsDays(event.target.value);
+                  clearFieldError("paymentTermsDays");
+                }}
+              />
+            )}
           </Field>
-          <Field label={t("quoteForm.notesLabel")} htmlFor="quote-notes" className="sm:col-span-2 lg:col-span-3">
-            <Textarea id="quote-notes" rows={3} maxLength={2000} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder={t("quoteForm.notesPlaceholder")} />
+          <Field
+            label={t("quoteForm.notesLabel")}
+            htmlFor="quote-notes"
+            className="sm:col-span-2 lg:col-span-3"
+          >
+            <Textarea
+              id="quote-notes"
+              rows={3}
+              maxLength={2000}
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder={t("quoteForm.notesPlaceholder")}
+            />
           </Field>
         </div>
       </Surface>
@@ -267,22 +550,42 @@ export function QuoteForm({
       <Surface rung={2} className="flex flex-wrap items-end justify-between gap-4 p-4">
         <div className="min-w-0 flex-1">
           <Eyebrow className="mb-1">{t("quoteForm.estimatedTotal")}</Eyebrow>
-          <Num value={estimate.total > 0 ? estimate.total.toFixed(2) : "—"} currency={estimate.total > 0 ? currency : undefined} rank="section" />
-          <Dateline className="mt-1">{t("quoteForm.estimateBreakdown", {
-            subtotal: estimate.subtotal.toFixed(2),
-            vat: estimate.vatAmount.toFixed(2),
-            freight: (Number(freightAmount) || 0).toFixed(2),
-            freightVat: estimate.freightVatAmount.toFixed(2),
-          })}</Dateline>
+          <Num
+            value={estimate.total > 0 ? estimate.total.toFixed(2) : "—"}
+            currency={estimate.total > 0 ? currency : undefined}
+            rank="section"
+          />
+          <Dateline className="mt-1">
+            {t("quoteForm.estimateBreakdown", {
+              subtotal: estimate.subtotal.toFixed(2),
+              vat: estimate.vatAmount.toFixed(2),
+              freight: (Number(freightAmount) || 0).toFixed(2),
+              freightVat: estimate.freightVatAmount.toFixed(2),
+            })}
+          </Dateline>
           <div className="mt-2 max-w-xs">
-            <Meter value={validLines.length} max={items.length} tone={complete ? "success" : "neutral"} label={t("quoteForm.linesCompleteMeter")} />
-            <p className="u-meta mt-1 text-ink-3">{t("quoteForm.linesComplete", { complete: String(validLines.length), total: String(items.length) })}</p>
+            <Meter
+              value={validLines.length}
+              max={items.length}
+              tone={complete ? "success" : "neutral"}
+              label={t("quoteForm.linesCompleteMeter")}
+            />
+            <p className="u-meta mt-1 text-ink-3">
+              {t("quoteForm.linesComplete", {
+                complete: String(validLines.length),
+                total: String(items.length),
+              })}
+            </p>
           </div>
         </div>
         <div className="text-end">
-          <Button type="submit" loading={pending} disabled={!complete || products.length === 0}>
+          <Button type="submit" loading={pending} disabled={products.length === 0}>
             {!pending && <Send className="h-4 w-4" aria-hidden="true" />}
-            {pending ? t("quoteForm.submitting") : latestQuote ? t("quoteForm.submitRevision", { revision: latestQuote.revision + 1 }) : t("quoteForm.submit")}
+            {pending
+              ? t("quoteForm.submitting")
+              : latestQuote
+                ? t("quoteForm.submitRevision", { revision: latestQuote.revision + 1 })
+                : t("quoteForm.submit")}
           </Button>
           <p className="u-meta mt-1 max-w-xs text-ink-3">{t("quoteForm.serverCalculationNote")}</p>
         </div>

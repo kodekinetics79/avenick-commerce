@@ -24,7 +24,7 @@ export interface RevealProps extends React.HTMLAttributes<HTMLElement> {
 }
 
 export function Reveal({ index = 0, as, className, style, children, ...props }: RevealProps) {
-  const Comp: React.ElementType = as ?? "div";
+  const Comp = (as ?? "div") as any;
   return (
     <Comp
       data-reveal=""
@@ -38,7 +38,13 @@ export function Reveal({ index = 0, as, className, style, children, ...props }: 
 }
 
 /** Convenience wrapper: staggers its own children without the caller counting. */
-export function RevealGroup({ className, children }: { className?: string; children: React.ReactNode }) {
+export function RevealGroup({
+  className,
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className={cn(className)}>
       {React.Children.toArray(children).map((child, index) => (

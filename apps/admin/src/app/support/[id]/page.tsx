@@ -7,7 +7,16 @@ import { format, formatDistanceToNow } from "date-fns";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
-  Button, CellGrid, Dateline, Eyebrow, FieldWell, PageHeader, Stat, StatusPill, Surface, type PillTone,
+  Button,
+  CellGrid,
+  Dateline,
+  Eyebrow,
+  FieldWell,
+  PageHeader,
+  Stat,
+  StatusPill,
+  Surface,
+  type PillTone,
 } from "@avenick/ui";
 
 export const metadata = { title: "Ticket Detail" };
@@ -27,7 +36,8 @@ const PRIORITY_TONE: Record<string, PillTone> = {
   LOW: "neutral",
 };
 
-export default async function TicketDetailPage({ params }: { params: { id: string } }) {
+export default async function TicketDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   await requireAdminSession();
 
   const ticket = await getSupportTicket(params.id);
@@ -40,16 +50,26 @@ export default async function TicketDetailPage({ params }: { params: { id: strin
   // a green fill, a slate fill, a primary fill and an outline — which is four
   // vocabularies for one decision. Weight carries the rank now: the forward step
   // is raised, everything else is flat.
-  const transitions: Array<{ to: "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "OPEN"; label: string; variant: "primary" | "secondary" | "ghost" }> = [];
-  if (ticket.status === "OPEN") transitions.push({ to: "IN_PROGRESS", label: "Start working", variant: "primary" });
+  const transitions: Array<{
+    to: "IN_PROGRESS" | "RESOLVED" | "CLOSED" | "OPEN";
+    label: string;
+    variant: "primary" | "secondary" | "ghost";
+  }> = [];
+  if (ticket.status === "OPEN")
+    transitions.push({ to: "IN_PROGRESS", label: "Start working", variant: "primary" });
   if (ticket.status === "OPEN" || ticket.status === "IN_PROGRESS") {
-    transitions.push({ to: "RESOLVED", label: "Mark resolved", variant: ticket.status === "IN_PROGRESS" ? "primary" : "secondary" });
+    transitions.push({
+      to: "RESOLVED",
+      label: "Mark resolved",
+      variant: ticket.status === "IN_PROGRESS" ? "primary" : "secondary",
+    });
   }
   if (ticket.status === "RESOLVED") {
     transitions.push({ to: "CLOSED", label: "Close ticket", variant: "primary" });
     transitions.push({ to: "IN_PROGRESS", label: "Reopen", variant: "ghost" });
   }
-  if (ticket.status === "CLOSED") transitions.push({ to: "OPEN", label: "Reopen", variant: "ghost" });
+  if (ticket.status === "CLOSED")
+    transitions.push({ to: "OPEN", label: "Reopen", variant: "ghost" });
 
   return (
     <AdminLayout>
@@ -62,8 +82,12 @@ export default async function TicketDetailPage({ params }: { params: { id: strin
           dateline={`Opened ${format(ticket.createdAt, "d MMM yyyy 'at' HH:mm")} · last written to ${formatDistanceToNow(ticket.updatedAt, { addSuffix: true })} · every status change on this record is audit-logged`}
           actions={
             <>
-              <StatusPill tone={PRIORITY_TONE[ticket.priority] ?? "neutral"}>{ticket.priority}</StatusPill>
-              <StatusPill tone={status.tone} dot>{status.label}</StatusPill>
+              <StatusPill tone={PRIORITY_TONE[ticket.priority] ?? "neutral"}>
+                {ticket.priority}
+              </StatusPill>
+              <StatusPill tone={status.tone} dot>
+                {status.label}
+              </StatusPill>
             </>
           }
         />
@@ -80,13 +104,20 @@ export default async function TicketDetailPage({ params }: { params: { id: strin
             icon={User}
             note={`${ticket.user.email} · ${ticket.user.role.replace(/_/g, " ").toLowerCase()}`}
           />
-          <Stat label="Category" value={ticket.category.replace(/_/g, " ")} rank="inline" icon={Tag} />
+          <Stat
+            label="Category"
+            value={ticket.category.replace(/_/g, " ")}
+            rank="inline"
+            icon={Tag}
+          />
           <Stat
             label="Order reference"
             value={ticket.orderRef ?? "None recorded"}
             rank="inline"
             icon={Package}
-            note={ticket.orderRef ? undefined : "The customer did not attach an order to this ticket"}
+            note={
+              ticket.orderRef ? undefined : "The customer did not attach an order to this ticket"
+            }
           />
         </CellGrid>
 

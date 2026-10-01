@@ -4,14 +4,29 @@ import { db, OrderStatus, OrderType } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
 import { format } from "date-fns";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
-import { ShoppingCart, Package, Truck, CheckCircle, Clock, RotateCcw, ExternalLink } from "lucide-react";
+import { getLocale, getTranslations } from "next-intl/server";
 import {
-  PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Num, Dateline, Button,
+  ShoppingCart,
+  Package,
+  Truck,
+  CheckCircle,
+  Clock,
+  RotateCcw,
+  ExternalLink,
+} from "lucide-react";
+import {
+  PageHeader,
+  CellGrid,
+  LedgerTable,
+  EmptyState,
+  StatusPill,
+  Num,
+  Dateline,
+  Button,
   type PillTone,
 } from "@avenick/ui";
 import { CountStat, MoneyStat } from "@/app/finance/money-figures";
-import { FilterTabs } from "@/components/console/chrome";
+import { FilterTabs, Pager, queryHref } from "@/components/console/chrome";
 import { OrderControls } from "./order-controls";
 
 export async function generateMetadata() {
@@ -31,28 +46,28 @@ export async function generateMetadata() {
  * value under `adminCommerce.orders.status`; only the tone lives here.
  */
 const STATUS_TONE: Record<OrderStatus, PillTone> = {
-  PENDING_PAYMENT:   "warning",
+  PENDING_PAYMENT: "warning",
   PAYMENT_CONFIRMED: "accent",
-  CONFIRMED:         "accent",
-  PROCESSING:        "neutral",
-  SHIPPED:           "neutral",
-  OUT_FOR_DELIVERY:  "neutral",
-  DELIVERED:         "success",
-  CANCELLED:         "danger",
-  REFUNDED:          "warning",
-  RETURN_REQUESTED:  "warning",
-  RETURNED:          "neutral",
+  CONFIRMED: "accent",
+  PROCESSING: "neutral",
+  SHIPPED: "neutral",
+  OUT_FOR_DELIVERY: "neutral",
+  DELIVERED: "success",
+  CANCELLED: "danger",
+  REFUNDED: "warning",
+  RETURN_REQUESTED: "warning",
+  RETURNED: "neutral",
 };
 
 /** Tab order and icon; the label comes from `orders.status` (or `orders.filters.all`). */
 const FILTER_TABS: Array<{ value: OrderStatus | ""; icon: typeof ShoppingCart }> = [
-  { value: "",                 icon: ShoppingCart },
-  { value: "PENDING_PAYMENT",  icon: Clock },
-  { value: "CONFIRMED",        icon: CheckCircle },
-  { value: "PROCESSING",       icon: Package },
-  { value: "SHIPPED",          icon: Truck },
-  { value: "DELIVERED",        icon: CheckCircle },
-  { value: "CANCELLED",        icon: Clock },
+  { value: "", icon: ShoppingCart },
+  { value: "PENDING_PAYMENT", icon: Clock },
+  { value: "CONFIRMED", icon: CheckCircle },
+  { value: "PROCESSING", icon: Package },
+  { value: "SHIPPED", icon: Truck },
+  { value: "DELIVERED", icon: CheckCircle },
+  { value: "CANCELLED", icon: Clock },
   { value: "RETURN_REQUESTED", icon: RotateCcw },
 ];
 
@@ -65,37 +80,52 @@ function isOrderType(value: unknown): value is OrderType {
 
 const PAGE_SIZE = 100;
 
-export default async function AdminOrdersPage({ searchParams }: { searchParams: { status?: string; type?: string } }) {
+export default async function AdminOrdersPage(props: {
+  searchParams: Promise<{ status?: string; type?: string; page?: string }>;
+}) {
+  const searchParams = await props.searchParams;
   await requireAdminSession();
   const t = await getTranslations("adminCommerce.orders");
+  const locale = await getLocale();
+  const numberLocale = locale === "ar" ? "ar-u-nu-latn" : "en-AE";
 
   // Unknown filter values are stale links, not queries to run.
   const statusFilter = isOrderStatus(searchParams.status) ? searchParams.status : undefined;
-  const typeFilter   = isOrderType(searchParams.type) ? searchParams.type : undefined;
+  const typeFilter = isOrderType(searchParams.type) ? searchParams.type : undefined;
   const where = {
     ...(statusFilter ? { status: statusFilter } : {}),
-    ...(typeFilter   ? { type: typeFilter } : {}),
+    ...(typeFilter ? { type: typeFilter } : {}),
   };
+  const matching = await db.order.count({ where });
+  const totalPages = Math.max(1, Math.ceil(matching / PAGE_SIZE));
+  const requestedPage = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const page = Math.min(requestedPage, totalPages);
+  const href = (next: Record<string, string | undefined>) =>
+    queryHref("/orders", searchParams, next);
 
-  const [orders, matching, returnRequested] = await Promise.all([
+  const [orders, returnRequested] = await Promise.all([
     db.order.findMany({
       where,
       orderBy: { createdAt: "desc" },
+      skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
       include: {
-        user:    { select: { firstName: true, lastName: true, email: true } },
+        user: { select: { firstName: true, lastName: true, email: true } },
         company: { select: { nameEn: true } },
-        _count:  { select: { items: true } },
+        _count: { select: { items: true } },
       },
     }),
-    db.order.count({ where }),
     db.order.count({ where: { ...where, status: "RETURN_REQUESTED" } }),
   ]);
 
   // GMV is only meaningful per currency; summing AED and SAR would be a number
   // that describes nothing.
   const gmvByCurrency = new Map<(typeof orders)[number]["currency"], number>();
-  for (const order of orders) gmvByCurrency.set(order.currency, (gmvByCurrency.get(order.currency) ?? 0) + Number(order.total));
+  for (const order of orders)
+    gmvByCurrency.set(
+      order.currency,
+      (gmvByCurrency.get(order.currency) ?? 0) + Number(order.total),
+    );
   // One line per currency, never a joined string: two currencies stacked is the
   // honest shape of this number.
   const gmvLines = [...gmvByCurrency.entries()]
@@ -139,11 +169,11 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
         <div className="flex flex-col gap-2 lg:flex-row lg:items-start">
           <FilterTabs
             label={t("filters.statusLabel")}
-            className="min-w-0 flex-1 overflow-x-auto scrollbar-thin"
+            className="scrollbar-thin min-w-0 flex-1 overflow-x-auto"
             tabs={FILTER_TABS.map(({ value, icon }) => ({
               href: value
-                ? `/orders?status=${value}${typeFilter ? `&type=${typeFilter}` : ""}`
-                : `/orders${typeFilter ? `?type=${typeFilter}` : ""}`,
+                ? href({ status: value, type: typeFilter })
+                : href({ status: undefined, type: typeFilter }),
               label: value ? t(`status.${value}`) : t("filters.all"),
               icon,
               active: activeTab === value,
@@ -154,10 +184,16 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
             className="shrink-0"
             // B2C and B2B are channel codes, not prose: they read the same in
             // both locales and are deliberately left untranslated.
-            tabs={([["", t("filters.allTypes")], ["B2C", "B2C"], ["B2B", "B2B"]] as const).map(([v, l]) => ({
+            tabs={(
+              [
+                ["", t("filters.allTypes")],
+                ["B2C", "B2C"],
+                ["B2B", "B2B"],
+              ] as const
+            ).map(([v, l]) => ({
               href: v
-                ? `/orders?type=${v}${statusFilter ? `&status=${statusFilter}` : ""}`
-                : `/orders${statusFilter ? `?status=${statusFilter}` : ""}`,
+                ? href({ type: v, status: statusFilter })
+                : href({ type: undefined, status: statusFilter }),
               label: l,
               active: (typeFilter ?? "") === v,
             }))}
@@ -173,7 +209,9 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
             {
               key: "orderNumber",
               label: t("columns.orderNumber"),
-              render: (order) => <span className="u-mono text-meta text-ink-2">{order.orderNumber}</span>,
+              render: (order) => (
+                <span className="u-mono text-meta text-ink-2">{order.orderNumber}</span>
+              ),
             },
             {
               key: "customer",
@@ -183,7 +221,9 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
                   <p className="truncate font-medium text-ink-1">
                     {order.user.firstName} {order.user.lastName}
                   </p>
-                  {order.company && <p className="u-meta truncate text-ink-2">{order.company.nameEn}</p>}
+                  {order.company && (
+                    <p className="u-meta truncate text-ink-2">{order.company.nameEn}</p>
+                  )}
                   <p className="u-meta truncate text-ink-3">{order.user.email}</p>
                 </div>
               ),
@@ -193,30 +233,44 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
               label: t("columns.date"),
               hideOnMobile: true,
               render: (order) => (
-                <span className="whitespace-nowrap text-ink-2">{format(order.createdAt, "MMM d, yyyy")}</span>
+                <span className="whitespace-nowrap text-ink-2">
+                  {format(order.createdAt, "MMM d, yyyy")}
+                </span>
               ),
             },
-            { key: "items", label: t("columns.items"), numeric: true, render: (order) => order._count.items },
+            {
+              key: "items",
+              label: t("columns.items"),
+              numeric: true,
+              render: (order) => order._count.items,
+            },
             {
               key: "total",
               label: t("columns.total"),
               numeric: true,
               render: (order) => (
-                <Num value={formatCurrency(Number(order.total), order.currency)} className="whitespace-nowrap" />
+                <Num
+                  value={formatCurrency(Number(order.total), order.currency)}
+                  className="whitespace-nowrap"
+                />
               ),
             },
             {
               key: "type",
               label: t("columns.channel"),
               render: (order) => (
-                <StatusPill tone={order.type === "B2B" ? "accent" : "neutral"}>{order.type}</StatusPill>
+                <StatusPill tone={order.type === "B2B" ? "accent" : "neutral"}>
+                  {order.type}
+                </StatusPill>
               ),
             },
             {
               key: "status",
               label: t("columns.status"),
               render: (order) => (
-                <StatusPill tone={STATUS_TONE[order.status]}>{t(`status.${order.status}`)}</StatusPill>
+                <StatusPill tone={STATUS_TONE[order.status]}>
+                  {t(`status.${order.status}`)}
+                </StatusPill>
               ),
             },
             {
@@ -230,7 +284,12 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
                       <ExternalLink className="h-3 w-3" aria-hidden="true" /> {t("view")}
                     </Link>
                   </Button>
-                  <OrderControls orderId={order.id} status={order.status} paymentStatus={order.paymentStatus} variant="row" />
+                  <OrderControls
+                    orderId={order.id}
+                    status={order.status}
+                    paymentStatus={order.paymentStatus}
+                    variant="row"
+                  />
                 </div>
               ),
             },
@@ -240,7 +299,9 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
               eyebrow={t("empty.eyebrow")}
               headline={
                 statusFilter
-                  ? t("empty.headlineFiltered", { status: t(`status.${statusFilter}`).toLowerCase() })
+                  ? t("empty.headlineFiltered", {
+                      status: t(`status.${statusFilter}`).toLowerCase(),
+                    })
                   : t("empty.headline")
               }
               body={statusFilter ? t("empty.bodyFiltered") : t("empty.body")}
@@ -255,23 +316,39 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
             />
           }
           footer={
-            orders.length > 0 ? (
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <Dateline>
-                  {t("footer.gmv", {
-                    scope,
-                    amounts: gmvLines.length === 0 ? "—" : gmvLines.map((line) => line.formatted).join(" · "),
-                  })}
-                </Dateline>
-                <span>
-                  {t.rich("footer.showing", {
-                    shown: String(orders.length),
-                    total: String(matching),
-                    n: (chunks) => <span className="fig text-ink-2">{chunks}</span>,
-                  })}
-                </span>
-              </div>
-            ) : undefined
+            <Pager
+              page={page}
+              totalPages={totalPages}
+              hrefFor={(nextPage) =>
+                href({ page: String(nextPage), status: statusFilter, type: typeFilter })
+              }
+              summary={
+                orders.length > 0 ? (
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                    <Dateline>
+                      {t("footer.gmv", {
+                        scope,
+                        amounts:
+                          gmvLines.length === 0
+                            ? "—"
+                            : gmvLines.map((line) => line.formatted).join(" · "),
+                      })}
+                    </Dateline>
+                    <span>
+                      {t("footer.pagerSummary", {
+                        count: matching,
+                        total: matching.toLocaleString(numberLocale),
+                      })}
+                    </span>
+                  </div>
+                ) : (
+                  t("footer.pagerSummary", {
+                    count: matching,
+                    total: matching.toLocaleString(numberLocale),
+                  })
+                )
+              }
+            />
           }
         />
       </div>

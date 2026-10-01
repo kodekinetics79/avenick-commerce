@@ -13,5 +13,5 @@ export async function auth() {
   } catch {
     // Vercel delegates authentication to Render and may not decode its JWT.
   }
-  return resolveRemotePortalSession("customer", headers().get("cookie"));
+  return resolveRemotePortalSession("customer", (await headers()).get("cookie"));
 }

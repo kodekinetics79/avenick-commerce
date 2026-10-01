@@ -6,9 +6,7 @@ import { Receipt } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import {
-  PageHeader, CellGrid, LedgerTable, EmptyState, Surface, Num, Dateline,
-} from "@avenick/ui";
+import { PageHeader, CellGrid, LedgerTable, EmptyState, Surface, Num, Dateline } from "@avenick/ui";
 import { CountStat, MoneyStat } from "@/app/finance/money-figures";
 import { Pager } from "@/components/console/chrome";
 
@@ -23,10 +21,11 @@ const money = (amount: Prisma.Decimal, currency: Currency) =>
   formatCurrency(Number(amount), currency as SupportedCurrency);
 
 interface PageProps {
-  searchParams: { page?: string; search?: string };
+  searchParams: Promise<{ page?: string; search?: string }>;
 }
 
-export default async function VATPage({ searchParams }: PageProps) {
+export default async function VATPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   await requireAdminSession();
   const t = await getTranslations("adminCommerce.vat");
 
@@ -45,7 +44,10 @@ export default async function VATPage({ searchParams }: PageProps) {
       <div className="space-y-block">
         <PageHeader
           linkComponent={Link}
-          breadcrumbs={[{ label: t("breadcrumbFinance"), href: "/finance" }, { label: t("breadcrumbSelf") }]}
+          breadcrumbs={[
+            { label: t("breadcrumbFinance"), href: "/finance" },
+            { label: t("breadcrumbSelf") },
+          ]}
           eyebrow={t("eyebrow")}
           title={t("title")}
           description={t("description", { year: String(new Date().getFullYear()) })}
@@ -64,7 +66,10 @@ export default async function VATPage({ searchParams }: PageProps) {
           <MoneyStat
             label={t("stats.outputVat")}
             rank="section"
-            lines={summary.byCurrency.map((c) => ({ currency: c.currency, formatted: money(c.vat, c.currency) }))}
+            lines={summary.byCurrency.map((c) => ({
+              currency: c.currency,
+              formatted: money(c.vat, c.currency),
+            }))}
             dateline={t("stats.outputVatDateline")}
           />
           <CountStat label={t("stats.taxableOrders")} value={summary.taxableOrders} />
@@ -80,10 +85,29 @@ export default async function VATPage({ searchParams }: PageProps) {
             getRowKey={(c) => c.currency}
             density="compact"
             columns={[
-              { key: "currency", label: t("byCurrency.columns.currency"), render: (c) => <span className="font-medium text-ink-1">{c.currency}</span> },
-              { key: "orders", label: t("byCurrency.columns.orders"), numeric: true, render: (c) => c.orders },
-              { key: "gross", label: t("byCurrency.columns.gross"), numeric: true, render: (c) => <span className="text-ink-2">{money(c.gross, c.currency)}</span> },
-              { key: "vat", label: t("byCurrency.columns.vat"), numeric: true, render: (c) => <Num value={money(c.vat, c.currency)} /> },
+              {
+                key: "currency",
+                label: t("byCurrency.columns.currency"),
+                render: (c) => <span className="font-medium text-ink-1">{c.currency}</span>,
+              },
+              {
+                key: "orders",
+                label: t("byCurrency.columns.orders"),
+                numeric: true,
+                render: (c) => c.orders,
+              },
+              {
+                key: "gross",
+                label: t("byCurrency.columns.gross"),
+                numeric: true,
+                render: (c) => <span className="text-ink-2">{money(c.gross, c.currency)}</span>,
+              },
+              {
+                key: "vat",
+                label: t("byCurrency.columns.vat"),
+                numeric: true,
+                render: (c) => <Num value={money(c.vat, c.currency)} />,
+              },
             ]}
             empty={
               <EmptyState
@@ -102,10 +126,32 @@ export default async function VATPage({ searchParams }: PageProps) {
             getRowKey={(m) => `${String(m.month)}-${m.currency}`}
             density="compact"
             columns={[
-              { key: "month", label: t("byMonth.columns.month"), render: (m) => <span className="whitespace-nowrap font-medium text-ink-1">{format(m.month, "MMMM yyyy")}</span> },
-              { key: "currency", label: t("byMonth.columns.currency"), render: (m) => <span className="text-ink-2">{m.currency}</span> },
-              { key: "orders", label: t("byMonth.columns.orders"), numeric: true, render: (m) => m.orders },
-              { key: "vat", label: t("byMonth.columns.vat"), numeric: true, render: (m) => <Num value={money(m.vat, m.currency)} /> },
+              {
+                key: "month",
+                label: t("byMonth.columns.month"),
+                render: (m) => (
+                  <span className="whitespace-nowrap font-medium text-ink-1">
+                    {format(m.month, "MMMM yyyy")}
+                  </span>
+                ),
+              },
+              {
+                key: "currency",
+                label: t("byMonth.columns.currency"),
+                render: (m) => <span className="text-ink-2">{m.currency}</span>,
+              },
+              {
+                key: "orders",
+                label: t("byMonth.columns.orders"),
+                numeric: true,
+                render: (m) => m.orders,
+              },
+              {
+                key: "vat",
+                label: t("byMonth.columns.vat"),
+                numeric: true,
+                render: (m) => <Num value={money(m.vat, m.currency)} />,
+              },
             ]}
             empty={
               <EmptyState
@@ -125,26 +171,60 @@ export default async function VATPage({ searchParams }: PageProps) {
           getRowKey={(inv) => inv.id}
           stickyHead
           columns={[
-            { key: "invoiceNo", label: t("invoices.columns.invoiceNo"), render: (inv) => <span className="u-mono text-meta font-medium text-ink-1">{inv.invoiceNo}</span> },
-            { key: "order", label: t("invoices.columns.order"), render: (inv) => <span className="u-mono text-meta text-ink-2">{inv.order.orderNumber}</span> },
+            {
+              key: "invoiceNo",
+              label: t("invoices.columns.invoiceNo"),
+              render: (inv) => (
+                <span className="u-mono text-meta font-medium text-ink-1">{inv.invoiceNo}</span>
+              ),
+            },
+            {
+              key: "order",
+              label: t("invoices.columns.order"),
+              render: (inv) => (
+                <span className="u-mono text-meta text-ink-2">{inv.order.orderNumber}</span>
+              ),
+            },
             {
               key: "buyer",
               label: t("invoices.columns.buyer"),
-              render: (inv) => inv.order.company?.nameEn ?? `${inv.order.user.firstName} ${inv.order.user.lastName}`,
+              render: (inv) =>
+                inv.order.company?.nameEn ??
+                `${inv.order.user.firstName} ${inv.order.user.lastName}`,
             },
             {
               key: "vatNumber",
               label: t("invoices.columns.vatNumber"),
               hideOnMobile: true,
-              render: (inv) => <span className="u-mono text-meta text-ink-3">{inv.order.company?.vatNumber ?? "—"}</span>,
+              render: (inv) => (
+                <span className="u-mono text-meta text-ink-3">
+                  {inv.order.company?.vatNumber ?? "—"}
+                </span>
+              ),
             },
-            { key: "amount", label: t("invoices.columns.amount"), numeric: true, render: (inv) => <Num value={money(inv.totalAmount, inv.currency)} /> },
-            { key: "vat", label: t("invoices.columns.vat"), numeric: true, render: (inv) => <span className="text-ink-2">{money(inv.vatAmount, inv.currency)}</span> },
+            {
+              key: "amount",
+              label: t("invoices.columns.amount"),
+              numeric: true,
+              render: (inv) => <Num value={money(inv.totalAmount, inv.currency)} />,
+            },
+            {
+              key: "vat",
+              label: t("invoices.columns.vat"),
+              numeric: true,
+              render: (inv) => (
+                <span className="text-ink-2">{money(inv.vatAmount, inv.currency)}</span>
+              ),
+            },
             {
               key: "issuedAt",
               label: t("invoices.columns.issued"),
               hideOnMobile: true,
-              render: (inv) => <span className="whitespace-nowrap text-ink-2">{format(inv.issuedAt, "MMM d, yyyy")}</span>,
+              render: (inv) => (
+                <span className="whitespace-nowrap text-ink-2">
+                  {format(inv.issuedAt, "MMM d, yyyy")}
+                </span>
+              ),
             },
           ]}
           empty={
@@ -159,7 +239,9 @@ export default async function VATPage({ searchParams }: PageProps) {
             <Pager
               page={page}
               totalPages={totalPages}
-              hrefFor={(target) => `/vat?page=${target}${search ? `&search=${encodeURIComponent(search)}` : ""}`}
+              hrefFor={(target) =>
+                `/vat?page=${target}${search ? `&search=${encodeURIComponent(search)}` : ""}`
+              }
               summary={t.rich("invoices.footer", {
                 total: String(total),
                 count: total,

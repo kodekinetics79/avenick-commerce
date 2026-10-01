@@ -30,7 +30,7 @@ export const dynamic = "force-dynamic";
 const FEED_LIMIT = 12;
 
 export default async function DealsPage() {
-  const locale = (cookies().get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
+  const locale = ((await cookies()).get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
   const t = await getTranslations("deals");
   // Filter chips are the catalog's own top-level categories (those with
   // products to show), not a list typed into this page.
@@ -64,7 +64,9 @@ export default async function DealsPage() {
         moq: p.moq,
         // Locale-aware, and no fallback label — an unknown category is shown as
         // none, not guessed.
-        category: (locale === "ar" ? p.category?.nameAr || p.category?.nameEn : p.category?.nameEn) ?? undefined,
+        category:
+          (locale === "ar" ? p.category?.nameAr || p.category?.nameEn : p.category?.nameEn) ??
+          undefined,
       };
     })
     .filter((p): p is NonNullable<typeof p> => p !== null);
@@ -98,8 +100,10 @@ export default async function DealsPage() {
             dressed as filter chips that would appear to act on the grid below. */}
         {categories.length > 0 && (
           <nav aria-label={t("categoryNav")} className="mb-block">
-            <Eyebrow as="h2" className="mb-2">{t("browseCategory")}</Eyebrow>
-            <div className="-mx-4 flex gap-2 overflow-x-auto scrollbar-hide px-4 pb-2">
+            <Eyebrow as="h2" className="mb-2">
+              {t("browseCategory")}
+            </Eyebrow>
+            <div className="scrollbar-hide -mx-4 flex gap-2 overflow-x-auto px-4 pb-2">
               <Link
                 href="/deals"
                 aria-current="page"

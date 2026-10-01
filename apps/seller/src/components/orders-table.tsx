@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle, Download, Package, Search, Truck, X } from "lucide-react";
@@ -39,11 +40,24 @@ function csvCell(v: unknown) {
   const s = String(v ?? "");
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
-function exportCsv(rows: OrderRow[], filename: string) {
-  const headers = ["Order", "Buyer", "Company", "Date", "Items", "Total", "Currency", "Type", "Status"];
+function exportCsv(rows: OrderRow[], filename: string, headers: string[]) {
   const lines = [headers.join(",")];
   for (const r of rows) {
-    lines.push([r.orderNumber, r.buyer, r.company, r.date, r.itemCount, r.total, r.currency, r.type, r.status].map(csvCell).join(","));
+    lines.push(
+      [
+        r.orderNumber,
+        r.buyer,
+        r.company,
+        r.date,
+        r.itemCount,
+        r.total,
+        r.currency,
+        r.type,
+        r.status,
+      ]
+        .map(csvCell)
+        .join(","),
+    );
   }
   const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
@@ -64,10 +78,14 @@ function money(total: number, currency: string): string {
   return `${currency} ${total.toFixed(2)}`;
 }
 
-const ADVANCE: Array<{ status: "PROCESSING" | "SHIPPED" | "DELIVERED"; label: string; icon: typeof Package }> = [
-  { status: "PROCESSING", label: "Mark processing", icon: Package },
-  { status: "SHIPPED", label: "Mark shipped", icon: Truck },
-  { status: "DELIVERED", label: "Mark delivered", icon: CheckCircle },
+const ADVANCE: Array<{
+  status: "PROCESSING" | "SHIPPED" | "DELIVERED";
+  labelKey: string;
+  icon: typeof Package;
+}> = [
+  { status: "PROCESSING", labelKey: "orders.table.advance.PROCESSING", icon: Package },
+  { status: "SHIPPED", labelKey: "orders.table.advance.SHIPPED", icon: Truck },
+  { status: "DELIVERED", labelKey: "orders.table.advance.DELIVERED", icon: CheckCircle },
 ];
 
 /**
@@ -89,6 +107,7 @@ const ADVANCE: Array<{ status: "PROCESSING" | "SHIPPED" | "DELIVERED"; label: st
  * and the same always-present 3px commit rule that only ever changes colour.
  */
 export function OrdersTable({ rows, total }: { rows: OrderRow[]; total: number }) {
+  const t = useTranslations("sellerOps");
   const router = useRouter();
   const { toast } = useToast();
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
@@ -164,9 +183,8 @@ export function OrdersTable({ rows, total }: { rows: OrderRow[]; total: number }
       // be a claim this page cannot stand behind. State what is actually known —
       // that no answer arrived — and send the seller to the record.
       toast({
-        title: "No answer came back",
-        description:
-          "The platform did not confirm this update, so what it did is not known here. Reload the list to see your orders as they now stand.",
+        title: t("orders.table.failure.title"),
+        description: t("orders.table.failure.body"),
         variant: "error",
       });
       return;
@@ -174,7 +192,8 @@ export function OrdersTable({ rows, total }: { rows: OrderRow[]; total: number }
     setPending(null);
     setSelected(new Set());
 
-    const label = orderStatusMeta(status).label.toLowerCase();
+    const statusMeta = orderStatusMeta(status);
+    const label = statusMeta.labelKey ? t(statusMeta.labelKey) : statusMeta.fallbackLabel;
     /**
      * The action returns a COUNT and nothing else: it skips an order whose lines
      * cannot legally advance and does not report which. So the rows are marked
@@ -187,14 +206,17 @@ export function OrdersTable({ rows, total }: { rows: OrderRow[]; total: number }
 
     setReport({
       tone: res.count === 0 ? "danger" : reconciles ? "success" : "warning",
-      headline: `${res.count} order${res.count === 1 ? "" : "s"} moved to ${label}`,
-      dateline: `Counted from the ${requested.length} order${requested.length === 1 ? "" : "s"} selected, as the platform answered`,
+      headline: t("orders.table.report.headline", { count: res.count, status: label }),
+      dateline: t("orders.table.report.dateline", { count: requested.length }),
       lines: [],
       ...(reconciles
         ? {}
         : {
             // Named honestly, because the action does not say WHICH it refused.
-            note: `${requested.length - res.count} of the ${requested.length} selected order${requested.length === 1 ? " was" : "s were"} not advanced. An order is skipped when its lines are not at a stage this move is allowed from — the platform does not report which, so none are marked in the table below. Reload to see your orders as they now stand.`,
+            note: t("orders.table.report.partial", {
+              skipped: requested.length - res.count,
+              selected: requested.length,
+            }),
           }),
     });
 
@@ -204,13 +226,13 @@ export function OrdersTable({ rows, total }: { rows: OrderRow[]; total: number }
   const columns: LedgerColumn<OrderRow>[] = [
     {
       key: "order",
-      label: "Order",
+      label: t("orders.table.columns.order"),
       width: "30%",
       render: (row) => (
         <div className="flex items-center gap-3">
           <input
             type="checkbox"
-            aria-label={`Select order ${row.orderNumber}`}
+            aria-label={t("orders.table.selectOrder", { order: row.orderNumber })}
             checked={selected.has(row.id)}
             onChange={() => toggle(row.id)}
             className="u-focus h-4 w-4 shrink-0 rounded-sm border-border accent-primary"
@@ -229,21 +251,35 @@ export function OrdersTable({ rows, total }: { rows: OrderRow[]; total: number }
         </div>
       ),
     },
-    { key: "date", label: "Placed", hideOnMobile: true, render: (row) => <span className="u-meta text-ink-2">{row.date}</span> },
-    { key: "itemCount", label: "Lines", numeric: true, hideOnMobile: true },
-    { key: "total", label: "Your share", numeric: true, render: (row) => money(row.total, row.currency) },
+    {
+      key: "date",
+      label: t("orders.table.columns.placed"),
+      hideOnMobile: true,
+      render: (row) => <span className="u-meta text-ink-2">{row.date}</span>,
+    },
+    { key: "itemCount", label: t("orders.table.columns.lines"), numeric: true, hideOnMobile: true },
+    {
+      key: "total",
+      label: t("orders.table.columns.yourShare"),
+      numeric: true,
+      render: (row) => money(row.total, row.currency),
+    },
     {
       key: "type",
-      label: "Channel",
+      label: t("orders.table.columns.channel"),
       hideOnMobile: true,
       render: (row) => <StatusPill tone={orderChannelTone(row.type)}>{row.type}</StatusPill>,
     },
     {
       key: "status",
-      label: "Status",
+      label: t("orders.table.columns.status"),
       render: (row) => {
         const meta = orderStatusMeta(row.status);
-        return <StatusPill tone={meta.tone}>{meta.label}</StatusPill>;
+        return (
+          <StatusPill tone={meta.tone}>
+            {meta.labelKey ? t(meta.labelKey) : meta.fallbackLabel}
+          </StatusPill>
+        );
       },
     },
     {
@@ -253,7 +289,11 @@ export function OrdersTable({ rows, total }: { rows: OrderRow[]; total: number }
       render: (row) => (
         <Button variant="link" size="sm" asChild>
           <Link href={`/orders/${row.id}`}>
-            View<span className="sr-only"> order {row.orderNumber}</span>
+            {t("orders.table.view")}
+            <span className="sr-only">
+              {" "}
+              {t("orders.table.viewOrder", { order: row.orderNumber })}
+            </span>
           </Link>
         </Button>
       ),
@@ -283,8 +323,8 @@ export function OrdersTable({ rows, total }: { rows: OrderRow[]; total: number }
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search order number, buyer or company"
-              aria-label="Search these orders by order number, buyer or company"
+              placeholder={t("orders.table.searchPlaceholder")}
+              aria-label={t("orders.table.searchLabel")}
               startIcon={<Search className="h-4 w-4" aria-hidden="true" />}
             />
           </div>
@@ -296,11 +336,24 @@ export function OrdersTable({ rows, total }: { rows: OrderRow[]; total: number }
               exportCsv(
                 selected.size > 0 ? selectedRows : visible,
                 `orders-${new Date().toISOString().slice(0, 10)}.csv`,
+                [
+                  t("orders.table.csv.order"),
+                  t("orders.table.csv.buyer"),
+                  t("orders.table.csv.company"),
+                  t("orders.table.csv.date"),
+                  t("orders.table.csv.items"),
+                  t("orders.table.csv.total"),
+                  t("orders.table.csv.currency"),
+                  t("orders.table.csv.type"),
+                  t("orders.table.csv.status"),
+                ],
               )
             }
           >
             <Download className="h-3.5 w-3.5" aria-hidden="true" />
-            Export {selected.size > 0 ? `${selected.size} selected` : "these rows"}
+            {selected.size > 0
+              ? t("orders.table.exportSelected", { count: selected.size })
+              : t("orders.table.exportRows")}
           </Button>
         </div>
 
@@ -313,13 +366,13 @@ export function OrdersTable({ rows, total }: { rows: OrderRow[]; total: number }
               disabled={visibleIds.length === 0}
               className="u-focus h-4 w-4 rounded-sm border-border accent-primary"
             />
-            Select all {visibleIds.length} shown
+            {t("orders.table.selectAll", { count: visibleIds.length })}
           </label>
           <Divider orientation="vertical" className="h-5" />
           <span className="u-meta text-ink-3">
             {visible.length === rows.length
-              ? `${rows.length} of ${total} on this account`
-              : `${visible.length} of ${rows.length} loaded rows match`}
+              ? t("orders.table.rangeAll", { shown: rows.length, total })
+              : t("orders.table.rangeMatch", { matches: visible.length, loaded: rows.length })}
           </span>
         </div>
       </FieldWell>
@@ -329,11 +382,11 @@ export function OrdersTable({ rows, total }: { rows: OrderRow[]; total: number }
         rows={visible}
         getRowKey={(row) => row.id}
         density="compact"
-        dateline="Orders containing your lines, newest first · every total is your lines only, in the order's own currency, with no conversion applied"
+        dateline={t("orders.table.dateline")}
         footer={
           visible.length === rows.length
-            ? `${rows.length} order${rows.length === 1 ? "" : "s"} shown of ${total} on this account`
-            : `${visible.length} of ${rows.length} loaded order${rows.length === 1 ? "" : "s"} match this search`
+            ? t("orders.table.footerAll", { shown: rows.length, total })
+            : t("orders.table.footerMatch", { matches: visible.length, loaded: rows.length })
         }
         rowProps={(row) => ({
           // The rule is always present and only its colour changes, so marking a
@@ -351,23 +404,23 @@ export function OrdersTable({ rows, total }: { rows: OrderRow[]; total: number }
           rows.length === 0 ? (
             <EmptyState
               variant="certificate"
-              eyebrow="Nothing recorded"
-              headline="No buyer has ordered from you yet."
-              body="An order appears here the moment one of your lines is bought, whichever channel it comes through. Nothing is pending review and nothing is being withheld — the ledger is simply empty."
+              eyebrow={t("orders.table.empty.account.eyebrow")}
+              headline={t("orders.table.empty.account.headline")}
+              body={t("orders.table.empty.account.body")}
               action={
                 <Button variant="primary" size="sm" asChild>
-                  <Link href="/products">Review your listings</Link>
+                  <Link href="/products">{t("orders.table.empty.account.action")}</Link>
                 </Button>
               }
             />
           ) : (
             <EmptyState
-              eyebrow="No match"
-              headline="No order on this page matches that search."
-              body={`${rows.length} order${rows.length === 1 ? " is" : "s are"} loaded — clear the search to see them.`}
+              eyebrow={t("orders.table.empty.match.eyebrow")}
+              headline={t("orders.table.empty.match.headline")}
+              body={t("orders.table.empty.match.body", { count: rows.length })}
               action={
                 <Button variant="secondary" size="sm" onClick={() => setQuery("")}>
-                  Clear the search
+                  {t("orders.table.empty.match.action")}
                 </Button>
               }
             />
@@ -382,24 +435,29 @@ export function OrdersTable({ rows, total }: { rows: OrderRow[]; total: number }
         <Surface
           rung={4}
           role="group"
-          aria-label="Actions for the selected orders"
+          aria-label={t("orders.table.bulk.actionsLabel")}
           className="sticky bottom-4 z-sticky flex flex-wrap items-center gap-2 p-3"
         >
           <div className="min-w-0">
             <span className="u-ui font-medium text-ink-1">
-              <span className="fig">{selected.size}</span> selected
+              {t.rich("orders.table.bulk.selected", {
+                count: selected.size,
+                figure: (chunks) => <span className="fig">{chunks}</span>,
+              })}
             </span>
             {hiddenSelectedCount > 0 && (
               // A count larger than what is on screen has to say so BEFORE it is
               // acted on, not after.
               <p className="u-meta text-ink-2">
-                <span className="fig">{hiddenSelectedCount}</span> of them{" "}
-                {hiddenSelectedCount === 1 ? "is" : "are"} hidden by the current search and will still be advanced.
+                {t.rich("orders.table.bulk.hidden", {
+                  count: hiddenSelectedCount,
+                  figure: (chunks) => <span className="fig">{chunks}</span>,
+                })}
               </p>
             )}
           </div>
           <div className="ms-auto flex flex-wrap items-center gap-2">
-            {ADVANCE.map(({ status, label, icon: Icon }) => (
+            {ADVANCE.map(({ status, labelKey, icon: Icon }) => (
               <Button
                 key={status}
                 variant="secondary"
@@ -408,7 +466,8 @@ export function OrdersTable({ rows, total }: { rows: OrderRow[]; total: number }
                 loading={pending === status}
                 onClick={() => advance(status)}
               >
-                {pending !== status && <Icon className="h-3.5 w-3.5" aria-hidden="true" />} {label}
+                {pending !== status && <Icon className="h-3.5 w-3.5" aria-hidden="true" />}{" "}
+                {t(labelKey)}
               </Button>
             ))}
             <Button
@@ -416,16 +475,12 @@ export function OrdersTable({ rows, total }: { rows: OrderRow[]; total: number }
               size="icon"
               disabled={pending !== null}
               onClick={() => setSelected(new Set())}
-              aria-label="Clear the selection"
+              aria-label={t("orders.table.bulk.clearSelection")}
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
-          <Dateline className="w-full">
-            An advance moves only your own lines on each order; the order's overall status is derived from every
-            seller on it. An order whose lines are not at a stage the move is allowed from is skipped and reported
-            back rather than forced.
-          </Dateline>
+          <Dateline className="w-full">{t("orders.table.bulk.dateline")}</Dateline>
         </Surface>
       )}
     </div>

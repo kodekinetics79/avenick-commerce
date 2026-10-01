@@ -1,13 +1,16 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
 import { Surface } from "@avenick/ui";
 
 type Variant = "success" | "error" | "info";
 type Toast = { id: number; title: string; description?: string; variant: Variant };
 
-const ToastContext = React.createContext<{ toast: (t: { title: string; description?: string; variant?: Variant }) => void }>({
+const ToastContext = React.createContext<{
+  toast: (t: { title: string; description?: string; variant?: Variant }) => void;
+}>({
   toast: () => {},
 });
 
@@ -15,7 +18,11 @@ export function useToast() {
   return React.useContext(ToastContext);
 }
 
-const ICON: Record<Variant, React.ElementType> = { success: CheckCircle2, error: AlertCircle, info: Info };
+const ICON: Record<Variant, React.ElementType> = {
+  success: CheckCircle2,
+  error: AlertCircle,
+  info: Info,
+};
 /** The ink token, not the fill token: this is 16px text-scale iconography. */
 const COLOR: Record<Variant, string> = {
   success: "text-success-ink",
@@ -27,6 +34,7 @@ const COLOR: Record<Variant, string> = {
 const DISMISS_MS = 4200;
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const translate = useTranslations("sellerShell.shell");
   const [toasts, setToasts] = React.useState<Toast[]>([]);
   /**
    * Timers live in a ref rather than in a closure so the stack can be PAUSED.
@@ -35,6 +43,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
    * open, and leaving it restarts them from a full interval.
    */
   const timers = React.useRef(new Map<number, ReturnType<typeof setTimeout>>());
+  const recent = React.useRef(new Map<string, number>());
 
   const dismiss = React.useCallback((id: number) => {
     const timer = timers.current.get(id);
@@ -43,17 +52,39 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((p) => p.filter((x) => x.id !== id));
   }, []);
 
-  const schedule = React.useCallback((id: number) => {
-    const existing = timers.current.get(id);
-    if (existing) clearTimeout(existing);
-    timers.current.set(id, setTimeout(() => dismiss(id), DISMISS_MS));
-  }, [dismiss]);
+  const schedule = React.useCallback(
+    (id: number) => {
+      const existing = timers.current.get(id);
+      if (existing) clearTimeout(existing);
+      timers.current.set(
+        id,
+        setTimeout(() => dismiss(id), DISMISS_MS),
+      );
+    },
+    [dismiss],
+  );
 
-  const toast = React.useCallback((t: { title: string; description?: string; variant?: Variant }) => {
-    const id = Date.now() + Math.random();
-    setToasts((p) => [...p, { id, title: t.title, description: t.description, variant: t.variant ?? "success" }]);
-    schedule(id);
-  }, [schedule]);
+  const toast = React.useCallback(
+    (t: { title: string; description?: string; variant?: Variant }) => {
+      const variant = t.variant ?? "success";
+      const signature = `${variant}\u0000${t.title}\u0000${t.description ?? ""}`;
+      const now = Date.now();
+      recent.current.forEach((createdAt, key) => {
+        if (now - createdAt >= 2000) recent.current.delete(key);
+      });
+      if (now - (recent.current.get(signature) ?? 0) < 2000) return;
+      recent.current.set(signature, now);
+      const id = Date.now() + Math.random();
+      // Four is enough context without turning confirmations into a second inbox.
+      setToasts((p) =>
+        [...p, { id, title: t.title, description: t.description, variant }].slice(-4),
+      );
+      // Errors persist until the seller dismisses them; success/info messages are
+      // acknowledgements and leave after there has been time to read them.
+      if (variant !== "error") schedule(id);
+    },
+    [schedule],
+  );
 
   // Nothing may be left running after the provider goes away.
   React.useEffect(() => {
@@ -71,7 +102,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   }
 
   function releaseAll() {
-    toasts.forEach((t) => schedule(t.id));
+    toasts.forEach((t) => {
+      if (t.variant !== "error") schedule(t.id);
+    });
   }
 
   return (
@@ -124,7 +157,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 type="button"
                 onClick={() => dismiss(t.id)}
                 className="u-focus -me-1 -mt-1 grid h-6 w-6 shrink-0 place-items-center rounded-nested text-ink-3 transition-colors duration-press ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1"
-                aria-label="Dismiss"
+                aria-label={translate("dismiss")}
               >
                 <X className="h-3.5 w-3.5" aria-hidden="true" />
               </button>

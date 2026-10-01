@@ -57,16 +57,17 @@ export function SectionHeader({
   dateline,
   className,
 }: SectionHeaderProps) {
+  const IconComp = Icon as any;
   return (
     <div className={cn("mb-4 flex items-start justify-between gap-3", className)}>
       <div className="flex min-w-0 items-start gap-2">
-        {Icon && <Icon className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />}
+        {IconComp && <IconComp className="text-ink-3 mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />}
         <div className="min-w-0">
           {eyebrow && <Eyebrow className="mb-0.5">{eyebrow}</Eyebrow>}
           <div className="flex items-center gap-2">
-            <h2 className="u-h3 truncate text-ink-1">{title}</h2>
+            <h2 className="u-h3 text-ink-1 truncate">{title}</h2>
             {count !== undefined && (
-              <span className="u-meta shrink-0 rounded-pill bg-neutral-soft px-2 py-0.5 font-medium text-ink-2">
+              <span className="u-meta rounded-pill bg-neutral-soft text-ink-2 shrink-0 px-2 py-0.5 font-medium">
                 {count}
               </span>
             )}

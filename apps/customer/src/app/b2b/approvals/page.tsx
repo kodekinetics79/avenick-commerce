@@ -24,7 +24,10 @@ export async function generateMetadata() {
 }
 export const dynamic = "force-dynamic";
 
-export default async function ApprovalsPage({ searchParams }: { searchParams?: { poDone?: string; poError?: string } }) {
+export default async function ApprovalsPage(props: {
+  searchParams?: Promise<{ poDone?: string; poError?: string }>;
+}) {
+  const searchParams = await props.searchParams;
   type PurchaseOrderRow = {
     id: string;
     poNumber: string;
@@ -139,7 +142,8 @@ export default async function ApprovalsPage({ searchParams }: { searchParams?: {
                 <div className="min-w-0 py-2">
                   <p className="u-mono font-medium text-ink-1">{po.poNumber}</p>
                   <p className="u-meta text-ink-2">
-                    {po.notes ?? t("approvals.noNote")} · {t("approvals.requestedBy", { name: nameOf(po.requesterId) })}
+                    {po.notes ?? t("approvals.noNote")} ·{" "}
+                    {t("approvals.requestedBy", { name: nameOf(po.requesterId) })}
                   </p>
                 </div>
               ),
@@ -148,7 +152,9 @@ export default async function ApprovalsPage({ searchParams }: { searchParams?: {
               key: "createdAt",
               label: t("approvals.col.waiting"),
               render: (po) => (
-                <span className="u-meta whitespace-nowrap text-ink-2">{f.relative(po.createdAt)}</span>
+                <span className="u-meta whitespace-nowrap text-ink-2">
+                  {f.relative(po.createdAt)}
+                </span>
               ),
             },
             {
@@ -168,11 +174,17 @@ export default async function ApprovalsPage({ searchParams }: { searchParams?: {
                         controls they submit through have been restyled. */}
                     <form action={approvePO.bind(null, po.id)}>
                       <Button type="submit" variant="primary" size="sm">
-                        <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" /> {t("common.approve")}
+                        <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />{" "}
+                        {t("common.approve")}
                       </Button>
                     </form>
                     <form action={rejectPO.bind(null, po.id)}>
-                      <Button type="submit" variant="ghost" size="sm" className="text-danger-ink hover:bg-danger-soft hover:text-danger-ink">
+                      <Button
+                        type="submit"
+                        variant="ghost"
+                        size="sm"
+                        className="text-danger-ink hover:bg-danger-soft hover:text-danger-ink"
+                      >
                         <XCircle className="h-3.5 w-3.5" aria-hidden="true" /> {t("common.reject")}
                       </Button>
                     </form>
@@ -210,7 +222,9 @@ export default async function ApprovalsPage({ searchParams }: { searchParams?: {
           rows={decided}
           getRowKey={(po) => po.id}
           density="compact"
-          rowProps={(po) => ({ className: toneRule(po.status === "REJECTED" ? "danger" : "success") })}
+          rowProps={(po) => ({
+            className: toneRule(po.status === "REJECTED" ? "danger" : "success"),
+          })}
           toolbar={
             <Button asChild variant="link" size="sm">
               <Link href="/b2b/purchase-orders">
@@ -243,7 +257,10 @@ export default async function ApprovalsPage({ searchParams }: { searchParams?: {
               label: t("approvals.col.outcome"),
               align: "end",
               render: (po) => (
-                <StatusPill tone={po.status === "REJECTED" ? "danger" : "success"} className="whitespace-nowrap">
+                <StatusPill
+                  tone={po.status === "REJECTED" ? "danger" : "success"}
+                  className="whitespace-nowrap"
+                >
                   {po.status === "ORDERED"
                     ? t("approvals.outcome.orderedLabel")
                     : po.status === "REJECTED"

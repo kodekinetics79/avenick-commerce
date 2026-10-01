@@ -32,6 +32,8 @@ Applies to: customer, seller, and admin applications
   expose `aria-invalid`/`aria-describedby`.
 - `@avenick/ui` owns Button, Input, Textarea, Select, Combobox, Dialog, feedback,
   and table primitives. Shared behavior is fixed once in its owner.
+- Shared textareas disable browser drag-resizing and reserve useful writing
+  space. Long-form workflows may add an authored auto-grow/expand behavior.
 - Native selects are intentional for short, stable enumerations where the
   operating-system popup is acceptable (country, origin, channel, and compact
   sort controls). Use the authored Select/Combobox when popup geometry,
@@ -51,6 +53,8 @@ Applies to: customer, seller, and admin applications
   keep filters and recovery actions available.
 - Financial and audit tables use deterministic ordering and expose the basis,
   period, currency, and exclusions behind every aggregate.
+- Product-owned scroll regions inherit the global SIJILL scrollbar theme;
+  component classes may change geometry but do not activate the base theme.
 
 ## Locale, access, and motion
 

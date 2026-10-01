@@ -30,8 +30,16 @@ import {
   Surface,
 } from "@avenick/ui";
 import {
-  Activity, AlertTriangle, Clock, CreditCard, FileCheck,
-  MessageSquare, Package, ShoppingCart, Wallet, Zap,
+  Activity,
+  AlertTriangle,
+  Clock,
+  CreditCard,
+  FileCheck,
+  MessageSquare,
+  Package,
+  ShoppingCart,
+  Wallet,
+  Zap,
 } from "lucide-react";
 
 /**
@@ -43,11 +51,25 @@ import {
  * itself. The parts are read with getMonth/getDate/getFullYear, the same local
  * timezone date-fns used, so the English rendering is unchanged.
  */
-const MONTH_KEYS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"] as const;
+const MONTH_KEYS = [
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "may",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "oct",
+  "nov",
+  "dec",
+] as const;
 
 export default async function DashboardPage() {
   const { seller, membership } = await requireSellerPermission("dashboard.view");
   const t = await getTranslations("sellerShell");
+  const orderT = await getTranslations("sellerOps");
   const [dash, expiringDocs, openRfqCount, performance] = await Promise.all([
     getSellerDashboard(seller.id),
     db.sellerDocument.count({
@@ -79,7 +101,9 @@ export default async function DashboardPage() {
   // here without changing what the service returns, so the figure is shown
   // without a currency code and the dateline beneath it says exactly why.
   const amount = (value: number) =>
-    new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+    new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(
+      value,
+    );
 
   // Everything the seller can clear themselves. A count of zero carries no
   // information, so a cleared item leaves the panel rather than sitting there as
@@ -138,14 +162,49 @@ export default async function DashboardPage() {
     // same defect that made the old "Today's Orders" label wrong. Both labels
     // now live under dashboard.queue.* and dashboard.trading.*, and both say
     // "order lines" in either language.
-    { key: "orders", label: t("dashboard.queue.orders.label"), value: dash.pendingOrders, href: "/orders", icon: Clock, note: t("dashboard.queue.orders.note") },
-    { key: "rfqs", label: t("dashboard.queue.rfqs.label"), value: openRfqCount, href: "/messages", icon: Activity, note: t("dashboard.queue.rfqs.note") },
-    { key: "messages", label: t("dashboard.queue.messages.label"), value: dash.unreadMessages, href: "/messages", icon: MessageSquare, note: t("dashboard.queue.messages.note") },
-    { key: "compliance", label: t("dashboard.queue.compliance.label"), value: dash.pendingCompliance, href: "/compliance", icon: FileCheck, note: t("dashboard.queue.compliance.note") },
+    {
+      key: "orders",
+      label: t("dashboard.queue.orders.label"),
+      value: dash.pendingOrders,
+      href: "/orders",
+      icon: Clock,
+      note: t("dashboard.queue.orders.note"),
+    },
+    {
+      key: "rfqs",
+      label: t("dashboard.queue.rfqs.label"),
+      value: openRfqCount,
+      href: "/messages",
+      icon: Activity,
+      note: t("dashboard.queue.rfqs.note"),
+    },
+    {
+      key: "messages",
+      label: t("dashboard.queue.messages.label"),
+      value: dash.unreadMessages,
+      href: "/messages",
+      icon: MessageSquare,
+      note: t("dashboard.queue.messages.note"),
+    },
+    {
+      key: "compliance",
+      label: t("dashboard.queue.compliance.label"),
+      value: dash.pendingCompliance,
+      href: "/compliance",
+      icon: FileCheck,
+      note: t("dashboard.queue.compliance.note"),
+    },
   ];
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={dash.issueCount} unreadMessages={dash.unreadMessages} performance={performance} permissions={membership.permissions}>
+    <SellerLayout
+      sellerName={seller.businessNameEn}
+      tier={seller.tier}
+      issueCount={dash.issueCount}
+      unreadMessages={dash.unreadMessages}
+      performance={performance}
+      permissions={membership.permissions}
+    >
       <div className="space-y-block">
         <PageHeader
           className="mb-0"
@@ -227,7 +286,7 @@ export default async function DashboardPage() {
                   </Dateline>
                 </>
               )}
-              <Button variant="link" size="sm" asChild className="mt-2 -ms-1 px-1">
+              <Button variant="link" size="sm" asChild className="-ms-1 mt-2 px-1">
                 <Link href="/performance">{t("dashboard.howCalculated")}</Link>
               </Button>
             </div>
@@ -258,7 +317,10 @@ export default async function DashboardPage() {
                           item.chip === "danger" ? "border-s-danger" : "border-s-warning",
                         )}
                       >
-                        <item.icon className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
+                        <item.icon
+                          className="mt-0.5 h-4 w-4 shrink-0 text-ink-3"
+                          aria-hidden="true"
+                        />
                         <span className="min-w-0 flex-1">
                           <span className="u-ui block font-medium text-ink-1">{item.label}</span>
                           <span className="u-meta block text-ink-2">{item.note}</span>
@@ -291,13 +353,40 @@ export default async function DashboardPage() {
             dateline={t("dashboard.trading.dateline")}
           />
           <CellGrid cols={{ base: 2, lg: 4 }}>
-            <Stat label={t("dashboard.trading.revenue.label")} value={amount(Number(dash.monthRevenue))} rank="section" icon={Wallet} note={t("dashboard.trading.revenue.note")} />
+            <Stat
+              label={t("dashboard.trading.revenue.label")}
+              value={amount(Number(dash.monthRevenue))}
+              rank="section"
+              icon={Wallet}
+              note={t("dashboard.trading.revenue.note")}
+            />
             {/* Relabelled from "Today's Orders" (now dashboard.trading.orderLinesToday):
                 the figure counts order LINES, paid or not, so calling it orders
                 overstated it by however many lines a single basket held. */}
-            <Stat label={t("dashboard.trading.orderLinesToday.label")} value={dash.todayOrderCount} icon={ShoppingCart} note={t("dashboard.trading.orderLinesToday.note")} />
-            <Stat label={t("dashboard.trading.pendingPayout.label")} value={amount(Number(dash.pendingPayoutAmount))} icon={CreditCard} note={t("dashboard.trading.pendingPayout.note")} href="/payouts" linkComponent={Link} className={CELL_FOCUS} />
-            <Stat label={t("dashboard.trading.activeListings.label")} value={dash.activeListings} icon={Package} note={t("dashboard.trading.activeListings.note")} href="/products" linkComponent={Link} className={CELL_FOCUS} />
+            <Stat
+              label={t("dashboard.trading.orderLinesToday.label")}
+              value={dash.todayOrderCount}
+              icon={ShoppingCart}
+              note={t("dashboard.trading.orderLinesToday.note")}
+            />
+            <Stat
+              label={t("dashboard.trading.pendingPayout.label")}
+              value={amount(Number(dash.pendingPayoutAmount))}
+              icon={CreditCard}
+              note={t("dashboard.trading.pendingPayout.note")}
+              href="/payouts"
+              linkComponent={Link}
+              className={CELL_FOCUS}
+            />
+            <Stat
+              label={t("dashboard.trading.activeListings.label")}
+              value={dash.activeListings}
+              icon={Package}
+              note={t("dashboard.trading.activeListings.note")}
+              href="/products"
+              linkComponent={Link}
+              className={CELL_FOCUS}
+            />
           </CellGrid>
         </section>
 
@@ -308,7 +397,10 @@ export default async function DashboardPage() {
               LINES while /orders lists orders — so the panel states what each
               cell counts underneath it rather than making one guarantee for all
               four that only two of them keep. */}
-          <SectionHeader title={t("dashboard.queue.title")} description={t("dashboard.queue.description")} />
+          <SectionHeader
+            title={t("dashboard.queue.title")}
+            description={t("dashboard.queue.description")}
+          />
           <CellGrid cols={{ base: 2, lg: 4 }}>
             {workload.map((item) => (
               <Stat
@@ -362,13 +454,19 @@ export default async function DashboardPage() {
                       detail:
                         component.share === null
                           ? t("score.noDataInWindow")
-                          : t("score.goodOfTotal", { good: String(component.good), total: String(component.total) }),
+                          : t("score.goodOfTotal", {
+                              good: String(component.good),
+                              total: String(component.total),
+                            }),
                     })}
                   />
                   <p className="u-meta mt-1 text-ink-3">
                     {component.share === null
                       ? t("score.noDataInWindowSentence")
-                      : t("score.goodOfTotal", { good: String(component.good), total: String(component.total) })}
+                      : t("score.goodOfTotal", {
+                          good: String(component.good),
+                          total: String(component.total),
+                        })}
                   </p>
                 </div>
               ))}
@@ -438,7 +536,11 @@ export default async function DashboardPage() {
               // table three clicks away carried a different map again.
               render: (order) => {
                 const meta = orderStatusMeta(order.status);
-                return <StatusPill tone={meta.tone}>{meta.label}</StatusPill>;
+                return (
+                  <StatusPill tone={meta.tone}>
+                    {meta.labelKey ? orderT(meta.labelKey) : meta.fallbackLabel}
+                  </StatusPill>
+                );
               },
             },
           ]}

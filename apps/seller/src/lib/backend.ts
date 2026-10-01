@@ -1,4 +1,5 @@
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
+import { selfOrigin } from "@avenick/utils/portal-config";
 
 type BackendJson<T> = { success?: boolean; data?: T; error?: string };
 
@@ -9,7 +10,9 @@ type BackendJson<T> = { success?: boolean; data?: T; error?: string };
  */
 export class SellerBackendUnreachableError extends Error {
   constructor() {
-    super("The quoting service could not be reached from this deployment. Please try again, or contact support if it persists.");
+    super(
+      "The quoting service could not be reached from this deployment. Please try again, or contact support if it persists.",
+    );
     this.name = "SellerBackendUnreachableError";
   }
 }
@@ -21,23 +24,16 @@ export class SellerBackendUnreachableError extends Error {
  * the bare path "/api/seller/rfqs" throws `Failed to parse URL`, which is a 500
  * with no message on whichever page called it. That is what used to happen to
  * `/quotes`, `/quotes/submit` and the submit-a-quote action in every deployment
- * with no backend variable set — local development and any Vercel project that
- * does not define one — so the entire quoting capability answered 500.
+ * with no backend variable set, so the entire quoting capability answered 500.
  *
- * The fail-closed intent of the previous version is kept: no host is ever
- * guessed. When nothing is configured this addresses the origin that served the
- * request now being handled — read from the request's own Host header, not from
- * a constant — which is the same process, so it cannot reach another
- * environment. If even that is absent there is nowhere safe to send a session
- * cookie, and the caller is told so rather than crashing.
+ * The fallback is the canonical deployment-owned seller origin. A request Host
+ * header is deliberately never used to choose where authenticated cookies are
+ * forwarded: an edge or proxy misconfiguration must not turn an attacker-
+ * supplied Host into a credential-bearing server-side request.
  */
 export interface SellerBackendOrigin {
-  /** NEXT_PUBLIC_SELLER_BACKEND_URL or RENDER_EXTERNAL_URL, already trimmed. */
+  /** Deployment-owned backend or seller self-origin, already trimmed. */
   configuredBase?: string | null;
-  /** The Host header of the request being handled. */
-  host?: string | null;
-  /** x-forwarded-proto, if the edge set one. */
-  forwardedProto?: string | null;
 }
 
 /**
@@ -47,32 +43,18 @@ export interface SellerBackendOrigin {
 export function resolveSellerBackendUrl(path: string, origin: SellerBackendOrigin): string {
   const base = (origin.configuredBase ?? "").trim().replace(/\/$/, "");
   if (base) return new URL(path, `${base}/`).toString();
-
-  const host = origin.host?.trim();
-  if (!host) throw new SellerBackendUnreachableError();
-  // Behind both supported edges (Vercel, Render) the protocol arrives in
-  // x-forwarded-proto. Without it, only a loopback host may be assumed plain.
-  const forwarded = origin.forwardedProto?.split(",")[0]?.trim();
-  const protocol = forwarded || (/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(host) ? "http" : "https");
-  try {
-    return new URL(path, `${protocol}://${host}`).toString();
-  } catch {
-    throw new SellerBackendUnreachableError();
-  }
+  throw new SellerBackendUnreachableError();
 }
 
 function backendUrl(path: string) {
-  const requestHeaders = headers();
   return resolveSellerBackendUrl(path, {
     configuredBase:
-      process.env.NEXT_PUBLIC_SELLER_BACKEND_URL?.trim() || process.env.RENDER_EXTERNAL_URL?.trim() || "",
-    host: requestHeaders.get("host"),
-    forwardedProto: requestHeaders.get("x-forwarded-proto"),
+      process.env.NEXT_PUBLIC_SELLER_BACKEND_URL?.trim() || selfOrigin("seller") || "",
   });
 }
 
 export async function fetchSellerBackend<T>(path: string, init?: RequestInit): Promise<T> {
-  const cookieHeader = cookies()
+  const cookieHeader = (await cookies())
     .getAll()
     .map(({ name, value }) => `${name}=${value}`)
     .join("; ");

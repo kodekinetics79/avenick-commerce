@@ -10,12 +10,15 @@ const mocks = vi.hoisted(() => ({
 vi.mock("react", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react")>()),
   // The server renderer's request cache; a pass-through is the same read.
-  cache: <T,>(fn: T) => fn,
+  cache: <T>(fn: T) => fn,
 }));
 vi.mock("next/navigation", () => ({ notFound: mocks.notFound }));
 vi.mock("next/headers", () => ({ cookies: () => ({ get: () => undefined }) }));
 vi.mock("next-intl/server", () => ({ getTranslations: async () => (key: string) => key }));
-vi.mock("@avenick/utils/portal-config", () => ({ platformName: () => "Platform", selfOrigin: () => "https://shop.example" }));
+vi.mock("@avenick/utils/portal-config", () => ({
+  platformName: () => "Platform",
+  selfOrigin: () => "https://shop.example",
+}));
 vi.mock("../product-meta", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../product-meta")>()),
   readProductMeta: mocks.read,
@@ -46,7 +49,7 @@ beforeEach(() => {
   mocks.notFound.mockClear();
 });
 
-const params = { params: { slug: "nothing-here" } };
+const params = { params: Promise.resolve({ slug: "nothing-here" }) };
 const product = {
   slug: "p1",
   status: "ACTIVE",
@@ -63,9 +66,13 @@ const product = {
 describe("the product layout's head for a slug that names nothing", () => {
   it("is a noindex head, not a thrown not-found that would erase the head", async () => {
     mocks.read.mockResolvedValue({ kind: "missing" });
-    await expect(generateMetadata(params)).resolves.toEqual({ robots: { index: false, follow: false } });
+    await expect(generateMetadata(params)).resolves.toEqual({
+      robots: { index: false, follow: false },
+    });
     mocks.read.mockResolvedValue({ kind: "found", product: { ...product, status: "SUSPENDED" } });
-    await expect(generateMetadata(params)).resolves.toEqual({ robots: { index: false, follow: false } });
+    await expect(generateMetadata(params)).resolves.toEqual({
+      robots: { index: false, follow: false },
+    });
     expect(mocks.notFound).not.toHaveBeenCalled();
   });
 

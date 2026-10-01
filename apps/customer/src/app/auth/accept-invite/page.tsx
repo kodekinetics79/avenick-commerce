@@ -4,7 +4,12 @@ import { AlertCircle, Building2, ShieldCheck } from "lucide-react";
 import { log } from "@avenick/observability";
 import { Surface } from "@avenick/ui";
 import { AuthNotice, AuthShell } from "../auth-shell";
-import { identityCopy, LOCALE_COOKIE, toIdentityLocale, type IdentityLocale } from "../identity-copy";
+import {
+  identityCopy,
+  LOCALE_COOKIE,
+  toIdentityLocale,
+  type IdentityLocale,
+} from "../identity-copy";
 import { INVITE_TOKEN_PARAM } from "./contract";
 import { previewInvite } from "./invite-preflight";
 import { AcceptForm } from "./accept-form";
@@ -46,11 +51,10 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: identityCopy(locale).invite.title };
 }
 
-export default async function AcceptInvitePage({
-  searchParams,
-}: {
-  searchParams?: Record<string, string | string[] | undefined>;
+export default async function AcceptInvitePage(props: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const searchParams = await props.searchParams;
   const locale = toIdentityLocale((await cookies()).get(LOCALE_COOKIE)?.value);
   const t = identityCopy(locale).invite;
 
@@ -76,19 +80,26 @@ export default async function AcceptInvitePage({
       footer={
         <p className="u-meta text-ink-3">
           {t.backTo}{" "}
-          <Link href="/login" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
+          <Link
+            href="/login"
+            className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+          >
             {t.signIn}
           </Link>
         </p>
       }
     >
-      {!preview.ok && preview.reason === "missing" && <Unusable locale={locale}>{t.missingToken}</Unusable>}
+      {!preview.ok && preview.reason === "missing" && (
+        <Unusable locale={locale}>{t.missingToken}</Unusable>
+      )}
       {!preview.ok && preview.reason === "no-secret" && (
         <p className="u-body text-ink-2" role="alert">
           {t.noSecret}
         </p>
       )}
-      {!preview.ok && preview.reason === "dead" && <Unusable locale={locale}>{t.deadToken}</Unusable>}
+      {!preview.ok && preview.reason === "dead" && (
+        <Unusable locale={locale}>{t.deadToken}</Unusable>
+      )}
       {preview.ok && token && (
         <div className="space-y-6">
           <Joining locale={locale} companyName={preview.companyName} role={preview.role} />
@@ -162,7 +173,9 @@ function Unusable({ locale, children }: { locale: IdentityLocale; children: Reac
   const t = identityCopy(locale).invite;
   return (
     <div className="space-y-3">
-      <AuthNotice tone="danger" icon={<AlertCircle className="h-4 w-4" />}>{children}</AuthNotice>
+      <AuthNotice tone="danger" icon={<AlertCircle className="h-4 w-4" />}>
+        {children}
+      </AuthNotice>
       <p className="u-meta text-ink-3">{t.askAgain}</p>
     </div>
   );

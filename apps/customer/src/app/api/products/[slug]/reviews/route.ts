@@ -29,12 +29,13 @@ const SlugSchema = z.string().trim().min(1).max(200);
 
 // Optional text: strip control characters first, then apply the bounds to
 // what is left, so whitespace alone cannot satisfy a minimum length.
-const optionalText = (max: number, min = 0) => z
-  .string()
-  .max(max * 4) // hard ceiling before normalisation; the real bound is applied below
-  .transform((value) => normalizeReviewText(value))
-  .pipe(z.string().min(min).max(max).nullable())
-  .optional();
+const optionalText = (max: number, min = 0) =>
+  z
+    .string()
+    .max(max * 4) // hard ceiling before normalisation; the real bound is applied below
+    .transform((value) => normalizeReviewText(value))
+    .pipe(z.string().min(min).max(max).nullable())
+    .optional();
 
 const ReviewSchema = z.object({
   rating: z.number().int().min(REVIEW_RATING_MIN).max(REVIEW_RATING_MAX),
@@ -50,22 +51,31 @@ const STATUS_FOR_CODE: Record<ProductReviewError["code"], number> = {
   ALREADY_REVIEWED: 409,
 };
 
-export async function POST(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   try {
     const session = await auth();
     const userId = session?.user?.id as string | undefined;
-    if (!userId) return NextResponse.json({ success: false, error: "Please sign in to write a review." }, { status: 401 });
+    if (!userId)
+      return NextResponse.json(
+        { success: false, error: "Please sign in to write a review." },
+        { status: 401 },
+      );
 
     const rl = await checkRateLimit(RATE_LIMITS.reviewSubmit, userId);
     if (!rl.ok) {
       return NextResponse.json(
         { success: false, error: "Too many review submissions. Please wait and try again." },
-        { status: 429, headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) } },
+        {
+          status: 429,
+          headers: { "Retry-After": String(Math.ceil((rl.resetAt - Date.now()) / 1000)) },
+        },
       );
     }
 
     const slug = SlugSchema.safeParse(params.slug);
-    if (!slug.success) return NextResponse.json({ success: false, error: "Product not found" }, { status: 404 });
+    if (!slug.success)
+      return NextResponse.json({ success: false, error: "Product not found" }, { status: 404 });
 
     let json: unknown;
     try {
@@ -87,7 +97,8 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
       where: { slug: slug.data, deletedAt: null, status: "ACTIVE" },
       select: { id: true },
     });
-    if (!product) return NextResponse.json({ success: false, error: "Product not found" }, { status: 404 });
+    if (!product)
+      return NextResponse.json({ success: false, error: "Product not found" }, { status: 404 });
 
     const review = await createProductReview({
       productId: product.id,
@@ -97,20 +108,26 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
       body: parsed.data.body ?? null,
     });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: review.id,
-        rating: review.rating,
-        title: review.title,
-        body: review.body,
-        isVerified: review.isVerified,
-        createdAt: review.createdAt,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          id: review.id,
+          rating: review.rating,
+          title: review.title,
+          body: review.body,
+          isVerified: review.isVerified,
+          createdAt: review.createdAt,
+        },
       },
-    }, { status: 201 });
+      { status: 201 },
+    );
   } catch (error) {
     if (error instanceof ProductReviewError) {
-      return NextResponse.json({ success: false, error: error.message, code: error.code }, { status: STATUS_FOR_CODE[error.code] });
+      return NextResponse.json(
+        { success: false, error: error.message, code: error.code },
+        { status: STATUS_FOR_CODE[error.code] },
+      );
     }
     log.error("product review create failed", error, { path: "/api/products/[slug]/reviews" });
     return NextResponse.json({ success: false, error: "Failed to submit review" }, { status: 500 });

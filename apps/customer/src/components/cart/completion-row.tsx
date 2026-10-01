@@ -51,14 +51,16 @@ export function CompletionRow({ row, channel, locale, onNavigate }: CompletionRo
   // instant this runs, the label wipes to "Added" and returns to rest on its
   // own. Nothing is gated; a second press adds again and restarts the readout.
   const [committed, setCommitted] = React.useState(false);
-  const timer = React.useRef<ReturnType<typeof setTimeout>>();
+  const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   React.useEffect(() => () => clearTimeout(timer.current), []);
 
   const name = locale === "ar" ? row.nameAr || row.nameEn : row.nameEn || row.nameAr;
   const href = storefrontProductHref(row.slug, { currency: row.currency, b2b: channel === "B2B" });
   const action = completionAction(row, channel);
   const money =
-    row.price != null && row.currency ? formatCurrency(row.price, row.currency as Currency, locale) : null;
+    row.price != null && row.currency
+      ? formatCurrency(row.price, row.currency as Currency, locale)
+      : null;
   const moq = Number.isInteger(row.moq) && (row.moq as number) > 1 ? (row.moq as number) : 1;
   const availability = row.availabilityStatus ?? (row.inStock ? "IN_STOCK" : "OUT_OF_STOCK");
 
@@ -75,10 +77,22 @@ export function CompletionRow({ row, channel, locale, onNavigate }: CompletionRo
 
   return (
     <li className="flex items-center gap-3 py-3">
-      <Link href={href} aria-hidden="true" tabIndex={-1} onClick={onNavigate} className="block shrink-0">
+      <Link
+        href={href}
+        aria-hidden="true"
+        tabIndex={-1}
+        onClick={onNavigate}
+        className="block shrink-0"
+      >
         <ImageFrame
           sku={row.sku}
-          state={availability === "OUT_OF_STOCK" ? "out" : availability === "UNCONFIRMED" ? "unconfirmed" : "available"}
+          state={
+            availability === "OUT_OF_STOCK"
+              ? "out"
+              : availability === "UNCONFIRMED"
+                ? "unconfirmed"
+                : "available"
+          }
           className="w-14 overflow-hidden rounded-nested"
         >
           {row.imageUrl ? <Image src={row.imageUrl} alt="" fill sizes="56px" /> : undefined}
@@ -119,7 +133,13 @@ export function CompletionRow({ row, channel, locale, onNavigate }: CompletionRo
         {action.kind === "ADD_TO_CART" ? (
           // The visible label stays the accessible name (a voice-control user
           // says what they see); the product it acts on is the description.
-          <Button type="button" variant="secondary" size="sm" onClick={add} aria-describedby={nameId}>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={add}
+            aria-describedby={nameId}
+          >
             <CommitLabel idle={tp("addToCart")} committed={tc("added")} done={committed} />
           </Button>
         ) : (

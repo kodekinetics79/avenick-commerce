@@ -1,11 +1,10 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { getCustomerSegments } from "@avenick/database";
+import { getCustomerSegments, type CurrencyAmount } from "@avenick/database";
+import { formatCurrency } from "@avenick/utils";
 import { PieChart, Users, Crown } from "lucide-react";
-import {
-  PageHeader, CellGrid, Surface, Bar, EmptyState, Eyebrow, Dateline,
-} from "@avenick/ui";
-import { getTranslations } from "next-intl/server";
+import { PageHeader, CellGrid, Surface, Bar, EmptyState, Eyebrow, Dateline } from "@avenick/ui";
+import { getLocale, getTranslations } from "next-intl/server";
 import { CountStat } from "@/app/finance/money-figures";
 
 export async function generateMetadata() {
@@ -17,13 +16,14 @@ export const dynamic = "force-dynamic";
 /** Buyer roles the platform models; the labels come from `segments.role`. */
 const KNOWN_ROLES = new Set(["CONSUMER", "COMPANY_ADMIN", "COMPANY_BUYER", "COMPANY_APPROVER"]);
 
-// Spend is SUM(order total) per buyer as recorded in each order's own currency;
-// nothing is converted, so the figure carries no currency symbol.
-const amount = (n: number) => n.toLocaleString("en", { maximumFractionDigits: 0 });
+const amounts = (rows: CurrencyAmount[], locale: "ar" | "en") =>
+  rows.map((row) => formatCurrency(row.amount, row.currency, locale)).join(" · ");
 
 export default async function SegmentsPage() {
   await requireAdminSession();
   const t = await getTranslations("adminCommerce.segments");
+  const rawLocale = await getLocale();
+  const locale = rawLocale === "ar" ? "ar" : "en";
 
   const s = await getCustomerSegments();
   // A role the platform does not model is shown by its own code rather than
@@ -70,10 +70,16 @@ export default async function SegmentsPage() {
                       value={Math.max(3, (r.count / Math.max(1, totalUsers)) * 100)}
                       max={100}
                       index={index}
-                      label={t("byRole.barLabel", { role: roleLabel(r.role), count: String(r.count), total: String(totalUsers) })}
+                      label={t("byRole.barLabel", {
+                        role: roleLabel(r.role),
+                        count: String(r.count),
+                        total: String(totalUsers),
+                      })}
                       className="flex-1"
                     />
-                    <span className="fig u-ui w-10 shrink-0 text-end font-medium text-ink-1">{r.count}</span>
+                    <span className="fig u-ui w-10 shrink-0 text-end font-medium text-ink-1">
+                      {r.count}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -86,7 +92,8 @@ export default async function SegmentsPage() {
               <h2 className="u-h3 inline-flex items-center gap-2 text-ink-1">
                 {/* The one brass mark on this page — a tier marker, which is one
                     of its three permitted uses. */}
-                <Crown className="h-4 w-4 text-brass-ink" aria-hidden="true" /> {t("highValue.title")}
+                <Crown className="h-4 w-4 text-brass-ink" aria-hidden="true" />{" "}
+                {t("highValue.title")}
               </h2>
               <Dateline className="mt-0.5">
                 {t("highValue.dateline", {
@@ -105,14 +112,19 @@ export default async function SegmentsPage() {
             ) : (
               <ul>
                 {s.highValue.map((b) => (
-                  <li key={b.id} className="flex items-center justify-between gap-3 border-b border-hairline px-5 py-3 last:border-b-0">
+                  <li
+                    key={b.id}
+                    className="flex items-center justify-between gap-3 border-b border-hairline px-5 py-3 last:border-b-0"
+                  >
                     <div className="min-w-0">
                       <p className="u-ui truncate font-medium text-ink-1">{b.name}</p>
                       <p className="u-meta truncate text-ink-3">{b.email}</p>
                     </div>
                     <div className="shrink-0 text-end">
-                      <p className="fig u-ui font-medium text-ink-1">{amount(b.spent)}</p>
-                      <Eyebrow>{t("ordersCount", { count: b.orders, value: String(b.orders) })}</Eyebrow>
+                      <p className="fig u-ui font-medium text-ink-1">{amounts(b.spent, locale)}</p>
+                      <Eyebrow>
+                        {t("ordersCount", { count: b.orders, value: String(b.orders) })}
+                      </Eyebrow>
                     </div>
                   </li>
                 ))}

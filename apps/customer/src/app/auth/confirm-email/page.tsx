@@ -3,7 +3,13 @@ import { cookies } from "next/headers";
 import { AlertCircle } from "lucide-react";
 import { log } from "@avenick/observability";
 import { AuthNotice, AuthShell } from "../auth-shell";
-import { identityCopy, LOCALE_COOKIE, resetTtlLabel, toIdentityLocale, type IdentityLocale } from "../identity-copy";
+import {
+  identityCopy,
+  LOCALE_COOKIE,
+  resetTtlLabel,
+  toIdentityLocale,
+  type IdentityLocale,
+} from "../identity-copy";
 import {
   EMAIL_VERIFICATION_TTL_SECONDS,
   emailVerificationTtlLabel,
@@ -24,7 +30,10 @@ import { ConfirmEmailForm } from "./confirm-form";
  * still awaiting confirmation needs the database and is decided by the verify
  * route on submit. Nothing about the token is logged: it is a credential.
  */
-export default async function ConfirmEmailPage({ searchParams }: { searchParams?: { token?: string | string[] } }) {
+export default async function ConfirmEmailPage(props: {
+  searchParams?: Promise<{ token?: string | string[] }>;
+}) {
+  const searchParams = await props.searchParams;
   const locale = toIdentityLocale((await cookies()).get(LOCALE_COOKIE)?.value);
   const t = identityCopy(locale).confirmEmail;
   // The English label is DERIVED from the constant the verifier enforces, and
@@ -53,7 +62,10 @@ export default async function ConfirmEmailPage({ searchParams }: { searchParams?
       footer={
         <p className="u-meta text-ink-3">
           {t.backTo}{" "}
-          <Link href="/login" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
+          <Link
+            href="/login"
+            className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+          >
             {t.signIn}
           </Link>
         </p>
@@ -82,7 +94,10 @@ function Unusable({ locale, children }: { locale: IdentityLocale; children: Reac
         {children}
       </AuthNotice>
       <p className="u-meta text-ink-3">
-        <Link href="/b2b/join" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
+        <Link
+          href="/b2b/join"
+          className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+        >
           {t.applyAgain}
         </Link>
       </p>

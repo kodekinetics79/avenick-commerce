@@ -106,7 +106,12 @@ interface GuardOptions {
   allowBearer?: boolean;
 }
 
-type NextRouteArgs = { params?: Promise<Record<string, string>> | Record<string, string> };
+type NextRouteArgs = { params: Promise<Record<string, string>> };
+type GuardedRouteHandler = {
+  (req: NextRequest): Promise<NextResponse>;
+  (req: NextRequest, routeArgs: { params: Record<string, string> }): Promise<NextResponse>;
+  (req: NextRequest, routeArgs: NextRouteArgs): Promise<NextResponse>;
+};
 
 /**
  * Wrap a route handler with authentication, role enforcement, and
@@ -116,8 +121,11 @@ type NextRouteArgs = { params?: Promise<Record<string, string>> | Record<string,
  *     return jsonOk(await listThings());
  *   });
  */
-export function guarded(options: GuardOptions, handler: RouteHandler) {
-  return async (req: NextRequest, routeArgs?: NextRouteArgs): Promise<NextResponse> => {
+export function guarded(options: GuardOptions, handler: RouteHandler): GuardedRouteHandler {
+  const run = async (
+    req: NextRequest,
+    routeArgs: NextRouteArgs | { params: Record<string, string> } = { params: Promise.resolve({}) },
+  ): Promise<NextResponse> => {
     // Web Crypto: available in both the Node and Edge runtimes. Reuse an
     // upstream x-request-id (e.g. from the Vercel→Render hop) so the id is
     // stable across the whole request, not minted twice.
@@ -125,11 +133,7 @@ export function guarded(options: GuardOptions, handler: RouteHandler) {
 
     // Resolve dynamic-segment params up front so the metrics route template is
     // available for the entire request's telemetry, including early auth exits.
-    const rawParams = routeArgs?.params;
-    const params =
-      rawParams && typeof (rawParams as Promise<unknown>).then === "function"
-        ? await (rawParams as Promise<Record<string, string>>)
-        : ((rawParams as Record<string, string>) ?? {});
+    const params = await routeArgs.params;
 
     const pathname = req.nextUrl.pathname;
     const { ctx: obs, finish } = instrumentRequest({
@@ -168,9 +172,13 @@ export function guarded(options: GuardOptions, handler: RouteHandler) {
           } else if (verified.reason === "no-secret") {
             // Nothing could have been minted without a key, so this is a
             // deployment that lost its secret — loud, not "please sign in".
-            obs.log.error("bearer auth refused: no signing secret (AUTH_SECRET or NEXTAUTH_SECRET)", undefined, {
-              path: pathname,
-            });
+            obs.log.error(
+              "bearer auth refused: no signing secret (AUTH_SECRET or NEXTAUTH_SECRET)",
+              undefined,
+              {
+                path: pathname,
+              },
+            );
           }
         }
       }
@@ -183,7 +191,13 @@ export function guarded(options: GuardOptions, handler: RouteHandler) {
         select: { role: true, status: true, deletedAt: true, sessionsValidAfter: true },
       });
       const role = currentUser?.role;
-      if (!currentUser || currentUser.status !== "ACTIVE" || currentUser.deletedAt || !role || (options.roles && !options.roles.includes(role))) {
+      if (
+        !currentUser ||
+        currentUser.status !== "ACTIVE" ||
+        currentUser.deletedAt ||
+        !role ||
+        (options.roles && !options.roles.includes(role))
+      ) {
         status = 403;
         return jsonErr("Insufficient permissions", 403, requestId);
       }
@@ -255,6 +269,7 @@ export function guarded(options: GuardOptions, handler: RouteHandler) {
       finish(status);
     }
   };
+  return run as GuardedRouteHandler;
 }
 
 export interface Pagination {
@@ -273,7 +288,10 @@ export function parsePagination(
   const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const limit = Math.min(
     maxLimit,
-    Math.max(1, Number.parseInt(searchParams.get("limit") ?? String(defaultLimit), 10) || defaultLimit),
+    Math.max(
+      1,
+      Number.parseInt(searchParams.get("limit") ?? String(defaultLimit), 10) || defaultLimit,
+    ),
   );
   return { page, limit, skip: (page - 1) * limit };
 }

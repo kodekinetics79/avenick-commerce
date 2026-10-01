@@ -14,8 +14,9 @@ const LazySpatialSceneCanvas = dynamic(
 function hasWebGLSupport() {
   try {
     const canvas = document.createElement("canvas");
-    const context = canvas.getContext("webgl2", { powerPreference: "low-power" })
-      ?? canvas.getContext("webgl", { powerPreference: "low-power" });
+    const context =
+      canvas.getContext("webgl2", { powerPreference: "low-power" }) ??
+      canvas.getContext("webgl", { powerPreference: "low-power" });
     if (!context) return false;
     context.getExtension("WEBGL_lose_context")?.loseContext();
     return true;
@@ -24,9 +25,11 @@ function hasWebGLSupport() {
   }
 }
 
-function useSceneActivity(container: React.RefObject<HTMLElement>) {
+function useSceneActivity(container: React.RefObject<HTMLElement | null>) {
   const [webGL, setWebGL] = React.useState<boolean | null>(null);
-  const [visible, setVisible] = React.useState(() => typeof document === "undefined" || document.visibilityState !== "hidden");
+  const [visible, setVisible] = React.useState(
+    () => typeof document === "undefined" || document.visibilityState !== "hidden",
+  );
   const [onscreen, setOnscreen] = React.useState(true);
 
   React.useEffect(() => setWebGL(hasWebGLSupport()), []);
@@ -40,7 +43,10 @@ function useSceneActivity(container: React.RefObject<HTMLElement>) {
   React.useEffect(() => {
     const element = container.current;
     if (!element || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(([entry]) => setOnscreen(Boolean(entry?.isIntersecting)), { rootMargin: "80px" });
+    const observer = new IntersectionObserver(
+      ([entry]) => setOnscreen(Boolean(entry?.isIntersecting)),
+      { rootMargin: "80px" },
+    );
     observer.observe(element);
     return () => observer.disconnect();
   }, [container]);
@@ -77,28 +83,69 @@ export function SpatialScene(props: SpatialSceneProps) {
     window.requestAnimationFrame(() => container.current?.focus({ preventScroll: true }));
   }, []);
 
-  React.useEffect(() => () => {
-    if (retryTimer.current !== null) window.clearTimeout(retryTimer.current);
-  }, []);
+  React.useEffect(
+    () => () => {
+      if (retryTimer.current !== null) window.clearTimeout(retryTimer.current);
+    },
+    [],
+  );
 
   const effectiveWebGL = webGLOverride === undefined ? webGL : webGLOverride;
 
   return (
-    <section ref={container} tabIndex={-1} className={props.className} aria-label={props.labels.regionLabel}>
+    <section
+      ref={container}
+      tabIndex={-1}
+      className={props.className}
+      aria-label={props.labels.regionLabel}
+    >
       {!allowWebGLLoad ? (
-        <SceneDomFallback labels={props.labels} selectedNodeId={props.selectedNodeId} onNodeSelect={props.onNodeSelect} reason="unavailable" />
+        <SceneDomFallback
+          labels={props.labels}
+          selectedNodeId={props.selectedNodeId}
+          onNodeSelect={props.onNodeSelect}
+          reason="unavailable"
+        />
       ) : effectiveWebGL === null ? (
         <SceneLoading label={props.labels.loading} />
       ) : effectiveWebGL && !contextLost ? (
-        <SceneErrorBoundary key={attempt} fallback={<SceneDomFallback labels={props.labels} selectedNodeId={props.selectedNodeId} onNodeSelect={props.onNodeSelect} onRetry={retry} reason="error" />}>
+        <SceneErrorBoundary
+          key={attempt}
+          fallback={
+            <SceneDomFallback
+              labels={props.labels}
+              selectedNodeId={props.selectedNodeId}
+              onNodeSelect={props.onNodeSelect}
+              onRetry={retry}
+              reason="error"
+            />
+          }
+        >
           <div className="relative h-[clamp(18rem,52vw,34rem)] overflow-hidden rounded-3xl border border-border bg-gradient-to-b from-secondary/35 to-background">
             {!ready && <SceneLoading label={props.labels.loading} overlay />}
-            <LazySpatialSceneCanvas key={attempt} {...props} active={active} onContextLost={handleContextLost} onReady={handleReady} />
+            <LazySpatialSceneCanvas
+              key={attempt}
+              {...props}
+              active={active}
+              onContextLost={handleContextLost}
+              onReady={handleReady}
+            />
           </div>
-          <SceneAccessibleControls labels={props.labels} selectedNodeId={props.selectedNodeId} onNodeSelect={props.onNodeSelect} className="mt-3" />
+          <SceneAccessibleControls
+            labels={props.labels}
+            selectedNodeId={props.selectedNodeId}
+            onNodeSelect={props.onNodeSelect}
+            className="mt-3"
+          />
         </SceneErrorBoundary>
       ) : (
-        <SceneDomFallback labels={props.labels} selectedNodeId={props.selectedNodeId} onNodeSelect={props.onNodeSelect} onRetry={retry} reason={contextLost ? "error" : "unavailable"} />
+        <SceneDomFallback
+          labels={props.labels}
+          selectedNodeId={props.selectedNodeId}
+          onNodeSelect={props.onNodeSelect}
+          onRetry={retry}
+          reason={contextLost ? "error" : "unavailable"}
+        />
       )}
     </section>
   );

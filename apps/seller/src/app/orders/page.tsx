@@ -5,9 +5,8 @@ import { OrdersTable, type OrderRow } from "@/components/orders-table";
 import { SavedViews } from "@/components/saved-views";
 import { orderStatusMeta } from "@/components/orders/status-meta";
 import { PageHeader, FieldWell, Divider, Button } from "@avenick/ui";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { cn } from "@avenick/utils";
-import { format } from "date-fns";
 import Link from "next/link";
 import { ShoppingCart, Package, Truck, CheckCircle, ArrowRight } from "lucide-react";
 
@@ -30,10 +29,18 @@ const FILTER_TABS = [
   { value: "DELIVERED", labelKey: "orders.filters.delivered", icon: CheckCircle },
 ];
 
-export default async function OrdersPage({ searchParams }: { searchParams: { status?: string } }) {
+export default async function OrdersPage(props: { searchParams: Promise<{ status?: string }> }) {
+  const searchParams = await props.searchParams;
   const t = await getTranslations("sellerOps");
-  const { seller, membership } = await requireSellerAnyPermission(["orders.view", "orders.fulfill"]);
-  const { orders, total } = await getSellerOrderProjections(seller.id, { status: searchParams.status as never, limit: 50 });
+  const locale = await getLocale();
+  const { seller, membership } = await requireSellerAnyPermission([
+    "orders.view",
+    "orders.fulfill",
+  ]);
+  const { orders, total } = await getSellerOrderProjections(seller.id, {
+    status: searchParams.status as never,
+    limit: 50,
+  });
   const activeTab = searchParams.status ?? "";
 
   const savedViews = await db.savedView.findMany({
@@ -42,12 +49,17 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
     select: { id: true, name: true, query: true },
   });
 
+  const dateFormat = new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
   const rows: OrderRow[] = orders.map((o) => ({
     id: o.id,
     orderNumber: o.orderNumber,
     buyer: `${o.user.firstName} ${o.user.lastName}`.trim(),
     company: o.company?.nameEn ?? "",
-    date: format(o.createdAt, "MMM d, yyyy"),
+    date: dateFormat.format(o.createdAt),
     itemCount: o.items.length,
     total: Number(o.total),
     currency: o.currency,
@@ -78,12 +90,19 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
     ? t("orders.dateline.atStatus", {
         shown: String(rows.length),
         total: String(total),
-        status: orderStatusMeta(activeTab).label.toLowerCase(),
+        status: (() => {
+          const meta = orderStatusMeta(activeTab);
+          return meta.labelKey ? t(meta.labelKey) : meta.fallbackLabel;
+        })(),
       })
     : t("orders.dateline.all", { shown: String(rows.length), total: String(total) });
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
+    <SellerLayout
+      sellerName={seller.businessNameEn}
+      tier={seller.tier}
+      permissions={membership.permissions}
+    >
       <div className="space-y-stack">
         <PageHeader
           eyebrow={t("orders.eyebrow")}
@@ -116,7 +135,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
         <FieldWell
           as="nav"
           aria-label={t("orders.filters.navLabel")}
-          className="flex gap-1 overflow-x-auto scrollbar-thin p-1"
+          className="scrollbar-thin flex gap-1 overflow-x-auto p-1"
         >
           {FILTER_TABS.map(({ value, labelKey, icon: Icon }) => {
             const active = activeTab === value;

@@ -45,7 +45,12 @@ const productId = "cprod00000000000001";
 const adminId = "cadmin0000000000001";
 
 function approveCall(id: string) {
-  return approve(new Request(`https://admin.test/api/admin/products/${id}/approve`, { method: "PUT" }) as never, { params: { id } });
+  return approve(
+    new Request(`https://admin.test/api/admin/products/${id}/approve`, { method: "PUT" }) as never,
+    {
+      params: Promise.resolve({ id }),
+    },
+  );
 }
 
 /** A request with no body at all — distinct from a body of `undefined`, which
@@ -55,7 +60,9 @@ const NO_BODY = Symbol("no body");
 function rejectCall(id: string, body: unknown = { reason: "Images do not show the product" }) {
   const init: RequestInit = { method: "PUT", headers: { "Content-Type": "application/json" } };
   if (body !== NO_BODY) init.body = JSON.stringify(body);
-  return reject(new Request(`https://admin.test/api/admin/products/${id}/reject`, init) as never, { params: { id } });
+  return reject(new Request(`https://admin.test/api/admin/products/${id}/reject`, init) as never, {
+    params: Promise.resolve({ id }),
+  });
 }
 
 beforeEach(() => {
@@ -118,16 +125,30 @@ describe("admin product approve route", () => {
     mocks.approveProduct.mockResolvedValue({ id: productId, status: "ACTIVE" });
     const response = await approveCall(productId);
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ success: true, data: { id: productId, status: "ACTIVE" } });
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      data: { id: productId, status: "ACTIVE" },
+    });
     expect(mocks.approveProduct).toHaveBeenCalledWith(productId, adminId);
   });
 });
 
 describe("admin product reject route", () => {
   it("answers 400 without a reason and never reaches the service", async () => {
-    for (const body of [NO_BODY, null, {}, { reason: "" }, { reason: "   " }, { reason: 42 }, "not an object"]) {
+    for (const body of [
+      NO_BODY,
+      null,
+      {},
+      { reason: "" },
+      { reason: "   " },
+      { reason: 42 },
+      "not an object",
+    ]) {
       const response = await rejectCall(productId, body);
-      expect(response.status, String(typeof body === "symbol" ? "no body" : JSON.stringify(body))).toBe(400);
+      expect(
+        response.status,
+        String(typeof body === "symbol" ? "no body" : JSON.stringify(body)),
+      ).toBe(400);
     }
     expect(mocks.rejectProduct).not.toHaveBeenCalled();
   });
@@ -136,7 +157,14 @@ describe("admin product reject route", () => {
     mocks.rejectProduct.mockResolvedValue({ id: productId, status: "REJECTED" });
     const response = await rejectCall(productId, { reason: "  Images do not show the product  " });
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({ success: true, data: { status: "REJECTED" } });
-    expect(mocks.rejectProduct).toHaveBeenCalledWith(productId, adminId, "Images do not show the product");
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      data: { status: "REJECTED" },
+    });
+    expect(mocks.rejectProduct).toHaveBeenCalledWith(
+      productId,
+      adminId,
+      "Images do not show the product",
+    );
   });
 });

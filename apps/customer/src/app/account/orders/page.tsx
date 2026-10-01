@@ -20,10 +20,22 @@ import {
   type PillTone,
 } from "@avenick/ui";
 import { getTranslations } from "next-intl/server";
-import { Package, Truck, CheckCircle, Clock, ChevronRight, RotateCcw, ScrollText } from "lucide-react";
+import {
+  Package,
+  Truck,
+  CheckCircle,
+  Clock,
+  ChevronRight,
+  RotateCcw,
+  ScrollText,
+} from "lucide-react";
 import { LOCALE_COOKIE, toIdentityLocale, type IdentityLocale } from "../../auth/identity-copy";
 import { accountCopy } from "../account-copy";
-import { ORDER_STATUS_VALUES, whatHappensNext, type OrderStatusValue } from "@/lib/checkout-order-record";
+import {
+  ORDER_STATUS_VALUES,
+  whatHappensNext,
+  type OrderStatusValue,
+} from "@/lib/checkout-order-record";
 
 /**
  * The tab title is a user-visible string like any other, and it was the last
@@ -53,17 +65,17 @@ export async function generateMetadata() {
  * uses, so an order is called the same thing at both ends of the money path.
  */
 const STATUS_CONFIG: Record<OrderStatusValue, { tone: PillTone; icon: typeof Clock }> = {
-  PENDING_PAYMENT:   { tone: "warning", icon: Clock },
-  PAYMENT_CONFIRMED: { tone: "accent",  icon: CheckCircle },
-  CONFIRMED:         { tone: "accent",  icon: CheckCircle },
-  PROCESSING:        { tone: "neutral", icon: Package },
-  SHIPPED:           { tone: "accent",  icon: Truck },
-  OUT_FOR_DELIVERY:  { tone: "accent",  icon: Truck },
-  DELIVERED:         { tone: "success", icon: CheckCircle },
-  CANCELLED:         { tone: "danger",  icon: Clock },
-  REFUNDED:          { tone: "danger",  icon: RotateCcw },
-  RETURN_REQUESTED:  { tone: "warning", icon: RotateCcw },
-  RETURNED:          { tone: "neutral", icon: RotateCcw },
+  PENDING_PAYMENT: { tone: "warning", icon: Clock },
+  PAYMENT_CONFIRMED: { tone: "accent", icon: CheckCircle },
+  CONFIRMED: { tone: "accent", icon: CheckCircle },
+  PROCESSING: { tone: "neutral", icon: Package },
+  SHIPPED: { tone: "accent", icon: Truck },
+  OUT_FOR_DELIVERY: { tone: "accent", icon: Truck },
+  DELIVERED: { tone: "success", icon: CheckCircle },
+  CANCELLED: { tone: "danger", icon: Clock },
+  REFUNDED: { tone: "danger", icon: RotateCcw },
+  RETURN_REQUESTED: { tone: "warning", icon: RotateCcw },
+  RETURNED: { tone: "neutral", icon: RotateCcw },
 };
 
 const isOrderStatus = (value: string): value is OrderStatusValue =>
@@ -90,7 +102,8 @@ function dateFormatter(locale: IdentityLocale) {
   });
 }
 
-export default async function OrdersPage({ searchParams }: { searchParams: { status?: string } }) {
+export default async function OrdersPage(props: { searchParams: Promise<{ status?: string }> }) {
+  const searchParams = await props.searchParams;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
@@ -102,9 +115,10 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
   const stage = (status: string) => (isOrderStatus(status) ? m(`stage.${status}`) : status);
   const fmt = dateFormatter(locale);
 
-  const statusFilter = searchParams.status && isOrderStatus(searchParams.status)
-    ? searchParams.status as OrderStatus
-    : undefined;
+  const statusFilter =
+    searchParams.status && isOrderStatus(searchParams.status)
+      ? (searchParams.status as OrderStatus)
+      : undefined;
   const orders = await db.order.findMany({
     where: { userId: session.user.id, ...(statusFilter ? { status: statusFilter } : {}) },
     orderBy: { createdAt: "desc" },
@@ -112,9 +126,11 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
   });
 
   const activeTab = statusFilter ?? "";
-  const deliveredCount  = orders.filter(o => o.status === "DELIVERED").length;
-  const shippedCount    = orders.filter(o => o.status === "SHIPPED").length;
-  const processingCount = orders.filter(o => ["PAYMENT_CONFIRMED","CONFIRMED","PROCESSING"].includes(o.status)).length;
+  const deliveredCount = orders.filter((o) => o.status === "DELIVERED").length;
+  const shippedCount = orders.filter((o) => o.status === "SHIPPED").length;
+  const processingCount = orders.filter((o) =>
+    ["PAYMENT_CONFIRMED", "CONFIRMED", "PROCESSING"].includes(o.status),
+  ).length;
   const activeLabel = statusFilter ? stage(statusFilter) : undefined;
 
   return (
@@ -155,7 +171,10 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
             top edge and the quantity ladder's active band use — instead of a
             filled indigo pill, which spent the page's one primary fill on a
             filter. aria-current tells assistive technology which is live. */}
-        <nav aria-label={t.filterLabel} className="mb-stack flex gap-1 overflow-x-auto border-b border-hairline">
+        <nav
+          aria-label={t.filterLabel}
+          className="mb-stack flex gap-1 overflow-x-auto border-b border-hairline"
+        >
           {FILTER_VALUES.map((value) => {
             const active = activeTab === value;
             const label = value ? stage(value) : t.filterAll;
@@ -166,7 +185,9 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
                 aria-current={active ? "page" : undefined}
                 className="u-focus u-drawn-host relative shrink-0 rounded-t-nested px-3 pb-2 pt-1.5"
               >
-                <span className={active ? "u-ui font-medium text-ink-1" : "u-ui text-ink-3"}>{label}</span>
+                <span className={active ? "u-ui font-medium text-ink-1" : "u-ui text-ink-3"}>
+                  {label}
+                </span>
                 <Divider drawn on={active} className="absolute inset-x-0 bottom-0" />
               </Link>
             );
@@ -195,7 +216,9 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
         ) : (
           <ul className="space-y-3">
             {orders.map((order) => {
-              const sc = isOrderStatus(order.status) ? STATUS_CONFIG[order.status] : STATUS_CONFIG.CONFIRMED;
+              const sc = isOrderStatus(order.status)
+                ? STATUS_CONFIG[order.status]
+                : STATUS_CONFIG.CONFIRMED;
               const StatusIcon = sc.icon;
               const preview = order.items.slice(0, ITEM_PREVIEW);
               const remaining = order.items.length - preview.length;
@@ -209,13 +232,18 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
                 // staggering a result set is the canonical "this site is slow"
                 // generator.
                 <Surface as="li" key={order.id} rung={2} interactive className="overflow-hidden">
-                  <Link href={`/orders/${order.id}`} className="u-focus block rounded-[inherit] p-4">
+                  <Link
+                    href={`/orders/${order.id}`}
+                    className="u-focus block rounded-[inherit] p-4"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           {/* Mono is for references — order numbers, SKUs,
                               tracking IDs — and never for money. */}
-                          <span className="u-mono u-meta text-ink-2" dir="ltr">{order.orderNumber}</span>
+                          <span className="u-mono u-meta text-ink-2" dir="ltr">
+                            {order.orderNumber}
+                          </span>
                           <StatusPill tone={sc.tone}>
                             <StatusIcon className="h-3 w-3" aria-hidden="true" />
                             {stage(order.status)}
@@ -227,11 +255,16 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
                             same sentence the confirmation showed, so the
                             history never contradicts it. No dates: the
                             platform computes none, so it promises none. */}
-                        <p className="u-meta mt-1 text-ink-2">{m(`next.${whatHappensNext(order.status, order.paymentMethod)}`)}</p>
+                        <p className="u-meta mt-1 text-ink-2">
+                          {m(`next.${whatHappensNext(order.status, order.paymentMethod)}`)}
+                        </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
                         <Num value={formatCurrency(Number(order.total), order.currency as never)} />
-                        <ChevronRight className="h-4 w-4 text-ink-3 rtl:rotate-180" aria-hidden="true" />
+                        <ChevronRight
+                          className="h-4 w-4 text-ink-3 rtl:rotate-180"
+                          aria-hidden="true"
+                        />
                       </div>
                     </div>
 
@@ -244,7 +277,9 @@ export default async function OrdersPage({ searchParams }: { searchParams: { sta
                         <span key={i}>
                           {i > 0 && <span className="text-ink-3"> · </span>}
                           {item.nameEn}
-                          {item.quantity > 1 && <span className="u-meta ms-1 text-ink-3">×{item.quantity}</span>}
+                          {item.quantity > 1 && (
+                            <span className="u-meta ms-1 text-ink-3">×{item.quantity}</span>
+                          )}
                         </span>
                       ))}
                       {remaining > 0 && (

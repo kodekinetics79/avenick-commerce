@@ -5,7 +5,14 @@ import { FilterTabs, Pager, ConsoleSearch, queryHref } from "@/components/consol
 import { ScrollText, X } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
-import { Button, EmptyState, LedgerTable, PageHeader, StatusPill, type PillTone } from "@avenick/ui";
+import {
+  Button,
+  EmptyState,
+  LedgerTable,
+  PageHeader,
+  StatusPill,
+  type PillTone,
+} from "@avenick/ui";
 
 export const metadata = { title: "Audit Trail" };
 export const dynamic = "force-dynamic";
@@ -24,7 +31,7 @@ const ACTION_TONE: Record<string, PillTone> = {
 };
 
 interface PageProps {
-  searchParams: { entityType?: string; action?: string; search?: string; page?: string };
+  searchParams: Promise<{ entityType?: string; action?: string; search?: string; page?: string }>;
 }
 
 type AuditRow = Awaited<ReturnType<typeof getAuditLogs>>["logs"][number];
@@ -48,7 +55,8 @@ function detailOf(log: AuditRow): { text: string; muted: boolean } {
   return { text: "Recorded with no summarisable change", muted: true };
 }
 
-export default async function AuditPage({ searchParams }: PageProps) {
+export default async function AuditPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   await requireAdminSession();
 
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
@@ -64,7 +72,8 @@ export default async function AuditPage({ searchParams }: PageProps) {
     getAuditEntityTypes(),
   ]);
   const totalPages = Math.max(1, Math.ceil(total / limit));
-  const href = (next: Record<string, string | undefined>) => queryHref("/audit", searchParams, next);
+  const href = (next: Record<string, string | undefined>) =>
+    queryHref("/audit", searchParams, next);
   const filtered = Boolean(search || entityType || action);
 
   return (
@@ -115,7 +124,9 @@ export default async function AuditPage({ searchParams }: PageProps) {
         {action && (
           <p className="flex flex-wrap items-center gap-2">
             <span className="u-meta text-ink-3">Showing only</span>
-            <StatusPill tone={ACTION_TONE[action] ?? "neutral"}>{action.replace(/_/g, " ")}</StatusPill>
+            <StatusPill tone={ACTION_TONE[action] ?? "neutral"}>
+              {action.replace(/_/g, " ")}
+            </StatusPill>
             <Button variant="ghost" size="xs" asChild>
               <Link href={href({ action: undefined })}>
                 <X className="h-3 w-3" aria-hidden="true" /> Show every action
@@ -135,7 +146,9 @@ export default async function AuditPage({ searchParams }: PageProps) {
               label: "Recorded",
               width: "168px",
               render: (log) => (
-                <span className="tnum text-ink-2">{format(log.createdAt, "d MMM yyyy HH:mm:ss")}</span>
+                <span className="tnum text-ink-2">
+                  {format(log.createdAt, "d MMM yyyy HH:mm:ss")}
+                </span>
               ),
             },
             {
@@ -160,7 +173,10 @@ export default async function AuditPage({ searchParams }: PageProps) {
               label: "Action",
               width: "156px",
               render: (log) => (
-                <Link href={href({ action: log.action })} className="u-focus inline-block rounded-nested">
+                <Link
+                  href={href({ action: log.action })}
+                  className="u-focus inline-block rounded-nested"
+                >
                   <StatusPill tone={ACTION_TONE[log.action] ?? "neutral"}>
                     {log.action.replace(/_/g, " ")}
                   </StatusPill>
@@ -174,7 +190,10 @@ export default async function AuditPage({ searchParams }: PageProps) {
               width: "196px",
               render: (log) => (
                 <>
-                  <Link href={href({ entityType: log.entityType })} className="u-focus block rounded-nested text-ink-1 underline-offset-4 hover:underline">
+                  <Link
+                    href={href({ entityType: log.entityType })}
+                    className="u-focus block rounded-nested text-ink-1 underline-offset-4 hover:underline"
+                  >
                     {log.entityType}
                     <span className="sr-only"> — show only this entity type</span>
                   </Link>
@@ -188,7 +207,11 @@ export default async function AuditPage({ searchParams }: PageProps) {
               hideOnMobile: true,
               render: (log) => {
                 const detail = detailOf(log);
-                return <span className={detail.muted ? "u-meta text-ink-3" : "text-ink-2"}>{detail.text}</span>;
+                return (
+                  <span className={detail.muted ? "u-meta text-ink-3" : "text-ink-2"}>
+                    {detail.text}
+                  </span>
+                );
               },
             },
           ]}

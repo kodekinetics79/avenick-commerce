@@ -2,13 +2,34 @@ import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { db, getPayments, PaymentStatus, Prisma } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
-import { CreditCard, CheckCircle, Clock, XCircle, RotateCcw, Building2, Smartphone, Search, Beaker, Banknote, AlertTriangle } from "lucide-react";
+import {
+  CreditCard,
+  CheckCircle,
+  Clock,
+  XCircle,
+  RotateCcw,
+  Building2,
+  Smartphone,
+  Search,
+  Beaker,
+  Banknote,
+  AlertTriangle,
+} from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import {
-  PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Surface,
-  Num, Eyebrow, Dateline, Button, type PillTone,
+  PageHeader,
+  CellGrid,
+  LedgerTable,
+  EmptyState,
+  StatusPill,
+  Surface,
+  Num,
+  Eyebrow,
+  Dateline,
+  Button,
+  type PillTone,
 } from "@avenick/ui";
 import { MoneyStat } from "@/app/finance/money-figures";
 import { FilterTabs, Pager, CONTROL, CONTROL_SM } from "@/components/console/chrome";
@@ -83,20 +104,33 @@ function settlementFor(
   if (payment.method !== "BANK_TRANSFER") return { kind: "none" };
   if (payment.status === "PAID") return { kind: "none" };
   if (payment.status !== "UNPAID") {
-    return { kind: "blocked", reason: t("blocked.statusNotConfirmable", { status: t(`status.${payment.status}`).toLowerCase() }) };
+    return {
+      kind: "blocked",
+      reason: t("blocked.statusNotConfirmable", {
+        status: t(`status.${payment.status}`).toLowerCase(),
+      }),
+    };
   }
   if (!order) return { kind: "blocked", reason: t("blocked.orderUnavailable") };
-  if (order.paymentMethod !== "BANK_TRANSFER") return { kind: "blocked", reason: t("blocked.notBankTransferOrder") };
+  if (order.paymentMethod !== "BANK_TRANSFER")
+    return { kind: "blocked", reason: t("blocked.notBankTransferOrder") };
   if (CLOSED_ORDER_STATUSES.has(order.status)) {
-    return { kind: "blocked", reason: t("blocked.orderStatus", { status: t(`orderStatus.${order.status}`) }) };
+    return {
+      kind: "blocked",
+      reason: t("blocked.orderStatus", { status: t(`orderStatus.${order.status}`) }),
+    };
   }
-  if (order.paymentStatus === "REFUNDED") return { kind: "blocked", reason: t("blocked.orderRefunded") };
+  if (order.paymentStatus === "REFUNDED")
+    return { kind: "blocked", reason: t("blocked.orderRefunded") };
   // No FX policy exists in this system, so anything that would require
   // converting between currencies is handed back to a human.
   if (payment.currency !== order.currency) {
     return {
       kind: "blocked",
-      reason: t("blocked.currencyMismatch", { paymentCurrency: payment.currency, orderCurrency: order.currency }),
+      reason: t("blocked.currencyMismatch", {
+        paymentCurrency: payment.currency,
+        orderCurrency: order.currency,
+      }),
     };
   }
   if (receipts?.currencies.some((currency) => currency !== order.currency)) {
@@ -104,7 +138,8 @@ function settlementFor(
   }
 
   const outstanding = order.total.sub(receipts?.total ?? 0);
-  if (outstanding.lessThanOrEqualTo(0)) return { kind: "blocked", reason: t("blocked.alreadyCovered") };
+  if (outstanding.lessThanOrEqualTo(0))
+    return { kind: "blocked", reason: t("blocked.alreadyCovered") };
   return {
     kind: "confirmable",
     outstanding,
@@ -113,7 +148,7 @@ function settlementFor(
 }
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     status?: string;
     search?: string;
     page?: string;
@@ -124,14 +159,21 @@ interface PageProps {
     sharedRef?: string;
     confirmError?: string;
     payment?: string;
-  };
+  }>;
 }
 
 // Outcome params are dropped from every filter link so the banner does not
 // follow the operator around the listing as though it had happened again.
-const OUTCOME_PARAMS = { confirmed: undefined, outcome: undefined, sharedRef: undefined, confirmError: undefined, payment: undefined };
+const OUTCOME_PARAMS = {
+  confirmed: undefined,
+  outcome: undefined,
+  sharedRef: undefined,
+  confirmError: undefined,
+  payment: undefined,
+};
 
-export default async function PaymentsPage({ searchParams }: PageProps) {
+export default async function PaymentsPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   await requireAdminSession();
   const t = await getTranslations("adminCommerce.payments");
 
@@ -151,7 +193,15 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
     // decisions cannot be made without them.
     db.order.findMany({
       where: { id: { in: orderIds } },
-      select: { id: true, total: true, currency: true, status: true, paymentStatus: true, paymentMethod: true, createdAt: true },
+      select: {
+        id: true,
+        total: true,
+        currency: true,
+        status: true,
+        paymentStatus: true,
+        paymentMethod: true,
+        createdAt: true,
+      },
     }),
     db.payment.groupBy({
       by: ["orderId", "currency"],
@@ -170,7 +220,10 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
   const orderById = new Map<string, OrderFact>(orderFacts.map((order) => [order.id, order]));
   const receiptsByOrder = new Map<string, Receipts>();
   for (const group of confirmedReceipts) {
-    const entry = receiptsByOrder.get(group.orderId) ?? { total: new Prisma.Decimal(0), currencies: [] };
+    const entry = receiptsByOrder.get(group.orderId) ?? {
+      total: new Prisma.Decimal(0),
+      currencies: [],
+    };
     entry.total = entry.total.add(group._sum.amount ?? 0);
     entry.currencies.push(group.currency);
     receiptsByOrder.set(group.orderId, entry);
@@ -180,7 +233,10 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
     const rows = ledgerTotals.filter((row) => statuses.includes(row.status));
     const byCurrency = new Map<string, Prisma.Decimal>();
     for (const row of rows) {
-      byCurrency.set(row.currency, (byCurrency.get(row.currency) ?? new Prisma.Decimal(0)).add(row._sum.amount ?? 0));
+      byCurrency.set(
+        row.currency,
+        (byCurrency.get(row.currency) ?? new Prisma.Decimal(0)).add(row._sum.amount ?? 0),
+      );
     }
     return {
       count: rows.reduce((sum, row) => sum + row._count._all, 0),
@@ -203,7 +259,11 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
 
   const outcome = (() => {
     if (searchParams.confirmError) {
-      return { tone: "refused" as const, title: t("outcome.refusedTitle"), detail: searchParams.confirmError };
+      return {
+        tone: "refused" as const,
+        title: t("outcome.refusedTitle"),
+        detail: searchParams.confirmError,
+      };
     }
     if (!searchParams.confirmed) return null;
     const orderNumber = searchParams.confirmed;
@@ -226,7 +286,11 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
   // what came in, what has not, what broke, what went back out.
   const tiles = [
     { key: "collected", label: t("tiles.collected"), statuses: [PaymentStatus.PAID] },
-    { key: "awaiting", label: t("tiles.awaiting"), statuses: [PaymentStatus.UNPAID, PaymentStatus.PARTIALLY_PAID] },
+    {
+      key: "awaiting",
+      label: t("tiles.awaiting"),
+      statuses: [PaymentStatus.UNPAID, PaymentStatus.PARTIALLY_PAID],
+    },
     { key: "failed", label: t("tiles.failed"), statuses: [PaymentStatus.FAILED] },
     { key: "refunded", label: t("tiles.refunded"), statuses: [PaymentStatus.REFUNDED] },
   ];
@@ -260,7 +324,9 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
               )}
               {outcome.title}
             </p>
-            {outcome.detail && <p className="u-meta mt-1 max-w-prose text-ink-2">{outcome.detail}</p>}
+            {outcome.detail && (
+              <p className="u-meta mt-1 max-w-prose text-ink-2">{outcome.detail}</p>
+            )}
           </Surface>
         )}
 
@@ -292,9 +358,17 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
             }))}
           />
 
-          <form method="get" action="/payments" role="search" className="relative w-full lg:max-w-xs">
+          <form
+            method="get"
+            action="/payments"
+            role="search"
+            className="relative w-full lg:max-w-xs"
+          >
             {status && <input type="hidden" name="status" value={status} />}
-            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+            <Search
+              className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3"
+              aria-hidden="true"
+            />
             <input
               data-rung={1}
               type="search"
@@ -317,7 +391,8 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
             // operator lands on it rather than hunting for it.
             // Hover is a plain background-color and would otherwise replace
             // this wash outright; the hover state deepens the same hue instead.
-            className: searchParams.payment === p.id ? "bg-danger-soft hover:bg-danger/10" : undefined,
+            className:
+              searchParams.payment === p.id ? "bg-danger-soft hover:bg-danger/10" : undefined,
             "aria-current": searchParams.payment === p.id ? "true" : undefined,
           })}
           columns={[
@@ -342,7 +417,9 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
               hideOnMobile: true,
               render: (p) => (
                 <div className="min-w-0 py-1">
-                  <p className="truncate font-medium text-ink-1">{p.order.user.firstName} {p.order.user.lastName}</p>
+                  <p className="truncate font-medium text-ink-1">
+                    {p.order.user.firstName} {p.order.user.lastName}
+                  </p>
                   <p className="u-meta truncate text-ink-3">{p.order.user.email}</p>
                 </div>
               ),
@@ -368,7 +445,10 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
               label: t("columns.amount"),
               numeric: true,
               render: (p) => (
-                <Num value={formatCurrency(Number(p.amount), p.currency as never)} className="whitespace-nowrap" />
+                <Num
+                  value={formatCurrency(Number(p.amount), p.currency as never)}
+                  className="whitespace-nowrap"
+                />
               ),
             },
             {
@@ -388,14 +468,18 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
               key: "gatewayRef",
               label: t("columns.gatewayRef"),
               hideOnMobile: true,
-              render: (p) => <span className="u-mono text-meta text-ink-3">{p.gatewayRef ?? "—"}</span>,
+              render: (p) => (
+                <span className="u-mono text-meta text-ink-3">{p.gatewayRef ?? "—"}</span>
+              ),
             },
             {
               key: "date",
               label: t("columns.date"),
               hideOnMobile: true,
               render: (p) => (
-                <span className="whitespace-nowrap text-ink-2">{format(p.paidAt ?? p.createdAt, "MMM d, yyyy HH:mm")}</span>
+                <span className="whitespace-nowrap text-ink-2">
+                  {format(p.paidAt ?? p.createdAt, "MMM d, yyyy HH:mm")}
+                </span>
               ),
             },
             {
@@ -420,7 +504,10 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
                       <div className="flex items-baseline justify-between gap-2">
                         <Eyebrow>{t("confirm.outstanding")}</Eyebrow>
                         <Num
-                          value={formatCurrency(Number(settlement.outstanding), p.currency as never)}
+                          value={formatCurrency(
+                            Number(settlement.outstanding),
+                            p.currency as never,
+                          )}
                           className="whitespace-nowrap text-meta"
                         />
                       </div>
@@ -431,7 +518,9 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
                           required
                           maxLength={64}
                           placeholder={t("confirm.bankReference")}
-                          aria-label={t("confirm.bankReferenceLabel", { orderNumber: p.order.orderNumber })}
+                          aria-label={t("confirm.bankReferenceLabel", {
+                            orderNumber: p.order.orderNumber,
+                          })}
                           className={`${CONTROL_SM} min-w-0 flex-1`}
                         />
                         <input
@@ -444,7 +533,9 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
                           max={settlement.outstanding.toFixed(2)}
                           defaultValue={settlement.suggested.toFixed(2)}
                           required
-                          aria-label={t("confirm.amountLabel", { orderNumber: p.order.orderNumber })}
+                          aria-label={t("confirm.amountLabel", {
+                            orderNumber: p.order.orderNumber,
+                          })}
                           className={`${CONTROL_SM} fig w-24 shrink-0 text-end`}
                         />
                       </div>
@@ -458,11 +549,14 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
                           required
                           min={order ? order.createdAt.toISOString().slice(0, 10) : undefined}
                           max={todayIso}
-                          aria-label={t("confirm.valueDateLabel", { orderNumber: p.order.orderNumber })}
+                          aria-label={t("confirm.valueDateLabel", {
+                            orderNumber: p.order.orderNumber,
+                          })}
                           className={`${CONTROL_SM} min-w-0 flex-1`}
                         />
                         <Button type="submit" variant="secondary" size="xs" className="shrink-0">
-                          <Banknote className="h-3.5 w-3.5" aria-hidden="true" /> {t("confirm.submit")}
+                          <Banknote className="h-3.5 w-3.5" aria-hidden="true" />{" "}
+                          {t("confirm.submit")}
                         </Button>
                       </div>
                     </form>

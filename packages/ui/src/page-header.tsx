@@ -45,13 +45,14 @@ export function PageHeader({
   actions,
   eyebrow,
   dateline,
-  linkComponent: LinkComp = "a",
+  linkComponent,
   className,
 }: PageHeaderProps) {
+  const LinkComp = (linkComponent ?? "a") as any;
   return (
-    <div className={cn("mb-block border-b border-border-strong pb-4", className)}>
+    <div className={cn("mb-block border-border-strong border-b pb-4", className)}>
       {breadcrumbs && breadcrumbs.length > 0 && (
-        <nav className="u-meta mb-2 flex items-center gap-1.5 text-ink-3">
+        <nav className="u-meta text-ink-3 mb-2 flex items-center gap-1.5">
           {breadcrumbs.map((bc, i) => {
             const isLast = i === breadcrumbs.length - 1;
             return (
@@ -59,15 +60,17 @@ export function PageHeader({
                 {bc.href && !isLast ? (
                   <LinkComp
                     href={bc.href}
-                    className="u-focus rounded-nested transition-colors duration-press ease-standard hover:text-ink-1"
+                    className="u-focus rounded-nested duration-press ease-standard hover:text-ink-1 transition-colors"
                   >
                     {bc.label}
                   </LinkComp>
                 ) : (
-                  <span className={isLast ? "font-medium text-ink-1" : ""}>{bc.label}</span>
+                  <span className={isLast ? "text-ink-1 font-medium" : ""}>{bc.label}</span>
                 )}
                 {/* rtl:rotate-180 — a direction-implying icon must flip. */}
-                {!isLast && <ChevronRight className="h-3 w-3 shrink-0 rtl:rotate-180" aria-hidden="true" />}
+                {!isLast && (
+                  <ChevronRight className="h-3 w-3 shrink-0 rtl:rotate-180" aria-hidden="true" />
+                )}
               </React.Fragment>
             );
           })}
@@ -77,7 +80,7 @@ export function PageHeader({
         <div className="min-w-0">
           {eyebrow && <Eyebrow className="mb-1">{eyebrow}</Eyebrow>}
           <h1 className="u-h1 text-ink-1">{title}</h1>
-          {description && <p className="u-body mt-1 max-w-prose text-ink-2">{description}</p>}
+          {description && <p className="u-body text-ink-2 mt-1 max-w-prose">{description}</p>}
           {dateline && <Dateline className="mt-1.5">{dateline}</Dateline>}
         </div>
         {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}

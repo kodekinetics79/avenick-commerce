@@ -28,7 +28,9 @@ const ownKey = `private/sellers/${sellerId}/documents/mfa1b2c3-0123456789ab.pdf`
 const signedUrl = "https://storage.test/bucket/signed?X-Amz-Signature=test";
 
 function get(id: string) {
-  return GET(new Request(`https://admin.test/documents/${id}/view`), { params: { id } });
+  return GET(new Request(`https://admin.test/documents/${id}/view`), {
+    params: Promise.resolve({ id }),
+  });
 }
 
 beforeEach(() => {
@@ -40,13 +42,17 @@ beforeEach(() => {
 
 describe("admin document viewer", () => {
   it("answers 404 for a non-record id before touching auth or the database", async () => {
-    await expect(get("not-a-record-id")).rejects.toMatchObject({ digest: "NEXT_NOT_FOUND" });
+    await expect(get("not-a-record-id")).rejects.toMatchObject({
+      digest: "NEXT_HTTP_ERROR_FALLBACK;404",
+    });
     expect(mocks.requireAdminSession).not.toHaveBeenCalled();
     expect(mocks.findUnique).not.toHaveBeenCalled();
   });
 
   it("lets the admin-session redirect propagate and never loads the row", async () => {
-    const redirect = Object.assign(new Error("NEXT_REDIRECT"), { digest: "NEXT_REDIRECT;replace;/login;307;" });
+    const redirect = Object.assign(new Error("NEXT_REDIRECT"), {
+      digest: "NEXT_REDIRECT;replace;/login;307;",
+    });
     mocks.requireAdminSession.mockRejectedValue(redirect);
     await expect(get(documentId)).rejects.toBe(redirect);
     expect(mocks.findUnique).not.toHaveBeenCalled();
@@ -54,7 +60,9 @@ describe("admin document viewer", () => {
 
   it("answers 404 when the row does not exist", async () => {
     mocks.findUnique.mockResolvedValue(null);
-    await expect(get(documentId)).rejects.toMatchObject({ digest: "NEXT_NOT_FOUND" });
+    await expect(get(documentId)).rejects.toMatchObject({
+      digest: "NEXT_HTTP_ERROR_FALLBACK;404",
+    });
     expect(mocks.findUnique).toHaveBeenCalledWith({
       where: { id: documentId },
       select: { fileUrl: true, sellerId: true },

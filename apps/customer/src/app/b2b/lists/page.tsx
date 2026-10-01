@@ -15,9 +15,7 @@ export async function generateMetadata() {
   return b2bMetadata("lists.title");
 }
 
-export default async function RequisitionListsPage({
-  searchParams,
-}: {
+export default async function RequisitionListsPage(props: {
   // addItem is bound to a plain form and so has no return channel; it reports
   // its outcome through the query string exactly as the governed purchase-order
   // actions do — as a CODE plus the one value it names, never as a finished
@@ -26,8 +24,9 @@ export default async function RequisitionListsPage({
   // wrote both parameters and then never read them, so a buyer who added a
   // withdrawn SKU — the one case the action refuses — was told nothing at all
   // and saw a list that silently had not changed.
-  searchParams?: { listDone?: string; listError?: string; listArg?: string };
+  searchParams?: Promise<{ listDone?: string; listError?: string; listArg?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const t = await getB2BT();
   const ctx = await getB2BContext();
   if (!ctx) {
@@ -52,7 +51,12 @@ export default async function RequisitionListsPage({
   const lists = await db.requisitionList.findMany({
     where: { companyId: ctx.companyId },
     orderBy: { createdAt: "desc" },
-    include: { items: { include: { product: { select: { sellerId: true } } }, orderBy: { createdAt: "asc" } } },
+    include: {
+      items: {
+        include: { product: { select: { sellerId: true } } },
+        orderBy: { createdAt: "asc" },
+      },
+    },
   });
 
   return (
@@ -80,9 +84,16 @@ export default async function RequisitionListsPage({
           </Eyebrow>
           <div className="max-w-md">
             <Field label={t("lists.field.name")} htmlFor="list-name" required>
-              <TextField id="list-name" name="name" required placeholder={t("lists.field.name.placeholder")} />
+              <TextField
+                id="list-name"
+                name="name"
+                required
+                placeholder={t("lists.field.name.placeholder")}
+              />
             </Field>
-            <Button type="submit" variant="primary">{t("lists.create")}</Button>
+            <Button type="submit" variant="primary">
+              {t("lists.create")}
+            </Button>
           </div>
         </ValidatedForm>
 
@@ -103,12 +114,14 @@ export default async function RequisitionListsPage({
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
             {lists.map((l) => {
-              const reorderItems = l.items.filter((it) => it.productId != null).map((it) => ({
-                productId: it.productId!,
-                sku: it.sku,
-                nameEn: it.nameEn,
-                qty: it.qty,
-              }));
+              const reorderItems = l.items
+                .filter((it) => it.productId != null)
+                .map((it) => ({
+                  productId: it.productId!,
+                  sku: it.sku,
+                  nameEn: it.nameEn,
+                  qty: it.qty,
+                }));
               return (
                 <Surface key={l.id} rung={2} className="flex flex-col p-5">
                   <div className="mb-3 flex items-start justify-between gap-2">
@@ -119,7 +132,9 @@ export default async function RequisitionListsPage({
                       <div className="min-w-0">
                         <h2 className="u-h3 truncate text-ink-1">{l.name}</h2>
                         <p className="u-meta text-ink-3">
-                          {t(l.items.length === 1 ? "lists.items.one" : "lists.items.other", { count: l.items.length })}
+                          {t(l.items.length === 1 ? "lists.items.one" : "lists.items.other", {
+                            count: l.items.length,
+                          })}
                         </p>
                       </div>
                     </div>
@@ -169,14 +184,35 @@ export default async function RequisitionListsPage({
                   )}
 
                   {/* Add item */}
-                  <form action={addItem.bind(null, l.id)} className="grid grid-cols-[1fr_80px_auto] items-start gap-2">
+                  <form
+                    action={addItem.bind(null, l.id)}
+                    className="grid grid-cols-[1fr_80px_auto] items-start gap-2"
+                  >
                     <Field label={t("lists.addBySku")} htmlFor={`list-${l.id}-sku`} hideLabel>
-                      <TextField id={`list-${l.id}-sku`} name="sku" required placeholder={t("lists.addBySku")} size="sm" />
+                      <TextField
+                        id={`list-${l.id}-sku`}
+                        name="sku"
+                        required
+                        placeholder={t("lists.addBySku")}
+                        size="sm"
+                      />
                     </Field>
                     <Field label={t("lists.quantity")} htmlFor={`list-${l.id}-qty`} hideLabel>
-                      <TextField id={`list-${l.id}-qty`} name="qty" type="number" min={1} defaultValue={1} size="sm" />
+                      <TextField
+                        id={`list-${l.id}-qty`}
+                        name="qty"
+                        type="number"
+                        min={1}
+                        defaultValue={1}
+                        size="sm"
+                      />
                     </Field>
-                    <Button type="submit" variant="secondary" size="sm" aria-label={t("lists.addToList", { name: l.name })}>
+                    <Button
+                      type="submit"
+                      variant="secondary"
+                      size="sm"
+                      aria-label={t("lists.addToList", { name: l.name })}
+                    >
                       <Plus className="h-4 w-4" aria-hidden="true" />
                     </Button>
                   </form>

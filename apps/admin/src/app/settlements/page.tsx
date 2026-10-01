@@ -3,13 +3,31 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { getSettlementBoard, Prisma, PayoutStatus, type Currency } from "@avenick/database";
 import { formatCurrency, type SupportedCurrency } from "@avenick/utils";
 import { generatePayoutsForPeriod, markPayoutPaid, startPayoutProcessing } from "./actions";
-import { Receipt, CheckCircle, Clock, RefreshCw, XCircle, Store, AlertTriangle, PlayCircle } from "lucide-react";
+import {
+  Receipt,
+  CheckCircle,
+  Clock,
+  RefreshCw,
+  XCircle,
+  Store,
+  AlertTriangle,
+  PlayCircle,
+} from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import {
-  PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Surface,
-  Num, Eyebrow, Dateline, Button, type PillTone,
+  PageHeader,
+  CellGrid,
+  LedgerTable,
+  EmptyState,
+  StatusPill,
+  Surface,
+  Num,
+  Eyebrow,
+  Dateline,
+  Button,
+  type PillTone,
 } from "@avenick/ui";
 import { MoneyStat } from "@/app/finance/money-figures";
 import { FilterTabs, Pager, CONTROL, CONTROL_SM } from "@/components/console/chrome";
@@ -43,7 +61,7 @@ const counter = (raw: string | undefined) => {
 };
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     status?: string;
     page?: string;
     ran?: string;
@@ -55,10 +73,11 @@ interface PageProps {
     heldAccruals?: string;
     failed?: string;
     refusals?: string;
-  };
+  }>;
 }
 
-export default async function SettlementsPage({ searchParams }: PageProps) {
+export default async function SettlementsPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   await requireAdminSession();
   const t = await getTranslations("adminCommerce.settlements");
 
@@ -68,17 +87,33 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
     ? (searchParams.status as PayoutStatus)
     : undefined;
 
-  const { payouts, total, statusTotals, claimable } = await getSettlementBoard({ page, limit, status });
+  const { payouts, total, statusTotals, claimable } = await getSettlementBoard({
+    page,
+    limit,
+    status,
+  });
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   const linesFor = (s: PayoutStatus) => statusTotals.filter((row) => row.status === s);
-  const countFor = (s: PayoutStatus) =>
-    linesFor(s).reduce((sum, row) => sum + row._count._all, 0);
+  const countFor = (s: PayoutStatus) => linesFor(s).reduce((sum, row) => sum + row._count._all, 0);
 
   const filterHref = (params: Record<string, string | undefined>) => {
     // The run summary belongs to one response only — dropping it here keeps a
     // filter click from reprinting an outcome that already happened.
-    const merged = { ...searchParams, page: undefined, ran: undefined, generated: undefined, sellers: undefined, claimed: undefined, unpayable: undefined, heldSellers: undefined, heldAccruals: undefined, failed: undefined, refusals: undefined, ...params };
+    const merged = {
+      ...searchParams,
+      page: undefined,
+      ran: undefined,
+      generated: undefined,
+      sellers: undefined,
+      claimed: undefined,
+      unpayable: undefined,
+      heldSellers: undefined,
+      heldAccruals: undefined,
+      failed: undefined,
+      refusals: undefined,
+      ...params,
+    };
     const qs = new URLSearchParams(
       Object.entries(merged).filter((e): e is [string, string] => Boolean(e[1])),
     ).toString();
@@ -89,7 +124,9 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
   const defaultFrom = claimable.earliestAt ? isoDay(claimable.earliestAt) : today;
   // One entry per seller: a seller accruing in two currencies is settled once,
   // into one payout per currency.
-  const claimableSellers = [...new Map(claimable.bySeller.map((row) => [row.sellerId, row])).values()];
+  const claimableSellers = [
+    ...new Map(claimable.bySeller.map((row) => [row.sellerId, row])).values(),
+  ];
   const ran = searchParams.ran === "1";
   const generated = counter(searchParams.generated);
   const unpayable = counter(searchParams.unpayable);
@@ -105,7 +142,10 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
       <div className="space-y-block">
         <PageHeader
           linkComponent={Link}
-          breadcrumbs={[{ label: t("breadcrumbFinance"), href: "/finance" }, { label: t("breadcrumbSelf") }]}
+          breadcrumbs={[
+            { label: t("breadcrumbFinance"), href: "/finance" },
+            { label: t("breadcrumbSelf") },
+          ]}
           eyebrow={t("eyebrow")}
           title={t("title")}
           description={t("description")}
@@ -125,14 +165,15 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
               {t("run.examined", {
                 count: counter(searchParams.sellers),
                 value: String(counter(searchParams.sellers)),
-              })}{" · "}
+              })}
+              {" · "}
               {t("run.claimed", { value: String(counter(searchParams.claimed)) })}
               {unpayable > 0 ? ` · ${t("run.unpayable", { value: String(unpayable) })}` : ""}
               {heldSellers > 0 ? ` · ${t("run.heldSellers", { value: String(heldSellers) })}` : ""}
               {heldAccruals > 0
                 ? ` · ${t("run.heldAccruals", { count: heldAccruals, value: String(heldAccruals) })}`
-                : ""}.
-              {generated > 0 ? t("run.pendingNote") : ""}
+                : ""}
+              .{generated > 0 ? t("run.pendingNote") : ""}
             </p>
             {failed > 0 && (
               <div className="mt-3 border-t border-danger-rule pt-3">
@@ -141,7 +182,9 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                   {t("run.refused", { count: failed, value: String(failed) })}
                 </p>
                 <ul className="u-meta mt-1.5 list-disc space-y-0.5 ps-5 text-ink-2">
-                  {refusals.map((line, index) => <li key={index}>{line}</li>)}
+                  {refusals.map((line, index) => (
+                    <li key={index}>{line}</li>
+                  ))}
                 </ul>
               </div>
             )}
@@ -197,8 +240,14 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                     label={t("generate.currencyLabel", { currency: row.currency })}
                     lines={[{ currency: row.currency, formatted: money(row.amount, row.currency) }]}
                     dateline={t("generate.currencyDateline", {
-                      orders: t("generate.ordersCount", { count: row.orders, value: String(row.orders) }),
-                      sellers: t("generate.sellersCount", { count: row.sellers, value: String(row.sellers) }),
+                      orders: t("generate.ordersCount", {
+                        count: row.orders,
+                        value: String(row.orders),
+                      }),
+                      sellers: t("generate.sellersCount", {
+                        count: row.sellers,
+                        value: String(row.sellers),
+                      }),
                       date: format(row.earliestAt, "MMM d, yyyy"),
                     })}
                   />
@@ -241,7 +290,9 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                   <select data-rung={1} name="sellerId" defaultValue="" className={CONTROL}>
                     <option value="">{t("generate.allSellers")}</option>
                     {claimableSellers.map((row) => (
-                      <option key={row.sellerId} value={row.sellerId}>{row.sellerName}</option>
+                      <option key={row.sellerId} value={row.sellerId}>
+                        {row.sellerName}
+                      </option>
                     ))}
                   </select>
                 </label>
@@ -250,25 +301,41 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                 </Button>
               </form>
 
-              <div className="mt-4 overflow-x-auto scrollbar-thin">
+              <div className="scrollbar-thin mt-4 overflow-x-auto">
                 <table className="w-full border-collapse">
                   <caption className="sr-only">{t("generate.tableCaption")}</caption>
                   <thead>
                     <tr className="border-b-2 border-border-strong">
-                      {[t("generate.columns.seller"), t("generate.columns.currency"), t("generate.columns.orders"), t("generate.columns.commission")].map((h, i) => (
-                        <th key={h} scope="col" className={`px-3 py-2 ${i === 3 ? "text-end" : "text-start"}`}>
-                          <Eyebrow as="span" className="block">{h}</Eyebrow>
+                      {[
+                        t("generate.columns.seller"),
+                        t("generate.columns.currency"),
+                        t("generate.columns.orders"),
+                        t("generate.columns.commission"),
+                      ].map((h, i) => (
+                        <th
+                          key={h}
+                          scope="col"
+                          className={`px-3 py-2 ${i === 3 ? "text-end" : "text-start"}`}
+                        >
+                          <Eyebrow as="span" className="block">
+                            {h}
+                          </Eyebrow>
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {claimable.bySeller.map((row) => (
-                      <tr key={`${row.sellerId}:${row.currency}`} className="u-ledger-row border-b border-hairline last:border-b-0">
+                      <tr
+                        key={`${row.sellerId}:${row.currency}`}
+                        className="u-ledger-row border-b border-hairline last:border-b-0"
+                      >
                         <td className="px-3 py-2 text-ui text-ink-1">{row.sellerName}</td>
                         <td className="px-3 py-2 text-ui text-ink-2">{row.currency}</td>
                         <td className="fig px-3 py-2 text-ui text-ink-2">{row.orders}</td>
-                        <td className="fig px-3 py-2 text-end text-ui text-ink-1">{money(row.amount, row.currency)}</td>
+                        <td className="fig px-3 py-2 text-end text-ui text-ink-1">
+                          {money(row.amount, row.currency)}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -304,7 +371,9 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
             // variant of its own the wash is REPLACED the moment the pointer
             // lands on the row — i.e. exactly when the operator is reading it.
             // The hover state is a deeper wash of the same hue, never a neutral.
-            className: p.lineTotals.net.equals(p.amount) ? undefined : "bg-danger-soft hover:bg-danger/10",
+            className: p.lineTotals.net.equals(p.amount)
+              ? undefined
+              : "bg-danger-soft hover:bg-danger/10",
           })}
           columns={[
             {
@@ -349,9 +418,20 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                       <caption className="sr-only">{t("lines.caption")}</caption>
                       <thead>
                         <tr className="border-b border-hairline">
-                          {[t("lines.columns.order"), t("lines.columns.gross"), t("lines.columns.commission"), t("lines.columns.net")].map((h, i) => (
-                            <th key={h} scope="col" className={`py-1 ${i === 0 ? "text-start" : "text-end"}`}>
-                              <Eyebrow as="span" className="block">{h}</Eyebrow>
+                          {[
+                            t("lines.columns.order"),
+                            t("lines.columns.gross"),
+                            t("lines.columns.commission"),
+                            t("lines.columns.net"),
+                          ].map((h, i) => (
+                            <th
+                              key={h}
+                              scope="col"
+                              className={`py-1 ${i === 0 ? "text-start" : "text-end"}`}
+                            >
+                              <Eyebrow as="span" className="block">
+                                {h}
+                              </Eyebrow>
                             </th>
                           ))}
                         </tr>
@@ -359,23 +439,42 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                       <tbody>
                         {p.items.map((item) => (
                           <tr key={item.id}>
-                            <td className="u-mono py-1 text-meta text-ink-2">{item.order.orderNumber}</td>
-                            <td className="fig py-1 text-end text-meta text-ink-2">{money(item.amount, p.currency)}</td>
-                            <td className="fig py-1 text-end text-meta text-danger-ink">−{money(item.commission, p.currency)}</td>
-                            <td className="fig py-1 text-end text-meta font-medium text-ink-1">{money(item.net, p.currency)}</td>
+                            <td className="u-mono py-1 text-meta text-ink-2">
+                              {item.order.orderNumber}
+                            </td>
+                            <td className="fig py-1 text-end text-meta text-ink-2">
+                              {money(item.amount, p.currency)}
+                            </td>
+                            <td className="fig py-1 text-end text-meta text-danger-ink">
+                              −{money(item.commission, p.currency)}
+                            </td>
+                            <td className="fig py-1 text-end text-meta font-medium text-ink-1">
+                              {money(item.net, p.currency)}
+                            </td>
                           </tr>
                         ))}
                         <tr className="border-t border-border-strong">
-                          <td className="py-1 text-meta font-medium text-ink-1">{t("lines.total")}</td>
-                          <td className="fig py-1 text-end text-meta text-ink-1">{money(gross, p.currency)}</td>
-                          <td className="fig py-1 text-end text-meta text-danger-ink">−{money(commission, p.currency)}</td>
-                          <td className="fig py-1 text-end text-meta font-medium text-ink-1">{money(lineNet, p.currency)}</td>
+                          <td className="py-1 text-meta font-medium text-ink-1">
+                            {t("lines.total")}
+                          </td>
+                          <td className="fig py-1 text-end text-meta text-ink-1">
+                            {money(gross, p.currency)}
+                          </td>
+                          <td className="fig py-1 text-end text-meta text-danger-ink">
+                            −{money(commission, p.currency)}
+                          </td>
+                          <td className="fig py-1 text-end text-meta font-medium text-ink-1">
+                            {money(lineNet, p.currency)}
+                          </td>
                         </tr>
                       </tbody>
                     </table>
                     {p._count.items > p.items.length && (
                       <Dateline className="mt-1">
-                        {t("lines.truncated", { shown: String(p.items.length), total: String(p._count.items) })}
+                        {t("lines.truncated", {
+                          shown: String(p.items.length),
+                          total: String(p._count.items),
+                        })}
                       </Dateline>
                     )}
                     {p.notes && <Dateline className="mt-1.5">{p.notes}</Dateline>}
@@ -414,10 +513,13 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                 return (
                   <div className="py-1">
                     <StatusPill tone={cfg.tone}>
-                      <StatusIcon className="h-3 w-3" aria-hidden="true" /> {t(`status.${p.status}`)}
+                      <StatusIcon className="h-3 w-3" aria-hidden="true" />{" "}
+                      {t(`status.${p.status}`)}
                     </StatusPill>
                     {p.processedAt && (
-                      <p className="u-meta mt-0.5 text-ink-3">{format(p.processedAt, "MMM d, yyyy")}</p>
+                      <p className="u-meta mt-0.5 text-ink-3">
+                        {format(p.processedAt, "MMM d, yyyy")}
+                      </p>
                     )}
                   </div>
                 );
@@ -427,20 +529,27 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
               key: "reference",
               label: t("columns.reference"),
               hideOnMobile: true,
-              render: (p) => <span className="u-mono text-meta text-ink-3">{p.reference ?? "—"}</span>,
+              render: (p) => (
+                <span className="u-mono text-meta text-ink-3">{p.reference ?? "—"}</span>
+              ),
             },
             {
               key: "createdAt",
               label: t("columns.created"),
               hideOnMobile: true,
-              render: (p) => <span className="whitespace-nowrap text-ink-2">{format(p.createdAt, "MMM d, yyyy")}</span>,
+              render: (p) => (
+                <span className="whitespace-nowrap text-ink-2">
+                  {format(p.createdAt, "MMM d, yyyy")}
+                </span>
+              ),
             },
             {
               key: "record",
               label: t("columns.record"),
               width: "260px",
               render: (p) => {
-                if (p.status === "PAID") return <span className="u-meta text-ink-3">{t("record.settled")}</span>;
+                if (p.status === "PAID")
+                  return <span className="u-meta text-ink-3">{t("record.settled")}</span>;
                 if (p.status === "FAILED") {
                   return (
                     // The only transition out of FAILED is back to PROCESSING
@@ -457,7 +566,8 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                     {p.status === "PENDING" && (
                       <form action={startPayoutProcessing.bind(null, p.id)}>
                         <Button type="submit" variant="secondary" size="xs">
-                          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> {t("record.markInTransfer")}
+                          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />{" "}
+                          {t("record.markInTransfer")}
                         </Button>
                       </form>
                     )}
@@ -481,7 +591,8 @@ export default async function SettlementsPage({ searchParams }: PageProps) {
                         className={CONTROL_SM}
                       />
                       <Button type="submit" variant="secondary" size="xs" className="self-start">
-                        <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" /> {t("record.markPaid")}
+                        <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />{" "}
+                        {t("record.markPaid")}
                       </Button>
                       <span className="u-meta text-ink-3">{t("record.finalNote")}</span>
                     </form>

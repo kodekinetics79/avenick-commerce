@@ -16,7 +16,26 @@ const PORTAL_ROLE_MAP: Record<PortalType, UserRole[]> = {
 
 // Paths that are publicly accessible (no auth required)
 const PUBLIC_PATHS: Record<PortalType, string[]> = {
-  customer: ["/", "/products", "/search", "/login", "/register", "/auth/forgot-password", "/auth/reset-password", "/auth/verify-email", "/deals", "/brands", "/cart", "/wishlist", "/categories", "/returns", "/support", "/privacy", "/terms", "/cookies", "/status",
+  customer: [
+    "/",
+    "/products",
+    "/search",
+    "/login",
+    "/register",
+    "/auth/forgot-password",
+    "/auth/reset-password",
+    "/auth/verify-email",
+    "/deals",
+    "/brands",
+    "/cart",
+    "/wishlist",
+    "/categories",
+    "/returns",
+    "/support",
+    "/privacy",
+    "/terms",
+    "/cookies",
+    "/status",
     // The information and policy surfaces. Every one of these must answer to a
     // visitor with no session: a shopper deciding whether to buy is exactly the
     // person who reads the returns policy, and a warranty page behind a login
@@ -26,7 +45,11 @@ const PUBLIC_PATHS: Record<PortalType, string[]> = {
     // new public page has to be named here. (A path that names no route at all
     // is a different question, answered by `knownTopLevelSegments` below: it is
     // a 404, not a sign-in page.)
-    "/about", "/contact", "/shipping", "/returns-policy", "/warranty",
+    "/about",
+    "/contact",
+    "/shipping",
+    "/returns-policy",
+    "/warranty",
     // The company-registration door. The page handles a visitor with no session
     // itself — it renders a sign-in prompt and the registration path — so
     // gating it here sent every prospective B2B buyer to a generic login with
@@ -38,7 +61,8 @@ const PUBLIC_PATHS: Record<PortalType, string[]> = {
     // session itself, so gating it turned that link into a sign-in wall for
     // the one person it was written for. It is a single page with no subtree,
     // which is what makes a prefix entry safe.
-    "/b2b/join"],
+    "/b2b/join",
+  ],
   seller: ["/login", "/register"],
   admin: ["/login"],
 };
@@ -133,6 +157,34 @@ function isPublicApiPath(pathname: string, portal: PortalType): boolean {
   return PUBLIC_API_PATHS[portal].some((p) => pathname === p || pathname.startsWith(p + "/"));
 }
 
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
+
+/**
+ * Reject browser cross-site mutations before a session cookie reaches a route.
+ *
+ * Origin is compared with the edge-normalised request host rather than the
+ * application URL, because Vercel/Render may execute behind an internal origin.
+ * Requests without browser provenance headers remain available to trusted
+ * server-to-server callers; every route still performs its own authentication.
+ */
+function isTrustedMutationOrigin(request: NextRequest): boolean {
+  if (SAFE_METHODS.has(request.method.toUpperCase())) return true;
+
+  const fetchSite = request.headers.get("sec-fetch-site")?.toLowerCase();
+  if (fetchSite === "cross-site") return false;
+
+  const origin = request.headers.get("origin");
+  if (!origin) return true;
+
+  const forwardedHost = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim();
+  const requestHost = forwardedHost || request.headers.get("host")?.trim() || request.nextUrl.host;
+  try {
+    return new URL(origin).host === requestHost;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Where a request for a path that names no route is sent.
  *
@@ -224,6 +276,12 @@ export function createMiddleware(
     }
 
     const isApi = pathname.startsWith("/api/");
+    if (isApi && !isTrustedMutationOrigin(request)) {
+      return NextResponse.json(
+        { success: false, error: "Invalid request origin" },
+        { status: 403 },
+      );
+    }
     let session: Session | null = null;
     if (authFn) {
       try {

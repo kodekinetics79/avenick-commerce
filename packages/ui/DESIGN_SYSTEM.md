@@ -48,14 +48,15 @@ silently and had none.
 Round one's five, unchanged, plus one that this round makes explicit.
 
 **LAW A — DEPTH IS SEMANTIC.**
+
 > Raised = actionable. Recessed = context or input. Flat = content.
 
-You never ask a designer which rung to use; you ask *"is this thing clickable?"* and look
+You never ask a designer which rung to use; you ask _"is this thing clickable?"_ and look
 it up. **One rung-3 surface per viewport, maximum.**
 
 **LAW B — ONE LIGHT, OVERHEAD, ZERO X-OFFSET.**
 Every shadow has `0` horizontal offset. Every specular is on the top edge. The underside is
-always *darker* than the surface, never lighter. **This is the invariant the entire system's
+always _darker_ than the surface, never lighter. **This is the invariant the entire system's
 RTL correctness rests on** — an overhead light is identical in both reading directions, so
 nothing needs mirroring. The new fresnel ring is symmetric about the vertical axis for
 exactly this reason. Do not make it asymmetric to "add interest".
@@ -73,7 +74,7 @@ has already changed; the animation only reports it.
 **LAW E — TRUTH IS A DESIGNED ELEMENT.**
 `<Dateline>` promotes provenance to a first-class line: a publication cites its sources.
 `<EmptyState>` gets the most care in the system, because in a product that may not invent
-data, an honest empty surface has to read as *deliberate*.
+data, an honest empty surface has to read as _deliberate_.
 
 **LAW F — WHEN A LAYOUT HAS A HOLE IN IT, THE ANSWER IS A BETTER EMPTY STATE, NEVER A
 PLAUSIBLE NUMBER.** This outranks everything else in this document.
@@ -87,7 +88,7 @@ PLAUSIBLE NUMBER.** This outranks everything else in this document.
 > **the technique is wrong for this product and must be dropped, however good it looks.**
 
 **LAW G — A CHOICE IS PRESENTED ONCE, GROUPED, WITH ONE DEFAULT. IT IS NEVER DELETED TO
-MAKE THE SURFACE SHORTER.** Ranks *below* LAW F, and the second sentence is the half that
+MAKE THE SURFACE SHORTER.** Ranks _below_ LAW F, and the second sentence is the half that
 does the work.
 
 > Hick's Law is the usual name for the first half, and the name is worth less than the
@@ -115,17 +116,17 @@ does the work.
 
 ## 2. Where things live
 
-| | |
-|---|---|
-| **All tokens, surfaces, motion CSS, utilities** | `packages/ui/src/globals.css` — the only place. Plain CSS, no `@apply`. |
-| **App stylesheets** | `apps/*/src/app/globals.css` — an `@import` of the above, the three `@tailwind` lines, and the portal's posture. Nothing else. |
-| **Tailwind surface of the tokens** | `packages/config/tailwind.config.base.js` |
-| **Primitives** | `packages/ui/src/*.tsx`, all exported from `@avenick/ui` |
-| **Arabic display faces** | `apps/*/src/app/layout.tsx`, `<link>` gated on `locale === "ar"` |
+|                                                 |                                                                                                                                |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **All tokens, surfaces, motion CSS, utilities** | `packages/ui/src/globals.css` — the only place. Plain CSS, no `@apply`.                                                        |
+| **App stylesheets**                             | `apps/*/src/app/globals.css` — an `@import` of the above, the three `@tailwind` lines, and the portal's posture. Nothing else. |
+| **Tailwind surface of the tokens**              | `packages/config/tailwind.config.base.js`                                                                                      |
+| **Primitives**                                  | `packages/ui/src/*.tsx`, all exported from `@avenick/ui`                                                                       |
+| **Arabic display faces**                        | `apps/*/src/app/layout.tsx`, `<link>` gated on `locale === "ar"`                                                               |
 
 **LAW 9 — NO CALLABLE HELPER FROM A `"use client"` MODULE.** Next replaces every export of
 a client module with a client reference in the server graph. A component survives that; a
-plain function does not, and calling one fails the *production* build with a minified
+plain function does not, and calling one fails the _production_ build with a minified
 `TypeError` naming no file. Variant functions and styling helpers live in a module with no
 directive. `packages/ui/src/__tests__/client-boundary.regression.test.ts` polices it.
 
@@ -139,14 +140,14 @@ is a bug.**
 
 ### 3.1 Surfaces
 
-| token | light | dark | job |
-|---|---|---|---|
-| `--surface-0` | `36 20% 97.5%` | `232 18% 4%` | page ground |
-| `--surface-1` | `36 16% 95.4%` | `232 14% 8.5%` | rung 1 — recessed: inputs, thead, wells |
-| `--surface-2` | `0 0% 100%` | `232 13% 11%` | rung 2 — the card |
-| `--surface-3` | `0 0% 100%` | `232 12% 15%` | rung 3 — raised |
-| `--surface-float` | `36 20% 99%` | `232 14% 16%` | rung 4/5 base |
-| `--surface-sunken` | `36 18% 93%` | `232 18% 4.5%` | deep well |
+| token              | light          | dark           | job                                     |
+| ------------------ | -------------- | -------------- | --------------------------------------- |
+| `--surface-0`      | `36 20% 97.5%` | `232 18% 4%`   | page ground                             |
+| `--surface-1`      | `36 16% 95.4%` | `232 14% 8.5%` | rung 1 — recessed: inputs, thead, wells |
+| `--surface-2`      | `0 0% 100%`    | `232 13% 11%`  | rung 2 — the card                       |
+| `--surface-3`      | `0 0% 100%`    | `232 12% 15%`  | rung 3 — raised                         |
+| `--surface-float`  | `36 20% 99%`   | `232 14% 16%`  | rung 4/5 base                           |
+| `--surface-sunken` | `36 18% 93%`   | `232 18% 4.5%` | deep well                               |
 
 **Changed this round:** dark `--surface-0` 6% → **4%**, dark `--surface-3` 14% → **15%**.
 Range between the darkest ground and the brightest object is where dark-mode expense comes
@@ -174,17 +175,17 @@ drawing all three jobs is why dense tables read as boxes inside boxes.
 
 A physical slab under an overhead source shows four optical events. Round one had one.
 
-| part | token(s) | what it is |
-|---|---|---|
-| 1. **Highlight** | `--rim`, `--rim-2/3/4` | the 1px top seam where the source hits the edge |
-| 2. **Fresnel shoulder** | `--rim-shoulder-2/3/4` | the highlight fading *around* the perimeter |
-| 3. **Counter-fresnel** | `--fresnel-under`, `--fresnel-alpha` | the dark underside seam, opposite the source |
-| 4. **Contact** | `--contact`, `--contact-alpha` | the tight shadow where the slab meets the ground |
+| part                    | token(s)                             | what it is                                       |
+| ----------------------- | ------------------------------------ | ------------------------------------------------ |
+| 1. **Highlight**        | `--rim`, `--rim-2/3/4`               | the 1px top seam where the source hits the edge  |
+| 2. **Fresnel shoulder** | `--rim-shoulder-2/3/4`               | the highlight fading _around_ the perimeter      |
+| 3. **Counter-fresnel**  | `--fresnel-under`, `--fresnel-alpha` | the dark underside seam, opposite the source     |
+| 4. **Contact**          | `--contact`, `--contact-alpha`       | the tight shadow where the slab meets the ground |
 
 Parts 3 and 4 live inside `--elev-3`, `--elev-4` and `--elev-5`. **Rungs 0, 1 and 2 are
 unchanged** — rung 2 is content, and content does not need an underside.
 
-Part 2 is the one `box-shadow` cannot draw, because it must fade *around* the perimeter. It
+Part 2 is the one `box-shadow` cannot draw, because it must fade _around_ the perimeter. It
 is a masked conic ring on `[data-rim]::before`, exposed as `rim` on `<Surface>`, defaulting
 **on at rungs 3–5 and off at 0–2**. The conic is symmetric about the vertical axis (0deg
 equals 360deg, 68deg mirrors 292deg), so it is byte-identical in Arabic and uses `--dir`
@@ -207,20 +208,20 @@ shadow stack into the dark block.** Never animate `box-shadow` — cross-fade a 
 
 ### 3.6 Glass — two materials
 
-| | `[data-glass="true"]` (chrome) | `[data-glass="display"]` (display) |
-|---|---|---|
-| where | bars, dropdowns, drawers, modals | customer only, **one per route** |
-| carries text? | **yes** — contrast is deterministic | **no body text**: headings ≥24px, figures ≥20px only |
-| blur | `--blur-float` 20px / `--blur-modal` 28px | `--blur-display` 34px light, 30px dark |
-| saturate | `--sat-glass` **1.60 light / 1.30 dark** | `--sat-display` 1.34 / 1.10 |
-| alpha | `--glass-alpha` .86 / .84 | `--display-alpha` .58 / .46 |
+|               | `[data-glass="true"]` (chrome)            | `[data-glass="display"]` (display)                   |
+| ------------- | ----------------------------------------- | ---------------------------------------------------- |
+| where         | bars, dropdowns, drawers, modals          | customer only, **one per route**                     |
+| carries text? | **yes** — contrast is deterministic       | **no body text**: headings ≥24px, figures ≥20px only |
+| blur          | `--blur-float` 20px / `--blur-modal` 28px | `--blur-display` 34px light, 30px dark               |
+| saturate      | `--sat-glass` **1.60 light / 1.30 dark**  | `--sat-display` 1.34 / 1.10                          |
+| alpha         | `--glass-alpha` .86 / .84                 | `--display-alpha` .58 / .46                          |
 
-`--sat-glass` in dark changed 1.60 → **1.30**: above roughly 1.4 a blurred *dark* backdrop
+`--sat-glass` in dark changed 1.60 → **1.30**: above roughly 1.4 a blurred _dark_ backdrop
 goes neon, because saturate multiplies chroma and there is little luminance left to hold it
 down. 1.60 was tuned on the light theme and copied.
 
 **Fixed live defect:** both materials now set `--ring-offset-surface` locally. Without it,
-the two-stop focus ring inside a glass bar painted the *inherited page rung* as its inner
+the two-stop focus ring inside a glass bar painted the _inherited page rung_ as its inner
 stop, producing a visibly mismatched halo around every focused control on glass.
 
 Both materials carry the counter-fresnel, so glass is not the one material with a top edge
@@ -282,7 +283,7 @@ exactly `--lh-body`, and they never reach a paragraph.** Not a dot grid. Not a c
 
 **Grain** is a tiled `background-image` from `--noise`, at `--field-noise`, ×0.7 above
 2dppx. The data URI carries `stitchTiles='stitch'` (removes the visible 160px seam round one
-had) and `feColorMatrix saturate 0` (**mandatory** — raw `fractalNoise` is *chromatic* and
+had) and `feColorMatrix saturate 0` (**mandatory** — raw `fractalNoise` is _chromatic_ and
 puts red-green speckle over a warm ground, which reads as a dirty screen). `numOctaves` 3,
 never higher. Reusable on any plate via `[data-grain]`.
 
@@ -334,15 +335,15 @@ reimplementations in six different geometries**, three of which had drifted back
 pre-doctrine indigo→violet gradient tile and had stopped calling `platformName()`
 entirely.
 
-| | |
-|---|---|
-| **The 3D** | §3.4's four optical events, at **zero degrees**. Apex highlight, fresnel shoulder as a vertical ramp clipped to the path's own inside, counter-fresnel on the undersides, contact ellipses under each foot. Two depth intervals: the rule stands proud of the slab, the slab stands on the ground. |
-| **Why the fresnel is a ramp** | It is the SVG translation of `[data-rim]::before`'s masked conic, and it gets the around-the-perimeter fade **without `mask-composite`**, which Safari and Firefox disagree about. |
-| **Arabic** | Symmetric about x=32. Byte-identical under `[dir="rtl"]` — no mirroring, no `--dir`, no second file. This is LAW B paying for itself. |
-| **Brass** | 22 × 5 units of a 64 × 64 box. At a 32px header mark that is ~27 device pixels against a 2% viewport budget. It is not a fourth permitted use: marking the entry is the active-indicator rule at another scale. |
-| **Small cut** | Below 40px a **different drawing** ships. All four optical events are deleted rather than scaled — a 0.75-unit seam is 0.19px at 16px, and a 0.5px stroke antialiases to uniform grey. Every edge is an integer on a 16-unit box. It is drawn ~17% wider than a true scale, the ordinary caption-cut correction: at 12px of letter height the master's aperture closes and an A reads as a chevron. |
-| **Forced colours** | `@media (forced-colors: active)` hides the lighting group and keeps the silhouette; the slab is `currentColor`. **This is the system's first and currently only `forced-colors` block** — there were zero across `globals.css` and all three apps. |
-| **Rasterisers** | `brandMarkDocument({ theme })` flattens to literal values with no `var()`, no `@media` and no `<style>`. Satori composites through resvg, which has **no CSS custom property support** and hands back an empty box with no error. |
+|                               |                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **The 3D**                    | §3.4's four optical events, at **zero degrees**. Apex highlight, fresnel shoulder as a vertical ramp clipped to the path's own inside, counter-fresnel on the undersides, contact ellipses under each foot. Two depth intervals: the rule stands proud of the slab, the slab stands on the ground.                                                                                                  |
+| **Why the fresnel is a ramp** | It is the SVG translation of `[data-rim]::before`'s masked conic, and it gets the around-the-perimeter fade **without `mask-composite`**, which Safari and Firefox disagree about.                                                                                                                                                                                                                  |
+| **Arabic**                    | Symmetric about x=32. Byte-identical under `[dir="rtl"]` — no mirroring, no `--dir`, no second file. This is LAW B paying for itself.                                                                                                                                                                                                                                                               |
+| **Brass**                     | 22 × 5 units of a 64 × 64 box. At a 32px header mark that is ~27 device pixels against a 2% viewport budget. It is not a fourth permitted use: marking the entry is the active-indicator rule at another scale.                                                                                                                                                                                     |
+| **Small cut**                 | Below 40px a **different drawing** ships. All four optical events are deleted rather than scaled — a 0.75-unit seam is 0.19px at 16px, and a 0.5px stroke antialiases to uniform grey. Every edge is an integer on a 16-unit box. It is drawn ~17% wider than a true scale, the ordinary caption-cut correction: at 12px of letter height the master's aperture closes and an A reads as a chevron. |
+| **Forced colours**            | `@media (forced-colors: active)` hides the lighting group and keeps the silhouette; the slab is `currentColor`. **This is the system's first and currently only `forced-colors` block** — there were zero across `globals.css` and all three apps.                                                                                                                                                  |
+| **Rasterisers**               | `brandMarkDocument({ theme })` flattens to literal values with no `var()`, no `@media` and no `<style>`. Satori composites through resvg, which has **no CSS custom property support** and hands back an empty box with no error.                                                                                                                                                                   |
 
 **THE REFUSAL.** `platformName()` reads `NEXT_PUBLIC_PLATFORM_NAME` and falls back to
 `"Avenick"`; `DEPLOYMENT.md` documents the override and this repository is called
@@ -372,18 +373,18 @@ which is exactly what ships today. Free quality, zero token churn.
 
 ### The Latin scale
 
-| step | size | line-height | tracking | weight |
-|---|---|---|---|---|
-| micro | 11px | 16px | +.06em | 600 caps |
-| meta | 12px | 18px | 0 | 400 |
-| ui | 13px | 20px | 0 | 500 |
-| body | 15px | 24px | 0 | 400 |
-| lead | `clamp(16px, .930rem + .29vw, 19px)` | 1.58 | −.004em | 400 |
-| h3 | `clamp(19px, 1.118rem + .29vw, 22px)` | 1.32 | −.009em | 600 |
-| h2 | `clamp(24px, 1.314rem + .76vw, 32px)` | 1.14 | −.016em | 600 |
-| h1 | `clamp(30px, 1.550rem + 1.33vw, 44px)` | 1.08 | −.022em | 600 |
-| display | `clamp(34px, 2rem + 2.2vw, 52px)` | 1.05 | −.026em | 600 |
-| **hero** | **`clamp(40px, 1.293rem + 4.95vw, 92px)`** | **0.98** | **−.034em** | **680** |
+| step     | size                                       | line-height | tracking    | weight   |
+| -------- | ------------------------------------------ | ----------- | ----------- | -------- |
+| micro    | 11px                                       | 16px        | +.06em      | 600 caps |
+| meta     | 12px                                       | 18px        | 0           | 400      |
+| ui       | 13px                                       | 20px        | 0           | 500      |
+| body     | 15px                                       | 24px        | 0           | 400      |
+| lead     | `clamp(16px, .930rem + .29vw, 19px)`       | 1.58        | −.004em     | 400      |
+| h3       | `clamp(19px, 1.118rem + .29vw, 22px)`      | 1.32        | −.009em     | 600      |
+| h2       | `clamp(24px, 1.314rem + .76vw, 32px)`      | 1.14        | −.016em     | 600      |
+| h1       | `clamp(30px, 1.550rem + 1.33vw, 44px)`     | 1.08        | −.022em     | 600      |
+| display  | `clamp(34px, 2rem + 2.2vw, 52px)`          | 1.05        | −.026em     | 600      |
+| **hero** | **`clamp(40px, 1.293rem + 4.95vw, 92px)`** | **0.98**    | **−.034em** | **680**  |
 
 Figures: `fig-inline` 20/28/500 · **`fig-card` 22/26/600 (NEW)** · `fig-section` 30/34/600 ·
 `fig-hero` 46/48/700, all at `--tr-fig` −.02em. `fig-card` exists because 20px is a
@@ -400,7 +401,7 @@ timid on a 27-inch monitor. Every clamp is computed for a 390 → 1440 range, no
 ```
 
 Inter's **optical-size axis is live** (a bogus axis 404s; this one returns variable faces).
-The previous request pulled four *static* cuts, which is why the display steps read as a
+The previous request pulled four _static_ cuts, which is why the display steps read as a
 body face scaled up. `opsz` is literally the difference between Inter and Inter Display, in
 one file, and `body { font-optical-sizing: auto }` makes it automatic.
 
@@ -461,11 +462,11 @@ traditional). Pair across a register boundary — a Latin serif against a Kufi A
 the English page reads as a magazine while the Arabic page reads as an airport sign, and
 neither reads as the same company.
 
-| register | Latin | Arabic | why |
-|---|---|---|---|
-| display | Inter @ opsz 32 | **Noto Kufi Arabic** | Kufi is the script of official inscription, of the stamp and of the seal. For a trade **register** that is the correct register, not a stylistic preference. |
-| body | Inter | IBM Plex Sans Arabic | a correct body face and a weak display face; this round stops asking it to be both |
-| provenance | Source Serif 4 italic | **Noto Naskh Arabic**, upright | Naskh *is* Arabic's authored register |
+| register   | Latin                 | Arabic                         | why                                                                                                                                                          |
+| ---------- | --------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| display    | Inter @ opsz 32       | **Noto Kufi Arabic**           | Kufi is the script of official inscription, of the stamp and of the seal. For a trade **register** that is the correct register, not a stylistic preference. |
+| body       | Inter                 | IBM Plex Sans Arabic           | a correct body face and a weak display face; this round stops asking it to be both                                                                           |
+| provenance | Source Serif 4 italic | **Noto Naskh Arabic**, upright | Naskh _is_ Arabic's authored register                                                                                                                        |
 
 Rejected for display: a calligraphic face (dissonant against a neo-grotesque Latin), Cairo
 (its Latin is markedly weaker than its Arabic, and mixed strings happen constantly on a
@@ -511,7 +512,7 @@ Fonts, 680 does not exist there, and asking for it is a synthesis request.
    the joins, worse in Kufi than in Naskh. Do not hand-write `tracking-tight` on a heading.
 2. **NEVER SYNTHESISE.** `[dir="rtl"] { font-synthesis: none }` — fail loudly rather than
    smear a weight the face does not have. `[dir="rtl"] :is(em,i,cite) { font-style: normal;
-   font-weight: 500 }` — Arabic has no italic, and obliquing to fake one is the mark of a
+font-weight: 500 }` — Arabic has no italic, and obliquing to fake one is the mark of a
    product that did not look.
 3. **NO CASE, NO CAPS-TRACKING.** `.u-micro` drops `uppercase` and tracking under RTL. This
    already worked and must survive; extend it to any new eyebrow-shaped class.
@@ -536,7 +537,7 @@ ships broken in Arabic. **Two mechanisms, both mandatory:**
   linear gradient with no second rule. Same for a conic `from` and a percentage origin:
   `at calc(50% + (28% * var(--dir))) 12%`.
 - **(b) make edge masks SYMMETRIC** — `linear-gradient(to right, transparent 0, #000 20px,
-  #000 calc(100% - 20px), transparent 100%)` is direction-agnostic by construction.
+#000 calc(100% - 20px), transparent 100%)` is direction-agnostic by construction.
 
 Where neither is possible (`clip-path: inset()` has no logical form), write both directions
 out explicitly, as `.u-wipe` does.
@@ -554,15 +555,15 @@ differ only in INTENSITY, RATIO and DENSITY.** A supplier reading a settlement a
 operator approving a payout are not audiences for spatial UI; a buyer choosing between two
 suppliers is.
 
-| dial | customer | seller | admin |
-|---|---|---|---|
-| `--field-intensity` | 1 | .30 | .15 |
-| `--motion-scale` | 1 | **.85** | **.65** |
-| `--rim-shoulder-3` | .48 | .38 | .30 |
-| `--img-ratio-card` / `--img-inset` | 4/5 · 9% | 1/1 · 5% | 1/1 · 0 |
-| `--radius` / `--row-h` / `--space-section` | 14 / 44 / 72 | 10 / 36 / 40 | 8 / 32 / 32 |
-| `--fs-hero` | the hero rung | `= --fs-h1` | `= --fs-h1` |
-| reveals | on | on | **off** |
+| dial                                       | customer      | seller       | admin       |
+| ------------------------------------------ | ------------- | ------------ | ----------- |
+| `--field-intensity`                        | 1             | .30          | .15         |
+| `--motion-scale`                           | 1             | **.85**      | **.65**     |
+| `--rim-shoulder-3`                         | .48           | .38          | .30         |
+| `--img-ratio-card` / `--img-inset`         | 4/5 · 9%      | 1/1 · 5%     | 1/1 · 0     |
+| `--radius` / `--row-h` / `--space-section` | 14 / 44 / 72  | 10 / 36 / 40 | 8 / 32 / 32 |
+| `--fs-hero`                                | the hero rung | `= --fs-h1`  | `= --fs-h1` |
+| reveals                                    | on            | on           | **off**     |
 
 `--motion-scale` had existed since round one and **always resolved to 1 in practice**. It is
 wired now, which is the cheapest possible portal differentiation.
@@ -595,21 +596,21 @@ reintroducing reveals a console deliberately does not have.
 Every one of these is enforceable by grep or by a dev-time throw. **The budgets are the only
 thing that stops the second half of a round undoing the first half.**
 
-| thing | budget |
-|---|---|
-| rung-3 surfaces | 1 per viewport |
-| blurred surfaces | ≤3 customer (≤1 display) · ≤2 seller/admin · never nested |
-| ambient field | **1 per root layout. Never a second, never a page-local one.** |
-| hero stage | **1 per site**, 3 planes maximum |
-| display glass | 1 per route, customer only |
-| animated seal | 1 per viewport, iteration count **1** |
-| grained / ruled elements | ≤3 per viewport, never on a scroller or a table |
-| pointer-tracked specular surfaces | 8–12 per viewport, **zero on table rows** |
-| `<LightGrid>` children | tracked to 24, then a 1.5× viewport band |
-| quantity ladder bands on a tile | 3, and never a scrollbar |
-| brass | ≤2% of viewport pixels |
-| stagger | 40ms, capped at 6 items, **1 group per viewport-height** |
-| infinite animations | **exactly two in the entire product**: the field drift and the skeleton shimmer |
+| thing                             | budget                                                                          |
+| --------------------------------- | ------------------------------------------------------------------------------- |
+| rung-3 surfaces                   | 1 per viewport                                                                  |
+| blurred surfaces                  | ≤3 customer (≤1 display) · ≤2 seller/admin · never nested                       |
+| ambient field                     | **1 per root layout. Never a second, never a page-local one.**                  |
+| hero stage                        | **1 per site**, 3 planes maximum                                                |
+| display glass                     | 1 per route, customer only                                                      |
+| animated seal                     | 1 per viewport, iteration count **1**                                           |
+| grained / ruled elements          | ≤3 per viewport, never on a scroller or a table                                 |
+| pointer-tracked specular surfaces | 8–12 per viewport, **zero on table rows**                                       |
+| `<LightGrid>` children            | tracked to 24, then a 1.5× viewport band                                        |
+| quantity ladder bands on a tile   | 3, and never a scrollbar                                                        |
+| brass                             | ≤2% of viewport pixels                                                          |
+| stagger                           | 40ms, capped at 6 items, **1 group per viewport-height**                        |
+| infinite animations               | **exactly two in the entire product**: the field drift and the skeleton shimmer |
 
 ---
 
@@ -722,7 +723,7 @@ clicking it.
 **`<LightGrid>`** (client) — `itemSelector?`
 ONE `pointermove` listener on a grid container that writes `--mx/--my` per child from each
 child's own rect in a single rAF flush, so the cards read as one lit material. Copies
-`<SpecularSurface>`'s guard shape verbatim: early-returns *before attaching* on coarse
+`<SpecularSurface>`'s guard shape verbatim: early-returns _before attaching_ on coarse
 pointer, reduced motion and Save-Data. **Never wrap a table.**
 
 **`<EnvironmentFlags>`** (client)
@@ -738,7 +739,19 @@ The brass reading hairline, `scaleX` on a scroll timeline, zero JS. Long documen
 `boolean | "display"`. New dev-time throws for display glass outside customer and for a
 second display plate.
 
+**`<Textarea>`** — owns the stable long-text field geometry for every portal: a 120px
+minimum writing area with browser drag-resizing disabled. Flows that expect longer content
+may add an authored auto-grow or expansion affordance, but they must not return control of
+the surrounding layout to the browser resize handle.
+
+**Application scrollbars** — are themed once on the application document in
+`globals.css`, with standards properties plus Blink/WebKit fallbacks and a forced-colours
+escape. `.scrollbar-thin` is a geometry exception only; it is never required to receive the
+SIJILL thumb, track, hover or active colours. A deliberately hidden scrollbar requires a
+visible keyboard/pointer alternative such as `<Rail>` controls.
+
 **`<TierMark>`** — adds `verified` + **REQUIRED `basis: string`**, `showBasis?`.
+
 > **It throws in development if `verified` is passed without `basis`, and returns null in
 > production.** A brass arc travelling around a badge that says "Verified" with no reviewed
 > `SellerDocument` behind it is a fabricated trust signal rendered in CSS — precisely what
@@ -757,8 +770,9 @@ directive, which it never needed. `headingLevel?: "p" | "h1" | "h2"` (default `"
 only the element that carries the lead, never its classes: use `"h1"` only where the plate
 **is** the page — the 404, the error boundary, an empty cart — so that page has a heading at
 all, and leave every plate inside a page as `"p"`.
+
 > **The marketplace move, and it is fully true:** when a category is empty, the one action is
-> the RFQ route. *"No supplier lists this yet — request a quote"* turns the emptiest surface
+> the RFQ route. _"No supplier lists this yet — request a quote"_ turns the emptiest surface
 > in the product into its most differentiated one.
 
 **`<AmbientField>`** — now renders the two drift lobes; the ruling and grain are its
@@ -766,11 +780,13 @@ all, and leave every plate inside a page as `"p"`.
 
 **`<StickyGlassBar>`** — adds `settle?` (default true). Continuous scroll-timeline
 condensation, IntersectionObserver kept as the fallback.
+
 > **To get the padding half of the settle, remove the vertical padding utility from the
 > bar.** Tailwind utilities out-rank `.u-chrome`'s `padding-block`, so a `py-3` on the header
 > silently wins.
 
 **`<SpecularSurface>`** — the fill is now two coupled layers plus a tighter brass border ring.
+
 > **Fixed:** it set `will-change: transform` on a wrapper that never transforms, promoting a
 > compositor layer for zero benefit and costing memory on exactly the mid-range Android this
 > product must serve. The rAF throttle and the two early-returns were already correct and
@@ -800,27 +816,27 @@ document, not a discussion.**
 
 ## 7. Utilities and their budgets
 
-| class | what | budget |
-|---|---|---|
-| `.u-hero` | the 92px display rung | customer only |
-| `.u-hero-grid` / `.u-hero-copy` / `.u-hero-specimen` | the 12-column composition | 1 per site |
-| `.u-stage` / `.u-plane[data-z]` | bounded 3D, Z-position only | 1 stage, 3 planes |
-| `.u-imgframe` | the product frame | unlimited |
-| `.u-seal` | the travelling brass arc | 1 animated per viewport |
-| `.u-empty` | the Certificate plate | 1 per empty region |
-| `.u-plate` | the generated display object | 1 per route, customer |
-| `.qty-ladder` | the quantity-break table | 3 bands on a tile |
-| `.u-dot` | availability lamp | unlimited |
-| `.u-edge-fade-inline` / `.u-rail` | symmetric mask + proximity rail | — |
-| `.u-facet` / `.u-facet__chev` | JS-free disclosure | — |
-| `.u-chrome` | the settling bar | 1 per document |
-| `.u-scroll-progress` | brass reading hairline | 1 per document |
-| `.u-badge-pulse` / `.u-wipe` | the commit gestures | — |
-| `.u-state` / `.u-state-wash` | oklab state layers | unlimited |
-| `.u-pop` | `@starting-style` popover entry | — |
-| `.u-hit` | an invisible 44px touch target on coarse pointers; sets no position, so the host must already be positioned; rides `::before`, so never on a `[data-rim]`, `[data-specular]` or `.u-sheen` host; two 30px neighbours need 14px between them | unlimited |
-| `[data-rim]` | the fresnel shoulder | unlimited |
-| `[data-grain]` / `[data-rule-ground]` | texture and ruling | ≤3 per viewport, never on a scroller or a table |
+| class                                                | what                                                                                                                                                                                                                                        | budget                                          |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `.u-hero`                                            | the 92px display rung                                                                                                                                                                                                                       | customer only                                   |
+| `.u-hero-grid` / `.u-hero-copy` / `.u-hero-specimen` | the 12-column composition                                                                                                                                                                                                                   | 1 per site                                      |
+| `.u-stage` / `.u-plane[data-z]`                      | bounded 3D, Z-position only                                                                                                                                                                                                                 | 1 stage, 3 planes                               |
+| `.u-imgframe`                                        | the product frame                                                                                                                                                                                                                           | unlimited                                       |
+| `.u-seal`                                            | the travelling brass arc                                                                                                                                                                                                                    | 1 animated per viewport                         |
+| `.u-empty`                                           | the Certificate plate                                                                                                                                                                                                                       | 1 per empty region                              |
+| `.u-plate`                                           | the generated display object                                                                                                                                                                                                                | 1 per route, customer                           |
+| `.qty-ladder`                                        | the quantity-break table                                                                                                                                                                                                                    | 3 bands on a tile                               |
+| `.u-dot`                                             | availability lamp                                                                                                                                                                                                                           | unlimited                                       |
+| `.u-edge-fade-inline` / `.u-rail`                    | symmetric mask + proximity rail                                                                                                                                                                                                             | —                                               |
+| `.u-facet` / `.u-facet__chev`                        | JS-free disclosure                                                                                                                                                                                                                          | —                                               |
+| `.u-chrome`                                          | the settling bar                                                                                                                                                                                                                            | 1 per document                                  |
+| `.u-scroll-progress`                                 | brass reading hairline                                                                                                                                                                                                                      | 1 per document                                  |
+| `.u-badge-pulse` / `.u-wipe`                         | the commit gestures                                                                                                                                                                                                                         | —                                               |
+| `.u-state` / `.u-state-wash`                         | oklab state layers                                                                                                                                                                                                                          | unlimited                                       |
+| `.u-pop`                                             | `@starting-style` popover entry                                                                                                                                                                                                             | —                                               |
+| `.u-hit`                                             | an invisible 44px touch target on coarse pointers; sets no position, so the host must already be positioned; rides `::before`, so never on a `[data-rim]`, `[data-specular]` or `.u-sheen` host; two 30px neighbours need 14px between them | unlimited                                       |
+| `[data-rim]`                                         | the fresnel shoulder                                                                                                                                                                                                                        | unlimited                                       |
+| `[data-grain]` / `[data-rule-ground]`                | texture and ruling                                                                                                                                                                                                                          | ≤3 per viewport, never on a scroller or a table |
 
 Round one's `.u-drawn`, `.u-commit`, `.u-meter-*`, `.u-layer-*`, `.u-field`, `.u-micro`…
 `.u-display`, `.u-provenance`, `.u-mono`, `.u-measure*` are all unchanged in name and
@@ -832,15 +848,15 @@ behaviour.
 
 ### Easing
 
-| token | curve | job |
-|---|---|---|
-| `--ease-out` | `cubic-bezier(.22,1,.36,1)` | entering, exiting — **the default** |
-| `--ease-standard` | `cubic-bezier(.32,.72,0,1)` | this IS the iOS drawer curve |
-| `--ease-drawer` | alias of standard | so the purpose is legible |
-| `--ease-in-out` | `cubic-bezier(.77,0,.175,1)` | **strengthened**; on-screen movement and morphs |
-| `--ease-exit` | `cubic-bezier(.4,0,1,1)` | leaving |
-| `--ease-overshoot` | `cubic-bezier(.34,1.4,.5,1)` | **renamed from `--ease-spring`**; button press-and-release |
-| `--ease-spring` | a sampled `linear()` at 44 points | **the system's one real spring, one job: the commit badge pulse** |
+| token              | curve                             | job                                                               |
+| ------------------ | --------------------------------- | ----------------------------------------------------------------- |
+| `--ease-out`       | `cubic-bezier(.22,1,.36,1)`       | entering, exiting — **the default**                               |
+| `--ease-standard`  | `cubic-bezier(.32,.72,0,1)`       | this IS the iOS drawer curve                                      |
+| `--ease-drawer`    | alias of standard                 | so the purpose is legible                                         |
+| `--ease-in-out`    | `cubic-bezier(.77,0,.175,1)`      | **strengthened**; on-screen movement and morphs                   |
+| `--ease-exit`      | `cubic-bezier(.4,0,1,1)`          | leaving                                                           |
+| `--ease-overshoot` | `cubic-bezier(.34,1.4,.5,1)`      | **renamed from `--ease-spring`**; button press-and-release        |
+| `--ease-spring`    | a sampled `linear()` at 44 points | **the system's one real spring, one job: the commit badge pulse** |
 
 Assignment, not taste: entering/exiting → `--ease-out`. Moving or morphing on screen →
 `--ease-in-out`. Hover and colour → plain `ease`. Progress → `linear`. **Never `ease-in` on
@@ -868,7 +884,7 @@ configured rather than designed.
 `transform` and `opacity`. That is the list. Plus a registered `@property` feeding a
 decorative gradient, and `clip-path` on a label swap.
 
-**NEVER:** `box-shadow` · backdrop-filter *radius* · `filter` · `height` ·
+**NEVER:** `box-shadow` · backdrop-filter _radius_ · `filter` · `height` ·
 `background-position` · gradient stops · **or the digits of any number** — price, count,
 total, stock level, settlement figure, status. On a trade platform an animated number is a
 number you cannot trust, and every intermediate frame of a ticking figure displays a value
@@ -877,7 +893,7 @@ that is false.
 ### Scroll-driven CSS — for MATERIALS, never for CONTENT
 
 **The split is the architecture.** `animation-timeline: view()/scroll()` runs on the
-compositor with zero JS at ~84–90% support, and it is the right tool for making a *material*
+compositor with zero JS at ~84–90% support, and it is the right tool for making a _material_
 respond to scroll: header condensation, the brass progress hairline, hero plane drift. It is
 the **wrong** tool for revealing content — a reveal that depends on a timeline firing is
 exactly the law-D violation, and `view()` resolves against the **nearest scroll container**,
@@ -970,7 +986,7 @@ name of impact is a regression dressed as an improvement.**
   per-character produces genuinely malformed letterforms mid-animation.**
 - **Apple-style Liquid Glass refraction** via `backdrop-filter: url(#svgfilter)` — Chromium
   only, invisible in Safari and Firefox, and every resize rebuilds the displacement map. What
-  *is* portable from it is its three-layer decomposition, and that is what §3.4 builds out of
+  _is_ portable from it is its three-layer decomposition, and that is what §3.4 builds out of
   `box-shadow` and a masked conic.
 - **Restoring `.text-gradient`, the even 1px white ring on all four sides of a glass card, or
   any neon glow utility.** All three were deliberately removed with reasons, and all three
@@ -1070,8 +1086,15 @@ anyway, because it is the one item that touches a formatter.
 ```tsx
 // A Server Component. It never becomes "use client".
 import {
-  ImageFrame, PriceStack, AvailabilityDot, QuantityLadder,
-  EmptyState, LightGrid, Surface, Eyebrow, Dateline,
+  ImageFrame,
+  PriceStack,
+  AvailabilityDot,
+  QuantityLadder,
+  EmptyState,
+  LightGrid,
+  Surface,
+  Eyebrow,
+  Dateline,
 } from "@avenick/ui";
 import { getTranslations } from "next-intl/server";
 
@@ -1088,17 +1111,28 @@ export default async function CategoryGrid({ products, isB2B }) {
         body={t("empty.body")}
         // The marketplace move: the emptiest surface becomes the most
         // differentiated one, and it is completely true.
-        action={<a className="u-focus …" href="/b2b/rfq/new">{t("empty.requestQuote")}</a>}
+        action={
+          <a className="u-focus …" href="/b2b/rfq/new">
+            {t("empty.requestQuote")}
+          </a>
+        }
       />
     );
   }
 
   return (
     // ONE pointermove listener for the whole grid, not one per card.
-    <LightGrid className="grid grid-cols-2 gap-stack md:grid-cols-3 lg:grid-cols-4">
+    <LightGrid className="gap-stack grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
       {products.map((p) => (
-        <Surface key={p.id} rung={2} interactive specular focusLift
-                 as="article" className="group overflow-hidden">
+        <Surface
+          key={p.id}
+          rung={2}
+          interactive
+          specular
+          focusLift
+          as="article"
+          className="group overflow-hidden"
+        >
           <a href={`/products/${p.slug}`} className="u-focus block">
             {/* contain, 4:5, inset, cast floor, designed no-image state */}
             <ImageFrame
@@ -1114,7 +1148,7 @@ export default async function CategoryGrid({ products, isB2B }) {
                   catalogue has no reviews — printing "No reviews yet" 24 times
                   turns the grid into a wall of absence. */}
               <span className="u-mono u-meta text-ink-3">{p.sku}</span>
-              <h3 className="u-h3 mt-1 text-ink-1">{p.name}</h3>
+              <h3 className="u-h3 text-ink-1 mt-1">{p.name}</h3>
 
               <PriceStack
                 className="mt-2"

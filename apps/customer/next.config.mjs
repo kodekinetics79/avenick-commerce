@@ -2,6 +2,10 @@ import createNextIntlPlugin from "next-intl/plugin";
 import { securityHeadersRoute } from "@avenick/config/security-headers";
 import { imageOriginsFrom, objectStorageRemotePatterns } from "@avenick/config/image-hosts";
 import { PrismaPlugin } from "@prisma/nextjs-monorepo-workaround-plugin";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const workspaceRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 const spatialCommerceCsp = [
   "default-src 'self'",
@@ -40,10 +44,12 @@ const spatialCommerceHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), usb=(), serial=(), payment=()" },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), usb=(), serial=(), payment=()",
+  },
   { key: "Cache-Control", value: "private, no-store" },
 ];
-
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
@@ -67,14 +73,19 @@ const remoteImagePatterns = [
 ];
 
 const nextConfig = {
-  transpilePackages: ["@avenick/ui", "@avenick/utils", "@avenick/auth", "@avenick/types", "@avenick/database", "@avenick/observability"],
+  outputFileTracingRoot: workspaceRoot,
+  transpilePackages: [
+    "@avenick/ui",
+    "@avenick/utils",
+    "@avenick/auth",
+    "@avenick/types",
+    "@avenick/database",
+    "@avenick/observability",
+  ],
   // instrumentationHook: runs src/instrumentation.ts once at startup (OTel +
   // rate-limit store). serverComponentsExternalPackages: keep OpenTelemetry out
   // of the webpack bundle so the Node SDK loads as a real module at runtime.
-  experimental: {
-    instrumentationHook: true,
-    serverComponentsExternalPackages: ["@opentelemetry/api", "@opentelemetry/sdk-node", "@vercel/otel"],
-  },
+  serverExternalPackages: ["@opentelemetry/api", "@opentelemetry/sdk-node", "@vercel/otel"],
   // Lint is run as a separate `pnpm lint` step, not during the production build.
   eslint: { ignoreDuringBuilds: true },
   // Every response advertised `x-powered-by: Next.js`. It tells nobody anything
@@ -101,7 +112,9 @@ const nextConfig = {
     const backend = process.env.NEXT_PUBLIC_BACKEND_URL?.trim();
     return [
       securityHeadersRoute({
-        imgSrc: imageOriginsFrom(remoteImagePatterns, { isDev: process.env.NODE_ENV !== "production" }),
+        imgSrc: imageOriginsFrom(remoteImagePatterns, {
+          isDev: process.env.NODE_ENV !== "production",
+        }),
         connectSrc: backend ? [backend] : [],
         isDev: process.env.NODE_ENV !== "production",
       }),

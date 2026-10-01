@@ -519,6 +519,32 @@
   },
   "sellerOps": {
     "listSeparator": ", ",
+    "orderStatus": {
+      "PENDING_PAYMENT": "Pending payment",
+      "PAYMENT_CONFIRMED": "Payment confirmed",
+      "CONFIRMED": "Confirmed",
+      "PROCESSING": "Processing",
+      "SHIPPED": "Shipped",
+      "OUT_FOR_DELIVERY": "Out for delivery",
+      "DELIVERED": "Delivered",
+      "CANCELLED": "Cancelled",
+      "REFUNDED": "Refunded",
+      "RETURN_REQUESTED": "Return requested",
+      "RETURNED": "Returned"
+    },
+    "savedViews": {
+      "title": "Saved",
+      "saved": "View saved",
+      "saveFailed": "Couldn't save view",
+      "removed": "View removed",
+      "removeFailed": "Couldn't remove view",
+      "delete": "Delete view {name}",
+      "namePlaceholder": "View name",
+      "nameLabel": "Name for this saved view",
+      "save": "Save view",
+      "cancel": "Cancel",
+      "saveCurrent": "Save current view"
+    },
     "orders": {
       "metaTitle": "Orders",
       "eyebrow": "Fulfilment",
@@ -535,7 +561,76 @@
         "all": "Orders containing your lines · {shown} shown of {total} on your account · every total is your lines only",
         "atStatus": "Orders containing your lines · {shown} shown of {total} at status {status} · every total is your lines only"
       },
-      "manageShipments": "Manage shipments"
+      "manageShipments": "Manage shipments",
+      "table": {
+        "searchPlaceholder": "Search order number, buyer, or company",
+        "searchLabel": "Search these orders by order number, buyer, or company",
+        "exportSelected": "Export {count, plural, one {# selected order} other {# selected orders}}",
+        "exportRows": "Export these rows",
+        "selectAll": "Select all {count} shown",
+        "selectOrder": "Select order {order}",
+        "rangeAll": "{shown} of {total} on this account",
+        "rangeMatch": "{matches} of {loaded} loaded rows match",
+        "dateline": "Orders containing your lines, newest first · every total is your lines only, in the order's own currency, with no conversion applied",
+        "footerAll": "{shown, plural, one {# order shown} other {# orders shown}} of {total} on this account",
+        "footerMatch": "{matches} of {loaded, plural, one {# loaded order matches} other {# loaded orders match}} this search",
+        "view": "View",
+        "viewOrder": "order {order}",
+        "columns": {
+          "order": "Order",
+          "placed": "Placed",
+          "lines": "Lines",
+          "yourShare": "Your share",
+          "channel": "Channel",
+          "status": "Status"
+        },
+        "csv": {
+          "order": "Order",
+          "buyer": "Buyer",
+          "company": "Company",
+          "date": "Date",
+          "items": "Items",
+          "total": "Total",
+          "currency": "Currency",
+          "type": "Type",
+          "status": "Status"
+        },
+        "advance": {
+          "PROCESSING": "Mark processing",
+          "SHIPPED": "Mark shipped",
+          "DELIVERED": "Mark delivered"
+        },
+        "failure": {
+          "title": "No confirmation came back",
+          "body": "The platform did not confirm this update, so its outcome is not known here. Reload the list to see the current order state."
+        },
+        "report": {
+          "headline": "{count, plural, one {# order moved} other {# orders moved}} to {status}",
+          "dateline": "Counted from {count, plural, one {the # selected order} other {the # selected orders}}, as the platform answered",
+          "partial": "{skipped} of the {selected} selected orders were not advanced. An order is skipped when its lines are not at a stage this move allows. The platform does not report which ones, so none are marked below. Reload to see the current order state."
+        },
+        "empty": {
+          "account": {
+            "eyebrow": "Nothing recorded",
+            "headline": "No buyer has ordered from you yet.",
+            "body": "An order appears here the moment one of your lines is bought, whichever channel it comes through. Nothing is pending review and nothing is being withheld — the ledger is simply empty.",
+            "action": "Review your listings"
+          },
+          "match": {
+            "eyebrow": "No match",
+            "headline": "No order on this page matches that search.",
+            "body": "{count, plural, one {# order is loaded} other {# orders are loaded}} — clear the search to see them.",
+            "action": "Clear the search"
+          }
+        },
+        "bulk": {
+          "actionsLabel": "Actions for the selected orders",
+          "selected": "<figure>{count}</figure> selected",
+          "hidden": "<figure>{count}</figure> {count, plural, one {is} other {are}} hidden by the current search and will still be advanced.",
+          "clearSelection": "Clear the selection",
+          "dateline": "An advance moves only your own lines on each order; the order's overall status is derived from every seller on it. A line at an ineligible stage is skipped and reported rather than forced."
+        }
+      }
     },
     "orderDetail": {
       "metaTitle": "Order detail",
@@ -956,7 +1051,7 @@
       "productLabel": "Seller product",
       "productFor": "Seller product for {item}",
       "selectProduct": "Select a product",
-      "variantLabel": "Variant (optional)",
+      "variantLabel": "Variant",
       "variantFor": "Variant for {item}",
       "selectVariant": "No variant",
       "vatRateLabel": "VAT rate (%)",
@@ -965,6 +1060,7 @@
       "freightAmount": "Freight net ({currency})",
       "freightVatRate": "Freight VAT rate (%)",
       "validUntil": "Quote valid until",
+      "validUntilHint": "The operating-system date picker records an ISO calendar date; the quote remains valid through the end of that date.",
       "leadTimeDays": "Lead time (days)",
       "paymentTermsDays": "Payment terms (days)",
       "estimatedTotal": "Estimated grand total",
@@ -982,6 +1078,16 @@
       "linesPriced": "{priced} of {count, plural, one {{n} line} other {{n} lines}} priced",
       "submit": "Submit quote",
       "submitting": "Submitting…",
+      "validation": {
+        "summary": "Review the highlighted commercial terms, then submit the quote again.",
+        "productRequired": "Choose the catalogue product that fulfils this line.",
+        "variantRequired": "Choose the exact product variant for this line.",
+        "unitPrice": "Enter a positive unit price within the supported amount range.",
+        "vatRate": "Enter a VAT rate from 0 to 100.",
+        "freightAmount": "Enter a freight amount from 0 to 999,999,999,999.99.",
+        "leadTime": "Enter a whole number of days from 0 to 3,650.",
+        "paymentTerms": "Enter whole-number payment terms from 0 to 3,650 days."
+      },
       "empty": {
         "eyebrow": "Nothing to price",
         "headline": "This request has no line items.",
@@ -990,8 +1096,8 @@
     },
     "quoteErrors": {
       "rfqNotIdentified": "That RFQ could not be identified — reopen it from the RFQ list.",
-      "invalidPayload": "Invalid quote payload",
-      "submitFailed": "Failed to submit the quote"
+      "invalidPayload": "The quote contains invalid commercial data. Review every field and submit it again.",
+      "submitFailed": "The quote could not be recorded. Your entries are still here; review them and try again."
     },
     "documents": {
       "metaTitle": "Document Center",
@@ -1465,8 +1571,66 @@
       "messagesUnread": "Messages ({count} unread)",
       "accountMenu": "Account menu",
       "accountMenuFor": "Account menu for {name}",
+      "dismiss": "Dismiss notification",
       "themeToDark": "Switch to dark mode",
       "themeToLight": "Switch to light mode"
+    },
+    "command": {
+      "groups": {
+        "goTo": "Go to",
+        "actions": "Actions"
+      },
+      "addProduct": "Add a product",
+      "viewRfqInbox": "View RFQ inbox",
+      "aiAssist": "AI assist",
+      "dialogLabel": "Search pages and actions",
+      "placeholder": "Search pages and actions…",
+      "searchLabel": "Search pages and actions",
+      "resultsLabel": "Results",
+      "noMatch": "Nothing matches “{query}”.",
+      "navigate": "navigate",
+      "open": "open"
+    },
+    "notifications": {
+      "trigger": "Notifications",
+      "triggerUnread": "Notifications ({count} unread)",
+      "title": "Notifications",
+      "markAllRead": "Mark all read",
+      "markFailedTitle": "Couldn't mark these as read",
+      "markFailedBody": "They are still unread. Try again.",
+      "empty": {
+        "eyebrow": "Nothing waiting",
+        "headline": "No notifications on this account.",
+        "body": "Order, payout, compliance, and RFQ events appear here as they are recorded."
+      },
+      "error": {
+        "eyebrow": "Not available",
+        "headline": "Notifications could not be loaded.",
+        "body": "The rest of Seller Central is unaffected. Try reading this list again.",
+        "retry": "Try again"
+      }
+    },
+    "login": {
+      "portalName": "{brand} Seller Central",
+      "title": "Sign in",
+      "description": "The supplier back office for this account: your catalogue, orders, documents, and settlements.",
+      "registered": {
+        "title": "Application received",
+        "body": "Sign in with that email address to follow its review. If it was already registered, use your existing password."
+      },
+      "formLabel": "Sign in",
+      "email": "Email",
+      "password": "Password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "submit": "Sign in",
+      "newHere": "New here?",
+      "apply": "Apply to sell",
+      "forgotPassword": "Forgot password?",
+      "reviewDateline": "Applications are reviewed by the platform team before a store can trade. Signing in with an application's email address shows where that review stands.",
+      "invalidCredentials": "Invalid email or password.",
+      "rateLimited": "Too many sign-in attempts. Wait a few minutes and try again.",
+      "unexpectedError": "Sign-in could not be completed. Check your connection and try again."
     },
     "score": {
       "title": "Performance score",

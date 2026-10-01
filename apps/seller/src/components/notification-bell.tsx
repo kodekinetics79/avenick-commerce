@@ -1,43 +1,77 @@
 "use client";
 
 import * as React from "react";
-import { Bell, CheckCheck, ShoppingCart, DollarSign, FileCheck, FileQuestion, Package, Info } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
+import {
+  Bell,
+  CheckCheck,
+  ShoppingCart,
+  DollarSign,
+  FileCheck,
+  FileQuestion,
+  Package,
+  Info,
+} from "lucide-react";
 import { cn } from "@avenick/utils";
-import { EmptyState, Eyebrow, Surface } from "@avenick/ui";
+import { Button, EmptyState, Eyebrow, Surface } from "@avenick/ui";
 import { useToast } from "@/components/toast";
 
-type Notif = { id: string; type: string; titleEn: string; bodyEn: string; isRead: boolean; createdAt: string };
-
-const ICON: Record<string, React.ElementType> = {
-  ORDER_UPDATE: ShoppingCart, PAYMENT: DollarSign, PAYOUT: DollarSign, COMPLIANCE: FileCheck,
-  RFQ: FileQuestion, INVENTORY: Package, MESSAGE: Info, SYSTEM: Info,
+type Notif = {
+  id: string;
+  type: string;
+  titleEn: string;
+  titleAr: string | null;
+  bodyEn: string;
+  bodyAr: string | null;
+  isRead: boolean;
+  createdAt: string;
 };
 
-function ago(iso: string) {
+const ICON: Record<string, React.ElementType> = {
+  ORDER_UPDATE: ShoppingCart,
+  PAYMENT: DollarSign,
+  PAYOUT: DollarSign,
+  COMPLIANCE: FileCheck,
+  RFQ: FileQuestion,
+  INVENTORY: Package,
+  MESSAGE: Info,
+  SYSTEM: Info,
+};
+
+function ago(iso: string, locale: string) {
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return "just now";
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
-  return `${Math.floor(s / 86400)}d ago`;
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  if (s < 60) return formatter.format(0, "second");
+  if (s < 3600) return formatter.format(-Math.floor(s / 60), "minute");
+  if (s < 86400) return formatter.format(-Math.floor(s / 3600), "hour");
+  return formatter.format(-Math.floor(s / 86400), "day");
 }
 
 export function NotificationBell() {
+  const locale = useLocale();
+  const t = useTranslations("sellerShell.notifications");
   const { toast } = useToast();
   const [open, setOpen] = React.useState(false);
   const [items, setItems] = React.useState<Notif[]>([]);
   const [unread, setUnread] = React.useState(0);
+  const [loadFailed, setLoadFailed] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
   const triggerRef = React.useRef<HTMLButtonElement>(null);
   const panelId = React.useId();
+  const requestSequence = React.useRef(0);
 
   const load = React.useCallback(async () => {
+    const request = ++requestSequence.current;
     try {
       const r = await fetch("/api/notifications", { cache: "no-store" });
+      if (!r.ok) throw new Error(String(r.status));
       const d = await r.json();
+      if (request !== requestSequence.current) return;
       setItems(d.data?.items ?? []);
       setUnread(d.data?.unread ?? 0);
+      setLoadFailed(false);
     } catch {
-      /* ignore */
+      if (request === requestSequence.current) setLoadFailed(true);
     }
   }, []);
 
@@ -89,7 +123,7 @@ export function NotificationBell() {
     } catch {
       setItems(previousItems);
       setUnread(previousUnread);
-      toast({ title: "Couldn't mark these as read", description: "They are still unread. Try again.", variant: "error" });
+      toast({ title: t("markFailedTitle"), description: t("markFailedBody"), variant: "error" });
     }
   }
 
@@ -98,12 +132,19 @@ export function NotificationBell() {
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => { setOpen((o) => !o); if (!open) load(); }}
+        onClick={() => {
+          setOpen((o) => !o);
+          if (!open) load();
+        }}
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls={panelId}
         className="u-focus relative grid h-9 w-9 place-items-center rounded-nested text-ink-2 transition-colors duration-press ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1"
-        aria-label={unread > 0 ? `Notifications (${unread > 9 ? "9+" : unread} unread)` : "Notifications"}
+        aria-label={
+          unread > 0
+            ? t("triggerUnread", { count: unread > 9 ? "9+" : String(unread) })
+            : t("trigger")
+        }
       >
         <Bell className="h-5 w-5" aria-hidden="true" />
         {unread > 0 && (
@@ -127,26 +168,38 @@ export function NotificationBell() {
           className="absolute end-0 top-full z-layer mt-1.5 w-80 max-w-[calc(100vw-2rem)] overflow-hidden"
         >
           <div className="flex items-center justify-between gap-2 border-b border-hairline px-4 py-3">
-            <Eyebrow>Notifications</Eyebrow>
+            <Eyebrow>{t("title")}</Eyebrow>
             {unread > 0 && (
               <button
                 type="button"
                 onClick={markAll}
                 className="u-focus u-meta inline-flex items-center gap-1 rounded-nested px-1 py-0.5 font-medium text-primary-ink hover:underline"
               >
-                <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" /> Mark all read
+                <CheckCheck className="h-3.5 w-3.5" aria-hidden="true" /> {t("markAllRead")}
               </button>
             )}
           </div>
-          <div className="max-h-[60vh] overflow-y-auto scrollbar-thin">
-            {items.length === 0 ? (
+          <div className="scrollbar-thin max-h-[60vh] overflow-y-auto">
+            {loadFailed && items.length === 0 ? (
+              <EmptyState
+                className="px-4 py-10"
+                eyebrow={t("error.eyebrow")}
+                headline={t("error.headline")}
+                body={t("error.body")}
+                action={
+                  <Button variant="secondary" size="sm" onClick={load}>
+                    {t("error.retry")}
+                  </Button>
+                }
+              />
+            ) : items.length === 0 ? (
               // The editorial blank, not a 32px greyed bell that reads as a fault.
               // It states precisely what is empty rather than congratulating anyone.
               <EmptyState
                 className="px-4 py-10"
-                eyebrow="Nothing waiting"
-                headline="No notifications on this account."
-                body="Order, payout, compliance and RFQ events appear here as they are recorded."
+                eyebrow={t("empty.eyebrow")}
+                headline={t("empty.headline")}
+                body={t("empty.body")}
               />
             ) : (
               items.map((n) => {
@@ -158,22 +211,35 @@ export function NotificationBell() {
                       // The unread mark is a 2px inline-start rule that is always
                       // present and only changes colour, so reading a notification
                       // never reflows the list under the pointer.
-                      "flex gap-3 border-b border-hairline border-s-2 px-4 py-3 last:border-b-0",
+                      "flex gap-3 border-b border-s-2 border-hairline px-4 py-3 last:border-b-0",
                       n.isRead ? "border-s-transparent" : "border-s-primary",
                     )}
                   >
                     <span
                       className={cn(
                         "grid h-8 w-8 shrink-0 place-items-center rounded-nested",
-                        n.isRead ? "bg-neutral-soft text-ink-3" : "bg-primary-soft text-primary-ink",
+                        n.isRead
+                          ? "bg-neutral-soft text-ink-3"
+                          : "bg-primary-soft text-primary-ink",
                       )}
                     >
                       <Icon className="h-4 w-4" aria-hidden="true" />
                     </span>
                     <div className="min-w-0">
-                      <p className={cn("u-ui leading-snug", n.isRead ? "text-ink-2" : "font-medium text-ink-1")}>{n.titleEn}</p>
-                      {n.bodyEn && <p className="u-meta mt-0.5 line-clamp-2 text-ink-2">{n.bodyEn}</p>}
-                      <p className="u-meta mt-1 text-ink-3">{ago(n.createdAt)}</p>
+                      <p
+                        className={cn(
+                          "u-ui leading-snug",
+                          n.isRead ? "text-ink-2" : "font-medium text-ink-1",
+                        )}
+                      >
+                        {locale === "ar" ? (n.titleAr ?? n.titleEn) : n.titleEn}
+                      </p>
+                      {(locale === "ar" ? (n.bodyAr ?? n.bodyEn) : n.bodyEn) && (
+                        <p className="u-meta mt-0.5 line-clamp-2 text-ink-2">
+                          {locale === "ar" ? (n.bodyAr ?? n.bodyEn) : n.bodyEn}
+                        </p>
+                      )}
+                      <p className="u-meta mt-1 text-ink-3">{ago(n.createdAt, locale)}</p>
                     </div>
                   </div>
                 );

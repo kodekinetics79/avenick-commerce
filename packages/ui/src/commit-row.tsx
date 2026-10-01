@@ -32,7 +32,7 @@ export interface UseCommitStateOptions {
 
 export function useCommitState({ onExit, holdMs = 380 }: UseCommitStateOptions = {}) {
   const [state, setState] = React.useState<CommitState>("idle");
-  const timer = React.useRef<ReturnType<typeof setTimeout>>();
+  const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   React.useEffect(() => () => clearTimeout(timer.current), []);
 
@@ -110,7 +110,13 @@ export interface CommitBadgeProps extends React.HTMLAttributes<HTMLSpanElement> 
   children: React.ReactNode;
 }
 
-export function CommitBadge({ pulseKey, tone = "default", className, children, ...props }: CommitBadgeProps) {
+export function CommitBadge({
+  pulseKey,
+  tone = "default",
+  className,
+  children,
+  ...props
+}: CommitBadgeProps) {
   return (
     <span
       key={pulseKey}
@@ -178,7 +184,7 @@ export function CommitRow({
   children,
   ...props
 }: CommitRowProps) {
-  const Comp: React.ElementType = as ?? "tr";
+  const Comp = (as ?? "tr") as any;
   return (
     <Comp
       data-commit={state}

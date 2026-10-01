@@ -3,10 +3,13 @@ import { getCurrentAdmin } from "@/lib/auth";
 import { computeSellerPerformanceScore, db } from "@avenick/database";
 import { isRecordId } from "@avenick/utils";
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
-    if (!await getCurrentAdmin()) return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
-    if (!isRecordId(params.id)) return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
+    if (!(await getCurrentAdmin()))
+      return NextResponse.json({ success: false, error: "Forbidden" }, { status: 403 });
+    if (!isRecordId(params.id))
+      return NextResponse.json({ success: false, error: "Not found" }, { status: 404 });
 
     const seller = await db.sellerProfile.findUnique({
       where: { id: params.id },
@@ -16,8 +19,16 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
         // the page links to /documents/<id>/view, which signs it per request.
         documents: {
           select: {
-            id: true, type: true, fileName: true, fileSize: true, mimeType: true, status: true,
-            expiryDate: true, rejectionReason: true, uploadedAt: true, reviewedAt: true,
+            id: true,
+            type: true,
+            fileName: true,
+            fileSize: true,
+            mimeType: true,
+            status: true,
+            expiryDate: true,
+            rejectionReason: true,
+            uploadedAt: true,
+            reviewedAt: true,
           },
         },
         _count: { select: { products: true } },
@@ -38,8 +49,14 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
       _count: { _all: true },
     });
     const reviewCount = reviews._count._all;
-    const rating = reviewCount > 0 && reviews._avg.rating !== null ? Math.round(reviews._avg.rating * 10) / 10 : null;
-    return NextResponse.json({ success: true, data: { ...seller, rating, reviewCount, performance } });
+    const rating =
+      reviewCount > 0 && reviews._avg.rating !== null
+        ? Math.round(reviews._avg.rating * 10) / 10
+        : null;
+    return NextResponse.json({
+      success: true,
+      data: { ...seller, rating, reviewCount, performance },
+    });
   } catch {
     return NextResponse.json({ success: false, error: "Failed" }, { status: 500 });
   }

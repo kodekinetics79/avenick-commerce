@@ -7,10 +7,7 @@ import { createTranslator, NextIntlClientProvider } from "next-intl";
 import en from "../../../../messages/en.json";
 import ar from "../../../../messages/ar.json";
 import ProductsPage from "@/app/products/page";
-import {
-  resetCatalogSortHref,
-  type CatalogSearchParams,
-} from "../catalog-filters";
+import { resetCatalogSortHref, type CatalogSearchParams } from "../catalog-filters";
 
 const state = vi.hoisted(() => ({
   locale: "en",
@@ -67,25 +64,15 @@ vi.mock("@/components/products/product-card", () => ({
 
 // Resolve the real async server component tree while leaving client components
 // for React/testing-library. No test-only exports are needed on the Next page.
-async function resolveServerTree(
-  node: React.ReactNode,
-): Promise<React.ReactNode> {
-  if (Array.isArray(node))
-    return Promise.all(React.Children.toArray(node).map(resolveServerTree));
+async function resolveServerTree(node: React.ReactNode): Promise<React.ReactNode> {
+  if (Array.isArray(node)) return Promise.all(React.Children.toArray(node).map(resolveServerTree));
   if (!React.isValidElement<{ children?: React.ReactNode }>(node)) return node;
-  if (
-    typeof node.type === "function" &&
-    node.type.constructor.name === "AsyncFunction"
-  ) {
+  if (typeof node.type === "function" && node.type.constructor.name === "AsyncFunction") {
     return resolveServerTree(await (node.type as Function)(node.props));
   }
   return node.props.children === undefined
     ? node
-    : React.cloneElement(
-        node,
-        {},
-        await resolveServerTree(node.props.children),
-      );
+    : React.cloneElement(node, {}, await resolveServerTree(node.props.children));
 }
 
 async function show(params: CatalogSearchParams, locale = "en") {
@@ -94,10 +81,7 @@ async function show(params: CatalogSearchParams, locale = "en") {
   state.fetch.mockImplementation(async (url: string) => {
     const query = new URL(url, "https://fixture.invalid").searchParams;
     const products =
-      query.get("sort") === "rating" ||
-      query.has("minRating") ||
-      state.refused ||
-      state.empty
+      query.get("sort") === "rating" || query.has("minRating") || state.refused || state.empty
         ? []
         : [
             {
@@ -114,19 +98,14 @@ async function show(params: CatalogSearchParams, locale = "en") {
       products,
       total: products.length,
       totalPages: 1,
-      search: state.refused
-        ? { status: "too_short", minLength: 3 }
-        : { status: "ok" },
+      search: state.refused ? { status: "too_short", minLength: 3 } : { status: "ok" },
     };
   });
   const tree = await resolveServerTree(
-    await ProductsPage({ searchParams: params }),
+    await ProductsPage({ searchParams: Promise.resolve(params) }),
   );
   return render(
-    <NextIntlClientProvider
-      locale={locale}
-      messages={locale === "ar" ? ar : en}
-    >
+    <NextIntlClientProvider locale={locale} messages={locale === "ar" ? ar : en}>
       {tree}
     </NextIntlClientProvider>,
   );
@@ -152,15 +131,9 @@ describe("catalog empty-result recovery", () => {
         page: "7",
       };
       await show(params, locale);
-      expect(
-        screen.getByText(messages.catalogue.empty.filters.headline),
-      ).toBeTruthy();
-      expect(
-        screen.getByText(messages.catalogue.empty.filters.reviewedOnly),
-      ).toBeTruthy();
-      expect(
-        screen.queryByText(messages.catalogue.empty.category.headline),
-      ).toBeNull();
+      expect(screen.getByText(messages.catalogue.empty.filters.headline)).toBeTruthy();
+      expect(screen.getByText(messages.catalogue.empty.filters.reviewedOnly)).toBeTruthy();
+      expect(screen.queryByText(messages.catalogue.empty.category.headline)).toBeNull();
       expect(
         screen.queryByRole("link", {
           name: messages.catalogue.empty.requestQuote,
@@ -170,22 +143,17 @@ describe("catalog empty-result recovery", () => {
         name: messages.catalogue.sortOptions.newest,
       });
       const href = recovery.getAttribute("href")!;
-      const recovered = Object.fromEntries(
-        new URL(href, "https://fixture.invalid").searchParams,
-      );
+      const recovered = Object.fromEntries(new URL(href, "https://fixture.invalid").searchParams);
       expect(recovered).toEqual({
         category: "bearings",
         currency: "SAR",
         b2b: "true",
         sort: "newest",
       });
-      await userEvent
-        .setup()
-        .selectOptions(screen.getByRole("combobox"), "newest");
+      await userEvent.setup().selectOptions(screen.getByRole("combobox"), "newest");
       expect(
         Object.fromEntries(
-          new URL(state.push.mock.calls[0][0], "https://fixture.invalid")
-            .searchParams,
+          new URL(state.push.mock.calls[0][0], "https://fixture.invalid").searchParams,
         ),
       ).toEqual(recovered);
       cleanup();
@@ -193,10 +161,8 @@ describe("catalog empty-result recovery", () => {
       expect(screen.getByRole("article").textContent).toBe(
         locale === "ar" ? "محمل بدون مراجعات" : "Unreviewed bearing",
       );
-      const request = new URL(
-        state.fetch.mock.calls.at(-1)![0],
-        "https://fixture.invalid",
-      ).searchParams;
+      const request = new URL(state.fetch.mock.calls.at(-1)![0], "https://fixture.invalid")
+        .searchParams;
       expect(Object.fromEntries(request)).toMatchObject({
         categorySlug: "bearings",
         currency: "SAR",
@@ -223,8 +189,7 @@ describe("catalog empty-result recovery", () => {
     const { page, ...retained } = params;
     expect(
       Object.fromEntries(
-        new URL(resetCatalogSortHref(params), "https://fixture.invalid")
-          .searchParams,
+        new URL(resetCatalogSortHref(params), "https://fixture.invalid").searchParams,
       ),
     ).toEqual({ ...retained, sort: "newest" });
   });
@@ -240,9 +205,10 @@ describe("catalog empty-result recovery", () => {
     const href = screen
       .getByRole("link", { name: en.catalogue.empty.clearFilters })
       .getAttribute("href")!;
-    expect(
-      Object.fromEntries(new URL(href, "https://fixture.invalid").searchParams),
-    ).toEqual({ currency: "SAR", b2b: "true" });
+    expect(Object.fromEntries(new URL(href, "https://fixture.invalid").searchParams)).toEqual({
+      currency: "SAR",
+      b2b: "true",
+    });
     expect(screen.getByRole("combobox")).toBeTruthy();
   });
 
@@ -259,9 +225,7 @@ describe("catalog empty-result recovery", () => {
     await show({ category: "bearings" });
     expect(screen.getByText(en.catalogue.empty.category.headline)).toBeTruthy();
     expect(
-      screen
-        .getByRole("link", { name: en.catalogue.empty.requestQuote })
-        .getAttribute("href"),
+      screen.getByRole("link", { name: en.catalogue.empty.requestQuote }).getAttribute("href"),
     ).toBe("/b2b/rfq/new");
     expect(screen.getByRole("combobox")).toBeTruthy();
   });

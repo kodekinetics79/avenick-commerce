@@ -18,7 +18,9 @@ import { readPublicCategoryTree } from "@/lib/public-category-tree";
 import { canonicalFor } from "@/lib/page-metadata";
 import { readCategoryTreeOnce } from "@/components/seo/category-breadcrumb";
 
-interface Props { params: { slug: string } }
+interface Props {
+  params: Promise<{ slug: string }>;
+}
 
 const PAGE_LIMIT = 24;
 
@@ -55,7 +57,10 @@ async function movingInCategory(category: CategoryNode, locale: "en" | "ar"): Pr
       // already does: a product filed under a child category names the child,
       // one filed directly under this category falls through to its supplier,
       // exactly as the grid below does for every tile.
-      return { ...card, category: dto.category?.slug === category.slug ? undefined : card.category };
+      return {
+        ...card,
+        category: dto.category?.slug === category.slug ? undefined : card.category,
+      };
     });
   } catch (error) {
     console.error("Unable to load the category activity rail", error);
@@ -63,7 +68,8 @@ async function movingInCategory(category: CategoryNode, locale: "en" | "ar"): Pr
   }
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const params = await props.params;
   // The request-cached read, shared with the breadcrumb markup the segment
   // layout renders, so the structured data adds no query of its own.
   const categories = (await readCategoryTreeOnce()) as unknown as CategoryNode[];
@@ -85,7 +91,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // "Electronics | Avenick | Avenick". The name also follows the visitor's
   // locale, the same way the h1 below does — a tab title in a different
   // language from the page it labels is the same defect, one layer up.
-  const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
+  const locale = (await cookies()).get("AVENICK_LOCALE")?.value ?? "en";
   return {
     title: locale === "ar" && cat.nameAr?.trim() ? cat.nameAr : cat.nameEn,
     // /products?category=<slug> lists the same catalogue and names this page as
@@ -94,8 +100,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function CategoryPage({ params }: Props) {
-  const locale = (cookies().get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
+export default async function CategoryPage(props: Props) {
+  const params = await props.params;
+  const locale = ((await cookies()).get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
   const t = await getTranslations("catalogue");
   const categories = (await readPublicCategoryTree()) as unknown as CategoryNode[];
   const category = findCategory(categories, params.slug);
@@ -120,7 +127,8 @@ export default async function CategoryPage({ params }: Props) {
   // The heading follows the visitor's locale. It used to render nameAr as the h1
   // and nameEn as the subtitle for everyone, so an English visitor got an Arabic
   // heading and an Arabic visitor got their own language demoted to a caption.
-  const primaryName = locale === "ar" ? (category.nameAr?.trim() || category.nameEn) : category.nameEn;
+  const primaryName =
+    locale === "ar" ? category.nameAr?.trim() || category.nameEn : category.nameEn;
   const secondaryName = locale === "ar" ? category.nameEn : category.nameAr?.trim() || undefined;
 
   return (
@@ -181,7 +189,10 @@ export default async function CategoryPage({ params }: Props) {
               filter panel; the breadcrumb above is the way back up.
             */}
             {category.children.length > 0 && (
-              <nav aria-label={t("context.browseWithin", { category: primaryName })} className="mb-6">
+              <nav
+                aria-label={t("context.browseWithin", { category: primaryName })}
+                className="mb-6"
+              >
                 <Eyebrow as="h2" className="mb-2">
                   {t("context.browseWithin", { category: primaryName })}
                 </Eyebrow>
@@ -234,7 +245,10 @@ export default async function CategoryPage({ params }: Props) {
               </p>
               <Dateline>
                 {total > products.length
-                  ? t("category.showingFirst", { shown: String(products.length), total: String(total) })
+                  ? t("category.showingFirst", {
+                      shown: String(products.length),
+                      total: String(total),
+                    })
                   : t("category.showingAll")}
               </Dateline>
             </div>

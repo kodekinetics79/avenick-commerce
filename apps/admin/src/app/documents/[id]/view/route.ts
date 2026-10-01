@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { notFound } from "next/navigation";
 import { db } from "@avenick/database";
 import { isRecordId } from "@avenick/utils";
-import { browserDirectUploadsEnabled, isKeyInUploadNamespace } from "@avenick/utils/browser-upload-policy";
+import {
+  browserDirectUploadsEnabled,
+  isKeyInUploadNamespace,
+} from "@avenick/utils/browser-upload-policy";
 import { presignGetUrl } from "@avenick/utils/s3";
 import { requireAdminSession } from "@/lib/auth";
 
@@ -45,7 +48,8 @@ function isFollowableLink(fileUrl: string): boolean {
   }
 }
 
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!isRecordId(params.id)) notFound();
 
   // Re-checked against the database on every request. An unauthenticated or
@@ -59,7 +63,13 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   });
   if (!document) notFound();
 
-  if (isKeyInUploadNamespace(document.fileUrl, { kind: "seller", sellerId: document.sellerId }, "seller-document")) {
+  if (
+    isKeyInUploadNamespace(
+      document.fileUrl,
+      { kind: "seller", sellerId: document.sellerId },
+      "seller-document",
+    )
+  ) {
     if (!browserDirectUploadsEnabled()) {
       return new NextResponse(
         "File storage is not configured in this environment, so this document cannot be opened.",
@@ -68,7 +78,10 @@ export async function GET(_request: Request, { params }: { params: { id: string 
     }
     // The helper's default TTL (minutes, not hours) is the whole lifetime of
     // this link; the browser follows it immediately.
-    return NextResponse.redirect(presignGetUrl(document.fileUrl), { status: 302, headers: NO_STORE });
+    return NextResponse.redirect(presignGetUrl(document.fileUrl), {
+      status: 302,
+      headers: NO_STORE,
+    });
   }
 
   if (isFollowableLink(document.fileUrl)) {
@@ -78,8 +91,11 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   // Neither a key in the owning seller's namespace nor a link the browser
   // could follow: the row cannot be opened, and saying so beats a redirect to
   // nowhere.
-  return new NextResponse("This document's file reference cannot be opened from this environment.", {
-    status: 409,
-    headers: NO_STORE,
-  });
+  return new NextResponse(
+    "This document's file reference cannot be opened from this environment.",
+    {
+      status: 409,
+      headers: NO_STORE,
+    },
+  );
 }

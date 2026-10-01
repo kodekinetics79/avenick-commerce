@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { CheckCircle, Clock } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
-import { format } from "date-fns";
 import { RECORD_ID } from "@avenick/utils";
 import { sellerInvitationCanSubmit } from "@avenick/database";
 import { SellerLayout } from "@/components/layout/seller-layout";
@@ -59,7 +58,16 @@ type InvitationRow = {
   rfq: {
     id: string;
     rfqNumber: string;
-    status: "DRAFT" | "SUBMITTED" | "UNDER_REVIEW" | "QUOTED" | "NEGOTIATING" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "CANCELLED";
+    status:
+      | "DRAFT"
+      | "SUBMITTED"
+      | "UNDER_REVIEW"
+      | "QUOTED"
+      | "NEGOTIATING"
+      | "ACCEPTED"
+      | "REJECTED"
+      | "EXPIRED"
+      | "CANCELLED";
     currency: string;
     notes: string | null;
     acceptedQuoteId: string | null;
@@ -68,7 +76,13 @@ type InvitationRow = {
     awardByAt: string | null;
     expiresAt: string | null;
     company: { nameEn: string } | null;
-    items: Array<{ id: string; nameEn: string; quantity: number; notes: string | null; productId: string | null }>;
+    items: Array<{
+      id: string;
+      nameEn: string;
+      quantity: number;
+      notes: string | null;
+      productId: string | null;
+    }>;
   };
   quotes: SerializedQuote[];
 };
@@ -97,12 +111,19 @@ function defaultValidity(invitation: InvitationRow) {
 }
 
 interface PageProps {
-  searchParams: { rfq?: string; submitted?: string };
+  searchParams: Promise<{ rfq?: string; submitted?: string }>;
 }
 
-export default async function SubmitQuotePage({ searchParams }: PageProps) {
+export default async function SubmitQuotePage(props: PageProps) {
+  const searchParams = await props.searchParams;
   const { membership } = await requireSellerPermission("quotes.submit");
   const t = await getTranslations("sellerRelations");
+  const locale = await getLocale();
+  const dateFormat = new Intl.DateTimeFormat(locale, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
 
   if (searchParams.rfq) {
     if (!RECORD_ID.test(searchParams.rfq)) notFound();
@@ -117,7 +138,7 @@ export default async function SubmitQuotePage({ searchParams }: PageProps) {
     const rfq = invitation.rfq;
     const latestQuote = invitation.quotes[0] ?? null;
     const buyerLabel = rfq.company?.nameEn ?? t("common.individualBuyer");
-    const requiredBy = rfq.requiredBy ? format(new Date(rfq.requiredBy), "MMM d, yyyy") : null;
+    const requiredBy = rfq.requiredBy ? dateFormat.format(new Date(rfq.requiredBy)) : null;
     const openForSubmission = canSubmit(invitation);
 
     return (
@@ -133,17 +154,38 @@ export default async function SubmitQuotePage({ searchParams }: PageProps) {
               t("quoteSubmit.lineCount", { count: rfq.items.length, n: String(rfq.items.length) }),
               t("quoteSubmit.pricedIn", { currency: rfq.currency }),
               requiredBy ? t("quoteSubmit.neededBy", { date: requiredBy }) : null,
-            ].filter(Boolean).join(" · ")}
-            actions={<StatusPill tone={latestQuote?.status === "ACCEPTED" ? "success" : openForSubmission ? "warning" : "neutral"}>
-              {latestQuote ? t(`quoteStatus.${latestQuote.status}`) : openForSubmission ? t("quoteStatus.SUBMITTED") : t(`rfqStatus.${rfq.status}`)}
-            </StatusPill>}
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+            actions={
+              <StatusPill
+                tone={
+                  latestQuote?.status === "ACCEPTED"
+                    ? "success"
+                    : openForSubmission
+                      ? "warning"
+                      : "neutral"
+                }
+              >
+                {latestQuote
+                  ? t(`quoteStatus.${latestQuote.status}`)
+                  : openForSubmission
+                    ? t("quoteStatus.SUBMITTED")
+                    : t(`rfqStatus.${rfq.status}`)}
+              </StatusPill>
+            }
           />
 
           {searchParams.submitted === "1" && latestQuote && (
             <Surface role="status" rung={2} tone="success" className="flex items-start gap-2 p-4">
-              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-success-ink" aria-hidden="true" />
+              <CheckCircle
+                className="mt-0.5 h-4 w-4 shrink-0 text-success-ink"
+                aria-hidden="true"
+              />
               <div>
-                <p className="u-ui font-medium text-ink-1">{t("quoteSubmit.submitted", { revision: latestQuote.revision })}</p>
+                <p className="u-ui font-medium text-ink-1">
+                  {t("quoteSubmit.submitted", { revision: latestQuote.revision })}
+                </p>
                 <p className="u-meta text-ink-2">{t("quoteSubmit.submittedBody")}</p>
               </div>
             </Surface>
@@ -151,7 +193,9 @@ export default async function SubmitQuotePage({ searchParams }: PageProps) {
 
           {rfq.notes && (
             <FieldWell className="p-4">
-              <Eyebrow as="h2" className="mb-1.5">{t("quoteSubmit.whatTheBuyerAsked")}</Eyebrow>
+              <Eyebrow as="h2" className="mb-1.5">
+                {t("quoteSubmit.whatTheBuyerAsked")}
+              </Eyebrow>
               <p className="u-body u-measure whitespace-pre-wrap text-ink-2">{rfq.notes}</p>
             </FieldWell>
           )}
@@ -160,18 +204,48 @@ export default async function SubmitQuotePage({ searchParams }: PageProps) {
             <Surface rung={2} className="p-4">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <Eyebrow>{t("quoteSubmit.latestRevision", { revision: latestQuote.revision })}</Eyebrow>
-                  <Num value={Number(latestQuote.total).toFixed(2)} currency={latestQuote.currency} rank="section" />
+                  <Eyebrow>
+                    {t("quoteSubmit.latestRevision", { revision: latestQuote.revision })}
+                  </Eyebrow>
+                  <Num
+                    value={Number(latestQuote.total).toFixed(2)}
+                    currency={latestQuote.currency}
+                    rank="section"
+                  />
                   <Dateline>{t("quoteSubmit.serverCalculated")}</Dateline>
                 </div>
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-end">
-                  <div><dt className="u-micro text-ink-3">{t("quoteSubmit.subtotal")}</dt><dd className="u-ui text-ink-1">{latestQuote.currency} {Number(latestQuote.subtotal).toFixed(2)}</dd></div>
-                  <div><dt className="u-micro text-ink-3">{t("quoteSubmit.vat")}</dt><dd className="u-ui text-ink-1">{latestQuote.currency} {Number(latestQuote.vatAmount).toFixed(2)}</dd></div>
-                  <div><dt className="u-micro text-ink-3">{t("quoteSubmit.freight")}</dt><dd className="u-ui text-ink-1">{latestQuote.currency} {Number(latestQuote.freightAmount).toFixed(2)}</dd></div>
-                  <div><dt className="u-micro text-ink-3">{t("quoteSubmit.validUntil")}</dt><dd className="u-ui text-ink-1">{format(new Date(latestQuote.validUntil), "MMM d, yyyy")}</dd></div>
+                  <div>
+                    <dt className="u-micro text-ink-3">{t("quoteSubmit.subtotal")}</dt>
+                    <dd className="u-ui text-ink-1">
+                      {latestQuote.currency} {Number(latestQuote.subtotal).toFixed(2)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="u-micro text-ink-3">{t("quoteSubmit.vat")}</dt>
+                    <dd className="u-ui text-ink-1">
+                      {latestQuote.currency} {Number(latestQuote.vatAmount).toFixed(2)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="u-micro text-ink-3">{t("quoteSubmit.freight")}</dt>
+                    <dd className="u-ui text-ink-1">
+                      {latestQuote.currency} {Number(latestQuote.freightAmount).toFixed(2)}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="u-micro text-ink-3">{t("quoteSubmit.validUntil")}</dt>
+                    <dd className="u-ui text-ink-1">
+                      {dateFormat.format(new Date(latestQuote.validUntil))}
+                    </dd>
+                  </div>
                 </dl>
               </div>
-              {openForSubmission && <p className="u-meta mt-3 text-ink-2">{t("quoteSubmit.revisionNotice", { next: latestQuote.revision + 1 })}</p>}
+              {openForSubmission && (
+                <p className="u-meta mt-3 text-ink-2">
+                  {t("quoteSubmit.revisionNotice", { next: latestQuote.revision + 1 })}
+                </p>
+              )}
             </Surface>
           )}
 
@@ -181,12 +255,26 @@ export default async function SubmitQuotePage({ searchParams }: PageProps) {
               <p className="u-meta mt-1 text-ink-2">{t("quoteSubmit.closedBody")}</p>
             </Surface>
           ) : products.length === 0 ? (
-            <EmptyState eyebrow={t("quoteSubmit.noProducts.eyebrow")} headline={t("quoteSubmit.noProducts.headline")} body={t("quoteSubmit.noProducts.body")} action={<Button variant="secondary" size="sm" asChild><Link href="/products/new">{t("quoteSubmit.noProducts.action")}</Link></Button>} />
+            <EmptyState
+              eyebrow={t("quoteSubmit.noProducts.eyebrow")}
+              headline={t("quoteSubmit.noProducts.headline")}
+              body={t("quoteSubmit.noProducts.body")}
+              action={
+                <Button variant="secondary" size="sm" asChild>
+                  <Link href="/products/new">{t("quoteSubmit.noProducts.action")}</Link>
+                </Button>
+              }
+            />
           ) : (
             <QuoteForm
               rfqId={rfq.id}
               currency={rfq.currency}
-              items={rfq.items.map((item) => ({ id: item.id, nameEn: item.nameEn, quantity: item.quantity, notes: item.notes }))}
+              items={rfq.items.map((item) => ({
+                id: item.id,
+                nameEn: item.nameEn,
+                quantity: item.quantity,
+                notes: item.notes,
+              }))}
               products={products}
               latestQuote={latestQuote}
               defaultValidUntil={defaultValidity(invitation)}
@@ -203,14 +291,28 @@ export default async function SubmitQuotePage({ searchParams }: PageProps) {
     <SellerLayout permissions={membership.permissions}>
       <div className="max-w-3xl space-y-block">
         <PageHeader
-          breadcrumbs={[{ label: t("quotes.title"), href: "/quotes" }, { label: t("quoteSubmit.newQuote") }]}
+          breadcrumbs={[
+            { label: t("quotes.title"), href: "/quotes" },
+            { label: t("quoteSubmit.newQuote") },
+          ]}
           linkComponent={Link}
           eyebrow={t("quoteSubmit.eyebrow")}
           title={t("quoteSubmit.chooseTitle")}
           dateline={t("quoteSubmit.chooseDateline")}
         />
         {openInbox.length === 0 ? (
-          <Surface rung={1}><EmptyState eyebrow={t("quoteSubmit.empty.eyebrow")} headline={t("quoteSubmit.empty.headline")} body={t("quoteSubmit.empty.body")} action={<Button variant="secondary" size="sm" asChild><Link href="/messages">{t("quotes.empty.action")}</Link></Button>} /></Surface>
+          <Surface rung={1}>
+            <EmptyState
+              eyebrow={t("quoteSubmit.empty.eyebrow")}
+              headline={t("quoteSubmit.empty.headline")}
+              body={t("quoteSubmit.empty.body")}
+              action={
+                <Button variant="secondary" size="sm" asChild>
+                  <Link href="/messages">{t("quotes.empty.action")}</Link>
+                </Button>
+              }
+            />
+          </Surface>
         ) : (
           <Surface rung={1} className="overflow-hidden">
             <ul className="divide-y divide-hairline">
@@ -221,11 +323,31 @@ export default async function SubmitQuotePage({ searchParams }: PageProps) {
                   <li key={invitation.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                     <div className="min-w-0 flex-1">
                       <p className="u-mono u-micro text-ink-3">{rfq.rfqNumber}</p>
-                      <p className="u-ui font-medium text-ink-1">{rfq.company?.nameEn ?? t("common.individualBuyer")}</p>
-                      <p className="u-meta truncate text-ink-2">{rfq.items.slice(0, 3).map((item) => `${item.quantity}× ${item.nameEn}`).join(", ")}</p>
-                      {rfq.responseDueAt && <p className="u-meta mt-0.5 inline-flex items-center gap-1 text-ink-3"><Clock className="h-3 w-3" aria-hidden="true" /> {t("quoteSubmit.respondBy", { date: format(new Date(rfq.responseDueAt), "MMM d, yyyy") })}</p>}
+                      <p className="u-ui font-medium text-ink-1">
+                        {rfq.company?.nameEn ?? t("common.individualBuyer")}
+                      </p>
+                      <p className="u-meta truncate text-ink-2">
+                        {rfq.items
+                          .slice(0, 3)
+                          .map((item) => `${item.quantity}× ${item.nameEn}`)
+                          .join(", ")}
+                      </p>
+                      {rfq.responseDueAt && (
+                        <p className="u-meta mt-0.5 inline-flex items-center gap-1 text-ink-3">
+                          <Clock className="h-3 w-3" aria-hidden="true" />{" "}
+                          {t("quoteSubmit.respondBy", {
+                            date: dateFormat.format(new Date(rfq.responseDueAt)),
+                          })}
+                        </p>
+                      )}
                     </div>
-                    <Button variant="secondary" size="sm" asChild><Link href={`/quotes/submit?rfq=${encodeURIComponent(rfq.id)}`}>{latest ? t("quoteSubmit.revise", { revision: latest.revision + 1 }) : t("inbox.row.quoteThisRfq")}</Link></Button>
+                    <Button variant="secondary" size="sm" asChild>
+                      <Link href={`/quotes/submit?rfq=${encodeURIComponent(rfq.id)}`}>
+                        {latest
+                          ? t("quoteSubmit.revise", { revision: latest.revision + 1 })
+                          : t("inbox.row.quoteThisRfq")}
+                      </Link>
+                    </Button>
                   </li>
                 );
               })}

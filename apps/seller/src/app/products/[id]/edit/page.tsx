@@ -10,7 +10,11 @@ import { requireSellerPermission } from "@/lib/auth";
 import { sellerHasPermission } from "@/lib/seller-permissions";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { ArchiveListing } from "@/components/products/archive-listing";
-import { ProductForm, type ProductFormOption, type ProductFormValues } from "@/components/products/product-form";
+import {
+  ProductForm,
+  type ProductFormOption,
+  type ProductFormValues,
+} from "@/components/products/product-form";
 import { loadStatutoryVatTable } from "@/app/products/actions";
 // One status vocabulary for the whole catalog surface: the list and this page
 // used to carry separate maps, which is how the same state got two names and
@@ -52,7 +56,8 @@ function categoryOptions(rows: readonly CategoryRow[]): ProductFormOption[] {
     .sort((a, b) => a.label.localeCompare(b.label, "en"));
 }
 
-export default async function EditProductPage({ params }: { params: { id: string } }) {
+export default async function EditProductPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const t = await getTranslations("sellerCatalog");
   const { seller, membership, userRole } = await requireSellerPermission("catalog.manage");
 
@@ -81,7 +86,11 @@ export default async function EditProductPage({ params }: { params: { id: string
 
   const [categories, brands, vatTable] = await Promise.all([
     db.category.findMany({ select: { id: true, nameEn: true, parentId: true, isActive: true } }),
-    db.brand.findMany({ where: { isActive: true }, select: { id: true, nameEn: true }, orderBy: { nameEn: "asc" } }),
+    db.brand.findMany({
+      where: { isActive: true },
+      select: { id: true, nameEn: true },
+      orderBy: { nameEn: "asc" },
+    }),
     loadStatutoryVatTable(),
   ]);
 
@@ -141,27 +150,40 @@ export default async function EditProductPage({ params }: { params: { id: string
   // empty rather than leaving the seller to guess.
   const staleReferences = [
     product.category.isActive ? null : t("edit.stale.category", { name: product.category.nameEn }),
-    product.brand && !product.brand.isActive ? t("edit.stale.brand", { name: product.brand.nameEn }) : null,
+    product.brand && !product.brand.isActive
+      ? t("edit.stale.brand", { name: product.brand.nameEn })
+      : null,
   ].filter((notice): notice is string => notice !== null);
 
   const status = statusMeta(product.status);
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
+    <SellerLayout
+      sellerName={seller.businessNameEn}
+      tier={seller.tier}
+      permissions={membership.permissions}
+    >
       <div className="space-y-4">
         <PageHeader
           eyebrow={t("edit.eyebrow")}
           title={t("edit.title")}
           linkComponent={Link}
-          breadcrumbs={[{ label: t("breadcrumb.products"), href: "/products" }, { label: product.nameEn }]}
+          breadcrumbs={[
+            { label: t("breadcrumb.products"), href: "/products" },
+            { label: product.nameEn },
+          ]}
           // The record being edited, cited rather than repeated as a subtitle.
           dateline={`${product.sku} · ${product.nameEn}`}
           actions={
             <>
               {/* statusMeta hands back a key, not a word; an unlabelled status
                   still shows its raw state rather than disappearing. */}
-              <StatusPill tone={status.tone}>{status.labelKey ? t(status.labelKey) : status.fallbackLabel}</StatusPill>
-              {product.isPubliclyDiscoverable && <StatusPill tone="accent">{t("edit.onPublicStorefront")}</StatusPill>}
+              <StatusPill tone={status.tone}>
+                {status.labelKey ? t(status.labelKey) : status.fallbackLabel}
+              </StatusPill>
+              {product.isPubliclyDiscoverable && (
+                <StatusPill tone="accent">{t("edit.onPublicStorefront")}</StatusPill>
+              )}
             </>
           }
         />
@@ -170,7 +192,10 @@ export default async function EditProductPage({ params }: { params: { id: string
           // Recessed and toned: this is context about why a field looks empty,
           // not an object to act on.
           <Surface rung={1} tone="warning" className="flex items-start gap-3 p-4">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-ink" aria-hidden="true" />
+            <AlertTriangle
+              className="mt-0.5 h-4 w-4 shrink-0 text-warning-ink"
+              aria-hidden="true"
+            />
             <div>
               <Eyebrow className="mb-1">{t("edit.stale.eyebrow")}</Eyebrow>
               <ul className="u-ui max-w-prose space-y-1 text-ink-1">
@@ -192,7 +217,10 @@ export default async function EditProductPage({ params }: { params: { id: string
               n: String(product.inventory.length),
               reserved: String(reservedQty),
               link: (chunks) => (
-                <Link href="/inventory" className="u-focus rounded-nested text-primary-ink hover:underline">
+                <Link
+                  href="/inventory"
+                  className="u-focus rounded-nested text-primary-ink hover:underline"
+                >
                   {chunks}
                 </Link>
               ),
@@ -205,7 +233,9 @@ export default async function EditProductPage({ params }: { params: { id: string
           productId={product.id}
           initial={initial}
           categories={categoryOptions(categories)}
-          brands={brands.map((brand): ProductFormOption => ({ value: brand.id, label: brand.nameEn }))}
+          brands={brands.map(
+            (brand): ProductFormOption => ({ value: brand.id, label: brand.nameEn }),
+          )}
           vatTable={vatTable}
           canManagePricing={canManagePricing}
           canManageInventory={canManageInventory}

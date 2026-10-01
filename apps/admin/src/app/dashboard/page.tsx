@@ -13,7 +13,7 @@ export async function generateMetadata() {
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  if (!await getCurrentAdmin()) redirect("/login");
+  if (!(await getCurrentAdmin())) redirect("/login");
   const [{ exec, topCustomers }, pendingCount] = await Promise.all([
     getExecutiveDashboardData(),
     db.sellerProfile.count({ where: { status: "PENDING_REVIEW" } }),
@@ -24,7 +24,6 @@ export default async function AdminDashboardPage() {
     <DashboardView
       exec={exec}
       topCustomers={topCustomers}
-      gmvMonth={exec.kpis.gmvMonth}
       activeCompanies={exec.kpis.activeCompanies}
       activeSuppliers={exec.kpis.activeSuppliers}
       pendingCount={pendingCount}

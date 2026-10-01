@@ -44,7 +44,7 @@ export function HeroStage({
   children,
   ...props
 }: HeroStageProps) {
-  const Comp: React.ElementType = as ?? "section";
+  const Comp = (as ?? "section") as any;
   return (
     <Comp className={cn("u-stage", className)} {...props}>
       {planes === 3 && (
@@ -69,7 +69,7 @@ export function HeroStage({
 /** The seven-column copy well. `grid-column` is logical, so it mirrors for free. */
 export function HeroCopy({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("u-hero-copy flex flex-col gap-stack", className)} {...props}>
+    <div className={cn("u-hero-copy gap-stack flex flex-col", className)} {...props}>
       {children}
     </div>
   );
@@ -85,7 +85,11 @@ export function HeroCopy({ className, children, ...props }: React.HTMLAttributes
  * — never a placeholder product, never a stock photograph, never a rating, never
  * a "trusted by" strip. A gorgeous lie is the one unsurvivable failure.
  */
-export function HeroSpecimen({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+export function HeroSpecimen({
+  className,
+  children,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div className={cn("u-hero-specimen", className)} {...props}>
       {children}

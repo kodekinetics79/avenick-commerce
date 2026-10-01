@@ -49,7 +49,12 @@ export function ReplyForm({ threadId, isOpen, hasRfq, maxLength }: ReplyFormProp
         router.refresh();
       } catch (err) {
         // A session redirect from the action surfaces as a thrown NEXT_REDIRECT.
-        if (err && typeof err === "object" && "digest" in err && String((err as { digest?: string }).digest).includes("NEXT_REDIRECT")) {
+        if (
+          err &&
+          typeof err === "object" &&
+          "digest" in err &&
+          String((err as { digest?: string }).digest).includes("NEXT_REDIRECT")
+        ) {
           throw err;
         }
         setState({ error: t("reply.sendFailed") });
@@ -58,7 +63,7 @@ export function ReplyForm({ threadId, isOpen, hasRfq, maxLength }: ReplyFormProp
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3">
+    <form onSubmit={handleSubmit} className="space-y-3" noValidate>
       {!isOpen && (
         <Surface rung={1} className="flex items-start gap-2 px-3 py-2">
           <Lock className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />

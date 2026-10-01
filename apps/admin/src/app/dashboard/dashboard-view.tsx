@@ -4,20 +4,54 @@ import * as React from "react";
 import Link from "next/link";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import {
-  Button, CellGrid, Dateline, Divider, EmptyState, Eyebrow, FieldWell,
-  LedgerTable, Meter, Num, SectionHeader, SpecularSurface, Stat, StatusPill, Surface, TierMark,
+  Button,
+  CellGrid,
+  Dateline,
+  Divider,
+  EmptyState,
+  Eyebrow,
+  FieldWell,
+  LedgerTable,
+  Meter,
+  Num,
+  SectionHeader,
+  SpecularSurface,
+  Stat,
+  StatusPill,
+  Surface,
+  TierMark,
   type StatDelta,
 } from "@avenick/ui";
-import type { ExecutiveKpis } from "@avenick/database";
+import type { Currency, ExecutiveKpis, RevenueSplitByCurrency } from "@avenick/database";
 import { cn } from "@avenick/utils";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { channelPercent, formatMoneySeries, trendState } from "./currency-view";
 import {
-  TrendingUp, TrendingDown, Building2, Users, Store, ShoppingCart, Coins, Truck,
-  Boxes, FileQuestion, ArrowRight, Circle, Plus, UserPlus, Megaphone, Tag,
+  TrendingUp,
+  TrendingDown,
+  Building2,
+  Users,
+  Store,
+  ShoppingCart,
+  Coins,
+  Truck,
+  Boxes,
+  FileQuestion,
+  ArrowRight,
+  Circle,
+  Plus,
+  UserPlus,
+  Megaphone,
+  Tag,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ElementType> = {
-  TrendingDown, Truck, FileQuestion, ShoppingCart, Boxes, Coins,
+  TrendingDown,
+  Truck,
+  FileQuestion,
+  ShoppingCart,
+  Boxes,
+  Coins,
 };
 
 // A stable `key` rather than a display string: this map sits at module scope,
@@ -35,21 +69,45 @@ const QUICK_ACTIONS = [
 // a local copy of the interface would be a second place for that to drift.
 interface ExecData {
   kpis: ExecutiveKpis;
-  revenueSplit: { b2b: number; b2c: number };
+  revenueSplit: RevenueSplitByCurrency[];
   rfqFunnel: { stage: string; count: number; color: string }[];
   orderLifecycle: { stage: string; count: number; color: string }[];
-  topCategories: { name: string; gmv: number; share: number }[];
-  topSuppliers: { name: string; gmv: number; orders: number; rating: number; tier: string }[];
-  aiRecommendations: { icon: string; iconStyle: string; title: string; description: string; confidence: number; tag: string; tagStyle: string; actionLabel: string; actionHref: string }[];
+  topCategories: { currency: Currency; name: string; gmv: number; share: number }[];
+  topSuppliers: {
+    id: string;
+    currency: Currency;
+    name: string;
+    gmv: number;
+    orders: number;
+    rating: number;
+    tier: string;
+  }[];
+  aiRecommendations: {
+    icon: string;
+    iconStyle: string;
+    title: string;
+    description: string;
+    confidence: number;
+    tag: string;
+    tagStyle: string;
+    actionLabel: string;
+    actionHref: string;
+  }[];
   operationalHealth: { label: string; value: number; severity: string; href: string }[];
 }
 
-interface TopCustomer { id: string; name: string; totalOrders: number; totalSpent: number; type: string }
+interface TopCustomer {
+  id: string;
+  currency: Currency;
+  name: string;
+  totalOrders: number;
+  totalSpent: number;
+  type: string;
+}
 
 export interface DashboardViewProps {
   exec: ExecData;
   topCustomers: TopCustomer[];
-  gmvMonth: number;
   activeCompanies: number;
   activeSuppliers: number;
   pendingCount: number;
@@ -70,16 +128,11 @@ export interface DashboardViewProps {
 function trendOf(percent: number): StatDelta {
   if (percent === 0) return { value: "0%", direction: "flat", tone: "neutral" };
   const up = percent > 0;
-  return { value: `${up ? "+" : ""}${percent}%`, direction: up ? "up" : "down", tone: up ? "success" : "danger" };
-}
-
-/**
- * Order totals are summed as recorded in each order's own currency; nothing is
- * converted. Labelling that sum "AED" would be a claim the data does not
- * support, so amounts are shown as plain numbers with a disclosure below.
- */
-function amount(n: number): string {
-  return n.toLocaleString("en", { maximumFractionDigits: 0 });
+  return {
+    value: `${up ? "+" : ""}${percent}%`,
+    direction: up ? "up" : "down",
+    tone: up ? "success" : "danger",
+  };
 }
 
 /** A signal on the attention ledger: one live count and where to go about it. */
@@ -93,15 +146,22 @@ interface Signal {
   tone: "danger" | "warning" | "neutral";
 }
 
-export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, activeSuppliers, pendingCount }: DashboardViewProps) {
+export function DashboardView({
+  exec,
+  topCustomers,
+  activeCompanies,
+  activeSuppliers,
+  pendingCount,
+}: DashboardViewProps) {
   const t = useTranslations("adminShell.dashboard");
+  const locale = useLocale() === "ar" ? "ar" : "en";
   const k = exec.kpis;
 
   // The service reports null for any trend it did not measure — no prior
   // month to compare against, or a figure it never compares at all — and the
   // card says so instead of showing a badge. A 0 that does arrive is a
   // measured flat month and is shown as one.
-  const revenueKpis: { label: string; value: string; icon: React.ElementType; trend: number | null; rank: "hero" | "section" }[] = [
+  const revenueKpis = [
     // Labels are short enough to survive the micro-caps step without being
     // truncated: losing "· this month" would turn a monthly figure into an
     // unqualified one, which is exactly the kind of quiet untruth this codebase
@@ -110,19 +170,56 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
     // hero-rank figure on the count that needs a person, and a console that
     // shouts its revenue as loudly as its alarms has told the operator nothing
     // about which to read first.
-    { label: t("revenue.gmvMonth"), value: amount(gmvMonth), icon: TrendingUp, trend: k.gmvTrend, rank: "section" },
+    {
+      label: t("revenue.gmvMonth"),
+      metrics: k.gmvMonth,
+      icon: TrendingUp,
+      rank: "section" as const,
+    },
     // The service computes the B2B/B2C split and commission over all paid
     // orders, not the current month, so the labels say so; each trend is that
     // channel's own month-over-month movement.
-    { label: t("revenue.b2bAllTime"), value: amount(k.b2bRevenue), icon: Building2, trend: k.b2bTrend, rank: "section" },
-    { label: t("revenue.b2cAllTime"), value: amount(k.b2cRevenue), icon: ShoppingCart, trend: k.b2cTrend, rank: "section" },
-    { label: t("revenue.commissionAllTime"), value: amount(k.commission), icon: Coins, trend: k.commissionTrend, rank: "section" },
+    {
+      label: t("revenue.b2bAllTime"),
+      metrics: k.b2bRevenue,
+      icon: Building2,
+      rank: "section" as const,
+    },
+    {
+      label: t("revenue.b2cAllTime"),
+      metrics: k.b2cRevenue,
+      icon: ShoppingCart,
+      rank: "section" as const,
+    },
+    {
+      label: t("revenue.commissionAllTime"),
+      metrics: k.commission,
+      icon: Coins,
+      rank: "section" as const,
+    },
   ];
 
-  const countKpis: { label: string; value: string | number; unit?: string; icon: React.ElementType }[] = [
-    { label: t("counts.activeCompanies"), value: activeCompanies || k.activeCompanies, icon: Building2 },
-    { label: t("counts.b2cCustomers"), value: k.activeCustomers.toLocaleString("en"), icon: Users },
-    { label: t("counts.activeSuppliers"), value: activeSuppliers || k.activeSuppliers, icon: Store },
+  const countKpis: {
+    label: string;
+    value: string | number;
+    unit?: string;
+    icon: React.ElementType;
+  }[] = [
+    {
+      label: t("counts.activeCompanies"),
+      value: activeCompanies || k.activeCompanies,
+      icon: Building2,
+    },
+    {
+      label: t("counts.b2cCustomers"),
+      value: k.activeCustomers.toLocaleString(locale),
+      icon: Users,
+    },
+    {
+      label: t("counts.activeSuppliers"),
+      value: activeSuppliers || k.activeSuppliers,
+      icon: Store,
+    },
     { label: t("counts.rfqConversion"), value: k.rfqConversion, unit: "%", icon: FileQuestion },
     { label: t("counts.fulfillmentRate"), value: k.fulfillmentRate, unit: "%", icon: TrendingUp },
     { label: t("counts.warehouseUse"), value: k.warehouseUtilization, unit: "%", icon: Boxes },
@@ -142,8 +239,22 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
     })),
     // The service counts paid orders still CONFIRMED/PROCESSING past its own
     // age threshold; no SLA is published, so none is claimed here.
-    { key: "delayed", label: t("signals.delayedLabel"), note: t("signals.delayedNote"), value: k.delayedOrders, href: "/orders?status=PROCESSING", tone: "danger" as const },
-    { key: "disputes", label: t("signals.disputesLabel"), note: t("signals.disputesNote"), value: k.openDisputes, href: "/disputes", tone: "danger" as const },
+    {
+      key: "delayed",
+      label: t("signals.delayedLabel"),
+      note: t("signals.delayedNote"),
+      value: k.delayedOrders,
+      href: "/orders?status=PROCESSING",
+      tone: "danger" as const,
+    },
+    {
+      key: "disputes",
+      label: t("signals.disputesLabel"),
+      note: t("signals.disputesNote"),
+      value: k.openDisputes,
+      href: "/disputes",
+      tone: "danger" as const,
+    },
   ]
     // A danger signal at zero is not a signal; a health row at zero still is,
     // because "0 open tickets" is a reading an operator came here to take.
@@ -152,8 +263,6 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
 
   const flagged = signals.filter((s) => s.tone !== "neutral").length;
 
-  const revTotal = exec.revenueSplit.b2b + exec.revenueSplit.b2c;
-  const b2bPct = revTotal > 0 ? Math.round((exec.revenueSplit.b2b / revTotal) * 100) : 0;
   const rfqMax = Math.max(1, ...exec.rfqFunnel.map((s) => s.count));
   const lifeMax = Math.max(1, ...exec.orderLifecycle.map((s) => s.count));
   const catMax = Math.max(1, ...exec.topCategories.map((c) => c.share));
@@ -252,12 +361,16 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                           <Link
                             href={s.href}
                             className={cn(
-                              "u-focus u-state-wash flex items-baseline gap-2 rounded-nested border-s-[3px] py-1 ps-2.5 pe-1.5",
+                              "u-focus u-state-wash flex items-baseline gap-2 rounded-nested border-s-[3px] py-1 pe-1.5 ps-2.5",
                               s.tone === "danger" ? "border-s-danger" : "border-s-warning",
                             )}
                           >
-                            <span className="u-ui min-w-0 flex-1 truncate text-ink-1">{s.label}</span>
-                            <span className="fig u-ui shrink-0 font-medium text-ink-1">{s.value}</span>
+                            <span className="u-ui min-w-0 flex-1 truncate text-ink-1">
+                              {s.label}
+                            </span>
+                            <span className="fig u-ui shrink-0 font-medium text-ink-1">
+                              {s.value}
+                            </span>
                           </Link>
                         </li>
                       ))}
@@ -297,7 +410,11 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
             rowProps={(s) => ({
               className: cn(
                 "border-s-[3px]",
-                s.tone === "danger" ? "border-s-danger" : s.tone === "warning" ? "border-s-warning" : "border-s-transparent",
+                s.tone === "danger"
+                  ? "border-s-danger"
+                  : s.tone === "warning"
+                    ? "border-s-warning"
+                    : "border-s-transparent",
               ),
             })}
             columns={[
@@ -324,7 +441,9 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                 width: "128px",
                 render: (s) => (
                   <StatusPill tone={s.tone} dot={s.tone !== "neutral"}>
-                    {s.tone === "neutral" ? t("signals.stateClear") : t("signals.stateNeedsAttention")}
+                    {s.tone === "neutral"
+                      ? t("signals.stateClear")
+                      : t("signals.stateNeedsAttention")}
                   </StatusPill>
                 ),
               },
@@ -348,7 +467,10 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
             title={t("recommendations.title")}
             dateline={t("recommendations.dateline")}
             action={
-              <Link href="/ai-insights" className="u-focus u-ui rounded-nested text-primary-ink underline-offset-4 hover:underline">
+              <Link
+                href="/ai-insights"
+                className="u-focus u-ui rounded-nested text-primary-ink underline-offset-4 hover:underline"
+              >
                 {t("recommendations.aiStatus")}
               </Link>
             }
@@ -373,7 +495,11 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                   // at rung 2 and crosses to 3 on hover; nothing is nested inside
                   // the anchor that would itself be interactive, which is what
                   // keeps a single tab stop per recommendation.
-                  <Link key={rec.title} href={rec.actionHref} className="u-focus block rounded-lg no-underline">
+                  <Link
+                    key={rec.title}
+                    href={rec.actionHref}
+                    className="u-focus block rounded-lg no-underline"
+                  >
                     <Surface rung={2} interactive className="flex h-full items-start gap-3 p-4">
                       <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-nested bg-neutral-soft text-ink-3">
                         <Icon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -407,20 +533,29 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
         <section aria-label={t("revenue.sectionLabel")}>
           <SectionHeader title={t("revenue.title")} />
           <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
-            {revenueKpis.map((kpi) => (
-              <Stat
-                key={kpi.label}
-                label={kpi.label}
-                value={kpi.value}
-                rank={kpi.rank}
-                icon={kpi.icon}
-                delta={kpi.trend !== null ? trendOf(kpi.trend) : undefined}
-                // Nothing was recorded in the previous month, so there is no
-                // delta to state. An empty corner would let the reader assume
-                // "flat"; saying what was withheld costs one line.
-                deltaWithheld={kpi.trend === null ? t("revenue.deltaWithheld") : undefined}
-              />
-            ))}
+            {revenueKpis.map((kpi) => {
+              const state = trendState(kpi.metrics);
+              return (
+                <Stat
+                  key={kpi.label}
+                  label={kpi.label}
+                  value={formatMoneySeries(kpi.metrics, locale)}
+                  rank={kpi.rank}
+                  icon={kpi.icon}
+                  delta={state.kind === "measured" ? trendOf(state.trend) : undefined}
+                  // A single badge cannot collapse independent currency
+                  // trends. It is withheld explicitly instead of implying
+                  // that the mixed set was flat or directly comparable.
+                  deltaWithheld={
+                    state.kind === "multiple-currencies"
+                      ? t("revenue.multiCurrencyTrend")
+                      : state.kind === "unmeasured"
+                        ? t("revenue.deltaWithheld")
+                        : undefined
+                  }
+                />
+              );
+            })}
           </CellGrid>
           <Dateline className="mt-2">{t("revenue.dateline")}</Dateline>
         </section>
@@ -431,7 +566,13 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
           <SectionHeader title={t("counts.title")} />
           <CellGrid cols={{ base: 2, sm: 3, lg: 6 }} density="compact">
             {countKpis.map((kpi) => (
-              <Stat key={kpi.label} label={kpi.label} value={kpi.value} unit={kpi.unit} icon={kpi.icon} />
+              <Stat
+                key={kpi.label}
+                label={kpi.label}
+                value={kpi.value}
+                unit={kpi.unit}
+                icon={kpi.icon}
+              />
             ))}
           </CellGrid>
           <Dateline className="mt-2">{t("counts.dateline")}</Dateline>
@@ -444,24 +585,74 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <Surface rung={2} className="p-4">
             <SectionHeader title={t("split.title")} description={t("split.description")} />
-            <Num value={amount(revTotal)} rank="section" />
-            <Eyebrow className="mt-0.5">{t("split.totalRecorded")}</Eyebrow>
-            <div className="mt-4 space-y-3">
-              <div>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="u-ui text-ink-2">{t("split.b2b")}</span>
-                  <span className="fig u-ui text-ink-1">{amount(exec.revenueSplit.b2b)} · {b2bPct}%</span>
-                </div>
-                <Meter className="mt-1.5" value={exec.revenueSplit.b2b} max={Math.max(1, revTotal)} tone="accent" label={t("split.b2bMeter")} />
+            {exec.revenueSplit.length === 0 ? (
+              <Num value="—" rank="section" />
+            ) : (
+              <div className="space-y-4">
+                {exec.revenueSplit.map((split) => {
+                  const b2bPct = channelPercent(split, "b2b");
+                  const b2cPct = channelPercent(split, "b2c");
+                  return (
+                    <div
+                      key={split.currency}
+                      className="border-t border-neutral-rule pt-3 first:border-t-0 first:pt-0"
+                    >
+                      <Num
+                        value={formatMoneySeries(
+                          [{ currency: split.currency, amount: split.total }],
+                          locale,
+                        )}
+                        rank="section"
+                      />
+                      <Eyebrow className="mt-0.5">
+                        {t("split.totalRecorded", { currency: split.currency })}
+                      </Eyebrow>
+                      <div className="mt-3 space-y-3">
+                        <div>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="u-ui text-ink-2">{t("split.b2b")}</span>
+                            <span className="fig u-ui text-ink-1">
+                              {formatMoneySeries(
+                                [{ currency: split.currency, amount: split.b2b }],
+                                locale,
+                              )}{" "}
+                              · {b2bPct}%
+                            </span>
+                          </div>
+                          <Meter
+                            className="mt-1.5"
+                            value={split.b2b}
+                            max={Math.max(1, split.total)}
+                            tone="accent"
+                            label={t("split.b2bMeter", { currency: split.currency })}
+                          />
+                        </div>
+                        <div>
+                          <div className="flex items-baseline justify-between gap-2">
+                            <span className="u-ui text-ink-2">{t("split.b2c")}</span>
+                            <span className="fig u-ui text-ink-1">
+                              {formatMoneySeries(
+                                [{ currency: split.currency, amount: split.b2c }],
+                                locale,
+                              )}{" "}
+                              · {b2cPct}%
+                            </span>
+                          </div>
+                          <Meter
+                            className="mt-1.5"
+                            value={split.b2c}
+                            max={Math.max(1, split.total)}
+                            tone="accent"
+                            index={1}
+                            label={t("split.b2cMeter", { currency: split.currency })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-              <div>
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="u-ui text-ink-2">{t("split.b2c")}</span>
-                  <span className="fig u-ui text-ink-1">{amount(exec.revenueSplit.b2c)} · {revTotal > 0 ? 100 - b2bPct : 0}%</span>
-                </div>
-                <Meter className="mt-1.5" value={exec.revenueSplit.b2c} max={Math.max(1, revTotal)} tone="accent" index={1} label={t("split.b2cMeter")} />
-              </div>
-            </div>
+            )}
           </Surface>
 
           <Surface rung={2} className="p-4">
@@ -469,7 +660,10 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
               title={t("funnel.title")}
               description={t("funnel.description")}
               action={
-                <Link href="/rfqs" className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline">
+                <Link
+                  href="/rfqs"
+                  className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline"
+                >
                   {t("funnel.view")}
                 </Link>
               }
@@ -481,7 +675,15 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                     <span className="u-meta text-ink-2">{s.stage}</span>
                     <span className="fig u-meta text-ink-1">{s.count}</span>
                   </div>
-                  <Meter className="mt-1" value={s.count} max={rfqMax} tone="accent" size="sm" index={i} label={t("funnel.stageMeter", { stage: s.stage, count: String(s.count) })} />
+                  <Meter
+                    className="mt-1"
+                    value={s.count}
+                    max={rfqMax}
+                    tone="accent"
+                    size="sm"
+                    index={i}
+                    label={t("funnel.stageMeter", { stage: s.stage, count: String(s.count) })}
+                  />
                 </div>
               ))}
             </div>
@@ -492,7 +694,10 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
               title={t("lifecycle.title")}
               description={t("lifecycle.description")}
               action={
-                <Link href="/orders" className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline">
+                <Link
+                  href="/orders"
+                  className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline"
+                >
                   {t("lifecycle.view")}
                 </Link>
               }
@@ -504,7 +709,15 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                     <span className="u-meta text-ink-2">{s.stage}</span>
                     <span className="fig u-meta text-ink-1">{s.count}</span>
                   </div>
-                  <Meter className="mt-1" value={s.count} max={lifeMax} tone="accent" size="sm" index={i} label={t("lifecycle.stageMeter", { stage: s.stage, count: String(s.count) })} />
+                  <Meter
+                    className="mt-1"
+                    value={s.count}
+                    max={lifeMax}
+                    tone="accent"
+                    size="sm"
+                    index={i}
+                    label={t("lifecycle.stageMeter", { stage: s.stage, count: String(s.count) })}
+                  />
                 </div>
               ))}
             </div>
@@ -518,7 +731,7 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
             title={t("topCategories.title")}
             dateline={t("topCategories.dateline")}
             rows={exec.topCategories}
-            getRowKey={(c) => c.name}
+            getRowKey={(c) => `${c.currency}:${c.name}`}
             density="compact"
             columns={[
               {
@@ -527,12 +740,33 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                 render: (c) => (
                   <>
                     <span className="block truncate text-ink-1">{c.name}</span>
-                    <Meter className="mt-1" value={c.share} max={catMax} tone="accent" size="sm" label={t("topCategories.shareMeter", { name: c.name, share: String(c.share) })} />
+                    <Meter
+                      className="mt-1"
+                      value={c.share}
+                      max={catMax}
+                      tone="accent"
+                      size="sm"
+                      label={t("topCategories.shareMeter", {
+                        name: c.name,
+                        share: String(c.share),
+                      })}
+                    />
                   </>
                 ),
               },
-              { key: "share", label: t("topCategories.columnShare"), numeric: true, width: "64px", render: (c) => `${c.share}%` },
-              { key: "gmv", label: t("topCategories.columnGmv"), numeric: true, render: (c) => amount(c.gmv) },
+              {
+                key: "share",
+                label: t("topCategories.columnShare"),
+                numeric: true,
+                width: "64px",
+                render: (c) => `${c.share}%`,
+              },
+              {
+                key: "gmv",
+                label: t("topCategories.columnGmv"),
+                numeric: true,
+                render: (c) => formatMoneySeries([{ currency: c.currency, amount: c.gmv }], locale),
+              },
             ]}
             empty={
               <EmptyState
@@ -548,12 +782,15 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
             title={t("topSuppliers.title")}
             dateline={t("topSuppliers.dateline")}
             toolbar={
-              <Link href="/sellers" className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline">
+              <Link
+                href="/sellers"
+                className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline"
+              >
                 {t("topSuppliers.allSuppliers")}
               </Link>
             }
             rows={exec.topSuppliers}
-            getRowKey={(s) => s.name}
+            getRowKey={(s) => `${s.currency}:${s.id}`}
             density="compact"
             columns={[
               {
@@ -566,7 +803,9 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                       {/* Tier is brass, and brass is scarce: only the tiers that
                           mean something get a mark. STANDARD is the default and
                           says nothing, so it earns none. */}
-                      {s.tier && s.tier !== "STANDARD" && <TierMark tier={s.tier} className="shrink-0" />}
+                      {s.tier && s.tier !== "STANDARD" && (
+                        <TierMark tier={s.tier} className="shrink-0" />
+                      )}
                     </span>
                     {/* The service returns 0 when a supplier has no reviews, and
                         0 is not a rating. Round one printed "No reviews" on
@@ -583,8 +822,18 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                   </>
                 ),
               },
-              { key: "orders", label: t("topSuppliers.columnOrders"), numeric: true, width: "72px" },
-              { key: "gmv", label: t("topSuppliers.columnGmv"), numeric: true, render: (s) => amount(s.gmv) },
+              {
+                key: "orders",
+                label: t("topSuppliers.columnOrders"),
+                numeric: true,
+                width: "72px",
+              },
+              {
+                key: "gmv",
+                label: t("topSuppliers.columnGmv"),
+                numeric: true,
+                render: (s) => formatMoneySeries([{ currency: s.currency, amount: s.gmv }], locale),
+              },
             ]}
             empty={
               <EmptyState
@@ -600,12 +849,15 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
             title={t("topCustomers.title")}
             dateline={t("topCustomers.dateline")}
             toolbar={
-              <Link href="/crm" className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline">
+              <Link
+                href="/crm"
+                className="u-focus u-meta rounded-nested text-primary-ink underline-offset-4 hover:underline"
+              >
                 {t("topCustomers.crm")}
               </Link>
             }
-            rows={topCustomers.slice(0, 5)}
-            getRowKey={(c) => c.id}
+            rows={topCustomers}
+            getRowKey={(c) => `${c.currency}:${c.id}`}
             density="compact"
             columns={[
               {
@@ -615,7 +867,10 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                   <>
                     <span className="block truncate text-ink-1">{c.name}</span>
                     <span className="u-meta block text-ink-3">
-                      {t("topCustomers.orderCount", { count: c.totalOrders, value: String(c.totalOrders) })}
+                      {t("topCustomers.orderCount", {
+                        count: c.totalOrders,
+                        value: String(c.totalOrders),
+                      })}
                     </span>
                   </>
                 ),
@@ -625,9 +880,17 @@ export function DashboardView({ exec, topCustomers, gmvMonth, activeCompanies, a
                 label: t("topCustomers.columnType"),
                 align: "end",
                 width: "72px",
-                render: (c) => <StatusPill tone={c.type === "B2B" ? "accent" : "neutral"}>{c.type}</StatusPill>,
+                render: (c) => (
+                  <StatusPill tone={c.type === "B2B" ? "accent" : "neutral"}>{c.type}</StatusPill>
+                ),
               },
-              { key: "totalSpent", label: t("topCustomers.columnSpend"), numeric: true, render: (c) => amount(c.totalSpent) },
+              {
+                key: "totalSpent",
+                label: t("topCustomers.columnSpend"),
+                numeric: true,
+                render: (c) =>
+                  formatMoneySeries([{ currency: c.currency, amount: c.totalSpent }], locale),
+              },
             ]}
             empty={
               <EmptyState

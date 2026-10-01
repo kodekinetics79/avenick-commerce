@@ -11,13 +11,14 @@ import { CategoryBreadcrumbJsonLd } from "@/components/seo/category-breadcrumb";
  * flush a 200 before the page's notFound() runs, and turn every unknown category
  * back into a soft 404.
  */
-export default function CategoryLayout({
-  children,
-  params,
-}: {
+export default async function CategoryLayout(props: {
   children: React.ReactNode;
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
+  const params = await props.params;
+
+  const { children } = props;
+
   return (
     <>
       <CategoryBreadcrumbJsonLd slug={params.slug} />

@@ -3,8 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { signInWithCredentials } from "@avenick/auth/client";
-import { messageForSignInError as messageForError } from "@avenick/auth/sign-in-messages";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { Eye, EyeOff } from "lucide-react";
 import { BrandMark, Button, Dateline, Divider, Eyebrow, Input, Surface } from "@avenick/ui";
 import { platformName, portalUrl } from "@avenick/utils/portal-config";
 
@@ -34,13 +35,17 @@ const FORGOT_PASSWORD_URL = portalUrl("customer", "/auth/forgot-password");
  * Nothing here claims anything.
  */
 export default function SellerLoginPage() {
+  const t = useTranslations("sellerShell.login");
   const searchParams = useSearchParams();
   const urlError = searchParams.get("code") ?? searchParams.get("error");
   const justRegistered = searchParams.get("registered") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(messageForError(urlError));
+  const authMessage = (code: string | null | undefined) =>
+    !code ? "" : code === "rate_limited" ? t("rateLimited") : t("invalidCredentials");
+  const [error, setError] = useState(authMessage(urlError));
   const brand = platformName();
 
   async function handleLogin(e: React.FormEvent) {
@@ -50,13 +55,13 @@ export default function SellerLoginPage() {
     try {
       const res = await signInWithCredentials(email, password, "/");
       if (!res.ok) {
-        setError(messageForError(res.code ?? res.error));
+        setError(authMessage(res.code ?? res.error));
         setLoading(false);
       } else {
         window.location.assign("/");
       }
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError(t("unexpectedError"));
       setLoading(false);
     }
   }
@@ -75,11 +80,9 @@ export default function SellerLoginPage() {
               active nav entry, the certificate's top edge and the ladder's active
               band — one rule in different postures. */}
           <Divider drawn on className="mt-5 w-12" />
-          <Eyebrow className="mt-4">{brand} Seller Central</Eyebrow>
-          <h1 className="u-h1 mt-1 text-ink-1">Sign in</h1>
-          <p className="u-body mt-1.5 max-w-desc text-ink-2">
-            The supplier back office for this account: your catalog, your orders, your documents and your settlements.
-          </p>
+          <Eyebrow className="mt-4">{t("portalName", { brand })}</Eyebrow>
+          <h1 className="u-h1 mt-1 text-ink-1">{t("title")}</h1>
+          <p className="u-body mt-1.5 max-w-desc text-ink-2">{t("description")}</p>
         </div>
 
         {/* Rung 3 — this is the one raised, actionable object on the page, and
@@ -99,38 +102,59 @@ export default function SellerLoginPage() {
                 registered address, so this sentence has to be true for both. */}
             {justRegistered && (
               <Surface rung={1} tone="success" role="status" className="mb-4 p-3">
-                <Eyebrow className="mb-0.5">Application received</Eyebrow>
-                <p className="u-meta text-ink-1">
-                  Sign in with that email address to follow its review — if it was already registered, use your existing
-                  password.
-                </p>
+                <Eyebrow className="mb-0.5">{t("registered.title")}</Eyebrow>
+                <p className="u-meta text-ink-1">{t("registered.body")}</p>
               </Surface>
             )}
 
-            <form onSubmit={handleLogin} className="space-y-3.5" aria-label="Sign in">
+            <form
+              onSubmit={handleLogin}
+              className="space-y-3.5"
+              aria-label={t("formLabel")}
+              noValidate
+            >
               {/* Placeholders are not accessible names: they vanish on input and
                   are not exposed as labels by every assistive technology. */}
-              <label htmlFor="login-email" className="sr-only">Email</label>
+              <label htmlFor="login-email" className="sr-only">
+                {t("email")}
+              </label>
               <Input
                 id="login-email"
                 name="email"
                 type="email"
                 autoComplete="username"
-                placeholder="Email"
+                placeholder={t("email")}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
-              <label htmlFor="login-password" className="sr-only">Password</label>
+              <label htmlFor="login-password" className="sr-only">
+                {t("password")}
+              </label>
               <Input
                 id="login-password"
                 name="password"
-                type="password"
+                type={showPassword ? "text" : "password"}
                 autoComplete="current-password"
-                placeholder="Password"
+                placeholder={t("password")}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                endIcon={
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? t("hidePassword") : t("showPassword")}
+                    aria-pressed={showPassword}
+                    className="u-focus grid h-7 w-7 place-items-center rounded-nested text-ink-3 hover:bg-ink-1/[0.06] hover:text-ink-1"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="h-4 w-4" aria-hidden="true" />
+                    )}
+                  </button>
+                }
               />
               {error && (
                 <p className="u-meta text-danger-ink" role="alert">
@@ -138,7 +162,7 @@ export default function SellerLoginPage() {
                 </p>
               )}
               <Button type="submit" className="w-full" loading={loading}>
-                Sign in
+                {t("submit")}
               </Button>
             </form>
 
@@ -146,9 +170,12 @@ export default function SellerLoginPage() {
 
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
               <span className="u-meta text-ink-2">
-                New here?{" "}
-                <Link href="/register" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
-                  Apply to sell
+                {t("newHere")}{" "}
+                <Link
+                  href="/register"
+                  className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+                >
+                  {t("apply")}
                 </Link>
               </span>
               {FORGOT_PASSWORD_URL && (
@@ -156,7 +183,7 @@ export default function SellerLoginPage() {
                   href={FORGOT_PASSWORD_URL}
                   className="u-focus u-meta rounded-nested font-medium text-primary-ink hover:underline"
                 >
-                  Forgot password?
+                  {t("forgotPassword")}
                 </a>
               )}
             </div>
@@ -166,10 +193,7 @@ export default function SellerLoginPage() {
         {/* The old strapline — "B2B-first. B2C-ready. Built for modern trade." —
             was marketing on a sign-in box. This states something a supplier can
             act on instead. */}
-        <Dateline className="mt-5">
-          Applications are reviewed by the platform team before a store can trade. Signing in with an application's
-          email address shows where that review stands.
-        </Dateline>
+        <Dateline className="mt-5">{t("reviewDateline")}</Dateline>
       </div>
     </div>
   );

@@ -26,19 +26,28 @@ function respond(data: ReviewEligibility) {
   return NextResponse.json({ success: true, data }, { headers: NO_STORE });
 }
 
-export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   try {
     const throttled = await catalogThrottle(req.headers);
     if (throttled) return throttled;
 
     const slug = SlugSchema.safeParse(params.slug);
-    if (!slug.success) return NextResponse.json({ success: false, error: "Product not found" }, { status: 404, headers: NO_STORE });
+    if (!slug.success)
+      return NextResponse.json(
+        { success: false, error: "Product not found" },
+        { status: 404, headers: NO_STORE },
+      );
 
     const product = await db.product.findFirst({
       where: { slug: slug.data, deletedAt: null, status: "ACTIVE" },
       select: { id: true },
     });
-    if (!product) return NextResponse.json({ success: false, error: "Product not found" }, { status: 404, headers: NO_STORE });
+    if (!product)
+      return NextResponse.json(
+        { success: false, error: "Product not found" },
+        { status: 404, headers: NO_STORE },
+      );
 
     const session = await auth();
     const userId = session?.user?.id as string | undefined;
@@ -47,14 +56,25 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
     // The session is a claim about who is asking; the account's current
     // standing comes from the database. A suspended buyer is told so rather
     // than being shown a form the POST would reject.
-    const user = await db.user.findUnique({ where: { id: userId }, select: { status: true, deletedAt: true } });
+    const user = await db.user.findUnique({
+      where: { id: userId },
+      select: { status: true, deletedAt: true },
+    });
     if (!user || user.status !== "ACTIVE" || user.deletedAt) {
-      return NextResponse.json({ success: false, error: "An active account is required to write a review." }, { status: 403, headers: NO_STORE });
+      return NextResponse.json(
+        { success: false, error: "An active account is required to write a review." },
+        { status: 403, headers: NO_STORE },
+      );
     }
 
     return respond(await getReviewEligibility({ userId, productId: product.id }));
   } catch (error) {
-    log.error("review eligibility failed", error, { path: "/api/products/[slug]/reviews/eligibility" });
-    return NextResponse.json({ success: false, error: "Failed to check review eligibility" }, { status: 500, headers: NO_STORE });
+    log.error("review eligibility failed", error, {
+      path: "/api/products/[slug]/reviews/eligibility",
+    });
+    return NextResponse.json(
+      { success: false, error: "Failed to check review eligibility" },
+      { status: 500, headers: NO_STORE },
+    );
   }
 }

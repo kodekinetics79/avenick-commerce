@@ -15,7 +15,16 @@ import {
 import { type SupportedCurrency } from "@avenick/utils";
 import { fetchB2BJson } from "@/lib/b2b";
 import { approvePO, rejectPO, markOrdered, cancelPO } from "./actions";
-import { FileCheck2, Clock, CheckCircle2, Truck, XCircle, FileEdit, Plus, ShoppingCart } from "lucide-react";
+import {
+  FileCheck2,
+  Clock,
+  CheckCircle2,
+  Truck,
+  XCircle,
+  FileEdit,
+  Plus,
+  ShoppingCart,
+} from "lucide-react";
 import { ActionBanner } from "@/components/b2b/action-banner";
 import { getB2B, b2bMetadata } from "@/components/b2b/i18n";
 import type { B2BKey } from "@/components/b2b/messages";
@@ -39,7 +48,10 @@ const STATUS: Record<string, { labelKey: B2BKey; tone: PillTone; icon: typeof Cl
   CANCELLED: { labelKey: "po.status.cancelled", tone: "neutral", icon: XCircle },
 };
 
-export default async function PurchaseOrdersPage({ searchParams }: { searchParams?: { poDone?: string; poError?: string } }) {
+export default async function PurchaseOrdersPage(props: {
+  searchParams?: Promise<{ poDone?: string; poError?: string }>;
+}) {
+  const searchParams = await props.searchParams;
   type PurchaseOrderRow = {
     id: string;
     poNumber: string;
@@ -86,15 +98,23 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
   const pos = data.purchaseOrders;
   const nameOf = new Map(data.requesters.map((u) => [u.id, `${u.firstName} ${u.lastName}`.trim()]));
   const isApprover = data.isApprover;
-  const open = pos.filter((p) => ["DRAFT", "PENDING_APPROVAL", "APPROVED"].includes(p.status)).length;
+  const open = pos.filter((p) =>
+    ["DRAFT", "PENDING_APPROVAL", "APPROVED"].includes(p.status),
+  ).length;
   const pending = pos.filter((p) => p.status === "PENDING_APPROVAL").length;
   const orderedByCurrency = new Map<SupportedCurrency, number>();
   for (const po of pos.filter((row) => row.status === "ORDERED")) {
-    orderedByCurrency.set(po.currency, (orderedByCurrency.get(po.currency) ?? 0) + Number(po.total));
+    orderedByCurrency.set(
+      po.currency,
+      (orderedByCurrency.get(po.currency) ?? 0) + Number(po.total),
+    );
   }
   // One row per currency, never a blended total: the platform holds no
   // exchange rates, so a sum across currencies is not a sum of anything.
-  const orderedValue = [...orderedByCurrency.entries()].map(([currency, total]) => ({ currency, total }));
+  const orderedValue = [...orderedByCurrency.entries()].map(([currency, total]) => ({
+    currency,
+    total,
+  }));
 
   return (
     <B2BShell
@@ -140,7 +160,12 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
             chip={pending > 0 ? "warning" : "neutral"}
             icon={Clock}
           />
-          <Stat label={t("po.stat.open")} value={open} icon={FileCheck2} note={t("po.stat.open.note")} />
+          <Stat
+            label={t("po.stat.open")}
+            value={open}
+            icon={FileCheck2}
+            note={t("po.stat.open.note")}
+          />
           <div>
             <Eyebrow>{t("po.stat.orderedValue")}</Eyebrow>
             <div className="mt-1.5">
@@ -173,7 +198,9 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
             {
               key: "poNumber",
               label: t("po.col.number"),
-              render: (po) => <span className="u-mono font-medium text-primary-ink">{po.poNumber}</span>,
+              render: (po) => (
+                <span className="u-mono font-medium text-primary-ink">{po.poNumber}</span>
+              ),
             },
             {
               key: "lines",
@@ -194,7 +221,10 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
                     </p>
                     <p className="u-meta mt-0.5 truncate text-ink-3">
                       <span className="u-mono">
-                        {po.items.slice(0, 3).map((item) => `${item.sku} × ${item.quantity}`).join(" · ")}
+                        {po.items
+                          .slice(0, 3)
+                          .map((item) => `${item.sku} × ${item.quantity}`)
+                          .join(" · ")}
                       </span>
                       {po.items.length > 3 ? " …" : ""}
                     </p>
@@ -205,7 +235,11 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
               key: "requester",
               label: t("po.col.requester"),
               hideOnMobile: true,
-              render: (po) => <span className="text-ink-2">{nameOf.get(po.requesterId) ?? t("common.unknown")}</span>,
+              render: (po) => (
+                <span className="text-ink-2">
+                  {nameOf.get(po.requesterId) ?? t("common.unknown")}
+                </span>
+              ),
             },
             {
               key: "total",
@@ -244,12 +278,22 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
                   {isApprover && po.status === "PENDING_APPROVAL" && (
                     <>
                       <form action={approvePO.bind(null, po.id)}>
-                        <Button type="submit" variant="ghost" size="xs" className="text-success-ink hover:bg-success-soft hover:text-success-ink">
+                        <Button
+                          type="submit"
+                          variant="ghost"
+                          size="xs"
+                          className="text-success-ink hover:bg-success-soft hover:text-success-ink"
+                        >
                           {t("common.approve")}
                         </Button>
                       </form>
                       <form action={rejectPO.bind(null, po.id)}>
-                        <Button type="submit" variant="ghost" size="xs" className="hover:text-danger-ink">
+                        <Button
+                          type="submit"
+                          variant="ghost"
+                          size="xs"
+                          className="hover:text-danger-ink"
+                        >
                           {t("common.reject")}
                         </Button>
                       </form>
@@ -257,14 +301,24 @@ export default async function PurchaseOrdersPage({ searchParams }: { searchParam
                   )}
                   {po.status === "APPROVED" && po.items.length > 0 && (
                     <form action={markOrdered.bind(null, po.id)}>
-                      <Button type="submit" variant="ghost" size="xs" className="text-primary-ink hover:bg-primary-soft hover:text-primary-ink">
+                      <Button
+                        type="submit"
+                        variant="ghost"
+                        size="xs"
+                        className="text-primary-ink hover:bg-primary-soft hover:text-primary-ink"
+                      >
                         {t("po.place")}
                       </Button>
                     </form>
                   )}
                   {["DRAFT", "PENDING_APPROVAL", "APPROVED"].includes(po.status) && (
                     <form action={cancelPO.bind(null, po.id)}>
-                      <Button type="submit" variant="ghost" size="xs" className="hover:text-danger-ink">
+                      <Button
+                        type="submit"
+                        variant="ghost"
+                        size="xs"
+                        className="hover:text-danger-ink"
+                      >
                         {t("common.cancel")}
                       </Button>
                     </form>

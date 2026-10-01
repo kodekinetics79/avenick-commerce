@@ -49,11 +49,14 @@ const KNOWN_RFQ_STATUSES = [
   "CANCELLED",
 ] as const;
 
-export default async function SellerThreadPage({ params }: { params: { id: string } }) {
+export default async function SellerThreadPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   // params.id is URL-decoded by Next; the same record-id guard the quote pages
   // use keeps anything that is not a record id out of the query entirely.
   if (!isRecordId(params.id)) notFound();
-  const { seller, membership, userId, userRole } = await requireSellerPermission(SELLER_MESSAGING_PERMISSION);
+  const { seller, membership, userId, userRole } = await requireSellerPermission(
+    SELLER_MESSAGING_PERMISSION,
+  );
   const t = await getTranslations("sellerRelations");
 
   // Scoped lookup: a thread that belongs to another seller is a 404, not a
@@ -73,18 +76,20 @@ export default async function SellerThreadPage({ params }: { params: { id: strin
 
   const canQuote = sellerHasPermission({ user: { role: userRole }, membership }, "quotes.submit");
   const rfq = thread.rfq;
-  const invitation = rfq ? await getSellerRfqInvitationAccess({ rfqId: rfq.id, sellerId: seller.id }) : null;
+  const invitation = rfq
+    ? await getSellerRfqInvitationAccess({ rfqId: rfq.id, sellerId: seller.id })
+    : null;
   const latestQuote = invitation?.quotes[0];
   const rfqPosture = invitation
     ? latestQuote
       ? "quoted"
       : sellerInvitationCanSubmit({
-          invitationStatus: invitation.status,
-          rfqStatus: invitation.rfq.status,
-          acceptedQuoteId: invitation.rfq.acceptedQuoteId,
-          responseDueAt: invitation.rfq.responseDueAt,
-          expiresAt: invitation.rfq.expiresAt,
-        })
+            invitationStatus: invitation.status,
+            rfqStatus: invitation.rfq.status,
+            acceptedQuoteId: invitation.rfq.acceptedQuoteId,
+            responseDueAt: invitation.rfq.responseDueAt,
+            expiresAt: invitation.rfq.expiresAt,
+          })
         ? "open"
         : "closed"
     : null;
@@ -129,7 +134,12 @@ export default async function SellerThreadPage({ params }: { params: { id: strin
   }
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} unreadMessages={unreadElsewhere} permissions={membership.permissions}>
+    <SellerLayout
+      sellerName={seller.businessNameEn}
+      tier={seller.tier}
+      unreadMessages={unreadElsewhere}
+      permissions={membership.permissions}
+    >
       <div className="max-w-3xl space-y-block">
         <PageHeader
           breadcrumbs={[{ label: t("inbox.title"), href: "/messages" }, { label: subject }]}
@@ -191,7 +201,8 @@ export default async function SellerThreadPage({ params }: { params: { id: strin
                     no keyboard or touch reader can reach. */}
                 {rfqPosture === "open" && !canQuote && (
                   <span className="u-meta ms-auto inline-flex items-center gap-1 text-ink-3">
-                    <Lock className="h-3 w-3" aria-hidden="true" /> {t("thread.quotingNeedsPermission", { permission: "quotes.submit" })}
+                    <Lock className="h-3 w-3" aria-hidden="true" />{" "}
+                    {t("thread.quotingNeedsPermission", { permission: "quotes.submit" })}
                   </span>
                 )}
               </div>
@@ -200,10 +211,14 @@ export default async function SellerThreadPage({ params }: { params: { id: strin
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3">
                 <Package className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
                 <Eyebrow className="me-1">{t("thread.order")}</Eyebrow>
-                <span className="u-mono u-ui font-medium text-ink-1">{thread.order.orderNumber}</span>
+                <span className="u-mono u-ui font-medium text-ink-1">
+                  {thread.order.orderNumber}
+                </span>
                 {thread.order.sellerHasLines ? (
                   <Button variant="link" size="sm" asChild className="ms-auto">
-                    <Link href={`/orders/${encodeURIComponent(thread.order.id)}`}>{t("thread.viewOrder")}</Link>
+                    <Link href={`/orders/${encodeURIComponent(thread.order.id)}`}>
+                      {t("thread.viewOrder")}
+                    </Link>
                   </Button>
                 ) : (
                   <span className="u-meta ms-auto text-ink-3">{t("thread.noLinesOfYours")}</span>
@@ -246,15 +261,26 @@ export default async function SellerThreadPage({ params }: { params: { id: strin
                         const showSender = !prev || senderLabel(prev) !== label;
                         const mine = m.senderType === "SELLER";
                         return (
-                          <li key={m.id} className={mine ? "flex justify-end" : "flex justify-start"}>
-                            <Surface rung={2} tone={mine ? "accent" : "default"} className="max-w-[85%] px-4 py-2.5">
+                          <li
+                            key={m.id}
+                            className={mine ? "flex justify-end" : "flex justify-start"}
+                          >
+                            <Surface
+                              rung={2}
+                              tone={mine ? "accent" : "default"}
+                              className="max-w-[85%] px-4 py-2.5"
+                            >
                               {showSender && (
                                 <Eyebrow tone={mine ? "accent" : "muted"} className="mb-1">
                                   {label}
                                 </Eyebrow>
                               )}
-                              <p className="u-body whitespace-pre-wrap break-words text-ink-1">{m.body}</p>
-                              <p className="u-meta mt-1 text-ink-3">{format(m.createdAt, "HH:mm")}</p>
+                              <p className="u-body whitespace-pre-wrap break-words text-ink-1">
+                                {m.body}
+                              </p>
+                              <p className="u-meta mt-1 text-ink-3">
+                                {format(m.createdAt, "HH:mm")}
+                              </p>
                               {m.attachments.length > 0 && (
                                 <Dateline className="mt-2">
                                   {t("thread.attachmentsUnavailable", {
@@ -277,7 +303,12 @@ export default async function SellerThreadPage({ params }: { params: { id: strin
 
         <Surface rung={2} className="p-5">
           <SectionHeader title={t("thread.replyHeading")} className="mb-3" />
-          <ReplyForm threadId={thread.id} isOpen={thread.isOpen} hasRfq={rfq !== null} maxLength={MESSAGE_BODY_MAX_LENGTH} />
+          <ReplyForm
+            threadId={thread.id}
+            isOpen={thread.isOpen}
+            hasRfq={rfq !== null}
+            maxLength={MESSAGE_BODY_MAX_LENGTH}
+          />
         </Surface>
       </div>
     </SellerLayout>

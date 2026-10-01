@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, type UnsafeUnwrappedCookies } from "next/headers";
 import { b2bT, type B2BT } from "./messages";
 
 /**
@@ -23,5 +23,5 @@ import { b2bT, type B2BT } from "./messages";
  * translated line throws away the only actionable part of the message.
  */
 export function actionT(): B2BT {
-  return b2bT(cookies().get("AVENICK_LOCALE")?.value);
+  return b2bT((cookies() as unknown as UnsafeUnwrappedCookies).get("AVENICK_LOCALE")?.value);
 }

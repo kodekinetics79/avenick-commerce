@@ -76,7 +76,7 @@ export function StickyGlassBar({
   className,
   ...props
 }: StickyGlassBarProps) {
-  const Comp: React.ElementType = as ?? "div";
+  const Comp = (as ?? "div") as any;
   const sentinelRef = React.useRef<HTMLDivElement>(null);
   const [atTop, setAtTop] = React.useState(false);
 
@@ -100,7 +100,11 @@ export function StickyGlassBar({
         <Comp
           data-rung={atTop ? 0 : 4}
           data-glass={atTop ? undefined : "true"}
-          className={cn("sticky z-sticky w-full rounded-none border-x-0 border-t-0", atTop && "border-b-0", className)}
+          className={cn(
+            "z-sticky sticky w-full rounded-none border-x-0 border-t-0",
+            atTop && "border-b-0",
+            className,
+          )}
           style={{ top: offset }}
           {...props}
         >
@@ -120,7 +124,10 @@ export function StickyGlassBar({
         data-rung={4}
         data-glass="true"
         data-at-top={atTop ? "true" : "false"}
-        className={cn("u-chrome sticky z-sticky w-full rounded-none border-x-0 border-t-0", className)}
+        className={cn(
+          "u-chrome z-sticky sticky w-full rounded-none border-x-0 border-t-0",
+          className,
+        )}
         style={{ top: offset }}
         {...props}
       >

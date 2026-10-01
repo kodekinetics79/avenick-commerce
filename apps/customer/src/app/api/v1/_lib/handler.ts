@@ -102,18 +102,14 @@ export interface V1RouteSpec<
   rateLimit?: {
     rule: RateLimitRule;
     /** Defaults to the caller's user id, falling back to the client IP. */
-    identify?: (ctx: {
-      principal: Principal | null;
-      clientIp: string;
-      req: NextRequest;
-    }) => string;
+    identify?: (ctx: { principal: Principal | null; clientIp: string; req: NextRequest }) => string;
   };
   handle: (
     ctx: V1Context<InferOrUndefined<TBody>, InferOrUndefined<TQuery>, InferOrUndefined<TParams>>,
   ) => Promise<V1Result<z.infer<TResponse>>>;
 }
 
-type NextRouteArgs = { params?: Promise<Record<string, string>> | Record<string, string> };
+type NextRouteArgs = { params: Promise<Record<string, string>> };
 
 /**
  * Query strings carry repeats (`?tag=a&tag=b`). Collapsing them to the last
@@ -145,7 +141,11 @@ function parseWith<S extends ZodTypeAny>(schema: S, value: unknown, what: string
   throw fromZodError(result.error, `The request ${what} is not valid.`);
 }
 
-export type V1RouteHandler = (req: NextRequest, routeArgs?: NextRouteArgs) => Promise<NextResponse>;
+export type V1RouteHandler = {
+  (req: NextRequest): Promise<NextResponse>;
+  (req: NextRequest, routeArgs: { params: Record<string, string> }): Promise<NextResponse>;
+  (req: NextRequest, routeArgs: NextRouteArgs): Promise<NextResponse>;
+};
 
 export function route<
   TResponse extends ZodTypeAny,
@@ -153,7 +153,10 @@ export function route<
   TQuery extends ZodTypeAny | undefined = undefined,
   TParams extends ZodTypeAny | undefined = undefined,
 >(spec: V1RouteSpec<TResponse, TBody, TQuery, TParams>): V1RouteHandler {
-  return async (req: NextRequest, routeArgs?: NextRouteArgs): Promise<NextResponse> => {
+  const run = async (
+    req: NextRequest,
+    routeArgs: NextRouteArgs | { params: Record<string, string> } = { params: Promise.resolve({}) },
+  ): Promise<NextResponse> => {
     const requestId = normalizeRequestId(req.headers.get("x-request-id"));
     const { ctx: obs, finish } = instrumentRequest({
       service: SERVICE,
@@ -165,17 +168,16 @@ export function route<
 
     let status = 500;
     try {
-      const rawParams = routeArgs?.params;
-      const resolvedParams =
-        rawParams && typeof (rawParams as Promise<unknown>).then === "function"
-          ? await (rawParams as Promise<Record<string, string>>)
-          : ((rawParams as Record<string, string> | undefined) ?? {});
+      const resolvedParams = await routeArgs.params;
 
       const mode = spec.auth ?? "required";
       const principal =
         mode === "none"
           ? null
-          : await resolvePrincipal({ headers: req.headers, allowBearer: spec.allowBearer === true });
+          : await resolvePrincipal({
+              headers: req.headers,
+              allowBearer: spec.allowBearer === true,
+            });
       if (mode === "required" && !principal) {
         throw new V1Error("unauthenticated", "Sign in to continue.");
       }
@@ -186,9 +188,9 @@ export function route<
       const clientIp = clientIpFrom(req.headers);
       if (spec.rateLimit) {
         const identifier =
-          spec.rateLimit.identify?.({ principal, clientIp, req })
-          ?? principal?.userId
-          ?? `ip:${clientIp}`;
+          spec.rateLimit.identify?.({ principal, clientIp, req }) ??
+          principal?.userId ??
+          `ip:${clientIp}`;
         const verdict = await checkRateLimit(spec.rateLimit.rule, identifier);
         if (!verdict.ok) {
           throw new V1Error("rate_limited", "Too many requests. Try again shortly.", {
@@ -261,6 +263,7 @@ export function route<
       finish(status);
     }
   };
+  return run as V1RouteHandler;
 }
 
 /**

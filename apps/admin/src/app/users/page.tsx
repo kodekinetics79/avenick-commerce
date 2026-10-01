@@ -8,7 +8,14 @@ import { Shield, Store, ShoppingBag, User, Users } from "lucide-react";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import {
-  Button, CellGrid, EmptyState, LedgerTable, PageHeader, Stat, StatusPill, type PillTone,
+  Button,
+  CellGrid,
+  EmptyState,
+  LedgerTable,
+  PageHeader,
+  Stat,
+  StatusPill,
+  type PillTone,
 } from "@avenick/ui";
 
 // generateMetadata rather than a static object: the tab title is user-visible
@@ -25,17 +32,28 @@ export const dynamic = "force-dynamic";
  * scope where no translator is in scope, so the label is looked up at render
  * from `adminShell.users.roleGroups`.
  */
-const ROLE_GROUPS: Array<{ key: string; icon: ElementType; roles: UserRole[]; filter: UserRole }> = [
-  { key: "platformStaff", icon: Shield, roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN], filter: UserRole.ADMIN },
-  { key: "suppliers", icon: Store, roles: [UserRole.SELLER_OWNER, UserRole.SELLER_STAFF], filter: UserRole.SELLER_OWNER },
-  {
-    key: "b2bBuyers",
-    icon: ShoppingBag,
-    roles: [UserRole.COMPANY_ADMIN, UserRole.COMPANY_BUYER, UserRole.COMPANY_APPROVER],
-    filter: UserRole.COMPANY_ADMIN,
-  },
-  { key: "consumers", icon: User, roles: [UserRole.CONSUMER], filter: UserRole.CONSUMER },
-];
+const ROLE_GROUPS: Array<{ key: string; icon: ElementType; roles: UserRole[]; filter: UserRole }> =
+  [
+    {
+      key: "platformStaff",
+      icon: Shield,
+      roles: [UserRole.SUPER_ADMIN, UserRole.ADMIN],
+      filter: UserRole.ADMIN,
+    },
+    {
+      key: "suppliers",
+      icon: Store,
+      roles: [UserRole.SELLER_OWNER, UserRole.SELLER_STAFF],
+      filter: UserRole.SELLER_OWNER,
+    },
+    {
+      key: "b2bBuyers",
+      icon: ShoppingBag,
+      roles: [UserRole.COMPANY_ADMIN, UserRole.COMPANY_BUYER, UserRole.COMPANY_APPROVER],
+      filter: UserRole.COMPANY_ADMIN,
+    },
+    { key: "consumers", icon: User, roles: [UserRole.CONSUMER], filter: UserRole.CONSUMER },
+  ];
 
 // Tone is presentation, not copy, so it stays here; the enum keys are the
 // stored values and are never translated — only their labels are, under
@@ -48,12 +66,13 @@ const STATUS_TONE: Record<UserStatus, PillTone> = {
 };
 
 interface PageProps {
-  searchParams: { role?: string; status?: string; search?: string; page?: string };
+  searchParams: Promise<{ role?: string; status?: string; search?: string; page?: string }>;
 }
 
 type AdminUser = Awaited<ReturnType<typeof getAdminUsers>>["users"][number];
 
-export default async function UsersPage({ searchParams }: PageProps) {
+export default async function UsersPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   const { userId: currentUserId } = await requireAdminSession();
   const t = await getTranslations("adminShell.users");
   const locale = await getLocale();
@@ -91,7 +110,8 @@ export default async function UsersPage({ searchParams }: PageProps) {
   const countFor = (roles: UserRole[]) =>
     roleCounts.filter((r) => roles.includes(r.role)).reduce((sum, r) => sum + r._count._all, 0);
   const allRoles = roleCounts.reduce((sum, r) => sum + r._count._all, 0);
-  const href = (next: Record<string, string | undefined>) => queryHref("/users", searchParams, next);
+  const href = (next: Record<string, string | undefined>) =>
+    queryHref("/users", searchParams, next);
   const filtered = Boolean(search || role || status);
 
   return (
@@ -121,7 +141,12 @@ export default async function UsersPage({ searchParams }: PageProps) {
           <FilterTabs
             label={t("filterByRole")}
             tabs={[
-              { href: href({ role: undefined }), label: t("allRoles"), count: allRoles, active: !role },
+              {
+                href: href({ role: undefined }),
+                label: t("allRoles"),
+                count: allRoles,
+                active: !role,
+              },
               ...ROLE_GROUPS.map((g) => ({
                 href: href({ role: g.filter }),
                 // The count is of the GROUP, but the filter is one role inside
@@ -137,11 +162,13 @@ export default async function UsersPage({ searchParams }: PageProps) {
             label={t("filterByStatus")}
             tabs={[
               { href: href({ status: undefined }), label: t("anyStatus"), active: !status },
-              ...([UserStatus.ACTIVE, UserStatus.SUSPENDED, UserStatus.PENDING] as const).map((s) => ({
-                href: href({ status: s }),
-                label: t(`statuses.${s}`),
-                active: status === s,
-              })),
+              ...([UserStatus.ACTIVE, UserStatus.SUSPENDED, UserStatus.PENDING] as const).map(
+                (s) => ({
+                  href: href({ status: s }),
+                  label: t(`statuses.${s}`),
+                  active: status === s,
+                }),
+              ),
             ]}
           />
           <ConsoleSearch
@@ -211,7 +238,9 @@ export default async function UsersPage({ searchParams }: PageProps) {
               label: t("columnJoined"),
               hideOnMobile: true,
               width: "104px",
-              render: (u) => <span className="tnum text-ink-2">{joinedFormat.format(u.createdAt)}</span>,
+              render: (u) => (
+                <span className="tnum text-ink-2">{joinedFormat.format(u.createdAt)}</span>
+              ),
             },
             {
               key: "decision",

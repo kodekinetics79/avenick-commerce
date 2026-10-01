@@ -7,7 +7,14 @@ import { FileQuestion, MessageSquare } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import {
-  Button, CellGrid, EmptyState, LedgerTable, PageHeader, Stat, StatusPill, type PillTone,
+  Button,
+  CellGrid,
+  EmptyState,
+  LedgerTable,
+  PageHeader,
+  Stat,
+  StatusPill,
+  type PillTone,
 } from "@avenick/ui";
 
 export const metadata = { title: "RFQ Management" };
@@ -26,15 +33,23 @@ const STATUS_CONFIG: Record<RFQStatus, { label: string; tone: PillTone }> = {
 };
 
 /** The filters an operator actually works, in the order a request moves through them. */
-const FILTERS: RFQStatus[] = ["SUBMITTED", "UNDER_REVIEW", "QUOTED", "NEGOTIATING", "ACCEPTED", "REJECTED"];
+const FILTERS: RFQStatus[] = [
+  "SUBMITTED",
+  "UNDER_REVIEW",
+  "QUOTED",
+  "NEGOTIATING",
+  "ACCEPTED",
+  "REJECTED",
+];
 
 interface PageProps {
-  searchParams: { status?: string; search?: string; page?: string };
+  searchParams: Promise<{ status?: string; search?: string; page?: string }>;
 }
 
 type Rfq = Awaited<ReturnType<typeof getAdminRFQs>>["rfqs"][number];
 
-export default async function RFQsPage({ searchParams }: PageProps) {
+export default async function RFQsPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   await requireAdminSession();
 
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
@@ -75,9 +90,17 @@ export default async function RFQsPage({ searchParams }: PageProps) {
             href={href({ status: RFQStatus.SUBMITTED })}
             linkComponent={Link}
           />
-          <Stat label="Quoted or negotiating" value={countFor(["QUOTED", "NEGOTIATING"])} icon={FileQuestion} />
+          <Stat
+            label="Quoted or negotiating"
+            value={countFor(["QUOTED", "NEGOTIATING"])}
+            icon={FileQuestion}
+          />
           <Stat label="Accepted" value={countFor(["ACCEPTED"])} icon={FileQuestion} />
-          <Stat label="Rejected or expired" value={countFor(["REJECTED", "EXPIRED"])} icon={FileQuestion} />
+          <Stat
+            label="Rejected or expired"
+            value={countFor(["REJECTED", "EXPIRED"])}
+            icon={FileQuestion}
+          />
         </CellGrid>
 
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -129,8 +152,12 @@ export default async function RFQsPage({ searchParams }: PageProps) {
               label: "Buyer",
               render: (r) => (
                 <>
-                  <span className="block truncate text-ink-1">{r.company?.nameEn ?? "Individual buyer"}</span>
-                  {r.buyer && <span className="u-meta block truncate text-ink-3">{r.buyer.email}</span>}
+                  <span className="block truncate text-ink-1">
+                    {r.company?.nameEn ?? "Individual buyer"}
+                  </span>
+                  {r.buyer && (
+                    <span className="u-meta block truncate text-ink-3">{r.buyer.email}</span>
+                  )}
                 </>
               ),
             },
@@ -139,10 +166,15 @@ export default async function RFQsPage({ searchParams }: PageProps) {
               label: "Lines",
               hideOnMobile: true,
               render: (r) => {
-                const shown = r.items.slice(0, 2).map((i) => `${i.quantity}× ${i.nameEn}`).join(", ");
+                const shown = r.items
+                  .slice(0, 2)
+                  .map((i) => `${i.quantity}× ${i.nameEn}`)
+                  .join(", ");
                 return (
                   <>
-                    <span className="block truncate text-ink-2">{shown || "No lines recorded"}</span>
+                    <span className="block truncate text-ink-2">
+                      {shown || "No lines recorded"}
+                    </span>
                     {r.items.length > 2 && (
                       <span className="u-meta block text-ink-3">and {r.items.length - 2} more</span>
                     )}
@@ -181,7 +213,10 @@ export default async function RFQsPage({ searchParams }: PageProps) {
               label: "Status",
               width: "132px",
               render: (r) => (
-                <StatusPill tone={STATUS_CONFIG[r.status].tone} dot={r.status === "SUBMITTED" || r.status === "UNDER_REVIEW"}>
+                <StatusPill
+                  tone={STATUS_CONFIG[r.status].tone}
+                  dot={r.status === "SUBMITTED" || r.status === "UNDER_REVIEW"}
+                >
                   {STATUS_CONFIG[r.status].label}
                 </StatusPill>
               ),

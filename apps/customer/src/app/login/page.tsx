@@ -3,7 +3,12 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { Skeleton } from "@avenick/ui";
 import { AuthShell } from "../auth/auth-shell";
-import { identityCopy, LOCALE_COOKIE, loginSubtitle, toIdentityLocale } from "../auth/identity-copy";
+import {
+  identityCopy,
+  LOCALE_COOKIE,
+  loginSubtitle,
+  toIdentityLocale,
+} from "../auth/identity-copy";
 import { LoginForm } from "./login-form";
 
 import type { Metadata } from "next";
@@ -48,11 +53,10 @@ export async function generateMetadata(): Promise<Metadata> {
  * link" is how open redirects ship. The subtitle is chosen from the VALIDATED
  * value too, so an unsafe callback reads as no callback in the copy as well.
  */
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams?: { registered?: string | string[]; callbackUrl?: string | string[] };
+export default async function LoginPage(props: {
+  searchParams?: Promise<{ registered?: string | string[]; callbackUrl?: string | string[] }>;
 }) {
+  const searchParams = await props.searchParams;
   const locale = toIdentityLocale((await cookies()).get(LOCALE_COOKIE)?.value);
   const t = identityCopy(locale).login;
   const justRegistered = searchParams?.registered === "1";
@@ -64,7 +68,9 @@ export default async function LoginPage({
   // produce the same bare /register link, rather than a link to the fallback
   // path that the visitor never asked for.
   const returnTo = safeReturnTo(rawCallback, "");
-  const registerHref = returnTo ? `/register?callbackUrl=${encodeURIComponent(returnTo)}` : "/register";
+  const registerHref = returnTo
+    ? `/register?callbackUrl=${encodeURIComponent(returnTo)}`
+    : "/register";
 
   return (
     <AuthShell
@@ -75,7 +81,10 @@ export default async function LoginPage({
       footer={
         <p className="u-meta text-ink-3">
           {t.noAccount}{" "}
-          <Link href={registerHref} className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
+          <Link
+            href={registerHref}
+            className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+          >
             {t.register}
           </Link>
         </p>

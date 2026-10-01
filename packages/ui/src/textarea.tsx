@@ -15,10 +15,10 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
       ref={ref}
       data-rung={1}
       className={cn(
-        "flex min-h-[88px] w-full resize-y border border-input bg-surface-1 px-3 py-2 text-ui text-ink-1",
+        "border-input bg-surface-1 text-ui text-ink-1 flex min-h-[120px] w-full resize-none border px-3 py-2",
         "placeholder:text-ink-3",
         "outline-none focus-visible:shadow-[var(--elev-1),0_0_0_2px_hsl(var(--ring-offset-surface)),0_0_0_4px_hsl(var(--ring))]",
-        "transition-[border-color,box-shadow] duration-press ease-standard",
+        "duration-press ease-standard transition-[border-color,box-shadow]",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}

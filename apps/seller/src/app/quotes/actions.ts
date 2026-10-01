@@ -5,7 +5,6 @@ import { getTranslations } from "next-intl/server";
 import { redirect } from "next/navigation";
 import { fetchSellerBackend } from "@/lib/backend";
 import { SellerQuotePayloadSchema, type SellerQuotePayload } from "@/lib/seller-quote-contract";
-import { z } from "zod";
 
 export type QuoteActionState = { error?: string; ok?: boolean };
 
@@ -25,9 +24,8 @@ export async function submitQuoteAction(
   let payload: SellerQuotePayload;
   try {
     payload = SellerQuotePayloadSchema.parse(JSON.parse(String(formData.get("payload") ?? "{}")));
-  } catch (e) {
-    const message = e instanceof z.ZodError ? e.issues[0]?.message : t("quoteErrors.invalidPayload");
-    return { error: message ?? t("quoteErrors.invalidPayload") };
+  } catch {
+    return { error: t("quoteErrors.invalidPayload") };
   }
 
   try {
@@ -38,8 +36,11 @@ export async function submitQuoteAction(
       headers: { "content-type": "application/json" },
       body: JSON.stringify(payload),
     });
-  } catch (e) {
-    return { error: e instanceof Error ? e.message : t("quoteErrors.submitFailed") };
+  } catch {
+    // Backend and transport text is not a localized product message and can
+    // include implementation detail. The page keeps every entered term and
+    // gives the seller one stable, translated recovery instruction instead.
+    return { error: t("quoteErrors.submitFailed") };
   }
 
   revalidatePath("/quotes");

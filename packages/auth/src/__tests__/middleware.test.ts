@@ -47,7 +47,12 @@ describe("portal middleware — anonymous access", () => {
 
   it("keeps the customer catalog APIs and payment webhook public", async () => {
     const mw = createMiddleware("customer", anon);
-    for (const path of ["/api/products", "/api/products/some-slug", "/api/categories", "/api/payments/webhook"]) {
+    for (const path of [
+      "/api/products",
+      "/api/products/some-slug",
+      "/api/categories",
+      "/api/payments/webhook",
+    ]) {
       const res = await mw(req(path));
       expect(res!.status, path).toBe(200);
     }
@@ -105,14 +110,15 @@ describe("portal middleware — cross-portal role isolation", () => {
   it("verifies a backend-issued cookie when local JWT decoding is unavailable", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        new Response(
-          JSON.stringify({
-            user: { id: "u1", email: "buyer@example.test", role: UserRole.COMPANY_BUYER },
-            expires: new Date(Date.now() + 60_000).toISOString(),
-          }),
-          { status: 200, headers: { "content-type": "application/json" } },
-        ),
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              user: { id: "u1", email: "buyer@example.test", role: UserRole.COMPANY_BUYER },
+              expires: new Date(Date.now() + 60_000).toISOString(),
+            }),
+            { status: 200, headers: { "content-type": "application/json" } },
+          ),
       ),
     );
     const request = new NextRequest("http://localhost/b2b", {
@@ -123,6 +129,63 @@ describe("portal middleware — cross-portal role isolation", () => {
     const res = await mw(request);
 
     expect(res!.status).toBe(200);
+  });
+});
+
+describe("portal middleware — mutation origin", () => {
+  it("rejects a browser cross-site mutation before route execution", async () => {
+    const mw = createMiddleware("admin", as(UserRole.SUPER_ADMIN));
+    const request = new NextRequest("https://admin.avenick.test/api/admin/users/u1/status", {
+      method: "PATCH",
+      headers: {
+        host: "admin.avenick.test",
+        origin: "https://attacker.example",
+        "sec-fetch-site": "cross-site",
+      },
+    });
+
+    const res = await mw(request);
+
+    expect(res!.status).toBe(403);
+    expect(await res!.json()).toEqual({ success: false, error: "Invalid request origin" });
+  });
+
+  it("admits a same-origin browser mutation", async () => {
+    const mw = createMiddleware("seller", as(UserRole.SELLER_OWNER));
+    const request = new NextRequest("https://seller.avenick.test/api/seller/rfqs/r1/quotes", {
+      method: "POST",
+      headers: {
+        host: "seller.avenick.test",
+        origin: "https://seller.avenick.test",
+        "sec-fetch-site": "same-origin",
+      },
+    });
+
+    expect((await mw(request))!.status).toBe(200);
+  });
+
+  it("uses the edge-normalised forwarded host behind a proxy", async () => {
+    const mw = createMiddleware("admin", as(UserRole.ADMIN));
+    const request = new NextRequest("http://internal-runtime/api/admin/users/u1/status", {
+      method: "PATCH",
+      headers: {
+        host: "internal-runtime",
+        "x-forwarded-host": "admin.avenick.test",
+        origin: "https://admin.avenick.test",
+        "sec-fetch-site": "same-origin",
+      },
+    });
+
+    expect((await mw(request))!.status).toBe(200);
+  });
+
+  it("does not apply the browser-origin gate to safe reads", async () => {
+    const mw = createMiddleware("admin", as(UserRole.ADMIN));
+    const request = new NextRequest("https://admin.avenick.test/api/admin/users", {
+      headers: { origin: "https://attacker.example", "sec-fetch-site": "cross-site" },
+    });
+
+    expect((await mw(request))!.status).toBe(200);
   });
 });
 
@@ -169,7 +232,9 @@ describe("return path preservation through login", () => {
     const res = await mw(req("/b2b/rfq/new?productId=p-1&supplier=s-9"));
 
     const location = new URL(res!.headers.get("location")!);
-    expect(location.searchParams.get("callbackUrl")).toBe("/b2b/rfq/new?productId=p-1&supplier=s-9");
+    expect(location.searchParams.get("callbackUrl")).toBe(
+      "/b2b/rfq/new?productId=p-1&supplier=s-9",
+    );
   });
 
   it("still sets a callbackUrl when there is no query string", async () => {
@@ -239,18 +304,29 @@ describe("static-asset skip does not become an auth bypass", () => {
  */
 describe("unrouted paths reach the 404 page", () => {
   const KNOWN = ["about", "account", "api", "auth", "b2b", "checkout", "orders", "products"];
-  const customer = (auth = anon) => createMiddleware("customer", auth, { knownTopLevelSegments: KNOWN });
+  const customer = (auth = anon) =>
+    createMiddleware("customer", auth, { knownTopLevelSegments: KNOWN });
 
   const isRewrittenTo404 = (res: Response) =>
     res.status === 200 &&
     res.headers.get("location") === null &&
     new URL(res.headers.get("x-middleware-rewrite") ?? "http://x/").pathname === "/_unrouted";
 
-  it.each(["/this-page-does-not-exist", "/definitely-not-a-route", "/wp-admin", "/accounts", "/b2b-internal", "/nope/deeper/still"])(
+  it.each([
+    "/this-page-does-not-exist",
+    "/definitely-not-a-route",
+    "/wp-admin",
+    "/accounts",
+    "/b2b-internal",
+    "/nope/deeper/still",
+  ])(
     "rewrites anonymous %s to the unrouted path instead of redirecting to /login",
     async (path) => {
       const res = await customer()(req(path));
-      expect(isRewrittenTo404(res), `${path} answered ${res.status} ${res.headers.get("location") ?? ""}`).toBe(true);
+      expect(
+        isRewrittenTo404(res),
+        `${path} answered ${res.status} ${res.headers.get("location") ?? ""}`,
+      ).toBe(true);
     },
   );
 
@@ -259,16 +335,20 @@ describe("unrouted paths reach the 404 page", () => {
     expect(isRewrittenTo404(res)).toBe(true);
   });
 
-  it.each(["/account", "/account/orders", "/orders/1", "/checkout", "/b2b/team", "/auth/accept-invite"])(
-    "still sends anonymous %s to sign in",
-    async (path) => {
-      const res = await customer()(req(path));
-      expect(res.status, path).toBe(307);
-      const location = new URL(res.headers.get("location")!);
-      expect(location.pathname).toBe("/login");
-      expect(location.searchParams.get("callbackUrl")).toBe(path);
-    },
-  );
+  it.each([
+    "/account",
+    "/account/orders",
+    "/orders/1",
+    "/checkout",
+    "/b2b/team",
+    "/auth/accept-invite",
+  ])("still sends anonymous %s to sign in", async (path) => {
+    const res = await customer()(req(path));
+    expect(res.status, path).toBe(307);
+    const location = new URL(res.headers.get("location")!);
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("callbackUrl")).toBe(path);
+  });
 
   it("still answers a protected API with a JSON 401", async () => {
     const res = await customer()(req("/api/orders"));

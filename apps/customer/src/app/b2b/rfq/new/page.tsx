@@ -34,18 +34,22 @@ export const dynamic = "force-dynamic";
  * it into an empty field. Bounded, because it is a URL and URLs are typed by
  * anyone. A resolved product wins over it.
  */
-export default async function NewRFQPage({
-  searchParams,
-}: {
-  searchParams?: { query?: string; product?: string; variant?: string; qty?: string };
+export default async function NewRFQPage(props: {
+  searchParams?: Promise<{ query?: string; product?: string; variant?: string; qty?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const typedQuery =
-    typeof searchParams?.query === "string" && searchParams.query.trim() ? searchParams.query.trim().slice(0, 200) : undefined;
-  const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
+    typeof searchParams?.query === "string" && searchParams.query.trim()
+      ? searchParams.query.trim().slice(0, 200)
+      : undefined;
+  const locale = (await cookies()).get("AVENICK_LOCALE")?.value ?? "en";
   const [categories, ctx] = await Promise.all([getPublicCategories(), getServerB2BContext()]);
   // After the context, not beside it: which products this viewer may name
   // depends on whether they hold a live company membership.
-  const productSeed = await readRfqProductSeed(searchParams ?? {}, { locale, isCompanyMember: !!ctx });
+  const productSeed = await readRfqProductSeed(searchParams ?? {}, {
+    locale,
+    isCompanyMember: !!ctx,
+  });
 
   return (
     <NewRFQForm

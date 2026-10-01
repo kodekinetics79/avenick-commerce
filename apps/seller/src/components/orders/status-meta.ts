@@ -22,22 +22,41 @@ import type { PillTone } from "@avenick/ui";
  * extra information is the loudest amateur signal a console can send.
  */
 export interface OrderStatusMeta {
-  label: string;
+  /** Message key under sellerOps.orderStatus, or null for an unknown state. */
+  labelKey: string | null;
+  /** Honest fallback for a state not yet represented in the message catalogue. */
+  fallbackLabel: string;
   tone: PillTone;
 }
 
 const ORDER_STATUS_META: Record<string, OrderStatusMeta> = {
-  PENDING_PAYMENT: { label: "Pending payment", tone: "neutral" },
-  PAYMENT_CONFIRMED: { label: "Payment confirmed", tone: "accent" },
-  CONFIRMED: { label: "Confirmed", tone: "accent" },
-  PROCESSING: { label: "Processing", tone: "primary" },
-  SHIPPED: { label: "Shipped", tone: "primary" },
-  OUT_FOR_DELIVERY: { label: "Out for delivery", tone: "warning" },
-  DELIVERED: { label: "Delivered", tone: "success" },
-  CANCELLED: { label: "Cancelled", tone: "danger" },
-  REFUNDED: { label: "Refunded", tone: "danger" },
-  RETURN_REQUESTED: { label: "Return requested", tone: "warning" },
-  RETURNED: { label: "Returned", tone: "danger" },
+  PENDING_PAYMENT: {
+    labelKey: "orderStatus.PENDING_PAYMENT",
+    fallbackLabel: "Pending payment",
+    tone: "neutral",
+  },
+  PAYMENT_CONFIRMED: {
+    labelKey: "orderStatus.PAYMENT_CONFIRMED",
+    fallbackLabel: "Payment confirmed",
+    tone: "accent",
+  },
+  CONFIRMED: { labelKey: "orderStatus.CONFIRMED", fallbackLabel: "Confirmed", tone: "accent" },
+  PROCESSING: { labelKey: "orderStatus.PROCESSING", fallbackLabel: "Processing", tone: "primary" },
+  SHIPPED: { labelKey: "orderStatus.SHIPPED", fallbackLabel: "Shipped", tone: "primary" },
+  OUT_FOR_DELIVERY: {
+    labelKey: "orderStatus.OUT_FOR_DELIVERY",
+    fallbackLabel: "Out for delivery",
+    tone: "warning",
+  },
+  DELIVERED: { labelKey: "orderStatus.DELIVERED", fallbackLabel: "Delivered", tone: "success" },
+  CANCELLED: { labelKey: "orderStatus.CANCELLED", fallbackLabel: "Cancelled", tone: "danger" },
+  REFUNDED: { labelKey: "orderStatus.REFUNDED", fallbackLabel: "Refunded", tone: "danger" },
+  RETURN_REQUESTED: {
+    labelKey: "orderStatus.RETURN_REQUESTED",
+    fallbackLabel: "Return requested",
+    tone: "warning",
+  },
+  RETURNED: { labelKey: "orderStatus.RETURNED", fallbackLabel: "Returned", tone: "danger" },
 };
 
 /**
@@ -49,7 +68,8 @@ const ORDER_STATUS_META: Record<string, OrderStatusMeta> = {
 export function orderStatusMeta(status: string): OrderStatusMeta {
   return (
     ORDER_STATUS_META[status] ?? {
-      label: status.replace(/_/g, " ").toLowerCase(),
+      labelKey: null,
+      fallbackLabel: status.replace(/_/g, " ").toLowerCase(),
       tone: "neutral",
     }
   );
@@ -68,7 +88,13 @@ export function orderStatusMeta(status: string): OrderStatusMeta {
  * changes, this one changes with it, or the progress rail on /orders/[id] draws a
  * machine the platform no longer runs.
  */
-export const ORDER_STAGES = ["CONFIRMED", "PROCESSING", "SHIPPED", "OUT_FOR_DELIVERY", "DELIVERED"] as const;
+export const ORDER_STAGES = [
+  "CONFIRMED",
+  "PROCESSING",
+  "SHIPPED",
+  "OUT_FOR_DELIVERY",
+  "DELIVERED",
+] as const;
 
 export type OrderStage = (typeof ORDER_STAGES)[number];
 

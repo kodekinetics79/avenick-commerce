@@ -17,7 +17,7 @@ export interface EyebrowProps extends React.HTMLAttributes<HTMLElement> {
 }
 
 export function Eyebrow({ tone = "muted", as, className, ...props }: EyebrowProps) {
-  const Comp: React.ElementType = as ?? "p";
+  const Comp = (as ?? "p") as any;
   const color =
     tone === "accent"
       ? "text-accent-ink"

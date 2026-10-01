@@ -17,7 +17,7 @@ function backendUrl(path: string) {
 }
 
 export async function fetchAdminBackend<T>(path: string, init?: RequestInit): Promise<T> {
-  const cookieHeader = cookies()
+  const cookieHeader = (await cookies())
     .getAll()
     .map(({ name, value }) => `${name}=${value}`)
     .join("; ");

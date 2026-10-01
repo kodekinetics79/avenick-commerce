@@ -52,11 +52,10 @@ import { NOINDEX_FOLLOW } from "@/lib/page-metadata";
 // filled with pages nobody chose to publish; the empty form is a search box, not
 // a page. `follow` stays on so the product links still count. page-metadata.ts
 // explains why this is a meta tag and not a robots.txt rule.
-export async function generateMetadata({
-  searchParams,
-}: {
-  searchParams: { q?: string };
+export async function generateMetadata(props: {
+  searchParams: Promise<{ q?: string }>;
 }): Promise<Metadata> {
+  const searchParams = await props.searchParams;
   const t = await getTranslations("catalogue");
   const query = (searchParams.q ?? "").trim();
   return {
@@ -95,14 +94,21 @@ async function getRecoveryBrands(): Promise<RecoveryBrand[]> {
     if (!Array.isArray(result)) return [];
     return result.flatMap((brand) => {
       if (!brand || typeof brand !== "object") return [];
-      const { slug, nameEn, nameAr, _count } = brand as { slug?: unknown; nameEn?: unknown; nameAr?: unknown; _count?: { products?: unknown } };
+      const { slug, nameEn, nameAr, _count } = brand as {
+        slug?: unknown;
+        nameEn?: unknown;
+        nameAr?: unknown;
+        _count?: { products?: unknown };
+      };
       if (typeof slug !== "string" || typeof nameEn !== "string") return [];
-      return [{
-        slug,
-        nameEn,
-        nameAr: typeof nameAr === "string" ? nameAr : null,
-        productCount: typeof _count?.products === "number" ? _count.products : null,
-      }];
+      return [
+        {
+          slug,
+          nameEn,
+          nameAr: typeof nameAr === "string" ? nameAr : null,
+          productCount: typeof _count?.products === "number" ? _count.products : null,
+        },
+      ];
     });
   } catch (error) {
     console.error("Unable to load brands for search recovery", error);
@@ -124,7 +130,9 @@ async function countBrandListings(candidates: BrandMatch[]): Promise<Map<string,
   await Promise.all(
     candidates.map(async (brand) => {
       try {
-        const { total } = await fetchBackendJson<CountResponse>(`/api/products?limit=1&brand=${encodeURIComponent(brand.slug)}`);
+        const { total } = await fetchBackendJson<CountResponse>(
+          `/api/products?limit=1&brand=${encodeURIComponent(brand.slug)}`,
+        );
         if (Number.isFinite(total)) totals.set(brand.slug, total);
       } catch (error) {
         console.error(`Unable to verify brand "${brand.slug}" for search recovery`, error);
@@ -142,7 +150,9 @@ async function countBrandListings(candidates: BrandMatch[]): Promise<Map<string,
 async function runRelaxedSearch(term: string | null): Promise<RecoveryVerification["relaxed"]> {
   if (!term) return null;
   try {
-    const { total, search } = await fetchBackendJson<CountResponse>(`/api/products?limit=1&search=${encodeURIComponent(term)}`);
+    const { total, search } = await fetchBackendJson<CountResponse>(
+      `/api/products?limit=1&search=${encodeURIComponent(term)}`,
+    );
     return { status: search?.status ?? "none", total: Number.isFinite(total) ? total : 0 };
   } catch (error) {
     console.error(`Unable to verify relaxed search "${term}"`, error);
@@ -155,15 +165,24 @@ const MATCH_CHIP =
   "u-focus u-state-wash u-meta inline-flex items-center gap-1.5 rounded-pill bg-primary-soft px-3 py-1 font-medium text-primary-ink ring-1 ring-primary/25";
 const INLINE_LINK = "u-focus rounded-nested font-medium text-primary-ink hover:underline";
 
-export default async function SearchPage({ searchParams }: { searchParams: { q?: string; sort?: string } }) {
+export default async function SearchPage(props: {
+  searchParams: Promise<{ q?: string; sort?: string }>;
+}) {
+  const searchParams = await props.searchParams;
   const query = (searchParams.q ?? "").trim();
-  const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
+  const locale = (await cookies()).get("AVENICK_LOCALE")?.value ?? "en";
   const t = await getTranslations("catalogue");
 
   const [{ products, total, search }, categories, brands] = await Promise.all([
     query
-      ? fetchBackendJson<SearchResponse>(`/api/products?limit=${PAGE_SIZE}&search=${encodeURIComponent(query)}`)
-      : Promise.resolve({ products: [] as any[], total: 0, search: { status: "none" } as CatalogSearchOutcome }),
+      ? fetchBackendJson<SearchResponse>(
+          `/api/products?limit=${PAGE_SIZE}&search=${encodeURIComponent(query)}`,
+        )
+      : Promise.resolve({
+          products: [] as any[],
+          total: 0,
+          search: { status: "none" } as CatalogSearchOutcome,
+        }),
     getPublicCategories(),
     query ? getRecoveryBrands() : Promise.resolve([] as RecoveryBrand[]),
   ]);
@@ -209,7 +228,10 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
       })
     : null;
   const [brandTotals, relaxed] = plan
-    ? await Promise.all([countBrandListings(plan.brandCandidates), runRelaxedSearch(plan.relaxedCandidate)])
+    ? await Promise.all([
+        countBrandListings(plan.brandCandidates),
+        runRelaxedSearch(plan.relaxedCandidate),
+      ])
     : [new Map<string, number>(), null];
   const ladder = plan ? assembleRecoveryLadder(plan, { brandTotals, relaxed }) : [];
   const pivotCategories = plan?.categories ?? [];
@@ -234,7 +256,11 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
   const categoryChip = (match: CategoryMatch) => {
     const parent = match.trail[match.trail.length - 1];
     return (
-      <Link key={`category-${match.slug}`} href={categoryBrowseHref(match.slug)} className={MATCH_CHIP}>
+      <Link
+        key={`category-${match.slug}`}
+        href={categoryBrowseHref(match.slug)}
+        className={MATCH_CHIP}
+      >
         {parent && <span className="text-ink-3">{categoryLabel(parent, locale)} ›</span>}
         <span>{categoryLabel(match, locale)}</span>
       </Link>
@@ -261,7 +287,9 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
             case "categories":
               return (
                 <li key={rung.kind}>
-                  <p className="u-ui mb-2 text-ink-2">{t("search.recovery.categories", { query })}</p>
+                  <p className="u-ui mb-2 text-ink-2">
+                    {t("search.recovery.categories", { query })}
+                  </p>
                   <div className="flex flex-wrap gap-2">{rung.items.map(categoryChip)}</div>
                 </li>
               );
@@ -314,18 +342,20 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
             !query
               ? t("search.titleEmpty")
               : refused
-              ? t("title.search", { query })
-              : t("search.titleResults", { query })
+                ? t("title.search", { query })
+                : t("search.titleResults", { query })
           }
           description={!query ? t("search.prompt") : undefined}
           linkComponent={Link}
         />
 
         {/* ── No query: discovery ─────────────────────────── */}
-        {!query && (
-          categories.length > 0 ? (
+        {!query &&
+          (categories.length > 0 ? (
             <section>
-              <Eyebrow as="h2" className="mb-3">{t("search.browseByCategory")}</Eyebrow>
+              <Eyebrow as="h2" className="mb-3">
+                {t("search.browseByCategory")}
+              </Eyebrow>
               {/*
                * THE ONE PLACE ON THESE SURFACES WHERE A STAGGER IS LEGITIMATE.
                *
@@ -347,7 +377,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
                         interactive
                         specular
                         data-clips-focus=""
-                        className="group u-drawn-host relative h-full overflow-hidden"
+                        className="u-drawn-host group relative h-full overflow-hidden"
                       >
                         <Link
                           href={`/products?category=${encodeURIComponent(cat.slug)}`}
@@ -382,8 +412,7 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
                 </Button>
               }
             />
-          )
-        )}
+          ))}
 
         {/*
          * ── Query refused as too short: no search ran, so show no grid ───
@@ -418,7 +447,9 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
             {recoveryLadder}
             {categories.length > 0 && (
               <section className="mt-block">
-                <Eyebrow as="h2" className="mb-3">{t("search.browseByCategory")}</Eyebrow>
+                <Eyebrow as="h2" className="mb-3">
+                  {t("search.browseByCategory")}
+                </Eyebrow>
                 <div className="flex flex-wrap gap-2">{categoryPills()}</div>
               </section>
             )}
@@ -433,7 +464,11 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
               glyph={<PackageSearch />}
               eyebrow={t("search.noMatch.eyebrow")}
               headline={t("search.noMatch.headline", { query })}
-              body={identifierOnly ? t("search.noMatch.identifierBody", { query }) : t("search.noMatch.body")}
+              body={
+                identifierOnly
+                  ? t("search.noMatch.identifierBody", { query })
+                  : t("search.noMatch.body")
+              }
               action={
                 <Button variant="secondary" size="md" asChild>
                   <Link href="/products">{t("empty.browseAll")}</Link>
@@ -443,7 +478,9 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
             {recoveryLadder}
             {categories.length > 0 && (
               <section className="mt-block">
-                <Eyebrow as="h2" className="mb-3">{t("search.browseByCategory")}</Eyebrow>
+                <Eyebrow as="h2" className="mb-3">
+                  {t("search.browseByCategory")}
+                </Eyebrow>
                 <div className="flex flex-wrap gap-2">{categoryPills()}</div>
               </section>
             )}
@@ -512,7 +549,8 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
                     category={p.category ? categoryLabel(p.category, locale) : undefined}
                     inStock={stock?.inStock === true}
                     availabilityStatus={stock?.status}
-                    hasVariants={p.hasVariants === true} priceTiered={p.priceTiered === true}
+                    hasVariants={p.hasVariants === true}
+                    priceTiered={p.priceTiered === true}
                     moq={p.moq}
                   />
                 );
@@ -527,7 +565,10 @@ export default async function SearchPage({ searchParams }: { searchParams: { q?:
                 not shown here (76 in total)". */}
             {total > products.length && (
               <p className="u-ui mt-block text-ink-2">
-                {t("search.moreNotShown", { count: total - products.length, formatted: String(total) })}{" "}
+                {t("search.moreNotShown", {
+                  count: total - products.length,
+                  formatted: String(total),
+                })}{" "}
                 <Link
                   href={`/products?search=${encodeURIComponent(query)}`}
                   className={INLINE_LINK}

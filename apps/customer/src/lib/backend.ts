@@ -1,4 +1,4 @@
-import { cookies, headers } from "next/headers";
+import { cookies, headers, type UnsafeUnwrappedHeaders } from "next/headers";
 
 type BackendJson<T> = {
   success?: boolean;
@@ -7,11 +7,8 @@ type BackendJson<T> = {
 };
 
 export function getBackendBaseUrl() {
-  const configured = (
-    process.env.NEXT_PUBLIC_BACKEND_URL?.trim() ||
-    process.env.RENDER_EXTERNAL_URL?.trim() ||
-    ""
-  );
+  const configured =
+    process.env.NEXT_PUBLIC_BACKEND_URL?.trim() || process.env.RENDER_EXTERNAL_URL?.trim() || "";
   if (!configured) return "";
   return trustedConfiguredOrigin(configured);
 }
@@ -22,12 +19,11 @@ export function getBackendBaseUrl() {
  * an authorized cookie destination. Explicit backend configuration still wins.
  */
 function configuredCustomerOrigin() {
-  const configured = (
+  const configured =
     process.env.NEXT_PUBLIC_CUSTOMER_PORTAL_URL?.trim() ||
     process.env.CUSTOMER_URL?.trim() ||
     process.env.NEXTAUTH_URL?.trim() ||
-    ""
-  );
+    "";
   return configured ? trustedConfiguredOrigin(configured) : "";
 }
 
@@ -35,7 +31,8 @@ function parseHttpOrigin(value: string, allowHostOnly = false) {
   const candidate = allowHostOnly && !value.includes("://") ? `https://${value}` : value;
   if (!URL.canParse(candidate)) return "";
   const parsed = new URL(candidate);
-  if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password) return "";
+  if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password)
+    return "";
   if (parsed.pathname !== "/" || parsed.search || parsed.hash) return "";
   return parsed.origin;
 }
@@ -67,14 +64,22 @@ function trustedPortalOrigins() {
   return origins;
 }
 
-export function requestBaseUrl(input: { host?: string | null; forwardedHost?: string | null; forwardedProto?: string | null }) {
+export function requestBaseUrl(input: {
+  host?: string | null;
+  forwardedHost?: string | null;
+  forwardedProto?: string | null;
+}) {
   const host = input.forwardedHost?.split(",")[0]?.trim() || input.host?.trim();
   if (!host) return "";
-  const proto = input.forwardedProto?.split(",")[0]?.trim() || (host.startsWith("localhost") ? "http" : "https");
+  const proto =
+    input.forwardedProto?.split(",")[0]?.trim() ||
+    (host.startsWith("localhost") ? "http" : "https");
   const origin = parseHttpOrigin(`${proto}://${host}`);
   if (!origin) throw new Error("Incoming application origin is malformed");
 
-  const isLocalDevelopment = process.env.NODE_ENV !== "production" && ["localhost", "127.0.0.1"].includes(new URL(origin).hostname);
+  const isLocalDevelopment =
+    process.env.NODE_ENV !== "production" &&
+    ["localhost", "127.0.0.1"].includes(new URL(origin).hostname);
   if (!isLocalDevelopment && !trustedPortalOrigins().has(origin)) {
     throw new Error("Incoming application origin is not trusted");
   }
@@ -82,7 +87,7 @@ export function requestBaseUrl(input: { host?: string | null; forwardedHost?: st
 }
 
 function incomingBaseUrl() {
-  const store = headers();
+  const store = headers() as unknown as UnsafeUnwrappedHeaders;
   return requestBaseUrl({
     host: store.get("host"),
     forwardedHost: store.get("x-forwarded-host"),
@@ -96,7 +101,9 @@ export function backendUrl(path: string, requestOrigin = "") {
   return new URL(path.startsWith("/") ? path : `/${path}`, base).toString();
 }
 
-export function cookieHeaderFromStore(store: { getAll: () => Array<{ name: string; value: string }> }) {
+export function cookieHeaderFromStore(store: {
+  getAll: () => Array<{ name: string; value: string }>;
+}) {
   return store
     .getAll()
     .map(({ name, value }) => `${name}=${value}`)
@@ -104,7 +111,7 @@ export function cookieHeaderFromStore(store: { getAll: () => Array<{ name: strin
 }
 
 export async function fetchBackendJson<T>(path: string, init?: RequestInit): Promise<T> {
-  return fetchBackendJsonWithCookies<T>(path, init, cookieHeaderFromStore(cookies()));
+  return fetchBackendJsonWithCookies<T>(path, init, cookieHeaderFromStore(await cookies()));
 }
 
 export async function fetchBackendJsonWithCookies<T>(

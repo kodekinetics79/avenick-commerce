@@ -25,13 +25,14 @@ export async function generateMetadata() {
 export const dynamic = "force-dynamic";
 
 interface PageProps {
-  searchParams: { search?: string };
+  searchParams: Promise<{ search?: string }>;
 }
 
 /** A server component cannot useId, and this control is unique on the page. */
 const SEARCH_ID = "brand-search";
 
-export default async function BrandsPage({ searchParams }: PageProps) {
+export default async function BrandsPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   await requireAdminSession();
   const t = await getTranslations("adminReview");
 
@@ -92,7 +93,9 @@ export default async function BrandsPage({ searchParams }: PageProps) {
                 />
               </Field>
             </div>
-            <Button type="submit" variant="secondary">{t("brands.search")}</Button>
+            <Button type="submit" variant="secondary">
+              {t("brands.search")}
+            </Button>
             {search && (
               <Button variant="ghost" asChild>
                 <Link href="/brands">{t("brands.clear")}</Link>
@@ -105,7 +108,11 @@ export default async function BrandsPage({ searchParams }: PageProps) {
           <Surface rung={1}>
             <EmptyState
               eyebrow={t("brands.empty.eyebrow")}
-              headline={search ? t("brands.empty.headlineSearch", { query: search }) : t("brands.empty.headline")}
+              headline={
+                search
+                  ? t("brands.empty.headlineSearch", { query: search })
+                  : t("brands.empty.headline")
+              }
               body={search ? t("brands.empty.bodySearch") : t("brands.empty.body")}
               icon={<Award className="h-3.5 w-3.5" aria-hidden="true" />}
               action={
@@ -130,7 +137,11 @@ export default async function BrandsPage({ searchParams }: PageProps) {
                     {b.isActive ? t("brands.active") : t("brands.inactive")}
                   </StatusPill>
                 </div>
-                {b.nameAr && <p className="u-meta truncate text-ink-2" dir="rtl">{b.nameAr}</p>}
+                {b.nameAr && (
+                  <p className="u-meta truncate text-ink-2" dir="rtl">
+                    {b.nameAr}
+                  </p>
+                )}
                 <div className="pt-1">
                   <Eyebrow>{t("brands.listings", { count: b._count.products })}</Eyebrow>
                   <Num value={b._count.products} />

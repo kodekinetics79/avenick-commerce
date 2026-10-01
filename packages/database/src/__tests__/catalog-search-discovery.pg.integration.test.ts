@@ -1,53 +1,96 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it } from "vitest";
 import { db } from "../index";
 import { listProducts, normalizeCatalogSearch } from "../services/products";
+import { integrationSuite } from "../testing/integration-db";
 
 const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-const ids = { user: "", seller: "", category: "", middleCategory: "", parentCategory: "", product: "", sparse: "", bare: "", brand: "" };
+const ids = {
+  user: "",
+  seller: "",
+  category: "",
+  middleCategory: "",
+  parentCategory: "",
+  product: "",
+  sparse: "",
+  bare: "",
+  brand: "",
+};
 const brandSlug = `search-brand-${stamp}`;
+const run = integrationSuite();
 
-beforeAll(async () => {
-  const user = await db.user.create({
-    data: { email: `catalog-search-${stamp}@example.test`, firstName: "Catalog", lastName: "Search", role: "SELLER_OWNER", status: "ACTIVE" },
-  });
-  ids.user = user.id;
-  const seller = await db.sellerProfile.create({
-    data: { userId: user.id, businessNameEn: `Catalog Search ${stamp}`, crNumber: `CAT-${stamp}`, type: "DISTRIBUTOR", country: "SA", city: "Riyadh", status: "ACTIVE" },
-  });
-  ids.seller = seller.id;
-  const parentCategory = await db.category.create({ data: { nameEn: `Search parent ${stamp}`, nameAr: "Search", slug: `search-parent-${stamp}` } });
-  ids.parentCategory = parentCategory.id;
-  const middleCategory = await db.category.create({ data: { nameEn: `Search middle ${stamp}`, nameAr: "Search", slug: `search-middle-${stamp}`, parentId: parentCategory.id } });
-  ids.middleCategory = middleCategory.id;
-  const category = await db.category.create({ data: { nameEn: `Search ${stamp}`, nameAr: "Search", slug: `search-${stamp}`, parentId: middleCategory.id } });
-  ids.category = category.id;
-  const product = await db.product.create({
-    data: {
-      sellerId: seller.id,
-      categoryId: category.id,
-      sku: `CAT-SKU-${stamp}`,
-      slug: `catalog-search-${stamp}`,
-      nameEn: `Alpha Conduit Adapter ${stamp}`,
-      nameAr: "وصلة ألفا",
-      status: "ACTIVE",
-      isPubliclyDiscoverable: true,
-      isB2CEnabled: false,
-      isB2BEnabled: true,
-      commercialMetadata: {
-        create: {
-          sourceSystem: "CLIENT_PILOT_CATALOG",
-          manufacturerPartNumber: "1145A",
-          supplierPartNumber: `SUP-35-Green-${stamp}`,
-          externalItemNumber: "3459",
-          erpCode: `ERP-811-${stamp}`,
-          sourceFingerprint: `fingerprint-${stamp}`,
+run("catalog discovery search", () => {
+  beforeAll(async () => {
+    const user = await db.user.create({
+      data: {
+        email: `catalog-search-${stamp}@example.test`,
+        firstName: "Catalog",
+        lastName: "Search",
+        role: "SELLER_OWNER",
+        status: "ACTIVE",
+      },
+    });
+    ids.user = user.id;
+    const seller = await db.sellerProfile.create({
+      data: {
+        userId: user.id,
+        businessNameEn: `Catalog Search ${stamp}`,
+        crNumber: `CAT-${stamp}`,
+        type: "DISTRIBUTOR",
+        country: "SA",
+        city: "Riyadh",
+        status: "ACTIVE",
+      },
+    });
+    ids.seller = seller.id;
+    const parentCategory = await db.category.create({
+      data: { nameEn: `Search parent ${stamp}`, nameAr: "Search", slug: `search-parent-${stamp}` },
+    });
+    ids.parentCategory = parentCategory.id;
+    const middleCategory = await db.category.create({
+      data: {
+        nameEn: `Search middle ${stamp}`,
+        nameAr: "Search",
+        slug: `search-middle-${stamp}`,
+        parentId: parentCategory.id,
+      },
+    });
+    ids.middleCategory = middleCategory.id;
+    const category = await db.category.create({
+      data: {
+        nameEn: `Search ${stamp}`,
+        nameAr: "Search",
+        slug: `search-${stamp}`,
+        parentId: middleCategory.id,
+      },
+    });
+    ids.category = category.id;
+    const product = await db.product.create({
+      data: {
+        sellerId: seller.id,
+        categoryId: category.id,
+        sku: `CAT-SKU-${stamp}`,
+        slug: `catalog-search-${stamp}`,
+        nameEn: `Alpha Conduit Adapter ${stamp}`,
+        nameAr: "وصلة ألفا",
+        status: "ACTIVE",
+        isPubliclyDiscoverable: true,
+        isB2CEnabled: false,
+        isB2BEnabled: true,
+        commercialMetadata: {
+          create: {
+            sourceSystem: "CLIENT_PILOT_CATALOG",
+            manufacturerPartNumber: "1145A",
+            supplierPartNumber: `SUP-35-Green-${stamp}`,
+            externalItemNumber: "3459",
+            erpCode: `ERP-811-${stamp}`,
+            sourceFingerprint: `fingerprint-${stamp}`,
+          },
         },
       },
-    },
-  });
-  ids.product = product.id;
+    });
+    ids.product = product.id;
 
-  /*
+    /*
     Two more products, in the shapes the LIVE catalogue is full of and this
     fixture had none of.
 
@@ -63,67 +106,73 @@ beforeAll(async () => {
     `sparse` has a metadata row with the identifier columns NULL. `bare` has no
     metadata row at all. Both must still be findable by a word from their name.
   */
-  const brand = await db.brand.create({ data: { nameEn: `Search Brand ${stamp}`, slug: brandSlug } });
-  ids.brand = brand.id;
+    const brand = await db.brand.create({
+      data: { nameEn: `Search Brand ${stamp}`, slug: brandSlug },
+    });
+    ids.brand = brand.id;
 
-  const sparse = await db.product.create({
-    data: {
-      sellerId: seller.id,
-      categoryId: category.id,
-      brandId: brand.id,
-      sku: `CAT-SPARSE-${stamp}`,
-      slug: `catalog-search-sparse-${stamp}`,
-      nameEn: `Beta Conduit Coupler ${stamp}`,
-      nameAr: "وصلة بيتا",
-      status: "ACTIVE",
-      isPubliclyDiscoverable: true,
-      isB2CEnabled: false,
-      isB2BEnabled: true,
-      commercialMetadata: {
-        create: {
-          sourceSystem: "CLIENT_PILOT_CATALOG",
-          sourceFingerprint: `fingerprint-sparse-${stamp}`,
+    const sparse = await db.product.create({
+      data: {
+        sellerId: seller.id,
+        categoryId: category.id,
+        brandId: brand.id,
+        sku: `CAT-SPARSE-${stamp}`,
+        slug: `catalog-search-sparse-${stamp}`,
+        nameEn: `Beta Conduit Coupler ${stamp}`,
+        nameAr: "وصلة بيتا",
+        status: "ACTIVE",
+        isPubliclyDiscoverable: true,
+        isB2CEnabled: false,
+        isB2BEnabled: true,
+        commercialMetadata: {
+          create: {
+            sourceSystem: "CLIENT_PILOT_CATALOG",
+            sourceFingerprint: `fingerprint-sparse-${stamp}`,
+          },
         },
       },
-    },
-  });
-  ids.sparse = sparse.id;
+    });
+    ids.sparse = sparse.id;
 
-  const bare = await db.product.create({
-    data: {
-      sellerId: seller.id,
-      categoryId: category.id,
-      sku: `CAT-BARE-${stamp}`,
-      slug: `catalog-search-bare-${stamp}`,
-      nameEn: `Gamma Conduit Bracket ${stamp}`,
-      nameAr: "حامل غاما",
+    const bare = await db.product.create({
+      data: {
+        sellerId: seller.id,
+        categoryId: category.id,
+        sku: `CAT-BARE-${stamp}`,
+        slug: `catalog-search-bare-${stamp}`,
+        nameEn: `Gamma Conduit Bracket ${stamp}`,
+        nameAr: "حامل غاما",
+        status: "ACTIVE",
+        isPubliclyDiscoverable: true,
+        isB2CEnabled: false,
+        isB2BEnabled: true,
+      },
+    });
+    ids.bare = bare.id;
+  });
+
+  afterAll(async () => {
+    const productIds = [ids.product, ids.sparse, ids.bare].filter(Boolean);
+    if (productIds.length) await db.product.deleteMany({ where: { id: { in: productIds } } });
+    if (ids.category) await db.category.deleteMany({ where: { id: ids.category } });
+    if (ids.middleCategory) await db.category.deleteMany({ where: { id: ids.middleCategory } });
+    if (ids.parentCategory) await db.category.deleteMany({ where: { id: ids.parentCategory } });
+    if (ids.brand) await db.brand.deleteMany({ where: { id: ids.brand } });
+    if (ids.seller) await db.sellerProfile.deleteMany({ where: { id: ids.seller } });
+    if (ids.user) await db.user.deleteMany({ where: { id: ids.user } });
+  });
+
+  async function expectSearch(term: string) {
+    const result = await listProducts({
+      search: term,
       status: "ACTIVE",
-      isPubliclyDiscoverable: true,
-      isB2CEnabled: false,
-      isB2BEnabled: true,
-    },
-  });
-  ids.bare = bare.id;
-});
+      publiclyDiscoverable: true,
+      limit: 10,
+    });
+    expect(result.products.map((product) => product.id)).toContain(ids.product);
+    return result;
+  }
 
-afterAll(async () => {
-  const productIds = [ids.product, ids.sparse, ids.bare].filter(Boolean);
-  if (productIds.length) await db.product.deleteMany({ where: { id: { in: productIds } } });
-  if (ids.category) await db.category.deleteMany({ where: { id: ids.category } });
-  if (ids.middleCategory) await db.category.deleteMany({ where: { id: ids.middleCategory } });
-  if (ids.parentCategory) await db.category.deleteMany({ where: { id: ids.parentCategory } });
-  if (ids.brand) await db.brand.deleteMany({ where: { id: ids.brand } });
-  if (ids.seller) await db.sellerProfile.deleteMany({ where: { id: ids.seller } });
-  if (ids.user) await db.user.deleteMany({ where: { id: ids.user } });
-});
-
-async function expectSearch(term: string) {
-  const result = await listProducts({ search: term, status: "ACTIVE", publiclyDiscoverable: true, limit: 10 });
-  expect(result.products.map((product) => product.id)).toContain(ids.product);
-  return result;
-}
-
-describe("catalog discovery search", () => {
   it("normalizes only surrounding/repeated whitespace and preserves punctuation", () => {
     expect(normalizeCatalogSearch("  35-Green  ")).toBe("35-Green");
     expect(normalizeCatalogSearch(" Alpha   Conduit ")).toBe("Alpha Conduit");
@@ -157,11 +206,19 @@ describe("catalog discovery search", () => {
    * is not a storefront.
    */
   it("finds every product by a single word from its name, whatever its metadata holds", async () => {
-    const result = await listProducts({ search: "Conduit", status: "ACTIVE", publiclyDiscoverable: true, limit: 50 });
+    const result = await listProducts({
+      search: "Conduit",
+      status: "ACTIVE",
+      publiclyDiscoverable: true,
+      limit: 50,
+    });
     const found = result.products.map((product) => product.id);
 
     expect(found, "the product with a fully populated metadata row").toContain(ids.product);
-    expect(found, "the product whose identifier columns are NULL — the shape an import produces").toContain(ids.sparse);
+    expect(
+      found,
+      "the product whose identifier columns are NULL — the shape an import produces",
+    ).toContain(ids.sparse);
     expect(found, "the product with no metadata row at all").toContain(ids.bare);
   });
 
@@ -171,7 +228,12 @@ describe("catalog discovery search", () => {
     // discarding name matches again.
     const [oneWord, phrase] = await Promise.all([
       listProducts({ search: "Conduit", status: "ACTIVE", publiclyDiscoverable: true, limit: 50 }),
-      listProducts({ search: `Conduit Coupler ${stamp}`, status: "ACTIVE", publiclyDiscoverable: true, limit: 50 }),
+      listProducts({
+        search: `Conduit Coupler ${stamp}`,
+        status: "ACTIVE",
+        publiclyDiscoverable: true,
+        limit: 50,
+      }),
     ]);
 
     expect(oneWord.products.map((p) => p.id)).toContain(ids.sparse);
@@ -179,7 +241,12 @@ describe("catalog discovery search", () => {
   });
 
   it("still ranks an exact identifier first, which is why the tiers exist", async () => {
-    const result = await listProducts({ search: `CAT-SKU-${stamp}`, status: "ACTIVE", publiclyDiscoverable: true, limit: 10 });
+    const result = await listProducts({
+      search: `CAT-SKU-${stamp}`,
+      status: "ACTIVE",
+      publiclyDiscoverable: true,
+      limit: 10,
+    });
     expect(result.products[0]?.id).toBe(ids.product);
   });
 
@@ -191,20 +258,45 @@ describe("catalog discovery search", () => {
    * 368 of 383.
    */
   it("finds a product by its brand when the product's metadata columns are NULL", async () => {
-    const result = await listProducts({ search: brandSlug, status: "ACTIVE", publiclyDiscoverable: true, limit: 50 });
+    const result = await listProducts({
+      search: brandSlug,
+      status: "ACTIVE",
+      publiclyDiscoverable: true,
+      limit: 50,
+    });
     expect(result.products.map((product) => product.id)).toContain(ids.sparse);
   });
 
   it("returns no products for an unknown identifier", async () => {
-    const result = await listProducts({ search: `UNKNOWN-${stamp}`, status: "ACTIVE", publiclyDiscoverable: true, limit: 10 });
+    const result = await listProducts({
+      search: `UNKNOWN-${stamp}`,
+      status: "ACTIVE",
+      publiclyDiscoverable: true,
+      limit: 10,
+    });
     expect(result.total).toBe(0);
     expect(result.products).toEqual([]);
   });
 
   it("includes leaf products through every level of the parent hierarchy", async () => {
-    const parent = await listProducts({ categorySlug: `search-parent-${stamp}`, status: "ACTIVE", publiclyDiscoverable: true, limit: 10 });
-    const middle = await listProducts({ categorySlug: `search-middle-${stamp}`, status: "ACTIVE", publiclyDiscoverable: true, limit: 10 });
-    const leaf = await listProducts({ categorySlug: `search-${stamp}`, status: "ACTIVE", publiclyDiscoverable: true, limit: 10 });
+    const parent = await listProducts({
+      categorySlug: `search-parent-${stamp}`,
+      status: "ACTIVE",
+      publiclyDiscoverable: true,
+      limit: 10,
+    });
+    const middle = await listProducts({
+      categorySlug: `search-middle-${stamp}`,
+      status: "ACTIVE",
+      publiclyDiscoverable: true,
+      limit: 10,
+    });
+    const leaf = await listProducts({
+      categorySlug: `search-${stamp}`,
+      status: "ACTIVE",
+      publiclyDiscoverable: true,
+      limit: 10,
+    });
     expect(parent.products.map((product) => product.id)).toContain(ids.product);
     expect(middle.products.map((product) => product.id)).toContain(ids.product);
     expect(leaf.products.map((product) => product.id)).toContain(ids.product);
@@ -212,9 +304,13 @@ describe("catalog discovery search", () => {
 
   it("installs trigram indexes for contains searches at larger catalog scale", async () => {
     const expected = [
-      "Product_nameEn_trgm_idx", "Product_nameAr_trgm_idx", "Product_sku_trgm_idx",
-      "ProductCommercialMetadata_mpn_trgm_idx", "ProductCommercialMetadata_spn_trgm_idx",
-      "ProductCommercialMetadata_external_trgm_idx", "ProductCommercialMetadata_erp_trgm_idx",
+      "Product_nameEn_trgm_idx",
+      "Product_nameAr_trgm_idx",
+      "Product_sku_trgm_idx",
+      "ProductCommercialMetadata_mpn_trgm_idx",
+      "ProductCommercialMetadata_spn_trgm_idx",
+      "ProductCommercialMetadata_external_trgm_idx",
+      "ProductCommercialMetadata_erp_trgm_idx",
     ];
     const rows = await db.$queryRaw<Array<{ indexname: string }>>`
       SELECT indexname FROM pg_indexes WHERE indexname IN (

@@ -8,9 +8,15 @@ import { Button, Dateline, Eyebrow, PageHeader, Surface } from "@avenick/ui";
 import { AiAssist } from "@/components/ai-assist";
 import { ProductsTable, type ProductRow } from "@/components/products-table";
 
-export default async function ProductsPage({ searchParams }: { searchParams?: { submitted?: string } }) {
+export default async function ProductsPage(props: {
+  searchParams?: Promise<{ submitted?: string }>;
+}) {
+  const searchParams = await props.searchParams;
   const t = await getTranslations("sellerCatalog");
-  const { seller, membership } = await requireSellerAnyPermission(["catalog.view", "catalog.manage"]);
+  const { seller, membership } = await requireSellerAnyPermission([
+    "catalog.view",
+    "catalog.manage",
+  ]);
   const permissions = membership.permissions ?? [];
   // Catalogue editors may reach the existing edit flow even when pricing is
   // deliberately withheld; the form and server actions already gate price
@@ -49,7 +55,12 @@ export default async function ProductsPage({ searchParams }: { searchParams?: { 
   });
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} issueCount={products.flatMap((p) => p.issues).length} permissions={membership.permissions}>
+    <SellerLayout
+      sellerName={seller.businessNameEn}
+      tier={seller.tier}
+      issueCount={products.flatMap((p) => p.issues).length}
+      permissions={membership.permissions}
+    >
       <div className="space-y-4">
         <PageHeader
           eyebrow={t("list.eyebrow")}
@@ -82,7 +93,9 @@ export default async function ProductsPage({ searchParams }: { searchParams?: { 
             <p className="u-body text-ink-1">
               {/* Two whole sentences rather than one with a swapped verb phrase:
                   the clause that changes does not survive being spliced. */}
-              {searchParams.submitted === "updated" ? t("submitted.changes") : t("submitted.listing")}
+              {searchParams.submitted === "updated"
+                ? t("submitted.changes")
+                : t("submitted.listing")}
             </p>
             <Dateline className="mt-1">{t("submitted.dateline")}</Dateline>
           </Surface>

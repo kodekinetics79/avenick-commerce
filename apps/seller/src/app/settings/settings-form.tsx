@@ -6,14 +6,20 @@ import { useTranslations } from "next-intl";
 import { AlertCircle, CheckCircle2, Landmark, Save } from "lucide-react";
 import { Button, Field, Input, Textarea } from "@avenick/ui";
 import { useToast } from "@/components/toast";
-import { updateSellerBankAction, updateSellerProfileAction, type SettingsActionState } from "./actions";
+import {
+  updateSellerBankAction,
+  updateSellerProfileAction,
+  type SettingsActionState,
+} from "./actions";
 
 /**
  * Both forms post through a server action and then `router.refresh()` so the
  * server-rendered parts of the page (profile summary, masked payout account,
  * the sidebar name) re-read from the database instead of trusting the form.
  */
-function useSettingsSubmit(action: (prev: SettingsActionState, formData: FormData) => Promise<SettingsActionState>) {
+function useSettingsSubmit(
+  action: (prev: SettingsActionState, formData: FormData) => Promise<SettingsActionState>,
+) {
   const router = useRouter();
   const t = useTranslations("sellerRelations");
   const [state, setState] = React.useState<SettingsActionState>({});
@@ -43,7 +49,15 @@ function useSettingsSubmit(action: (prev: SettingsActionState, formData: FormDat
   return { state, pending, submit };
 }
 
-function StatusLine({ state, savedLabel, nothingChangedLabel }: { state: SettingsActionState; savedLabel: string; nothingChangedLabel: string }) {
+function StatusLine({
+  state,
+  savedLabel,
+  nothingChangedLabel,
+}: {
+  state: SettingsActionState;
+  savedLabel: string;
+  nothingChangedLabel: string;
+}) {
   if (state.error) {
     return (
       <p role="alert" className="u-ui flex items-center gap-1.5 text-danger-ink">
@@ -57,7 +71,8 @@ function StatusLine({ state, savedLabel, nothingChangedLabel }: { state: Setting
     const changed = state.changed ?? [];
     return (
       <p role="status" className="u-ui flex items-center gap-1.5 text-success-ink">
-        <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" /> {changed.length > 0 ? savedLabel : nothingChangedLabel}
+        <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />{" "}
+        {changed.length > 0 ? savedLabel : nothingChangedLabel}
       </p>
     );
   }
@@ -81,26 +96,67 @@ export function BusinessProfileForm({ initial }: BusinessProfileFormProps) {
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    submit(new FormData(event.currentTarget), () => toast({ title: t("settings.profile.savedToast"), variant: "success" }));
+    submit(new FormData(event.currentTarget), () =>
+      toast({ title: t("settings.profile.savedToast"), variant: "success" }),
+    );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input name="businessNameEn" label={t("settings.profile.nameEn")} defaultValue={initial.businessNameEn} required maxLength={120} autoComplete="organization" />
-        <Input name="businessNameAr" label={t("settings.profile.nameAr")} defaultValue={initial.businessNameAr ?? ""} maxLength={120} dir="rtl" />
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Input
+          name="businessNameEn"
+          label={t("settings.profile.nameEn")}
+          defaultValue={initial.businessNameEn}
+          required
+          maxLength={120}
+          autoComplete="organization"
+        />
+        <Input
+          name="businessNameAr"
+          label={t("settings.profile.nameAr")}
+          defaultValue={initial.businessNameAr ?? ""}
+          maxLength={120}
+          dir="rtl"
+        />
       </div>
       <Field label={t("settings.profile.descriptionEn")} htmlFor="settings-description">
-        <Textarea id="settings-description" name="description" defaultValue={initial.description ?? ""} maxLength={2000} rows={4} placeholder={t("settings.profile.descriptionPlaceholder")} />
+        <Textarea
+          id="settings-description"
+          name="description"
+          defaultValue={initial.description ?? ""}
+          maxLength={2000}
+          rows={4}
+          placeholder={t("settings.profile.descriptionPlaceholder")}
+        />
       </Field>
       <Field label={t("settings.profile.descriptionAr")} htmlFor="settings-description-ar">
-        <Textarea id="settings-description-ar" name="descriptionAr" defaultValue={initial.descriptionAr ?? ""} maxLength={2000} rows={4} dir="rtl" lang="ar" />
+        <Textarea
+          id="settings-description-ar"
+          name="descriptionAr"
+          defaultValue={initial.descriptionAr ?? ""}
+          maxLength={2000}
+          rows={4}
+          dir="rtl"
+          lang="ar"
+        />
       </Field>
       <div className="max-w-sm">
-        <Input name="city" label={t("settings.profile.city")} defaultValue={initial.city} required maxLength={80} autoComplete="address-level2" />
+        <Input
+          name="city"
+          label={t("settings.profile.city")}
+          defaultValue={initial.city}
+          required
+          maxLength={80}
+          autoComplete="address-level2"
+        />
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-        <StatusLine state={state} savedLabel={t("settings.profile.saved")} nothingChangedLabel={t("settings.profile.nothingChanged")} />
+        <StatusLine
+          state={state}
+          savedLabel={t("settings.profile.saved")}
+          nothingChangedLabel={t("settings.profile.nothingChanged")}
+        />
         <Button type="submit" loading={pending} size="sm">
           <Save className="h-4 w-4" /> {t("settings.profile.save")}
         </Button>
@@ -135,7 +191,7 @@ export function PayoutAccountForm({ configured }: PayoutAccountFormProps) {
   }
 
   return (
-    <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
+    <form ref={formRef} onSubmit={handleSubmit} className="space-y-4" noValidate>
       <p className="u-ui flex items-center gap-2 font-medium text-ink-1">
         <Landmark className="h-4 w-4 text-ink-3" aria-hidden="true" />
         {configured ? t("settings.payout.replaceHeading") : t("settings.payout.addHeading")}
@@ -152,14 +208,37 @@ export function PayoutAccountForm({ configured }: PayoutAccountFormProps) {
         placeholder={t("settings.payout.ibanPlaceholder")}
         hint={t("settings.payout.ibanHint")}
       />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Input name="bankName" label={t("settings.payout.bankName")} required maxLength={120} autoComplete="off" />
-        <Input name="accountName" label={t("settings.payout.accountHolderName")} required maxLength={120} autoComplete="off" hint={t("settings.payout.accountHolderHint")} />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Input
+          name="bankName"
+          label={t("settings.payout.bankName")}
+          required
+          maxLength={120}
+          autoComplete="off"
+        />
+        <Input
+          name="accountName"
+          label={t("settings.payout.accountHolderName")}
+          required
+          maxLength={120}
+          autoComplete="off"
+          hint={t("settings.payout.accountHolderHint")}
+        />
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-        <StatusLine state={state} savedLabel={t("settings.payout.saved")} nothingChangedLabel={t("settings.payout.nothingChanged")} />
-        <Button type="submit" loading={pending} size="sm" variant={configured ? "secondary" : "primary"}>
-          <Save className="h-4 w-4" /> {configured ? t("settings.payout.replace") : t("settings.payout.save")}
+        <StatusLine
+          state={state}
+          savedLabel={t("settings.payout.saved")}
+          nothingChangedLabel={t("settings.payout.nothingChanged")}
+        />
+        <Button
+          type="submit"
+          loading={pending}
+          size="sm"
+          variant={configured ? "secondary" : "primary"}
+        >
+          <Save className="h-4 w-4" />{" "}
+          {configured ? t("settings.payout.replace") : t("settings.payout.save")}
         </Button>
       </div>
     </form>

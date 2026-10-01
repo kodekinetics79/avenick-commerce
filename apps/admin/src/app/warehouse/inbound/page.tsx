@@ -6,7 +6,13 @@ import { format } from "date-fns";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import {
-  PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Num, type PillTone,
+  PageHeader,
+  CellGrid,
+  LedgerTable,
+  EmptyState,
+  StatusPill,
+  Num,
+  type PillTone,
 } from "@avenick/ui";
 import { CountStat } from "@/app/finance/money-figures";
 import { Pager } from "@/components/console/chrome";
@@ -24,10 +30,11 @@ const TYPE_CONFIG: Record<string, { tone: PillTone; icon: typeof PackagePlus }> 
 };
 
 interface PageProps {
-  searchParams: { page?: string };
+  searchParams: Promise<{ page?: string }>;
 }
 
-export default async function InboundPage({ searchParams }: PageProps) {
+export default async function InboundPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   await requireAdminSession();
   const t = await getTranslations("adminCommerce.inbound");
 
@@ -45,7 +52,10 @@ export default async function InboundPage({ searchParams }: PageProps) {
       <div className="space-y-block">
         <PageHeader
           linkComponent={Link}
-          breadcrumbs={[{ label: t("breadcrumbWarehouse"), href: "/warehouse" }, { label: t("breadcrumbSelf") }]}
+          breadcrumbs={[
+            { label: t("breadcrumbWarehouse"), href: "/warehouse" },
+            { label: t("breadcrumbSelf") },
+          ]}
           eyebrow={t("eyebrow")}
           title={t("title")}
           description={t("description")}
@@ -53,10 +63,23 @@ export default async function InboundPage({ searchParams }: PageProps) {
         />
 
         <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
-          <CountStat label={t("stats.total")} value={total} rank="section" dateline={t("stats.totalDateline")} />
+          <CountStat
+            label={t("stats.total")}
+            value={total}
+            rank="section"
+            dateline={t("stats.totalDateline")}
+          />
           <CountStat label={t("stats.in")} value={inCount} dateline={t("stats.pageDateline")} />
-          <CountStat label={t("stats.adjustments")} value={adjCount} dateline={t("stats.pageDateline")} />
-          <CountStat label={t("stats.units")} value={unitsIn.toLocaleString()} dateline={t("stats.pageDateline")} />
+          <CountStat
+            label={t("stats.adjustments")}
+            value={adjCount}
+            dateline={t("stats.pageDateline")}
+          />
+          <CountStat
+            label={t("stats.units")}
+            value={unitsIn.toLocaleString()}
+            dateline={t("stats.pageDateline")}
+          />
         </CellGrid>
 
         <LedgerTable
@@ -68,7 +91,11 @@ export default async function InboundPage({ searchParams }: PageProps) {
             {
               key: "createdAt",
               label: t("columns.date"),
-              render: (m) => <span className="whitespace-nowrap text-ink-2">{format(m.createdAt, "MMM d, yyyy HH:mm")}</span>,
+              render: (m) => (
+                <span className="whitespace-nowrap text-ink-2">
+                  {format(m.createdAt, "MMM d, yyyy HH:mm")}
+                </span>
+              ),
             },
             {
               key: "type",
@@ -79,7 +106,8 @@ export default async function InboundPage({ searchParams }: PageProps) {
                 const Icon = cfg.icon;
                 return (
                   <StatusPill tone={cfg.tone} className="whitespace-nowrap">
-                    <Icon className="h-3 w-3" aria-hidden="true" /> {known ? t(`type.${m.type}`) : m.type}
+                    <Icon className="h-3 w-3" aria-hidden="true" />{" "}
+                    {known ? t(`type.${m.type}`) : m.type}
                   </StatusPill>
                 );
               },
@@ -89,7 +117,9 @@ export default async function InboundPage({ searchParams }: PageProps) {
               label: t("columns.product"),
               render: (m) => (
                 <div className="min-w-0 py-1">
-                  <p className="truncate font-medium text-ink-1">{m.stock.product?.nameEn ?? "—"}</p>
+                  <p className="truncate font-medium text-ink-1">
+                    {m.stock.product?.nameEn ?? "—"}
+                  </p>
                   <p className="u-mono u-meta text-ink-3">{m.stock.product?.sku ?? ""}</p>
                 </div>
               ),
@@ -111,7 +141,8 @@ export default async function InboundPage({ searchParams }: PageProps) {
               hideOnMobile: true,
               render: (m) => (
                 <span className="text-ink-2">
-                  {m.stock.location.warehouse.nameEn} · <span className="u-mono text-meta">{m.stock.location.code}</span>
+                  {m.stock.location.warehouse.nameEn} ·{" "}
+                  <span className="u-mono text-meta">{m.stock.location.code}</span>
                 </span>
               ),
             },
@@ -119,13 +150,22 @@ export default async function InboundPage({ searchParams }: PageProps) {
               key: "reference",
               label: t("columns.reference"),
               hideOnMobile: true,
-              render: (m) => <span className="u-mono text-meta text-ink-3">{m.reference ?? "—"}</span>,
+              render: (m) => (
+                <span className="u-mono text-meta text-ink-3">{m.reference ?? "—"}</span>
+              ),
             },
             {
               key: "notes",
               label: t("columns.notes"),
               hideOnMobile: true,
-              render: (m) => <span className="block max-w-[14rem] truncate text-ink-2" title={m.notes ?? undefined}>{m.notes ?? "—"}</span>,
+              render: (m) => (
+                <span
+                  className="block max-w-[14rem] truncate text-ink-2"
+                  title={m.notes ?? undefined}
+                >
+                  {m.notes ?? "—"}
+                </span>
+              ),
             },
           ]}
           empty={

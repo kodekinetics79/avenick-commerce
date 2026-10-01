@@ -103,7 +103,7 @@ export const Surface = React.forwardRef<HTMLElement, SurfaceProps>(function Surf
     assertDisplayGlassBudget();
   }
 
-  const Comp: React.ElementType = as ?? "div";
+  const Comp = (as ?? "div") as any;
   const shouldLift = lift ?? interactive;
   // Shoulders default on at the raised rungs and off at content rungs, so a
   // caller gets the four-part light without opting in and a card does not get a
@@ -125,10 +125,14 @@ export const Surface = React.forwardRef<HTMLElement, SurfaceProps>(function Surf
         // The 1px edge is drawn here rather than in the shadow so a toned
         // surface can recolour it. Rung 0 has no edge: it is content, not an
         // object.
-        !bare && rung > 0 && !glass && "border border-border",
+        !bare && rung > 0 && !glass && "border-border border",
         className,
       )}
-      style={inset !== undefined ? ({ ...style, ["--inset" as string]: `${inset}px` } as React.CSSProperties) : style}
+      style={
+        inset !== undefined
+          ? ({ ...style, ["--inset" as string]: `${inset}px` } as React.CSSProperties)
+          : style
+      }
       {...props}
     >
       {children}

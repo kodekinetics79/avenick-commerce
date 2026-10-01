@@ -9,10 +9,14 @@ const TransitionSchema = z.object({
   action: z.enum(["approve", "reject", "order", "cancel"]),
 });
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const ctx = await getServerB2BContext();
   if (!ctx) {
-    return NextResponse.json({ success: false, error: "Active company account required" }, { status: 401 });
+    return NextResponse.json(
+      { success: false, error: "Active company account required" },
+      { status: 401 },
+    );
   }
 
   const parsed = TransitionSchema.safeParse(await request.json().catch(() => null));
@@ -25,7 +29,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     include: { items: true },
   });
   if (!po || po.companyId !== ctx.companyId) {
-    return NextResponse.json({ success: false, error: "Purchase order not found" }, { status: 404 });
+    return NextResponse.json(
+      { success: false, error: "Purchase order not found" },
+      { status: 404 },
+    );
   }
 
   const action = parsed.data.action;
@@ -41,12 +48,20 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     },
     orderBy: { thresholdAmount: "desc" },
   });
-  const policyApprover = !governingPolicy || ctx.member.role === "COMPANY_ADMIN" || ctx.member.role === governingPolicy.approverRole;
+  const policyApprover =
+    !governingPolicy ||
+    ctx.member.role === "COMPANY_ADMIN" ||
+    ctx.member.role === governingPolicy.approverRole;
   const isApprover = genericApprover && policyApprover;
 
   if (["approve", "reject"].includes(action) && !isApprover) {
     return NextResponse.json(
-      { success: false, error: governingPolicy ? `Approval requires ${governingPolicy.approverRole}` : "Approver role required" },
+      {
+        success: false,
+        error: governingPolicy
+          ? `Approval requires ${governingPolicy.approverRole}`
+          : "Approver role required",
+      },
       { status: 403 },
     );
   }
@@ -69,7 +84,13 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       },
     });
     if (alternativeApprovers > 0 || ctx.member.role !== "COMPANY_ADMIN") {
-      return NextResponse.json({ success: false, error: "Maker/checker control: you cannot approve your own purchase order" }, { status: 403 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Maker/checker control: you cannot approve your own purchase order",
+        },
+        { status: 403 },
+      );
     }
   }
 
@@ -80,12 +101,23 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     cancel: ["DRAFT", "PENDING_APPROVAL", "APPROVED"],
   };
   if (!allowed[action].includes(po.status)) {
-    return NextResponse.json({ success: false, error: "Transition is not allowed" }, { status: 409 });
+    return NextResponse.json(
+      { success: false, error: "Transition is not allowed" },
+      { status: 409 },
+    );
   }
 
-  if (action === "order" && ctx.member.spendLimit != null && Number(po.total) > Number(ctx.member.spendLimit) && !genericApprover) {
+  if (
+    action === "order" &&
+    ctx.member.spendLimit != null &&
+    Number(po.total) > Number(ctx.member.spendLimit) &&
+    !genericApprover
+  ) {
     return NextResponse.json(
-      { success: false, error: "This purchase order exceeds your spend limit and must be placed by an approver" },
+      {
+        success: false,
+        error: "This purchase order exceeds your spend limit and must be placed by an approver",
+      },
       { status: 403 },
     );
   }
@@ -101,7 +133,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
         success: true,
         data: {
           order,
-          message: "Approved PO placed through governed checkout; payment and any configured ERP validation remain authoritative states.",
+          message:
+            "Approved PO placed through governed checkout; payment and any configured ERP validation remain authoritative states.",
         },
       });
     } catch (error) {

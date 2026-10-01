@@ -35,13 +35,16 @@ const CURRENCIES = new Set<Currency>(["AED", "SAR", "QAR", "KWD", "OMR", "BHD", 
  * called "recommendations". `rating` is re-attached after the DTO because the
  * DTO builds a fresh object and knows nothing about reviews.
  */
-export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ slug: string }> }) {
+  const params = await props.params;
   try {
     const throttled = await catalogThrottle(req.headers);
     if (throttled) return throttled;
 
     const wantsB2B = req.nextUrl.searchParams.get("b2b") === "true";
-    const currencyParam = req.nextUrl.searchParams.get("currency")?.toUpperCase() as Currency | undefined;
+    const currencyParam = req.nextUrl.searchParams.get("currency")?.toUpperCase() as
+      | Currency
+      | undefined;
     if (currencyParam && !CURRENCIES.has(currencyParam)) {
       return NextResponse.json({ success: false, error: "Unsupported currency" }, { status: 400 });
     }
@@ -64,16 +67,28 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
     const shape = (rows: Array<Record<string, any>>) =>
       rows
         .filter((row) => row["id"] !== product.id)
-        .map((row) => ({ ...toCatalogListDto(row as any, channel, currencyParam), rating: row["rating"] ?? null }));
+        .map((row) => ({
+          ...toCatalogListDto(row as any, channel, currencyParam),
+          rating: row["rating"] ?? null,
+        }));
 
     return NextResponse.json(
-      { success: true, data: { related: shape(related), boughtTogether: shape(boughtTogether), trending: shape(trending) } },
+      {
+        success: true,
+        data: {
+          related: shape(related),
+          boughtTogether: shape(boughtTogether),
+          trending: shape(trending),
+        },
+      },
       {
         headers: {
           // Affinity changes with the catalogue, not per visitor; a minute at
           // the edge is plenty. B2B pricing varies by viewer and is never
           // shared-cached.
-          "Cache-Control": wantsB2B ? "private, no-store" : "public, s-maxage=60, stale-while-revalidate=300",
+          "Cache-Control": wantsB2B
+            ? "private, no-store"
+            : "public, s-maxage=60, stale-while-revalidate=300",
           Vary: wantsB2B ? "Cookie, Authorization" : "Accept-Encoding",
         },
       },

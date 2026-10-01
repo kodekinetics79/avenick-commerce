@@ -6,9 +6,27 @@ import { format } from "date-fns";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { MapPin, Package, CheckCircle, Truck, Navigation, Home, AlertTriangle, User, Building2, StickyNote } from "lucide-react";
 import {
-  PageHeader, Surface, FieldWell, StatusPill, Num, Eyebrow, Dateline, Divider,
+  MapPin,
+  Package,
+  CheckCircle,
+  Truck,
+  Navigation,
+  Home,
+  AlertTriangle,
+  User,
+  Building2,
+  StickyNote,
+} from "lucide-react";
+import {
+  PageHeader,
+  Surface,
+  FieldWell,
+  StatusPill,
+  Num,
+  Eyebrow,
+  Dateline,
+  Divider,
   type PillTone,
 } from "@avenick/ui";
 import { CountStat, MoneyStat } from "@/app/finance/money-figures";
@@ -25,30 +43,31 @@ export async function generateMetadata() {
  * under `adminCommerce.orders.status`.
  */
 const STATUS_TONE: Record<OrderStatus, PillTone> = {
-  PENDING_PAYMENT:   "warning",
+  PENDING_PAYMENT: "warning",
   PAYMENT_CONFIRMED: "accent",
-  CONFIRMED:         "accent",
-  PROCESSING:        "neutral",
-  SHIPPED:           "neutral",
-  OUT_FOR_DELIVERY:  "neutral",
-  DELIVERED:         "success",
-  CANCELLED:         "danger",
-  REFUNDED:          "warning",
-  RETURN_REQUESTED:  "warning",
-  RETURNED:          "neutral",
+  CONFIRMED: "accent",
+  PROCESSING: "neutral",
+  SHIPPED: "neutral",
+  OUT_FOR_DELIVERY: "neutral",
+  DELIVERED: "success",
+  CANCELLED: "danger",
+  REFUNDED: "warning",
+  RETURN_REQUESTED: "warning",
+  RETURNED: "neutral",
 };
 
 /** Step order and icon; the label comes from `orderDetail.timeline.steps`. */
 const TIMELINE_STEPS: Array<{ status: OrderStatus; icon: typeof Package }> = [
-  { status: "CONFIRMED",        icon: CheckCircle },
-  { status: "PROCESSING",       icon: Package },
-  { status: "SHIPPED",          icon: Truck },
+  { status: "CONFIRMED", icon: CheckCircle },
+  { status: "PROCESSING", icon: Package },
+  { status: "SHIPPED", icon: Truck },
   { status: "OUT_FOR_DELIVERY", icon: Navigation },
-  { status: "DELIVERED",        icon: Home },
+  { status: "DELIVERED", icon: Home },
 ];
 const CHAIN_RANK = new Map(TIMELINE_STEPS.map((step, index) => [step.status, index]));
 
-export default async function AdminOrderDetailPage({ params }: { params: { id: string } }) {
+export default async function AdminOrderDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   await requireAdminSession();
   const t = await getTranslations("adminCommerce.orderDetail");
   const ts = await getTranslations("adminCommerce.orders.status");
@@ -57,9 +76,18 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
   const order = await db.order.findUnique({
     where: { id: params.id },
     include: {
-      user:    { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
+      user: { select: { id: true, firstName: true, lastName: true, email: true, role: true } },
       company: { select: { nameEn: true, nameAr: true } },
-      items:   { include: { product: { include: { images: { where: { isPrimary: true }, take: 1 }, seller: { select: { businessNameEn: true } } } } } },
+      items: {
+        include: {
+          product: {
+            include: {
+              images: { where: { isPrimary: true }, take: 1 },
+              seller: { select: { businessNameEn: true } },
+            },
+          },
+        },
+      },
       statusHistory: { orderBy: { createdAt: "asc" } },
     },
   });
@@ -79,21 +107,27 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
   const currentRank = CHAIN_RANK.get(order.status);
   const subtotal = Number(order.subtotal);
   const vatAmount = Number(order.vatAmount);
-  const terminal = order.status === "CANCELLED" || order.status === "REFUNDED" || order.status === "RETURNED";
+  const terminal =
+    order.status === "CANCELLED" || order.status === "REFUNDED" || order.status === "RETURNED";
 
   return (
     <AdminLayout>
       <div className="space-y-block">
         <PageHeader
           linkComponent={Link}
-          breadcrumbs={[{ label: t("breadcrumbOrders"), href: "/orders" }, { label: order.orderNumber }]}
+          breadcrumbs={[
+            { label: t("breadcrumbOrders"), href: "/orders" },
+            { label: order.orderNumber },
+          ]}
           eyebrow={t("eyebrow")}
           title={order.orderNumber}
           dateline={t("placed", { date: format(order.createdAt, "MMM d, yyyy 'at' h:mm a") })}
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <StatusPill tone={STATUS_TONE[order.status]}>{statusLabel}</StatusPill>
-              <StatusPill tone={order.type === "B2B" ? "accent" : "neutral"}>{order.type}</StatusPill>
+              <StatusPill tone={order.type === "B2B" ? "accent" : "neutral"}>
+                {order.type}
+              </StatusPill>
             </div>
           }
         />
@@ -108,11 +142,19 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
             <MoneyStat
               label={t("money.orderTotal")}
-              lines={[{ currency: order.currency, formatted: formatCurrency(Number(order.total), order.currency) }]}
+              lines={[
+                {
+                  currency: order.currency,
+                  formatted: formatCurrency(Number(order.total), order.currency),
+                },
+              ]}
               rank="section"
               dateline={t("money.orderTotalDateline", { currency: order.currency })}
             />
-            <CountStat label={t("money.subtotal")} value={formatCurrency(subtotal, order.currency)} />
+            <CountStat
+              label={t("money.subtotal")}
+              value={formatCurrency(subtotal, order.currency)}
+            />
             <CountStat label={t("money.vat")} value={formatCurrency(vatAmount, order.currency)} />
             <CountStat
               label={t("money.payment")}
@@ -124,13 +166,18 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
           {/* Status actions. There is no invoice download here: nothing in the
               system writes TaxInvoice rows yet, so a button would only ever fail. */}
           <Divider className="my-4" />
-          <OrderControls orderId={order.id} status={order.status} paymentStatus={order.paymentStatus} governed={Boolean(order.purchaseOrderId)} variant="detail" />
+          <OrderControls
+            orderId={order.id}
+            status={order.status}
+            paymentStatus={order.paymentStatus}
+            governed={Boolean(order.purchaseOrderId)}
+            variant="detail"
+          />
         </FieldWell>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           {/* Main column */}
           <div className="space-y-4 lg:col-span-2">
-
             {/* Order timeline */}
             <Surface className="p-5">
               <h2 className="u-h3 text-ink-1">{t("timeline.title")}</h2>
@@ -141,11 +188,11 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
               )}
               <div className="mt-5">
                 {TIMELINE_STEPS.map((step, idx) => {
-                  const entry     = order.statusHistory.find(h => h.status === step.status);
+                  const entry = order.statusHistory.find((h) => h.status === step.status);
                   const isReached = !!entry || (currentRank !== undefined && idx <= currentRank);
                   const isCurrent = order.status === step.status;
-                  const isLast    = idx === TIMELINE_STEPS.length - 1;
-                  const Icon      = step.icon;
+                  const isLast = idx === TIMELINE_STEPS.length - 1;
+                  const Icon = step.icon;
                   return (
                     <div key={step.status} className="flex gap-4">
                       <div className="flex flex-col items-center">
@@ -163,18 +210,28 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                           <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                         </div>
                         {!isLast && (
-                          <div className={`my-1 w-0.5 flex-1 ${isReached && !isCurrent ? "bg-success/40" : "bg-hairline"}`} />
+                          <div
+                            className={`my-1 w-0.5 flex-1 ${isReached && !isCurrent ? "bg-success/40" : "bg-hairline"}`}
+                          />
                         )}
                       </div>
                       <div className={`flex-1 ${isLast ? "pb-0" : "pb-6"}`}>
-                        <p className={`u-ui font-medium ${!isReached && !isCurrent ? "text-ink-3" : "text-ink-1"}`}>
+                        <p
+                          className={`u-ui font-medium ${!isReached && !isCurrent ? "text-ink-3" : "text-ink-1"}`}
+                        >
                           {t(`timeline.steps.${step.status}`)}
                           {isCurrent && (
-                            <StatusPill tone="accent" className="ms-2 align-middle">{t("timeline.current")}</StatusPill>
+                            <StatusPill tone="accent" className="ms-2 align-middle">
+                              {t("timeline.current")}
+                            </StatusPill>
                           )}
                         </p>
                         <p className="u-meta mt-0.5 text-ink-3">
-                          {entry ? `${format(entry.createdAt, "MMM d, h:mm a")}${entry.message ? ` · ${entry.message}` : ""}` : isReached ? t("timeline.noTimestamp") : t("timeline.notYet")}
+                          {entry
+                            ? `${format(entry.createdAt, "MMM d, h:mm a")}${entry.message ? ` · ${entry.message}` : ""}`
+                            : isReached
+                              ? t("timeline.noTimestamp")
+                              : t("timeline.notYet")}
                         </p>
                       </div>
                     </div>
@@ -185,11 +242,14 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                 <div className="mt-5 border-t border-hairline pt-4">
                   <Eyebrow className="mb-2">{t("timeline.otherEvents")}</Eyebrow>
                   <ul className="space-y-1">
-                    {order.statusHistory.filter((h) => CHAIN_RANK.get(h.status) === undefined).map((h) => (
-                      <li key={h.id} className="u-meta text-ink-2">
-                        {format(h.createdAt, "MMM d, h:mm a")} · {ts(h.status)}{h.message ? ` · ${h.message}` : ""}
-                      </li>
-                    ))}
+                    {order.statusHistory
+                      .filter((h) => CHAIN_RANK.get(h.status) === undefined)
+                      .map((h) => (
+                        <li key={h.id} className="u-meta text-ink-2">
+                          {format(h.createdAt, "MMM d, h:mm a")} · {ts(h.status)}
+                          {h.message ? ` · ${h.message}` : ""}
+                        </li>
+                      ))}
                   </ul>
                 </div>
               )}
@@ -203,7 +263,10 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
               </div>
               <div>
                 {order.items.map((item) => (
-                  <div key={item.id} className="flex items-start justify-between gap-4 border-b border-hairline px-5 py-3 last:border-b-0">
+                  <div
+                    key={item.id}
+                    className="flex items-start justify-between gap-4 border-b border-hairline px-5 py-3 last:border-b-0"
+                  >
                     <div className="flex min-w-0 items-start gap-3">
                       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-nested bg-neutral-soft text-ink-3">
                         <Package className="h-4 w-4" aria-hidden="true" />
@@ -212,7 +275,9 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                         <p className="u-ui font-medium text-ink-1">{item.nameEn}</p>
                         <p className="u-meta text-ink-3">
                           {t("items.sku")} <span className="u-mono">{item.sku}</span> ·{" "}
-                          {t("items.supplier", { name: item.product?.seller?.businessNameEn ?? "—" })}
+                          {t("items.supplier", {
+                            name: item.product?.seller?.businessNameEn ?? "—",
+                          })}
                         </p>
                         <p className="u-meta text-ink-3">
                           {t("items.qty", {
@@ -235,15 +300,21 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                 <dl className="ms-auto flex max-w-xs flex-col gap-1.5">
                   <div className="flex items-baseline justify-between gap-6">
                     <dt className="u-ui text-ink-2">{t("totals.subtotal")}</dt>
-                    <dd className="fig u-ui text-ink-1">{formatCurrency(subtotal, order.currency)}</dd>
+                    <dd className="fig u-ui text-ink-1">
+                      {formatCurrency(subtotal, order.currency)}
+                    </dd>
                   </div>
                   <div className="flex items-baseline justify-between gap-6">
                     <dt className="u-ui text-ink-2">{t("totals.vat")}</dt>
-                    <dd className="fig u-ui text-ink-1">{formatCurrency(vatAmount, order.currency)}</dd>
+                    <dd className="fig u-ui text-ink-1">
+                      {formatCurrency(vatAmount, order.currency)}
+                    </dd>
                   </div>
                   <div className="mt-1 flex items-baseline justify-between gap-6 border-t border-border-strong pt-2">
                     <dt className="u-ui font-medium text-ink-1">{t("totals.total")}</dt>
-                    <dd><Num value={formatCurrency(Number(order.total), order.currency)} /></dd>
+                    <dd>
+                      <Num value={formatCurrency(Number(order.total), order.currency)} />
+                    </dd>
                   </div>
                 </dl>
               </FieldWell>
@@ -257,7 +328,9 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
               <Eyebrow className="mb-3 flex items-center gap-1.5">
                 <User className="h-3.5 w-3.5" aria-hidden="true" /> {t("customer.title")}
               </Eyebrow>
-              <p className="u-ui font-medium text-ink-1">{order.user.firstName} {order.user.lastName}</p>
+              <p className="u-ui font-medium text-ink-1">
+                {order.user.firstName} {order.user.lastName}
+              </p>
               <p className="u-meta text-ink-3">{order.user.email}</p>
               {order.company && (
                 <div className="mt-2 flex items-center gap-1.5 border-t border-hairline pt-2">
@@ -277,7 +350,9 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                   {Object.entries(order.shippingAddress as Record<string, unknown>)
                     .filter(([, v]) => typeof v === "string" && v.trim().length > 0)
                     .map(([k, v]) => (
-                      <span key={k} className="block">{String(v)}</span>
+                      <span key={k} className="block">
+                        {String(v)}
+                      </span>
                     ))}
                 </address>
               ) : (
@@ -309,7 +384,8 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
             {order.notes && (
               <Surface tone="warning" className="p-4">
                 <Eyebrow className="mb-2 flex items-center gap-1.5 text-warning-ink">
-                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" /> {t("customerNote.title")}
+                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />{" "}
+                  {t("customerNote.title")}
                 </Eyebrow>
                 <p className="u-ui whitespace-pre-wrap text-ink-1">{order.notes}</p>
               </Surface>
@@ -326,11 +402,21 @@ export default async function AdminOrderDetailPage({ params }: { params: { id: s
                 <ul className="space-y-3">
                   {internalNotes.map((entry) => {
                     const note = (entry.after as { note?: unknown } | null)?.note;
-                    const author = entry.actor ? `${entry.actor.firstName} ${entry.actor.lastName}`.trim() || entry.actor.email : t("internalNotes.unknownAuthor");
+                    const author = entry.actor
+                      ? `${entry.actor.firstName} ${entry.actor.lastName}`.trim() ||
+                        entry.actor.email
+                      : t("internalNotes.unknownAuthor");
                     return (
-                      <li key={entry.id} className="border-b border-hairline pb-3 last:border-b-0 last:pb-0">
-                        <p className="u-ui whitespace-pre-wrap text-ink-1">{typeof note === "string" ? note : ""}</p>
-                        <Dateline className="mt-0.5">{author} · {format(entry.createdAt, "MMM d, yyyy h:mm a")}</Dateline>
+                      <li
+                        key={entry.id}
+                        className="border-b border-hairline pb-3 last:border-b-0 last:pb-0"
+                      >
+                        <p className="u-ui whitespace-pre-wrap text-ink-1">
+                          {typeof note === "string" ? note : ""}
+                        </p>
+                        <Dateline className="mt-0.5">
+                          {author} · {format(entry.createdAt, "MMM d, yyyy h:mm a")}
+                        </Dateline>
                       </li>
                     );
                   })}

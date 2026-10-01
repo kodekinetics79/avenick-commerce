@@ -4,8 +4,18 @@ import { AlertCircle } from "lucide-react";
 import { log } from "@avenick/observability";
 import { portalUrl } from "@avenick/utils/portal-config";
 import { AuthNotice, AuthShell } from "../auth-shell";
-import { identityCopy, LOCALE_COOKIE, resetTtlLabel, toIdentityLocale, type IdentityLocale } from "../identity-copy";
-import { PASSWORD_RESET_TTL_SECONDS, passwordResetTtlLabel, verifyPasswordResetToken } from "@/lib/password-reset";
+import {
+  identityCopy,
+  LOCALE_COOKIE,
+  resetTtlLabel,
+  toIdentityLocale,
+  type IdentityLocale,
+} from "../identity-copy";
+import {
+  PASSWORD_RESET_TTL_SECONDS,
+  passwordResetTtlLabel,
+  verifyPasswordResetToken,
+} from "@/lib/password-reset";
 import { ResetForm } from "./reset-form";
 
 /**
@@ -17,7 +27,10 @@ import { ResetForm } from "./reset-form";
  * eligible needs the database and is decided by the redeem route on submit.
  * Nothing about the token is logged: it is a credential.
  */
-export default async function ResetPasswordPage({ searchParams }: { searchParams?: { token?: string | string[] } }) {
+export default async function ResetPasswordPage(props: {
+  searchParams?: Promise<{ token?: string | string[] }>;
+}) {
+  const searchParams = await props.searchParams;
   const locale = toIdentityLocale((await cookies()).get(LOCALE_COOKIE)?.value);
   const t = identityCopy(locale).reset;
   const ttl = resetTtlLabel(locale, PASSWORD_RESET_TTL_SECONDS, passwordResetTtlLabel());
@@ -27,7 +40,11 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
   const preflight = token ? verifyPasswordResetToken(token) : null;
 
   if (preflight && !preflight.ok && preflight.reason === "no-secret") {
-    log.error("reset-password page: no signing secret (AUTH_SECRET or NEXTAUTH_SECRET)", undefined, { path: "/auth/reset-password" });
+    log.error(
+      "reset-password page: no signing secret (AUTH_SECRET or NEXTAUTH_SECRET)",
+      undefined,
+      { path: "/auth/reset-password" },
+    );
   }
 
   // The seller portal is a separate deployment; a seller who resets here is
@@ -45,7 +62,10 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
       footer={
         <p className="u-meta text-ink-3">
           {t.backTo}{" "}
-          <Link href="/login" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
+          <Link
+            href="/login"
+            className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+          >
             {t.signIn}
           </Link>
         </p>
@@ -60,7 +80,9 @@ export default async function ResetPasswordPage({ searchParams }: { searchParams
       {token && preflight && !preflight.ok && preflight.reason !== "no-secret" && (
         <Unusable locale={locale}>{t.deadToken}</Unusable>
       )}
-      {token && preflight?.ok && <ResetForm locale={locale} token={token} sellerSignInUrl={sellerSignInUrl} />}
+      {token && preflight?.ok && (
+        <ResetForm locale={locale} token={token} sellerSignInUrl={sellerSignInUrl} />
+      )}
     </AuthShell>
   );
 }

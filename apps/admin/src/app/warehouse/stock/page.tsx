@@ -1,11 +1,25 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { db } from "@avenick/database";
-import { Search, Boxes, AlertTriangle, TrendingDown, SlidersHorizontal, CheckCircle } from "lucide-react";
+import {
+  Search,
+  Boxes,
+  AlertTriangle,
+  TrendingDown,
+  SlidersHorizontal,
+  CheckCircle,
+} from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import {
-  PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Surface, Num, Button,
+  PageHeader,
+  CellGrid,
+  LedgerTable,
+  EmptyState,
+  StatusPill,
+  Surface,
+  Num,
+  Button,
 } from "@avenick/ui";
 import { CountStat } from "@/app/finance/money-figures";
 import { FilterTabs, CONTROL } from "@/components/console/chrome";
@@ -20,7 +34,7 @@ export async function generateMetadata() {
 // received-at timestamp that no row carries, so it is not offered.
 // The label of each is translated under `stock.filters`.
 const STOCK_FILTER = [
-  { value: "",    labelKey: "filters.all" },
+  { value: "", labelKey: "filters.all" },
   { value: "low", labelKey: "filters.low" },
   { value: "out", labelKey: "filters.out" },
 ] as const;
@@ -36,17 +50,30 @@ function stockHref(filter: string, search: string): string {
   return query ? `/warehouse/stock?${query}` : "/warehouse/stock";
 }
 
-export default async function StockPage({ searchParams }: { searchParams: { filter?: string; search?: string } }) {
+export default async function StockPage(props: {
+  searchParams: Promise<{ filter?: string; search?: string }>;
+}) {
+  const searchParams = await props.searchParams;
   await requireAdminSession();
   const t = await getTranslations("adminCommerce.stock");
 
-  const activeFilter: StockFilter = STOCK_FILTER.some((f) => f.value === searchParams.filter) ? (searchParams.filter as StockFilter) : "";
+  const activeFilter: StockFilter = STOCK_FILTER.some((f) => f.value === searchParams.filter)
+    ? (searchParams.filter as StockFilter)
+    : "";
   const search = (searchParams.search ?? "").trim().slice(0, 100);
   const textMatch = search ? { contains: search, mode: "insensitive" as const } : undefined;
 
   const where = {
     product: textMatch
-      ? { deletedAt: null, OR: [{ sku: textMatch }, { nameEn: textMatch }, { nameAr: textMatch }, { category: { nameEn: textMatch } }] }
+      ? {
+          deletedAt: null,
+          OR: [
+            { sku: textMatch },
+            { nameEn: textMatch },
+            { nameAr: textMatch },
+            { category: { nameEn: textMatch } },
+          ],
+        }
       : { deletedAt: null },
   };
 
@@ -64,7 +91,10 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
     include: {
       product: {
         select: {
-          sku: true, nameEn: true, nameAr: true, status: true,
+          sku: true,
+          nameEn: true,
+          nameAr: true,
+          status: true,
           images: { where: { isPrimary: true }, take: 1 },
           seller: { select: { businessNameEn: true } },
           category: { select: { nameEn: true } },
@@ -76,7 +106,7 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
     },
   });
 
-  const mapped = stocks.map(s => ({
+  const mapped = stocks.map((s) => ({
     ...s,
     available: s.qty - s.reservedQty,
     isOut: s.qty - s.reservedQty <= 0,
@@ -85,16 +115,19 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
 
   // Low/out depend on reservedQty, which no where-clause can compare against
   // another column, so the split is finished in memory on the fetched page.
-  const filtered = activeFilter === "low" ? mapped.filter(s => s.isLow)
-    : activeFilter === "out" ? mapped.filter(s => s.isOut)
-    : mapped;
+  const filtered =
+    activeFilter === "low"
+      ? mapped.filter((s) => s.isLow)
+      : activeFilter === "out"
+        ? mapped.filter((s) => s.isOut)
+        : mapped;
 
-  const totalSKUs   = matchingSKUs;
-  const totalUnits  = unitAggregate._sum.qty ?? 0;
-  const lowCount    = mapped.filter(s => s.isLow).length;
-  const outCount    = mapped.filter(s => s.isOut).length;
-  const truncated   = matchingSKUs > stocks.length;
-  const scopeNote   = truncated ? t("alert.scope", { count: String(stocks.length) }) : "";
+  const totalSKUs = matchingSKUs;
+  const totalUnits = unitAggregate._sum.qty ?? 0;
+  const lowCount = mapped.filter((s) => s.isLow).length;
+  const outCount = mapped.filter((s) => s.isOut).length;
+  const truncated = matchingSKUs > stocks.length;
+  const scopeNote = truncated ? t("alert.scope", { count: String(stocks.length) }) : "";
 
   return (
     <AdminLayout>
@@ -103,7 +136,10 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
             "Reorder": there is no purchase-order primitive to raise one. */}
         <PageHeader
           linkComponent={Link}
-          breadcrumbs={[{ label: t("breadcrumbWarehouse"), href: "/warehouse" }, { label: t("breadcrumbSelf") }]}
+          breadcrumbs={[
+            { label: t("breadcrumbWarehouse"), href: "/warehouse" },
+            { label: t("breadcrumbSelf") },
+          ]}
           eyebrow={t("eyebrow")}
           title={t("title")}
           description={t("description")}
@@ -112,25 +148,46 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
 
         {/* Stats — SKUs and units over every matching row; low/out over the loaded rows */}
         <CellGrid cols={{ base: 2, lg: 4 }} density="compact">
-          <CountStat label={t("stats.skus")} value={totalSKUs.toLocaleString()} rank="section" dateline={t("stats.matchDateline")} />
-          <CountStat label={t("stats.units")} value={totalUnits.toLocaleString()} dateline={t("stats.matchDateline")} />
+          <CountStat
+            label={t("stats.skus")}
+            value={totalSKUs.toLocaleString()}
+            rank="section"
+            dateline={t("stats.matchDateline")}
+          />
+          <CountStat
+            label={t("stats.units")}
+            value={totalUnits.toLocaleString()}
+            dateline={t("stats.matchDateline")}
+          />
           <CountStat
             label={t("stats.low")}
             value={lowCount}
             tone={lowCount > 0 ? "warning" : "default"}
-            dateline={truncated ? t("stats.loadedDateline", { count: String(stocks.length) }) : t("stats.lowDateline")}
+            dateline={
+              truncated
+                ? t("stats.loadedDateline", { count: String(stocks.length) })
+                : t("stats.lowDateline")
+            }
           />
           <CountStat
             label={t("stats.out")}
             value={outCount}
             tone={outCount > 0 ? "danger" : "default"}
-            dateline={truncated ? t("stats.loadedDateline", { count: String(stocks.length) }) : t("stats.outDateline")}
+            dateline={
+              truncated
+                ? t("stats.loadedDateline", { count: String(stocks.length) })
+                : t("stats.outDateline")
+            }
           />
         </CellGrid>
 
         {/* Alerts */}
         {outCount > 0 && activeFilter !== "out" && (
-          <Surface role="status" tone="danger" className="flex flex-wrap items-center justify-between gap-3 p-4">
+          <Surface
+            role="status"
+            tone="danger"
+            className="flex flex-wrap items-center justify-between gap-3 p-4"
+          >
             <div className="flex items-center gap-3">
               <AlertTriangle className="h-5 w-5 shrink-0 text-danger-ink" aria-hidden="true" />
               <p className="u-ui font-medium text-ink-1">
@@ -146,9 +203,17 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
         {/* Filters */}
         <div className="flex flex-col gap-2 lg:flex-row lg:items-start">
           {/* Search */}
-          <form method="get" action="/warehouse/stock" role="search" className="relative min-w-0 flex-1">
+          <form
+            method="get"
+            action="/warehouse/stock"
+            role="search"
+            className="relative min-w-0 flex-1"
+          >
             {activeFilter && <input type="hidden" name="filter" value={activeFilter} />}
-            <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+            <Search
+              className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3"
+              aria-hidden="true"
+            />
             <input
               data-rung={1}
               type="search"
@@ -165,11 +230,17 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
             />
             <div className="absolute end-2 top-1/2 flex -translate-y-1/2 items-center gap-2">
               {search && (
-                <Link href={stockHref(activeFilter, "")} className="u-focus u-meta rounded-nested text-ink-3 hover:text-ink-1">
+                <Link
+                  href={stockHref(activeFilter, "")}
+                  className="u-focus u-meta rounded-nested text-ink-3 hover:text-ink-1"
+                >
                   {t("search.clear")}
                 </Link>
               )}
-              <button type="submit" className="u-focus u-meta rounded-nested font-medium text-primary-ink hover:underline">
+              <button
+                type="submit"
+                className="u-focus u-meta rounded-nested font-medium text-primary-ink hover:underline"
+              >
                 {t("search.submit")}
               </button>
             </div>
@@ -205,10 +276,42 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
                 : undefined,
           })}
           columns={[
-            { key: "sku", label: t("columns.sku"), render: (s) => <span className="u-mono whitespace-nowrap text-meta font-medium text-ink-2">{s.product?.sku ?? "—"}</span> },
-            { key: "product", label: t("columns.product"), render: (s) => <span className="line-clamp-1 font-medium text-ink-1">{s.product?.nameEn ?? "—"}</span> },
-            { key: "category", label: t("columns.category"), hideOnMobile: true, render: (s) => <span className="u-meta text-ink-3">{s.product?.category?.nameEn ?? "—"}</span> },
-            { key: "supplier", label: t("columns.supplier"), hideOnMobile: true, render: (s) => <span className="u-meta text-ink-3">{s.product?.seller?.businessNameEn ?? "—"}</span> },
+            {
+              key: "sku",
+              label: t("columns.sku"),
+              render: (s) => (
+                <span className="u-mono whitespace-nowrap text-meta font-medium text-ink-2">
+                  {s.product?.sku ?? "—"}
+                </span>
+              ),
+            },
+            {
+              key: "product",
+              label: t("columns.product"),
+              render: (s) => (
+                <span className="line-clamp-1 font-medium text-ink-1">
+                  {s.product?.nameEn ?? "—"}
+                </span>
+              ),
+            },
+            {
+              key: "category",
+              label: t("columns.category"),
+              hideOnMobile: true,
+              render: (s) => (
+                <span className="u-meta text-ink-3">{s.product?.category?.nameEn ?? "—"}</span>
+              ),
+            },
+            {
+              key: "supplier",
+              label: t("columns.supplier"),
+              hideOnMobile: true,
+              render: (s) => (
+                <span className="u-meta text-ink-3">
+                  {s.product?.seller?.businessNameEn ?? "—"}
+                </span>
+              ),
+            },
             {
               key: "location",
               label: t("columns.location"),
@@ -221,7 +324,12 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
               ),
             },
             { key: "qty", label: t("columns.onHand"), numeric: true, render: (s) => s.qty },
-            { key: "reservedQty", label: t("columns.reserved"), numeric: true, render: (s) => <span className="text-ink-3">{s.reservedQty}</span> },
+            {
+              key: "reservedQty",
+              label: t("columns.reserved"),
+              numeric: true,
+              render: (s) => <span className="text-ink-3">{s.reservedQty}</span>,
+            },
             {
               key: "available",
               label: t("columns.available"),
@@ -229,21 +337,34 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
               render: (s) => (
                 <Num
                   value={s.available}
-                  className={s.isOut ? "text-danger-ink" : s.isLow ? "text-warning-ink" : "text-ink-1"}
+                  className={
+                    s.isOut ? "text-danger-ink" : s.isLow ? "text-warning-ink" : "text-ink-1"
+                  }
                 />
               ),
             },
-            { key: "reorderPoint", label: t("columns.reorderPoint"), numeric: true, render: (s) => <span className="text-ink-3">{s.reorderPoint}</span> },
+            {
+              key: "reorderPoint",
+              label: t("columns.reorderPoint"),
+              numeric: true,
+              render: (s) => <span className="text-ink-3">{s.reorderPoint}</span>,
+            },
             {
               key: "status",
               label: t("columns.status"),
               render: (s) =>
                 s.isOut ? (
-                  <StatusPill tone="danger"><AlertTriangle className="h-3 w-3" aria-hidden="true" /> {t("pill.out")}</StatusPill>
+                  <StatusPill tone="danger">
+                    <AlertTriangle className="h-3 w-3" aria-hidden="true" /> {t("pill.out")}
+                  </StatusPill>
                 ) : s.isLow ? (
-                  <StatusPill tone="warning"><TrendingDown className="h-3 w-3" aria-hidden="true" /> {t("pill.low")}</StatusPill>
+                  <StatusPill tone="warning">
+                    <TrendingDown className="h-3 w-3" aria-hidden="true" /> {t("pill.low")}
+                  </StatusPill>
                 ) : (
-                  <StatusPill tone="success"><CheckCircle className="h-3 w-3" aria-hidden="true" /> {t("pill.ok")}</StatusPill>
+                  <StatusPill tone="success">
+                    <CheckCircle className="h-3 w-3" aria-hidden="true" /> {t("pill.ok")}
+                  </StatusPill>
                 ),
             },
             {
@@ -279,7 +400,10 @@ export default async function StockPage({ searchParams }: { searchParams: { filt
                   count: filtered.length,
                   value: String(filtered.length),
                   scope: truncated
-                    ? t("footerScope", { loaded: String(stocks.length), matching: matchingSKUs.toLocaleString() })
+                    ? t("footerScope", {
+                        loaded: String(stocks.length),
+                        matching: matchingSKUs.toLocaleString(),
+                      })
                     : "",
                   n: (chunks) => <span className="fig text-ink-2">{chunks}</span>,
                 })}

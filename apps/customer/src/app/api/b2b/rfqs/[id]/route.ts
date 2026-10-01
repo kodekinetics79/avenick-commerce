@@ -10,10 +10,14 @@ const DecisionSchema = z.object({
   expectedQuoteVersion: z.number().int().nonnegative(),
 });
 
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const ctx = await getServerB2BContext();
   if (!ctx) {
-    return NextResponse.json({ success: false, error: "Company account required" }, { status: 401 });
+    return NextResponse.json(
+      { success: false, error: "Company account required" },
+      { status: 401 },
+    );
   }
 
   const rfq = await getBuyerRFQDealLedger({
@@ -25,10 +29,14 @@ export async function GET(_request: Request, { params }: { params: { id: string 
   return NextResponse.json({ success: true, data: rfq });
 }
 
-export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const ctx = await getServerB2BContext();
   if (!ctx) {
-    return NextResponse.json({ success: false, error: "Company account required" }, { status: 401 });
+    return NextResponse.json(
+      { success: false, error: "Company account required" },
+      { status: 401 },
+    );
   }
 
   const parsed = DecisionSchema.safeParse(await request.json().catch(() => null));

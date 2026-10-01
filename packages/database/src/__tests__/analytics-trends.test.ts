@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { monthOverMonth } from "../services/analytics";
+import { currencyMetrics, monthOverMonth, selectHighValueBuyers } from "../services/analytics";
 
 // Pure unit test: nothing here touches the database. Only the arithmetic that
 // turns two monthly sums into the percentage the executive dashboard shows —
@@ -38,5 +38,79 @@ describe("monthOverMonth", () => {
     expect(monthOverMonth(100, -50)).toBeNull();
     expect(monthOverMonth(Number.NaN, 100)).toBeNull();
     expect(monthOverMonth(100, Number.POSITIVE_INFINITY)).toBeNull();
+  });
+});
+
+describe("currencyMetrics", () => {
+  it("calculates trends within each currency and never across their sum", () => {
+    expect(
+      currencyMetrics(
+        [
+          { currency: "AED", amount: 1_000 },
+          { currency: "SAR", amount: 2_000 },
+        ],
+        [
+          { currency: "AED", amount: 150 },
+          { currency: "SAR", amount: 100 },
+        ],
+        [
+          { currency: "AED", amount: 100 },
+          { currency: "SAR", amount: 200 },
+        ],
+      ),
+    ).toEqual([
+      { currency: "AED", amount: 1_000, trend: 50 },
+      { currency: "SAR", amount: 2_000, trend: -50 },
+    ]);
+  });
+
+  it("retains a previous-only currency as a measured 100% decline", () => {
+    expect(currencyMetrics([], [], [{ currency: "QAR", amount: 500 }])).toEqual([
+      { currency: "QAR", amount: 0, trend: -100 },
+    ]);
+  });
+
+  it("keeps an unmeasured currency trend null when no prior amount exists", () => {
+    expect(
+      currencyMetrics([{ currency: "KWD", amount: 10 }], [{ currency: "KWD", amount: 10 }], []),
+    ).toEqual([{ currency: "KWD", amount: 10, trend: null }]);
+  });
+});
+
+describe("selectHighValueBuyers", () => {
+  it("selects the top fifth independently within each currency", () => {
+    const buyers = selectHighValueBuyers([
+      { id: "a", name: "A", email: "a@test", currency: "AED", spent: 100, orders: 1 },
+      { id: "b", name: "B", email: "b@test", currency: "AED", spent: 90, orders: 1 },
+      { id: "c", name: "C", email: "c@test", currency: "AED", spent: 80, orders: 1 },
+      { id: "d", name: "D", email: "d@test", currency: "AED", spent: 70, orders: 1 },
+      { id: "e", name: "E", email: "e@test", currency: "AED", spent: 60, orders: 1 },
+      { id: "b", name: "B", email: "b@test", currency: "SAR", spent: 200, orders: 2 },
+      { id: "a", name: "A", email: "a@test", currency: "SAR", spent: 190, orders: 2 },
+      { id: "c", name: "C", email: "c@test", currency: "SAR", spent: 180, orders: 2 },
+      { id: "d", name: "D", email: "d@test", currency: "SAR", spent: 170, orders: 2 },
+      { id: "e", name: "E", email: "e@test", currency: "SAR", spent: 160, orders: 2 },
+    ]);
+
+    expect(buyers.map((buyer) => buyer.id)).toEqual(["a", "b"]);
+  });
+
+  it("shows every currency for a qualifying buyer without adding the amounts", () => {
+    const [buyer] = selectHighValueBuyers([
+      { id: "a", name: "A", email: "a@test", currency: "AED", spent: 100, orders: 1 },
+      { id: "a", name: "A", email: "a@test", currency: "SAR", spent: 50, orders: 2 },
+      { id: "b", name: "B", email: "b@test", currency: "SAR", spent: 100, orders: 1 },
+    ]);
+
+    expect(buyer).toEqual({
+      id: "a",
+      name: "A",
+      email: "a@test",
+      spent: [
+        { currency: "AED", amount: 100 },
+        { currency: "SAR", amount: 50 },
+      ],
+      orders: 3,
+    });
   });
 });

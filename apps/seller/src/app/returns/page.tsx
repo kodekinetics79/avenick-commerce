@@ -47,14 +47,22 @@ const STATUS_TONE: Record<string, PillTone> = {
   REFUNDED: "success",
 };
 
-export default async function SellerReturnsPage({ searchParams }: { searchParams?: { returnDone?: string; returnError?: string } }) {
+export default async function SellerReturnsPage(props: {
+  searchParams?: Promise<{ returnDone?: string; returnError?: string }>;
+}) {
+  const searchParams = await props.searchParams;
   const t = await getTranslations("sellerOps");
-  const { seller, membership } = await requireSellerAnyPermission(["returns.view", "returns.manage"]);
+  const { seller, membership } = await requireSellerAnyPermission([
+    "returns.view",
+    "returns.manage",
+  ]);
 
   // A status nobody has named yet is still a fact about the record, so it is
   // shown as it reads rather than dropped or relabelled.
   const statusView = (status: string) => ({
-    label: t.has(`returns.status.${status}`) ? t(`returns.status.${status}`) : status.replace(/_/g, " "),
+    label: t.has(`returns.status.${status}`)
+      ? t(`returns.status.${status}`)
+      : status.replace(/_/g, " "),
     tone: STATUS_TONE[status] ?? ("neutral" as PillTone),
   });
 
@@ -63,7 +71,13 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
     orderBy: { createdAt: "desc" },
     take: 100,
     include: {
-      order: { select: { orderNumber: true, user: { select: { firstName: true, lastName: true } }, company: { select: { nameEn: true } } } },
+      order: {
+        select: {
+          orderNumber: true,
+          user: { select: { firstName: true, lastName: true } },
+          company: { select: { nameEn: true } },
+        },
+      },
     },
   });
 
@@ -73,7 +87,11 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
   const flash = searchParams?.returnError ?? searchParams?.returnDone;
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
+    <SellerLayout
+      sellerName={seller.businessNameEn}
+      tier={seller.tier}
+      permissions={membership.permissions}
+    >
       {flash && (
         <Surface
           rung={2}
@@ -132,7 +150,12 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
           />
           {/* Conditional: a success chip over a zero count colours an absence as
               an achievement. */}
-          <Stat label={t("returns.stats.refunded")} value={refunded} chip={refunded > 0 ? "success" : "neutral"} icon={CheckCircle2} />
+          <Stat
+            label={t("returns.stats.refunded")}
+            value={refunded}
+            chip={refunded > 0 ? "success" : "neutral"}
+            icon={CheckCircle2}
+          />
           {/* An icon here too, so the three eyebrows in this grid sit on one
               baseline instead of the third starting 24px to the inline start of
               its neighbours. */}
@@ -163,7 +186,8 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
               label: t("returns.col.buyer"),
               render: (r) => (
                 <span className="block max-w-[160px] truncate">
-                  {r.order.company?.nameEn ?? `${r.order.user.firstName} ${r.order.user.lastName}`.trim()}
+                  {r.order.company?.nameEn ??
+                    `${r.order.user.firstName} ${r.order.user.lastName}`.trim()}
                 </span>
               ),
             },
@@ -171,7 +195,9 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
               key: "reason",
               label: t("returns.col.reason"),
               hideOnMobile: true,
-              render: (r) => <span className="block max-w-[220px] truncate text-ink-2">{r.reason}</span>,
+              render: (r) => (
+                <span className="block max-w-[220px] truncate text-ink-2">{r.reason}</span>
+              ),
             },
             {
               key: "createdAt",
@@ -188,7 +214,11 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
               label: t("returns.col.status"),
               render: (r) => {
                 const view = statusView(r.status);
-                return <StatusPill tone={view.tone} dot>{view.label}</StatusPill>;
+                return (
+                  <StatusPill tone={view.tone} dot>
+                    {view.label}
+                  </StatusPill>
+                );
               },
             },
             {
@@ -204,7 +234,7 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
                   // label, because "Approve" alone is meaningless when a screen
                   // reader announces it forty times down a column.
                   <div className="flex items-center justify-end gap-2">
-                    <form action={setReturnStatus.bind(null, r.id, "APPROVED")}>
+                    <form action={setReturnStatus.bind(null, r.id, "APPROVED")} noValidate>
                       <Button
                         type="submit"
                         variant="secondary"
@@ -214,7 +244,7 @@ export default async function SellerReturnsPage({ searchParams }: { searchParams
                         {t("returns.approve")}
                       </Button>
                     </form>
-                    <form action={setReturnStatus.bind(null, r.id, "REJECTED")}>
+                    <form action={setReturnStatus.bind(null, r.id, "REJECTED")} noValidate>
                       <Button
                         type="submit"
                         variant="ghost"

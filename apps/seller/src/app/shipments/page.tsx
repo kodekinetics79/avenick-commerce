@@ -70,7 +70,10 @@ const fmt = (d: Date | null) => (d ? format(d, "MMM d · HH:mm") : "—");
 
 export default async function ShipmentsPage() {
   const t = await getTranslations("sellerOps");
-  const { seller, membership } = await requireSellerAnyPermission(["shipments.view", "shipments.manage"]);
+  const { seller, membership } = await requireSellerAnyPermission([
+    "shipments.view",
+    "shipments.manage",
+  ]);
 
   /**
    * A status arrives as a string from this page's own query. An enum nobody has
@@ -79,7 +82,9 @@ export default async function ShipmentsPage() {
    * its labels moved into the message tree.
    */
   const statusLabel = (status: string) =>
-    t.has(`shipments.status.${status}`) ? t(`shipments.status.${status}`) : status.replace(/_/g, " ");
+    t.has(`shipments.status.${status}`)
+      ? t(`shipments.status.${status}`)
+      : status.replace(/_/g, " ");
   const statusTone = (status: string): PillTone => STATUS_TONE[status] ?? "neutral";
 
   const shipments = await db.shipment.findMany({
@@ -92,11 +97,17 @@ export default async function ShipmentsPage() {
     },
   });
 
-  const inTransit = shipments.filter((s) => ["PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY"].includes(s.status)).length;
+  const inTransit = shipments.filter((s) =>
+    ["PICKED_UP", "IN_TRANSIT", "OUT_FOR_DELIVERY"].includes(s.status),
+  ).length;
   const delivered = shipments.filter((s) => s.status === "DELIVERED").length;
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
+    <SellerLayout
+      sellerName={seller.businessNameEn}
+      tier={seller.tier}
+      permissions={membership.permissions}
+    >
       <div className="space-y-block">
         <PageHeader
           eyebrow={t("shipments.eyebrow")}
@@ -108,14 +119,27 @@ export default async function ShipmentsPage() {
           // `n` is the same figure as `count`, passed as a STRING: `count`
           // selects the plural form, and a bare number would render in the
           // locale's own numeral system where this product uses Western digits.
-          dateline={t("shipments.dateline", { count: shipments.length, n: String(shipments.length) })}
+          dateline={t("shipments.dateline", {
+            count: shipments.length,
+            n: String(shipments.length),
+          })}
         />
 
         <CellGrid cols={{ base: 3 }}>
-          <Stat label={t("shipments.stats.inTransit")} value={inTransit} icon={Truck} chip={inTransit > 0 ? "warning" : "neutral"} />
+          <Stat
+            label={t("shipments.stats.inTransit")}
+            value={inTransit}
+            icon={Truck}
+            chip={inTransit > 0 ? "warning" : "neutral"}
+          />
           {/* Conditional, like the tile beside it: a success chip over a zero
               count colours an absence as an achievement. */}
-          <Stat label={t("shipments.stats.delivered")} value={delivered} icon={CheckCircle2} chip={delivered > 0 ? "success" : "neutral"} />
+          <Stat
+            label={t("shipments.stats.delivered")}
+            value={delivered}
+            icon={CheckCircle2}
+            chip={delivered > 0 ? "success" : "neutral"}
+          />
           <Stat label={t("shipments.stats.shownHere")} value={shipments.length} icon={Package} />
         </CellGrid>
 
@@ -147,19 +171,33 @@ export default async function ShipmentsPage() {
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           {/* Mono is for identifiers. A shipment number is one. */}
-                          <span className="u-mono text-ui font-medium text-ink-1">{sh.shipmentNumber}</span>
-                          <StatusPill tone={statusTone(sh.status)} dot>{stLabel}</StatusPill>
+                          <span className="u-mono text-ui font-medium text-ink-1">
+                            {sh.shipmentNumber}
+                          </span>
+                          <StatusPill tone={statusTone(sh.status)} dot>
+                            {stLabel}
+                          </StatusPill>
                         </div>
                         <p className="u-meta mt-1 text-ink-3">
-                          {t("shipments.orderLabel")} <span className="u-mono text-ink-2">{sh.order.orderNumber}</span>
+                          {t("shipments.orderLabel")}{" "}
+                          <span className="u-mono text-ink-2">{sh.order.orderNumber}</span>
                           {" · "}
                           {sh.carrier ?? t("shipments.carrierNotRecorded")}
-                          {sh.trackingNumber ? <> · <span className="u-mono text-ink-2">{sh.trackingNumber}</span></> : null}
+                          {sh.trackingNumber ? (
+                            <>
+                              {" "}
+                              · <span className="u-mono text-ink-2">{sh.trackingNumber}</span>
+                            </>
+                          ) : null}
                         </p>
                       </div>
 
                       {nextTarget && (
-                        <form action={advanceShipment.bind(null, sh.id)} className="shrink-0 text-end">
+                        <form
+                          action={advanceShipment.bind(null, sh.id)}
+                          className="shrink-0 text-end"
+                          noValidate
+                        >
                           {/* Secondary, not a primary fill. There can be a hundred
                               of these on one screen, and the portal's budget is a
                               single primary fill per view — but more to the point,
@@ -171,7 +209,10 @@ export default async function ShipmentsPage() {
                             type="submit"
                             variant="secondary"
                             size="sm"
-                            aria-label={t("shipments.advanceAria", { verb: nextVerb, number: sh.shipmentNumber })}
+                            aria-label={t("shipments.advanceAria", {
+                              verb: nextVerb,
+                              number: sh.shipmentNumber,
+                            })}
                           >
                             {nextVerb}
                             <ArrowRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />
@@ -209,7 +250,11 @@ export default async function ShipmentsPage() {
                           <div key={stage} className="flex flex-1 items-center last:flex-none">
                             <span
                               className={`h-1.5 w-1.5 shrink-0 rounded-pill ${
-                                i < stageIndex ? "bg-success" : i === stageIndex ? "bg-ink-1" : "bg-border"
+                                i < stageIndex
+                                  ? "bg-success"
+                                  : i === stageIndex
+                                    ? "bg-ink-1"
+                                    : "bg-border"
                               }`}
                               aria-hidden="true"
                             />
@@ -250,13 +295,16 @@ export default async function ShipmentsPage() {
                                 <p className="u-meta flex flex-wrap items-center gap-1 text-ink-3">
                                   {ev.location && (
                                     <>
-                                      <MapPin className="h-3 w-3" aria-hidden="true" /> {ev.location} ·{" "}
+                                      <MapPin className="h-3 w-3" aria-hidden="true" />{" "}
+                                      {ev.location} ·{" "}
                                     </>
                                   )}
                                   {/* A machine-readable timestamp beside the human
                                       one, and formatted through date-fns rather
                                       than a hardcoded "en-US" locale literal. */}
-                                  <time dateTime={ev.createdAt.toISOString()}>{fmt(ev.createdAt)}</time>
+                                  <time dateTime={ev.createdAt.toISOString()}>
+                                    {fmt(ev.createdAt)}
+                                  </time>
                                 </p>
                               </div>
                             </li>

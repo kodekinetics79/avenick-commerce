@@ -33,7 +33,7 @@ export async function CategoryBreadcrumbJsonLd({ slug }: { slug: string }) {
   const trail = categoryTrail(await readCategoryTreeOnce(), slug);
   if (trail.length === 0) return null;
 
-  const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
+  const locale = (await cookies()).get("AVENICK_LOCALE")?.value ?? "en";
   const t = await getTranslations("catalogue");
   return (
     <JsonLd

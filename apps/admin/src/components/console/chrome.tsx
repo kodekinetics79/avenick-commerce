@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { Button, FieldWell, Input } from "@avenick/ui";
 import { cn } from "@avenick/utils";
+import { useTranslations } from "next-intl";
 
 /**
  * The chrome every register screen in this console repeats: the status filter
@@ -68,7 +69,9 @@ export function FilterTabs({
             {Icon && <Icon className="h-3.5 w-3.5" aria-hidden="true" />}
             {tab.label}
             {tab.count !== undefined && (
-              <span className={cn("fig", tab.active ? "text-ink-2" : "text-ink-3")}>{tab.count}</span>
+              <span className={cn("fig", tab.active ? "text-ink-2" : "text-ink-3")}>
+                {tab.count}
+              </span>
             )}
           </Link>
         );
@@ -93,6 +96,7 @@ export function Pager({
   /** What is being paged, stated in full: "1,204 payments". */
   summary: React.ReactNode;
 }) {
+  const t = useTranslations("adminShell.chrome");
   const step =
     "u-focus inline-flex items-center gap-1 rounded-nested border border-border bg-surface-3 px-2.5 py-1 text-meta font-medium text-ink-1 shadow-elev-2 transition-[background-color,box-shadow] duration-press ease-standard hover:shadow-elev-3";
 
@@ -102,18 +106,22 @@ export function Pager({
       {totalPages > 1 && (
         <div className="flex items-center gap-2">
           <span className="u-meta text-ink-3">
-            Page <span className="fig text-ink-2">{page}</span> of{" "}
-            <span className="fig text-ink-2">{totalPages}</span>
+            {t.rich("pageOf", {
+              page: String(page),
+              total: String(totalPages),
+              n: (chunks) => <span className="fig text-ink-2">{chunks}</span>,
+            })}
           </span>
           {page > 1 && (
             <Link href={hrefFor(page - 1)} className={step}>
               {/* rtl:rotate-180 — a direction-implying icon must flip in Arabic. */}
-              <ChevronLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" /> Previous
+              <ChevronLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />{" "}
+              {t("previous")}
             </Link>
           )}
           {page < totalPages && (
             <Link href={hrefFor(page + 1)} className={step}>
-              Next <ChevronRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />
+              {t("next")} <ChevronRight className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />
             </Link>
           )}
         </div>
@@ -175,11 +183,13 @@ export function ConsoleSearch({
   clearHref?: string;
   className?: string;
 }) {
+  const t = useTranslations("adminShell.chrome");
   const applied = Boolean(defaultValue);
   return (
     <form
       method="get"
       action={action}
+      noValidate
       role="search"
       aria-label={label}
       className={cn("flex flex-wrap items-center gap-2", className)}
@@ -198,12 +208,12 @@ export function ConsoleSearch({
         />
       </div>
       <Button type="submit" variant="secondary" size="sm">
-        Search
+        {t("search")}
       </Button>
       {applied && clearHref && (
         <Button variant="ghost" size="sm" asChild>
           <Link href={clearHref}>
-            <X className="h-3.5 w-3.5" aria-hidden="true" /> Clear
+            <X className="h-3.5 w-3.5" aria-hidden="true" /> {t("clear")}
           </Link>
         </Button>
       )}

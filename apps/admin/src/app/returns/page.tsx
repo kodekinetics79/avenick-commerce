@@ -3,12 +3,28 @@ import { AdminLayout } from "@/components/layout/admin-layout";
 import { db, ReturnStatus } from "@avenick/database";
 import { formatCurrency } from "@avenick/utils";
 import { ReturnActions } from "../disputes/return-actions";
-import { RotateCcw, Clock, CheckCircle, XCircle, Truck, PackageCheck, Banknote, CornerDownRight } from "lucide-react";
+import {
+  RotateCcw,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Truck,
+  PackageCheck,
+  Banknote,
+  CornerDownRight,
+} from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import {
-  PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Num, Button, type PillTone,
+  PageHeader,
+  CellGrid,
+  LedgerTable,
+  EmptyState,
+  StatusPill,
+  Num,
+  Button,
+  type PillTone,
 } from "@avenick/ui";
 import { CountStat } from "@/app/finance/money-figures";
 import { FilterTabs } from "@/components/console/chrome";
@@ -21,17 +37,18 @@ export const dynamic = "force-dynamic";
 
 /** Tone and icon per status; the label is translated from `returns.status`. */
 const STATUS: Record<ReturnStatus, { tone: PillTone; icon: typeof Clock }> = {
-  REQUESTED:  { tone: "warning", icon: Clock },
-  APPROVED:   { tone: "accent",  icon: CheckCircle },
+  REQUESTED: { tone: "warning", icon: Clock },
+  APPROVED: { tone: "accent", icon: CheckCircle },
   IN_TRANSIT: { tone: "neutral", icon: Truck },
-  RECEIVED:   { tone: "neutral", icon: PackageCheck },
-  REFUNDED:   { tone: "success", icon: Banknote },
-  REJECTED:   { tone: "danger",  icon: XCircle },
+  RECEIVED: { tone: "neutral", icon: PackageCheck },
+  REFUNDED: { tone: "success", icon: Banknote },
+  REJECTED: { tone: "danger", icon: XCircle },
 };
 
 const PAGE_SIZE = 100;
 
-export default async function ReturnsPage({ searchParams }: { searchParams: { status?: string } }) {
+export default async function ReturnsPage(props: { searchParams: Promise<{ status?: string }> }) {
+  const searchParams = await props.searchParams;
   await requireAdminSession();
   const t = await getTranslations("adminCommerce.returns");
 
@@ -62,19 +79,32 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
     }),
     // Tiles and tab counts describe the whole marketplace, not the filtered page.
     db.returnRequest.groupBy({ by: ["status"], _count: { _all: true } }),
-    db.returnRequest.aggregate({ where: { status: ReturnStatus.REFUNDED }, _sum: { refundAmount: true } }),
+    db.returnRequest.aggregate({
+      where: { status: ReturnStatus.REFUNDED },
+      _sum: { refundAmount: true },
+    }),
     // Refund value only means something inside a single currency, and orders may
     // be placed in any GCC currency — so establish which currencies are actually
     // represented before showing a total.
-    db.order.groupBy({ by: ["currency"], where: { returnRequests: { some: { status: ReturnStatus.REFUNDED } } }, _count: { _all: true } }),
+    db.order.groupBy({
+      by: ["currency"],
+      where: { returnRequests: { some: { status: ReturnStatus.REFUNDED } } },
+      _count: { _all: true },
+    }),
   ]);
 
   const countFor = (statuses: ReturnStatus[]) =>
-    statusCounts.filter((c) => statuses.includes(c.status)).reduce((sum, c) => sum + c._count._all, 0);
+    statusCounts
+      .filter((c) => statuses.includes(c.status))
+      .reduce((sum, c) => sum + c._count._all, 0);
 
   const totalRequests = statusCounts.reduce((sum, c) => sum + c._count._all, 0);
   const awaiting = countFor([ReturnStatus.REQUESTED]);
-  const inProgress = countFor([ReturnStatus.APPROVED, ReturnStatus.IN_TRANSIT, ReturnStatus.RECEIVED]);
+  const inProgress = countFor([
+    ReturnStatus.APPROVED,
+    ReturnStatus.IN_TRANSIT,
+    ReturnStatus.RECEIVED,
+  ]);
 
   // One currency: report the real total. Several: report how many refunds there
   // were rather than adding AED to KWD and calling the result money.
@@ -82,16 +112,24 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
     refundedCurrencies.length === 0
       ? t("refund.none")
       : refundedCurrencies.length === 1
-        ? formatCurrency(Number(refundedSum._sum.refundAmount ?? 0), refundedCurrencies[0]!.currency)
+        ? formatCurrency(
+            Number(refundedSum._sum.refundAmount ?? 0),
+            refundedCurrencies[0]!.currency,
+          )
         : t("refund.count", {
             count: countFor([ReturnStatus.REFUNDED]),
             value: String(countFor([ReturnStatus.REFUNDED])),
           });
-  const refundValueLabel = refundedCurrencies.length > 1 ? t("refund.labelMixed") : t("refund.label");
+  const refundValueLabel =
+    refundedCurrencies.length > 1 ? t("refund.labelMixed") : t("refund.label");
 
   const tabs: Array<{ value?: ReturnStatus; label: string; count: number }> = [
     { value: undefined, label: t("filters.all"), count: totalRequests },
-    ...Object.values(ReturnStatus).map((s) => ({ value: s, label: t(`status.${s}`), count: countFor([s]) })),
+    ...Object.values(ReturnStatus).map((s) => ({
+      value: s,
+      label: t(`status.${s}`),
+      count: countFor([s]),
+    })),
   ];
 
   return (
@@ -111,15 +149,17 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
             rank="section"
             tone={awaiting > 0 ? "warning" : "default"}
           />
-          <CountStat label={t("stats.inProgress")} value={inProgress} note={t("stats.inProgressNote")} />
+          <CountStat
+            label={t("stats.inProgress")}
+            value={inProgress}
+            note={t("stats.inProgressNote")}
+          />
           {/* One currency: the real total. Several: a count, because adding AED
               to KWD and calling the result money would be a fiction. */}
           <CountStat
             label={refundValueLabel}
             value={refundValue}
-            dateline={
-              refundedCurrencies.length > 1 ? t("refund.mixedDateline") : undefined
-            }
+            dateline={refundedCurrencies.length > 1 ? t("refund.mixedDateline") : undefined}
           />
           <CountStat label={t("stats.total")} value={totalRequests} />
         </CellGrid>
@@ -143,13 +183,20 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
             // The rows that need a human decision are the reason this page exists.
             // Hover deepens the same hue; the generic row hover is a plain
             // background-color and would otherwise wipe this wash on contact.
-            className: r.status === ReturnStatus.REQUESTED ? "bg-warning-soft hover:bg-warning/10" : undefined,
+            className:
+              r.status === ReturnStatus.REQUESTED
+                ? "bg-warning-soft hover:bg-warning/10"
+                : undefined,
           })}
           columns={[
             {
               key: "returnNumber",
               label: t("columns.returnNumber"),
-              render: (r) => <span className="u-mono whitespace-nowrap text-meta font-medium text-ink-1">{r.returnNumber}</span>,
+              render: (r) => (
+                <span className="u-mono whitespace-nowrap text-meta font-medium text-ink-1">
+                  {r.returnNumber}
+                </span>
+              ),
             },
             {
               key: "order",
@@ -167,10 +214,14 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
               key: "buyer",
               label: t("columns.buyer"),
               render: (r) => {
-                const buyer = r.order.company?.nameEn ?? `${r.order.user.firstName} ${r.order.user.lastName}`.trim();
+                const buyer =
+                  r.order.company?.nameEn ??
+                  `${r.order.user.firstName} ${r.order.user.lastName}`.trim();
                 return (
                   <div className="max-w-[180px] py-1">
-                    <p className="truncate font-medium text-ink-1" title={buyer}>{buyer}</p>
+                    <p className="truncate font-medium text-ink-1" title={buyer}>
+                      {buyer}
+                    </p>
                     <p className="u-meta truncate text-ink-3">{r.order.user.email}</p>
                   </div>
                 );
@@ -181,7 +232,10 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
               label: t("columns.seller"),
               hideOnMobile: true,
               render: (r) => (
-                <span className="block max-w-[160px] truncate text-ink-2" title={r.seller.businessNameEn}>
+                <span
+                  className="block max-w-[160px] truncate text-ink-2"
+                  title={r.seller.businessNameEn}
+                >
                   {r.seller.businessNameEn}
                 </span>
               ),
@@ -192,7 +246,9 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
               hideOnMobile: true,
               render: (r) => {
                 const [firstItem, ...otherItems] = r.items;
-                const itemTitle = r.items.map((i) => `${i.orderItem.nameEn} × ${i.quantity}`).join("\n");
+                const itemTitle = r.items
+                  .map((i) => `${i.orderItem.nameEn} × ${i.quantity}`)
+                  .join("\n");
                 if (!firstItem) {
                   // Legacy/admin-opened returns predate line selection; there is
                   // nothing itemised to show and nothing to infer.
@@ -200,10 +256,15 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
                 }
                 return (
                   <div className="max-w-[200px] py-1">
-                    <p className="truncate text-ink-1" title={itemTitle}>{firstItem.orderItem.nameEn} × {firstItem.quantity}</p>
+                    <p className="truncate text-ink-1" title={itemTitle}>
+                      {firstItem.orderItem.nameEn} × {firstItem.quantity}
+                    </p>
                     {otherItems.length > 0 && (
                       <p className="u-meta text-ink-3">
-                        {t("moreLines", { count: otherItems.length, value: String(otherItems.length) })}
+                        {t("moreLines", {
+                          count: otherItems.length,
+                          value: String(otherItems.length),
+                        })}
                       </p>
                     )}
                   </div>
@@ -215,14 +276,22 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
               label: t("columns.reason"),
               render: (r) => (
                 <div className="max-w-[220px] py-1">
-                  <p className="truncate text-ink-2" title={r.reason}>{r.reason}</p>
+                  <p className="truncate text-ink-2" title={r.reason}>
+                    {r.reason}
+                  </p>
                   {r.resolution && (
                     // The resolution hangs off the reason. A "↳" glyph is not
                     // mirrored by the bidi algorithm, so in Arabic it pointed
                     // back the way the text had come; an icon flips with the
                     // direction and the relationship survives.
-                    <p className="u-meta flex items-center gap-1 truncate text-ink-3" title={r.resolution}>
-                      <CornerDownRight className="h-3 w-3 shrink-0 rtl:-scale-x-100" aria-hidden="true" />
+                    <p
+                      className="u-meta flex items-center gap-1 truncate text-ink-3"
+                      title={r.resolution}
+                    >
+                      <CornerDownRight
+                        className="h-3 w-3 shrink-0 rtl:-scale-x-100"
+                        aria-hidden="true"
+                      />
                       <span className="truncate">{r.resolution}</span>
                     </p>
                   )}
@@ -235,7 +304,10 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
               numeric: true,
               render: (r) =>
                 r.refundAmount ? (
-                  <Num value={formatCurrency(Number(r.refundAmount), r.order.currency)} className="whitespace-nowrap" />
+                  <Num
+                    value={formatCurrency(Number(r.refundAmount), r.order.currency)}
+                    className="whitespace-nowrap"
+                  />
                 ) : (
                   <span className="u-meta text-ink-3" title={t("amountNotSetTitle")}>
                     {t("amountNotSet")}
@@ -259,7 +331,11 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
               key: "createdAt",
               label: t("columns.requested"),
               hideOnMobile: true,
-              render: (r) => <span className="whitespace-nowrap text-ink-2">{format(r.createdAt, "MMM d, yyyy")}</span>,
+              render: (r) => (
+                <span className="whitespace-nowrap text-ink-2">
+                  {format(r.createdAt, "MMM d, yyyy")}
+                </span>
+              ),
             },
             {
               key: "actions",
@@ -301,7 +377,9 @@ export default async function ReturnsPage({ searchParams }: { searchParams: { st
                     shown: String(returns.length),
                     total: String(status ? countFor([status]) : totalRequests),
                     count: status ? countFor([status]) : totalRequests,
-                    scope: status ? t("footer.scope", { status: t(`status.${status}`).toLowerCase() }) : "",
+                    scope: status
+                      ? t("footer.scope", { status: t(`status.${status}`).toLowerCase() })
+                      : "",
                     n: (chunks) => <span className="fig text-ink-2">{chunks}</span>,
                   })}
                 </span>

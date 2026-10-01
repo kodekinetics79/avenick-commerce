@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Bookmark, BookmarkPlus, X, Check, Loader2 } from "lucide-react";
 import { cn } from "@avenick/utils";
 import { Eyebrow } from "@avenick/ui";
@@ -19,6 +20,7 @@ export function SavedViews({
   basePath: string;
   views: SavedViewItem[];
 }) {
+  const t = useTranslations("sellerOps.savedViews");
   const router = useRouter();
   const search = useSearchParams();
   const { toast } = useToast();
@@ -39,12 +41,12 @@ export function SavedViews({
     startTransition(async () => {
       try {
         await createSavedView(entity, clean, currentQuery);
-        toast({ title: "View saved", description: clean, variant: "success" });
+        toast({ title: t("saved"), description: clean, variant: "success" });
         setName("");
         setNaming(false);
         router.refresh();
       } catch (e) {
-        toast({ title: "Couldn't save view", description: (e as Error).message, variant: "error" });
+        toast({ title: t("saveFailed"), description: (e as Error).message, variant: "error" });
       }
     });
   }
@@ -57,10 +59,10 @@ export function SavedViews({
     startTransition(async () => {
       try {
         await deleteSavedView(id);
-        toast({ title: "View removed", description: label, variant: "info" });
+        toast({ title: t("removed"), description: label, variant: "info" });
         router.refresh();
       } catch (e) {
-        toast({ title: "Couldn't remove view", description: (e as Error).message, variant: "error" });
+        toast({ title: t("removeFailed"), description: (e as Error).message, variant: "error" });
       }
     });
   }
@@ -70,7 +72,7 @@ export function SavedViews({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <Eyebrow className="inline-flex items-center gap-1 pe-1">
-        <Bookmark className="h-3.5 w-3.5" aria-hidden="true" /> Saved
+        <Bookmark className="h-3.5 w-3.5" aria-hidden="true" /> {t("title")}
       </Eyebrow>
 
       {views.map((v) => {
@@ -101,7 +103,7 @@ export function SavedViews({
               type="button"
               onClick={() => remove(v.id, v.name)}
               disabled={pending}
-              aria-label={`Delete view ${v.name}`}
+              aria-label={t("delete", { name: v.name })}
               className={cn(
                 "u-focus rounded-pill py-1.5 pe-2 ps-0.5 transition-opacity duration-hover ease-standard",
                 // Dimmed rather than hidden. :hover reveals nothing on a touch
@@ -130,9 +132,15 @@ export function SavedViews({
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") save(); if (e.key === "Escape") { setNaming(false); setName(""); } }}
-            placeholder="View name"
-            aria-label="Name for this saved view"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") save();
+              if (e.key === "Escape") {
+                setNaming(false);
+                setName("");
+              }
+            }}
+            placeholder={t("namePlaceholder")}
+            aria-label={t("nameLabel")}
             maxLength={40}
             className="w-28 bg-transparent text-meta text-ink-1 placeholder:text-ink-3 focus:outline-none"
           />
@@ -140,17 +148,24 @@ export function SavedViews({
             type="button"
             onClick={save}
             disabled={pending || !name.trim()}
-            aria-label="Save view"
+            aria-label={t("save")}
             className="u-focus rounded-pill p-1 text-primary-ink transition-colors duration-press ease-standard hover:bg-primary-soft disabled:opacity-40"
           >
             {/* A spinner is a genuine loading indicator — the one thing in this
                 product allowed to animate on its own. */}
-            {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Check className="h-3.5 w-3.5" aria-hidden="true" />}
+            {pending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            ) : (
+              <Check className="h-3.5 w-3.5" aria-hidden="true" />
+            )}
           </button>
           <button
             type="button"
-            onClick={() => { setNaming(false); setName(""); }}
-            aria-label="Cancel"
+            onClick={() => {
+              setNaming(false);
+              setName("");
+            }}
+            aria-label={t("cancel")}
             className="u-focus rounded-pill p-1 text-ink-3 transition-colors duration-press ease-standard hover:bg-ink-1/[0.06] hover:text-ink-1"
           >
             <X className="h-3.5 w-3.5" aria-hidden="true" />
@@ -163,7 +178,7 @@ export function SavedViews({
             onClick={() => setNaming(true)}
             className="u-focus inline-flex items-center gap-1 rounded-pill border border-dashed border-border px-2.5 py-1.5 text-meta font-medium text-ink-3 transition-colors duration-hover ease-standard hover:border-border-strong hover:text-ink-1"
           >
-            <BookmarkPlus className="h-3.5 w-3.5" aria-hidden="true" /> Save current view
+            <BookmarkPlus className="h-3.5 w-3.5" aria-hidden="true" /> {t("saveCurrent")}
           </button>
         )
       )}

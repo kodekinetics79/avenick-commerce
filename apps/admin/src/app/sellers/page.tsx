@@ -1,10 +1,9 @@
 import { requireAdminSession } from "@/lib/auth";
-import { db } from "@avenick/database";
+import { db, SellerStatus } from "@avenick/database";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import Link from "next/link";
 import { format } from "date-fns";
-import { Plus } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import {
   Button,
   EmptyState,
@@ -17,6 +16,7 @@ import {
   type PillTone,
 } from "@avenick/ui";
 import { sellerTypeLabel, statusLabel, tierLabel } from "@/app/approvals/status-labels";
+import { Pager, queryHref } from "@/components/console/chrome";
 
 export async function generateMetadata() {
   const t = await getTranslations("adminReview");
@@ -36,7 +36,7 @@ const STATUS_TONE: Record<string, PillTone> = {
  * the identifier the query and the URL carry; `key` is what the label is looked
  * up under, because a module-scope constant has no translator in scope.
  */
-const STATUS_FILTERS: Array<{ value?: string; key: string }> = [
+const STATUS_FILTERS: Array<{ value?: SellerStatus; key: string }> = [
   { key: "all" },
   { value: "PENDING_REVIEW", key: "PENDING_REVIEW" },
   { value: "ACTIVE", key: "ACTIVE" },
@@ -65,7 +65,15 @@ type SellerRow = {
  * and verification, and STANDARD is what everyone is by default: it is a fact,
  * not a badge, so it is set as one.
  */
-function Tier({ tier, verifiedLabel, label }: { tier: string; verifiedLabel: string; label: string }) {
+function Tier({
+  tier,
+  verifiedLabel,
+  label,
+}: {
+  tier: string;
+  verifiedLabel: string;
+  label: string;
+}) {
   if (tier === "PLATINUM" || tier === "GOLD") return <TierMark tier={tier} />;
   if (tier === "VERIFIED") return <StatusPill tone="accent">{verifiedLabel}</StatusPill>;
   return <span className="u-meta text-ink-3">{label}</span>;
@@ -91,15 +99,37 @@ function Docs({
   return <span className="u-meta text-ink-2">{labels.allDecided}</span>;
 }
 
-export default async function SellersPage({ searchParams }: { searchParams: { status?: string } }) {
+const PAGE_SIZE = 50;
+
+function isSellerStatus(value: unknown): value is SellerStatus {
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(SellerStatus, value);
+}
+
+export default async function SellersPage(props: {
+  searchParams: Promise<{ status?: string; page?: string }>;
+}) {
+  const searchParams = await props.searchParams;
   await requireAdminSession();
   const t = await getTranslations("adminReview");
-  const pendingCount = await db.sellerProfile.count({ where: { status: "PENDING_REVIEW" } });
+  const locale = await getLocale();
+  const numberLocale = locale === "ar" ? "ar-u-nu-latn" : "en-AE";
+  const status = isSellerStatus(searchParams.status) ? searchParams.status : undefined;
+  const where = { ...(status ? { status } : {}), deletedAt: null } as const;
+  const [pendingCount, total] = await Promise.all([
+    db.sellerProfile.count({ where: { status: "PENDING_REVIEW" } }),
+    db.sellerProfile.count({ where }),
+  ]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const requestedPage = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const page = Math.min(requestedPage, totalPages);
+  const href = (next: Record<string, string | undefined>) =>
+    queryHref("/sellers", searchParams, next);
 
   const sellers = await db.sellerProfile.findMany({
-    where: { ...(searchParams.status && { status: searchParams.status as never }), deletedAt: null },
+    where,
     orderBy: { createdAt: "desc" },
-    take: 100,
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
     include: {
       user: { select: { email: true, firstName: true, lastName: true } },
       documents: { select: { id: true, status: true } },
@@ -107,7 +137,7 @@ export default async function SellersPage({ searchParams }: { searchParams: { st
     },
   });
 
-  const activeFilter = STATUS_FILTERS.find((f) => f.value === searchParams.status) ?? STATUS_FILTERS[0];
+  const activeFilter = STATUS_FILTERS.find((f) => f.value === status) ?? STATUS_FILTERS[0];
   const activeFilterLabel = t(`sellers.filters.${activeFilter.key}`);
   // The in-sentence form is its own message rather than a .toLowerCase() of the
   // tab label: English lower-cases it inside a sentence, Arabic does not change.
@@ -115,7 +145,8 @@ export default async function SellersPage({ searchParams }: { searchParams: { st
   const docLabels = {
     none: t("sellers.docs.none"),
     allDecided: t("sellers.docs.allDecided"),
-    pending: (count: number) => t("sellers.docs.pending", { count, total: count.toLocaleString("en-US") }),
+    pending: (count: number) =>
+      t("sellers.docs.pending", { count, total: count.toLocaleString("en-US") }),
   };
   const verifiedLabel = t("sellers.verified");
 
@@ -130,31 +161,27 @@ export default async function SellersPage({ searchParams }: { searchParams: { st
           // truncated page is a claim about the size of the supply base that the
           // page has no basis for.
           description={t("sellers.description", {
-            count: sellers.length,
-            total: sellers.length.toLocaleString("en-US"),
+            count: total,
+            total: total.toLocaleString(numberLocale),
           })}
-          // The query takes 100. Saying so is the difference between a count and
-          // a claim about the size of the supply base.
-          dateline={t("sellers.dateline", { filter: activeFilterLabel })}
-          // This list could judge accounts it had no way to create: a supplier
-          // signed off-platform had to be talked through the public
-          // registration form before anyone here could approve them.
-          actions={
-            <Button asChild size="sm">
-              <Link href="/sellers/new">
-                <Plus className="h-4 w-4" aria-hidden="true" /> {t("sellers.addSeller")}
-              </Link>
-            </Button>
-          }
+          dateline={t("sellers.dateline", {
+            filter: activeFilterLabel,
+            page: page.toLocaleString(numberLocale),
+            pages: totalPages.toLocaleString(numberLocale),
+          })}
         />
 
         {/* Recessed strip, raised current item: the same gesture as the sidebar,
             so a filter reads as "where you are" rather than as a coloured chip. */}
-        <FieldWell as="nav" aria-label={t("sellers.filterLabel")} className="flex flex-wrap gap-1 p-1">
+        <FieldWell
+          as="nav"
+          aria-label={t("sellers.filterLabel")}
+          className="flex flex-wrap gap-1 p-1"
+        >
           {STATUS_FILTERS.map((filter) => (
             <NavItem
               key={filter.value ?? "all"}
-              href={filter.value ? `/sellers?status=${filter.value}` : "/sellers"}
+              href={href({ status: filter.value })}
               label={t(`sellers.filters.${filter.key}`)}
               orientation="horizontal"
               active={filter.value === activeFilter.value}
@@ -183,19 +210,27 @@ export default async function SellersPage({ searchParams }: { searchParams: { st
               label: t("sellers.columns.cr"),
               hideOnMobile: true,
               // Mono is for identifiers. A commercial registration number is one.
-              render: (seller) => <span className="u-meta u-mono text-ink-2">{seller.crNumber}</span>,
+              render: (seller) => (
+                <span className="u-meta u-mono text-ink-2">{seller.crNumber}</span>
+              ),
             },
             {
               key: "type",
               label: t("sellers.columns.type"),
               hideOnMobile: true,
-              render: (seller) => <span className="u-meta text-ink-2">{sellerTypeLabel(t, seller.type)}</span>,
+              render: (seller) => (
+                <span className="u-meta text-ink-2">{sellerTypeLabel(t, seller.type)}</span>
+              ),
             },
             {
               key: "tier",
               label: t("sellers.columns.tier"),
               render: (seller) => (
-                <Tier tier={seller.tier} verifiedLabel={verifiedLabel} label={tierLabel(t, seller.tier)} />
+                <Tier
+                  tier={seller.tier}
+                  verifiedLabel={verifiedLabel}
+                  label={tierLabel(t, seller.tier)}
+                />
               ),
             },
             {
@@ -222,7 +257,11 @@ export default async function SellersPage({ searchParams }: { searchParams: { st
               key: "created",
               label: t("sellers.columns.applied"),
               hideOnMobile: true,
-              render: (seller) => <span className="u-meta tnum text-ink-3">{format(seller.createdAt, "MMM d, yyyy")}</span>,
+              render: (seller) => (
+                <span className="u-meta tnum text-ink-3">
+                  {format(seller.createdAt, "MMM d, yyyy")}
+                </span>
+              ),
             },
             {
               key: "actions",
@@ -232,12 +271,25 @@ export default async function SellersPage({ searchParams }: { searchParams: { st
                 <Button variant="ghost" size="xs" asChild>
                   <Link href={`/sellers/${seller.id}`}>
                     {t("sellers.open")}
-                    <span className="sr-only">{t("sellers.openSr", { name: seller.businessNameEn })}</span>
+                    <span className="sr-only">
+                      {t("sellers.openSr", { name: seller.businessNameEn })}
+                    </span>
                   </Link>
                 </Button>
               ),
             },
           ]}
+          footer={
+            <Pager
+              page={page}
+              totalPages={totalPages}
+              hrefFor={(nextPage) => href({ page: String(nextPage), status })}
+              summary={t("sellers.pager", {
+                count: total,
+                total: total.toLocaleString(numberLocale),
+              })}
+            />
+          }
           empty={
             <EmptyState
               eyebrow={t("sellers.empty.eyebrow")}

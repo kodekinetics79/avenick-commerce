@@ -11,17 +11,27 @@ const AwardSchema = z.object({
   expectedFingerprint: z.string().regex(/^[a-f0-9]{64}$/i),
 });
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const ctx = await getServerB2BContext();
   if (!ctx) {
-    return NextResponse.json({ success: false, error: "Active company account required" }, { status: 401 });
+    return NextResponse.json(
+      { success: false, error: "Active company account required" },
+      { status: 401 },
+    );
   }
   if (!RECORD_ID.test(params.id)) {
-    return NextResponse.json({ success: false, error: "Supplier quote not found" }, { status: 404 });
+    return NextResponse.json(
+      { success: false, error: "Supplier quote not found" },
+      { status: 404 },
+    );
   }
   const parsed = AwardSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
-    return NextResponse.json({ success: false, error: "Invalid quote award request" }, { status: 400 });
+    return NextResponse.json(
+      { success: false, error: "Invalid quote award request" },
+      { status: 400 },
+    );
   }
 
   try {
@@ -45,7 +55,11 @@ export async function POST(request: Request, { params }: { params: { id: string 
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Supplier quote could not be awarded";
-    const status = /not found/i.test(message) ? 404 : /only a company admin|authority|required/i.test(message) ? 403 : 409;
+    const status = /not found/i.test(message)
+      ? 404
+      : /only a company admin|authority|required/i.test(message)
+        ? 403
+        : 409;
     return NextResponse.json({ success: false, error: message }, { status });
   }
 }

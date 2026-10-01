@@ -25,9 +25,25 @@ import {
   TierMark,
   type PillTone,
 } from "@avenick/ui";
-import { AlertTriangle, Upload, CheckCircle, Clock, XCircle, FileText, Calendar, RefreshCw, Eye, Info } from "lucide-react";
+import {
+  AlertTriangle,
+  Upload,
+  CheckCircle,
+  Clock,
+  XCircle,
+  FileText,
+  Calendar,
+  RefreshCw,
+  Eye,
+  Info,
+} from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { DocumentUploader, UploadDocumentButton, UploadDocumentPanel, type DocumentTypeOption } from "./upload-document";
+import {
+  DocumentUploader,
+  UploadDocumentButton,
+  UploadDocumentPanel,
+  type DocumentTypeOption,
+} from "./upload-document";
 import { documentIsInDate } from "../onboarding/document-selection";
 
 export async function generateMetadata() {
@@ -74,10 +90,16 @@ function isExpiringSoon(d: Date): boolean {
 function isExpired(d: Date): boolean {
   return !documentIsInDate({ expiryDate: d }, new Date());
 }
-const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const fmtDate = (d: Date) =>
+  d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
-function effectiveStatus(doc: { status: DocumentStatus; expiryDate: Date | null; rejectionReason: string | null }): EffectiveStatus {
-  if (doc.status === "REJECTED" && doc.rejectionReason === SUPERSEDED_REJECTION_REASON) return "SUPERSEDED";
+function effectiveStatus(doc: {
+  status: DocumentStatus;
+  expiryDate: Date | null;
+  rejectionReason: string | null;
+}): EffectiveStatus {
+  if (doc.status === "REJECTED" && doc.rejectionReason === SUPERSEDED_REJECTION_REASON)
+    return "SUPERSEDED";
   if (doc.status === "APPROVED" && doc.expiryDate && isExpired(doc.expiryDate)) return "EXPIRED";
   return doc.status;
 }
@@ -109,12 +131,18 @@ function isDocumentType(value: string | undefined): value is DocumentType {
   return typeof value === "string" && (SELLER_DOCUMENT_TYPES as readonly string[]).includes(value);
 }
 
-export default async function DocumentsPage({ searchParams }: { searchParams?: { upload?: string } }) {
+export default async function DocumentsPage(props: {
+  searchParams?: Promise<{ upload?: string }>;
+}) {
+  const searchParams = await props.searchParams;
   // PENDING_REVIEW is admitted on purpose: this is the page a seller under
   // review needs in order to file the evidence the review is waiting on.
-  const { seller, membership } = await requireSellerAnyPermission(["documents.view", "documents.manage"], {
-    allowedSellerStatuses: ONBOARDING_SELLER_STATUSES,
-  });
+  const { seller, membership } = await requireSellerAnyPermission(
+    ["documents.view", "documents.manage"],
+    {
+      allowedSellerStatuses: ONBOARDING_SELLER_STATUSES,
+    },
+  );
   const t = await getTranslations("sellerRelations");
   const permissions = membership.permissions ?? [];
   const canManage = permissions.includes("*") || permissions.includes("documents.manage");
@@ -155,9 +183,13 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
 
   // Expiry only matters on a document that is (or was) valid: a rejected or
   // replaced row lapsing is not something the seller needs to act on.
-  const live = documents.filter((d) => d.status === "APPROVED" || d.status === "EXPIRED" || d.status === "PENDING_REVIEW");
+  const live = documents.filter(
+    (d) => d.status === "APPROVED" || d.status === "EXPIRED" || d.status === "PENDING_REVIEW",
+  );
   const expiringDocs = live.filter((d) => d.expiryDate && isExpiringSoon(d.expiryDate));
-  const expiredDocs = live.filter((d) => d.status === "EXPIRED" || (d.expiryDate && isExpired(d.expiryDate)));
+  const expiredDocs = live.filter(
+    (d) => d.status === "EXPIRED" || (d.expiryDate && isExpired(d.expiryDate)),
+  );
   // An approval that is still in date is valid, including one lapsing soon:
   // "expiring" is a warning about a valid document, not a different bucket.
   const validDocs = documents.filter((d) => d.status === "APPROVED");
@@ -174,9 +206,10 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
    * the per-viewport budget. If nothing qualifies, `sealBasis` is null and the
    * mark is not rendered at all — the surface says what is true instead.
    */
-  const sealSource = validDocs
-    .filter((d): d is typeof d & { reviewedAt: Date } => d.reviewedAt !== null)
-    .sort((a, b) => b.reviewedAt.getTime() - a.reviewedAt.getTime())[0] ?? null;
+  const sealSource =
+    validDocs
+      .filter((d): d is typeof d & { reviewedAt: Date } => d.reviewedAt !== null)
+      .sort((a, b) => b.reviewedAt.getTime() - a.reviewedAt.getTime())[0] ?? null;
   const sealBasis = sealSource
     ? t("documents.sealBasis", { type: sealSource.typeLabel, date: fmtDate(sealSource.reviewedAt) })
     : null;
@@ -189,7 +222,11 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
   const initialType = isDocumentType(uploadParam) ? uploadParam : null;
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
+    <SellerLayout
+      sellerName={seller.businessNameEn}
+      tier={seller.tier}
+      permissions={membership.permissions}
+    >
       <DocumentUploader
         enabled={uploadsEnabled}
         canManage={canManage}
@@ -218,7 +255,9 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
             <FieldWell className="flex items-start gap-3 p-4">
               <Info className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
               <div className="min-w-0">
-                <p className="u-ui font-medium text-ink-1">{t("documents.underReviewBanner.title")}</p>
+                <p className="u-ui font-medium text-ink-1">
+                  {t("documents.underReviewBanner.title")}
+                </p>
                 <p className="u-meta mt-0.5 text-ink-2">{t("documents.underReviewBanner.body")}</p>
               </div>
             </FieldWell>
@@ -260,10 +299,18 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
               {sealBasis ? (
                 <>
                   <div className="mt-2">
-                    <TierMark verified basis={sealBasis} verifiedLabel={t("documents.standing.reviewed")} showBasis />
+                    <TierMark
+                      verified
+                      basis={sealBasis}
+                      verifiedLabel={t("documents.standing.reviewed")}
+                      showBasis
+                    />
                   </div>
                   <p className="u-body mt-2 max-w-desc text-ink-2">
-                    {t("documents.standing.approvedAndInDate", { count: validDocs.length, n: String(validDocs.length) })}
+                    {t("documents.standing.approvedAndInDate", {
+                      count: validDocs.length,
+                      n: String(validDocs.length),
+                    })}
                     {underReview.length > 0 &&
                       ` ${t("documents.standing.moreWithReviewTeam", { count: underReview.length, n: String(underReview.length) })}`}
                   </p>
@@ -309,7 +356,12 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
               icon={XCircle}
               chip={expiredDocs.length > 0 ? "danger" : "neutral"}
             />
-            <Stat label={t("documents.stats.underReview")} value={underReview.length} icon={Clock} chip="neutral" />
+            <Stat
+              label={t("documents.stats.underReview")}
+              value={underReview.length}
+              icon={Clock}
+              chip="neutral"
+            />
           </CellGrid>
 
           {/* One "action required" well instead of two banners stacked above the
@@ -321,23 +373,40 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
               <Surface rung={1} className="divide-y divide-hairline overflow-hidden">
                 {expiredDocs.length > 0 && (
                   <div className="flex flex-wrap items-start gap-3 border-s-[3px] border-s-danger px-4 py-3">
-                    <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger-ink" aria-hidden="true" />
+                    <XCircle
+                      className="mt-0.5 h-4 w-4 shrink-0 text-danger-ink"
+                      aria-hidden="true"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="u-ui font-medium text-ink-1">
-                        {t("documents.action.expiredHeadline", { count: expiredDocs.length, n: String(expiredDocs.length) })}
+                        {t("documents.action.expiredHeadline", {
+                          count: expiredDocs.length,
+                          n: String(expiredDocs.length),
+                        })}
                       </p>
                       <p className="u-meta mt-0.5 text-ink-2">
-                        {t("documents.action.expiredBody", { names: expiredDocs.map((d) => d.name).join(", ") })}
+                        {t("documents.action.expiredBody", {
+                          names: expiredDocs.map((d) => d.name).join(", "),
+                        })}
                       </p>
                     </div>
-                    <UploadDocumentButton type={expiredDocs[0]!.type} variant="secondary" size="sm" className="shrink-0">
-                      <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" /> {t("documents.action.renewNow")}
+                    <UploadDocumentButton
+                      type={expiredDocs[0]!.type}
+                      variant="secondary"
+                      size="sm"
+                      className="shrink-0"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />{" "}
+                      {t("documents.action.renewNow")}
                     </UploadDocumentButton>
                   </div>
                 )}
                 {expiringDocs.length > 0 && (
                   <div className="flex flex-wrap items-start gap-3 border-s-[3px] border-s-warning px-4 py-3">
-                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-ink" aria-hidden="true" />
+                    <AlertTriangle
+                      className="mt-0.5 h-4 w-4 shrink-0 text-warning-ink"
+                      aria-hidden="true"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="u-ui font-medium text-ink-1">
                         {t("documents.action.expiringHeadline", {
@@ -347,11 +416,19 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
                         })}
                       </p>
                       <p className="u-meta mt-0.5 text-ink-2">
-                        {t("documents.action.expiringBody", { names: expiringDocs.map((d) => d.name).join(", ") })}
+                        {t("documents.action.expiringBody", {
+                          names: expiringDocs.map((d) => d.name).join(", "),
+                        })}
                       </p>
                     </div>
-                    <UploadDocumentButton type={expiringDocs[0]!.type} variant="secondary" size="sm" className="shrink-0">
-                      <Upload className="h-3.5 w-3.5" aria-hidden="true" /> {t("documents.action.uploadRenewal")}
+                    <UploadDocumentButton
+                      type={expiringDocs[0]!.type}
+                      variant="secondary"
+                      size="sm"
+                      className="shrink-0"
+                    >
+                      <Upload className="h-3.5 w-3.5" aria-hidden="true" />{" "}
+                      {t("documents.action.uploadRenewal")}
                     </UploadDocumentButton>
                   </div>
                 )}
@@ -381,18 +458,27 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
                   const cfg = STATUS_CONFIG[doc.status];
                   const StatusIcon = cfg.icon;
                   const expired = doc.status === "EXPIRED";
-                  const expiring = !expired && doc.status === "APPROVED" && doc.expiryDate ? isExpiringSoon(doc.expiryDate) : false;
-                  const daysLeft = doc.expiryDate && !isExpired(doc.expiryDate) ? daysUntilExpiry(doc.expiryDate) : null;
+                  const expiring =
+                    !expired && doc.status === "APPROVED" && doc.expiryDate
+                      ? isExpiringSoon(doc.expiryDate)
+                      : false;
+                  const daysLeft =
+                    doc.expiryDate && !isExpired(doc.expiryDate)
+                      ? daysUntilExpiry(doc.expiryDate)
+                      : null;
                   // Which follow-up makes sense depends on where the row is:
                   // renew a lapsed or lapsing approval, re-upload a refusal,
                   // replace an open review, and leave a valid or replaced row alone
                   // beyond the general upload button.
-                  const followUp =
-                    expired ? { label: t("documents.followUp.renew"), primary: true }
-                    : expiring ? { label: t("documents.followUp.renew"), primary: true }
-                    : doc.status === "REJECTED" ? { label: t("documents.followUp.reupload"), primary: true }
-                    : doc.status === "PENDING_REVIEW" ? { label: t("documents.followUp.replace"), primary: false }
-                    : null;
+                  const followUp = expired
+                    ? { label: t("documents.followUp.renew"), primary: true }
+                    : expiring
+                      ? { label: t("documents.followUp.renew"), primary: true }
+                      : doc.status === "REJECTED"
+                        ? { label: t("documents.followUp.reupload"), primary: true }
+                        : doc.status === "PENDING_REVIEW"
+                          ? { label: t("documents.followUp.replace"), primary: false }
+                          : null;
 
                   return (
                     <Surface
@@ -415,13 +501,19 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
                       <p className="u-ui mt-1.5 truncate font-medium text-ink-1" title={doc.name}>
                         {doc.name}
                       </p>
-                      <p className="u-meta text-ink-3">{t("documents.uploadedOn", { date: fmtDate(doc.uploadedAt) })}</p>
+                      <p className="u-meta text-ink-3">
+                        {t("documents.uploadedOn", { date: fmtDate(doc.uploadedAt) })}
+                      </p>
 
                       {doc.expiryDate && (
                         <p
                           className={cn(
                             "u-meta mt-2 flex items-center gap-1.5",
-                            expired ? "text-danger-ink" : expiring ? "text-warning-ink" : "text-ink-2",
+                            expired
+                              ? "text-danger-ink"
+                              : expiring
+                                ? "text-warning-ink"
+                                : "text-ink-2",
                           )}
                         >
                           <Calendar className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -431,9 +523,17 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
                               : t("documents.expiresOn", { date: fmtDate(doc.expiryDate) })}
                             {daysLeft !== null && (
                               // ms-1, not ml-1: a physical margin is wrong in Arabic.
-                              <span className={cn("ms-1 font-medium", expiring ? "text-warning-ink" : "text-ink-2")}>
+                              <span
+                                className={cn(
+                                  "ms-1 font-medium",
+                                  expiring ? "text-warning-ink" : "text-ink-2",
+                                )}
+                              >
                                 {daysLeft > 0
-                                  ? t("documents.daysLeft", { count: daysLeft, n: String(daysLeft) })
+                                  ? t("documents.daysLeft", {
+                                      count: daysLeft,
+                                      n: String(daysLeft),
+                                    })
                                   : t("documents.expiresToday")}
                               </span>
                             )}
@@ -451,9 +551,16 @@ export default async function DocumentsPage({ searchParams }: { searchParams?: {
                           {/* The stored value is a private object key, not a URL;
                               the view route mints a short-lived signed link per
                               request. */}
-                          <a href={`/documents/${doc.id}/view`} target="_blank" rel="noopener noreferrer">
+                          <a
+                            href={`/documents/${doc.id}/view`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
                             <Eye className="h-3.5 w-3.5" aria-hidden="true" /> {t("documents.view")}
-                            <span className="sr-only"> {t("documents.viewSrHint", { name: doc.name })}</span>
+                            <span className="sr-only">
+                              {" "}
+                              {t("documents.viewSrHint", { name: doc.name })}
+                            </span>
                           </a>
                         </Button>
                         {followUp && (

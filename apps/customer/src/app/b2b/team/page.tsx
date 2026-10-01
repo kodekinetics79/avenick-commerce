@@ -20,9 +20,25 @@ import { getB2B, b2bMetadata } from "@/components/b2b/i18n";
 import type { B2BKey } from "@/components/b2b/messages";
 import { toneRule } from "@/components/b2b/rules";
 import { companyCurrencyForCountry } from "@/lib/company-currency";
-import { approveJoinRequest, inviteMember, rejectJoinRequest, resendInvite, setMemberActive } from "./actions";
+import {
+  approveJoinRequest,
+  inviteMember,
+  rejectJoinRequest,
+  resendInvite,
+  setMemberActive,
+} from "./actions";
 import { ValidatedForm } from "@/components/b2b/validated-form";
-import { CheckCircle2, Eye, MailCheck, Shield, ShoppingBag, CheckSquare, UserPlus, Users, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  Eye,
+  MailCheck,
+  Shield,
+  ShoppingBag,
+  CheckSquare,
+  UserPlus,
+  Users,
+  XCircle,
+} from "lucide-react";
 
 export async function generateMetadata() {
   return b2bMetadata("team.title");
@@ -95,11 +111,8 @@ const INVITE_OUTCOME: Record<string, { key: B2BKey; ok: boolean }> = {
   adminOnly: { key: "act.team.adminOnly", ok: false },
 };
 
-export default async function B2BTeamPage({
-  searchParams,
-}: {
-  searchParams?: { invite?: string };
-}) {
+export default async function B2BTeamPage(props: { searchParams?: Promise<{ invite?: string }> }) {
+  const searchParams = await props.searchParams;
   const { t, f } = await getB2B();
   const ctx = await getB2BContext();
 
@@ -182,7 +195,10 @@ export default async function B2BTeamPage({
             className="u-commit u-pop flex items-start gap-3 overflow-hidden border-s-[3px] px-4 py-3"
           >
             {outcome.ok ? (
-              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success-ink" aria-hidden="true" />
+              <CheckCircle2
+                className="mt-0.5 h-4 w-4 shrink-0 text-success-ink"
+                aria-hidden="true"
+              />
             ) : (
               <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger-ink" aria-hidden="true" />
             )}
@@ -234,7 +250,13 @@ export default async function B2BTeamPage({
                 <TextField id="invite-name" name="name" required autoComplete="name" />
               </Field>
               <Field label={t("team.invite.email")} htmlFor="invite-email" required>
-                <TextField id="invite-email" name="email" type="email" required autoComplete="email" />
+                <TextField
+                  id="invite-email"
+                  name="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                />
               </Field>
               <Field label={t("team.invite.role")} htmlFor="invite-role">
                 <SelectField id="invite-role" name="role" defaultValue="COMPANY_BUYER">
@@ -253,7 +275,9 @@ export default async function B2BTeamPage({
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <Dateline>{t("team.invite.basis")}</Dateline>
-              <Button type="submit" variant="primary">{t("team.invite.submit")}</Button>
+              <Button type="submit" variant="primary">
+                {t("team.invite.submit")}
+              </Button>
             </div>
           </ValidatedForm>
         )}
@@ -283,8 +307,15 @@ export default async function B2BTeamPage({
                           {r.department ? ` · ${r.department}` : ""}
                         </p>
                       </div>
-                      <StatusPill tone={awaitingConfirmation ? "neutral" : "warning"} className="whitespace-nowrap">
-                        {t(awaitingConfirmation ? "team.join.awaitingEmail" : "team.join.awaitingYou")}
+                      <StatusPill
+                        tone={awaitingConfirmation ? "neutral" : "warning"}
+                        className="whitespace-nowrap"
+                      >
+                        {t(
+                          awaitingConfirmation
+                            ? "team.join.awaitingEmail"
+                            : "team.join.awaitingYou",
+                        )}
                       </StatusPill>
                     </div>
 
@@ -293,24 +324,44 @@ export default async function B2BTeamPage({
                         address nobody has proved receives mail — that is the
                         whole of what the confirmation step buys. */}
                     {awaitingConfirmation ? (
-                      <p className="u-meta mt-3 text-ink-3">{t("team.join.awaitingEmail.detail")}</p>
+                      <p className="u-meta mt-3 text-ink-3">
+                        {t("team.join.awaitingEmail.detail")}
+                      </p>
                     ) : (
                       <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                        <ValidatedForm action={approveJoinRequest.bind(null, r.id)} className="space-y-3">
+                        <ValidatedForm
+                          action={approveJoinRequest.bind(null, r.id)}
+                          className="space-y-3"
+                        >
                           <Field label={t("team.join.role")} htmlFor={`approve-role-${r.id}`}>
-                            <SelectField id={`approve-role-${r.id}`} name="role" defaultValue={r.requestedRole}>
+                            <SelectField
+                              id={`approve-role-${r.id}`}
+                              name="role"
+                              defaultValue={r.requestedRole}
+                            >
                               <option value="COMPANY_BUYER">{t("team.role.buyer")}</option>
                               <option value="COMPANY_APPROVER">{t("team.role.approver")}</option>
                               <option value="COMPANY_ADMIN">{t("team.role.admin")}</option>
                             </SelectField>
                           </Field>
-                          <Button type="submit" variant="primary">{t("team.join.approve")}</Button>
+                          <Button type="submit" variant="primary">
+                            {t("team.join.approve")}
+                          </Button>
                         </ValidatedForm>
-                        <ValidatedForm action={rejectJoinRequest.bind(null, r.id)} className="space-y-3">
-                          <Field label={t("team.join.reason")} htmlFor={`reject-reason-${r.id}`} hint={t("team.join.reason.hint")}>
+                        <ValidatedForm
+                          action={rejectJoinRequest.bind(null, r.id)}
+                          className="space-y-3"
+                        >
+                          <Field
+                            label={t("team.join.reason")}
+                            htmlFor={`reject-reason-${r.id}`}
+                            hint={t("team.join.reason.hint")}
+                          >
                             <TextField id={`reject-reason-${r.id}`} name="reason" maxLength={500} />
                           </Field>
-                          <Button type="submit" variant="secondary">{t("team.join.reject")}</Button>
+                          <Button type="submit" variant="secondary">
+                            {t("team.join.reject")}
+                          </Button>
                         </ValidatedForm>
                       </div>
                     )}
@@ -365,12 +416,18 @@ export default async function B2BTeamPage({
                         gradient disc this replaces was the only gradient on the
                         page and said nothing about the person. */}
                     <span className="u-meta grid h-8 w-8 shrink-0 place-items-center rounded-pill bg-neutral-soft font-medium text-ink-2">
-                      {name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                      {name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .slice(0, 2)
+                        .join("")}
                     </span>
                     <div className="min-w-0">
                       <p className="font-medium text-ink-1">
                         {name}
-                        {m.userId === ctx.userId && <span className="u-meta ms-1.5 text-ink-3">{t("common.you")}</span>}
+                        {m.userId === ctx.userId && (
+                          <span className="u-meta ms-1.5 text-ink-3">{t("common.you")}</span>
+                        )}
                       </p>
                       <p className="u-meta truncate text-ink-3">{m.user.email}</p>
                     </div>
@@ -442,7 +499,8 @@ export default async function B2BTeamPage({
                 const revoked = !m.isActive;
                 const suspended = m.user.status === "SUSPENDED";
                 const pending = m.user.status === "PENDING";
-                const tone: PillTone = revoked || suspended ? "neutral" : pending ? "warning" : "success";
+                const tone: PillTone =
+                  revoked || suspended ? "neutral" : pending ? "warning" : "success";
                 const label = revoked
                   ? t("team.status.revoked")
                   : suspended
@@ -472,7 +530,8 @@ export default async function B2BTeamPage({
                 const active = !revoked && !suspended;
                 // The permission gate is unchanged: only an admin sees this,
                 // and never against their own membership.
-                if (!isAdmin || m.userId === ctx.userId) return <span className="u-meta text-ink-3">{t("common.none")}</span>;
+                if (!isAdmin || m.userId === ctx.userId)
+                  return <span className="u-meta text-ink-3">{t("common.none")}</span>;
                 // Resending is offered only where it can succeed, and the
                 // action re-decides that for itself against the row as it is
                 // when the form arrives — this page may be minutes old.
@@ -481,7 +540,12 @@ export default async function B2BTeamPage({
                   <div className="flex flex-wrap items-center justify-end gap-1">
                     {canResend && (
                       <form action={resendInvite.bind(null, m.id)}>
-                        <Button type="submit" variant="ghost" size="xs" className="text-primary-ink">
+                        <Button
+                          type="submit"
+                          variant="ghost"
+                          size="xs"
+                          className="text-primary-ink"
+                        >
                           {t("team.resend")}
                         </Button>
                       </form>

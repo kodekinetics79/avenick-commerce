@@ -39,15 +39,30 @@ const OTHER = "c" + "b".repeat(24);
 /** A product priced for BOTH channels, so the DTO's choice is the only variable. */
 function row(id: string) {
   return {
-    id, sellerId: "seller", sku: id.toUpperCase(), slug: id, nameEn: id, nameAr: id,
-    descriptionEn: null, descriptionAr: null, origin: null, tags: [], moq: 1,
-    isPubliclyDiscoverable: true, isB2CEnabled: true, isB2BEnabled: true, status: "ACTIVE",
-    images: [], variants: [], inventory: [{ variantId: null, qty: 9, reservedQty: 0 }],
+    id,
+    sellerId: "seller",
+    sku: id.toUpperCase(),
+    slug: id,
+    nameEn: id,
+    nameAr: id,
+    descriptionEn: null,
+    descriptionAr: null,
+    origin: null,
+    tags: [],
+    moq: 1,
+    isPubliclyDiscoverable: true,
+    isB2CEnabled: true,
+    isB2BEnabled: true,
+    status: "ACTIVE",
+    images: [],
+    variants: [],
+    inventory: [{ variantId: null, qty: 9, reservedQty: 0 }],
     prices: [
       { type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 100, vatRate: 5 },
       { type: "B2B", currency: "AED", minQty: 1, maxQty: null, price: 61.5, vatRate: 5 },
     ],
-    category: { nameEn: "Category", nameAr: "Category", slug: "category" }, brand: null,
+    category: { nameEn: "Category", nameAr: "Category", slug: "category" },
+    brand: null,
     seller: { businessNameEn: "Seller", businessNameAr: null, tier: "VERIFIED", rating: 5 },
     rating: null,
   };
@@ -71,7 +86,7 @@ beforeEach(() => {
 const askRecommendations = (b2b: boolean) =>
   recommendations(
     new NextRequest(`http://localhost/api/products/thing/recommendations${b2b ? "?b2b=true" : ""}`),
-    { params: { slug: "thing" } },
+    { params: Promise.resolve({ slug: "thing" }) },
   );
 
 const askCompletions = (b2b: boolean) =>
@@ -167,9 +182,10 @@ describe("every catalogue route asks the same authority", () => {
         "resolveCatalogChannel",
       );
       // The exact expression that leaked: a channel taken straight from the request.
-      expect(source, "this route decides its channel from the request instead of the session").not.toMatch(
-        /channel\s*=\s*wantsB2B\s*\?/,
-      );
+      expect(
+        source,
+        "this route decides its channel from the request instead of the session",
+      ).not.toMatch(/channel\s*=\s*wantsB2B\s*\?/);
     },
   );
 });

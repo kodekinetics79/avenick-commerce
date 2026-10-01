@@ -36,7 +36,7 @@ export interface OrderConfirmationProps {
   /** The route replayed an order it had already recorded under this idempotency key. */
   idempotent: boolean;
   countryName: (code: string) => string;
-  headingRef: RefObject<HTMLHeadingElement>;
+  headingRef: RefObject<HTMLHeadingElement | null>;
 }
 
 /** Enum value → sentence-case fallback; the message tree carries the real label. */
@@ -55,14 +55,17 @@ const STAGE_FALLBACK: Record<OrderStatusValue, string> = {
 };
 
 const NEXT_FALLBACK: Record<NextStepKey, string> = {
-  AWAIT_BANK_TRANSFER: "Awaiting your bank transfer. Finance verifies the funds, and only then does the order move to Payment confirmed — nothing is prepared or shipped before that.",
-  AWAIT_PAYMENT: "Awaiting payment. The order moves to Payment confirmed once the payment is verified.",
+  AWAIT_BANK_TRANSFER:
+    "Awaiting your bank transfer. Finance verifies the funds, and only then does the order move to Payment confirmed — nothing is prepared or shipped before that.",
+  AWAIT_PAYMENT:
+    "Awaiting payment. The order moves to Payment confirmed once the payment is verified.",
   PAYMENT_CONFIRMED: "Payment is confirmed. The seller confirms the order next.",
   CONFIRMED: "Confirmed with the seller. The seller prepares the items next.",
   PROCESSING: "The seller is preparing the items for dispatch.",
   SHIPPED: "Dispatched. It moves to Out for delivery on the carrier's final leg.",
   OUT_FOR_DELIVERY: "With the carrier for delivery.",
-  DELIVERED: "Delivered. A return can be raised against this order from Returns and followed to refund.",
+  DELIVERED:
+    "Delivered. A return can be raised against this order from Returns and followed to refund.",
   CANCELLED: "This order was cancelled. Nothing further happens to it.",
   REFUNDED: "This order was refunded.",
   RETURN_REQUESTED: "A return has been requested against this order and is being reviewed.",
@@ -84,7 +87,15 @@ type RecordState = "loading" | "ready" | "unavailable";
  * record is one link away. No figure on this screen is computed here.
  */
 export function OrderConfirmation({
-  c, locale, orderId, orderNumber, posted, paymentMethod, idempotent, countryName, headingRef,
+  c,
+  locale,
+  orderId,
+  orderNumber,
+  posted,
+  paymentMethod,
+  idempotent,
+  countryName,
+  headingRef,
 }: OrderConfirmationProps) {
   const [record, setRecord] = useState<PersistedOrder | null>(null);
   const [recordState, setRecordState] = useState<RecordState>("loading");
@@ -113,12 +124,14 @@ export function OrderConfirmation({
   // from the POST response, then from the record — is what every amount here
   // is labelled with. Never the cart's.
   const currency = record?.currency ?? posted.currency ?? null;
-  const money = (value: number) => (currency ? formatCurrency(value, currency as never, locale) : value.toFixed(2));
+  const money = (value: number) =>
+    currency ? formatCurrency(value, currency as never, locale) : value.toFixed(2);
 
   // The status the route leaves a new order in is a fact, not a guess: every
   // order is written PENDING_PAYMENT, and a pilot MOCK payment then marks it
   // CONFIRMED. The record, when it arrives, is authoritative.
-  const status: OrderStatusValue = record?.status ?? (paymentMethod === "MOCK" ? "CONFIRMED" : "PENDING_PAYMENT");
+  const status: OrderStatusValue =
+    record?.status ?? (paymentMethod === "MOCK" ? "CONFIRMED" : "PENDING_PAYMENT");
   const position = flowPosition(status);
   const nextKey = whatHappensNext(status, record?.paymentMethod ?? paymentMethod);
   const stageLabel = (stage: OrderStatusValue) => c(`orders.stage.${stage}`, STAGE_FALLBACK[stage]);
@@ -126,7 +139,11 @@ export function OrderConfirmation({
   const destination = record?.shippingAddress?.country ?? null;
   const jurisdiction = destination ? vatJurisdictionFor(destination) : null;
   const totals = record ? reconcilePersistedTotals(record) : null;
-  const splitKnown = totals != null && totals.goodsVatAmount != null && totals.shippingVatAmount != null && totals.reconciles;
+  const splitKnown =
+    totals != null &&
+    totals.goodsVatAmount != null &&
+    totals.shippingVatAmount != null &&
+    totals.reconciles;
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-section">
@@ -152,15 +169,22 @@ export function OrderConfirmation({
 
             {idempotent && (
               <p role="status" className="u-meta mt-2 text-ink-2">
-                {c("checkout.success.idempotent", "This order had already been recorded; nothing was submitted twice.")}
+                {c(
+                  "checkout.success.idempotent",
+                  "This order had already been recorded; nothing was submitted twice.",
+                )}
               </p>
             )}
 
             {/* An order reference is an identifier, so it is set in mono — the
                 one thing mono is for here. Money never is. */}
             <div className="mt-6">
-              <p className="u-micro text-ink-3">{c("checkout.success.reference", "Order reference")}</p>
-              <p className="u-mono mt-1 break-all text-h2 text-ink-1" dir="ltr">{orderNumber}</p>
+              <p className="u-micro text-ink-3">
+                {c("checkout.success.reference", "Order reference")}
+              </p>
+              <p className="u-mono mt-1 break-all text-h2 text-ink-1" dir="ltr">
+                {orderNumber}
+              </p>
             </div>
 
             <div className="mt-6">
@@ -173,7 +197,13 @@ export function OrderConfirmation({
                       <p className="u-meta mt-1 text-ink-3">
                         {c("checkout.success.deliveringTo", "Delivering to")}{" "}
                         <span className="text-ink-2">
-                          {[record.shippingAddress.line1, record.shippingAddress.city, destination ? countryName(destination) : null].filter(Boolean).join(", ")}
+                          {[
+                            record.shippingAddress.line1,
+                            record.shippingAddress.city,
+                            destination ? countryName(destination) : null,
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}
                         </span>
                       </p>
                     ) : undefined
@@ -185,7 +215,11 @@ export function OrderConfirmation({
                       ? c(
                           "checkout.success.recordedProvenance",
                           `As recorded on the order in ${record.currency} · VAT at ${jurisdiction.ratePercent}%, ${countryName(jurisdiction.country)} being the place of supply · nothing here is recalculated in the browser`,
-                          { currency: record.currency, rate: String(jurisdiction.ratePercent), country: countryName(jurisdiction.country) },
+                          {
+                            currency: record.currency,
+                            rate: String(jurisdiction.ratePercent),
+                            country: countryName(jurisdiction.country),
+                          },
                         )
                       : c(
                           "checkout.success.recordedProvenanceNoRate",
@@ -194,9 +228,16 @@ export function OrderConfirmation({
                         )
                   }
                 >
-                  <MoneyRow label={c("checkout.summary.subtotal", "Subtotal (excl. VAT)")} value={money(totals.subtotal)} />
+                  <MoneyRow
+                    label={c("checkout.summary.subtotal", "Subtotal (excl. VAT)")}
+                    value={money(totals.subtotal)}
+                  />
                   {totals.discountAmount > 0 && (
-                    <MoneyRow label={c("checkout.discount", "Discount")} value={`-${money(totals.discountAmount)}`} tone="credit" />
+                    <MoneyRow
+                      label={c("checkout.discount", "Discount")}
+                      value={`-${money(totals.discountAmount)}`}
+                      tone="credit"
+                    />
                   )}
                   {splitKnown ? (
                     <>
@@ -205,7 +246,10 @@ export function OrderConfirmation({
                         note={
                           totals.splitSource === "PERSISTED"
                             ? c("checkout.success.goodsVatRecorded", "As recorded on the order")
-                            : c("checkout.success.goodsVatNote", "The VAT recorded on each line, added up")
+                            : c(
+                                "checkout.success.goodsVatNote",
+                                "The VAT recorded on each line, added up",
+                              )
                         }
                         value={money(totals.goodsVatAmount!)}
                       />
@@ -213,7 +257,10 @@ export function OrderConfirmation({
                         label={c("checkout.summary.delivery", "Delivery")}
                         note={
                           totals.shippingAmount > 0
-                            ? c("checkout.success.deliveryNote", "As quoted by the server for this destination and weight")
+                            ? c(
+                                "checkout.success.deliveryNote",
+                                "As quoted by the server for this destination and weight",
+                              )
                             : c("checkout.success.deliveryNone", "No delivery charge was recorded")
                         }
                         value={money(totals.shippingAmount)}
@@ -223,17 +270,26 @@ export function OrderConfirmation({
                         note={
                           totals.splitSource === "PERSISTED"
                             ? c("checkout.success.deliveryVatRecorded", "As recorded on the order")
-                            : c("checkout.success.deliveryVatNote", "The remainder of the order’s VAT after the line rows")
+                            : c(
+                                "checkout.success.deliveryVatNote",
+                                "The remainder of the order’s VAT after the line rows",
+                              )
                         }
                         value={money(totals.shippingVatAmount!)}
                       />
                     </>
                   ) : (
                     <>
-                      <MoneyRow label={c("checkout.summary.delivery", "Delivery")} value={money(totals.shippingAmount)} />
+                      <MoneyRow
+                        label={c("checkout.summary.delivery", "Delivery")}
+                        value={money(totals.shippingAmount)}
+                      />
                       <MoneyRow
                         label={c("checkout.success.vatCombined", "VAT (goods and delivery)")}
-                        note={c("checkout.success.vatCombinedNote", "Declared as one figure on this order")}
+                        note={c(
+                          "checkout.success.vatCombinedNote",
+                          "Declared as one figure on this order",
+                        )}
                         value={money(totals.vatAmount)}
                       />
                     </>
@@ -247,15 +303,28 @@ export function OrderConfirmation({
                   totalValue={posted.total == null ? "—" : money(posted.total)}
                   note={
                     recordState === "loading"
-                      ? c("checkout.success.recordLoading", "Recorded by the server · the full breakdown is loading")
-                      : c("checkout.success.recordUnavailable", "Recorded by the server · the full breakdown is on the order record")
+                      ? c(
+                          "checkout.success.recordLoading",
+                          "Recorded by the server · the full breakdown is loading",
+                        )
+                      : c(
+                          "checkout.success.recordUnavailable",
+                          "Recorded by the server · the full breakdown is on the order record",
+                        )
                   }
                 >
                   {posted.discountAmount != null && posted.discountAmount > 0 && (
-                    <MoneyRow label={c("checkout.discount", "Discount")} value={`-${money(posted.discountAmount)}`} tone="credit" />
+                    <MoneyRow
+                      label={c("checkout.discount", "Discount")}
+                      value={`-${money(posted.discountAmount)}`}
+                      tone="credit"
+                    />
                   )}
                   {posted.vatAmount != null && (
-                    <MoneyRow label={c("checkout.success.vatCombined", "VAT (goods and delivery)")} value={money(posted.vatAmount)} />
+                    <MoneyRow
+                      label={c("checkout.success.vatCombined", "VAT (goods and delivery)")}
+                      value={money(posted.vatAmount)}
+                    />
                   )}
                   {recordState === "loading" && (
                     <div className="py-2" aria-hidden="true">
@@ -286,7 +355,11 @@ export function OrderConfirmation({
                     const done = index < position;
                     const current = index === position;
                     return (
-                      <li key={stage} aria-current={current ? "step" : undefined} className="flex items-center gap-2">
+                      <li
+                        key={stage}
+                        aria-current={current ? "step" : undefined}
+                        className="flex items-center gap-2"
+                      >
                         <span
                           aria-hidden="true"
                           className={cn(
@@ -300,7 +373,12 @@ export function OrderConfirmation({
                         >
                           {done ? <Check className="h-3 w-3" /> : index + 1}
                         </span>
-                        <span className={cn("u-meta", current ? "font-medium text-ink-1" : done ? "text-ink-2" : "text-ink-3")}>
+                        <span
+                          className={cn(
+                            "u-meta",
+                            current ? "font-medium text-ink-1" : done ? "text-ink-2" : "text-ink-3",
+                          )}
+                        >
                           {stageLabel(stage)}
                         </span>
                         <span className="sr-only">
@@ -311,7 +389,10 @@ export function OrderConfirmation({
                               : c("checkout.step.notStarted", "not started")}
                         </span>
                         {index < ORDER_FLOW.length - 1 && (
-                          <ArrowRight className="h-3 w-3 text-ink-3 rtl:rotate-180" aria-hidden="true" />
+                          <ArrowRight
+                            className="h-3 w-3 text-ink-3 rtl:rotate-180"
+                            aria-hidden="true"
+                          />
                         )}
                       </li>
                     );
@@ -323,7 +404,9 @@ export function OrderConfirmation({
                 </div>
               )}
               {recordState !== "loading" && (
-                <p className="u-body mt-3 max-w-desc text-ink-2">{c(`orders.next.${nextKey}`, NEXT_FALLBACK[nextKey])}</p>
+                <p className="u-body mt-3 max-w-desc text-ink-2">
+                  {c(`orders.next.${nextKey}`, NEXT_FALLBACK[nextKey])}
+                </p>
               )}
               <p className="u-meta mt-2 max-w-desc text-ink-3">
                 {paymentMethod === "BANK_TRANSFER"
@@ -332,12 +415,18 @@ export function OrderConfirmation({
                       "Payment is pending finance confirmation. The order is not marked paid until funds are verified.",
                     )
                   : paymentMethod === "MOCK"
-                    ? c("checkout.success.pilotRecorded", "Pilot test payment recorded — no card was charged.")
+                    ? c(
+                        "checkout.success.pilotRecorded",
+                        "Pilot test payment recorded — no card was charged.",
+                      )
                     : ""}
               </p>
               {recordState === "unavailable" && (
                 <Dateline className="mt-2">
-                  {c("checkout.success.statusAtSubmission", "Status as at submission · the order record carries the current one")}
+                  {c(
+                    "checkout.success.statusAtSubmission",
+                    "Status as at submission · the order record carries the current one",
+                  )}
                 </Dateline>
               )}
             </section>

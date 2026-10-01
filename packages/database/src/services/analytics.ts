@@ -1,4 +1,4 @@
-import { db, Prisma } from "../index";
+import { db, Prisma, type Currency } from "../index";
 import { PERFORMANCE_WINDOW_DAYS, scoreFromSignals } from "./seller-settings";
 
 // ─── EXECUTIVE DASHBOARD ──────────────────────────────────────────────────────
@@ -19,24 +19,127 @@ export function monthOverMonth(current: number, previous: number): number | null
   return percent === 0 ? 0 : percent;
 }
 
+export interface CurrencyAmount {
+  currency: Currency;
+  amount: number;
+}
+
+export interface CurrencyMetric extends CurrencyAmount {
+  /** Month-over-month movement for this currency only. */
+  trend: number | null;
+}
+
+export interface RevenueSplitByCurrency {
+  currency: Currency;
+  b2b: number;
+  b2c: number;
+  total: number;
+}
+
+export interface CurrencySpender {
+  id: string;
+  name: string;
+  email: string;
+  currency: Currency;
+  spent: number;
+  orders: number;
+}
+
+export interface HighValueBuyer {
+  id: string;
+  name: string;
+  email: string;
+  spent: CurrencyAmount[];
+  orders: number;
+}
+
 /**
- * Executive KPIs. Every `*Trend` is a month-over-month percentage delta or
- * null when the figure is not measured against a prior period. Null is a
- * statement the view must honour — it is never coerced to 0 or borrowed from
- * a neighbouring metric.
+ * Attach a like-currency trend to each amount. The union is deliberate: when a
+ * currency has no activity this month but did last month, the dashboard must
+ * show zero and -100% rather than silently dropping the decline.
+ */
+export function currencyMetrics(
+  amounts: CurrencyAmount[],
+  current: CurrencyAmount[],
+  previous: CurrencyAmount[],
+): CurrencyMetric[] {
+  const amountByCurrency = new Map(amounts.map((row) => [row.currency, row.amount]));
+  const currentByCurrency = new Map(current.map((row) => [row.currency, row.amount]));
+  const previousByCurrency = new Map(previous.map((row) => [row.currency, row.amount]));
+  const currencies = new Set<Currency>([
+    ...amountByCurrency.keys(),
+    ...currentByCurrency.keys(),
+    ...previousByCurrency.keys(),
+  ]);
+
+  return [...currencies]
+    .sort((a, b) => a.localeCompare(b))
+    .map((currency) => ({
+      currency,
+      amount: amountByCurrency.get(currency) ?? 0,
+      trend: monthOverMonth(
+        currentByCurrency.get(currency) ?? 0,
+        previousByCurrency.get(currency) ?? 0,
+      ),
+    }));
+}
+
+/** Select the top fifth independently inside each currency, then deduplicate buyers. */
+export function selectHighValueBuyers(rows: CurrencySpender[]): HighValueBuyer[] {
+  const byCurrency = new Map<Currency, CurrencySpender[]>();
+  for (const row of rows) {
+    const currencyRows = byCurrency.get(row.currency) ?? [];
+    currencyRows.push(row);
+    byCurrency.set(row.currency, currencyRows);
+  }
+
+  const selectedIds = new Set<string>();
+  for (const currencyRows of byCurrency.values()) {
+    currencyRows.sort((a, b) => b.spent - a.spent || a.id.localeCompare(b.id));
+    const cutoff = Math.max(1, Math.ceil(currencyRows.length * 0.2));
+    for (const row of currencyRows.slice(0, cutoff)) {
+      selectedIds.add(row.id);
+    }
+  }
+
+  // Once a buyer qualifies in one currency, display their complete
+  // per-currency history. Selection is per currency; disclosure is complete.
+  const selected = new Map<string, HighValueBuyer>();
+  for (const row of rows) {
+    if (!selectedIds.has(row.id)) continue;
+    const buyer = selected.get(row.id) ?? {
+      id: row.id,
+      name: row.name,
+      email: row.email,
+      spent: [],
+      orders: 0,
+    };
+    buyer.spent.push({ currency: row.currency, amount: row.spent });
+    buyer.orders += row.orders;
+    selected.set(row.id, buyer);
+  }
+
+  return [...selected.values()]
+    .map((buyer) => ({
+      ...buyer,
+      spent: buyer.spent.sort((a, b) => a.currency.localeCompare(b.currency)),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+}
+
+/**
+ * Monetary KPIs are always partitioned by their stored currency. Avenick does
+ * not maintain an FX-rate source, so a cross-currency total or ranking would be
+ * fictitious. Each CurrencyMetric carries only its own month-over-month delta.
  */
 export interface ExecutiveKpis {
-  gmvMonth: number;
-  gmvTotal: number;
-  gmvTrend: number | null;
+  gmvMonth: CurrencyMetric[];
+  gmvTotal: CurrencyAmount[];
   ordersTotal: number;
-  aov: number;
-  b2bRevenue: number;
-  b2bTrend: number | null;
-  b2cRevenue: number;
-  b2cTrend: number | null;
-  commission: number;
-  commissionTrend: number | null;
+  aov: CurrencyAmount[];
+  b2bRevenue: CurrencyMetric[];
+  b2cRevenue: CurrencyMetric[];
+  commission: CurrencyMetric[];
   activeCompanies: number;
   companiesTrend: number | null;
   activeCustomers: number;
@@ -85,10 +188,28 @@ export async function getExecutiveDashboardData() {
     monthCommissionAgg,
     prevMonthCommissionAgg,
   ] = await Promise.all([
-    db.order.aggregate({ where: { paymentStatus: "PAID" }, _sum: { total: true }, _count: { _all: true }, _avg: { total: true } }),
-    db.order.aggregate({ where: { paymentStatus: "PAID", createdAt: { gte: monthStart } }, _sum: { total: true } }),
-    db.order.aggregate({ where: { paymentStatus: "PAID", createdAt: { gte: prevMonthStart, lt: monthStart } }, _sum: { total: true } }),
-    db.order.groupBy({ by: ["type"], where: { paymentStatus: "PAID" }, _sum: { total: true } }),
+    db.order.groupBy({
+      by: ["currency"],
+      where: { paymentStatus: "PAID" },
+      _sum: { total: true },
+      _count: { _all: true },
+      _avg: { total: true },
+    }),
+    db.order.groupBy({
+      by: ["currency"],
+      where: { paymentStatus: "PAID", createdAt: { gte: monthStart } },
+      _sum: { total: true },
+    }),
+    db.order.groupBy({
+      by: ["currency"],
+      where: { paymentStatus: "PAID", createdAt: { gte: prevMonthStart, lt: monthStart } },
+      _sum: { total: true },
+    }),
+    db.order.groupBy({
+      by: ["currency", "type"],
+      where: { paymentStatus: "PAID" },
+      _sum: { total: true },
+    }),
     db.order.groupBy({ by: ["status"], _count: { _all: true } }),
     db.rFQRequest.groupBy({ by: ["status"], _count: { _all: true } }),
     db.sellerProfile.count({ where: { status: "ACTIVE", deletedAt: null } }),
@@ -97,38 +218,94 @@ export async function getExecutiveDashboardData() {
     db.supportTicket.count({ where: { status: { in: ["OPEN", "IN_PROGRESS"] } } }),
     db.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(*) AS count FROM "InventoryStock" WHERE (qty - "reservedQty") <= "reorderPoint"`,
-    db.order.count({ where: { paymentStatus: "PAID", status: { in: ["CONFIRMED", "PROCESSING"] } } }),
-    db.rFQRequest.count({ where: { status: { in: ["SUBMITTED", "UNDER_REVIEW"] }, sellerId: null } }),
-    db.$queryRaw<Array<{ name: string; gmv: Prisma.Decimal }>>`
-      SELECT c."nameEn" AS name, COALESCE(SUM(oi.total), 0) AS gmv
-      FROM "OrderItem" oi
-      JOIN "Order" o ON o.id = oi."orderId" AND o."paymentStatus" = 'PAID'
-      JOIN "Product" p ON p.id = oi."productId"
-      JOIN "Category" c ON c.id = p."categoryId"
-      GROUP BY c."nameEn" ORDER BY gmv DESC LIMIT 5`,
-    db.$queryRaw<Array<{ id: string; name: string; tier: string; gmv: Prisma.Decimal; orders: bigint; rating: number | null }>>`
-      SELECT sp.id, sp."businessNameEn" AS name, sp.tier::text AS tier,
-             COALESCE(SUM(oi.total), 0) AS gmv,
-             COUNT(DISTINCT oi."orderId") AS orders,
-             (SELECT AVG(pr.rating)::float FROM "ProductReview" pr
-                JOIN "Product" pp ON pp.id = pr."productId" WHERE pp."sellerId" = sp.id) AS rating
-      FROM "SellerProfile" sp
-      JOIN "OrderItem" oi ON oi."sellerId" = sp.id
-      JOIN "Order" o ON o.id = oi."orderId" AND o."paymentStatus" = 'PAID'
-      GROUP BY sp.id ORDER BY gmv DESC LIMIT 5`,
+    db.order.count({
+      where: { paymentStatus: "PAID", status: { in: ["CONFIRMED", "PROCESSING"] } },
+    }),
+    db.rFQRequest.count({
+      where: { status: { in: ["SUBMITTED", "UNDER_REVIEW"] }, sellerId: null },
+    }),
+    db.$queryRaw<
+      Array<{ currency: Currency; name: string; gmv: Prisma.Decimal; currencygmv: Prisma.Decimal }>
+    >`
+      WITH ranked AS (
+        SELECT o.currency::text AS currency, c.id, c."nameEn" AS name,
+               COALESCE(SUM(oi.total), 0) AS gmv,
+               SUM(SUM(oi.total)) OVER (PARTITION BY o.currency) AS currencygmv,
+               ROW_NUMBER() OVER (
+                 PARTITION BY o.currency
+                 ORDER BY SUM(oi.total) DESC, c.id
+               ) AS currency_rank
+        FROM "OrderItem" oi
+        JOIN "Order" o ON o.id = oi."orderId" AND o."paymentStatus" = 'PAID'
+        JOIN "Product" p ON p.id = oi."productId"
+        JOIN "Category" c ON c.id = p."categoryId"
+        GROUP BY o.currency, c.id, c."nameEn"
+      )
+      SELECT currency, name, gmv, currencygmv FROM ranked
+      WHERE currency_rank <= 5
+      ORDER BY currency, currency_rank`,
+    db.$queryRaw<
+      Array<{
+        id: string;
+        currency: Currency;
+        name: string;
+        tier: string;
+        gmv: Prisma.Decimal;
+        orders: bigint;
+        rating: number | null;
+      }>
+    >`
+      WITH ranked AS (
+        SELECT sp.id, o.currency::text AS currency,
+               sp."businessNameEn" AS name, sp.tier::text AS tier,
+               COALESCE(SUM(oi.total), 0) AS gmv,
+               COUNT(DISTINCT oi."orderId") AS orders,
+               (SELECT AVG(pr.rating)::float FROM "ProductReview" pr
+                  JOIN "Product" pp ON pp.id = pr."productId" WHERE pp."sellerId" = sp.id) AS rating,
+               ROW_NUMBER() OVER (
+                 PARTITION BY o.currency
+                 ORDER BY SUM(oi.total) DESC, sp.id
+               ) AS currency_rank
+        FROM "SellerProfile" sp
+        JOIN "OrderItem" oi ON oi."sellerId" = sp.id
+        JOIN "Order" o ON o.id = oi."orderId" AND o."paymentStatus" = 'PAID'
+        GROUP BY sp.id, o.currency
+      )
+      SELECT id, currency, name, tier, gmv, orders, rating FROM ranked
+      WHERE currency_rank <= 5
+      ORDER BY currency, currency_rank`,
     // Erasure (services/data-rights.ts) anonymises the identity in place and
     // sets deletedAt: the orders are retained because they must be, but the
     // person is gone and must stop being named in reports. Without the guard
     // this report renders "Erased User" and their tombstone address next to a
     // spend figure — the same guard the consumerCount above already applies.
-    db.$queryRaw<Array<{ id: string; name: string; type: string; totalorders: bigint; totalspent: Prisma.Decimal }>>`
-      SELECT u.id, u."firstName" || ' ' || u."lastName" AS name,
-             CASE WHEN u.role = 'CONSUMER' THEN 'B2C' ELSE 'B2B' END AS type,
-             COUNT(o.id) AS totalorders, COALESCE(SUM(o.total), 0) AS totalspent
-      FROM "User" u JOIN "Order" o ON o."userId" = u.id AND o."paymentStatus" = 'PAID'
-      WHERE u."deletedAt" IS NULL
-      GROUP BY u.id ORDER BY totalspent DESC LIMIT 5`,
-    db.commission.aggregate({ _sum: { amount: true } }),
+    db.$queryRaw<
+      Array<{
+        id: string;
+        currency: Currency;
+        name: string;
+        type: string;
+        totalorders: bigint;
+        totalspent: Prisma.Decimal;
+      }>
+    >`
+      WITH ranked AS (
+        SELECT u.id, o.currency::text AS currency,
+               u."firstName" || ' ' || u."lastName" AS name,
+               CASE WHEN u.role = 'CONSUMER' THEN 'B2C' ELSE 'B2B' END AS type,
+               COUNT(o.id) AS totalorders, COALESCE(SUM(o.total), 0) AS totalspent,
+               ROW_NUMBER() OVER (
+                 PARTITION BY o.currency
+                 ORDER BY SUM(o.total) DESC, u.id
+               ) AS currency_rank
+        FROM "User" u JOIN "Order" o ON o."userId" = u.id AND o."paymentStatus" = 'PAID'
+        WHERE u."deletedAt" IS NULL
+        GROUP BY u.id, o.currency
+      )
+      SELECT id, currency, name, type, totalorders, totalspent FROM ranked
+      WHERE currency_rank <= 5
+      ORDER BY currency, currency_rank`,
+    db.commission.groupBy({ by: ["currency"], _sum: { amount: true } }),
     db.user.count({ where: { role: "CONSUMER", status: "ACTIVE", deletedAt: null } }),
     db.inventoryStock.aggregate({ _sum: { qty: true, reservedQty: true } }),
     db.returnRequest.count({ where: { status: "REQUESTED" } }),
@@ -142,104 +319,189 @@ export async function getExecutiveDashboardData() {
     // The same two windows and the same PAID filter as monthAgg/prevMonthAgg,
     // split per channel, so the B2B and B2C trends are measured exactly the
     // way the GMV trend is instead of being copies of it.
-    db.order.groupBy({ by: ["type"], where: { paymentStatus: "PAID", createdAt: { gte: monthStart } }, _sum: { total: true } }),
-    db.order.groupBy({ by: ["type"], where: { paymentStatus: "PAID", createdAt: { gte: prevMonthStart, lt: monthStart } }, _sum: { total: true } }),
+    db.order.groupBy({
+      by: ["currency", "type"],
+      where: { paymentStatus: "PAID", createdAt: { gte: monthStart } },
+      _sum: { total: true },
+    }),
+    db.order.groupBy({
+      by: ["currency", "type"],
+      where: { paymentStatus: "PAID", createdAt: { gte: prevMonthStart, lt: monthStart } },
+      _sum: { total: true },
+    }),
     // Commission rows carry their own createdAt, so the same comparison holds.
-    db.commission.aggregate({ where: { createdAt: { gte: monthStart } }, _sum: { amount: true } }),
-    db.commission.aggregate({ where: { createdAt: { gte: prevMonthStart, lt: monthStart } }, _sum: { amount: true } }),
+    db.commission.groupBy({
+      by: ["currency"],
+      where: { createdAt: { gte: monthStart } },
+      _sum: { amount: true },
+    }),
+    db.commission.groupBy({
+      by: ["currency"],
+      where: { createdAt: { gte: prevMonthStart, lt: monthStart } },
+      _sum: { amount: true },
+    }),
   ]);
 
-  const gmvTotal = Number(paidAgg._sum.total ?? 0);
-  const typeTotal = (rows: typeof typeSplit, type: "B2B" | "B2C") =>
-    Number(rows.find((t) => t.type === type)?._sum.total ?? 0);
-  const b2b = typeTotal(typeSplit, "B2B");
-  const b2c = typeTotal(typeSplit, "B2C");
+  const totalAmounts = paidAgg.map((row) => ({
+    currency: row.currency,
+    amount: Number(row._sum.total ?? 0),
+  }));
+  const monthAmounts = monthAgg.map((row) => ({
+    currency: row.currency,
+    amount: Number(row._sum.total ?? 0),
+  }));
+  const previousMonthAmounts = prevMonthAgg.map((row) => ({
+    currency: row.currency,
+    amount: Number(row._sum.total ?? 0),
+  }));
+  const typeAmounts = (rows: typeof typeSplit, type: "B2B" | "B2C"): CurrencyAmount[] =>
+    rows
+      .filter((row) => row.type === type)
+      .map((row) => ({ currency: row.currency, amount: Number(row._sum.total ?? 0) }));
+  const b2bAmounts = typeAmounts(typeSplit, "B2B");
+  const b2cAmounts = typeAmounts(typeSplit, "B2C");
 
   const statusCount = (statuses: string[]) =>
-    statusCounts.filter((s) => statuses.includes(s.status)).reduce((sum, s) => sum + s._count._all, 0);
+    statusCounts
+      .filter((s) => statuses.includes(s.status))
+      .reduce((sum, s) => sum + s._count._all, 0);
   const rfqCount = (statuses: string[]) =>
     rfqCounts.filter((s) => statuses.includes(s.status)).reduce((sum, s) => sum + s._count._all, 0);
 
   const lowStockCount = Number(lowStock[0]?.count ?? 0);
-  const gmvMonth = Number(monthAgg._sum.total ?? 0);
-  const gmvPrevMonth = Number(prevMonthAgg._sum.total ?? 0);
-  const gmvTrend = monthOverMonth(gmvMonth, gmvPrevMonth);
-  const b2bTrend = monthOverMonth(typeTotal(monthTypeSplit, "B2B"), typeTotal(prevMonthTypeSplit, "B2B"));
-  const b2cTrend = monthOverMonth(typeTotal(monthTypeSplit, "B2C"), typeTotal(prevMonthTypeSplit, "B2C"));
-  const commissionTrend = monthOverMonth(
-    Number(monthCommissionAgg._sum.amount ?? 0),
-    Number(prevMonthCommissionAgg._sum.amount ?? 0),
+  const gmvMonth = currencyMetrics(monthAmounts, monthAmounts, previousMonthAmounts);
+  const b2bRevenue = currencyMetrics(
+    b2bAmounts,
+    typeAmounts(monthTypeSplit, "B2B"),
+    typeAmounts(prevMonthTypeSplit, "B2B"),
   );
+  const b2cRevenue = currencyMetrics(
+    b2cAmounts,
+    typeAmounts(monthTypeSplit, "B2C"),
+    typeAmounts(prevMonthTypeSplit, "B2C"),
+  );
+  const commissionAmounts = commissionAgg.map((row) => ({
+    currency: row.currency,
+    amount: Number(row._sum.amount ?? 0),
+  }));
+  const commission = currencyMetrics(
+    commissionAmounts,
+    monthCommissionAgg.map((row) => ({
+      currency: row.currency,
+      amount: Number(row._sum.amount ?? 0),
+    })),
+    prevMonthCommissionAgg.map((row) => ({
+      currency: row.currency,
+      amount: Number(row._sum.amount ?? 0),
+    })),
+  );
+
+  const splitByCurrency = new Map<Currency, RevenueSplitByCurrency>();
+  for (const row of typeSplit) {
+    const split = splitByCurrency.get(row.currency) ?? {
+      currency: row.currency,
+      b2b: 0,
+      b2c: 0,
+      total: 0,
+    };
+    const amount = Number(row._sum.total ?? 0);
+    if (row.type === "B2B") split.b2b = amount;
+    if (row.type === "B2C") split.b2c = amount;
+    split.total = split.b2b + split.b2c;
+    splitByCurrency.set(row.currency, split);
+  }
+  const revenueSplit = [...splitByCurrency.values()].sort((a, b) =>
+    a.currency.localeCompare(b.currency),
+  );
+  const ordersTotal = paidAgg.reduce((sum, row) => sum + row._count._all, 0);
 
   const totalRfqs = rfqCounts.reduce((s, c) => s + c._count._all, 0);
   const rfqConversion = totalRfqs > 0 ? Math.round((rfqCount(["ACCEPTED"]) / totalRfqs) * 100) : 0;
   const fulfillmentRate =
-    paidAgg._count._all > 0
-      ? Math.round((statusCount(["DELIVERED"]) / paidAgg._count._all) * 100)
-      : 0;
+    ordersTotal > 0 ? Math.round((statusCount(["DELIVERED"]) / ordersTotal) * 100) : 0;
   const totalUnits = stockAgg._sum.qty ?? 0;
   const warehouseUtilization =
     totalUnits > 0 ? Math.round(((stockAgg._sum.reservedQty ?? 0) / totalUnits) * 100) : 0;
 
   // Rule-based operational recommendations from live signals (no ML claims).
   const recommendations: Array<{
-    icon: string; iconStyle: string; title: string; description: string;
-    confidence: number; tag: string; tagStyle: string; actionLabel: string; actionHref: string;
+    icon: string;
+    iconStyle: string;
+    title: string;
+    description: string;
+    confidence: number;
+    tag: string;
+    tagStyle: string;
+    actionLabel: string;
+    actionHref: string;
   }> = [];
   if (pendingSellers > 0) {
     recommendations.push({
-      icon: "ShoppingCart", iconStyle: "bg-amber-500/15 text-amber-600",
+      icon: "ShoppingCart",
+      iconStyle: "bg-amber-500/15 text-amber-600",
       title: `${pendingSellers} seller application${pendingSellers === 1 ? "" : "s"} awaiting review`,
-      description: "New suppliers cannot list products until approved. Review the onboarding queue.",
-      confidence: 100, tag: "Onboarding", tagStyle: "bg-amber-500/15 text-amber-600",
-      actionLabel: "Review sellers", actionHref: "/sellers/pending",
+      description:
+        "New suppliers cannot list products until approved. Review the onboarding queue.",
+      confidence: 100,
+      tag: "Onboarding",
+      tagStyle: "bg-amber-500/15 text-amber-600",
+      actionLabel: "Review sellers",
+      actionHref: "/sellers/pending",
     });
   }
   if (unshippedPaid > 0) {
     recommendations.push({
-      icon: "Truck", iconStyle: "bg-blue-500/15 text-primary",
+      icon: "Truck",
+      iconStyle: "bg-blue-500/15 text-primary",
       title: `${unshippedPaid} paid order${unshippedPaid === 1 ? "" : "s"} not yet fulfilled`,
-      description: "Orders are paid and waiting in the pick & pack queue. Aging orders hurt delivery SLAs.",
-      confidence: 100, tag: "Fulfilment", tagStyle: "bg-blue-500/15 text-primary",
-      actionLabel: "Open queue", actionHref: "/warehouse/pickpack",
+      description:
+        "Orders are paid and waiting in the pick & pack queue. Aging orders hurt delivery SLAs.",
+      confidence: 100,
+      tag: "Fulfilment",
+      tagStyle: "bg-blue-500/15 text-primary",
+      actionLabel: "Open queue",
+      actionHref: "/warehouse/pickpack",
     });
   }
   if (lowStockCount > 0) {
     recommendations.push({
-      icon: "Boxes", iconStyle: "bg-red-500/15 text-red-600",
+      icon: "Boxes",
+      iconStyle: "bg-red-500/15 text-red-600",
       title: `${lowStockCount} stock line${lowStockCount === 1 ? "" : "s"} at or below reorder point`,
       description: "Low availability risks oversells and lost sales. Ask sellers to restock.",
-      confidence: 100, tag: "Inventory", tagStyle: "bg-red-500/15 text-red-600",
-      actionLabel: "View stock", actionHref: "/warehouse/stock?filter=low",
+      confidence: 100,
+      tag: "Inventory",
+      tagStyle: "bg-red-500/15 text-red-600",
+      actionLabel: "View stock",
+      actionHref: "/warehouse/stock?filter=low",
     });
   }
   if (openRFQs > 0) {
     recommendations.push({
-      icon: "FileQuestion", iconStyle: "bg-purple-500/15 text-purple-600",
+      icon: "FileQuestion",
+      iconStyle: "bg-purple-500/15 text-purple-600",
       title: `${openRFQs} open RFQ${openRFQs === 1 ? "" : "s"} without an assigned seller`,
       description: "Unassigned RFQs stall B2B pipeline. Route them to matching suppliers.",
-      confidence: 100, tag: "B2B Pipeline", tagStyle: "bg-purple-500/15 text-purple-600",
-      actionLabel: "View RFQs", actionHref: "/rfqs",
+      confidence: 100,
+      tag: "B2B Pipeline",
+      tagStyle: "bg-purple-500/15 text-purple-600",
+      actionLabel: "View RFQs",
+      actionHref: "/rfqs",
     });
   }
 
-  // Keys match the DashboardView contract. GMV, B2B, B2C and commission are
-  // measured this month against the previous month (null when the previous
-  // month is empty). The remaining figures are point-in-time counts and
-  // ratios with no prior-period query behind them, so their trend is null —
-  // not 0, which would read as "measured and flat".
+  // Monetary values and their trends are partitioned by currency. The
+  // remaining figures are point-in-time counts and ratios with no
+  // prior-period query behind them, so their trend is null — not 0, which
+  // would read as "measured and flat".
   const kpis: ExecutiveKpis = {
     gmvMonth,
-    gmvTotal,
-    gmvTrend,
-    ordersTotal: paidAgg._count._all,
-    aov: Number(paidAgg._avg.total ?? 0),
-    b2bRevenue: b2b,
-    b2bTrend,
-    b2cRevenue: b2c,
-    b2cTrend,
-    commission: Number(commissionAgg._sum.amount ?? 0),
-    commissionTrend,
+    gmvTotal: totalAmounts,
+    ordersTotal,
+    aov: paidAgg.map((row) => ({ currency: row.currency, amount: Number(row._avg.total ?? 0) })),
+    b2bRevenue,
+    b2cRevenue,
+    commission,
     activeCompanies,
     companiesTrend: null,
     activeCustomers: consumerCount,
@@ -259,8 +521,7 @@ export async function getExecutiveDashboardData() {
   return {
     exec: {
       kpis,
-      // Absolute amounts — the view formats them as currency and derives %.
-      revenueSplit: { b2b, b2c },
+      revenueSplit,
       rfqFunnel: [
         { stage: "Submitted", count: rfqCount(["SUBMITTED"]), color: "bg-blue-500" },
         { stage: "Under review", count: rfqCount(["UNDER_REVIEW"]), color: "bg-purple-500" },
@@ -268,18 +529,34 @@ export async function getExecutiveDashboardData() {
         { stage: "Accepted", count: rfqCount(["ACCEPTED"]), color: "bg-green-500" },
       ],
       orderLifecycle: [
-        { stage: "Awaiting payment", count: statusCount(["PENDING_PAYMENT"]), color: "bg-slate-400" },
+        {
+          stage: "Awaiting payment",
+          count: statusCount(["PENDING_PAYMENT"]),
+          color: "bg-slate-400",
+        },
         { stage: "Confirmed", count: statusCount(["CONFIRMED"]), color: "bg-blue-500" },
         { stage: "Processing", count: statusCount(["PROCESSING"]), color: "bg-amber-500" },
-        { stage: "Shipped", count: statusCount(["SHIPPED", "OUT_FOR_DELIVERY"]), color: "bg-purple-500" },
-        { stage: "Delivered", count: statusCount(["DELIVERED", "COMPLETED"]), color: "bg-green-500" },
+        {
+          stage: "Shipped",
+          count: statusCount(["SHIPPED", "OUT_FOR_DELIVERY"]),
+          color: "bg-purple-500",
+        },
+        {
+          stage: "Delivered",
+          count: statusCount(["DELIVERED", "COMPLETED"]),
+          color: "bg-green-500",
+        },
       ],
       topCategories: categoryGmv.map((c) => ({
+        currency: c.currency,
         name: c.name,
         gmv: Number(c.gmv),
-        share: gmvTotal > 0 ? Math.round((Number(c.gmv) / gmvTotal) * 100) : 0,
+        share:
+          Number(c.currencygmv) > 0 ? Math.round((Number(c.gmv) / Number(c.currencygmv)) * 100) : 0,
       })),
       topSuppliers: sellerGmv.map((s) => ({
+        id: s.id,
+        currency: s.currency,
         name: s.name,
         gmv: Number(s.gmv),
         orders: Number(s.orders),
@@ -288,14 +565,35 @@ export async function getExecutiveDashboardData() {
       })),
       aiRecommendations: recommendations,
       operationalHealth: [
-        { label: "Pending seller reviews", value: pendingSellers, severity: pendingSellers > 0 ? "warn" : "ok", href: "/sellers/pending" },
-        { label: "Open support tickets", value: openTickets, severity: openTickets > 5 ? "warn" : "ok", href: "/support" },
-        { label: "Low stock lines", value: lowStockCount, severity: lowStockCount > 0 ? "warn" : "ok", href: "/warehouse/stock?filter=low" },
-        { label: "Unfulfilled paid orders", value: unshippedPaid, severity: unshippedPaid > 3 ? "warn" : "ok", href: "/warehouse/pickpack" },
+        {
+          label: "Pending seller reviews",
+          value: pendingSellers,
+          severity: pendingSellers > 0 ? "warn" : "ok",
+          href: "/sellers/pending",
+        },
+        {
+          label: "Open support tickets",
+          value: openTickets,
+          severity: openTickets > 5 ? "warn" : "ok",
+          href: "/support",
+        },
+        {
+          label: "Low stock lines",
+          value: lowStockCount,
+          severity: lowStockCount > 0 ? "warn" : "ok",
+          href: "/warehouse/stock?filter=low",
+        },
+        {
+          label: "Unfulfilled paid orders",
+          value: unshippedPaid,
+          severity: unshippedPaid > 3 ? "warn" : "ok",
+          href: "/warehouse/pickpack",
+        },
       ],
     },
     topCustomers: topCustomerRows.map((c) => ({
       id: c.id,
+      currency: c.currency,
       name: c.name,
       type: c.type,
       totalOrders: Number(c.totalorders),
@@ -309,28 +607,28 @@ export async function getExecutiveDashboardData() {
 export async function getSupplierPerformance() {
   const now = new Date();
   const since = new Date(now.getTime() - PERFORMANCE_WINDOW_DAYS * 86_400_000);
-  const rows = await db.$queryRaw<Array<{
-    id: string;
-    name: string;
-    tier: string;
-    gmv: Prisma.Decimal;
-    orders: bigint;
-    returns: bigint;
-    shipments: bigint;
-    ontime: bigint;
-    health: number | null;
-    rating: number | null;
-    orderitemsinwindow: bigint;
-    shippeditemsinwindow: bigint;
-    rfqsinwindow: bigint;
-    activeproducts: bigint;
-    healthyproducts: bigint;
-    currentdocuments: bigint;
-    approveddocuments: bigint;
-  }>>`
+  const [rows, supplierGmvRows] = await Promise.all([
+    db.$queryRaw<
+      Array<{
+        id: string;
+        name: string;
+        tier: string;
+        orders: bigint;
+        returns: bigint;
+        shipments: bigint;
+        ontime: bigint;
+        health: number | null;
+        rating: number | null;
+        orderitemsinwindow: bigint;
+        shippeditemsinwindow: bigint;
+        rfqsinwindow: bigint;
+        activeproducts: bigint;
+        healthyproducts: bigint;
+        currentdocuments: bigint;
+        approveddocuments: bigint;
+      }>
+    >`
     SELECT sp.id, sp."businessNameEn" AS name, sp.tier::text AS tier,
-      COALESCE((SELECT SUM(oi.total) FROM "OrderItem" oi JOIN "Order" o ON o.id = oi."orderId"
-                WHERE oi."sellerId" = sp.id AND o."paymentStatus" = 'PAID'), 0) AS gmv,
       (SELECT COUNT(DISTINCT oi."orderId") FROM "OrderItem" oi JOIN "Order" o ON o.id = oi."orderId"
         WHERE oi."sellerId" = sp.id AND o."paymentStatus" = 'PAID') AS orders,
       (SELECT COUNT(*) FROM "ReturnRequest" rr WHERE rr."sellerId" = sp.id) AS returns,
@@ -370,7 +668,22 @@ export async function getSupplierPerformance() {
           AND (current_document."expiryDate" IS NULL OR current_document."expiryDate" > ${now})) AS approveddocuments
     FROM "SellerProfile" sp
     WHERE sp.status = 'ACTIVE' AND sp."deletedAt" IS NULL
-    ORDER BY gmv DESC`;
+    ORDER BY sp."businessNameEn", sp.id`,
+    db.$queryRaw<Array<{ sellerid: string; currency: Currency; gmv: Prisma.Decimal }>>`
+    SELECT oi."sellerId" AS sellerid, o.currency::text AS currency,
+           COALESCE(SUM(oi.total), 0) AS gmv
+    FROM "OrderItem" oi
+    JOIN "Order" o ON o.id = oi."orderId" AND o."paymentStatus" = 'PAID'
+    GROUP BY oi."sellerId", o.currency
+    ORDER BY oi."sellerId", o.currency`,
+  ]);
+
+  const gmvBySeller = new Map<string, CurrencyAmount[]>();
+  for (const row of supplierGmvRows) {
+    const amounts = gmvBySeller.get(row.sellerid) ?? [];
+    amounts.push({ currency: row.currency, amount: Number(row.gmv) });
+    gmvBySeller.set(row.sellerid, amounts);
+  }
 
   return rows.map((r) => {
     const orders = Number(r.orders);
@@ -393,7 +706,7 @@ export async function getSupplierPerformance() {
       id: r.id,
       name: r.name,
       tier: r.tier,
-      gmv: Number(r.gmv),
+      gmv: gmvBySeller.get(r.id) ?? [],
       orders,
       onTimePct,
       returnRate,
@@ -409,7 +722,9 @@ export async function getSupplierPerformance() {
 export async function getCrmOverview() {
   const [rawRelationships, activities, topBuyers] = await Promise.all([
     db.sellerCustomer.findMany({
-      orderBy: { totalSpent: "desc" },
+      // Relationship currencies are not comparable without FX. Recency is a
+      // truthful deterministic ordering for this non-ranked ledger.
+      orderBy: [{ updatedAt: "desc" }, { id: "asc" }],
       take: 50,
       include: {
         seller: { select: { businessNameEn: true } },
@@ -422,12 +737,36 @@ export async function getCrmOverview() {
     }),
     // Erased subjects are excluded here too — see getExecutiveDashboardData.
     // This one also selects the email, so the tombstone address would be shown.
-    db.$queryRaw<Array<{ id: string; name: string; email: string; role: string; orders: bigint; spent: Prisma.Decimal; lastorder: Date | null }>>`
-      SELECT u.id, u."firstName" || ' ' || u."lastName" AS name, u.email, u.role::text AS role,
-             COUNT(o.id) AS orders, COALESCE(SUM(o.total), 0) AS spent, MAX(o."createdAt") AS lastorder
-      FROM "User" u JOIN "Order" o ON o."userId" = u.id AND o."paymentStatus" = 'PAID'
-      WHERE u."deletedAt" IS NULL
-      GROUP BY u.id ORDER BY spent DESC LIMIT 10`,
+    db.$queryRaw<
+      Array<{
+        id: string;
+        currency: Currency;
+        currencyrank: bigint;
+        name: string;
+        email: string;
+        role: string;
+        orders: bigint;
+        spent: Prisma.Decimal;
+        lastorder: Date | null;
+      }>
+    >`
+      WITH ranked AS (
+        SELECT u.id, o.currency::text AS currency,
+               u."firstName" || ' ' || u."lastName" AS name,
+               u.email, u.role::text AS role,
+               COUNT(o.id) AS orders, COALESCE(SUM(o.total), 0) AS spent,
+               MAX(o."createdAt") AS lastorder,
+               ROW_NUMBER() OVER (
+                 PARTITION BY o.currency
+                 ORDER BY SUM(o.total) DESC, u.id
+               ) AS currencyrank
+        FROM "User" u JOIN "Order" o ON o."userId" = u.id AND o."paymentStatus" = 'PAID'
+        WHERE u."deletedAt" IS NULL
+        GROUP BY u.id, o.currency
+      )
+      SELECT id, currency, currencyrank, name, email, role, orders, spent, lastorder
+      FROM ranked WHERE currencyrank <= 10
+      ORDER BY currency, currencyrank`,
   ]);
 
   // SellerCustomer.buyerId has no Prisma relation — resolve identities in one query.
@@ -445,9 +784,15 @@ export async function getCrmOverview() {
     relationships: rawRelationships.map((r) => ({ ...r, buyer: buyerMap.get(r.buyerId) ?? null })),
     activities,
     topBuyers: topBuyers.map((b) => ({
-      ...b,
+      id: b.id,
+      currency: b.currency,
+      currencyRank: Number(b.currencyrank),
+      name: b.name,
+      email: b.email,
+      role: b.role,
       orders: Number(b.orders),
       spent: Number(b.spent),
+      lastorder: b.lastorder,
     })),
   };
 }
@@ -516,7 +861,10 @@ export async function getSlaMetrics() {
       FROM "Shipment" WHERE "deliveredAt" IS NOT NULL`,
     db.shipment.findMany({
       where: { deliveredAt: null, promisedBy: { lt: now } },
-      include: { order: { select: { orderNumber: true } }, seller: { select: { businessNameEn: true } } },
+      include: {
+        order: { select: { orderNumber: true } },
+        seller: { select: { businessNameEn: true } },
+      },
       take: 10,
     }),
   ]);
@@ -527,10 +875,13 @@ export async function getSlaMetrics() {
   return {
     openTickets: Number(ticketAgg[0]?.open ?? 0),
     resolvedWithin24hPct:
-      resolvedTotal > 0 ? Math.round((Number(ticketAgg[0]?.resolved24 ?? 0) / resolvedTotal) * 100) : null,
+      resolvedTotal > 0
+        ? Math.round((Number(ticketAgg[0]?.resolved24 ?? 0) / resolvedTotal) * 100)
+        : null,
     oldestOpen,
     deliveredShipments: delivered,
-    onTimeDeliveryPct: delivered > 0 ? Math.round((Number(shipmentAgg[0]?.ontime ?? 0) / delivered) * 100) : null,
+    onTimeDeliveryPct:
+      delivered > 0 ? Math.round((Number(shipmentAgg[0]?.ontime ?? 0) / delivered) * 100) : null,
     lateShipments: latePending,
   };
 }
@@ -542,17 +893,34 @@ export async function getCustomerSegments() {
   const since60 = new Date(Date.now() - 60 * 24 * 3600_000);
 
   const [byRole, spenders, recentBuyers, dormant] = await Promise.all([
-    db.user.groupBy({ by: ["role"], where: { deletedAt: null, role: { in: ["CONSUMER", "COMPANY_ADMIN", "COMPANY_BUYER", "COMPANY_APPROVER"] } }, _count: { _all: true } }),
+    db.user.groupBy({
+      by: ["role"],
+      where: {
+        deletedAt: null,
+        role: { in: ["CONSUMER", "COMPANY_ADMIN", "COMPANY_BUYER", "COMPANY_APPROVER"] },
+      },
+      _count: { _all: true },
+    }),
     // Erased subjects are excluded, matching the byRole groupBy directly above
     // — which already filters deletedAt, so without this the two halves of the
     // same page disagreed about who exists. This list is also a campaign
     // audience: an erased subject must never be marketed to.
-    db.$queryRaw<Array<{ id: string; name: string; email: string; spent: Prisma.Decimal; orders: bigint }>>`
+    db.$queryRaw<
+      Array<{
+        id: string;
+        name: string;
+        email: string;
+        currency: Currency;
+        spent: Prisma.Decimal;
+        orders: bigint;
+      }>
+    >`
       SELECT u.id, u."firstName" || ' ' || u."lastName" AS name, u.email,
-             COALESCE(SUM(o.total), 0) AS spent, COUNT(o.id) AS orders
+             o.currency::text AS currency, COALESCE(SUM(o.total), 0) AS spent, COUNT(o.id) AS orders
       FROM "User" u JOIN "Order" o ON o."userId" = u.id AND o."paymentStatus" = 'PAID'
       WHERE u."deletedAt" IS NULL
-      GROUP BY u.id ORDER BY spent DESC`,
+      GROUP BY u.id, o.currency
+      ORDER BY o.currency, spent DESC, u.id`,
     db.$queryRaw<Array<{ count: bigint }>>`
       SELECT COUNT(DISTINCT "userId") AS count FROM "Order" WHERE "paymentStatus" = 'PAID' AND "createdAt" >= ${since30}`,
     db.$queryRaw<Array<{ count: bigint }>>`
@@ -561,14 +929,18 @@ export async function getCustomerSegments() {
       ) t WHERE last_at < ${since60}`,
   ]);
 
-  const allSpenders = spenders.map((s) => ({ ...s, spent: Number(s.spent), orders: Number(s.orders) }));
-  const highValueCutoff = allSpenders.length > 0 ? Math.max(1, Math.ceil(allSpenders.length * 0.2)) : 0;
+  const allSpenders: CurrencySpender[] = spenders.map((s) => ({
+    ...s,
+    spent: Number(s.spent),
+    orders: Number(s.orders),
+  }));
+  const uniqueBuyersWithPurchases = new Set(allSpenders.map((spender) => spender.id)).size;
 
   return {
     byRole: byRole.map((r) => ({ role: r.role, count: r._count._all })),
-    highValue: allSpenders.slice(0, highValueCutoff),
+    highValue: selectHighValueBuyers(allSpenders),
     activeLast30d: Number(recentBuyers[0]?.count ?? 0),
     dormant60d: Number(dormant[0]?.count ?? 0),
-    totalWithPurchases: allSpenders.length,
+    totalWithPurchases: uniqueBuyersWithPurchases,
   };
 }

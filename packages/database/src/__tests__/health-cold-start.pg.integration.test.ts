@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, expect, it } from "vitest";
 import {
   checkDatabaseHealth,
   dbHealthTimeoutMs,
@@ -6,6 +6,9 @@ import {
   DB_HEALTH_PROBE_TIMEOUT_MS,
   DB_HEALTH_FIRST_ANSWER_MS,
 } from "../services/health";
+import { integrationSuite } from "../testing/integration-db";
+
+const run = integrationSuite();
 
 /**
  * The defect: a 2s budget applied to a database that suspends its compute and
@@ -18,7 +21,7 @@ import {
  * per-request timeout, and then it never answers at all — worse than the tight
  * budget it replaced, and failing for a reason no log would name.
  */
-describe("database health cold start", () => {
+run("database health cold start", () => {
   beforeEach(() => resetDbHealthWarmState());
 
   it("allows a cold process far longer than a warm one", () => {

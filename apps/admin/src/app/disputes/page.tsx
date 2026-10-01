@@ -8,7 +8,14 @@ import { Scale } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import {
-  Button, CellGrid, EmptyState, LedgerTable, PageHeader, Stat, StatusPill, type PillTone,
+  Button,
+  CellGrid,
+  EmptyState,
+  LedgerTable,
+  PageHeader,
+  Stat,
+  StatusPill,
+  type PillTone,
 } from "@avenick/ui";
 
 export const metadata = { title: "Disputes & Returns" };
@@ -27,12 +34,13 @@ const STATUS_CONFIG: Record<ReturnStatus, { label: string; tone: PillTone }> = {
 const NEEDS_A_PERSON: ReturnStatus[] = ["REQUESTED", "RECEIVED"];
 
 interface PageProps {
-  searchParams: { status?: string; page?: string };
+  searchParams: Promise<{ status?: string; page?: string }>;
 }
 
 type ReturnRow = Awaited<ReturnType<typeof getAdminReturns>>["returns"][number];
 
-export default async function DisputesPage({ searchParams }: PageProps) {
+export default async function DisputesPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   await requireAdminSession();
 
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
@@ -47,7 +55,8 @@ export default async function DisputesPage({ searchParams }: PageProps) {
   const countFor = (statuses: ReturnStatus[]) =>
     statusCounts.filter((c) => statuses.includes(c.status)).reduce((s, c) => s + c._count._all, 0);
   const allCount = statusCounts.reduce((s, c) => s + c._count._all, 0);
-  const href = (next: Record<string, string | undefined>) => queryHref("/disputes", searchParams, next);
+  const href = (next: Record<string, string | undefined>) =>
+    queryHref("/disputes", searchParams, next);
   const awaiting = countFor(["REQUESTED"]);
 
   return (
@@ -70,7 +79,11 @@ export default async function DisputesPage({ searchParams }: PageProps) {
             href={href({ status: ReturnStatus.REQUESTED })}
             linkComponent={Link}
           />
-          <Stat label="In progress" value={countFor(["APPROVED", "IN_TRANSIT", "RECEIVED"])} icon={Scale} />
+          <Stat
+            label="In progress"
+            value={countFor(["APPROVED", "IN_TRANSIT", "RECEIVED"])}
+            icon={Scale}
+          />
           <Stat label="Refunded" value={countFor(["REFUNDED"])} icon={Scale} />
           <Stat label="Rejected" value={countFor(["REJECTED"])} icon={Scale} />
         </CellGrid>
@@ -126,9 +139,12 @@ export default async function DisputesPage({ searchParams }: PageProps) {
               render: (r) => (
                 <>
                   <span className="block truncate text-ink-1">
-                    {`${r.order.user.firstName} ${r.order.user.lastName}`.trim() || r.order.user.email}
+                    {`${r.order.user.firstName} ${r.order.user.lastName}`.trim() ||
+                      r.order.user.email}
                   </span>
-                  <span className="u-meta block truncate text-ink-3">{r.seller.businessNameEn}</span>
+                  <span className="u-meta block truncate text-ink-3">
+                    {r.seller.businessNameEn}
+                  </span>
                 </>
               ),
             },
@@ -140,7 +156,9 @@ export default async function DisputesPage({ searchParams }: PageProps) {
                 <>
                   <span className="block truncate text-ink-2">{r.reason}</span>
                   {r.resolution && (
-                    <span className="u-meta block truncate text-ink-3">Resolution: {r.resolution}</span>
+                    <span className="u-meta block truncate text-ink-3">
+                      Resolution: {r.resolution}
+                    </span>
                   )}
                 </>
               ),
@@ -169,7 +187,10 @@ export default async function DisputesPage({ searchParams }: PageProps) {
               label: "Status",
               width: "124px",
               render: (r) => (
-                <StatusPill tone={STATUS_CONFIG[r.status].tone} dot={NEEDS_A_PERSON.includes(r.status)}>
+                <StatusPill
+                  tone={STATUS_CONFIG[r.status].tone}
+                  dot={NEEDS_A_PERSON.includes(r.status)}
+                >
                   {STATUS_CONFIG[r.status].label}
                 </StatusPill>
               ),
@@ -179,7 +200,9 @@ export default async function DisputesPage({ searchParams }: PageProps) {
               label: "Opened",
               hideOnMobile: true,
               width: "104px",
-              render: (r) => <span className="tnum text-ink-2">{format(r.createdAt, "d MMM yyyy")}</span>,
+              render: (r) => (
+                <span className="tnum text-ink-2">{format(r.createdAt, "d MMM yyyy")}</span>
+              ),
             },
             {
               key: "decision",

@@ -103,12 +103,14 @@ type Section = "description" | "specs" | "reviews" | "shipping";
  * that names nothing — is done by the server layout beside it (layout.tsx).
  */
 export default function ProductPage({
-  params,
-  searchParams,
+  params: paramsPromise,
+  searchParams: searchParamsPromise,
 }: {
-  params: { slug: string };
-  searchParams: { currency?: string; b2b?: string; variantId?: string; qty?: string };
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ currency?: string; b2b?: string; variantId?: string; qty?: string }>;
 }) {
+  const params = React.use(paramsPromise);
+  const searchParams = React.use(searchParamsPromise);
   const t = useTranslations("pdp");
   const tc = useTranslations("catalogue");
   const locale = useLocale() as "en" | "ar";
@@ -139,7 +141,7 @@ export default function ProductPage({
   const buyBarVisible = buyBoxOffScreen && !atPageEnd;
   const buyBoxRef = useRef<HTMLDivElement>(null);
   const pageEndRef = useRef<HTMLDivElement>(null);
-  const addedTimer = useRef<ReturnType<typeof setTimeout>>();
+  const addedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const addItem = useCartStore((s) => s.addItem);
   const { toggle, has } = useWishlist();
 
@@ -153,7 +155,9 @@ export default function ProductPage({
    */
   useEffect(() => {
     const ids: Section[] = ["description", "specs", "reviews", "shipping"];
-    const sections = ids.map((id) => document.getElementById(id)).filter((el): el is HTMLElement => el !== null);
+    const sections = ids
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => el !== null);
     if (sections.length === 0 || typeof IntersectionObserver === "undefined") return;
     const onScreen = new Set<string>();
     const observer = new IntersectionObserver(
@@ -199,15 +203,18 @@ export default function ProductPage({
 
   useEffect(() => () => clearTimeout(addedTimer.current), []);
 
-  const productUrl = useCallback((extra: Record<string, string> = {}) => {
-    const currency = searchParams.currency?.toUpperCase();
-    const query = new URLSearchParams({
-      ...(currency ? { currency } : {}),
-      ...(searchParams.b2b === "true" ? { b2b: "true" } : {}),
-      ...extra,
-    });
-    return `/api/products/${params.slug}${query.size ? `?${query}` : ""}`;
-  }, [params.slug, searchParams.currency, searchParams.b2b]);
+  const productUrl = useCallback(
+    (extra: Record<string, string> = {}) => {
+      const currency = searchParams.currency?.toUpperCase();
+      const query = new URLSearchParams({
+        ...(currency ? { currency } : {}),
+        ...(searchParams.b2b === "true" ? { b2b: "true" } : {}),
+        ...extra,
+      });
+      return `/api/products/${params.slug}${query.size ? `?${query}` : ""}`;
+    },
+    [params.slug, searchParams.currency, searchParams.b2b],
+  );
 
   /*
     The selling rails, fetched alongside the product rather than with it: the
@@ -217,15 +224,28 @@ export default function ProductPage({
     together needs real co-purchases, trending needs real views — and an empty
     list renders NOTHING, never a padded rail under a confident heading.
   */
-  const [rails, setRails] = useState<{ related: any[]; boughtTogether: any[]; trending: any[] } | null>(null);
+  const [rails, setRails] = useState<{
+    related: any[];
+    boughtTogether: any[];
+    trending: any[];
+  } | null>(null);
   useEffect(() => {
     let cancelled = false;
-    const url = productUrl().replace(`/api/products/${params.slug}`, `/api/products/${params.slug}/recommendations`);
+    const url = productUrl().replace(
+      `/api/products/${params.slug}`,
+      `/api/products/${params.slug}/recommendations`,
+    );
     fetch(url)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => { if (!cancelled && data?.success) setRails(data.data); })
-      .catch(() => { /* a missing rail is a missing rail, not a broken page */ });
-    return () => { cancelled = true; };
+      .then((data) => {
+        if (!cancelled && data?.success) setRails(data.data);
+      })
+      .catch(() => {
+        /* a missing rail is a missing rail, not a broken page */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [productUrl, params.slug]);
 
   useEffect(() => {
@@ -255,10 +275,18 @@ export default function ProductPage({
         setLoading(false);
         if (data.data) {
           const requestedQty = Number(searchParams.qty);
-          setQty(Number.isInteger(requestedQty) && requestedQty >= (data.data.moq ?? 1) ? requestedQty : data.data.moq ?? 1);
+          setQty(
+            Number.isInteger(requestedQty) && requestedQty >= (data.data.moq ?? 1)
+              ? requestedQty
+              : (data.data.moq ?? 1),
+          );
           const variants = data.data.variants ?? [];
-          setSelectedVariantId(variants.some((variant: { id: string }) => variant.id === searchParams.variantId)
-            ? searchParams.variantId : variants.find((variant: { inStock: boolean }) => variant.inStock)?.id ?? variants[0]?.id);
+          setSelectedVariantId(
+            variants.some((variant: { id: string }) => variant.id === searchParams.variantId)
+              ? searchParams.variantId
+              : (variants.find((variant: { inStock: boolean }) => variant.inStock)?.id ??
+                  variants[0]?.id),
+          );
         }
       })
       .catch(() => setLoading(false));
@@ -271,12 +299,18 @@ export default function ProductPage({
       .then(async (r) => ({ ok: r.ok, payload: await r.json().catch(() => null) }))
       .then(({ ok, payload }) => {
         if (cancelled) return;
-        if (ok && payload?.success && payload.data) setReviewAccess({ state: "ready", ...payload.data });
-        else if (!ok && typeof payload?.error === "string") setReviewAccess({ state: "blocked", message: payload.error });
+        if (ok && payload?.success && payload.data)
+          setReviewAccess({ state: "ready", ...payload.data });
+        else if (!ok && typeof payload?.error === "string")
+          setReviewAccess({ state: "blocked", message: payload.error });
         else setReviewAccess({ state: "unknown" });
       })
-      .catch(() => { if (!cancelled) setReviewAccess({ state: "unknown" }); });
-    return () => { cancelled = true; };
+      .catch(() => {
+        if (!cancelled) setReviewAccess({ state: "unknown" });
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [params.slug]);
 
   /**
@@ -286,61 +320,75 @@ export default function ProductPage({
    * cached copy still wins, the stored review is merged in from the POST
    * response rather than pretending it was not saved.
    */
-  const onReviewSubmitted = useCallback(async (review: SubmittedReview) => {
-    setReviewAccess({ state: "ready", eligible: false, reason: "already-reviewed" });
-    const mine: Review = { ...review, mine: true };
-    // Merging the stored review into a copy the server produced BEFORE it
-    // existed: the list gains a row, so the server's total must gain one too,
-    // or the section label and the rating row disagree with the list by exactly
-    // one. When the server sent no total the page counts the list itself.
-    const withMine = <T extends Record<string, unknown> & { reviews?: Review[]; reviewTotal?: unknown }>(source: T): T => ({
-      ...source,
-      reviews: [mine, ...(source.reviews ?? [])],
-      ...(typeof source.reviewTotal === "number" ? { reviewTotal: source.reviewTotal + 1 } : {}),
-    });
-    const data = await fetch(productUrl({ reviewed: review.id })).then((r) => r.json()).catch(() => null);
-    const fresh = data?.data as (Record<string, unknown> & { reviews?: Review[] }) | undefined;
-    if (fresh) {
-      const listed = (fresh.reviews ?? []).some((r) => r.id === review.id);
-      setProduct(listed ? fresh : withMine(fresh));
-      return;
-    }
-    // The refetch failed or was refused; the review is stored regardless, so
-    // it is shown from the POST response rather than vanishing after submit.
-    setProduct((current) => current ? withMine(current as Record<string, unknown> & { reviews?: Review[] }) : current);
-  }, [productUrl]);
+  const onReviewSubmitted = useCallback(
+    async (review: SubmittedReview) => {
+      setReviewAccess({ state: "ready", eligible: false, reason: "already-reviewed" });
+      const mine: Review = { ...review, mine: true };
+      // Merging the stored review into a copy the server produced BEFORE it
+      // existed: the list gains a row, so the server's total must gain one too,
+      // or the section label and the rating row disagree with the list by exactly
+      // one. When the server sent no total the page counts the list itself.
+      const withMine = <
+        T extends Record<string, unknown> & { reviews?: Review[]; reviewTotal?: unknown },
+      >(
+        source: T,
+      ): T => ({
+        ...source,
+        reviews: [mine, ...(source.reviews ?? [])],
+        ...(typeof source.reviewTotal === "number" ? { reviewTotal: source.reviewTotal + 1 } : {}),
+      });
+      const data = await fetch(productUrl({ reviewed: review.id }))
+        .then((r) => r.json())
+        .catch(() => null);
+      const fresh = data?.data as (Record<string, unknown> & { reviews?: Review[] }) | undefined;
+      if (fresh) {
+        const listed = (fresh.reviews ?? []).some((r) => r.id === review.id);
+        setProduct(listed ? fresh : withMine(fresh));
+        return;
+      }
+      // The refetch failed or was refused; the review is stored regardless, so
+      // it is shown from the POST response rather than vanishing after submit.
+      setProduct((current) =>
+        current ? withMine(current as Record<string, unknown> & { reviews?: Review[] }) : current,
+      );
+    },
+    [productUrl],
+  );
 
   // A skeleton has to occupy the same box as the thing it replaces, or the page
   // jumps when the data lands. These shapes match the twelve-column composition
   // below — the frame at its own ratio, the ladder at its own metrics — rather
   // than four generic grey bars. A page that assembles itself in front of you
   // cannot look expensive no matter what it assembles into.
-  if (loading) return (
-    <MainLayout>
-      <div className="mx-auto max-w-shell px-gutter py-8">
-        <Skeleton className="mb-6 h-4 w-48" />
-        <div className="grid grid-cols-1 items-start gap-x-8 gap-y-8 lg:grid-cols-12">
-          <div className="lg:col-span-6">
-            <SkeletonImageFrame />
-            <div className="mt-stack flex gap-2">
-              {[0, 1, 2, 3].map((i) => <SkeletonImageFrame key={i} className="w-16 shrink-0" />)}
+  if (loading)
+    return (
+      <MainLayout>
+        <div className="mx-auto max-w-shell px-gutter py-8">
+          <Skeleton className="mb-6 h-4 w-48" />
+          <div className="grid grid-cols-1 items-start gap-x-8 gap-y-8 lg:grid-cols-12">
+            <div className="lg:col-span-6">
+              <SkeletonImageFrame />
+              <div className="mt-stack flex gap-2">
+                {[0, 1, 2, 3].map((i) => (
+                  <SkeletonImageFrame key={i} className="w-16 shrink-0" />
+                ))}
+              </div>
+            </div>
+            <div className="space-y-5 lg:col-span-5 lg:col-start-8">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-10 w-4/5" />
+              <Skeleton className="h-4 w-1/2" />
+              <Surface rung={3} rim className="space-y-4 p-5">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-12 w-40" />
+                <SkeletonLadder />
+                <Skeleton className="h-control-lg w-full" />
+              </Surface>
             </div>
           </div>
-          <div className="space-y-5 lg:col-span-5 lg:col-start-8">
-            <Skeleton className="h-3 w-24" />
-            <Skeleton className="h-10 w-4/5" />
-            <Skeleton className="h-4 w-1/2" />
-            <Surface rung={3} rim className="space-y-4 p-5">
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="h-12 w-40" />
-              <SkeletonLadder />
-              <Skeleton className="h-control-lg w-full" />
-            </Surface>
-          </div>
         </div>
-      </div>
-    </MainLayout>
-  );
+      </MainLayout>
+    );
 
   if (!product) return notFound();
 
@@ -348,14 +396,19 @@ export default function ProductPage({
   const images = ((p.images as GalleryImage[]) ?? []).filter((image) => !!image?.url);
   const variants = p.variants ?? [];
   const isB2B = searchParams.b2b === "true";
-  const selection = resolveStorefrontSelection(p, selectedVariantId, qty, searchParams.currency?.toUpperCase() ?? defaultStorefrontCurrency());
+  const selection = resolveStorefrontSelection(
+    p,
+    selectedVariantId,
+    qty,
+    searchParams.currency?.toUpperCase() ?? defaultStorefrontCurrency(),
+  );
   const seller = p.seller as ProductSeller | undefined;
   const brand = p.brand as { nameEn?: string; nameAr?: string | null } | null | undefined;
   const inStock = selection?.inStock === true;
   const selectedVariant = variants.find((variant) => variant.id === selectedVariantId);
-  const availability = (selectedVariant?.availabilityStatus
-    ?? p.inventory[0]?.status
-    ?? (inStock ? "IN_STOCK" : "OUT_OF_STOCK")) as StockState;
+  const availability = (selectedVariant?.availabilityStatus ??
+    p.inventory[0]?.status ??
+    (inStock ? "IN_STOCK" : "OUT_OF_STOCK")) as StockState;
   const displayCurrency = (selection?.currency ?? defaultStorefrontCurrency()) as Currency;
   const productId = String(p.id);
   const wishlisted = has(productId, selection?.variantId);
@@ -364,7 +417,9 @@ export default function ProductPage({
   // quantity. The cart records this so a later quantity change comes back here
   // to be repriced instead of being edited against a tier that may no longer apply.
   const priceTiered = selection
-    ? [...(selectedVariant?.prices ?? []), ...p.prices].filter((price) => price.currency === selection.currency).length > 1
+    ? [...(selectedVariant?.prices ?? []), ...p.prices].filter(
+        (price) => price.currency === selection.currency,
+      ).length > 1
     : false;
   const moq = Math.max(1, Number(p.moq) || 1);
   const ladder = selection ? buildPriceLadder(p, selectedVariantId, selection.currency, moq) : [];
@@ -379,7 +434,10 @@ export default function ProductPage({
   const { primary: primaryName, secondary: secondaryName } = bilingualName(nameEn, nameAr, locale);
   const brandName = brand ? (locale === "ar" ? brand.nameAr || brand.nameEn : brand.nameEn) : null;
   const categoryCrumb = breadcrumbCategory(
-    { isPubliclyDiscoverable: p.isPubliclyDiscoverable, category: p.category as CrumbCategory | null | undefined },
+    {
+      isPubliclyDiscoverable: p.isPubliclyDiscoverable,
+      category: p.category as CrumbCategory | null | undefined,
+    },
     primaryName,
     locale,
   );
@@ -391,7 +449,10 @@ export default function ProductPage({
   // page can only count what it was given, and says so ("recent").
   const reviewTotalKnown = typeof p.reviewTotal === "number";
   const reviewTotal = reviewTotalKnown ? (p.reviewTotal as number) : reviewCount;
-  const avgRating = reviewCount > 0 ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviewCount) * 10) / 10 : null;
+  const avgRating =
+    reviewCount > 0
+      ? Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviewCount) * 10) / 10
+      : null;
   // The catalogue returns at most twenty reviews and reports the true total
   // separately, so the average above is over the WINDOW, not over the total.
   // Printing "4.6" beside "45 reviews" states an average that was never
@@ -422,8 +483,11 @@ export default function ProductPage({
   // with a control that cannot be pressed. A quote-only product offers its
   // request; a priced line that cannot be bought right now offers the same
   // availability request the buy column offers beneath its cart button.
-  const barRequest = request
-    ?? (selection && !inStock && rfqHref ? { href: rfqHref, action: "REQUEST_AVAILABILITY" as const } : null);
+  const barRequest =
+    request ??
+    (selection && !inStock && rfqHref
+      ? { href: rfqHref, action: "REQUEST_AVAILABILITY" as const }
+      : null);
 
   const SECTIONS: { id: Section; label: string }[] = [
     { id: "description", label: t("sections.description") },
@@ -436,19 +500,32 @@ export default function ProductPage({
     { label: t("specs.sku"), value: skuText, mono: true },
     { label: t("specs.brand"), value: brandName || null },
     { label: t("specs.origin"), value: p.origin ? String(p.origin) : null },
-    { label: t("specs.weight"), value: p.weight ? t("specs.weightValue", { value: String(p.weight) }) : null },
+    {
+      label: t("specs.weight"),
+      value: p.weight ? t("specs.weightValue", { value: String(p.weight) }) : null,
+    },
     { label: t("specs.moq"), value: t("price.unitsValue", { qty: moq }) },
-    { label: t("specs.consumerOrders"), value: p.isB2CEnabled ? t("specs.available") : t("specs.unavailable") },
-    { label: t("specs.businessOrders"), value: p.isB2BEnabled ? t("specs.available") : t("specs.unavailable") },
+    {
+      label: t("specs.consumerOrders"),
+      value: p.isB2CEnabled ? t("specs.available") : t("specs.unavailable"),
+    },
+    {
+      label: t("specs.businessOrders"),
+      value: p.isB2BEnabled ? t("specs.available") : t("specs.unavailable"),
+    },
     // The selected variant's own attributes: before this they appeared only
     // squeezed into the chooser's subtitle.
-    ...Object.entries((selectedVariant?.attributes ?? {}) as Record<string, unknown>)
-      .map(([key, value]) => ({ label: attributeLabel(key), value: String(value) })),
+    ...Object.entries((selectedVariant?.attributes ?? {}) as Record<string, unknown>).map(
+      ([key, value]) => ({ label: attributeLabel(key), value: String(value) }),
+    ),
   ];
 
   const addToCart = () => {
     if (!selection) return;
-    addItem({ ...toStorefrontCartLine(p, selection, qty, isB2B ? "B2B" : "B2C", images[0]?.url), priceTiered });
+    addItem({
+      ...toStorefrontCartLine(p, selection, qty, isB2B ? "B2B" : "B2C", images[0]?.url),
+      priceTiered,
+    });
     // The same drawer the catalogue tiles open: the buyer sees the line they
     // just added, the running subtotal, and stays on the product page. The
     // page's own "Added" readout below is kept — it confirms the click on the
@@ -493,18 +570,25 @@ export default function ProductPage({
       {/* Bottom padding leaves room for the mobile buy bar, which is fixed. */}
       <div className="min-h-screen bg-background pb-24 lg:pb-0">
         <div className="mx-auto max-w-shell px-gutter py-8">
-
           <nav aria-label={t("breadcrumbLabel")} className="mb-6">
-            <ol className="flex items-center gap-1.5 u-meta text-ink-3">
-              <li><Link href="/" className="u-focus rounded-sm hover:text-ink-1">{t("home")}</Link></li>
+            <ol className="u-meta flex items-center gap-1.5 text-ink-3">
+              <li>
+                <Link href="/" className="u-focus rounded-sm hover:text-ink-1">
+                  {t("home")}
+                </Link>
+              </li>
               {/* A chevron implies a reading direction, so it flips in Arabic. */}
-              <li aria-hidden="true"><ChevronRight className="h-3 w-3 rtl:rotate-180" /></li>
+              <li aria-hidden="true">
+                <ChevronRight className="h-3 w-3 rtl:rotate-180" />
+              </li>
               {/* On a phone the category is the more useful rung than the
                   catalogue root, and three crumbs fit where four squeeze the
                   product's own name to a few characters, so "Products" stands
                   down below sm whenever a category takes its place. */}
               <li className={categoryCrumb ? "max-sm:hidden" : undefined}>
-                <Link href="/products" className="u-focus rounded-sm hover:text-ink-1">{t("allProducts")}</Link>
+                <Link href="/products" className="u-focus rounded-sm hover:text-ink-1">
+                  {t("allProducts")}
+                </Link>
               </li>
               <li aria-hidden="true" className={categoryCrumb ? "max-sm:hidden" : undefined}>
                 <ChevronRight className="h-3 w-3 rtl:rotate-180" />
@@ -512,14 +596,23 @@ export default function ProductPage({
               {categoryCrumb && (
                 <>
                   <li className="min-w-0">
-                    <Link href={categoryCrumb.href} className="u-focus block truncate rounded-sm hover:text-ink-1">
+                    <Link
+                      href={categoryCrumb.href}
+                      className="u-focus block truncate rounded-sm hover:text-ink-1"
+                    >
                       {categoryCrumb.name}
                     </Link>
                   </li>
-                  <li aria-hidden="true"><ChevronRight className="h-3 w-3 rtl:rotate-180" /></li>
+                  <li aria-hidden="true">
+                    <ChevronRight className="h-3 w-3 rtl:rotate-180" />
+                  </li>
                 </>
               )}
-              <li className="min-w-0"><span aria-current="page" className="block truncate font-medium text-ink-1">{primaryName}</span></li>
+              <li className="min-w-0">
+                <span aria-current="page" className="block truncate font-medium text-ink-1">
+                  {primaryName}
+                </span>
+              </li>
             </ol>
           </nav>
 
@@ -552,13 +645,19 @@ export default function ProductPage({
               <div>
                 <div className="mb-2 flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    {!!brandName && <Eyebrow tone="primary" className="mb-1.5">{brandName}</Eyebrow>}
+                    {!!brandName && (
+                      <Eyebrow tone="primary" className="mb-1.5">
+                        {brandName}
+                      </Eyebrow>
+                    )}
                     {/* text-wrap: balance comes from the h1 rule, so a long
                         supplier title never leaves a single word on its own last
                         line — the loudest amateur tell in a large headline. */}
                     <h1 className="u-h1 text-ink-1">{primaryName}</h1>
                     {!!secondaryName && (
-                      <p className="u-lead mt-1 text-ink-2" dir={locale === "ar" ? "ltr" : "rtl"}>{secondaryName}</p>
+                      <p className="u-lead mt-1 text-ink-2" dir={locale === "ar" ? "ltr" : "rtl"}>
+                        {secondaryName}
+                      </p>
                     )}
                   </div>
                   {/* Not rendered for a quote-only product. A wishlist line is a
@@ -574,12 +673,28 @@ export default function ProductPage({
                       disabled={!selection}
                       aria-label={wishlisted ? t("wishlistRemove") : t("wishlistAdd")}
                       aria-pressed={wishlisted}
-                      onClick={() => selection && toggle({ ...toStorefrontWishlistItem(p, params.slug, selection, qty, isB2B ? "B2B" : "B2C", images[0]?.url), priceTiered })}
+                      onClick={() =>
+                        selection &&
+                        toggle({
+                          ...toStorefrontWishlistItem(
+                            p,
+                            params.slug,
+                            selection,
+                            qty,
+                            isB2B ? "B2B" : "B2C",
+                            images[0]?.url,
+                          ),
+                          priceTiered,
+                        })
+                      }
                     >
                       {/* An icon-only control never carries meaning in the glyph
                           alone: the accessible name is on the button above, and the
                           filled state is one class rather than a second icon. */}
-                      <Heart className={`h-5 w-5 ${wishlisted ? "fill-current text-danger-ink" : ""}`} aria-hidden="true" />
+                      <Heart
+                        className={`h-5 w-5 ${wishlisted ? "fill-current text-danger-ink" : ""}`}
+                        aria-hidden="true"
+                      />
                     </Button>
                   )}
                 </div>
@@ -611,11 +726,17 @@ export default function ProductPage({
                     <a
                       href="#reviews"
                       className="u-focus inline-flex items-center gap-2 rounded-sm"
-                      aria-label={t("reviews.averageAria", { value: avgRating, count: averageBasisCount })}
+                      aria-label={t("reviews.averageAria", {
+                        value: avgRating,
+                        count: averageBasisCount,
+                      })}
                     >
                       <Stars value={avgRating} className="h-3.5 w-3.5" />
                       <span className="fig u-ui font-medium text-ink-1">{avgRating}</span>
-                      <span className="u-meta text-ink-3 underline-offset-4 hover:underline" aria-hidden="true">
+                      <span
+                        className="u-meta text-ink-3 underline-offset-4 hover:underline"
+                        aria-hidden="true"
+                      >
                         {averageIsPartial
                           ? t("reviews.countRecent", { count: averageBasisCount })
                           : t("reviews.count", { count: averageBasisCount })}
@@ -633,12 +754,21 @@ export default function ProductPage({
 
               {variants.length > 0 && (
                 <div>
-                  <Eyebrow id="variant-group-label" className="mb-2">{t("variantLabel")}</Eyebrow>
-                  <div role="group" aria-labelledby="variant-group-label" className="flex flex-wrap gap-2">
+                  <Eyebrow id="variant-group-label" className="mb-2">
+                    {t("variantLabel")}
+                  </Eyebrow>
+                  <div
+                    role="group"
+                    aria-labelledby="variant-group-label"
+                    className="flex flex-wrap gap-2"
+                  >
                     {variants.map((variant) => {
                       const active = selectedVariantId === variant.id;
-                      const attributes = Object.entries((variant.attributes ?? {}) as Record<string, unknown>)
-                        .map(([key, value]) => `${attributeLabel(key)} ${String(value)}`).join(" · ");
+                      const attributes = Object.entries(
+                        (variant.attributes ?? {}) as Record<string, unknown>,
+                      )
+                        .map(([key, value]) => `${attributeLabel(key)} ${String(value)}`)
+                        .join(" · ");
                       return (
                         // A chooser is an input, so an unchosen option is recessed
                         // and the chosen one lifts out of the well. The brass rule
@@ -660,10 +790,12 @@ export default function ProductPage({
                           onClick={() => setSelectedVariantId(variant.id)}
                           className={`relative overflow-hidden px-3 py-2 pb-2.5 text-start ${active ? "border-primary/60" : ""}`}
                         >
-                          <span className="block u-ui font-medium text-ink-1">
+                          <span className="u-ui block font-medium text-ink-1">
                             {locale === "ar" ? variant.nameAr || variant.nameEn : variant.nameEn}
                           </span>
-                          <span className="block u-meta text-ink-3">{attributes || variant.sku}</span>
+                          <span className="u-meta block text-ink-3">
+                            {attributes || variant.sku}
+                          </span>
                           {!variant.inStock && (
                             <AvailabilityDot
                               state="OUT_OF_STOCK"
@@ -720,7 +852,10 @@ export default function ProductPage({
               <CellGrid cols={{ base: 1, sm: quoteAction ? 2 : 3 }} density="compact">
                 {!quoteAction && (
                   <div className="flex items-start gap-2 text-start">
-                    <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
+                    <ShieldCheck
+                      className="mt-0.5 h-4 w-4 shrink-0 text-ink-3"
+                      aria-hidden="true"
+                    />
                     <span className="u-meta text-ink-2">{t("assurance.priceChecked")}</span>
                   </div>
                 )}
@@ -730,9 +865,14 @@ export default function ProductPage({
                 </div>
                 {/* A CellGrid cell is flush to the panel's clipped edge, so this
                     link's ring has to be drawn inside its own box. */}
-                <Link href="/returns" className={`${FOCUS_INSET} flex items-start gap-2 text-start`}>
+                <Link
+                  href="/returns"
+                  className={`${FOCUS_INSET} flex items-start gap-2 text-start`}
+                >
                   <RotateCcw className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
-                  <span className="u-meta text-primary-ink underline-offset-4 hover:underline">{t("assurance.returns")}</span>
+                  <span className="u-meta text-primary-ink underline-offset-4 hover:underline">
+                    {t("assurance.returns")}
+                  </span>
                 </Link>
               </CellGrid>
 
@@ -742,7 +882,7 @@ export default function ProductPage({
                   locale={locale}
                   // When the price panel's primary action already IS the
                   // request, the card does not repeat it one surface lower.
-                  quoteHref={request ? undefined : rfqHref ?? undefined}
+                  quoteHref={request ? undefined : (rfqHref ?? undefined)}
                   labels={{
                     eyebrow: t("seller.eyebrow"),
                     requestQuote: t("seller.requestQuote"),
@@ -754,7 +894,10 @@ export default function ProductPage({
                     // reading "GOLD" on an Arabic page is the same defect as an
                     // English headline over an Arabic subtitle.
                     tier: (tier) =>
-                      tier === "STANDARD" || tier === "VERIFIED" || tier === "GOLD" || tier === "PLATINUM"
+                      tier === "STANDARD" ||
+                      tier === "VERIFIED" ||
+                      tier === "GOLD" ||
+                      tier === "PLATINUM"
                         ? t(`seller.tier.${tier}`)
                         : null,
                     // Which document an admin approved, and when, in the reader's
@@ -762,7 +905,8 @@ export default function ProductPage({
                     // not parse, yields no basis — and therefore no mark.
                     verifiedBasis: (type, reviewedAt) => {
                       const reviewed = new Date(reviewedAt);
-                      if (!isSellerDocumentType(type) || Number.isNaN(reviewed.getTime())) return null;
+                      if (!isSellerDocumentType(type) || Number.isNaN(reviewed.getTime()))
+                        return null;
                       return t("seller.verifiedBasis", {
                         document: t(`seller.document.${type}`),
                         date: formatDate(reviewed, locale),
@@ -784,7 +928,6 @@ export default function ProductPage({
                 supplies both; when the nav is stuck, the panel scrolls underneath
                 it and the seam is never visible. */}
             <Surface rung={2} className="overflow-hidden rounded-t-none border-t-0">
-
               <section id="description" className="scroll-mt-28 p-5 sm:p-8">
                 <SectionHead>{t("sections.description")}</SectionHead>
                 {(() => {
@@ -807,10 +950,14 @@ export default function ProductPage({
                   return (
                     <>
                       {!!primary && (
-                        <p className="mt-4 max-w-prose u-lead text-ink-2" dir={primaryDir}>{primary}</p>
+                        <p className="u-lead mt-4 max-w-prose text-ink-2" dir={primaryDir}>
+                          {primary}
+                        </p>
                       )}
                       {!!secondary && (
-                        <p className="mt-4 max-w-prose u-body text-ink-3" dir={secondaryDir}>{secondary}</p>
+                        <p className="u-body mt-4 max-w-prose text-ink-3" dir={secondaryDir}>
+                          {secondary}
+                        </p>
                       )}
                     </>
                   );
@@ -823,7 +970,10 @@ export default function ProductPage({
                   {selectedVariant ? t("specs.basisVariant") : t("specs.basisProduct")}
                 </Dateline>
                 <div className="mt-4">
-                  <SpecList rows={specRows} unrecordedLabel={(fields) => t("specs.unrecorded", { fields })} />
+                  <SpecList
+                    rows={specRows}
+                    unrecordedLabel={(fields) => t("specs.unrecorded", { fields })}
+                  />
                 </div>
               </section>
 
@@ -848,21 +998,37 @@ export default function ProductPage({
                 <SectionHead>{t("sections.shipping")}</SectionHead>
                 <dl className="mt-4 grid max-w-none grid-cols-1 gap-x-10 gap-y-5 sm:grid-cols-2">
                   {[
-                    { icon: Truck, title: t("shipping.delivery"), desc: t("shipping.deliveryBody") },
-                    { icon: ShieldCheck, title: t("shipping.protection"), desc: t("shipping.protectionBody") },
-                    { icon: RotateCcw, title: t("shipping.returns"), desc: t("shipping.returnsBody") },
+                    {
+                      icon: Truck,
+                      title: t("shipping.delivery"),
+                      desc: t("shipping.deliveryBody"),
+                    },
+                    {
+                      icon: ShieldCheck,
+                      title: t("shipping.protection"),
+                      desc: t("shipping.protectionBody"),
+                    },
+                    {
+                      icon: RotateCcw,
+                      title: t("shipping.returns"),
+                      desc: t("shipping.returnsBody"),
+                    },
                     // "Contact your account manager" named a service that exists
                     // nowhere in this product. Quotations do exist, and they are
                     // reachable from above — the supplier card on a priced
                     // listing, the price panel's own action on a quote-only one —
                     // so the line points at the mechanism that is implemented.
-                    { icon: FileText, title: t("shipping.business"), desc: t("shipping.businessBody") },
+                    {
+                      icon: FileText,
+                      title: t("shipping.business"),
+                      desc: t("shipping.businessBody"),
+                    },
                   ].map(({ icon: Icon, title, desc }) => (
                     <div key={title} className="flex gap-3">
                       <Icon className="mt-0.5 h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
                       <div className="min-w-0">
                         <dt className="u-ui font-medium text-ink-1">{title}</dt>
-                        <dd className="max-w-prose u-body text-ink-2">{desc}</dd>
+                        <dd className="u-body max-w-prose text-ink-2">{desc}</dd>
                       </div>
                     </div>
                   ))}
@@ -876,27 +1042,39 @@ export default function ProductPage({
               be true: catalogue affinity, real co-purchase, real attention.
               Each states its basis under the heading, the way the home page
               does, and each renders only when it has rows. */}
-          {rails && (
-            [
-              { key: "related", rows: rails.related },
-              { key: "boughtTogether", rows: rails.boughtTogether },
-              { key: "trending", rows: rails.trending },
-            ] as const
-          ).map(({ key, rows }) =>
-            rows.length === 0 ? null : (
-              <section key={key} aria-labelledby={`rail-${key}`} className="mt-12 lg:col-span-12 print:hidden">
-                <h2 id={`rail-${key}`} className="u-h2 text-ink-1">{t(`sections.${key}`)}</h2>
-                <p className="u-meta mt-1 text-ink-3">{t(`railReason.${key}`)}</p>
-                <div className="mt-5">
-                  <ProductGrid columns={5}>
-                    {rows.map((row: any, i: number) => (
-                      <ProductCard key={row.id} {...toCardRow(row, locale)} locale={locale} index={i} />
-                    ))}
-                  </ProductGrid>
-                </div>
-              </section>
-            ),
-          )}
+          {rails &&
+            (
+              [
+                { key: "related", rows: rails.related },
+                { key: "boughtTogether", rows: rails.boughtTogether },
+                { key: "trending", rows: rails.trending },
+              ] as const
+            ).map(({ key, rows }) =>
+              rows.length === 0 ? null : (
+                <section
+                  key={key}
+                  aria-labelledby={`rail-${key}`}
+                  className="mt-12 lg:col-span-12 print:hidden"
+                >
+                  <h2 id={`rail-${key}`} className="u-h2 text-ink-1">
+                    {t(`sections.${key}`)}
+                  </h2>
+                  <p className="u-meta mt-1 text-ink-3">{t(`railReason.${key}`)}</p>
+                  <div className="mt-5">
+                    <ProductGrid columns={5}>
+                      {rows.map((row: any, i: number) => (
+                        <ProductCard
+                          key={row.id}
+                          {...toCardRow(row, locale)}
+                          locale={locale}
+                          index={i}
+                        />
+                      ))}
+                    </ProductGrid>
+                  </div>
+                </section>
+              ),
+            )}
 
           {/* Watched by the buy-bar observer: when this is on screen the reader
               has reached the end of the page and the fixed bar stands down. */}
@@ -925,12 +1103,17 @@ export default function ProductPage({
         supplier, description, specifications and terms.
       */}
       <div
-        className={`fixed inset-x-0 bottom-0 z-sticky lg:hidden print:hidden transition-[opacity,transform] duration-panel ease-standard motion-reduce:transform-none ${
-          buyBarVisible ? "translate-y-0 opacity-100" : "pointer-events-none translate-y-[14%] opacity-0"
+        className={`fixed inset-x-0 bottom-0 z-sticky transition-[opacity,transform] duration-panel ease-standard motion-reduce:transform-none lg:hidden print:hidden ${
+          buyBarVisible
+            ? "translate-y-0 opacity-100"
+            : "pointer-events-none translate-y-[14%] opacity-0"
         }`}
         aria-hidden={!buyBarVisible}
       >
-        <Surface rung={4} className="flex items-center gap-3 rounded-none border-x-0 border-b-0 px-4 py-3">
+        <Surface
+          rung={4}
+          className="flex items-center gap-3 rounded-none border-x-0 border-b-0 px-4 py-3"
+        >
           <div className="min-w-0">
             {selection ? (
               <PriceStack
@@ -945,9 +1128,9 @@ export default function ProductPage({
             ) : quoteAction ? (
               // The tile's words, in ordinary ink: the normal state of this
               // catalogue, not an error.
-              <p className="truncate u-ui text-ink-2">{tc("quoteOnRequest")}</p>
+              <p className="u-ui truncate text-ink-2">{tc("quoteOnRequest")}</p>
             ) : (
-              <p className="truncate u-ui text-danger-ink">{t("price.none")}</p>
+              <p className="u-ui truncate text-danger-ink">{t("price.none")}</p>
             )}
           </div>
           {barRequest ? (
@@ -955,7 +1138,9 @@ export default function ProductPage({
               {/* Withdrawn with the bar exactly as the cart button is: out of
                   the tab order, and inside the aria-hidden container. */}
               <Link href={barRequest.href} tabIndex={buyBarVisible ? undefined : -1}>
-                {barRequest.action === "REQUEST_QUOTE" ? t("seller.requestQuote") : t("buy.requestAvailability")}
+                {barRequest.action === "REQUEST_QUOTE"
+                  ? t("seller.requestQuote")
+                  : t("buy.requestAvailability")}
               </Link>
             </Button>
           ) : (
@@ -1000,7 +1185,7 @@ function SectionHead({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Divider drawn on className="w-10" />
-      <h2 className="mt-3 u-h2 text-ink-1">{children}</h2>
+      <h2 className="u-h2 mt-3 text-ink-1">{children}</h2>
     </>
   );
 }

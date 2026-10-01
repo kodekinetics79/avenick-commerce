@@ -22,7 +22,11 @@ import { useCartStore } from "@/stores/cart";
 import { useWishlist } from "@/stores/wishlist";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { productCardPricePresentation, productCardPurchaseAction, storefrontProductHref } from "@/lib/product-card-commerce";
+import {
+  productCardPricePresentation,
+  productCardPurchaseAction,
+  storefrontProductHref,
+} from "@/lib/product-card-commerce";
 import type { Currency } from "@/lib/market-context";
 
 /** One published price band in the card's currency, straight off the list DTO. */
@@ -145,9 +149,30 @@ interface ProductCardProps {
 const LADDER_BANDS_ON_TILE = 3;
 
 export function ProductCard({
-  id, slug, nameEn, nameAr, imageUrl, price, currency, vatRate, priceIsFrom = false, priceTiered,
-  priceBands, sku, sellerId, sellerName, sellerNameAr, rating, inStock = true, availabilityStatus, moq = 1, hasVariants = false,
-  locale, isB2B = false, category, index = 0,
+  id,
+  slug,
+  nameEn,
+  nameAr,
+  imageUrl,
+  price,
+  currency,
+  vatRate,
+  priceIsFrom = false,
+  priceTiered,
+  priceBands,
+  sku,
+  sellerId,
+  sellerName,
+  sellerNameAr,
+  rating,
+  inStock = true,
+  availabilityStatus,
+  moq = 1,
+  hasVariants = false,
+  locale,
+  isB2B = false,
+  category,
+  index = 0,
 }: ProductCardProps) {
   const tp = useTranslations("products");
   const tc = useTranslations("catalogue");
@@ -165,9 +190,8 @@ export function ProductCard({
   const pricePresentation = productCardPricePresentation(price, hasVariants);
   const productHref = storefrontProductHref(slug, { currency, b2b: isB2B });
   const availability = availabilityStatus ?? (inStock ? "IN_STOCK" : "OUT_OF_STOCK");
-  const money = price != null && currency
-    ? formatCurrency(price, currency as Currency, activeLocale)
-    : null;
+  const money =
+    price != null && currency ? formatCurrency(price, currency as Currency, activeLocale) : null;
   // Whether the card price is the lowest of several quantity or variant bands
   // rather than THE price. It qualifies the figure; it is not part of it.
   const priceIsRange = pricePresentation === "FROM" || priceIsFrom;
@@ -215,7 +239,7 @@ export function ProductCard({
    * press adds a second line immediately and simply restarts the readout.
    */
   const [committed, setCommitted] = React.useState(false);
-  const commitTimer = React.useRef<ReturnType<typeof setTimeout>>();
+  const commitTimer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   React.useEffect(() => () => clearTimeout(commitTimer.current), []);
 
   /*
@@ -258,7 +282,9 @@ export function ProductCard({
     // because the buyer's reason differs — no stock is not no price — and the
     // label has to say which one they are answering.
     if (action === "REQUEST_AVAILABILITY" || action === "REQUEST_QUOTE") {
-      router.push(`/b2b/rfq/new?supplier=${encodeURIComponent(sellerId)}&product=${encodeURIComponent(id)}`);
+      router.push(
+        `/b2b/rfq/new?supplier=${encodeURIComponent(sellerId)}&product=${encodeURIComponent(id)}`,
+      );
       return;
     }
     if (action === "SELECT_VARIANT") {
@@ -266,7 +292,22 @@ export function ProductCard({
       return;
     }
     if (price == null || !currency || vatRate == null) return;
-    addItem({ productId: id, slug, channel: isB2B ? "B2B" : "B2C", nameEn, nameAr, imageUrl, sku, qty: moq, moq, unitPrice: price, vatRate, priceTiered, sellerId, currency });
+    addItem({
+      productId: id,
+      slug,
+      channel: isB2B ? "B2B" : "B2C",
+      nameEn,
+      nameAr,
+      imageUrl,
+      sku,
+      qty: moq,
+      moq,
+      unitPrice: price,
+      vatRate,
+      priceTiered,
+      sellerId,
+      currency,
+    });
     /*
      * THE DRAWER OPENS; THE PAGE STAYS. Adding used to be the end of browsing —
      * the line went in and the buyer was sent to the cart — so the biggest
@@ -295,7 +336,23 @@ export function ProductCard({
       return;
     }
     if (price == null || !currency || vatRate == null) return;
-    toggle({ id, slug, channel: isB2B ? "B2B" : "B2C", nameEn, nameAr, imageUrl, price, quantity: moq, moq, vatRate, currency, sku, sellerId, sellerName, inStock });
+    toggle({
+      id,
+      slug,
+      channel: isB2B ? "B2B" : "B2C",
+      nameEn,
+      nameAr,
+      imageUrl,
+      price,
+      quantity: moq,
+      moq,
+      vatRate,
+      currency,
+      sku,
+      sellerId,
+      sellerName,
+      inStock,
+    });
   }
 
   return (
@@ -311,12 +368,16 @@ export function ProductCard({
       // an outward two-stop ring on any descendant would be sliced off at three
       // edges. The container redraws the identical ring inside its own box.
       data-clips-focus=""
-      className="group u-drawn-host relative flex h-full flex-col overflow-hidden transition-[transform,box-shadow] duration-hover ease-standard motion-safe:hover:-translate-y-1 hover:shadow-elev-4"
+      className="u-drawn-host group relative flex h-full flex-col overflow-hidden transition-[transform,box-shadow] duration-hover ease-standard hover:shadow-elev-4 motion-safe:hover:-translate-y-1"
     >
       {/* The wishlist control stays OUTSIDE this anchor. It is a second action on
           the same card, and an interactive element nested inside a link is
           unreachable by keyboard and ambiguous to a screen reader. */}
-      <Link href={productHref} className="block rounded-[inherit] outline-none" aria-label={tc("viewProduct", { name })}>
+      <Link
+        href={productHref}
+        className="block rounded-[inherit] outline-none"
+        aria-label={tc("viewProduct", { name })}
+      >
         {/*
          * ImageFrame, not aspect-square + object-cover.
          *
@@ -339,7 +400,13 @@ export function ProductCard({
          */}
         <ImageFrame
           sku={sku}
-          state={availability === "OUT_OF_STOCK" ? "out" : availability === "UNCONFIRMED" ? "unconfirmed" : "available"}
+          state={
+            availability === "OUT_OF_STOCK"
+              ? "out"
+              : availability === "UNCONFIRMED"
+                ? "unconfirmed"
+                : "available"
+          }
         >
           {imageUrl ? (
             <Image
@@ -487,7 +554,9 @@ export function ProductCard({
               the price line stops agreeing across a row on the Arabic build
               only, which is precisely the class of defect an English reviewer
               never sees. */}
-          <h3 className="u-lead line-clamp-2 min-h-[calc(2*var(--lh-lead))] font-semibold tracking-[-0.011em] text-ink-1">{name}</h3>
+          <h3 className="u-lead line-clamp-2 min-h-[calc(2*var(--lh-lead))] font-semibold tracking-[-0.011em] text-ink-1">
+            {name}
+          </h3>
 
           {/* THE PRICE ROW. The reference sets its stock mark on the same line
               as the figure, and that is right: "what it costs" and "can I have

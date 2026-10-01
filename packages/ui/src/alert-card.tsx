@@ -15,14 +15,17 @@ export interface AlertCardProps {
   className?: string;
 }
 
-const TYPE_CONFIG: Record<AlertCardType, {
-  container: string;
-  iconBg: string;
-  icon: React.ElementType;
-  titleColor: string;
-  messageColor: string;
-  ctaColor: string;
-}> = {
+const TYPE_CONFIG: Record<
+  AlertCardType,
+  {
+    container: string;
+    iconBg: string;
+    icon: React.ElementType;
+    titleColor: string;
+    messageColor: string;
+    ctaColor: string;
+  }
+> = {
   info: {
     container: "bg-blue-50 border-blue-200",
     iconBg: "bg-blue-100",
@@ -66,22 +69,29 @@ export function AlertCard({
   className,
 }: AlertCardProps) {
   const cfg = TYPE_CONFIG[type];
-  const Icon = cfg.icon;
+  const Icon = cfg.icon as any;
 
   return (
-    <div className={cn("rounded-2xl border p-4 flex items-start gap-3", cfg.container, className)}>
-      <div className={cn("h-9 w-9 rounded-xl flex items-center justify-center shrink-0", cfg.iconBg)}>
+    <div className={cn("flex items-start gap-3 rounded-2xl border p-4", cfg.container, className)}>
+      <div
+        className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", cfg.iconBg)}
+      >
         <Icon className="h-4 w-4" />
       </div>
-      <div className="flex-1 min-w-0">
-        <p className={cn("font-semibold text-sm", cfg.titleColor)}>{title}</p>
-        {message && <p className={cn("text-xs mt-0.5 leading-relaxed", cfg.messageColor)}>{message}</p>}
+      <div className="min-w-0 flex-1">
+        <p className={cn("text-sm font-semibold", cfg.titleColor)}>{title}</p>
+        {message && (
+          <p className={cn("mt-0.5 text-xs leading-relaxed", cfg.messageColor)}>{message}</p>
+        )}
       </div>
       {ctaLabel && onCta && (
         <button
           type="button"
           onClick={onCta}
-          className={cn("text-xs font-semibold shrink-0 underline underline-offset-2 transition-colors", cfg.ctaColor)}
+          className={cn(
+            "shrink-0 text-xs font-semibold underline underline-offset-2 transition-colors",
+            cfg.ctaColor,
+          )}
         >
           {ctaLabel}
         </button>

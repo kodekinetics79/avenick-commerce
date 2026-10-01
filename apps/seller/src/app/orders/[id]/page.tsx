@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { format } from "date-fns";
 import { ArrowLeft, Check } from "lucide-react";
 import { db } from "@avenick/database";
 import { formatCurrency, isSupportedCurrency, type SupportedCurrency } from "@avenick/utils";
@@ -16,7 +15,7 @@ import {
   Dateline,
   Button,
 } from "@avenick/ui";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { SellerLayout } from "@/components/layout/seller-layout";
 import { requireSellerAnyPermission } from "@/lib/auth";
 import { ORDER_PRE_RELEASE, ORDER_STAGES, orderStatusMeta } from "@/components/orders/status-meta";
@@ -50,9 +49,14 @@ const PRE_RELEASE = ORDER_PRE_RELEASE;
 const money = (amount: number, code: string) =>
   formatCurrency(amount, isSupportedCurrency(code) ? code : (code as SupportedCurrency));
 
-export default async function SellerOrderDetailPage({ params }: { params: { id: string } }) {
+export default async function SellerOrderDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const t = await getTranslations("sellerOps");
-  const { seller, membership } = await requireSellerAnyPermission(["orders.view", "orders.fulfill"]);
+  const locale = await getLocale();
+  const { seller, membership } = await requireSellerAnyPermission([
+    "orders.view",
+    "orders.fulfill",
+  ]);
   const order = await db.order.findFirst({
     where: { id: params.id, items: { some: { sellerId: seller.id } } },
     select: {
@@ -80,11 +84,16 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
   });
   if (!order) notFound();
 
-  const sellerSubtotal = order.items.reduce((sum, item) => sum + Number(item.unitPrice) * item.quantity, 0);
+  const sellerSubtotal = order.items.reduce(
+    (sum, item) => sum + Number(item.unitPrice) * item.quantity,
+    0,
+  );
   const sellerVat = order.items.reduce((sum, item) => sum + Number(item.vatAmount), 0);
   const sellerTotal = order.items.reduce((sum, item) => sum + Number(item.total), 0);
   const buyer = `${order.user.firstName} ${order.user.lastName}`.trim();
   const status = statusView(order.status);
+  const statusLabel = (view: ReturnType<typeof statusView>) =>
+    view.labelKey ? t(view.labelKey) : view.fallbackLabel;
 
   /**
    * THE RAIL'S POSITION IS THIS SELLER'S OWN LINES, not `order.status`.
@@ -109,7 +118,8 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
   const noLines = lineStages.length === 0;
   const onTrack = !noLines && lineStages.every((s) => s >= 0);
   const stageIndex = onTrack ? Math.min(...lineStages) : -1;
-  const preRelease = !noLines && !onTrack && order.items.every((item) => PRE_RELEASE.has(item.status));
+  const preRelease =
+    !noLines && !onTrack && order.items.every((item) => PRE_RELEASE.has(item.status));
   // Anything neither on the track nor before it — cancelled, refunded, returned,
   // or a mix of the two — is an exception, and drawing a five-step progress rail
   // for it would imply a journey these lines are no longer on.
@@ -117,26 +127,33 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
   // Stated only when it is true: a rail can show one node, and a seller whose
   // lines are split across two stages must not read that node as "all of it".
   const splitStages = onTrack && new Set(lineStages).size > 1;
-  const lineStateLabels = Array.from(new Set(order.items.map((item) => statusView(item.status).label)));
+  const lineStateLabels = Array.from(
+    new Set(order.items.map((item) => statusLabel(statusView(item.status)))),
+  );
   // The list separator is a message too: Arabic sets a series with the Arabic
   // comma (،), and joining with a Latin one leaves a foreign mark mid-sentence.
   const lineStates = lineStateLabels.join(t("listSeparator")).toLowerCase();
 
   return (
-    <SellerLayout sellerName={seller.businessNameEn} tier={seller.tier} permissions={membership.permissions}>
+    <SellerLayout
+      sellerName={seller.businessNameEn}
+      tier={seller.tier}
+      permissions={membership.permissions}
+    >
       <div className="space-y-block">
         <div>
-          <Button variant="link" size="sm" asChild className="mb-2 -ms-1 px-1">
+          <Button variant="link" size="sm" asChild className="-ms-1 mb-2 px-1">
             <Link href="/orders">
               {/* The arrow is an icon that flips, not a literal "←" that cannot. */}
-              <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" /> {t("orderDetail.backToOrders")}
+              <ArrowLeft className="h-3.5 w-3.5 rtl:rotate-180" aria-hidden="true" />{" "}
+              {t("orderDetail.backToOrders")}
             </Link>
           </Button>
 
           <PageHeader
             eyebrow={t("orderDetail.eyebrow")}
             title={order.orderNumber}
-            description={`${buyer}${order.company?.nameEn ? ` · ${order.company.nameEn}` : ""} · ${format(order.createdAt, "MMM d, yyyy")}`}
+            description={`${buyer}${order.company?.nameEn ? ` · ${order.company.nameEn}` : ""} · ${new Intl.DateTimeFormat(locale, { year: "numeric", month: "short", day: "numeric" }).format(order.createdAt)}`}
             actions={
               <>
                 <StatusPill tone="neutral">
@@ -149,7 +166,7 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
                     pixels apart is how the two get read as one. */}
                 <StatusPill tone={status.tone} dot>
                   <span className="sr-only">{t("orderDetail.orderStatusLabel")}</span>
-                  {status.label}
+                  {statusLabel(status)}
                 </StatusPill>
               </>
             }
@@ -169,15 +186,13 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
           {offTrack ? (
             <div className="mt-2">
               <p className="u-body text-ink-1">
-                {noLines
-                  ? t("orderDetail.stage.noneNoLines")
-                  : t("orderDetail.stage.noneOffTrack")}
+                {noLines ? t("orderDetail.stage.noneNoLines") : t("orderDetail.stage.noneOffTrack")}
               </p>
               {!noLines && (
                 <Dateline className="mt-1">
                   {t("orderDetail.stage.recordedAs", {
                     states: lineStates,
-                    status: status.label.toLowerCase(),
+                    status: statusLabel(status),
                   })}
                 </Dateline>
               )}
@@ -212,17 +227,20 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
                             done
                               ? "bg-success text-success-fg"
                               : current
-                                // Raised current position rather than a coloured
-                                // bar: it survives both themes and spends none of
-                                // the portal's single primary fill.
-                                ? "bg-surface-2 text-ink-1 shadow-elev-3 ring-1 ring-border-strong"
+                                ? // Raised current position rather than a coloured
+                                  // bar: it survives both themes and spends none of
+                                  // the portal's single primary fill.
+                                  "bg-surface-2 text-ink-1 shadow-elev-3 ring-1 ring-border-strong"
                                 : "bg-surface-1 text-ink-3 ring-1 ring-hairline",
                           ].join(" ")}
                         >
                           {done ? (
                             <Check className="h-3.5 w-3.5" aria-hidden="true" />
                           ) : (
-                            <span className={`h-2 w-2 rounded-pill ${current ? "bg-ink-1" : "bg-ink-3/40"}`} aria-hidden="true" />
+                            <span
+                              className={`h-2 w-2 rounded-pill ${current ? "bg-ink-1" : "bg-ink-3/40"}`}
+                              aria-hidden="true"
+                            />
                           )}
                         </span>
                         <span
@@ -241,8 +259,10 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
                             ? t("orderDetail.stage.srCurrent")
                             : t("orderDetail.stage.srNotReached")}
                       </span>
-                      <Eyebrow className={`px-1 text-center ${done || current ? "text-ink-1" : "text-ink-3"}`}>
-                        {view.label}
+                      <Eyebrow
+                        className={`px-1 text-center ${done || current ? "text-ink-1" : "text-ink-3"}`}
+                      >
+                        {statusLabel(view)}
                       </Eyebrow>
                     </li>
                   );
@@ -253,10 +273,10 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
                 {preRelease
                   ? t("orderDetail.stage.preRelease", { states: lineStates })
                   : splitStages
-                    // A string, not a number: a bare number renders in the
-                    // locale's own numeral system, and this product sets every
-                    // figure in Western digits.
-                    ? t("orderDetail.stage.splitStages", { n: String(order.items.length) })
+                    ? // A string, not a number: a bare number renders in the
+                      // locale's own numeral system, and this product sets every
+                      // figure in Western digits.
+                      t("orderDetail.stage.splitStages", { n: String(order.items.length) })
                     : t("orderDetail.stage.position")}
               </Dateline>
             </>
@@ -285,7 +305,12 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
                 </div>
               ),
             },
-            { key: "quantity", label: t("orderDetail.lines.col.qty"), numeric: true, width: "72px" },
+            {
+              key: "quantity",
+              label: t("orderDetail.lines.col.qty"),
+              numeric: true,
+              width: "72px",
+            },
             {
               key: "unitPrice",
               label: t("orderDetail.lines.col.unitPrice"),
@@ -304,14 +329,18 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
               key: "total",
               label: t("orderDetail.lines.col.lineTotal"),
               numeric: true,
-              render: (item) => <span className="font-medium text-ink-1">{money(Number(item.total), order.currency)}</span>,
+              render: (item) => (
+                <span className="font-medium text-ink-1">
+                  {money(Number(item.total), order.currency)}
+                </span>
+              ),
             },
             {
               key: "status",
               label: t("orderDetail.lines.col.lineStatus"),
               render: (item) => {
                 const view = statusView(item.status);
-                return <StatusPill tone={view.tone}>{view.label}</StatusPill>;
+                return <StatusPill tone={view.tone}>{statusLabel(view)}</StatusPill>;
               },
             },
           ]}
@@ -336,7 +365,9 @@ export default async function SellerOrderDetailPage({ params }: { params: { id: 
           <Surface rung={2} className="overflow-hidden">
             <div className="flex items-baseline justify-between gap-4 px-4 py-2.5">
               <Eyebrow>{t("orderDetail.summary.subtotal")}</Eyebrow>
-              <span className="fig text-ui text-ink-2">{money(sellerSubtotal, order.currency)}</span>
+              <span className="fig text-ui text-ink-2">
+                {money(sellerSubtotal, order.currency)}
+              </span>
             </div>
             <Divider />
             <div className="flex items-baseline justify-between gap-4 px-4 py-2.5">

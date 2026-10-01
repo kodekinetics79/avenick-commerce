@@ -90,15 +90,18 @@ export function MobileNav({
   isActive,
 }: MobileNavProps) {
   const pathname = usePathname();
-  const ActionIcon = action.icon;
-  const DiscoveryIcon = discovery?.icon;
+  const ActionIcon = action.icon as any;
+  const DiscoveryIcon = discovery?.icon as any;
 
   // Layer has no Dialog.Trigger: the header owns the opener. Remember it before
   // the portal takes focus, and restore it only if navigation left focus idle.
   const opener = React.useRef<HTMLElement | null>(null);
   React.useLayoutEffect(() => {
-    if (open && document.activeElement instanceof HTMLElement &&
-        !document.activeElement.closest('[role="dialog"]')) {
+    if (
+      open &&
+      document.activeElement instanceof HTMLElement &&
+      !document.activeElement.closest('[role="dialog"]')
+    ) {
       opener.current = document.activeElement;
     }
   }, [open]);
@@ -117,11 +120,16 @@ export function MobileNav({
 
   function dismissOnNavigation(event: React.MouseEvent<HTMLAnchorElement>) {
     if (
-      event.defaultPrevented || event.button !== 0 ||
-      event.metaKey || event.ctrlKey || event.shiftKey || event.altKey ||
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey ||
       (event.currentTarget.target && event.currentTarget.target !== "_self") ||
       event.currentTarget.hasAttribute("download")
-    ) return;
+    )
+      return;
     // Includes Enter activation and links whose only change is the query.
     // Leave the event intact so Next and the browser still perform navigation.
     onOpenChange(false);
@@ -161,7 +169,12 @@ export function MobileNav({
     >
       <nav aria-label={navLabel} className="space-y-0.5">
         {items.map((item) => (
-          <MobileRow key={item.href} item={item} active={isActive(item.href)} onClick={dismissOnNavigation} />
+          <MobileRow
+            key={item.href}
+            item={item}
+            active={isActive(item.href)}
+            onClick={dismissOnNavigation}
+          />
         ))}
         {discovery && (
           <button
@@ -171,7 +184,12 @@ export function MobileNav({
             data-focus-lift=""
             className={cn(ROW, "text-ink-2 hover:bg-ink-1/[0.05] hover:text-ink-1")}
           >
-            {DiscoveryIcon && <DiscoveryIcon aria-hidden="true" className="h-[1.15rem] w-[1.15rem] shrink-0 text-ink-3" />}
+            {DiscoveryIcon && (
+              <DiscoveryIcon
+                aria-hidden="true"
+                className="h-[1.15rem] w-[1.15rem] shrink-0 text-ink-3"
+              />
+            )}
             <span className="truncate">{discovery.label}</span>
           </button>
         )}
@@ -184,13 +202,16 @@ export function MobileNav({
       </Eyebrow>
       <nav aria-label={accountLabel} className="space-y-0.5">
         {accountItems.map((item) => (
-          <MobileRow key={item.href} item={item} active={isActive(item.href)} onClick={dismissOnNavigation} />
+          <MobileRow
+            key={item.href}
+            item={item}
+            active={isActive(item.href)}
+            onClick={dismissOnNavigation}
+          />
         ))}
       </nav>
 
-      {signedInAs && (
-        <p className="u-meta mt-2 truncate px-4 text-ink-3">{signedInAs}</p>
-      )}
+      {signedInAs && <p className="u-meta mt-2 truncate px-4 text-ink-3">{signedInAs}</p>}
       <div className="mt-0.5">
         {signOut ? (
           <button
@@ -224,12 +245,16 @@ export function MobileNav({
   );
 }
 
-function MobileRow({ item, active, onClick }: {
+function MobileRow({
+  item,
+  active,
+  onClick,
+}: {
   item: MobileNavItem;
   active: boolean;
   onClick: React.MouseEventHandler<HTMLAnchorElement>;
 }) {
-  const Icon = item.icon;
+  const Icon = item.icon as any;
   return (
     <Link
       href={item.href}

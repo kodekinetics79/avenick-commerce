@@ -7,7 +7,14 @@ import { Building2, Users, ShoppingCart, FileText } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
 import {
-  Button, CellGrid, EmptyState, LedgerTable, PageHeader, Stat, StatusPill, type PillTone,
+  Button,
+  CellGrid,
+  EmptyState,
+  LedgerTable,
+  PageHeader,
+  Stat,
+  StatusPill,
+  type PillTone,
 } from "@avenick/ui";
 
 export const metadata = { title: "B2B Companies" };
@@ -32,12 +39,13 @@ const STATUS_CONFIG: Record<CompanyStatus, { label: string; tone: PillTone }> = 
 };
 
 interface PageProps {
-  searchParams: { status?: string; search?: string; page?: string };
+  searchParams: Promise<{ status?: string; search?: string; page?: string }>;
 }
 
 type Company = Awaited<ReturnType<typeof getAdminCompanies>>["companies"][number];
 
-export default async function CompaniesPage({ searchParams }: PageProps) {
+export default async function CompaniesPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   await requireAdminSession();
 
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
@@ -47,12 +55,18 @@ export default async function CompaniesPage({ searchParams }: PageProps) {
     : undefined;
   const search = searchParams.search?.trim() || undefined;
 
-  const { companies, total, statusCounts } = await getAdminCompanies({ page, limit, status, search });
+  const { companies, total, statusCounts } = await getAdminCompanies({
+    page,
+    limit,
+    status,
+    search,
+  });
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
   const countFor = (s: CompanyStatus) => statusCounts.find((c) => c.status === s)?._count._all ?? 0;
   const allCount = statusCounts.reduce((sum, c) => sum + c._count._all, 0);
-  const href = (next: Record<string, string | undefined>) => queryHref("/companies", searchParams, next);
+  const href = (next: Record<string, string | undefined>) =>
+    queryHref("/companies", searchParams, next);
   const filtered = Boolean(search || status);
 
   return (
@@ -112,7 +126,11 @@ export default async function CompaniesPage({ searchParams }: PageProps) {
               render: (c) => (
                 <>
                   <span className="block truncate font-medium text-ink-1">{c.nameEn}</span>
-                  {c.nameAr && <span className="u-meta block truncate text-ink-3" dir="rtl">{c.nameAr}</span>}
+                  {c.nameAr && (
+                    <span className="u-meta block truncate text-ink-3" dir="rtl">
+                      {c.nameAr}
+                    </span>
+                  )}
                 </>
               ),
             },
@@ -126,8 +144,12 @@ export default async function CompaniesPage({ searchParams }: PageProps) {
                   {/* Mono is for identifiers. A registration number that is not
                       recorded is stated as not recorded, never as an em dash
                       that could be read as zero. */}
-                  <span className="u-mono u-meta block text-ink-2">{c.crNumber ?? "No CR recorded"}</span>
-                  {c.vatNumber && <span className="u-mono u-meta block text-ink-3">{c.vatNumber}</span>}
+                  <span className="u-mono u-meta block text-ink-2">
+                    {c.crNumber ?? "No CR recorded"}
+                  </span>
+                  {c.vatNumber && (
+                    <span className="u-mono u-meta block text-ink-3">{c.vatNumber}</span>
+                  )}
                 </>
               ),
             },
@@ -136,7 +158,11 @@ export default async function CompaniesPage({ searchParams }: PageProps) {
               label: "Location",
               hideOnMobile: true,
               width: "144px",
-              render: (c) => <span className="u-meta text-ink-2">{c.city}, {c.country}</span>,
+              render: (c) => (
+                <span className="u-meta text-ink-2">
+                  {c.city}, {c.country}
+                </span>
+              ),
             },
             {
               key: "activity",
@@ -169,7 +195,9 @@ export default async function CompaniesPage({ searchParams }: PageProps) {
               render: (c) =>
                 c.creditLimit ? (
                   <>
-                    <span className="block text-ink-1">{Number(c.creditLimit).toLocaleString()}</span>
+                    <span className="block text-ink-1">
+                      {Number(c.creditLimit).toLocaleString()}
+                    </span>
                     <span className="u-meta block text-ink-3">{c.paymentTerms}d terms</span>
                   </>
                 ) : (
@@ -191,14 +219,18 @@ export default async function CompaniesPage({ searchParams }: PageProps) {
               label: "Joined",
               hideOnMobile: true,
               width: "104px",
-              render: (c) => <span className="tnum text-ink-2">{format(c.createdAt, "d MMM yyyy")}</span>,
+              render: (c) => (
+                <span className="tnum text-ink-2">{format(c.createdAt, "d MMM yyyy")}</span>
+              ),
             },
             {
               key: "decision",
               label: "Decision",
               align: "end",
               width: "176px",
-              render: (c) => <CompanyStatusActions companyId={c.id} name={c.nameEn} status={c.status} />,
+              render: (c) => (
+                <CompanyStatusActions companyId={c.id} name={c.nameEn} status={c.status} />
+              ),
             },
           ]}
           footer={

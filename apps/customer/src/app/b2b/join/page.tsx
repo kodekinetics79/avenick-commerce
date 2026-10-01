@@ -39,10 +39,13 @@ type JoinResponse = { success?: boolean; error?: string; message?: string };
  * address reaches the rate limiter — see the long note in /b2b/register, which
  * this mirrors deliberately.
  */
-async function joinCompanyAction(_prev: B2BActionState, formData: FormData): Promise<B2BActionState> {
+async function joinCompanyAction(
+  _prev: B2BActionState,
+  formData: FormData,
+): Promise<B2BActionState> {
   "use server";
 
-  const t: B2BT = b2bT(cookies().get("AVENICK_LOCALE")?.value);
+  const t: B2BT = b2bT((await cookies()).get("AVENICK_LOCALE")?.value);
 
   const value = (key: string) => String(formData.get(key) ?? "").trim();
   const payload = {
@@ -59,7 +62,7 @@ async function joinCompanyAction(_prev: B2BActionState, formData: FormData): Pro
     language: value("language"),
   };
 
-  const store = headers();
+  const store = await headers();
   let url: string;
   try {
     url = backendUrl(
@@ -110,7 +113,9 @@ export default async function B2BJoinPage() {
           <UserPlus className="h-3.5 w-3.5" aria-hidden="true" /> {t("join.eyebrow")}
         </Eyebrow>
         <h1 className="u-hero text-ink-1">{t("join.title")}</h1>
-        <p className="u-lead mt-5 max-w-prose text-ink-2">{t("join.lead", { platform: platformName() })}</p>
+        <p className="u-lead mt-5 max-w-prose text-ink-2">
+          {t("join.lead", { platform: platformName() })}
+        </p>
 
         {/* The three gates, stated before the form rather than discovered one
             refusal at a time. Every line here is something the endpoint
@@ -131,7 +136,13 @@ export default async function B2BJoinPage() {
         <ValidatedForm action={joinCompanyAction} rung={1} className="mt-6 p-5">
           <div className="grid items-start gap-x-3 gap-y-4 sm:grid-cols-2">
             <Field label={t("join.cr")} hint={t("join.cr.hint")}>
-              <TextField name="crNumber" required minLength={5} maxLength={30} inputMode="numeric" />
+              <TextField
+                name="crNumber"
+                required
+                minLength={5}
+                maxLength={30}
+                inputMode="numeric"
+              />
             </Field>
             {/* Half of the lookup key, not a preference. A CR identifies a
                 company only within the registry that issued it, so without this
@@ -148,10 +159,22 @@ export default async function B2BJoinPage() {
               </SelectField>
             </Field>
             <Field label={t("join.firstName")}>
-              <TextField name="firstName" required minLength={2} maxLength={50} autoComplete="given-name" />
+              <TextField
+                name="firstName"
+                required
+                minLength={2}
+                maxLength={50}
+                autoComplete="given-name"
+              />
             </Field>
             <Field label={t("join.lastName")}>
-              <TextField name="lastName" required minLength={2} maxLength={50} autoComplete="family-name" />
+              <TextField
+                name="lastName"
+                required
+                minLength={2}
+                maxLength={50}
+                autoComplete="family-name"
+              />
             </Field>
             <div className="sm:col-span-2">
               <Field label={t("join.email")} hint={t("join.email.hint")}>
@@ -187,13 +210,18 @@ export default async function B2BJoinPage() {
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <Dateline>{t("join.basis")}</Dateline>
-            <Button type="submit" variant="primary">{t("join.submit")}</Button>
+            <Button type="submit" variant="primary">
+              {t("join.submit")}
+            </Button>
           </div>
         </ValidatedForm>
 
         <p className="u-meta mt-6 text-ink-3">
           {t("join.instead")}{" "}
-          <Link href="/b2b/register" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
+          <Link
+            href="/b2b/register"
+            className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+          >
             <Building2 className="me-1 inline h-3.5 w-3.5" aria-hidden="true" />
             {t("join.instead.link")}
           </Link>
@@ -209,7 +237,15 @@ export default async function B2BJoinPage() {
  * reason it is local there — it is four lines of markup, and a shared component
  * would be a second place to look for something neither page ever varies.
  */
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Field({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
       <span className="u-ui mb-1.5 block font-medium text-ink-1">{label}</span>

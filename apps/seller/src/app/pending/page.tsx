@@ -39,7 +39,8 @@ async function latestRejectionReason(sellerId: string): Promise<string | null> {
   return typeof reason === "string" && reason.trim() ? reason.trim() : null;
 }
 
-const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const fmtDate = (d: Date) =>
+  d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 /**
  * Where a signed-in seller lands when their organisation is not ACTIVE.
@@ -58,13 +59,16 @@ export default async function PendingPage() {
   // permissions the same way the root page does (owners → /dashboard).
   if (seller?.status === "ACTIVE") redirect(sellerLandingRoute(membership?.permissions ?? []));
 
-  const rejectionReason = seller?.status === "REJECTED" ? await latestRejectionReason(seller.id) : null;
+  const rejectionReason =
+    seller?.status === "REJECTED" ? await latestRejectionReason(seller.id) : null;
   // /documents admits a seller under review, but for staff it still demands
   // the documents capability; a link that lands on a permission error would
   // be a dead end dressed up as a next step.
   const permissions = membership?.permissions ?? [];
   const canOpenDocuments =
-    permissions.includes("*") || permissions.includes("documents.view") || permissions.includes("documents.manage");
+    permissions.includes("*") ||
+    permissions.includes("documents.view") ||
+    permissions.includes("documents.manage");
   const support = platformContacts().support;
   const brand = platformName();
 
@@ -96,7 +100,12 @@ export default async function PendingPage() {
                     {t.rich("pending.noOrg.askOwnerWithSupport", {
                       support,
                       link: (chunks) => (
-                        <a href={`mailto:${support}`} className="u-focus rounded-nested font-medium text-primary-ink underline">{chunks}</a>
+                        <a
+                          href={`mailto:${support}`}
+                          className="u-focus rounded-nested font-medium text-primary-ink underline"
+                        >
+                          {chunks}
+                        </a>
                       ),
                     })}
                   </>
@@ -144,16 +153,19 @@ export default async function PendingPage() {
                 </FieldWell>
               )}
               <p>
-                {support ? (
-                  t.rich("pending.rejected.contactSupportAt", {
-                    support,
-                    link: (chunks) => (
-                      <a href={`mailto:${support}`} className="u-focus rounded-nested font-medium text-primary-ink underline">{chunks}</a>
-                    ),
-                  })
-                ) : (
-                  t("pending.rejected.contactSupport")
-                )}
+                {support
+                  ? t.rich("pending.rejected.contactSupportAt", {
+                      support,
+                      link: (chunks) => (
+                        <a
+                          href={`mailto:${support}`}
+                          className="u-focus rounded-nested font-medium text-primary-ink underline"
+                        >
+                          {chunks}
+                        </a>
+                      ),
+                    })
+                  : t("pending.rejected.contactSupport")}
               </p>
             </StatusBlock>
           ) : (
@@ -169,7 +181,12 @@ export default async function PendingPage() {
                     {t.rich("pending.suspended.contactSupportAt", {
                       support,
                       link: (chunks) => (
-                        <a href={`mailto:${support}`} className="u-focus rounded-nested font-medium text-primary-ink underline">{chunks}</a>
+                        <a
+                          href={`mailto:${support}`}
+                          className="u-focus rounded-nested font-medium text-primary-ink underline"
+                        >
+                          {chunks}
+                        </a>
                       ),
                     })}
                   </>
@@ -181,6 +198,7 @@ export default async function PendingPage() {
           )}
 
           <form
+            noValidate
             action={async () => {
               "use server";
               await signOut({ redirectTo: "/login" });
@@ -219,7 +237,9 @@ function StatusBlock({
 }) {
   return (
     <div className="flex gap-4">
-      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-nested ${TONE_CLASS[tone]}`}>
+      <span
+        className={`grid h-10 w-10 shrink-0 place-items-center rounded-nested ${TONE_CLASS[tone]}`}
+      >
         <Icon className="h-5 w-5" aria-hidden="true" />
       </span>
       {/* ink-2, not ink-3: ink-3 is for labels and metadata, and these are

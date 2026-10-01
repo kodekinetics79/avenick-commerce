@@ -725,6 +725,38 @@ html {
   /* Gated rather than unconditional: smooth scrolling is motion the user did
      not ask for, and the reduced-motion block at the end turns it off. */
   scroll-behavior: smooth;
+  scrollbar-color: hsl(var(--border-strong)) hsl(var(--surface-1));
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+}
+
+/* Scrollbar colour is application chrome, not an opt-in decoration. Standards
+   properties above cover Firefox and inherit into owned scroll regions; these
+   selectors provide the equivalent geometry and state treatment in Blink and
+   WebKit. Component classes below only change deliberate geometry. */
+:where(html, body, body *)::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+:where(html, body, body *)::-webkit-scrollbar-track {
+  background: hsl(var(--surface-1));
+}
+
+:where(html, body, body *)::-webkit-scrollbar-thumb {
+  min-width: 32px;
+  min-height: 32px;
+  border: 2px solid hsl(var(--surface-1));
+  border-radius: var(--radius-pill);
+  background: hsl(var(--border-strong));
+}
+
+:where(html, body, body *)::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--ink-3));
+}
+
+:where(html, body, body *)::-webkit-scrollbar-thumb:active {
+  background: hsl(var(--ink-2));
 }
 
 body {
@@ -2673,13 +2705,16 @@ p, .u-lead, .u-body { text-wrap: pretty; }
 
 .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 .scrollbar-hide::-webkit-scrollbar { display: none; }
-.scrollbar-thin { scrollbar-width: thin; scrollbar-color: hsl(var(--border-strong)) transparent; }
+.scrollbar-thin { scrollbar-width: thin; scrollbar-gutter: stable; }
 .scrollbar-thin::-webkit-scrollbar { height: 8px; width: 8px; }
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background-color: hsl(var(--border-strong));
-  border-radius: var(--radius-pill);
+  border-width: 1px;
 }
-.scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+.scrollbar-thin::-webkit-scrollbar-track { background: hsl(var(--surface-1)); }
+
+@media (forced-colors: active) {
+  html { scrollbar-color: auto; }
+}
 
 /* ────────────────────────────────────────────────────────────────────────────
    12. THEME SWITCH.

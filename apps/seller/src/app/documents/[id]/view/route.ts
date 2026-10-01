@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { db } from "@avenick/database";
 import { isRecordId } from "@avenick/utils";
-import { browserDirectUploadsEnabled, isKeyInUploadNamespace } from "@avenick/utils/browser-upload-policy";
+import {
+  browserDirectUploadsEnabled,
+  isKeyInUploadNamespace,
+} from "@avenick/utils/browser-upload-policy";
 import { presignGetUrl } from "@avenick/utils/s3";
 import { ONBOARDING_SELLER_STATUSES, requireSellerAnyPermission } from "@/lib/auth";
 
@@ -40,7 +43,8 @@ function isFollowableLink(fileUrl: string): boolean {
   }
 }
 
-export async function GET(_request: Request, { params }: { params: { id: string } }) {
+export async function GET(_request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!isRecordId(params.id)) notFound();
   // These bodies are read by the seller in a browser tab, so they are written
   // in the reader's language like every other refusal in this portal.
@@ -74,11 +78,17 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 
   if (isKeyInUploadNamespace(document.fileUrl, { kind: "seller", sellerId }, "seller-document")) {
     if (!browserDirectUploadsEnabled()) {
-      return new NextResponse(t("documentView.storageUnavailable"), { status: 503, headers: NO_STORE });
+      return new NextResponse(t("documentView.storageUnavailable"), {
+        status: 503,
+        headers: NO_STORE,
+      });
     }
     // The helper's default TTL (minutes, not hours) is the whole lifetime of
     // this link; the browser follows it immediately.
-    return NextResponse.redirect(presignGetUrl(document.fileUrl), { status: 302, headers: NO_STORE });
+    return NextResponse.redirect(presignGetUrl(document.fileUrl), {
+      status: 302,
+      headers: NO_STORE,
+    });
   }
 
   if (isFollowableLink(document.fileUrl)) {

@@ -15,9 +15,10 @@ import {
   StatusPill,
   type PillTone,
 } from "@avenick/ui";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { ProductControls } from "./product-controls";
 import { statusLabel } from "@/app/approvals/status-labels";
+import { Pager, queryHref } from "@/components/console/chrome";
 
 export async function generateMetadata() {
   const t = await getTranslations("adminReview");
@@ -25,7 +26,13 @@ export async function generateMetadata() {
 }
 
 /** Queues an operator works, in the order they are worked. */
-const STATUS_TABS: ProductStatus[] = ["PENDING_REVIEW", "ACTIVE", "INACTIVE", "SUPPRESSED", "REJECTED"];
+const STATUS_TABS: ProductStatus[] = [
+  "PENDING_REVIEW",
+  "ACTIVE",
+  "INACTIVE",
+  "SUPPRESSED",
+  "REJECTED",
+];
 
 /** Enum → tone. Four semantic states, which is all an operator distinguishes. */
 const STATUS_TONE: Record<ProductStatus, PillTone> = {
@@ -44,17 +51,30 @@ function isProductStatus(value: unknown): value is ProductStatus {
   return typeof value === "string" && Object.prototype.hasOwnProperty.call(ProductStatus, value);
 }
 
-export default async function AdminProductsPage({ searchParams }: { searchParams: { status?: string } }) {
+export default async function AdminProductsPage(props: {
+  searchParams: Promise<{ status?: string; page?: string }>;
+}) {
+  const searchParams = await props.searchParams;
   await requireAdminSession();
   const t = await getTranslations("adminReview");
+  const locale = await getLocale();
+  const numberLocale = locale === "ar" ? "ar-u-nu-latn" : "en-AE";
   // An unknown status is a stale link, not a query to run: fall back to the queue.
-  const status: ProductStatus = isProductStatus(searchParams.status) ? searchParams.status : "PENDING_REVIEW";
+  const status: ProductStatus = isProductStatus(searchParams.status)
+    ? searchParams.status
+    : "PENDING_REVIEW";
   const pendingCount = await db.sellerProfile.count({ where: { status: "PENDING_REVIEW" } });
 
   const where = { deletedAt: null, status } as const;
   const totalInStatus = await db.product.count({ where });
+  const totalPages = Math.max(1, Math.ceil(totalInStatus / PAGE_SIZE));
+  const requestedPage = Math.max(1, parseInt(searchParams.page ?? "1", 10) || 1);
+  const page = Math.min(requestedPage, totalPages);
+  const href = (next: Record<string, string | undefined>) =>
+    queryHref("/products", searchParams, next);
   const products = await db.product.findMany({
     where,
+    skip: (page - 1) * PAGE_SIZE,
     take: PAGE_SIZE,
     orderBy: { createdAt: "desc" },
     include: {
@@ -63,9 +83,15 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
       category: { select: { nameEn: true } },
       // The open suppression reason, so the operator restoring a listing can
       // see why it was taken down without opening the audit trail.
-      issues: status === "SUPPRESSED"
-        ? { where: { issueType: "SUPPRESSED", resolvedAt: null }, orderBy: { createdAt: "desc" }, take: 1, select: { message: true, createdAt: true } }
-        : false,
+      issues:
+        status === "SUPPRESSED"
+          ? {
+              where: { issueType: "SUPPRESSED", resolvedAt: null },
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              select: { message: true, createdAt: true },
+            }
+          : false,
     },
   });
 
@@ -90,8 +116,10 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
           dateline={
             totalInStatus > products.length
               ? t("products.datelineTruncated", {
-                  shown: products.length.toLocaleString("en-US"),
-                  total: totalInStatus.toLocaleString("en-US"),
+                  shown: products.length.toLocaleString(numberLocale),
+                  total: totalInStatus.toLocaleString(numberLocale),
+                  page: page.toLocaleString(numberLocale),
+                  pages: totalPages.toLocaleString(numberLocale),
                 })
               : t("products.dateline")
           }
@@ -99,11 +127,15 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
 
         {/* Recessed strip, raised current item: the same gesture as the sidebar,
             so a queue selector reads as "where you are" rather than as a chip. */}
-        <FieldWell as="nav" aria-label={t("products.filterLabel")} className="flex flex-wrap gap-1 p-1">
+        <FieldWell
+          as="nav"
+          aria-label={t("products.filterLabel")}
+          className="flex flex-wrap gap-1 p-1"
+        >
           {STATUS_TABS.map((tab) => (
             <NavItem
               key={tab}
-              href={`/products?status=${tab}`}
+              href={href({ status: tab })}
               label={statusLabel(t, tab)}
               orientation="horizontal"
               active={status === tab}
@@ -134,7 +166,13 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
                       the same object the storefront uses. */}
                   <ImageFrame className="h-8 w-8 shrink-0 rounded-nested" alt={p.nameEn}>
                     {p.images[0] && (
-                      <Image src={p.images[0].url} alt={p.nameEn} width={32} height={32} sizes="32px" />
+                      <Image
+                        src={p.images[0].url}
+                        alt={p.nameEn}
+                        width={32}
+                        height={32}
+                        sizes="32px"
+                      />
                     )}
                   </ImageFrame>
                   <div className="min-w-0">
@@ -149,7 +187,10 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
               key: "seller",
               label: t("products.columns.seller"),
               render: (p) => (
-                <Link href={`/sellers/${p.seller.id}`} className="u-focus rounded-nested text-primary-ink hover:underline">
+                <Link
+                  href={`/sellers/${p.seller.id}`}
+                  className="u-focus rounded-nested text-primary-ink hover:underline"
+                >
                   {p.seller.businessNameEn}
                 </Link>
               ),
@@ -188,7 +229,9 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
                 const suppression = Array.isArray(p.issues) ? p.issues[0] : undefined;
                 return (
                   <div className="space-y-1">
-                    <StatusPill tone={STATUS_TONE[p.status] ?? "neutral"}>{statusLabel(t, p.status)}</StatusPill>
+                    <StatusPill tone={STATUS_TONE[p.status] ?? "neutral"}>
+                      {statusLabel(t, p.status)}
+                    </StatusPill>
                     {suppression && (
                       <p className="u-meta max-w-[32ch] text-ink-2" title={suppression.message}>
                         <span className="text-ink-3">{t("products.reason")}</span>
@@ -208,12 +251,26 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
                   <ProductControls
                     productId={p.id}
                     status={p.status}
-                    restoreTarget={p.status === "SUPPRESSED" ? (p.publishedAt ? "ACTIVE" : "DRAFT") : undefined}
+                    restoreTarget={
+                      p.status === "SUPPRESSED" ? (p.publishedAt ? "ACTIVE" : "DRAFT") : undefined
+                    }
                   />
                 </div>
               ),
             },
           ]}
+          footer={
+            <Pager
+              page={page}
+              totalPages={totalPages}
+              hrefFor={(nextPage) => href({ page: String(nextPage), status })}
+              summary={t("products.pager", {
+                count: totalInStatus,
+                total: totalInStatus.toLocaleString(numberLocale),
+                status: statusInline,
+              })}
+            />
+          }
           empty={
             <EmptyState
               eyebrow={t("products.empty.eyebrow")}

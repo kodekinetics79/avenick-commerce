@@ -58,7 +58,11 @@ export async function generateMetadata() {
 // terms are whatever is recorded on an approved company account, and there is
 // no self-service credit application (see the Terms of Service).
 const FEATURES: Array<{ icon: typeof TrendingUp; titleKey: B2BKey; descKey: B2BKey }> = [
-  { icon: TrendingUp, titleKey: "register.feature.pricing", descKey: "register.feature.pricing.desc" },
+  {
+    icon: TrendingUp,
+    titleKey: "register.feature.pricing",
+    descKey: "register.feature.pricing.desc",
+  },
   { icon: FileText, titleKey: "register.feature.po", descKey: "register.feature.po.desc" },
   { icon: Users, titleKey: "register.feature.team", descKey: "register.feature.team.desc" },
   { icon: ShieldCheck, titleKey: "register.feature.terms", descKey: "register.feature.terms.desc" },
@@ -159,7 +163,7 @@ async function registerBusinessAction(
   // render, and the three sentences below are the ones an applicant sees at the
   // exact moment something has gone wrong — the worst possible place for the one
   // line on an Arabic page that is not in Arabic.
-  const t: B2BT = b2bT(cookies().get("AVENICK_LOCALE")?.value);
+  const t: B2BT = b2bT((await cookies()).get("AVENICK_LOCALE")?.value);
 
   const value = (key: string) => String(formData.get(key) ?? "").trim();
   const payload = {
@@ -180,7 +184,7 @@ async function registerBusinessAction(
     language: value("language"),
   };
 
-  const store = headers();
+  const store = await headers();
   let url: string;
   try {
     url = backendUrl(
@@ -256,7 +260,9 @@ async function registerBusinessAction(
   }
   return {
     ok: true,
-    message: t("register.created", { status: json.data?.companyStatus ?? t("register.created.unreported") }),
+    message: t("register.created", {
+      status: json.data?.companyStatus ?? t("register.created.unreported"),
+    }),
   };
 }
 
@@ -290,7 +296,11 @@ function Notice({
   children: React.ReactNode;
 }) {
   const ink =
-    tone === "warning" ? "text-warning-ink" : tone === "success" ? "text-success-ink" : "text-ink-3";
+    tone === "warning"
+      ? "text-warning-ink"
+      : tone === "success"
+        ? "text-success-ink"
+        : "text-ink-3";
   return (
     <Surface rung={2} tone={tone} className="p-6">
       <div className="flex items-start gap-3">
@@ -304,11 +314,10 @@ function Notice({
   );
 }
 
-export default async function B2BRegisterPage({
-  searchParams,
-}: {
-  searchParams: { submitted?: string };
+export default async function B2BRegisterPage(props: {
+  searchParams: Promise<{ submitted?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const { t, f, locale } = await getB2B();
   const session = await auth();
   const userId = session?.user?.id;
@@ -389,7 +398,9 @@ export default async function B2BRegisterPage({
                 {/* Static dot, never pulsing: this page is visited repeatedly by
                     someone who can do nothing about it, and a pulsing indicator
                     on a wait they cannot shorten is fatigue, not information. */}
-                <StatusPill tone="warning" dot>{t("status.pill.review")}</StatusPill>
+                <StatusPill tone="warning" dot>
+                  {t("status.pill.review")}
+                </StatusPill>
               </div>
               <p className="u-lead mt-3 max-w-prose text-ink-2">
                 {t("status.lead", { platform: platformName() })}
@@ -442,7 +453,10 @@ export default async function B2BRegisterPage({
                 question a returning applicant came with. */}
             <Surface rung={2} tone="warning" className="p-5 sm:p-6">
               <div className="flex items-start gap-3">
-                <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-warning-ink" aria-hidden="true" />
+                <CheckCircle
+                  className="mt-0.5 h-5 w-5 shrink-0 text-warning-ink"
+                  aria-hidden="true"
+                />
                 <div className="u-body space-y-2 text-ink-2">
                   <h2 className="u-h3 text-ink-1">{t("status.next")}</h2>
                   <p>{t("status.next.nothingToDo")}</p>
@@ -453,8 +467,12 @@ export default async function B2BRegisterPage({
             </Surface>
 
             <div className="flex flex-wrap gap-2">
-              <Button asChild variant="secondary"><Link href="/products">{t("common.browseCatalogue")}</Link></Button>
-              <Button asChild variant="ghost"><Link href="/support">{t("register.support")}</Link></Button>
+              <Button asChild variant="secondary">
+                <Link href="/products">{t("common.browseCatalogue")}</Link>
+              </Button>
+              <Button asChild variant="ghost">
+                <Link href="/support">{t("register.support")}</Link>
+              </Button>
             </div>
           </div>
         </MainLayout>
@@ -463,20 +481,34 @@ export default async function B2BRegisterPage({
 
     return (
       <MainLayout>
-        <div className="max-w-2xl mx-auto px-4 py-16 space-y-4">
+        <div className="mx-auto max-w-2xl space-y-4 px-4 py-16">
           {suspended ? (
-            <Notice icon={AlertCircle} tone="warning" title={t("register.suspended.title", { company: companyName })}>
-              <p>{company.deletedAt ? t("register.suspended.closed") : t("register.suspended.body")}</p>
+            <Notice
+              icon={AlertCircle}
+              tone="warning"
+              title={t("register.suspended.title", { company: companyName })}
+            >
+              <p>
+                {company.deletedAt ? t("register.suspended.closed") : t("register.suspended.body")}
+              </p>
             </Notice>
           ) : (
-            <Notice icon={AlertCircle} tone="warning" title={t("register.inactive.title", { company: companyName })}>
+            <Notice
+              icon={AlertCircle}
+              tone="warning"
+              title={t("register.inactive.title", { company: companyName })}
+            >
               <p>{t("register.inactive.body")}</p>
             </Notice>
           )}
 
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="secondary"><Link href="/products">{t("common.browseCatalogue")}</Link></Button>
-            <Button asChild variant="ghost"><Link href="/support">{t("register.support")}</Link></Button>
+            <Button asChild variant="secondary">
+              <Link href="/products">{t("common.browseCatalogue")}</Link>
+            </Button>
+            <Button asChild variant="ghost">
+              <Link href="/support">{t("register.support")}</Link>
+            </Button>
           </div>
         </div>
       </MainLayout>
@@ -486,14 +518,18 @@ export default async function B2BRegisterPage({
   if (searchParams.submitted === "1") {
     return (
       <MainLayout>
-        <div className="max-w-2xl mx-auto px-4 py-16 space-y-4">
+        <div className="mx-auto max-w-2xl space-y-4 px-4 py-16">
           <Notice icon={CheckCircle2} tone="success" title={t("register.submitted.title")}>
             <p>{t("register.submitted.body")}</p>
             <p>{t("register.submitted.body2")}</p>
           </Notice>
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="primary"><Link href={SIGN_IN_HREF}>{t("register.signIn")}</Link></Button>
-            <Button asChild variant="secondary"><Link href="/products">{t("common.browseCatalogue")}</Link></Button>
+            <Button asChild variant="primary">
+              <Link href={SIGN_IN_HREF}>{t("register.signIn")}</Link>
+            </Button>
+            <Button asChild variant="secondary">
+              <Link href="/products">{t("common.browseCatalogue")}</Link>
+            </Button>
           </div>
         </div>
       </MainLayout>
@@ -516,7 +552,7 @@ export default async function B2BRegisterPage({
   if (userId) {
     return (
       <MainLayout>
-        <div className="max-w-2xl mx-auto px-4 py-16 space-y-4">
+        <div className="mx-auto max-w-2xl space-y-4 px-4 py-16">
           <Notice icon={AlertCircle} tone="accent" title={t("register.signedIn.title")}>
             <p>{t("register.signedIn.body")}</p>
           </Notice>
@@ -527,9 +563,13 @@ export default async function B2BRegisterPage({
                 await signOut({ redirectTo: "/b2b/register" });
               }}
             >
-              <Button type="submit" variant="primary">{t("register.signOut")}</Button>
+              <Button type="submit" variant="primary">
+                {t("register.signOut")}
+              </Button>
             </form>
-            <Button asChild variant="secondary"><Link href="/products">{t("common.browseCatalogue")}</Link></Button>
+            <Button asChild variant="secondary">
+              <Link href="/products">{t("common.browseCatalogue")}</Link>
+            </Button>
           </div>
         </div>
       </MainLayout>
@@ -546,7 +586,7 @@ export default async function B2BRegisterPage({
 
   return (
     <MainLayout>
-      <div className="max-w-6xl mx-auto px-4 py-section">
+      <div className="mx-auto max-w-6xl px-4 py-section">
         {/* ══ THE OPENING ═══════════════════════════════════════════════════
             A 12-column asymmetric composition rather than a stack: seven
             columns of type against four holding one composed object, both
@@ -566,7 +606,9 @@ export default async function B2BRegisterPage({
             <Eyebrow className="mb-3 flex items-center gap-1.5">
               <Building2 className="h-3.5 w-3.5" aria-hidden="true" /> {t("register.eyebrow")}
             </Eyebrow>
-            <h1 className="u-hero text-ink-1">{t("register.title", { platform: platformName() })}</h1>
+            <h1 className="u-hero text-ink-1">
+              {t("register.title", { platform: platformName() })}
+            </h1>
             <p lang={secondLang} dir={secondDir} className="u-h2 mt-3 font-normal text-ink-3">
               {/* `titleAlt`, not `titleAr`: in the AR catalogue this key holds
                   the ENGLISH line, which is exactly what the composition above
@@ -593,7 +635,10 @@ export default async function B2BRegisterPage({
                 long page, not after filling it in. */}
             <p className="u-ui mt-4 text-ink-2">
               {t("register.haveAccount")}{" "}
-              <Link href={SIGN_IN_HREF} className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
+              <Link
+                href={SIGN_IN_HREF}
+                className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+              >
                 {t("register.signIn")}
               </Link>
             </p>
@@ -607,7 +652,10 @@ export default async function B2BRegisterPage({
                 someone in the wrong place finds out at the TOP. */}
             <p className="u-ui mt-2 text-ink-2">
               {t("register.joinInstead")}{" "}
-              <Link href="/b2b/join" className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
+              <Link
+                href="/b2b/join"
+                className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+              >
                 {t("register.joinInstead.link")}
               </Link>
             </p>
@@ -660,34 +708,93 @@ export default async function B2BRegisterPage({
             <ValidatedForm action={registerBusinessAction} className="space-y-block">
               <section>
                 <Eyebrow className="mb-3 flex items-center gap-1.5">
-                  <Building2 className="h-3.5 w-3.5" aria-hidden="true" /> {t("register.section.company")}
+                  <Building2 className="h-3.5 w-3.5" aria-hidden="true" />{" "}
+                  {t("register.section.company")}
                 </Eyebrow>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <ValidatedTextField name="companyNameEn" label={t("register.field.nameEn")} required minLength={2} maxLength={100} autoComplete="organization" />
-                  <ValidatedTextField name="companyNameAr" label={t("register.field.nameAr")} minLength={2} maxLength={100} lang="ar" dir="rtl" placeholder={t("register.field.nameAr.placeholder")} />
-                  <ValidatedTextField name="crNumber" label={t("register.field.cr")} required minLength={5} maxLength={30} />
-                  <ValidatedTextField name="vatNumber" label={t("register.field.vat")} hint={t("register.field.vat.hint")} maxLength={30} />
-                  <ValidatedSelectField name="industry" label={t("register.field.industry")} required defaultValue="">
-                    <option value="" disabled>{t("register.field.industry.select")}</option>
+                  <ValidatedTextField
+                    name="companyNameEn"
+                    label={t("register.field.nameEn")}
+                    required
+                    minLength={2}
+                    maxLength={100}
+                    autoComplete="organization"
+                  />
+                  <ValidatedTextField
+                    name="companyNameAr"
+                    label={t("register.field.nameAr")}
+                    minLength={2}
+                    maxLength={100}
+                    lang="ar"
+                    dir="rtl"
+                    placeholder={t("register.field.nameAr.placeholder")}
+                  />
+                  <ValidatedTextField
+                    name="crNumber"
+                    label={t("register.field.cr")}
+                    required
+                    minLength={5}
+                    maxLength={30}
+                  />
+                  <ValidatedTextField
+                    name="vatNumber"
+                    label={t("register.field.vat")}
+                    hint={t("register.field.vat.hint")}
+                    maxLength={30}
+                  />
+                  <ValidatedSelectField
+                    name="industry"
+                    label={t("register.field.industry")}
+                    required
+                    defaultValue=""
+                  >
+                    <option value="" disabled>
+                      {t("register.field.industry.select")}
+                    </option>
                     {INDUSTRY_VALUES.map((v) => (
-                      <option key={v} value={v}>{t(INDUSTRY_LABELS[v])}</option>
+                      <option key={v} value={v}>
+                        {t(INDUSTRY_LABELS[v])}
+                      </option>
                     ))}
                   </ValidatedSelectField>
-                  <ValidatedSelectField name="companySize" label={t("register.field.size")} required defaultValue="">
-                    <option value="" disabled>{t("register.field.size.select")}</option>
+                  <ValidatedSelectField
+                    name="companySize"
+                    label={t("register.field.size")}
+                    required
+                    defaultValue=""
+                  >
+                    <option value="" disabled>
+                      {t("register.field.size.select")}
+                    </option>
                     {COMPANY_SIZE_VALUES.map((v) => (
-                      <option key={v} value={v}>{t(COMPANY_SIZE_LABELS[v])}</option>
+                      <option key={v} value={v}>
+                        {t(COMPANY_SIZE_LABELS[v])}
+                      </option>
                     ))}
                   </ValidatedSelectField>
-                  <ValidatedSelectField name="country" label={t("register.field.country")} required defaultValue="">
-                    <option value="" disabled>{t("register.field.country.select")}</option>
+                  <ValidatedSelectField
+                    name="country"
+                    label={t("register.field.country")}
+                    required
+                    defaultValue=""
+                  >
+                    <option value="" disabled>
+                      {t("register.field.country.select")}
+                    </option>
                     {COUNTRY_OPTIONS.map(([code, name]) => (
                       <option key={code} value={code}>
                         {COUNTRY_LABELS[code] ? t(COUNTRY_LABELS[code]!) : name}
                       </option>
                     ))}
                   </ValidatedSelectField>
-                  <ValidatedTextField name="city" label={t("register.field.city")} required minLength={2} maxLength={50} autoComplete="address-level2" />
+                  <ValidatedTextField
+                    name="city"
+                    label={t("register.field.city")}
+                    required
+                    minLength={2}
+                    maxLength={50}
+                    autoComplete="address-level2"
+                  />
                 </div>
               </section>
 
@@ -696,17 +803,58 @@ export default async function B2BRegisterPage({
                   <Users className="h-3.5 w-3.5" aria-hidden="true" /> {t("register.section.admin")}
                 </Eyebrow>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <ValidatedTextField name="firstName" label={t("register.field.firstName")} required minLength={2} maxLength={50} autoComplete="given-name" />
-                  <ValidatedTextField name="lastName" label={t("register.field.lastName")} required minLength={2} maxLength={50} autoComplete="family-name" />
-                  <ValidatedTextField type="email" name="email" label={t("register.field.email")} required autoComplete="email" />
-                  <ValidatedTextField type="tel" name="phone" label={t("register.field.phone")} hint={t("register.field.phone.hint")} pattern="\+[1-9][0-9]{7,14}" autoComplete="tel" />
+                  <ValidatedTextField
+                    name="firstName"
+                    label={t("register.field.firstName")}
+                    required
+                    minLength={2}
+                    maxLength={50}
+                    autoComplete="given-name"
+                  />
+                  <ValidatedTextField
+                    name="lastName"
+                    label={t("register.field.lastName")}
+                    required
+                    minLength={2}
+                    maxLength={50}
+                    autoComplete="family-name"
+                  />
+                  <ValidatedTextField
+                    type="email"
+                    name="email"
+                    label={t("register.field.email")}
+                    required
+                    autoComplete="email"
+                  />
+                  <ValidatedTextField
+                    type="tel"
+                    name="phone"
+                    label={t("register.field.phone")}
+                    hint={t("register.field.phone.hint")}
+                    pattern="\+[1-9][0-9]{7,14}"
+                    autoComplete="tel"
+                  />
                   {/* The show-password toggle's name comes from the identity copy,
                       the one place the storefront's sign-in and registration forms
                       share it, so all three forms say it the same way. */}
-                  <ValidatedPasswordField name="password" label={t("register.field.password")} hint={t("register.field.password.hint")} required minLength={8} autoComplete="new-password" revealLabel={identityCopy(toIdentityLocale(locale)).passwordReveal.label} />
-                  <ValidatedSelectField name="language" label={t("register.field.language")} defaultValue={locale === "ar" ? "AR" : "EN"}>
+                  <ValidatedPasswordField
+                    name="password"
+                    label={t("register.field.password")}
+                    hint={t("register.field.password.hint")}
+                    required
+                    minLength={8}
+                    autoComplete="new-password"
+                    revealLabel={identityCopy(toIdentityLocale(locale)).passwordReveal.label}
+                  />
+                  <ValidatedSelectField
+                    name="language"
+                    label={t("register.field.language")}
+                    defaultValue={locale === "ar" ? "AR" : "EN"}
+                  >
                     {LANGUAGE_VALUES.map((v) => (
-                      <option key={v} value={v}>{t(LANGUAGE_LABELS[v])}</option>
+                      <option key={v} value={v}>
+                        {t(LANGUAGE_LABELS[v])}
+                      </option>
                     ))}
                   </ValidatedSelectField>
                 </div>
@@ -714,7 +862,9 @@ export default async function B2BRegisterPage({
 
               <div>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                  <Button type="submit" variant="primary">{t("register.submit")}</Button>
+                  <Button type="submit" variant="primary">
+                    {t("register.submit")}
+                  </Button>
                   {/* The alternative to pressing the button, beside the button.
                       This line used to sit outside the form entirely, below it;
                       the moment a reader realises they already have an account
@@ -722,7 +872,10 @@ export default async function B2BRegisterPage({
                       where the other route has to be. */}
                   <p className="u-ui text-ink-2">
                     {t("register.haveAccount")}{" "}
-                    <Link href={SIGN_IN_HREF} className="u-focus rounded-nested font-medium text-primary-ink hover:underline">
+                    <Link
+                      href={SIGN_IN_HREF}
+                      className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+                    >
                       {t("register.signInInstead")}
                     </Link>
                   </p>

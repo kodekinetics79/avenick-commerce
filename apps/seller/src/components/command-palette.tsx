@@ -2,40 +2,180 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
-  LayoutDashboard, TrendingUp, Package, Boxes, ShoppingCart, Truck, RotateCcw,
-  FileQuestion, DollarSign, FileText, CreditCard, FolderOpen, CheckSquare,
-  MessageSquare, Settings, Search, CornerDownLeft, BarChart3, Plus, Sparkles,
+  LayoutDashboard,
+  TrendingUp,
+  Package,
+  Boxes,
+  ShoppingCart,
+  Truck,
+  RotateCcw,
+  FileQuestion,
+  DollarSign,
+  FileText,
+  CreditCard,
+  FolderOpen,
+  CheckSquare,
+  MessageSquare,
+  Settings,
+  Search,
+  CornerDownLeft,
+  BarChart3,
+  Plus,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@avenick/utils";
 import { Eyebrow, Surface } from "@avenick/ui";
 import { sellerNavigationAllows } from "@/lib/seller-permissions";
 
-type Item = { label: string; href: string; icon: React.ElementType; keywords?: string; group: string; permissions?: string[]; allPermissions?: string[] };
+type Item = {
+  labelKey: string;
+  href: string;
+  icon: React.ElementType;
+  group: "goTo" | "actions";
+  permissions?: string[];
+  allPermissions?: string[];
+};
 
 const ITEMS: Item[] = [
-  { group: "Go to", label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, keywords: "home overview", permissions: ["dashboard.view"] },
-  { group: "Go to", label: "Analytics", href: "/analytics", icon: BarChart3, keywords: "sales charts insights", permissions: ["analytics.view"] },
-  { group: "Go to", label: "Performance", href: "/performance", icon: TrendingUp, keywords: "score rating health", permissions: ["analytics.view"] },
-  { group: "Go to", label: "Products", href: "/products", icon: Package, keywords: "catalog listings", permissions: ["catalog.view", "catalog.manage"] },
-  { group: "Go to", label: "Inventory", href: "/inventory", icon: Boxes, keywords: "stock", permissions: ["inventory.view", "inventory.manage"] },
-  { group: "Go to", label: "Orders", href: "/orders", icon: ShoppingCart, permissions: ["orders.view", "orders.fulfill"] },
-  { group: "Go to", label: "Shipments", href: "/shipments", icon: Truck, keywords: "fulfilment tracking", permissions: ["shipments.view", "shipments.manage"] },
-  { group: "Go to", label: "Returns", href: "/returns", icon: RotateCcw, permissions: ["returns.view", "returns.manage"] },
-  { group: "Go to", label: "Quotes", href: "/quotes", icon: FileQuestion, keywords: "rfq", permissions: ["rfqs.view"] },
-  { group: "Go to", label: "Messages & RFQ inbox", href: "/messages", icon: MessageSquare, keywords: "rfq chat", permissions: ["rfqs.view"] },
-  { group: "Go to", label: "Payouts", href: "/payouts", icon: DollarSign, permissions: ["finance.view"] },
-  { group: "Go to", label: "Invoices", href: "/invoices", icon: FileText, permissions: ["finance.view"] },
-  { group: "Go to", label: "Commission", href: "/commission", icon: CreditCard, permissions: ["finance.view"] },
-  { group: "Go to", label: "Documents", href: "/documents", icon: FolderOpen, permissions: ["documents.view", "documents.manage"] },
-  { group: "Go to", label: "Compliance", href: "/compliance", icon: CheckSquare, keywords: "onboarding", permissions: ["documents.view", "documents.manage"] },
-  { group: "Go to", label: "Settings", href: "/settings", icon: Settings, permissions: ["settings.manage"] },
-  { group: "Actions", label: "Add a product", href: "/products/new", icon: Plus, allPermissions: ["catalog.manage", "pricing.manage"] },
-  { group: "Actions", label: "View RFQ inbox", href: "/messages", icon: FileQuestion, permissions: ["rfqs.view"] },
-  { group: "Actions", label: "AI assist", href: "/messages?ai=1", icon: Sparkles, keywords: "draft generate", permissions: ["rfqs.view"] },
+  {
+    group: "goTo",
+    labelKey: "nav.items.dashboard",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+    permissions: ["dashboard.view"],
+  },
+  {
+    group: "goTo",
+    labelKey: "nav.items.analytics",
+    href: "/analytics",
+    icon: BarChart3,
+    permissions: ["analytics.view"],
+  },
+  {
+    group: "goTo",
+    labelKey: "nav.items.performance",
+    href: "/performance",
+    icon: TrendingUp,
+    permissions: ["analytics.view"],
+  },
+  {
+    group: "goTo",
+    labelKey: "nav.items.products",
+    href: "/products",
+    icon: Package,
+    permissions: ["catalog.view", "catalog.manage"],
+  },
+  {
+    group: "goTo",
+    labelKey: "nav.items.inventory",
+    href: "/inventory",
+    icon: Boxes,
+    permissions: ["inventory.view", "inventory.manage"],
+  },
+  {
+    group: "goTo",
+    labelKey: "nav.items.orders",
+    href: "/orders",
+    icon: ShoppingCart,
+    permissions: ["orders.view", "orders.fulfill"],
+  },
+  {
+    group: "goTo",
+    labelKey: "nav.items.shipments",
+    href: "/shipments",
+    icon: Truck,
+    permissions: ["shipments.view", "shipments.manage"],
+  },
+  {
+    group: "goTo",
+    labelKey: "nav.items.returns",
+    href: "/returns",
+    icon: RotateCcw,
+    permissions: ["returns.view", "returns.manage"],
+  },
+  {
+    group: "goTo",
+    labelKey: "nav.items.quoteHistory",
+    href: "/quotes",
+    icon: FileQuestion,
+    permissions: ["rfqs.view"],
+  },
+  {
+    group: "goTo",
+    labelKey: "nav.items.inbox",
+    href: "/messages",
+    icon: MessageSquare,
+    permissions: ["rfqs.view"],
+  },
+  {
+    group: "goTo",
+    labelKey: "nav.items.payouts",
+    href: "/payouts",
+    icon: DollarSign,
+    permissions: ["finance.view"],
+  },
+  {
+    group: "goTo",
+    labelKey: "nav.items.invoices",
+    href: "/invoices",
+    icon: FileText,
+    permissions: ["finance.view"],
+  },
+  {
+    group: "goTo",
+    labelKey: "nav.items.commission",
+    href: "/commission",
+    icon: CreditCard,
+    permissions: ["finance.view"],
+  },
+  {
+    group: "goTo",
+    labelKey: "nav.items.documentCenter",
+    href: "/documents",
+    icon: FolderOpen,
+    permissions: ["documents.view", "documents.manage"],
+  },
+  {
+    group: "goTo",
+    labelKey: "nav.items.compliance",
+    href: "/compliance",
+    icon: CheckSquare,
+    permissions: ["documents.view", "documents.manage"],
+  },
+  {
+    group: "goTo",
+    labelKey: "shell.settings",
+    href: "/settings",
+    icon: Settings,
+    permissions: ["settings.manage"],
+  },
+  {
+    group: "actions",
+    labelKey: "command.addProduct",
+    href: "/products/new",
+    icon: Plus,
+    allPermissions: ["catalog.manage", "pricing.manage"],
+  },
+  {
+    group: "actions",
+    labelKey: "command.viewRfqInbox",
+    href: "/messages",
+    icon: FileQuestion,
+    permissions: ["rfqs.view"],
+  },
+  {
+    group: "actions",
+    labelKey: "command.aiAssist",
+    href: "/messages?ai=1",
+    icon: Sparkles,
+    permissions: ["rfqs.view"],
+  },
 ];
 
 export function CommandPalette({ permissions = [] }: { permissions?: readonly string[] }) {
+  const t = useTranslations("sellerShell");
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [q, setQ] = React.useState("");
@@ -59,7 +199,9 @@ export function CommandPalette({ permissions = [] }: { permissions?: readonly st
         setOpen(false);
       }
     };
-    const onOpen = () => { if (!document.querySelector("[data-layer]")) setOpen(true); };
+    const onOpen = () => {
+      if (!document.querySelector("[data-layer]")) setOpen(true);
+    };
     window.addEventListener("keydown", onKey);
     window.addEventListener("open-command-palette", onOpen);
     return () => {
@@ -90,12 +232,16 @@ export function CommandPalette({ permissions = [] }: { permissions?: readonly st
       document.body,
       ...Array.from(document.querySelectorAll<HTMLElement>("[data-scroll-container]")),
     ].map((el) => [el, el.style.overflow]);
-    locked.forEach(([el]) => { el.style.overflow = "hidden"; });
+    locked.forEach(([el]) => {
+      el.style.overflow = "hidden";
+    });
 
     const focusTimer = setTimeout(() => inputRef.current?.focus(), 10);
     return () => {
       clearTimeout(focusTimer);
-      locked.forEach(([el, previous]) => { el.style.overflow = previous; });
+      locked.forEach(([el, previous]) => {
+        el.style.overflow = previous;
+      });
       restoreRef.current?.focus?.();
     };
   }, [open]);
@@ -137,28 +283,45 @@ export function CommandPalette({ permissions = [] }: { permissions?: readonly st
 
   const filtered = React.useMemo(() => {
     const s = q.trim().toLowerCase();
-    const allowed = ITEMS.filter((item) =>
-      (!item.permissions || sellerNavigationAllows(permissions, item.permissions))
-      && (!item.allPermissions || item.allPermissions.every((permission) => sellerNavigationAllows(permissions, [permission]))),
-    );
+    const allowed = ITEMS.filter(
+      (item) =>
+        (!item.permissions || sellerNavigationAllows(permissions, item.permissions)) &&
+        (!item.allPermissions ||
+          item.allPermissions.every((permission) =>
+            sellerNavigationAllows(permissions, [permission]),
+          )),
+    ).map((item) => ({
+      ...item,
+      label: t(item.labelKey),
+      groupLabel: t(`command.groups.${item.group}`),
+    }));
     if (!s) return allowed;
-    return allowed.filter((i) => i.label.toLowerCase().includes(s) || i.keywords?.includes(s) || i.group.toLowerCase().includes(s));
-  }, [q, permissions]);
+    return allowed.filter(
+      (i) => i.label.toLowerCase().includes(s) || i.groupLabel.toLowerCase().includes(s),
+    );
+  }, [q, permissions, t]);
 
-  function go(item: Item) {
+  function go(item: Item & { label: string; groupLabel: string }) {
     setOpen(false);
     router.push(item.href);
   }
 
   function onInputKey(e: React.KeyboardEvent) {
-    if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, filtered.length - 1)); }
-    else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
-    else if (e.key === "Enter") { e.preventDefault(); if (filtered[active]) go(filtered[active]); }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive((a) => Math.min(a + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((a) => Math.max(a - 1, 0));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (filtered[active]) go(filtered[active]);
+    }
   }
 
   if (!open) return null;
 
-  const groups = [...new Set(filtered.map((i) => i.group))];
+  const groups = [...new Set(filtered.map((i) => i.groupLabel))];
   let idx = -1;
 
   return (
@@ -167,7 +330,7 @@ export function CommandPalette({ permissions = [] }: { permissions?: readonly st
       className="fixed inset-0 z-layer flex items-start justify-center px-4 pt-[12vh]"
       role="dialog"
       aria-modal="true"
-      aria-label="Search pages and actions"
+      aria-label={t("command.dialogLabel")}
     >
       {/* The system scrim: hue-matched, blurred and darkened by one token pair,
           rather than a raw rgba black that has no dark-mode counterpart. */}
@@ -190,10 +353,13 @@ export function CommandPalette({ permissions = [] }: { permissions?: readonly st
           <input
             ref={inputRef}
             value={q}
-            onChange={(e) => { setQ(e.target.value); setActive(0); }}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setActive(0);
+            }}
             onKeyDown={onInputKey}
-            placeholder="Search pages and actions…"
-            aria-label="Search pages and actions"
+            placeholder={t("command.placeholder")}
+            aria-label={t("command.searchLabel")}
             role="combobox"
             aria-expanded="true"
             aria-controls={listId}
@@ -201,51 +367,69 @@ export function CommandPalette({ permissions = [] }: { permissions?: readonly st
             aria-autocomplete="list"
             className="u-body h-12 flex-1 bg-transparent text-ink-1 outline-none placeholder:text-ink-3"
           />
-          <kbd className="u-mono hidden rounded-sm border border-border px-1.5 py-0.5 text-micro text-ink-3 sm:inline">ESC</kbd>
+          <kbd className="u-mono hidden rounded-sm border border-border px-1.5 py-0.5 text-micro text-ink-3 sm:inline">
+            ESC
+          </kbd>
         </div>
-        <div id={listId} role="listbox" aria-label="Results" className="max-h-[50vh] overflow-y-auto p-2 scrollbar-thin">
+        <div
+          id={listId}
+          role="listbox"
+          aria-label={t("command.resultsLabel")}
+          className="scrollbar-thin max-h-[50vh] overflow-y-auto p-2"
+        >
           {filtered.length === 0 ? (
-            <p className="u-provenance py-8 text-center text-ui text-ink-2">Nothing matches “{q}”.</p>
+            <p className="u-provenance py-8 text-center text-ui text-ink-2">
+              {t("command.noMatch", { query: q })}
+            </p>
           ) : (
             groups.map((g) => (
               <div key={g} role="group" aria-label={g} className="mb-1">
                 <Eyebrow className="px-2 py-1">{g}</Eyebrow>
-                {filtered.filter((i) => i.group === g).map((item) => {
-                  idx++;
-                  const isActive = idx === active;
-                  const myIdx = idx;
-                  return (
-                    <button
-                      key={item.label}
-                      id={`${listId}-${myIdx}`}
-                      role="option"
-                      aria-selected={isActive}
-                      type="button"
-                      onMouseEnter={() => setActive(myIdx)}
-                      onClick={() => go(item)}
-                      className={cn(
-                        "u-ui relative flex w-full items-center gap-2.5 rounded-nested px-3 py-2",
-                        "transition-colors duration-press ease-standard",
-                        isActive ? "bg-ink-1/[0.06] font-medium text-ink-1" : "text-ink-2 hover:bg-ink-1/[0.04] hover:text-ink-1",
-                      )}
-                    >
-                      {/* The same drawn brass rule that marks the current page in
+                {filtered
+                  .filter((i) => i.groupLabel === g)
+                  .map((item) => {
+                    idx++;
+                    const isActive = idx === active;
+                    const myIdx = idx;
+                    return (
+                      <button
+                        key={item.label}
+                        id={`${listId}-${myIdx}`}
+                        role="option"
+                        aria-selected={isActive}
+                        type="button"
+                        onMouseEnter={() => setActive(myIdx)}
+                        onClick={() => go(item)}
+                        className={cn(
+                          "u-ui relative flex w-full items-center gap-2.5 rounded-nested px-3 py-2",
+                          "transition-colors duration-press ease-standard",
+                          isActive
+                            ? "bg-ink-1/[0.06] font-medium text-ink-1"
+                            : "text-ink-2 hover:bg-ink-1/[0.04] hover:text-ink-1",
+                        )}
+                      >
+                        {/* The same drawn brass rule that marks the current page in
                           the sidebar — one active-indicator gesture, used
                           everywhere, is what makes the two feel designed rather
                           than assembled. It is also brass's one permitted use
                           outside a tier mark. */}
-                      <span
-                        aria-hidden="true"
-                        className="u-drawn absolute inset-y-1 start-0"
-                        data-orientation="vertical"
-                        data-on={isActive ? "true" : "false"}
-                      />
-                      <item.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                      <span className="flex-1 text-start">{item.label}</span>
-                      {isActive && <CornerDownLeft className="h-3.5 w-3.5 text-ink-3 rtl:-scale-x-100" aria-hidden="true" />}
-                    </button>
-                  );
-                })}
+                        <span
+                          aria-hidden="true"
+                          className="u-drawn absolute inset-y-1 start-0"
+                          data-orientation="vertical"
+                          data-on={isActive ? "true" : "false"}
+                        />
+                        <item.icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        <span className="flex-1 text-start">{item.label}</span>
+                        {isActive && (
+                          <CornerDownLeft
+                            className="h-3.5 w-3.5 text-ink-3 rtl:-scale-x-100"
+                            aria-hidden="true"
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
               </div>
             ))
           )}
@@ -254,8 +438,10 @@ export function CommandPalette({ permissions = [] }: { permissions?: readonly st
             hardcoded platform name carrying no information. The keyboard contract
             is the only thing here a reader can act on. */}
         <div className="flex items-center gap-2 border-t border-hairline px-4 py-2 text-meta text-ink-3">
-          <kbd className="u-mono rounded-sm border border-border px-1">↑↓</kbd> navigate
-          <kbd className="u-mono ms-2 rounded-sm border border-border px-1">↵</kbd> open
+          <kbd className="u-mono rounded-sm border border-border px-1">↑↓</kbd>{" "}
+          {t("command.navigate")}
+          <kbd className="u-mono ms-2 rounded-sm border border-border px-1">↵</kbd>{" "}
+          {t("command.open")}
         </div>
       </Surface>
     </div>

@@ -1,11 +1,20 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
-import { getSupplierPerformance } from "@avenick/database";
+import { getSupplierPerformance, type CurrencyAmount } from "@avenick/database";
+import { formatCurrency } from "@avenick/utils";
 import {
-  CellGrid, EmptyState, LedgerTable, Meter, PageHeader, Stat, StatusPill, Surface, TierMark,
+  CellGrid,
+  EmptyState,
+  LedgerTable,
+  Meter,
+  PageHeader,
+  Stat,
+  StatusPill,
+  Surface,
+  TierMark,
 } from "@avenick/ui";
 import { TrendingUp, Star, RotateCcw, Award, AlertTriangle, Store } from "lucide-react";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
 // generateMetadata rather than a static object: the tab title is user-visible
 // copy and a module-scope constant has no translator in scope.
@@ -24,9 +33,10 @@ export const dynamic = "force-dynamic";
 type ScoreTone = "success" | "warning" | "danger";
 const scoreTone = (s: number): ScoreTone => (s >= 85 ? "success" : s >= 70 ? "warning" : "danger");
 
-// GMV is SUM(order total) as recorded in each order's own currency; nothing is
-// converted, so no currency symbol is attached to the figure.
-const amount = (n: number) => n.toLocaleString("en", { maximumFractionDigits: 0 });
+const amounts = (rows: CurrencyAmount[], locale: "ar" | "en") =>
+  rows.length === 0
+    ? "—"
+    : rows.map((row) => formatCurrency(row.amount, row.currency, locale)).join(" · ");
 
 /**
  * The tier enum values this screen has a label for. The tier is rendered as
@@ -38,17 +48,33 @@ const KNOWN_TIERS = ["PLATINUM", "GOLD", "VERIFIED", "STANDARD"];
 
 export default async function PerformancePage() {
   await requireAdminSession();
+  // Kept as a direct assignment because the translation-key regression test
+  // statically traces this namespace from `t`.
   const t = await getTranslations("adminShell.performance");
+  const rawLocale = await getLocale();
+  const locale = rawLocale === "ar" ? "ar" : "en";
 
   const suppliers = await getSupplierPerformance();
-  const scoredSuppliers = suppliers.filter((supplier): supplier is typeof supplier & { score: number } => supplier.score !== null);
-  const avg = scoredSuppliers.length > 0
-    ? Math.round(scoredSuppliers.reduce((sum, supplier) => sum + supplier.score, 0) / scoredSuppliers.length)
-    : null;
+  const scoredSuppliers = suppliers.filter(
+    (supplier): supplier is typeof supplier & { score: number } => supplier.score !== null,
+  );
+  const avg =
+    scoredSuppliers.length > 0
+      ? Math.round(
+          scoredSuppliers.reduce((sum, supplier) => sum + supplier.score, 0) /
+            scoredSuppliers.length,
+        )
+      : null;
   const atRisk = scoredSuppliers.filter((supplier) => supplier.score < 70).length;
   const withOnTime = suppliers.filter((s) => s.onTimePct !== null);
-  const avgOnTime = withOnTime.length > 0 ? Math.round(withOnTime.reduce((s, x) => s + (x.onTimePct ?? 0), 0) / withOnTime.length) : null;
-  const avgReturn = suppliers.length > 0 ? Math.round((suppliers.reduce((s, x) => s + x.returnRate, 0) / suppliers.length) * 10) / 10 : 0;
+  const avgOnTime =
+    withOnTime.length > 0
+      ? Math.round(withOnTime.reduce((s, x) => s + (x.onTimePct ?? 0), 0) / withOnTime.length)
+      : null;
+  const avgReturn =
+    suppliers.length > 0
+      ? Math.round((suppliers.reduce((s, x) => s + x.returnRate, 0) / suppliers.length) * 10) / 10
+      : 0;
 
   return (
     <AdminLayout>
@@ -74,7 +100,10 @@ export default async function PerformancePage() {
             // inside the Arabic sentence.
             note={
               scoredSuppliers.length > 0
-                ? t("avgScoreNote", { count: scoredSuppliers.length, value: String(scoredSuppliers.length) })
+                ? t("avgScoreNote", {
+                    count: scoredSuppliers.length,
+                    value: String(scoredSuppliers.length),
+                  })
                 : t("avgScoreNone")
             }
           />
@@ -88,11 +117,20 @@ export default async function PerformancePage() {
             // average is over a smaller set than the table shows. Say which.
             dateline={
               avgOnTime !== null
-                ? t("avgOnTimeDateline", { count: withOnTime.length, value: String(withOnTime.length) })
+                ? t("avgOnTimeDateline", {
+                    count: withOnTime.length,
+                    value: String(withOnTime.length),
+                  })
                 : t("avgOnTimeNone")
             }
           />
-          <Stat label={t("avgReturnRate")} value={avgReturn} unit="%" icon={RotateCcw} chip="neutral" />
+          <Stat
+            label={t("avgReturnRate")}
+            value={avgReturn}
+            unit="%"
+            icon={RotateCcw}
+            chip="neutral"
+          />
           <Stat
             label={t("atRisk")}
             value={atRisk}
@@ -165,7 +203,12 @@ export default async function PerformancePage() {
                 </div>
               ),
             },
-            { key: "gmv", label: t("table.columnGmv"), numeric: true, render: (s) => amount(s.gmv) },
+            {
+              key: "gmv",
+              label: t("table.columnGmv"),
+              numeric: true,
+              render: (s) => amounts(s.gmv, locale),
+            },
             { key: "orders", label: t("table.columnOrders"), numeric: true, width: "80px" },
             {
               key: "onTimePct",

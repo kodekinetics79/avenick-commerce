@@ -7,10 +7,24 @@ import { Heart, ShoppingCart, Trash2, ArrowRight, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { MainLayout } from "@/components/layout/main-layout";
 import {
-  AvailabilityDot, Button, CommitBadge, CommitLabel, EmptyState, Eyebrow, LightGrid,
-  PageHeader, PriceStack, SkeletonProductGrid, Surface,
+  AvailabilityDot,
+  Button,
+  CommitBadge,
+  CommitLabel,
+  EmptyState,
+  Eyebrow,
+  LightGrid,
+  PageHeader,
+  PriceStack,
+  SkeletonProductGrid,
+  Surface,
 } from "@avenick/ui";
-import { toWishlistCartLine, useWishlist, wishlistItemKey, type WishlistItem } from "@/stores/wishlist";
+import {
+  toWishlistCartLine,
+  useWishlist,
+  wishlistItemKey,
+  type WishlistItem,
+} from "@/stores/wishlist";
 import { useCartStore } from "@/stores/cart";
 import { formatCurrency } from "@avenick/utils";
 import { storefrontProductHref } from "@/lib/product-card-commerce";
@@ -34,7 +48,7 @@ function savedPrice(item: { price: number; currency: string }, locale: "ar" | "e
 
 /** One name, in the language the page is set in — see the cart's lineName. */
 const savedName = (item: Pick<WishlistItem, "nameEn" | "nameAr">, locale: string) =>
-  (locale === "ar" ? item.nameAr || item.nameEn : item.nameEn || item.nameAr);
+  locale === "ar" ? item.nameAr || item.nameEn : item.nameEn || item.nameAr;
 
 /**
  * ONE SAVED PRODUCT.
@@ -68,7 +82,11 @@ const savedName = (item: Pick<WishlistItem, "nameEn" | "nameAr">, locale: string
  * still there in every card so the grid keeps its rhythm.
  */
 function SavedCard({
-  item, locale, c, onAdd, onRemove,
+  item,
+  locale,
+  c,
+  onAdd,
+  onRemove,
 }: {
   item: WishlistItem;
   locale: "ar" | "en";
@@ -77,7 +95,7 @@ function SavedCard({
   onRemove: () => void;
 }) {
   const [added, setAdded] = React.useState(false);
-  const timer = React.useRef<ReturnType<typeof setTimeout>>();
+  const timer = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   React.useEffect(() => () => clearTimeout(timer.current), []);
 
   const name = savedName(item, locale);
@@ -130,7 +148,12 @@ function SavedCard({
             state={item.inStock ? "available" : "out"}
           >
             {item.imageUrl ? (
-              <Image src={item.imageUrl} alt="" fill sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" />
+              <Image
+                src={item.imageUrl}
+                alt=""
+                fill
+                sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              />
             ) : undefined}
           </LineFrame>
         </Link>
@@ -142,7 +165,10 @@ function SavedCard({
           {item.sellerName && <Eyebrow className="truncate">{item.sellerName}</Eyebrow>}
 
           <h2 className="u-ui mt-1 min-h-[2.5rem] font-medium leading-snug">
-            <Link href={href} className="u-focus line-clamp-2 rounded-nested text-ink-1 transition-colors duration-press ease-standard hover:text-primary-ink">
+            <Link
+              href={href}
+              className="u-focus line-clamp-2 rounded-nested text-ink-1 transition-colors duration-press ease-standard hover:text-primary-ink"
+            >
               {name}
             </Link>
           </h2>
@@ -179,7 +205,13 @@ function SavedCard({
                 and twenty indigo buttons in a grid is exactly how that budget
                 gets spent on nothing. The card is still raised, so it still
                 reads as actionable. */}
-            <Button size="sm" variant="secondary" className="flex-1" disabled={!item.inStock} onClick={add}>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="flex-1"
+              disabled={!item.inStock}
+              onClick={add}
+            >
               <ShoppingCart className="h-3.5 w-3.5" aria-hidden="true" />
               <CommitLabel
                 idle={c("wishlist.addToCart", "Add to cart")}
@@ -299,7 +331,10 @@ export default function WishlistPage() {
           // The column counts are restated so the skeleton grid is byte-for-byte
           // the real grid: a placeholder that lays out differently from the
           // thing it stands in for is a layout shift with extra steps.
-          <SkeletonProductGrid count={4} className="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4" />
+          <SkeletonProductGrid
+            count={4}
+            className="grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+          />
         ) : items.length === 0 ? (
           /* THE CERTIFICATE. The heart glyph is cropped off the outer corner —
              inset-inline-end, so it crops from the correct corner in Arabic

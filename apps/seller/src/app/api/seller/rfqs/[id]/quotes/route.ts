@@ -5,17 +5,27 @@ import { SellerQuotePayloadSchema } from "@/lib/seller-quote-contract";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const ctx = await getServerSellerContext();
-  if (!ctx) return NextResponse.json({ success: false, error: "Seller account required" }, { status: 401 });
+  if (!ctx)
+    return NextResponse.json({ success: false, error: "Seller account required" }, { status: 401 });
   if (!sellerHasPermission(ctx, "quotes.submit")) {
-    return NextResponse.json({ success: false, error: "Quote-submission permission required" }, { status: 403 });
+    return NextResponse.json(
+      { success: false, error: "Quote-submission permission required" },
+      { status: 403 },
+    );
   }
 
   const parsed = SellerQuotePayloadSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success || parsed.data.rfqId !== params.id) {
     return NextResponse.json(
-      { success: false, error: parsed.success ? "RFQ does not match the quote route" : parsed.error.issues[0]?.message ?? "Invalid quote" },
+      {
+        success: false,
+        error: parsed.success
+          ? "RFQ does not match the quote route"
+          : (parsed.error.issues[0]?.message ?? "Invalid quote"),
+      },
       { status: 400 },
     );
   }
@@ -24,7 +34,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // RFQ return the same 404. submitSupplierQuote repeats the authorization and
   // invitation check inside its transaction.
   const workspace = await getSellerRfqQuoteWorkspace({ rfqId: params.id, sellerId: ctx.seller.id });
-  if (!workspace) return NextResponse.json({ success: false, error: "RFQ not found" }, { status: 404 });
+  if (!workspace)
+    return NextResponse.json({ success: false, error: "RFQ not found" }, { status: 404 });
 
   try {
     const quote = await submitSupplierQuote({

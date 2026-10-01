@@ -5,9 +5,27 @@ import { formatCurrency } from "@avenick/utils";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { format } from "date-fns";
-import { Quote, CheckCircle, Clock, XCircle, MessageSquare, Ban, CircleOff, FileText, FileQuestion, Search } from "lucide-react";
 import {
-  PageHeader, CellGrid, LedgerTable, EmptyState, StatusPill, Surface, Num, Button,
+  Quote,
+  CheckCircle,
+  Clock,
+  XCircle,
+  MessageSquare,
+  Ban,
+  CircleOff,
+  FileText,
+  FileQuestion,
+  Search,
+} from "lucide-react";
+import {
+  PageHeader,
+  CellGrid,
+  LedgerTable,
+  EmptyState,
+  StatusPill,
+  Surface,
+  Num,
+  Button,
   type PillTone,
 } from "@avenick/ui";
 import { CountStat, MoneyStat } from "@/app/finance/money-figures";
@@ -41,15 +59,15 @@ const QUOTED: Prisma.RFQRequestWhereInput = { quoteVersion: { gt: 0 } };
  * `adminCommerce.quotes.status`, keyed by the enum value.
  */
 const STATUS_CONFIG: Record<RFQStatus, { tone: PillTone; icon: typeof CheckCircle }> = {
-  DRAFT:        { tone: "neutral", icon: FileText },
-  SUBMITTED:    { tone: "neutral", icon: FileText },
+  DRAFT: { tone: "neutral", icon: FileText },
+  SUBMITTED: { tone: "neutral", icon: FileText },
   UNDER_REVIEW: { tone: "neutral", icon: FileText },
-  QUOTED:       { tone: "warning", icon: Clock },
-  NEGOTIATING:  { tone: "warning", icon: MessageSquare },
-  ACCEPTED:     { tone: "success", icon: CheckCircle },
-  REJECTED:     { tone: "danger",  icon: XCircle },
-  EXPIRED:      { tone: "neutral", icon: CircleOff },
-  CANCELLED:    { tone: "neutral", icon: Ban },
+  QUOTED: { tone: "warning", icon: Clock },
+  NEGOTIATING: { tone: "warning", icon: MessageSquare },
+  ACCEPTED: { tone: "success", icon: CheckCircle },
+  REJECTED: { tone: "danger", icon: XCircle },
+  EXPIRED: { tone: "neutral", icon: CircleOff },
+  CANCELLED: { tone: "neutral", icon: Ban },
 };
 
 /** Statuses a quoted RFQ can legitimately sit in, in lifecycle order. */
@@ -57,10 +75,11 @@ const CORE_TABS: RFQStatus[] = ["QUOTED", "NEGOTIATING", "ACCEPTED", "REJECTED"]
 const CLOSED_TABS: RFQStatus[] = ["EXPIRED", "CANCELLED"];
 
 interface PageProps {
-  searchParams: { status?: string; search?: string; page?: string };
+  searchParams: Promise<{ status?: string; search?: string; page?: string }>;
 }
 
-export default async function QuotesPage({ searchParams }: PageProps) {
+export default async function QuotesPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   await requireAdminSession();
   const t = await getTranslations("adminCommerce.quotes");
 
@@ -187,10 +206,15 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                   it is undefined and is shown as such rather than as 0%. */}
               <CountStat
                 label={t("stats.winRate")}
-                value={decidedCount > 0 ? `${Math.round((acceptedCount / decidedCount) * 100)}%` : "—"}
+                value={
+                  decidedCount > 0 ? `${Math.round((acceptedCount / decidedCount) * 100)}%` : "—"
+                }
                 note={
                   decidedCount > 0
-                    ? t("stats.winRateNote", { accepted: String(acceptedCount), decided: String(decidedCount) })
+                    ? t("stats.winRateNote", {
+                        accepted: String(acceptedCount),
+                        decided: String(decidedCount),
+                      })
                     : undefined
                 }
                 dateline={decidedCount > 0 ? undefined : t("stats.winRateDateline")}
@@ -222,9 +246,17 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                 }))}
               />
 
-              <form method="get" action="/quotes" role="search" className="relative w-full lg:max-w-xs">
+              <form
+                method="get"
+                action="/quotes"
+                role="search"
+                className="relative w-full lg:max-w-xs"
+              >
                 {status && <input type="hidden" name="status" value={status} />}
-                <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3" aria-hidden="true" />
+                <Search
+                  className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3"
+                  aria-hidden="true"
+                />
                 <input
                   data-rung={1}
                   type="search"
@@ -258,7 +290,8 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                         {t("raised", { date: format(q.createdAt, "MMM d, yyyy") })}
                         {q._count.messages > 0 && (
                           <span className="ms-2 inline-flex items-center gap-1">
-                            <MessageSquare className="h-3 w-3" aria-hidden="true" /> {q._count.messages}
+                            <MessageSquare className="h-3 w-3" aria-hidden="true" />{" "}
+                            {q._count.messages}
                           </span>
                         )}
                       </p>
@@ -273,7 +306,9 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                     const buyerName = [buyer?.firstName, buyer?.lastName].filter(Boolean).join(" ");
                     return (
                       <div className="min-w-0 py-1">
-                        <p className="truncate font-medium text-ink-1">{q.company?.nameEn ?? (buyerName || t("individualBuyer"))}</p>
+                        <p className="truncate font-medium text-ink-1">
+                          {q.company?.nameEn ?? (buyerName || t("individualBuyer"))}
+                        </p>
                         {buyer && <p className="u-meta truncate text-ink-3">{buyer.email}</p>}
                       </div>
                     );
@@ -283,7 +318,11 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                   key: "seller",
                   label: t("columns.seller"),
                   hideOnMobile: true,
-                  render: (q) => <span className="text-ink-2">{q.seller?.businessNameEn ?? t("unassigned")}</span>,
+                  render: (q) => (
+                    <span className="text-ink-2">
+                      {q.seller?.businessNameEn ?? t("unassigned")}
+                    </span>
+                  ),
                 },
                 {
                   key: "items",
@@ -293,7 +332,9 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                     const itemSummary = q.items
                       .slice(0, 2)
                       .map((i) => {
-                        const unit = i.unitQuoted ? formatCurrency(Number(i.unitQuoted), q.currency as never) : null;
+                        const unit = i.unitQuoted
+                          ? formatCurrency(Number(i.unitQuoted), q.currency as never)
+                          : null;
                         return `${i.quantity}× ${i.nameEn}${unit ? ` @ ${unit}` : ""}`;
                       })
                       .join(", ");
@@ -301,7 +342,9 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                       <div className="max-w-xs py-1 text-ink-2">
                         <p className="truncate">{itemSummary || "—"}</p>
                         {q.items.length > 2 && (
-                          <p className="u-meta text-ink-3">{t("moreItems", { count: String(q.items.length - 2) })}</p>
+                          <p className="u-meta text-ink-3">
+                            {t("moreItems", { count: String(q.items.length - 2) })}
+                          </p>
                         )}
                       </div>
                     );
@@ -313,7 +356,10 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                   numeric: true,
                   render: (q) =>
                     q.totalQuoted !== null ? (
-                      <Num value={formatCurrency(Number(q.totalQuoted), q.currency as never)} className="whitespace-nowrap" />
+                      <Num
+                        value={formatCurrency(Number(q.totalQuoted), q.currency as never)}
+                        className="whitespace-nowrap"
+                      />
                     ) : (
                       <span className="text-ink-3">—</span>
                     ),
@@ -322,7 +368,11 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                   key: "quoteVersion",
                   label: t("columns.rev"),
                   numeric: true,
-                  render: (q) => <span className="text-ink-3">{t("revValue", { version: String(q.quoteVersion) })}</span>,
+                  render: (q) => (
+                    <span className="text-ink-3">
+                      {t("revValue", { version: String(q.quoteVersion) })}
+                    </span>
+                  ),
                 },
                 {
                   key: "status",
@@ -332,7 +382,8 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                     const StatusIcon = cfg.icon;
                     return (
                       <StatusPill tone={cfg.tone}>
-                        <StatusIcon className="h-3 w-3" aria-hidden="true" /> {t(`status.${q.status}`)}
+                        <StatusIcon className="h-3 w-3" aria-hidden="true" />{" "}
+                        {t(`status.${q.status}`)}
                       </StatusPill>
                     );
                   },
@@ -341,7 +392,11 @@ export default async function QuotesPage({ searchParams }: PageProps) {
                   key: "updatedAt",
                   label: t("columns.updated"),
                   hideOnMobile: true,
-                  render: (q) => <span className="whitespace-nowrap text-ink-2">{format(q.updatedAt, "MMM d, yyyy")}</span>,
+                  render: (q) => (
+                    <span className="whitespace-nowrap text-ink-2">
+                      {format(q.updatedAt, "MMM d, yyyy")}
+                    </span>
+                  ),
                 },
               ]}
               empty={

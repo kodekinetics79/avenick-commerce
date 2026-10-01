@@ -84,11 +84,10 @@ import { listingCanonicalFor, NOINDEX_FOLLOW } from "@/lib/page-metadata";
 // itself. A page past the first names none — it lists different products, and
 // pointing it at page one would tell a crawler those products are a duplicate of
 // page one's (see listingCanonicalFor).
-export async function generateMetadata({
-  searchParams,
-}: {
-  searchParams: SearchParams;
+export async function generateMetadata(props: {
+  searchParams: Promise<SearchParams>;
 }): Promise<Metadata> {
+  const searchParams = await props.searchParams;
   const t = await getTranslations("catalogue");
   if (searchParams.search) {
     return { title: t("title.search", { query: searchParams.search }), robots: NOINDEX_FOLLOW };
@@ -102,16 +101,24 @@ export async function generateMetadata({
   if (searchParams.brand && !searchParams.category) {
     const brand = await publicBrandBySlug(searchParams.brand);
     return {
-      title: brand ? t("title.brand", { brand: brandLabel(brand, cookies().get("AVENICK_LOCALE")?.value) }) : t("title.all"),
+      title: brand
+        ? t("title.brand", {
+            brand: brandLabel(brand, (await cookies()).get("AVENICK_LOCALE")?.value),
+          })
+        : t("title.all"),
       description: t("metaDescription"),
     };
   }
   if (!searchParams.category) {
-    return { title: t("title.all"), description: t("metaDescription"), ...listingCanonicalFor("/products", searchParams.page) };
+    return {
+      title: t("title.all"),
+      description: t("metaDescription"),
+      ...listingCanonicalFor("/products", searchParams.page),
+    };
   }
   const category = await publicCategoryBySlug(searchParams.category);
   if (!category) return { title: t("title.all"), description: t("metaDescription") };
-  const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
+  const locale = (await cookies()).get("AVENICK_LOCALE")?.value ?? "en";
   return {
     title: t("title.category", {
       category: locale === "ar" ? category.nameAr?.trim() || category.nameEn : category.nameEn,
@@ -119,7 +126,9 @@ export async function generateMetadata({
     description: t("metaDescription"),
     // A brand narrows the category to part of it, so /categories/<slug> is not
     // this page's canonical either.
-    ...(searchParams.brand ? {} : listingCanonicalFor(`/categories/${category.slug}`, searchParams.page)),
+    ...(searchParams.brand
+      ? {}
+      : listingCanonicalFor(`/categories/${category.slug}`, searchParams.page)),
   };
 }
 
@@ -297,7 +306,10 @@ async function movingIn(within: CategoryNode, ctx: LeadContext): Promise<RailTil
   });
   const channel = ctx.wantsB2B ? "B2B" : "B2C";
   const tiles = rows
-    .map((row) => ({ ...toCatalogListDto(row as any, channel, ctx.currency), rating: row.rating ?? null }))
+    .map((row) => ({
+      ...toCatalogListDto(row as any, channel, ctx.currency),
+      rating: row.rating ?? null,
+    }))
     .filter((dto) => !ctx.wantsB2B || dto.isB2BEnabled === true)
     .map((dto): RailTile => {
       const card = toCardRow(dto, ctx.locale);
@@ -328,7 +340,10 @@ async function movingIn(within: CategoryNode, ctx: LeadContext): Promise<RailTil
  * beside a facet is the kind of number FacetRail exists to refuse, so the count
  * ranks and excludes, and is never shown.
  */
-async function topCategoriesByListings(tree: CategoryNode[], wantsB2B: boolean): Promise<CategoryNode[]> {
+async function topCategoriesByListings(
+  tree: CategoryNode[],
+  wantsB2B: boolean,
+): Promise<CategoryNode[]> {
   const visible: Prisma.ProductWhereInput = wantsB2B
     ? { ...publicProductWhere(undefined), isB2BEnabled: true }
     : publicProductWhere(true);
@@ -349,7 +364,8 @@ async function topCategoriesByListings(tree: CategoryNode[], wantsB2B: boolean):
 /** Roots by their subtree's listings, most first; a root with none is not offered. */
 function rankRootsByListings(tree: CategoryNode[], listings: Map<string, number>): CategoryNode[] {
   const subtreeTotal = (node: CategoryNode): number =>
-    (listings.get(node.id) ?? 0) + node.children.reduce((sum, child) => sum + subtreeTotal(child), 0);
+    (listings.get(node.id) ?? 0) +
+    node.children.reduce((sum, child) => sum + subtreeTotal(child), 0);
   return tree
     .map((root, order) => ({ root, order, total: subtreeTotal(root) }))
     .filter((entry) => entry.total > 0)
@@ -394,7 +410,10 @@ async function CatalogueLeadView({
           <ul className="flex flex-wrap gap-2">
             {within.children.map((child) => (
               <li key={child.slug}>
-                <Link href={catalogHref(searchParams, { category: child.slug })} className={CATEGORY_CHIP}>
+                <Link
+                  href={catalogHref(searchParams, { category: child.slug })}
+                  className={CATEGORY_CHIP}
+                >
                   {categoryLabel(child, locale)}
                 </Link>
               </li>
@@ -431,7 +450,10 @@ async function CatalogueLeadView({
               const Icon = categoryIcon(root.iconName, root.slug);
               return (
                 <li key={root.slug}>
-                  <Link href={catalogHref(searchParams, { category: root.slug })} className={CATEGORY_CHIP}>
+                  <Link
+                    href={catalogHref(searchParams, { category: root.slug })}
+                    className={CATEGORY_CHIP}
+                  >
                     <Icon className="h-3.5 w-3.5 text-ink-3" aria-hidden="true" />
                     {categoryLabel(root, locale)}
                   </Link>
@@ -451,13 +473,15 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
   // The card eyebrow follows the visitor, and both halves of every name are on
   // the DTO. Reading the locale here rather than inside the card keeps the card
   // free of a second source of truth for it.
-  const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
+  const locale = (await cookies()).get("AVENICK_LOCALE")?.value ?? "en";
   // Narrowed, not cast: the card row helper takes the two locales the
   // storefront ships, and anything else in the cookie is English.
   const cardLocale: "en" | "ar" = locale === "ar" ? "ar" : "en";
   const wantsB2B = searchParams.b2b === "true";
   const context = wantsB2B ? await getServerB2BContext() : null;
-  const currency = searchParams.currency?.toUpperCase() ?? (context ? companyCurrencyForCountry(context.company.country) : undefined);
+  const currency =
+    searchParams.currency?.toUpperCase() ??
+    (context ? companyCurrencyForCountry(context.company.country) : undefined);
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10));
   const limit = 24;
   // Parsed once, from the URL, by the same function the panel uses — so a filter
@@ -483,7 +507,12 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
       totalPages: number;
       search: CatalogSearchOutcome;
     }>(`/api/products?${qs.toString()}`),
-    loadCatalogueLead(filters, searchParams.search, { locale: cardLocale, wantsB2B, currency, page }),
+    loadCatalogueLead(filters, searchParams.search, {
+      locale: cardLocale,
+      wantsB2B,
+      currency,
+      page,
+    }),
   ]);
 
   // The catalog service REFUSES a term below the name-search floor rather than
@@ -546,28 +575,37 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
         <EmptyState
           variant="certificate"
           glyph={refused ? <AlertCircle /> : <PackageSearch />}
-          eyebrow={refused ? t("refused.eyebrow") : narrowedByFilters ? t("filters.label") : t("empty.eyebrow")}
+          eyebrow={
+            refused
+              ? t("refused.eyebrow")
+              : narrowedByFilters
+                ? t("filters.label")
+                : t("empty.eyebrow")
+          }
           headline={
             refused
-              ? t("refused.headline", { query: searchParams.search ?? "", min: String(refused.minLength) })
+              ? t("refused.headline", {
+                  query: searchParams.search ?? "",
+                  min: String(refused.minLength),
+                })
               : narrowedByFilters
-              ? t("empty.filters.headline")
-              : searchParams.category
-              ? t("empty.category.headline")
-              : t("empty.filters.headline")
+                ? t("empty.filters.headline")
+                : searchParams.category
+                  ? t("empty.category.headline")
+                  : t("empty.filters.headline")
           }
           body={
             refused
               ? t("refused.body")
               : narrowedByFilters
-              ? sortNarrowsToReviewed(filters)
-                ? t("empty.filters.reviewedOnly")
-                : t("empty.filters.body")
-              : searchParams.category
-              ? t("empty.category.body")
-              : sortNarrowsToReviewed(filters)
-              ? t("empty.filters.reviewedOnly")
-              : t("empty.filters.body")
+                ? sortNarrowsToReviewed(filters)
+                  ? t("empty.filters.reviewedOnly")
+                  : t("empty.filters.body")
+                : searchParams.category
+                  ? t("empty.category.body")
+                  : sortNarrowsToReviewed(filters)
+                    ? t("empty.filters.reviewedOnly")
+                    : t("empty.filters.body")
           }
           action={
             !refused && ratingSortRecovery ? (
@@ -592,7 +630,9 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
 
         {!refused && applied.length > 0 && (
           <FieldWell padded>
-            <Eyebrow as="h2" className="mb-2">{t("empty.relax")}</Eyebrow>
+            <Eyebrow as="h2" className="mb-2">
+              {t("empty.relax")}
+            </Eyebrow>
             <AppliedFilterChips searchParams={searchParams} filters={filters} />
           </FieldWell>
         )}
@@ -602,7 +642,12 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
 
   return (
     <>
-      <CatalogueLeadView lead={lead} searchParams={searchParams} locale={cardLocale} wantsB2B={wantsB2B} />
+      <CatalogueLeadView
+        lead={lead}
+        searchParams={searchParams}
+        locale={cardLocale}
+        wantsB2B={wantsB2B}
+      />
 
       {/* The result head. A figure, the noun it counts, and a provenance line
           saying exactly what the twenty-four cards below are a slice of.
@@ -613,7 +658,7 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
           form — and in Arabic its case — depends on it. */}
       <div
         data-glass="true"
-        className="u-chrome sticky top-0 z-sticky mb-5 flex flex-wrap items-end justify-between gap-3 -mx-2 rounded-b-[var(--radius)] border-b-2 border-border-strong px-2 pb-3 lg:top-[4.5rem]"
+        className="u-chrome sticky top-0 z-sticky -mx-2 mb-5 flex flex-wrap items-end justify-between gap-3 rounded-b-[var(--radius)] border-b-2 border-border-strong px-2 pb-3 lg:top-[4.5rem]"
       >
         <div className="min-w-0">
           <p className="u-ui flex flex-wrap items-baseline gap-x-1.5 text-ink-2">
@@ -635,12 +680,12 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
                   pages: String(totalPages),
                 })
               : applied.length > 0
-              ? // "Showing every published listing" is false the moment a filter
-                // is on: it is every listing that SURVIVED the filters, and a
-                // buyer reading the first sentence would conclude the catalogue
-                // is this small.
-                t("showingAllFiltered")
-              : t("showingAll")}
+                ? // "Showing every published listing" is false the moment a filter
+                  // is on: it is every listing that SURVIVED the filters, and a
+                  // buyer reading the first sentence would conclude the catalogue
+                  // is this small.
+                  t("showingAllFiltered")
+                : t("showingAll")}
           </Dateline>
           {/* Choosing "Highest rated" restricts the catalogue to products that
               carry an average — an unreviewed product has none and cannot be
@@ -684,13 +729,12 @@ async function ProductGridSection({ searchParams }: { searchParams: SearchParams
                * locale logic.
                */
               category={
-                !searchParams.category && p.category
-                  ? categoryLabel(p.category, locale)
-                  : undefined
+                !searchParams.category && p.category ? categoryLabel(p.category, locale) : undefined
               }
               inStock={stock?.inStock === true}
               availabilityStatus={stock?.status}
-              hasVariants={p.hasVariants === true} priceTiered={p.priceTiered === true}
+              hasVariants={p.hasVariants === true}
+              priceTiered={p.priceTiered === true}
               // Only ever read on a B2B tile; the card gates the render itself
               // so a caller cannot leak wholesale breaks to a consumer.
               priceBands={wantsB2B ? publishedBands(p) : undefined}
@@ -741,7 +785,7 @@ async function Pagination({
       className="mt-block flex flex-wrap items-center justify-center gap-1.5 [@media(pointer:coarse)]:gap-3.5"
     >
       {page > 1 && (
-        <Button variant="ghost" size="sm" asChild className="relative u-hit">
+        <Button variant="ghost" size="sm" asChild className="u-hit relative">
           <Link href={href(page - 1)} rel="prev">
             {/* A direction-implying icon has to flip in Arabic, or "previous"
                 points at the next page. */}
@@ -763,7 +807,7 @@ async function Pagination({
             {p}
           </span>
         ) : (
-          <Button key={p} variant="ghost" size="sm" asChild className="relative u-hit">
+          <Button key={p} variant="ghost" size="sm" asChild className="u-hit relative">
             <Link href={href(p)} aria-label={t("pagination.page", { page: String(p) })}>
               {p}
             </Link>
@@ -772,7 +816,7 @@ async function Pagination({
       )}
 
       {page < totalPages && (
-        <Button variant="ghost" size="sm" asChild className="relative u-hit">
+        <Button variant="ghost" size="sm" asChild className="u-hit relative">
           <Link href={href(page + 1)} rel="next">
             {t("pagination.next")}
             <ChevronRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
@@ -801,10 +845,11 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
   // Arabic page. categoryLabel is the same helper the home strip, the search
   // grid and the deals chips already use, and it falls back to English when a
   // category has no Arabic name rather than rendering an empty label.
-  const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
+  const locale = (await cookies()).get("AVENICK_LOCALE")?.value ?? "en";
 
   const filters = parseCatalogFilters(searchParams);
-  const buildUrl = (updates: Record<string, string | undefined>) => catalogHref(searchParams, updates);
+  const buildUrl = (updates: Record<string, string | undefined>) =>
+    catalogHref(searchParams, updates);
 
   const inStockOnly = filters.inStock;
   // At any DEPTH. `categories.find` searched the roots only, so a subcategory
@@ -874,7 +919,9 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
       <FieldWell padded>
         {applied.length > 0 && (
           <div className="mb-3 border-b border-hairline pb-3">
-            <Eyebrow as="h2" className="mb-2">{t("filters.applied")}</Eyebrow>
+            <Eyebrow as="h2" className="mb-2">
+              {t("filters.applied")}
+            </Eyebrow>
             <AppliedFilterChips
               searchParams={searchParams}
               filters={filters}
@@ -903,53 +950,34 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
             <span className="u-facet__chev" aria-hidden="true" />
           </summary>
 
-        {/*
-         * <details>/<summary>, so open and close cost no client component at
-         * all, and the chevron is drawn from two rotated borders — nothing to
-         * mirror in Arabic.
-         *
-         * NavItem, not a hand-rolled indigo wash: the selected filter is the one
-         * RAISED element in the sidebar and carries the brass rule, which is the
-         * same "you are here" mark the seller and admin sidebars use.
-         *
-         * linkComponent={Link}: NavItem defaults to a bare <a>, and a filter
-         * sidebar built from full-page loads blanks the grid and throws away
-         * scroll position on every click.
-         */}
-        <FacetRail
-          label={t("filters.categories")}
-          defaultOpen
-          options={[
-            { id: "all", label: t("filters.allProducts"), href: buildUrl({ category: undefined }), selected: !filters.category },
-            ...categories.map((cat) => ({
-              id: cat.id,
-              label: categoryLabel(cat, locale),
-              href: buildUrl({ category: cat.slug }),
-              selected: filters.category === cat.slug,
-            })),
-          ]}
-          renderOption={(option) => (
-            <NavItem
-              href={option.href ?? "/products"}
-              label={option.label}
-              active={option.selected === true}
-              linkComponent={Link}
-            />
-          )}
-        />
-
-        {/* Brands. Closed by default — it is the longest rail here and the two
-            facets above it are the ones most buyers reach for first. */}
-        {shownBrands.length > 0 && (
+          {/*
+           * <details>/<summary>, so open and close cost no client component at
+           * all, and the chevron is drawn from two rotated borders — nothing to
+           * mirror in Arabic.
+           *
+           * NavItem, not a hand-rolled indigo wash: the selected filter is the one
+           * RAISED element in the sidebar and carries the brass rule, which is the
+           * same "you are here" mark the seller and admin sidebars use.
+           *
+           * linkComponent={Link}: NavItem defaults to a bare <a>, and a filter
+           * sidebar built from full-page loads blanks the grid and throws away
+           * scroll position on every click.
+           */}
           <FacetRail
-            label={t("filters.brands")}
+            label={t("filters.categories")}
+            defaultOpen
             options={[
-              { id: "any-brand", label: t("filters.anyBrand"), href: buildUrl({ brand: undefined }), selected: !filters.brand },
-              ...shownBrands.map((brand) => ({
-                id: brand.id,
-                label: brand.nameEn,
-                href: buildUrl({ brand: brand.slug }),
-                selected: filters.brand === brand.slug,
+              {
+                id: "all",
+                label: t("filters.allProducts"),
+                href: buildUrl({ category: undefined }),
+                selected: !filters.category,
+              },
+              ...categories.map((cat) => ({
+                id: cat.id,
+                label: categoryLabel(cat, locale),
+                href: buildUrl({ category: cat.slug }),
+                selected: filters.category === cat.slug,
               })),
             ]}
             renderOption={(option) => (
@@ -961,117 +989,166 @@ async function FilterSidebar({ searchParams }: { searchParams: SearchParams }) {
               />
             )}
           />
-        )}
 
-        {/* What the rail above is a slice of, in real numbers, with the route to
+          {/* Brands. Closed by default — it is the longest rail here and the two
+            facets above it are the ones most buyers reach for first. */}
+          {shownBrands.length > 0 && (
+            <FacetRail
+              label={t("filters.brands")}
+              options={[
+                {
+                  id: "any-brand",
+                  label: t("filters.anyBrand"),
+                  href: buildUrl({ brand: undefined }),
+                  selected: !filters.brand,
+                },
+                ...shownBrands.map((brand) => ({
+                  id: brand.id,
+                  label: brand.nameEn,
+                  href: buildUrl({ brand: brand.slug }),
+                  selected: filters.brand === brand.slug,
+                })),
+              ]}
+              renderOption={(option) => (
+                <NavItem
+                  href={option.href ?? "/products"}
+                  label={option.label}
+                  active={option.selected === true}
+                  linkComponent={Link}
+                />
+              )}
+            />
+          )}
+
+          {/* What the rail above is a slice of, in real numbers, with the route to
             the rest. A truncated list that does not say it is truncated reads as
             "this marketplace carries twenty brands". */}
-        {stocked.length > shownBrands.length && (
-          <div className="border-b border-hairline pb-tight">
-            <Dateline>{t("filters.brandsShown", { shown: shownBrands.length, total: stocked.length })}</Dateline>
-            <Link href="/brands" className="u-focus u-meta mt-1 inline-block rounded-nested text-primary-ink hover:underline">
-              {t("filters.allBrands")}
-            </Link>
-          </div>
-        )}
+          {stocked.length > shownBrands.length && (
+            <div className="border-b border-hairline pb-tight">
+              <Dateline>
+                {t("filters.brandsShown", { shown: shownBrands.length, total: stocked.length })}
+              </Dateline>
+              <Link
+                href="/brands"
+                className="u-focus u-meta mt-1 inline-block rounded-nested text-primary-ink hover:underline"
+              >
+                {t("filters.allBrands")}
+              </Link>
+            </div>
+          )}
 
-        {/* Two links that set a query, not a checkbox: a link cannot legally
+          {/* Two links that set a query, not a checkbox: a link cannot legally
             announce a checked state, and the previous version faked one with a
             decorative box that assistive technology had to be told to ignore. */}
-        <FacetRail
-          label={t("filters.availability")}
-          defaultOpen
-          options={[
-            { id: "any", label: t("filters.anyAvailability"), href: buildUrl({ inStock: undefined }), selected: !inStockOnly },
-            { id: "in", label: t("filters.inStockOnly"), href: buildUrl({ inStock: "1" }), selected: inStockOnly },
-          ]}
-          renderOption={(option) => (
-            <NavItem
-              href={option.href ?? "/products"}
-              label={option.label}
-              active={option.selected === true}
-              linkComponent={Link}
-            />
-          )}
-        />
+          <FacetRail
+            label={t("filters.availability")}
+            defaultOpen
+            options={[
+              {
+                id: "any",
+                label: t("filters.anyAvailability"),
+                href: buildUrl({ inStock: undefined }),
+                selected: !inStockOnly,
+              },
+              {
+                id: "in",
+                label: t("filters.inStockOnly"),
+                href: buildUrl({ inStock: "1" }),
+                selected: inStockOnly,
+              },
+            ]}
+            renderOption={(option) => (
+              <NavItem
+                href={option.href ?? "/products"}
+                label={option.label}
+                active={option.selected === true}
+                linkComponent={Link}
+              />
+            )}
+          />
 
-        {/*
-         * BUYER RATING — an average over ProductReview, the only rating this
-         * schema records. There is no rating column on Product and nothing
-         * writes SellerProfile.rating, so this is the one star figure in the
-         * catalogue that is answerable.
-         *
-         * The note is not decoration. A product nobody has reviewed has no
-         * average and therefore cannot clear any floor, so this control removes
-         * every unreviewed listing as a side effect. A buyer who is not told
-         * that reads the smaller count as "the catalogue is thin", which is the
-         * wrong conclusion about the right number.
-         */}
-        <FacetRail
-          label={t("filters.rating")}
-          options={[
-            { id: "any-rating", label: t("filters.anyRating"), href: buildUrl({ minRating: undefined }), selected: filters.minRating == null },
-            ...RATING_CHOICES.map((value) => ({
-              id: `rating-${value}`,
-              label: t("filters.ratingAtLeast", { rating: formatRatingFloor(value) }),
-              href: buildUrl({ minRating: String(value) }),
-              selected: filters.minRating === value,
-            })),
-          ]}
-          renderOption={(option) => (
-            <NavItem
-              href={option.href ?? "/products"}
-              label={option.label}
-              active={option.selected === true}
-              linkComponent={Link}
-            />
-          )}
-        />
-        <p className="u-facet-note u-meta pb-tight text-ink-3">{t("filters.ratingNote")}</p>
+          {/*
+           * BUYER RATING — an average over ProductReview, the only rating this
+           * schema records. There is no rating column on Product and nothing
+           * writes SellerProfile.rating, so this is the one star figure in the
+           * catalogue that is answerable.
+           *
+           * The note is not decoration. A product nobody has reviewed has no
+           * average and therefore cannot clear any floor, so this control removes
+           * every unreviewed listing as a side effect. A buyer who is not told
+           * that reads the smaller count as "the catalogue is thin", which is the
+           * wrong conclusion about the right number.
+           */}
+          <FacetRail
+            label={t("filters.rating")}
+            options={[
+              {
+                id: "any-rating",
+                label: t("filters.anyRating"),
+                href: buildUrl({ minRating: undefined }),
+                selected: filters.minRating == null,
+              },
+              ...RATING_CHOICES.map((value) => ({
+                id: `rating-${value}`,
+                label: t("filters.ratingAtLeast", { rating: formatRatingFloor(value) }),
+                href: buildUrl({ minRating: String(value) }),
+                selected: filters.minRating === value,
+              })),
+            ]}
+            renderOption={(option) => (
+              <NavItem
+                href={option.href ?? "/products"}
+                label={option.label}
+                active={option.selected === true}
+                linkComponent={Link}
+              />
+            )}
+          />
+          <p className="u-facet-note u-meta pb-tight text-ink-3">{t("filters.ratingNote")}</p>
 
-        {/*
-         * MINIMUM ORDER QUANTITY. Product.moq is a non-nullable Int, so this is
-         * a plain column comparison over the whole catalogue — no aggregate, no
-         * null case, and the only filter here that a procurement buyer will
-         * reach for on literally every visit.
-         *
-         * The buckets partition the column rather than sampling it: a buyer can
-         * see that nothing hides between "up to 100" and "more than 100".
-         */}
-        <FacetRail
-          label={t("filters.moq")}
-          defaultOpen
-          className="border-b-0"
-          options={[
-            {
-              id: "any-moq",
-              label: t("filters.anyMoq"),
-              href: buildUrl({ moqMin: undefined, moqMax: undefined }),
-              selected: filters.moqMin == null && filters.moqMax == null,
-            },
-            ...MOQ_CEILINGS.map((value) => ({
-              id: `moq-max-${value}`,
-              label: value === 1 ? t("filters.moqSingle") : t("filters.moqUpTo", { count: value }),
-              href: buildUrl({ moqMin: undefined, moqMax: String(value) }),
-              selected: filters.moqMax === value && filters.moqMin == null,
-            })),
-            {
-              id: "moq-bulk",
-              label: t("filters.moqOver", { count: MOQ_BULK_FLOOR - 1 }),
-              href: buildUrl({ moqMin: String(MOQ_BULK_FLOOR), moqMax: undefined }),
-              selected: filters.moqMin === MOQ_BULK_FLOOR && filters.moqMax == null,
-            },
-          ]}
-          renderOption={(option) => (
-            <NavItem
-              href={option.href ?? "/products"}
-              label={option.label}
-              active={option.selected === true}
-              linkComponent={Link}
-            />
-          )}
-        />
-
+          {/*
+           * MINIMUM ORDER QUANTITY. Product.moq is a non-nullable Int, so this is
+           * a plain column comparison over the whole catalogue — no aggregate, no
+           * null case, and the only filter here that a procurement buyer will
+           * reach for on literally every visit.
+           *
+           * The buckets partition the column rather than sampling it: a buyer can
+           * see that nothing hides between "up to 100" and "more than 100".
+           */}
+          <FacetRail
+            label={t("filters.moq")}
+            defaultOpen
+            className="border-b-0"
+            options={[
+              {
+                id: "any-moq",
+                label: t("filters.anyMoq"),
+                href: buildUrl({ moqMin: undefined, moqMax: undefined }),
+                selected: filters.moqMin == null && filters.moqMax == null,
+              },
+              ...MOQ_CEILINGS.map((value) => ({
+                id: `moq-max-${value}`,
+                label:
+                  value === 1 ? t("filters.moqSingle") : t("filters.moqUpTo", { count: value }),
+                href: buildUrl({ moqMin: undefined, moqMax: String(value) }),
+                selected: filters.moqMax === value && filters.moqMin == null,
+              })),
+              {
+                id: "moq-bulk",
+                label: t("filters.moqOver", { count: MOQ_BULK_FLOOR - 1 }),
+                href: buildUrl({ moqMin: String(MOQ_BULK_FLOOR), moqMax: undefined }),
+                selected: filters.moqMin === MOQ_BULK_FLOOR && filters.moqMax == null,
+              },
+            ]}
+            renderOption={(option) => (
+              <NavItem
+                href={option.href ?? "/products"}
+                label={option.label}
+                active={option.selected === true}
+                linkComponent={Link}
+              />
+            )}
+          />
         </details>
 
         {applied.length > 0 && (
@@ -1119,9 +1196,12 @@ function FilterSidebarSkeleton() {
 /** The h1 for a category in force: its name, or "Category" when the tree does not know it. */
 async function categoryHeading(slug: string): Promise<string> {
   const t = await getTranslations("catalogue");
-  const locale = cookies().get("AVENICK_LOCALE")?.value ?? "en";
+  const locale = (await cookies()).get("AVENICK_LOCALE")?.value ?? "en";
   try {
-    const within = findCategory((await readPublicCategoryTree()) as unknown as CategoryNode[], slug);
+    const within = findCategory(
+      (await readPublicCategoryTree()) as unknown as CategoryNode[],
+      slug,
+    );
     if (within) return t("title.category", { category: categoryLabel(within, locale) });
   } catch (error) {
     console.error("Unable to name the category in force", error);
@@ -1129,7 +1209,8 @@ async function categoryHeading(slug: string): Promise<string> {
   return t("category.eyebrow");
 }
 
-export default async function ProductsPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function ProductsPage(props: { searchParams: Promise<SearchParams> }) {
+  const searchParams = await props.searchParams;
   const t = await getTranslations("catalogue");
 
   // The search heading says "Search:", not "Results for". This component runs
@@ -1158,16 +1239,19 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
   //
   // A brand listing is headed with the brand, for the same reason its tab is
   // (see generateMetadata): it lists one brand, not all products.
-  const brandInForce = !searchParams.search && !searchParams.category && searchParams.brand
-    ? await publicBrandBySlug(searchParams.brand)
-    : null;
+  const brandInForce =
+    !searchParams.search && !searchParams.category && searchParams.brand
+      ? await publicBrandBySlug(searchParams.brand)
+      : null;
   const title = searchParams.search
     ? t("title.search", { query: searchParams.search })
     : searchParams.category
-    ? await categoryHeading(searchParams.category)
-    : brandInForce
-    ? t("title.brand", { brand: brandLabel(brandInForce, cookies().get("AVENICK_LOCALE")?.value) })
-    : t("title.all");
+      ? await categoryHeading(searchParams.category)
+      : brandInForce
+        ? t("title.brand", {
+            brand: brandLabel(brandInForce, (await cookies()).get("AVENICK_LOCALE")?.value),
+          })
+        : t("title.all");
 
   return (
     <MainLayout>

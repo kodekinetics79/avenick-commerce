@@ -22,9 +22,10 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.12.1",
-    "@next/swc-win32-x64-msvc": "14.2.33",
+    "@next/swc-win32-x64-msvc": "15.5.27",
     "@playwright/test": "1.62.1",
     "prettier": "^3.3.3",
+    "prettier-plugin-tailwindcss": "^0.8.1",
     "turbo": "^2.3.0",
     "typescript": "^5.7.2"
   },

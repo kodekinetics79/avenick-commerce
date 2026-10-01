@@ -6,7 +6,7 @@ import { getTranslations } from "next-intl/server";
 import { platformName } from "@avenick/utils/portal-config";
 import { isUnservable, productMetadata, readProductMeta } from "./product-meta";
 
-type Params = { params: { slug: string } };
+type Params = { params: Promise<{ slug: string }> };
 
 /**
  * The server half of the product page: its document head and its HTTP status.
@@ -30,18 +30,21 @@ const read = cache(readProductMeta);
  * So an unservable slug gets a noindex head from here, and the layout body's
  * notFound() supplies the plate and the 404.
  */
-export async function generateMetadata({ params }: Params): Promise<Metadata> {
+export async function generateMetadata(props: Params): Promise<Metadata> {
+  const params = await props.params;
   const result = await read(params.slug);
   if (isUnservable(result)) return { robots: { index: false, follow: false } };
   if (result.kind !== "found") return {};
 
-  const locale = cookies().get("AVENICK_LOCALE")?.value === "ar" ? "ar" : "en";
+  const locale = (await cookies()).get("AVENICK_LOCALE")?.value === "ar" ? "ar" : "en";
   const t = await getTranslations("pdp");
   return productMetadata(result.product, {
     locale,
     siteName: platformName(),
     describe: ({ name, brand, sku }) =>
-      brand ? t("meta.descriptionBrand", { name, brand, sku }) : t("meta.description", { name, sku }),
+      brand
+        ? t("meta.descriptionBrand", { name, brand, sku })
+        : t("meta.description", { name, sku }),
   });
 }
 
@@ -61,7 +64,11 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * not-found route instead of throwing. Before this layout the same URL answered
  * 200 over a loading splash, so the status is the gain and the HTML is the cost.
  */
-export default async function ProductLayout({ children, params }: Params & { children: React.ReactNode }) {
+export default async function ProductLayout(props: Params & { children: React.ReactNode }) {
+  const params = await props.params;
+
+  const { children } = props;
+
   if (isUnservable(await read(params.slug))) notFound();
   return children;
 }

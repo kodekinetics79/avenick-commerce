@@ -1,13 +1,36 @@
 import { requireAdminSession } from "@/lib/auth";
 import { AdminLayout } from "@/components/layout/admin-layout";
 import { db, getCustomerSegments } from "@avenick/database";
-import { BadgePercent, Crown, Moon, TicketPercent, Users, UserRoundPlus, Megaphone } from "lucide-react";
-import { createCoupon, createPromotion, createReferralProgram, setPromotionStatus } from "./actions";
+import {
+  BadgePercent,
+  Crown,
+  Moon,
+  TicketPercent,
+  Users,
+  UserRoundPlus,
+  Megaphone,
+} from "lucide-react";
+import {
+  createCoupon,
+  createPromotion,
+  createReferralProgram,
+  setPromotionStatus,
+} from "./actions";
 import { CONTROL } from "@/components/console/chrome";
 import Link from "next/link";
 import {
-  Button, CellGrid, Dateline, EmptyState, Field, LedgerTable, PageHeader,
-  SectionHeader, Stat, StatusPill, Surface, type PillTone,
+  Button,
+  CellGrid,
+  Dateline,
+  EmptyState,
+  Field,
+  LedgerTable,
+  PageHeader,
+  SectionHeader,
+  Stat,
+  StatusPill,
+  Surface,
+  type PillTone,
 } from "@avenick/ui";
 
 export const metadata = { title: "Campaigns & Promotions" };
@@ -67,13 +90,16 @@ export default async function CampaignsPage() {
             it counted, because "high value" means nothing until it names its own
             cut-off. */}
         <section aria-label="Live audiences">
-          <SectionHeader title="Live audiences" description="Counted from paid orders when this page was requested." />
+          <SectionHeader
+            title="Live audiences"
+            description="Counted from paid orders when this page was requested."
+          />
           <CellGrid cols={{ base: 1, sm: 3 }} density="compact">
             <Stat
               label="High-value buyers"
               value={segments.highValue.length}
               icon={Crown}
-              note="The top fifth by lifetime spend"
+              note="The top fifth by lifetime spend within at least one recorded currency"
             />
             <Stat
               label="Dormant buyers"
@@ -103,46 +129,160 @@ export default async function CampaignsPage() {
                 description="It is created in DRAFT and applies to nothing until it is activated."
               />
               <Field label="Promotion name" htmlFor="promo-name" required>
-                <input id="promo-name" className={CONTROL} data-rung={1} name="name" required minLength={2} maxLength={120} />
+                <input
+                  id="promo-name"
+                  className={CONTROL}
+                  data-rung={1}
+                  name="name"
+                  required
+                  minLength={2}
+                  maxLength={120}
+                />
               </Field>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Field label="Discount type" htmlFor="promo-type" required>
-                  <select id="promo-type" className={CONTROL} data-rung={1} name="type" defaultValue="PERCENTAGE">
+                  <select
+                    id="promo-type"
+                    className={CONTROL}
+                    data-rung={1}
+                    name="type"
+                    defaultValue="PERCENTAGE"
+                  >
                     <option value="PERCENTAGE">Percentage of the order</option>
                     <option value="FIXED_AMOUNT">Fixed amount off</option>
                   </select>
                 </Field>
-                <Field label="Currency" htmlFor="promo-currency" required hint="Used for fixed amounts and for every cap below.">
-                  <select id="promo-currency" className={CONTROL} data-rung={1} name="currency" defaultValue="SAR">
-                    {CURRENCIES.map((currency) => <option key={currency}>{currency}</option>)}
+                <Field
+                  label="Currency"
+                  htmlFor="promo-currency"
+                  required
+                  hint="Used for fixed amounts and for every cap below."
+                >
+                  <select
+                    id="promo-currency"
+                    className={CONTROL}
+                    data-rung={1}
+                    name="currency"
+                    defaultValue="SAR"
+                  >
+                    {CURRENCIES.map((currency) => (
+                      <option key={currency}>{currency}</option>
+                    ))}
                   </select>
                 </Field>
-                <Field label="Discount value" htmlFor="promo-value" required hint="A percentage may not exceed 100.">
-                  <input id="promo-value" className={CONTROL} data-rung={1} name="value" type="number" min="0.01" step="0.01" required />
+                <Field
+                  label="Discount value"
+                  htmlFor="promo-value"
+                  required
+                  hint="A percentage may not exceed 100."
+                >
+                  <input
+                    id="promo-value"
+                    className={CONTROL}
+                    data-rung={1}
+                    name="value"
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    required
+                  />
                 </Field>
                 <Field label="Minimum order" htmlFor="promo-min" hint="Leave blank for no minimum.">
-                  <input id="promo-min" className={CONTROL} data-rung={1} name="minOrderAmount" type="number" min="0" step="0.01" />
+                  <input
+                    id="promo-min"
+                    className={CONTROL}
+                    data-rung={1}
+                    name="minOrderAmount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                  />
                 </Field>
-                <Field label="Maximum discount" htmlFor="promo-max" hint="Leave blank for no ceiling.">
-                  <input id="promo-max" className={CONTROL} data-rung={1} name="maxDiscountAmount" type="number" min="0" step="0.01" />
+                <Field
+                  label="Maximum discount"
+                  htmlFor="promo-max"
+                  hint="Leave blank for no ceiling."
+                >
+                  <input
+                    id="promo-max"
+                    className={CONTROL}
+                    data-rung={1}
+                    name="maxDiscountAmount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                  />
                 </Field>
-                <Field label="Priority" htmlFor="promo-priority" hint="Lower numbers are considered first.">
-                  <input id="promo-priority" className={CONTROL} data-rung={1} name="priority" type="number" min="1" step="1" defaultValue="100" />
+                <Field
+                  label="Priority"
+                  htmlFor="promo-priority"
+                  hint="Lower numbers are considered first."
+                >
+                  <input
+                    id="promo-priority"
+                    className={CONTROL}
+                    data-rung={1}
+                    name="priority"
+                    type="number"
+                    min="1"
+                    step="1"
+                    defaultValue="100"
+                  />
                 </Field>
-                <Field label="Total redemptions" htmlFor="promo-usage" hint="Leave blank for no cap.">
-                  <input id="promo-usage" className={CONTROL} data-rung={1} name="usageLimit" type="number" min="1" step="1" />
+                <Field
+                  label="Total redemptions"
+                  htmlFor="promo-usage"
+                  hint="Leave blank for no cap."
+                >
+                  <input
+                    id="promo-usage"
+                    className={CONTROL}
+                    data-rung={1}
+                    name="usageLimit"
+                    type="number"
+                    min="1"
+                    step="1"
+                  />
                 </Field>
-                <Field label="Redemptions per buyer" htmlFor="promo-per" hint="Leave blank for no cap.">
-                  <input id="promo-per" className={CONTROL} data-rung={1} name="perCustomerLimit" type="number" min="1" step="1" />
+                <Field
+                  label="Redemptions per buyer"
+                  htmlFor="promo-per"
+                  hint="Leave blank for no cap."
+                >
+                  <input
+                    id="promo-per"
+                    className={CONTROL}
+                    data-rung={1}
+                    name="perCustomerLimit"
+                    type="number"
+                    min="1"
+                    step="1"
+                  />
                 </Field>
                 <Field label="Starts at" htmlFor="promo-starts">
-                  <input id="promo-starts" className={CONTROL} data-rung={1} name="startsAt" type="datetime-local" />
+                  <input
+                    id="promo-starts"
+                    className={CONTROL}
+                    data-rung={1}
+                    name="startsAt"
+                    type="datetime-local"
+                  />
                 </Field>
                 <Field label="Ends at" htmlFor="promo-ends" hint="Must be after the start.">
-                  <input id="promo-ends" className={CONTROL} data-rung={1} name="endsAt" type="datetime-local" />
+                  <input
+                    id="promo-ends"
+                    className={CONTROL}
+                    data-rung={1}
+                    name="endsAt"
+                    type="datetime-local"
+                  />
                 </Field>
               </div>
-              <Field label="Internal description" htmlFor="promo-desc" hint="Never shown to a buyer.">
+              <Field
+                label="Internal description"
+                htmlFor="promo-desc"
+                hint="Never shown to a buyer."
+              >
                 <textarea
                   id="promo-desc"
                   className={`${CONTROL} min-h-[72px] py-2`}
@@ -152,10 +292,16 @@ export default async function CampaignsPage() {
                 />
               </Field>
               <label className="u-ui flex items-center gap-2 text-ink-1">
-                <input name="stackable" type="checkbox" className="h-4 w-4 accent-[hsl(var(--primary))]" />
+                <input
+                  name="stackable"
+                  type="checkbox"
+                  className="h-4 w-4 accent-[hsl(var(--primary))]"
+                />
                 Allow this offer to stack with others
               </label>
-              <Button type="submit" size="sm">Create draft promotion</Button>
+              <Button type="submit" size="sm">
+                Create draft promotion
+              </Button>
             </form>
           </Surface>
 
@@ -176,7 +322,13 @@ export default async function CampaignsPage() {
                 ) : (
                   <>
                     <Field label="Promotion this code applies" htmlFor="coupon-promotion" required>
-                      <select id="coupon-promotion" className={CONTROL} data-rung={1} name="promotionId" required>
+                      <select
+                        id="coupon-promotion"
+                        className={CONTROL}
+                        data-rung={1}
+                        name="promotionId"
+                        required
+                      >
                         {promotions.map((promotion) => (
                           <option key={promotion.id} value={promotion.id}>
                             {promotion.name} · {promotion.status}
@@ -185,7 +337,12 @@ export default async function CampaignsPage() {
                       </select>
                     </Field>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <Field label="Code" htmlFor="coupon-code" required hint="3–40 letters, numbers, hyphens or underscores.">
+                      <Field
+                        label="Code"
+                        htmlFor="coupon-code"
+                        required
+                        hint="3–40 letters, numbers, hyphens or underscores."
+                      >
                         <input
                           id="coupon-code"
                           className={`${CONTROL} u-mono uppercase`}
@@ -195,20 +352,58 @@ export default async function CampaignsPage() {
                           pattern="[A-Za-z0-9_-]{3,40}"
                         />
                       </Field>
-                      <Field label="Total redemptions" htmlFor="coupon-usage" hint="Leave blank for no cap.">
-                        <input id="coupon-usage" className={CONTROL} data-rung={1} name="usageLimit" type="number" min="1" step="1" />
+                      <Field
+                        label="Total redemptions"
+                        htmlFor="coupon-usage"
+                        hint="Leave blank for no cap."
+                      >
+                        <input
+                          id="coupon-usage"
+                          className={CONTROL}
+                          data-rung={1}
+                          name="usageLimit"
+                          type="number"
+                          min="1"
+                          step="1"
+                        />
                       </Field>
-                      <Field label="Redemptions per buyer" htmlFor="coupon-per" hint="Leave blank for no cap.">
-                        <input id="coupon-per" className={CONTROL} data-rung={1} name="perCustomerLimit" type="number" min="1" step="1" />
+                      <Field
+                        label="Redemptions per buyer"
+                        htmlFor="coupon-per"
+                        hint="Leave blank for no cap."
+                      >
+                        <input
+                          id="coupon-per"
+                          className={CONTROL}
+                          data-rung={1}
+                          name="perCustomerLimit"
+                          type="number"
+                          min="1"
+                          step="1"
+                        />
                       </Field>
                       <Field label="Starts at" htmlFor="coupon-starts">
-                        <input id="coupon-starts" className={CONTROL} data-rung={1} name="startsAt" type="datetime-local" />
+                        <input
+                          id="coupon-starts"
+                          className={CONTROL}
+                          data-rung={1}
+                          name="startsAt"
+                          type="datetime-local"
+                        />
                       </Field>
                       <Field label="Ends at" htmlFor="coupon-ends" hint="Must be after the start.">
-                        <input id="coupon-ends" className={CONTROL} data-rung={1} name="endsAt" type="datetime-local" />
+                        <input
+                          id="coupon-ends"
+                          className={CONTROL}
+                          data-rung={1}
+                          name="endsAt"
+                          type="datetime-local"
+                        />
                       </Field>
                     </div>
-                    <Button type="submit" variant="secondary" size="sm">Issue the code</Button>
+                    <Button type="submit" variant="secondary" size="sm">
+                      Issue the code
+                    </Button>
                   </>
                 )}
               </form>
@@ -222,31 +417,91 @@ export default async function CampaignsPage() {
                   description="Both rewards are fixed amounts in the currency chosen here."
                 />
                 <Field label="Programme name" htmlFor="referral-name" required>
-                  <input id="referral-name" className={CONTROL} data-rung={1} name="name" required minLength={2} maxLength={120} />
+                  <input
+                    id="referral-name"
+                    className={CONTROL}
+                    data-rung={1}
+                    name="name"
+                    required
+                    minLength={2}
+                    maxLength={120}
+                  />
                 </Field>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <Field label="Currency" htmlFor="referral-currency" required>
-                    <select id="referral-currency" className={CONTROL} data-rung={1} name="currency" defaultValue="SAR">
-                      {CURRENCIES.map((currency) => <option key={currency}>{currency}</option>)}
+                    <select
+                      id="referral-currency"
+                      className={CONTROL}
+                      data-rung={1}
+                      name="currency"
+                      defaultValue="SAR"
+                    >
+                      {CURRENCIES.map((currency) => (
+                        <option key={currency}>{currency}</option>
+                      ))}
                     </select>
                   </Field>
-                  <Field label="Uses per code" htmlFor="referral-uses" hint="Leave blank for no cap.">
-                    <input id="referral-uses" className={CONTROL} data-rung={1} name="maxUsesPerCode" type="number" min="1" step="1" />
+                  <Field
+                    label="Uses per code"
+                    htmlFor="referral-uses"
+                    hint="Leave blank for no cap."
+                  >
+                    <input
+                      id="referral-uses"
+                      className={CONTROL}
+                      data-rung={1}
+                      name="maxUsesPerCode"
+                      type="number"
+                      min="1"
+                      step="1"
+                    />
                   </Field>
                   <Field label="Reward to the referrer" htmlFor="referral-referrer" required>
-                    <input id="referral-referrer" className={CONTROL} data-rung={1} name="referrerRewardValue" type="number" min="0" step="0.01" required />
+                    <input
+                      id="referral-referrer"
+                      className={CONTROL}
+                      data-rung={1}
+                      name="referrerRewardValue"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      required
+                    />
                   </Field>
                   <Field label="Reward to the new buyer" htmlFor="referral-referee" required>
-                    <input id="referral-referee" className={CONTROL} data-rung={1} name="refereeRewardValue" type="number" min="0" step="0.01" required />
+                    <input
+                      id="referral-referee"
+                      className={CONTROL}
+                      data-rung={1}
+                      name="refereeRewardValue"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      required
+                    />
                   </Field>
                   <Field label="Starts at" htmlFor="referral-starts">
-                    <input id="referral-starts" className={CONTROL} data-rung={1} name="startsAt" type="datetime-local" />
+                    <input
+                      id="referral-starts"
+                      className={CONTROL}
+                      data-rung={1}
+                      name="startsAt"
+                      type="datetime-local"
+                    />
                   </Field>
                   <Field label="Ends at" htmlFor="referral-ends" hint="Must be after the start.">
-                    <input id="referral-ends" className={CONTROL} data-rung={1} name="endsAt" type="datetime-local" />
+                    <input
+                      id="referral-ends"
+                      className={CONTROL}
+                      data-rung={1}
+                      name="endsAt"
+                      type="datetime-local"
+                    />
                   </Field>
                 </div>
-                <Button type="submit" variant="secondary" size="sm">Create draft programme</Button>
+                <Button type="submit" variant="secondary" size="sm">
+                  Create draft programme
+                </Button>
               </form>
             </Surface>
           </div>
@@ -266,7 +521,8 @@ export default async function CampaignsPage() {
                 <>
                   <span className="block truncate font-medium text-ink-1">{p.name}</span>
                   <span className="u-meta block text-ink-3">
-                    Priority <span className="fig">{p.priority}</span> · {p.stackable ? "stacks with others" : "exclusive"}
+                    Priority <span className="fig">{p.priority}</span> ·{" "}
+                    {p.stackable ? "stacks with others" : "exclusive"}
                   </span>
                 </>
               ),
@@ -309,7 +565,9 @@ export default async function CampaignsPage() {
                 // opposite of what the engine does.
                 if (rows.length === 0) {
                   return requiresCoupon(p.eligibility) ? (
-                    <span className="u-meta text-ink-3">Code required · none in the latest 100</span>
+                    <span className="u-meta text-ink-3">
+                      Code required · none in the latest 100
+                    </span>
                   ) : (
                     <span className="u-meta text-ink-3">Applied automatically</span>
                   );
@@ -317,7 +575,10 @@ export default async function CampaignsPage() {
                 return (
                   <span className="flex flex-wrap gap-1">
                     {rows.map((coupon) => (
-                      <span key={coupon.id} className="u-mono u-meta rounded-nested bg-neutral-soft px-1.5 py-0.5 text-ink-2">
+                      <span
+                        key={coupon.id}
+                        className="u-mono u-meta rounded-nested bg-neutral-soft px-1.5 py-0.5 text-ink-2"
+                      >
                         {coupon.code}
                       </span>
                     ))}
@@ -348,7 +609,11 @@ export default async function CampaignsPage() {
                       <form key={next} action={setPromotionStatus.bind(null, p.id, next)}>
                         {/* Activating is the one step that starts discounting
                             money, so it is the only raised control here. */}
-                        <Button type="submit" variant={next === "ACTIVE" ? "secondary" : "ghost"} size="xs">
+                        <Button
+                          type="submit"
+                          variant={next === "ACTIVE" ? "secondary" : "ghost"}
+                          size="xs"
+                        >
                           {next === "ACTIVE" ? "Activate" : next === "PAUSED" ? "Pause" : "End"}
                           <span className="sr-only"> {p.name}</span>
                         </Button>
@@ -418,8 +683,9 @@ export default async function CampaignsPage() {
         />
 
         <Dateline>
-          Discount values, caps and eligibility are re-evaluated by checkout against the stored rule on every order.
-          Nothing on this screen is the authority on what a buyer is actually charged.
+          Discount values, caps and eligibility are re-evaluated by checkout against the stored rule
+          on every order. Nothing on this screen is the authority on what a buyer is actually
+          charged.
         </Dateline>
       </div>
     </AdminLayout>
