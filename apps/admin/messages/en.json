@@ -1743,7 +1743,8 @@
         "headline": "No supplier accounts have been created yet.",
         "body": "Supplier accounts appear here as soon as a business registers.",
         "showAll": "Show every supplier"
-      }
+      },
+      "addSeller": "Add seller"
     },
     "pendingSellers": {
       "eyebrow": "Onboarding",
@@ -1888,6 +1889,86 @@
         "created": "Category created",
         "saved": "Category saved"
       }
+    },
+    "newSeller": {
+      "metaTitle": "Add a seller",
+      "eyebrow": "Supply base",
+      "title": "Add a seller",
+      "description": "Open a supplier account and its owner login from the platform side.",
+      "dateline": "Creates the organisation and one owner user in a single transaction · recorded in the audit trail against you",
+      "commitEyebrow": "This creates a login the supplier can sign in with",
+      "submit": "Create seller account",
+      "cancel": "Cancel",
+      "business": {
+        "eyebrow": "The business",
+        "title": "Registered business",
+        "description": "Identity as it appears on the trade licence. Only the platform can change these later."
+      },
+      "owner": {
+        "eyebrow": "The owner",
+        "title": "Owner login",
+        "description": "The person who will sign in to Seller Central and can add staff.",
+        "credentialNote": "Send these credentials to the owner over a channel you trust, and ask them to change the password after their first sign-in. This platform does not email them."
+      },
+      "terms": {
+        "eyebrow": "Platform terms",
+        "title": "Standing and commercial terms",
+        "description": "What this account may do, and what the platform charges it."
+      },
+      "fields": {
+        "businessNameEn": "Business name (English)",
+        "businessNameAr": "Business name (Arabic)",
+        "crNumber": "Commercial registration number",
+        "crNumberHint": "Unique across the platform.",
+        "vatNumber": "VAT number",
+        "type": "Business type",
+        "country": "Country",
+        "city": "City",
+        "description": "Description",
+        "descriptionPlaceholder": "What they supply and who they serve",
+        "firstName": "First name",
+        "lastName": "Last name",
+        "email": "Email address",
+        "emailHint": "This is the address they sign in with.",
+        "phone": "Phone number",
+        "password": "Initial password",
+        "passwordHint": "At least 8 characters, with an uppercase letter and a number.",
+        "language": "Preferred language",
+        "status": "Opening status",
+        "statusHintAdmin": "Creates the application in the review queue. Opening an account straight into trading requires a super admin.",
+        "statusHintSuper": "Opening an account for trading skips the review queue. It is recorded as such in the audit trail.",
+        "tier": "Tier",
+        "commissionRate": "Commission rate (%)",
+        "commissionRateHint": "Percentage of order value, to two decimal places."
+      },
+      "statusOption": {
+        "PENDING_REVIEW": "Put in the review queue",
+        "ACTIVE": "Open for trading now"
+      },
+      "created": {
+        "title": "Seller account created",
+        "bodyPending": "The organisation and the owner login for {email} exist. The account is in the review queue and cannot trade until it is approved.",
+        "bodyActive": "The organisation and the owner login for {email} exist. The account is open for trading now.",
+        "deliverCredentials": "The password is not shown again. Send it to the owner over a channel you trust and ask them to change it after their first sign-in.",
+        "openRecord": "Open the seller record",
+        "addAnother": "Add another seller"
+      },
+      "errors": {
+        "checkTheForm": "Check the highlighted fields and try again.",
+        "rateLimited": "Too many accounts created from this login recently. Please wait before creating another.",
+        "emailTaken": "An account already exists for this email address.",
+        "crTaken": "This commercial registration number is already registered to another seller.",
+        "phoneTaken": "This phone number is already registered to another account.",
+        "activeNeedsSuperAdmin": "Only a super admin can open an account straight into trading. Put it in the review queue instead.",
+        "authorityWithdrawn": "Your administrator access is no longer current. Sign in again.",
+        "notCreated": "The seller account was not created. Nothing was saved."
+      }
+    },
+    "sellerTier": {
+      "STANDARD": "Standard",
+      "VERIFIED": "Verified",
+      "GOLD": "Gold",
+      "PLATINUM": "Platinum"
     }
   },
   "adminShell": {
@@ -2239,18 +2320,19 @@
     "performance": {
       "eyebrow": "Supplier network",
       "title": "Supplier Performance",
-      "description": "Scorecards computed from live orders, shipments, returns, reviews, and listing health.",
-      "dateline": "Weights: listing health 40 · on-time delivery 30 · rating 20 · returns 10. A reporting view — no score on this screen can be edited.",
+      "description": "Scorecards computed from each supplier's recent fulfilment, listing health, and compliance evidence.",
+      "dateline": "Trailing 90 days · fulfilment 50 · listing health 25 · compliance 25. Suppliers without enough activity remain unscored.",
       "readOnly": "Read only",
       "avgScore": "Avg supplier score",
-      "avgScoreNote": "{count, plural, one {Across {value} active supplier} other {Across {value} active suppliers}}",
+      "avgScoreNote": "{count, plural, one {Across {value} supplier with enough activity} other {Across {value} suppliers with enough activity}}",
+      "avgScoreNone": "No supplier has enough 90-day activity to score yet",
       "avgOnTime": "Avg on-time delivery",
       "avgOnTimeDateline": "{count, plural, one {Over the {value} supplier with a recorded delivery} other {Over the {value} suppliers with a recorded delivery}}",
       "avgOnTimeNone": "No supplier has a recorded delivery yet",
       "avgReturnRate": "Avg return rate",
       "atRisk": "Suppliers at risk",
       "atRiskNote": "Scoring below 70",
-      "atRiskBanner": "{count, plural, one {<strong>{value} supplier</strong> scoring below 70 — review listing health, delivery reliability, and return rates.} other {<strong>{value} suppliers</strong> scoring below 70 — review listing health, delivery reliability, and return rates.}}",
+      "atRiskBanner": "{count, plural, one {<strong>{value} supplier</strong> scoring below 70 — review fulfilment, listing health, and compliance.} other {<strong>{value} suppliers</strong> scoring below 70 — review fulfilment, listing health, and compliance.}}",
       "tier": {
         "PLATINUM": "Platinum",
         "GOLD": "Gold",
@@ -2263,6 +2345,7 @@
         "columnSupplier": "Supplier",
         "columnScore": "Score",
         "scoreMeter": "{name} score: {score} of 100",
+        "notEnoughData": "Not enough data",
         "columnGmv": "GMV (as recorded)",
         "columnOrders": "Orders",
         "columnOnTime": "On-time",
@@ -2273,7 +2356,7 @@
         "empty": {
           "eyebrow": "Nothing recorded",
           "headline": "No active supplier has a scorecard yet.",
-          "body": "A supplier appears here once their account is active; the score is computed from their own orders, shipments, returns, reviews and listing health."
+          "body": "A supplier appears here once their account is active; scoring begins only after enough recent orders or RFQ activity exists."
         }
       }
     },

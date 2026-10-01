@@ -88,10 +88,23 @@ export default defineConfig({
     {
       name: "authenticated",
       testMatch: /authenticated\/.*\.spec\.ts/,
+      testIgnore: /authenticated\/rfq-to-po\.spec\.ts$/,
       dependencies: ["auth-setup"],
       // Same reasoning as auth-setup: every request in this project sends the
       // persona's session cookie, and a trace records it.
       use: { ...devices["Desktop Chrome"], trace: "off" },
+    },
+    {
+      // The revenue-critical sourcing workflow mutates one deterministic,
+      // throwaway CI database through three real portal sessions. Keep it in a
+      // serial project so no other authenticated test can observe half of an
+      // RFQ or race its award.
+      name: "rfq-to-po-certification",
+      testMatch: /authenticated\/rfq-to-po\.spec\.ts$/,
+      dependencies: ["auth-setup"],
+      fullyParallel: false,
+      timeout: 180_000,
+      use: { ...devices["Desktop Chrome"], trace: "off", navigationTimeout: 30_000 },
     },
 
     // ── Signed-in journeys ─────────────────────────────────────────────────

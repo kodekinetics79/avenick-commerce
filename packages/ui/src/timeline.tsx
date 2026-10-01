@@ -36,9 +36,10 @@ export interface TimelineStep {
 export interface TimelineProps {
   steps: TimelineStep[];
   className?: string;
+  currentLabel?: string;
 }
 
-export function Timeline({ steps, className }: TimelineProps) {
+export function Timeline({ steps, className, currentLabel = "Current" }: TimelineProps) {
   return (
     <div className={cn("", className)}>
       {steps.map((step, idx) => {
@@ -50,13 +51,13 @@ export function Timeline({ steps, className }: TimelineProps) {
             <div className="flex flex-col items-center">
               <div
                 className={cn(
-                  "h-9 w-9 rounded-full flex items-center justify-center shrink-0 transition-all",
-                  step.done && "bg-success text-white",
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-[background-color,color,box-shadow] duration-press ease-standard",
+                  step.done && "bg-success text-success-foreground",
                   step.current && "bg-primary text-primary-foreground ring-4 ring-primary/15",
-                  future && "bg-secondary text-muted-foreground",
+                  future && "bg-surface-1 text-ink-3",
                 )}
               >
-                {Icon ? <Icon className="h-4 w-4" /> : step.done ? <Check className="h-4 w-4" /> : <span className="h-2 w-2 rounded-full bg-current opacity-60" />}
+                {Icon ? <Icon className="h-4 w-4" aria-hidden="true" /> : step.done ? <Check className="h-4 w-4" aria-hidden="true" /> : <span className="h-2 w-2 rounded-full bg-current opacity-60" aria-hidden="true" />}
               </div>
               {!isLast && (
                 <div className={cn("w-0.5 h-10 my-0.5", step.done ? "bg-success/40" : "bg-border")} />
@@ -66,11 +67,11 @@ export function Timeline({ steps, className }: TimelineProps) {
               <div className="flex items-center gap-2">
                 <p className={cn("font-semibold text-sm", future ? "text-muted-foreground" : "text-foreground")}>{step.label}</p>
                 {step.current && (
-                  <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wide">Current</span>
+                  <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">{currentLabel}</span>
                 )}
               </div>
-              {step.description && <p className={cn("text-xs mt-0.5", future ? "text-muted-foreground/60" : "text-muted-foreground")}>{step.description}</p>}
-              {step.timestamp && <p className="text-xs text-muted-foreground mt-0.5">{step.timestamp}</p>}
+              {step.description && <p className={cn("mt-0.5 text-xs", future ? "text-ink-3" : "text-ink-2")}>{step.description}</p>}
+              {step.timestamp && <p className="mt-0.5 text-xs text-ink-3">{step.timestamp}</p>}
             </div>
           </div>
         );

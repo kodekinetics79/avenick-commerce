@@ -36,7 +36,13 @@ export const EXPECTED_MIGRATIONS: readonly string[] = [
   "20260814160000_real_catalog_discovery_search",
   "20260903200000_shipping_zones",
   "20260905120000_product_view_signal",
+  "20260905130000_mobile_identity_and_sessions",
+  "20260905140000_user_sessions_valid_after",
+  "20260905150000_order_vat_component_split",
   "20260905180000_company_registration_evidence",
   "20260906060000_reconcile_registration_evidence",
   "20260907120000_company_join_requests",
+  "20260930010000_complete_fk_index_coverage",
+  "20260930011000_commerce_write_guards",
+  "20260930012000_multi_supplier_rfq_foundation",
 ];

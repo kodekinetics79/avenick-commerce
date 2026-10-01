@@ -16,6 +16,21 @@ export function getBackendBaseUrl() {
   return trustedConfiguredOrigin(configured);
 }
 
+/** An operator-configured customer origin is safer than a request Host header.
+ * Vercel can serve more than one public alias, while NEXTAUTH_URL names only
+ * the canonical one. Server API reads must not require every alias to become
+ * an authorized cookie destination. Explicit backend configuration still wins.
+ */
+function configuredCustomerOrigin() {
+  const configured = (
+    process.env.NEXT_PUBLIC_CUSTOMER_PORTAL_URL?.trim() ||
+    process.env.CUSTOMER_URL?.trim() ||
+    process.env.NEXTAUTH_URL?.trim() ||
+    ""
+  );
+  return configured ? trustedConfiguredOrigin(configured) : "";
+}
+
 function parseHttpOrigin(value: string, allowHostOnly = false) {
   const candidate = allowHostOnly && !value.includes("://") ? `https://${value}` : value;
   if (!URL.canParse(candidate)) return "";
@@ -97,23 +112,19 @@ export async function fetchBackendJsonWithCookies<T>(
   init?: RequestInit,
   cookieHeader?: string,
 ): Promise<T> {
-  // The CONFIGURED origin wins, and the incoming one is consulted only if there
-  // is none. This used to read `backendUrl(path, incomingBaseUrl())`, and an
-  // argument is evaluated before the function that would have ignored it: a
-  // request arriving with a Host nobody listed threw here even when the origin
-  // to call was configured and known. On Render that shows up as
-  // "Unable to load catalog categories / Incoming application origin is not
-  // trusted" for the platform's own internal probes, and it is waiting for the
-  // first custom domain: add www.avenick.com, forget to add it to the trusted
-  // list, and every server-side read on it fails silently — the category
-  // navigation simply renders as nothing.
-  //
-  // The security property is unchanged: an untrusted incoming origin is still
-  // never used as a base. It is now only REQUIRED when nothing else can answer.
-  const configured = getBackendBaseUrl();
-  const url = configured ? backendUrl(path, configured) : backendUrl(path, incomingBaseUrl());
+  // Explicit server/customer configuration wins. Unknown request aliases are
+  // never trusted implicitly: without configuration the exact-host check below
+  // still fails closed. Canonical routing also avoids WWW/apex alias crashes.
+  const configured = getBackendBaseUrl() || configuredCustomerOrigin();
+  const base = configured || incomingBaseUrl();
+  const url = backendUrl(path, base);
   if (!URL.canParse(url)) {
     throw new Error("Unable to resolve the current application origin");
+  }
+  // Prevent a protocol-relative path from replacing the trusted destination
+  // when forwarding session cookies. Callers supply paths, never new origins.
+  if (new URL(url).origin !== new URL(base).origin) {
+    throw new Error("Backend path must remain on the trusted application origin");
   }
   const res = await fetch(url, {
     ...init,

@@ -1,4 +1,5 @@
 import { AuditAction, Prisma, type OrderStatus, type RFQStatus } from "@prisma/client";
+import { decrypt, encrypt } from "@avenick/utils/crypto";
 import { db } from "../index";
 import { requireCurrentSellerActor } from "./checkout-invariants";
 
@@ -22,6 +23,39 @@ export interface SellerBankDetails {
   updatedAt: string;
 }
 
+export interface EncryptedSellerBankDetails {
+  version: 2;
+  ibanCiphertext: string;
+  bankNameCiphertext: string;
+  accountNameCiphertext: string;
+  updatedAt: string;
+}
+
+export function isEncryptedSellerBankDetails(value: unknown): value is EncryptedSellerBankDetails {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const row = value as Record<string, unknown>;
+  return (
+    row.version === 2 &&
+    typeof row.ibanCiphertext === "string" &&
+    typeof row.bankNameCiphertext === "string" &&
+    typeof row.accountNameCiphertext === "string" &&
+    typeof row.updatedAt === "string"
+  );
+}
+
+export function encryptSellerBankDetails(
+  input: Pick<SellerBankDetails, "iban" | "bankName" | "accountName">,
+  updatedAt = new Date().toISOString(),
+): EncryptedSellerBankDetails {
+  return {
+    version: 2,
+    ibanCiphertext: encrypt(normaliseIban(input.iban)),
+    bankNameCiphertext: encrypt(input.bankName),
+    accountNameCiphertext: encrypt(input.accountName),
+    updatedAt,
+  };
+}
+
 /**
  * Tolerant read of the Json column. Older rows (or rows written by a future
  * shape) come back as null rather than a half-populated object — the UI then
@@ -30,9 +64,19 @@ export interface SellerBankDetails {
 export function parseSellerBankDetails(value: unknown): SellerBankDetails | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const row = value as Record<string, unknown>;
-  const iban = typeof row.iban === "string" ? row.iban : "";
-  const bankName = typeof row.bankName === "string" ? row.bankName : "";
-  const accountName = typeof row.accountName === "string" ? row.accountName : "";
+  // Version 2 encrypts every banking field at the application boundary. The
+  // legacy branch remains readable only so existing rows can be backfilled in
+  // place; all new writes below are fail-closed encrypted envelopes.
+  const encrypted = isEncryptedSellerBankDetails(value);
+  const ibanRaw = encrypted ? row.ibanCiphertext : row.iban;
+  const bankNameRaw = encrypted ? row.bankNameCiphertext : row.bankName;
+  const accountNameRaw = encrypted ? row.accountNameCiphertext : row.accountName;
+  if (typeof ibanRaw !== "string" || typeof bankNameRaw !== "string" || typeof accountNameRaw !== "string") {
+    return null;
+  }
+  const iban = encrypted ? decrypt(ibanRaw) : ibanRaw;
+  const bankName = encrypted ? decrypt(bankNameRaw) : bankNameRaw;
+  const accountName = encrypted ? decrypt(accountNameRaw) : accountNameRaw;
   if (!iban || !bankName || !accountName) return null;
   return {
     iban,
@@ -164,12 +208,11 @@ export async function updateSellerSettings(input: UpdateSellerSettingsInput): Pr
         existing.bankName === input.bank.bankName &&
         existing.accountName === input.bank.accountName;
       if (!unchanged) {
-        const next: SellerBankDetails = {
+        const next = encryptSellerBankDetails({
           iban,
           bankName: input.bank.bankName,
           accountName: input.bank.accountName,
-          updatedAt: new Date().toISOString(),
-        };
+        });
         data.bankDetails = next as unknown as Prisma.InputJsonObject;
         before.bankDetails = existing ? "configured" : "not configured";
         after.bankDetails = "changed";

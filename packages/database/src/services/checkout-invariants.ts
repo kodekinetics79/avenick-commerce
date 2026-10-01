@@ -1,4 +1,4 @@
-import { Prisma, type UserRole } from "@prisma/client";
+import { Prisma, type Currency, type UserRole } from "@prisma/client";
 
 type InventoryLockClient = Pick<Prisma.TransactionClient, "$executeRaw">;
 type CommercialLockClient = Pick<Prisma.TransactionClient, "$executeRaw">;
@@ -75,6 +75,30 @@ export async function requireCurrentAdminActor(
   if (!actor || actor.status !== "ACTIVE" || actor.deletedAt || !["ADMIN", "SUPER_ADMIN"].includes(actor.role)
     || (requiredRole && actor.role !== requiredRole)) {
     throw new Error(requiredRole === "SUPER_ADMIN" ? "Current super admin authority is required" : "Current admin authority is required");
+  }
+  return actor;
+}
+
+/** Resolve current company authority inside the mutation transaction. */
+export async function requireCurrentCompanyActor(
+  tx: Pick<Prisma.TransactionClient, "$executeRaw" | "companyMember">,
+  input: { companyId: string; actorId: string },
+  allowedRoles?: readonly Extract<UserRole, "COMPANY_ADMIN" | "COMPANY_BUYER" | "COMPANY_APPROVER">[],
+) {
+  await lockUserCommerceRows(tx, [input.actorId]);
+  const actor = await tx.companyMember.findFirst({
+    where: { companyId: input.companyId, userId: input.actorId },
+    include: {
+      user: { select: { role: true, status: true, deletedAt: true } },
+      company: { select: { status: true, deletedAt: true } },
+    },
+  });
+  if (!actor?.isActive || actor.user.status !== "ACTIVE" || actor.user.deletedAt
+    || actor.company.status !== "ACTIVE" || actor.company.deletedAt || actor.role !== actor.user.role) {
+    throw new Error("An active current company membership is required");
+  }
+  if (allowedRoles && !allowedRoles.includes(actor.role as typeof allowedRoles[number])) {
+    throw new Error(`Current company role required: ${allowedRoles.join(" or ")}`);
   }
   return actor;
 }
@@ -222,6 +246,50 @@ export function assertMinimumOrderQuantity(productName: string, quantity: number
   if (!Number.isInteger(quantity) || quantity < Math.max(1, moq)) {
     throw new Error(`Minimum order quantity for "${productName}" is ${Math.max(1, moq)}`);
   }
+}
+
+/** One row of a published price list, as tier selection needs to read it. */
+export interface PriceTierRow {
+  id: string;
+  type: string;
+  currency: string;
+  minQty: number;
+  maxQty: number | null;
+  /**
+   * Prisma hands these back as `Decimal`. The union admits a plain number so a
+   * caller holding already-converted rows (a checkout quote assembling a
+   * fixture, a test) resolves a tier through this same function instead of a
+   * second copy of the selection rule.
+   */
+  price: Prisma.Decimal | number;
+  isActive: boolean;
+  vatRate: Prisma.Decimal | number;
+}
+
+/**
+ * The price band that governs THIS quantity in THIS channel and currency, or
+ * null when the catalogue publishes none.
+ *
+ * Highest matching `minQty` wins, which is what makes a tiered price a tier:
+ * bands overlap at their edges and the most specific one — the one whose floor
+ * the quantity actually reached — is the one the buyer qualified for.
+ *
+ * This lived inside `createOrder`, reachable only through a live checkout
+ * transaction. It is here because the /api/v1 checkout quote has to answer
+ * "what will this cost" with the SAME band the order will charge: a quote that
+ * re-implemented the selection would disagree with the order at exactly the
+ * quantities where tiers change, which is where the money is.
+ */
+export function resolveUnitPrice(
+  prices: PriceTierRow[],
+  channel: "B2C" | "B2B",
+  currency: Currency,
+  quantity: number,
+): PriceTierRow | null {
+  const applicable = prices
+    .filter((p) => p.isActive && p.type === channel && p.currency === currency && p.minQty <= quantity && (p.maxQty == null || quantity <= p.maxQty))
+    .sort((a, b) => b.minQty - a.minQty);
+  return applicable[0] ?? null;
 }
 
 const money = (value: number) => Number(value.toFixed(2));

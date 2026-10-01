@@ -68,13 +68,16 @@ describe("immutable purchase-order approval evidence", () => {
 integrationSuite()("database concurrency fencing", () => {
   it("allows exactly one of concurrent approve/reject transitions to commit", async () => {
     const stamp = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
-    const actor = await db.user.create({ data: {
-      email: `po-concurrency-${stamp}@example.test`,
-      firstName: "PO",
-      lastName: "Approver",
-      role: "COMPANY_APPROVER",
-      status: "ACTIVE",
-    } });
+    const [actor, requester] = await Promise.all([
+      db.user.create({ data: {
+        email: `po-concurrency-${stamp}@example.test`, firstName: "PO", lastName: "Approver",
+        role: "COMPANY_APPROVER", status: "ACTIVE",
+      } }),
+      db.user.create({ data: {
+        email: `po-requester-${stamp}@example.test`, firstName: "PO", lastName: "Requester",
+        role: "COMPANY_BUYER", status: "ACTIVE",
+      } }),
+    ]);
     const company = await db.company.create({ data: {
       nameEn: `PO Concurrency ${stamp}`,
       industry: "OTHER",
@@ -82,12 +85,15 @@ integrationSuite()("database concurrency fencing", () => {
       country: "AE",
       city: "Dubai",
       status: "ACTIVE",
-      members: { create: { userId: actor.id, role: "COMPANY_APPROVER", isActive: true } },
+      members: { create: [
+        { userId: actor.id, role: "COMPANY_APPROVER", isActive: true },
+        { userId: requester.id, role: "COMPANY_BUYER", isActive: true },
+      ] },
     } });
     const po = await db.purchaseOrder.create({ data: {
       poNumber: `PO-CONCURRENT-${stamp}`,
       companyId: company.id,
-      requesterId: `requester-${stamp}`,
+      requesterId: requester.id,
       status: "PENDING_APPROVAL",
       currency: "AED",
       total: 100,
@@ -112,7 +118,7 @@ integrationSuite()("database concurrency fencing", () => {
       await db.purchaseOrder.delete({ where: { id: po.id } });
       await db.companyMember.deleteMany({ where: { companyId: company.id } });
       await db.company.delete({ where: { id: company.id } });
-      await db.user.delete({ where: { id: actor.id } });
+      await db.user.deleteMany({ where: { id: { in: [actor.id, requester.id] } } });
     }
   });
 

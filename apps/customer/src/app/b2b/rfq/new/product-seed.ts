@@ -20,13 +20,28 @@ import { db, PUBLIC_CATALOG_SELLER } from "@avenick/database";
  * product id that does not pass seeds nothing, so this cannot become a way to
  * read the name of a listing the storefront would not show this viewer.
  *
- * `supplier` is still carried by every link and still read by nothing: the RFQ
- * API accepts no supplier, and the form says so where that field would be.
+ * The supplier id in the URL is never trusted. The seller is resolved from the
+ * product record here and becomes the first private invitation; the buyer may
+ * add other active suppliers before submitting a competitive RFQ.
  *
  * A failure seeds nothing rather than failing the page. The form works blank,
  * which is where it was before this existed.
  */
-export type RfqProductSeed = { description: string; quantity: string };
+export type RfqProductSeed = {
+  productId: string;
+  variantId?: string;
+  description: string;
+  quantity: string;
+  supplier: {
+    id: string;
+    businessNameEn: string;
+    businessNameAr: string | null;
+    city: string;
+    country: string;
+    tier: string;
+    verification: { type: string; reviewedAt: string } | null;
+  };
+};
 
 /** Catalogue ids as the storefront issues them. Bounded, because it is a URL. */
 const CATALOGUE_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -60,14 +75,35 @@ export async function readRfqProductSeed(
           : [{ isPubliclyDiscoverable: true }],
       },
       select: {
+        id: true,
         nameEn: true,
         nameAr: true,
         sku: true,
         moq: true,
+        seller: {
+          select: {
+            id: true,
+            businessNameEn: true,
+            businessNameAr: true,
+            city: true,
+            country: true,
+            tier: true,
+            documents: {
+              where: {
+                status: "APPROVED",
+                reviewedAt: { not: null },
+                OR: [{ expiryDate: null }, { expiryDate: { gt: new Date() } }],
+              },
+              orderBy: { reviewedAt: "desc" },
+              take: 1,
+              select: { type: true, reviewedAt: true },
+            },
+          },
+        },
         // `in: []` matches nothing, so a link without a variant reads no rows.
         variants: {
           where: { id: { in: variantId ? [variantId] : [] }, isActive: true },
-          select: { nameEn: true, nameAr: true, sku: true },
+          select: { id: true, nameEn: true, nameAr: true, sku: true },
           take: 1,
         },
       },
@@ -104,5 +140,22 @@ export async function readRfqProductSeed(
   const requested = typeof params.qty === "string" ? Number(params.qty) : Number.NaN;
   const quantity = Number.isInteger(requested) && requested >= moq && requested <= MAX_QUANTITY ? requested : moq;
 
-  return { description, quantity: String(Math.min(quantity, MAX_QUANTITY)) };
+  const reviewed = product.seller.documents[0];
+  return {
+    productId: product.id,
+    variantId: variant?.id,
+    description,
+    quantity: String(Math.min(quantity, MAX_QUANTITY)),
+    supplier: {
+      id: product.seller.id,
+      businessNameEn: product.seller.businessNameEn,
+      businessNameAr: product.seller.businessNameAr,
+      city: product.seller.city,
+      country: product.seller.country,
+      tier: product.seller.tier,
+      verification: reviewed?.reviewedAt
+        ? { type: reviewed.type, reviewedAt: reviewed.reviewedAt.toISOString() }
+        : null,
+    },
+  };
 }

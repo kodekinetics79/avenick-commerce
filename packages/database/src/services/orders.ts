@@ -10,6 +10,11 @@ import {
   lockSellerCommercialRows,
   composeOrderTotals,
   lockUserCommerceRows,
+  // Tier selection moved next to the other checkout rules that need no database
+  // to check, so the /api/v1 checkout quote resolves a line's price through the
+  // SAME function this transaction does. A quote that picked its tier by a
+  // second implementation would show a price the order then contradicts.
+  resolveUnitPrice,
 } from "./checkout-invariants";
 import { resolveCompanyOrderIntegration } from "./integration-routing";
 import { assertMatchingIdempotencyFingerprint } from "./commerce-governance";
@@ -205,18 +210,6 @@ export function assertStatutoryVatRate(
     );
   }
   return jurisdiction.rate;
-}
-
-function resolveUnitPrice(
-  prices: { id: string; type: string; currency: string; minQty: number; maxQty: number | null; price: Prisma.Decimal; isActive: boolean; vatRate: Prisma.Decimal }[],
-  channel: "B2C" | "B2B",
-  currency: Currency,
-  quantity: number,
-) {
-  const applicable = prices
-    .filter((p) => p.isActive && p.type === channel && p.currency === currency && p.minQty <= quantity && (p.maxQty == null || quantity <= p.maxQty))
-    .sort((a, b) => b.minQty - a.minQty);
-  return applicable[0] ?? null;
 }
 
 const money = (value: number) => Number(value.toFixed(2));

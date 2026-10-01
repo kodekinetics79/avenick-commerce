@@ -8,7 +8,12 @@ import {
   canonicalOrderRequest,
   commercialSnapshotFingerprint,
 } from "./commerce-governance";
-import { assertMinimumOrderQuantity, assertRequiredVariantSelection, lockUserCommerceRows } from "./checkout-invariants";
+import {
+  assertMinimumOrderQuantity,
+  assertRequiredVariantSelection,
+  lockUserCommerceRows,
+  requireCurrentCompanyActor,
+} from "./checkout-invariants";
 
 export interface PurchaseOrderLineInput {
   productId: string;
@@ -159,21 +164,6 @@ function approvalEvidence(
   return { commercialFingerprint, snapshot };
 }
 
-async function currentCompanyActor(
-  tx: Prisma.TransactionClient,
-  input: { companyId: string; actorId: string },
-) {
-  const actor = await tx.companyMember.findFirst({
-    where: { companyId: input.companyId, userId: input.actorId },
-    include: { user: { select: { role: true, status: true, deletedAt: true } }, company: { select: { status: true, deletedAt: true } } },
-  });
-  if (!actor?.isActive || actor.user.status !== "ACTIVE" || actor.user.deletedAt
-    || actor.company.status !== "ACTIVE" || actor.company.deletedAt || actor.role !== actor.user.role) {
-    throw new Error("An active current company membership is required");
-  }
-  return actor;
-}
-
 async function invalidateApprovedPOs(
   tx: Prisma.TransactionClient,
   input: { companyId: string; currency: Currency; actorId: string; reason: string },
@@ -233,7 +223,7 @@ export async function updateGovernedCompanyMember(input: {
     });
     if (!candidate) throw new Error("Company member not found");
     await lockUserCommerceRows(tx, [input.actorId, candidate.userId]);
-    const actor = await currentCompanyActor(tx, input);
+    const actor = await requireCurrentCompanyActor(tx, input);
     if (actor.role !== "COMPANY_ADMIN") throw new Error("Current company admin authority is required");
     const current = await tx.companyMember.findFirst({ where: { id: input.memberId, companyId: input.companyId } });
     if (!current) throw new Error("Company member not found");
@@ -322,7 +312,7 @@ export async function createGovernedApprovalPolicy(input: {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
     await lockUserCommerceRows(tx, [input.actorId]);
     await input.afterGovernanceLocks?.();
-    const actor = await currentCompanyActor(tx, input);
+    const actor = await requireCurrentCompanyActor(tx, input);
     if (actor.role !== "COMPANY_ADMIN") throw new Error("Current company admin authority is required");
     const policy = await tx.approvalPolicy.create({ data: {
       companyId: input.companyId,
@@ -353,7 +343,7 @@ export async function setGovernedApprovalPolicyActive(input: {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
     await lockUserCommerceRows(tx, [input.actorId]);
     await input.afterGovernanceLocks?.();
-    const actor = await currentCompanyActor(tx, input);
+    const actor = await requireCurrentCompanyActor(tx, input);
     if (actor.role !== "COMPANY_ADMIN") throw new Error("Current company admin authority is required");
     const policy = await tx.approvalPolicy.findFirst({ where: { id: input.policyId, companyId: input.companyId } });
     if (!policy) throw new Error("Approval policy not found");
@@ -389,7 +379,7 @@ export async function createGovernedPurchaseOrder(input: {
     await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(hashtext(${`company-approval:${input.companyId}`}))`);
     await lockUserCommerceRows(tx, [input.requesterId]);
     await input.afterGovernanceLocks?.();
-    const requester = await currentCompanyActor(tx, { companyId: input.companyId, actorId: input.requesterId });
+    const requester = await requireCurrentCompanyActor(tx, { companyId: input.companyId, actorId: input.requesterId });
     const requesterSpendLimit = requester.spendLimit == null ? null : Number(requester.spendLimit);
     // Resolve again under the company policy lock so creation cannot race a
     // policy mutation and accidentally auto-approve under stale rules.
@@ -492,7 +482,7 @@ export async function transitionGovernedPurchaseOrder(input: {
     const requesterSpendLimit = requesterMembership?.isActive && requesterMembership.companyId === po.companyId
       ? requesterMembership.spendLimit == null ? null : Number(requesterMembership.spendLimit)
       : null;
-    const actorMembership = await currentCompanyActor(tx, input);
+    const actorMembership = await requireCurrentCompanyActor(tx, input);
     if (input.action === "cancel") {
       const canCancel = po.requesterId === input.actorId || ["COMPANY_ADMIN", "COMPANY_APPROVER"].includes(actorMembership.role);
       if (!canCancel) throw new Error("Only the requester or a current approver can cancel this purchase order");
@@ -587,7 +577,7 @@ export async function placeGovernedPurchaseOrder(input: {
       include: { items: true, company: true },
     });
     if (!po) throw new Error("Purchase order not found");
-    const actor = await currentCompanyActor(tx, input);
+    const actor = await requireCurrentCompanyActor(tx, input);
     const canPlace = po.requesterId === input.actorId || ["COMPANY_ADMIN", "COMPANY_APPROVER"].includes(actor.role);
     if (!canPlace) throw new Error("Only the requester or a current approver can place this purchase order");
     const existing = await tx.order.findFirst({ where: { purchaseOrderId: po.id }, orderBy: { createdAt: "asc" } });
