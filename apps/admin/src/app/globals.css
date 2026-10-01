@@ -46,13 +46,31 @@
        calmest portal: at a 32px row height a console has to separate its objects
        with material, because it has no space to separate them with. */
     --rim-shoulder-2: 0.22;
-    --rim-shoulder-3: 0.30;
+    --rim-shoulder-3: 0.3;
     --rim-shoulder-4: 0.38;
     /* 32–40px thumbnails, and no frame at all: a plate around a 32px image is a
        box around a box. */
     --img-ratio-card: 1 / 1;
     --img-inset: 0;
   }
+}
+
+/* Admin is quieter than the marketplace, not a separate brand. Aubergine owns
+   identity/navigation; success, warning, and danger keep their semantic hues. */
+[data-portal="admin"] {
+  --primary: 281 54% 23%;
+  --primary-foreground: 0 0% 100%;
+  --primary-ink: 281 58% 24%;
+  --primary-soft: 281 32% 94%;
+  --primary-edge: 281 60% 14%;
+}
+
+.dark[data-portal="admin"] {
+  --primary: 281 45% 66%;
+  --primary-foreground: 281 30% 8%;
+  --primary-ink: 281 55% 72%;
+  --primary-soft: 281 30% 15%;
+  --primary-edge: 281 45% 44%;
 }
 
 /* ── The settling chrome, bound to the pane that actually scrolls ──────────────

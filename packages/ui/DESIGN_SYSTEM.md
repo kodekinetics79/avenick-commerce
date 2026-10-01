@@ -124,6 +124,12 @@ does the work.
 | **Primitives**                                  | `packages/ui/src/*.tsx`, all exported from `@avenick/ui`                                                                       |
 | **Arabic display faces**                        | `apps/*/src/app/layout.tsx`, `<link>` gated on `locale === "ar"`                                                               |
 
+The selected commercial direction establishes **aubergine as Avenick identity**
+and **copper as the RFQ/conversion signal**. Customer, seller, and admin app
+styles adapt the shared primary tokens to aubergine so navigation and access
+read as one company. Green remains semantic success and verdigris remains
+trade/verification; neither is a generic brand-action colour.
+
 **LAW 9 — NO CALLABLE HELPER FROM A `"use client"` MODULE.** Next replaces every export of
 a client module with a client reference in the server graph. A component survives that; a
 plain function does not, and calling one fails the _production_ build with a minified

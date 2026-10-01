@@ -51,3 +51,23 @@
     --img-inset: 5%;
   }
 }
+
+/* The commercial marketplace established aubergine as Avenick identity and
+   copper as its conversion signal. Seller Central carries the identity hue for
+   navigation and links while semantic success remains green. Keeping that
+   distinction stops a sign-in action from looking like a completed status. */
+[data-portal="seller"] {
+  --primary: 281 54% 23%;
+  --primary-foreground: 0 0% 100%;
+  --primary-ink: 281 58% 24%;
+  --primary-soft: 281 32% 94%;
+  --primary-edge: 281 60% 14%;
+}
+
+.dark[data-portal="seller"] {
+  --primary: 281 45% 66%;
+  --primary-foreground: 281 30% 8%;
+  --primary-ink: 281 55% 72%;
+  --primary-soft: 281 30% 15%;
+  --primary-edge: 281 45% 44%;
+}

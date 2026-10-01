@@ -1614,13 +1614,39 @@
       "portalName": "{brand} Seller Central",
       "title": "Sign in",
       "description": "The supplier back office for this account: your catalogue, orders, documents, and settlements.",
+      "workspaceTitle": "Your supplier operations, in one accountable workspace.",
+      "workspaceBody": "Manage the work behind every quote and order without losing the record that connects them.",
+      "accessTitle": "Continue to Seller Central",
+      "accessBody": "Use the account approved for your supplier organisation.",
+      "languageLabel": "Choose language",
+      "capabilities": {
+        "catalogue": {
+          "title": "Catalogue",
+          "body": "Maintain products, variants, and stock records."
+        },
+        "quotes": {
+          "title": "RFQs and quotes",
+          "body": "Respond to buyer requirements and follow quote status."
+        },
+        "orders": {
+          "title": "Orders and fulfilment",
+          "body": "Manage order progress and its supporting documents."
+        },
+        "settlements": {
+          "title": "Settlements",
+          "body": "Review payout and settlement records."
+        }
+      },
       "registered": {
         "title": "Application received",
         "body": "Sign in with that email address to follow its review. If it was already registered, use your existing password."
       },
       "formLabel": "Sign in",
       "email": "Email",
+      "emailRequired": "Enter your email address.",
+      "emailInvalid": "Enter a valid email address.",
       "password": "Password",
+      "passwordRequired": "Enter your password.",
       "showPassword": "Show password",
       "hidePassword": "Hide password",
       "submit": "Sign in",

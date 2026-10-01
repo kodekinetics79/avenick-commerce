@@ -63,6 +63,7 @@ export * from "./brand-mark";
 export * from "./brand-mark-geometry";
 export * from "./layer";
 export * from "./sticky-glass-bar";
+export * from "./portal-access-shell";
 export * from "./nav-item";
 export * from "./dialog";
 export * from "./button";

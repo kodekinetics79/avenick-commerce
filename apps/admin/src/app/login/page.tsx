@@ -1,119 +1,161 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { signInWithCredentials } from "@avenick/auth/client";
 import { messageForSignInError as messageForError } from "@avenick/auth/sign-in-messages";
+import { safeReturnTo } from "@avenick/auth/safe-redirect";
 import { useSearchParams } from "next/navigation";
-import { Input, Button, Dateline, Divider, Eyebrow, Surface } from "@avenick/ui";
+import { Eye, EyeOff, FileSearch2, Landmark, ShieldCheck, Store } from "lucide-react";
+import { Button, Input, PortalAccessShell } from "@avenick/ui";
 import { platformName } from "@avenick/utils/portal-config";
 
-/**
- * The console's front door, and the first surface anyone sees.
- *
- * Round one left it carrying every gesture the system has since banned by name:
- * an indigo→violet gradient tile with a font-black "A", two blur-[120px] orbs, a
- * `shadow-glow`, a forced `dark` class that overrode the operator's own theme on
- * this one page, and the marketing line "B2B-first. B2C-ready. Built for modern
- * trade." on an internal sign-in screen.
- *
- * What replaces them is the system's own vocabulary: the ambient ruled field the
- * root layout already mounts, one floating rung-4 slab with the four-part light
- * on it, the brass rule as the mark, and the platform name read from
- * configuration rather than written into the page. Nothing here claims anything.
- */
 export default function AdminLoginPage() {
   const searchParams = useSearchParams();
   const urlError = searchParams.get("code") ?? searchParams.get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(messageForError(urlError));
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const brand = platformName();
 
-  async function handleLogin(e: FormEvent) {
-    e.preventDefault();
+  async function handleLogin(event: FormEvent) {
+    event.preventDefault();
+    if (loading) return;
+
+    const trimmedEmail = email.trim();
+    const nextErrors = {
+      ...(!trimmedEmail
+        ? { email: "Enter your admin email." }
+        : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)
+          ? { email: "Enter a valid email address." }
+          : {}),
+      ...(!password ? { password: "Enter your password." } : {}),
+    };
+    setFieldErrors(nextErrors);
+    if (nextErrors.email || nextErrors.password) {
+      (nextErrors.email ? emailRef : passwordRef).current?.focus();
+      return;
+    }
+
     setLoading(true);
     setError("");
+    const callbackUrl = safeReturnTo(searchParams.get("callbackUrl"), "/dashboard");
     try {
-      const res = await signInWithCredentials(email, password, "/dashboard");
-      if (!res.ok) {
-        setError(messageForError(res.code ?? res.error));
+      const result = await signInWithCredentials(trimmedEmail, password, callbackUrl);
+      if (!result.ok) {
+        setError(messageForError(result.code ?? result.error));
+        setPassword("");
         setLoading(false);
+        passwordRef.current?.focus();
       } else {
-        window.location.assign("/dashboard");
+        window.location.assign(callbackUrl);
       }
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("Sign-in could not be completed. Check your connection and try again.");
       setLoading(false);
     }
   }
 
+  const capabilities = [
+    {
+      icon: <Store className="h-4 w-4" />,
+      title: "Marketplace oversight",
+      body: "Review the operational state of customers, sellers, products, and orders.",
+    },
+    {
+      icon: <ShieldCheck className="h-4 w-4" />,
+      title: "Seller review",
+      body: "Work through supplier applications and compliance records.",
+    },
+    {
+      icon: <Landmark className="h-4 w-4" />,
+      title: "Settlement control",
+      body: "Inspect payout, commission, and order exceptions by currency.",
+    },
+    {
+      icon: <FileSearch2 className="h-4 w-4" />,
+      title: "Documented actions",
+      body: "Keep operational decisions attached to the marketplace record.",
+    },
+  ];
+
   return (
-    // No forced `dark`. The root layout's inline script has already applied the
-    // operator's own theme by the time this paints, and overriding it here meant
-    // one screen in the console disagreed with every other.
-    <div className="flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="w-full max-w-sm">
-        <div className="mb-6">
-          {/* The brass rule as the mark. It is the same gesture as the active nav
-              item, the empty state's top edge and the commit rule — one gesture
-              in different postures is most of what makes a system read as
-              designed rather than assembled. */}
-          <Divider drawn on className="mb-4 w-12" />
-          <Eyebrow>Platform operations</Eyebrow>
-          <h1 className="u-h2 mt-1 text-ink-1">{platformName()} admin console</h1>
-          <p className="u-body mt-1.5 text-ink-2">Sign in with the account platform operations issued you.</p>
-        </div>
-
-        {/* Rung 4, and the only floating surface on the page: it is the one
-            object here, and law A says a thing you act on stands off the ground.
-            `rim` draws the fresnel shoulder around its perimeter. */}
-        <Surface rung={4} rim className="p-5">
-          <form onSubmit={handleLogin} className="space-y-3.5" aria-label="Sign in">
-            {/* A placeholder is not an accessible name: it vanishes on input and
-                is not exposed as a label by every assistive technology. These are
-                real labels, and they are visible — a sign-in form is not the
-                place to trade legibility for tidiness. */}
-            <Input
-              id="login-email"
-              label="Admin email"
-              name="email"
-              type="email"
-              autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <Input
-              id="login-password"
-              label="Password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            {error && (
-              // A failed sign-in is announced, not just coloured: role="alert"
-              // is what makes it reach a screen-reader user who has just pressed
-              // a button and heard nothing.
-              <p className="u-ui text-danger-ink" role="alert">
-                {error}
-              </p>
-            )}
-            <Button type="submit" className="w-full" loading={loading}>
-              Sign in
-            </Button>
-          </form>
-        </Surface>
-
-        {/* No reset link on purpose: the public reset flow refuses admin
-            accounts, so offering it here would be a control that does nothing. */}
-        <Dateline className="mt-4">
-          Administrator accounts are provisioned by platform operations. Password reset is not available from this
-          screen.
-        </Dateline>
-      </div>
-    </div>
+    <PortalAccessShell
+      brand={brand}
+      portalName={`${brand} Admin Console`}
+      title="Operate the marketplace from one accountable command surface."
+      description="Review suppliers, orders, settlements, risk, and marketplace performance without losing the evidence behind an action."
+      capabilities={capabilities}
+      accessTitle="Sign in to platform operations"
+      accessDescription="Use the administrator account issued by platform operations."
+      provenance="Administrator accounts are provisioned by platform operations. Password reset is not available from this screen."
+    >
+      <form onSubmit={handleLogin} className="space-y-4" aria-label="Admin sign in" noValidate>
+        <Input
+          ref={emailRef}
+          id="login-email"
+          label="Admin email"
+          name="email"
+          type="email"
+          inputMode="email"
+          autoComplete="username"
+          value={email}
+          error={fieldErrors.email}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            if (fieldErrors.email) setFieldErrors((current) => ({ ...current, email: undefined }));
+          }}
+          required
+        />
+        <Input
+          ref={passwordRef}
+          id="login-password"
+          label="Password"
+          name="password"
+          type={showPassword ? "text" : "password"}
+          autoComplete="current-password"
+          value={password}
+          error={fieldErrors.password}
+          onChange={(event) => {
+            setPassword(event.target.value);
+            if (fieldErrors.password)
+              setFieldErrors((current) => ({ ...current, password: undefined }));
+          }}
+          required
+          endIcon={
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+              className="u-focus grid h-10 w-10 cursor-pointer place-items-center rounded-nested text-ink-3 hover:bg-ink-1/[0.06] hover:text-ink-1"
+            >
+              {showPassword ? (
+                <EyeOff className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Eye className="h-4 w-4" aria-hidden="true" />
+              )}
+            </button>
+          }
+        />
+        {error && (
+          <p className="u-ui text-danger-ink" role="alert">
+            {error}
+          </p>
+        )}
+        <Button
+          type="submit"
+          size="lg"
+          className="w-full bg-ink-1 text-ink-inv [--key-edge:var(--ink-edge)] hover:bg-ink-1/90 active:bg-ink-1/90"
+          loading={loading}
+        >
+          Sign in
+        </Button>
+      </form>
+    </PortalAccessShell>
   );
 }

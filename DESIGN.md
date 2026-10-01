@@ -21,6 +21,14 @@ in one changeset.
 - **Admin:** a market command center. Prioritize conversion leakage, supplier
   activation, settlement/risk exceptions, campaign return, and supply gaps.
 
+## Identity palette across portals
+
+- Aubergine carries Avenick identity, navigation, and signed-in access across
+  customer, seller, and admin surfaces.
+- Copper is reserved for commercial conversion actions such as RFQ creation.
+- Green remains semantic success; verdigris remains trade/verification. Neither
+  is used as a generic sign-in or brand action.
+
 ## Non-negotiables
 
 - Never invent ratings, scarcity, discounts, response times, verification,

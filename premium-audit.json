@@ -893,15 +893,6 @@
     },
     {
       "category": "violation",
-      "file": "apps/admin/src/app/login/page.tsx",
-      "line": 71,
-      "message": "Application-owned form does not declare its validation owner.",
-      "remediation": "Add noValidate/novalidate and implement the canonical validation contract.",
-      "ruleId": "form.novalidate-missing",
-      "severity": "error"
-    },
-    {
-      "category": "violation",
       "file": "apps/admin/src/app/payments/page.tsx",
       "line": 361,
       "message": "Application-owned form does not declare its validation owner.",
@@ -1346,10 +1337,10 @@
   "projectRoot": "/Users/zackkhan/.codex/.chatgpt-projects/g-p-6a16df537b748191b702383d56a74791/avenick-spatial-visibility",
   "schemaVersion": 1,
   "summary": {
-    "errors": 149,
-    "total": 149,
+    "errors": 148,
+    "total": 148,
     "unresolved": 17,
-    "violations": 132,
+    "violations": 131,
     "warnings": 0
   }
 }
