@@ -3,13 +3,13 @@
 ## Executive gate
 
 - **Module:** Invited multi-supplier RFQ → quote comparison → award → draft purchase order
-- **Gate:** BLOCKED — implementation complete; environment evidence pending
-- **Baseline:** `d192f26ea4d76beab131b2c1d7b646ee78f465a4`
-- **Candidate:** `c391bfc56067af1adc6b27ae9c1beab514f8e557`
-- **Branch:** `feat/revenue-fountain-20260930`
-- **Environment:** Local build/test environment without PostgreSQL, a browser-accessible localhost bridge, or an installed Chrome binary
-- **Decision rationale:** The candidate implements the complete vertical slice and passes static, unit, contract, localization, and production-build gates. Acceptance is withheld because the PostgreSQL migration/trigger scenarios and the authenticated buyer/seller journey have not run in real infrastructure.
-- **Next controlled action:** Run candidate `c391bfc` through one PostgreSQL-and-headed-Chrome evidence job covering migration, two-supplier quoting, award concurrency, exact draft-PO persistence, and buyer/seller UI receipts.
+- **Gate:** ACCEPTED
+- **Baseline:** `37e59b8be7e6a37e7eb2fa397fe0ca88c178f933`
+- **Candidate:** `21acde6b38f6e55e07860e6abc22faf2d8d89614` (`main`)
+- **Evidence head:** `1bd6bedcce91e7d4b18d9faf28a06f5e5b3bba5b`; tree-equivalent to the squash-merged candidate (`ee81a60c1cc61e087ae82d00dad63f5af7bbff9b`)
+- **Environment:** GitHub Actions Ubuntu runner, PostgreSQL service container, headed Chromium under Xvfb, deterministic `seed` personas, 1440 × 1000 viewport; production deployments on Vercel in `iad1`
+- **Decision rationale:** All critical acceptance criteria now map to passing PostgreSQL or headed-browser evidence. The real buyer/seller interface completed the two-supplier RFQ, revision, comparison, award, and one-draft-PO journey; scoped API assertions proved supplier isolation and persisted state. No Critical or High finding remains open. The exact merged SHA is READY in all three production projects and each `/api/ready` probe reports database, migrations, and integration checks healthy.
+- **Next controlled action:** Start the next revenue module. Preserve this suite as the RFQ regression and release gate; rerun it when RFQ authorization, tenancy, workflow, or schema surfaces change.
 
 ## Scope and baseline
 
@@ -61,78 +61,86 @@ An authorized company buyer invites multiple suppliers, receives isolated and co
 
 | Requirement | Planned tests | Current result | Gate effect |
 | --- | --- | --- | --- |
-| Two invited suppliers can quote independently | PostgreSQL integration suite | AUTHORED; SKIPPED — no `DATABASE_URL` | Blocking |
-| Only latest seller revision is actionable; history remains immutable | PostgreSQL integration suite + migration triggers | AUTHORED; SKIPPED — no PostgreSQL | Blocking |
-| Seller and company isolation is enforced server-side | Service checks, scoped DTOs, seller/customer suites | PASS in static/unit gates; real DB proof pending | Blocking |
-| Quote covers every RFQ line and uses seller-owned catalogue items | Service validation + PostgreSQL integration suite | AUTHORED; real DB proof pending | Blocking |
-| VAT, freight, validity, delivery, and total are authoritative | Decimal service calculation + exact-snapshot triggers | PASS in type/build gates; trigger proof pending | Blocking |
-| Concurrent award produces one winner and one draft PO | PostgreSQL concurrent-award scenario | AUTHORED; SKIPPED — no PostgreSQL | Blocking |
-| Award retry returns the existing PO; stale or different award conflicts | PostgreSQL integration suite | AUTHORED; SKIPPED — no PostgreSQL | Blocking |
-| PO commercial snapshot exactly equals accepted quote | PostgreSQL integration suite + migration guards | AUTHORED; SKIPPED — no PostgreSQL | Blocking |
-| Buyer and seller complete critical paths in headed Chrome | Buyer Deal Ledger and seller composer | BLOCKED — browser rejected localhost; no Chrome binary | Blocking |
+| Two invited suppliers can quote independently | PostgreSQL integration suite + `RFQ-E2E-001` | PASS | Satisfied |
+| Only latest seller revision is actionable; history remains immutable | PostgreSQL integration suite + migration triggers + `RFQ-E2E-001` | PASS | Satisfied |
+| Seller and company isolation is enforced server-side | Service checks, scoped DTOs, authenticated isolation suite, `RFQ-E2E-001` | PASS | Satisfied |
+| Quote covers every RFQ line and uses seller-owned catalogue items | Service validation + PostgreSQL integration suite | PASS | Satisfied |
+| VAT, freight, validity, delivery, and total are authoritative | Decimal service calculation + exact-snapshot triggers | PASS | Satisfied |
+| Concurrent award produces one winner and one draft PO | PostgreSQL concurrent-award scenario | PASS | Satisfied |
+| Award retry returns the existing PO; stale or different award conflicts | PostgreSQL integration suite | PASS | Satisfied |
+| PO commercial snapshot exactly equals accepted quote | PostgreSQL integration suite + migration guards + `RFQ-E2E-001` persistence artifact | PASS | Satisfied |
+| Buyer and seller complete critical paths in headed Chrome | `RFQ-E2E-001`, Buyer Deal Ledger and seller composer | PASS | Satisfied |
 
 ## Findings register
 
 | ID | Severity | Observed fact | State | Owner / next action |
 | --- | --- | --- | --- | --- |
-| RFQ-001 | High | First-supplier claim prevented competition. | IMPLEMENTED | Invitation-scoped quotes replace claim behavior for the new path. |
-| RFQ-002 | High | Requotes overwrote shared RFQ lines. | IMPLEMENTED | Append-only quote revisions and immutable quote items added. |
-| RFQ-003 | High | Quote acceptance created no purchase order. | IMPLEMENTED | Award now atomically creates one quote-linked `DRAFT` PO. |
-| RFQ-004 | High | Award authority was not transactionally current. | IMPLEMENTED | Current company actor and role are revalidated inside the transaction. |
-| RFQ-005 | High | RFQ creation dropped catalogue identity. | IMPLEMENTED | Product identity is retained; submitted lines require seller-owned mappings. |
-| RFQ-006 | Medium | Commercial terms were unstructured. | IMPLEMENTED | VAT, freight, validity, lead time, payment days, and totals are structured. |
-| RFQ-007 | Medium | Buyer lacked comparison and confirmation. | IMPLEMENTED | Deal Ledger, comparable totals, exact-version confirmation, and PO receipt added. |
-| RFQ-008 | Medium | Seller form was price-only. | IMPLEMENTED | Invitation-scoped versioned composer with catalogue mapping and terms added. |
-| RFQ-009 | High | Legacy RFQ messages are not invitation-scoped and could mix supplier conversations. | CONTAINED | Buyer Deal Ledger does not project or render messages; redesign remains excluded. |
-| RFQ-010 | Blocker | Raw migration, triggers, concurrency, and headed-browser journey lack executable infrastructure here. | OPEN | Resolve through the single evidence job named above. |
+| RFQ-001 | High | First-supplier claim prevented competition. | CLOSED | Invitation-scoped quotes and the two-supplier browser journey prove competition. |
+| RFQ-002 | High | Requotes overwrote shared RFQ lines. | CLOSED | Append-only revisions, immutability checks, and Seller A revision 2 passed. |
+| RFQ-003 | High | Quote acceptance created no purchase order. | CLOSED | Award persisted exactly one quote-linked `DRAFT` PO. |
+| RFQ-004 | High | Award authority was not transactionally current. | CLOSED | Transactional role revalidation and permission tests passed. |
+| RFQ-005 | High | RFQ creation dropped catalogue identity. | CLOSED | Product identity and seller-owned mapping validation passed. |
+| RFQ-006 | Medium | Commercial terms were unstructured. | CLOSED | Structured terms, server totals, and exact snapshots passed. |
+| RFQ-007 | Medium | Buyer lacked comparison and confirmation. | CLOSED | Deal Ledger, comparison, confirmation dialog, and receipt passed in headed Chrome. |
+| RFQ-008 | Medium | Seller form was price-only. | CLOSED | Versioned catalogue-aware quote composer passed for two sellers. |
+| RFQ-009 | High | Legacy RFQ messages are not invitation-scoped and could mix supplier conversations. | CLOSED FOR WAVE 1 | Messages remain excluded and are not projected or rendered in the accepted workflow. |
+| RFQ-010 | Blocker | PostgreSQL and headed-browser evidence was unavailable. | CLOSED | PostgreSQL CI and headed-Chromium certification completed successfully. |
 
 ## Review summaries
 
 ### SDET
 
-The target workflow now has a PostgreSQL integration suite covering two sellers, revision/replay, isolation, one-winner concurrency, exact PO snapshots, notification privacy, immutability, and rollback. The suite is intentionally skipped without a real PostgreSQL URL; no in-memory substitute is counted as evidence.
+The PostgreSQL suite and the guarded headed-Chromium journey passed in CI. The evidence covers two sellers, revision/replay, scoped seller visibility, one-winner concurrency, one exact PO snapshot, notification privacy, immutability, rollback, and the real interface from RFQ creation through the PO register. The broader authenticated project retains one generic data-dependent skip, but the module-specific cross-seller isolation assertion passed against the RFQ created in the same certification run.
 
 ### Domain consultant
 
-The target requires separate request and supplier-quote lifecycles, invitation confidentiality, immutable revisions, explicit validity/delivery/tax/freight terms, and a governed award. Declining one supplier's offer must not reject the RFQ.
+The accepted workflow preserves separate request and supplier-quote lifecycles, invitation confidentiality, immutable revisions, explicit delivery/tax/freight/payment terms, and a governed award. Awarding one supplier closes competing offers without rejecting or corrupting the RFQ.
 
 ### Enterprise consultant
 
-The purchase-order governance, seller permission fence, advisory locks, audit model, and design system are reusable. A parallel PO engine or decorative comparison screen would create material control risk and is prohibited.
+The purchase-order governance, seller permission fence, advisory locks, audit model, and design system are reusable. Production readiness confirms the database and migrations match the deployed candidate. A parallel PO engine or client-only comparison path remains prohibited.
 
 ### Technical risk
 
-The migration must use expand/backfill/cutover/contract. Historical quotes may be preserved as legacy, non-orderable snapshots where product mapping is missing. PostgreSQL constraints, partial unique indexes, and immutability triggers are required in addition to service validation.
+The migration followed expand/backfill/cutover discipline and passed against PostgreSQL. Contract removal of legacy single-supplier columns remains a later, separately gated change. Historical quotes may remain legacy, non-orderable snapshots where product mapping is missing.
 
 ## Gate checklist
 
 - [x] Exact baseline and branch identified
 - [x] Critical criteria mapped to planned tests
 - [x] Expand migration and Prisma model implemented
-- [ ] Raw migration and trigger behavior validated against PostgreSQL
-- [ ] Multi-supplier service tests pass against PostgreSQL
-- [x] Cross-company and cross-seller isolation implemented and statically tested
-- [ ] Buyer and seller headed-browser journeys pass
-- [ ] Accepted quote and draft PO persistence evidence captured from PostgreSQL
+- [x] Raw migration and trigger behavior validated against PostgreSQL
+- [x] Multi-supplier service tests pass against PostgreSQL
+- [x] Cross-company and cross-seller isolation validated server-side
+- [x] Buyer and seller headed-browser journey passes
+- [x] Accepted quote and draft PO persistence evidence captured
 - [x] No known open Critical implementation defect remains
 
 ## Program ledger
 
 | Order | Module | Last candidate | Gate | Open blockers | Next action |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Invited RFQ → quote → award → draft PO | `c391bfc56067af1adc6b27ae9c1beab514f8e557` | BLOCKED | RFQ-010: real PostgreSQL and headed-Chrome evidence | Run the single deployment-candidate evidence job. |
+| 1 | Invited RFQ → quote → award → draft PO | `21acde6b38f6e55e07860e6abc22faf2d8d89614` | ACCEPTED | None | Preserve as regression; begin the next revenue module. |
 
 ## Verification evidence
 
-- Prisma client generation: PASS.
-- Repository typecheck: PASS, 5/5 tasks.
-- Frontend route contracts: PASS; customer 254, seller 130, admin 148 destinations checked.
-- Lint: PASS for customer, seller, and admin; only pre-existing font-loading warnings remain.
-- Customer suite: PASS, 807 tests; 11 environment-gated tests skipped.
-- Seller suite: PASS, 64 tests; 11 environment-gated tests skipped.
-- Focused database suite: PASS, 4 portable tests; 7 PostgreSQL scenarios skipped.
-- Customer production build: PASS, 60 routes generated.
-- Seller production build: PASS, 36 routes generated.
-- Headed-browser attempt: BLOCKED. Browser returned `ERR_BLOCKED_BY_CLIENT` for localhost.
-- Local Playwright fallback: BLOCKED. Chrome download returned a zero-byte/truncated archive.
-- PostgreSQL evidence: BLOCKED. `DATABASE_URL`, PostgreSQL, Docker, and `psql` are unavailable in this environment.
+### `RFQ-E2E-001` — two-supplier RFQ award creates one draft PO
+
+- **Requirement / finding IDs:** RFQ-001, RFQ-002, RFQ-003, RFQ-007, RFQ-008, RFQ-010; all critical acceptance rows above.
+- **Candidate / deployed build:** evidence head `1bd6bedcce91e7d4b18d9faf28a06f5e5b3bba5b`; squash candidate `21acde6b38f6e55e07860e6abc22faf2d8d89614`; identical tree `ee81a60c1cc61e087ae82d00dad63f5af7bbff9b`.
+- **Environment:** GitHub Actions Ubuntu; PostgreSQL service; headed Chromium under Xvfb; 1440 × 1000; company admin, Seller A owner, Seller B owner; deterministic `seed` tenant/personas.
+- **Preconditions:** migrations applied; catalogue and six personas seeded; all three portals built and started; real login form used to establish sessions.
+- **Steps:** buyer creates RFQ and invites two suppliers; both invitations are confirmed; Seller A submits and revises; Seller B is denied Seller A's quotes and submits its own; buyer compares two current quotes and awards Seller B; customer API and PO register are checked.
+- **Expected / actual:** exactly two current supplier quotes, one accepted quote, one linked `DRAFT` PO, and one PO-register row. Actual matched expected; supplier isolation returned an empty Seller B quote projection before its submission.
+- **Result:** PASS.
+- **Artifacts:** GitHub Actions run `36755211329`, job `110026842910`, artifact `browser-journey-evidence` (`11117131524`), SHA-256 `e370f2ba16534a519a8fb7a11034f424bae8f036eb7344406a0105466432257d`. The artifact contains RFQ creation, both supplier submissions, Seller A revision 2, buyer comparison, award receipt, PO-register screenshots, and `rfq-to-po-persistence.json`.
+- **Timestamp:** 2026-09-30 18:14 UTC.
+- **Limitations:** the mutating journey is intentionally restricted to a disposable loopback environment. Production verification is non-mutating readiness and deployment provenance, not a production purchase-order write.
+
+### CI and production release evidence
+
+- PR #56 CI run `36725143451`: migrations, unit/integration tests, route contracts, builds, authenticated boundary journeys, and browser evidence all passed against PostgreSQL; artifact `11103626226`, SHA-256 `ab3851f1a9a908b587df8db4b68a34fa116085a5c9304a79c3a7a45bebbae455`.
+- PR #57 CI run `36755211329`: `Typecheck, lint, test, build` and `Browser journey evidence` passed. The browser job applied migrations, seeded personas, built and started all portals, then ran the authenticated isolation and RFQ-to-PO certification in headed Chrome.
+- Production commit checks: customer, seller, and admin Vercel statuses are successful for `21acde6b38f6e55e07860e6abc22faf2d8d89614`.
+- Production deployments: customer `dpl_DjTt1PzqdWJG7Gm1nSU3CpQRTRMc`, seller `dpl_5bqeDwcUcbcWtWuWCFRFjp9RqSgg`, admin `dpl_2tQNL2LEHCiLFW9yTwFFubNdAeGC`; all are `READY`, target `production`, region `iad1`, with no alias error.
+- Production readiness at 2026-10-01 12:34 UTC: customer, seller, and admin `/api/ready` returned HTTP 200 with `status=ready` and database, migrations, and integration checks all `ok=true`.
