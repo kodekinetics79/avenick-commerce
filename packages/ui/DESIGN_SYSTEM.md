@@ -242,17 +242,17 @@ The single permitted ambient gradient, mounted **exactly once** per root layout 
 `<AmbientField>`.
 
 ```
---field-a: 150 66% 40%   alpha .075 light / .16 dark   green — brand
---field-b: 200 64% 44%   alpha .052 light / .11 dark   verdigris — trade
---field-c:  36 56% 42%   alpha .026 light / .07 dark   brass — the register    (NEW)
+--field-a: 315 42% 44%   alpha .075 light / .16 dark   wine plum — brand
+--field-b: 200 58% 42%   alpha .052 light / .11 dark   industrial blue — trade
+--field-c:  28 60% 46%   alpha .026 light / .07 dark   copper — the register
 --field-rule / --field-rule-alpha   .035 light / .045 dark
 --field-noise  .022 light / .034 dark        --field-blur 64px
 --field-intensity  1 customer · .30 seller · .15 admin
 ```
 
-> **Corrected against the shipped file.** This table read `248 66% 58%` (indigo)
-> and `184 64% 44%` until the brand hue moved indigo → green; `globals.css` has
-> shipped `150` and `200` since. The CSS is the truth. A stale token table is
+> **Corrected against the shipped file.** The 2026-10 storefront direction moved
+> the brand from green/verdigris to wine plum/industrial blue, retaining copper as the
+> register accent. `globals.css` is the truth. A stale token table is
 > worse than none, because it is the thing a new track copies values out of —
 > and §3.7's contrast ceilings are derived from the hues that are actually
 > composited, so a mark or a plate tuned against the old lobes would be tuned
@@ -308,7 +308,7 @@ surface you own and `.u-state-wash` on one you do not (a table row, a nav item).
 
 ### 3.10 Brand, semantics, focus, shape, density
 
-Unchanged from round one. `--brass` still has exactly three permitted uses — the
+`--brass` (now expressed as copper) still has exactly three permitted uses — the
 active-indicator rule, tier marks, verification marks — and a ≤2% viewport-pixel budget.
 There is deliberately no brass fill, soft or gradient.
 

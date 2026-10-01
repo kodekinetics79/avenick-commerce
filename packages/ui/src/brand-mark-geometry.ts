@@ -154,7 +154,7 @@ export const MARK_FALLBACK_LIGHT = {
   contact: "226 40% 10%",
   contactAlpha: ".05",
   shadow: "226 32% 12%",
-  brass: "36 56% 42%",
+  brass: "28 68% 44%",
 } as const;
 
 export const MARK_FALLBACK_DARK = {
@@ -165,7 +165,7 @@ export const MARK_FALLBACK_DARK = {
   contact: "232 60% 1%",
   contactAlpha: ".45",
   shadow: "232 60% 2%",
-  brass: "38 62% 60%",
+  brass: "30 72% 61%",
 } as const;
 
 /**

@@ -186,19 +186,19 @@
   --chrome-pad: 14px;
 
   /* ═══ BRAND ═══ */
-  --primary:            150 92% 26%;
+  --primary:            315 50% 27%;
   --primary-foreground:   0  0% 100%;
-  --primary-ink:        150 90% 24%;   /* green TEXT — the fill hue fails 4.5:1 at 11px */
-  --primary-soft:       150 52% 95%;
-  --primary-edge:       150 92% 17%;   /* the solid rim under a pressed key */
+  --primary-ink:        315 52% 25%;
+  --primary-soft:       315 28% 95%;
+  --primary-edge:       315 46% 17%;   /* the solid rim under a pressed key */
   --ink-edge:           224 34% 4%;    /* the rim under the ink monogram */
-  --accent:             200 62% 30%;   /* deep verdigris — trade / verified / settled */
+  --accent:             200 85% 24%;   /* deep industrial blue — trade / verified / settled */
   --accent-foreground:    0  0% 100%;
-  --accent-ink:         200 66% 26%;
-  --accent-soft:        200 44% 94%;
-  --accent-edge:        200 62% 19%;
-  --brass:               36 56% 42%;   /* rule + tier + verification ONLY. Never a fill. */
-  --brass-ink:           34 60% 34%;
+  --accent-ink:         200 82% 22%;
+  --accent-soft:        200 42% 95%;
+  --accent-edge:        200 65% 16%;
+  --brass:               28 68% 44%;   /* copper rule + tier + verification ONLY. Never a fill. */
+  --brass-ink:           26 70% 33%;
 
   /* THE BRAND PANEL's two stops (.u-panel-brand), and deliberately absent from
      .dark. The panel's copy is white in both themes, and dark --primary is a mint
@@ -206,8 +206,8 @@
      headline measured 1.78:1. The first stop is the light --primary, pinned, so
      the slab is the same deep green on either ground. The contrast test holds
      both to 4.5:1 against white and fails if either gains a dark value. */
-  --panel-brand-from:   150 92% 26%;
-  --panel-brand-to:     150 92% 20%;
+  --panel-brand-from:   315 46% 22%;
+  --panel-brand-to:     290 52% 14%;
 
   /* ═══ SEMANTICS ═══
      Success sits 32° off --accent so a "verified" chip and a "paid" chip can
@@ -243,9 +243,9 @@
      --ink-3 holds 5.27:1 and dark --ink-2 6.53:1. Raise one because the hero
      looked thin on your monitor and every label in three portals fails, in a
      state that only appears seventeen seconds into a thirty-four second cycle. */
-  --field-a: 150 66% 40%;   --field-a-alpha: .075;   /* green — brand */
-  --field-b: 200 64% 44%;   --field-b-alpha: .052;   /* verdigris — trade */
-  --field-c:  36 56% 42%;   --field-c-alpha: .026;   /* brass — the register */
+  --field-a: 315 42% 44%;   --field-a-alpha: .075;   /* wine plum — brand */
+  --field-b: 200 58% 42%;   --field-b-alpha: .052;   /* industrial blue — trade */
+  --field-c:  28 60% 46%;   --field-c-alpha: .026;   /* copper — the register */
   /* The ruling: horizontal hairlines at exactly one body line-height, masked so
      they dissolve long before they reach a word. Measured delta against the
      ground is 1.07:1 — felt, never read. Horizontal by construction, therefore
@@ -545,19 +545,19 @@
   --blur-display: 30px;
   --sat-display: 1.10;
 
-  --primary:            150 60% 62%;
-  --primary-foreground: 150 45% 8%;
-  --primary-ink:        150 70% 70%;
-  --primary-soft:       150 30% 15%;
-  --primary-edge:       150 55% 40%;
+  --primary:            315 54% 71%;
+  --primary-foreground: 315 45% 9%;
+  --primary-ink:        315 58% 76%;
+  --primary-soft:       315 28% 15%;
+  --primary-edge:       315 44% 42%;
   --ink-edge:            40 10% 72%;
-  --accent:             200 56% 56%;
-  --accent-foreground:  200 60% 10%;
-  --accent-ink:         200 60% 62%;
-  --accent-soft:        200 38% 15%;
-  --accent-edge:        200 45% 34%;
-  --brass:               38 62% 60%;
-  --brass-ink:           38 66% 68%;
+  --accent:             200 72% 68%;
+  --accent-foreground:  200 60% 9%;
+  --accent-ink:         200 78% 75%;
+  --accent-soft:        200 34% 14%;
+  --accent-edge:        200 52% 40%;
+  --brass:               30 72% 61%;
+  --brass-ink:           30 78% 70%;
 
   --success:      152 44% 58%;  --success-soft: 152 32% 13%;
   --success-ink:  152 46% 66%;  --success-rule: 152 26% 26%;
@@ -958,6 +958,16 @@ p, .u-lead, .u-body { text-wrap: pretty; }
     hsl(var(--panel-brand-from)) 22%,
     hsl(var(--panel-brand-to)) 99%
   );
+}
+
+/* The storefront's floating taxonomy ledger. It is a solid material rather
+   than glass because nothing scrolls behind it, and it deliberately uses the
+   darkest brand stop so the category map reads as navigation, not another
+   content card. */
+.u-market-rail {
+  background-color: hsl(var(--panel-brand-to));
+  border-color: hsl(var(--primary) / .28);
+  box-shadow: var(--elev-5);
 }
 
 /* ─── SHEEN DRIFT ─────────────────────────────────────────────────────────
