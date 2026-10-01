@@ -107,6 +107,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" />
         {/*
           THE ARABIC DISPLAY FACES, loaded only for the Arabic build.
           globals.css cannot be conditional and the English build must not pay

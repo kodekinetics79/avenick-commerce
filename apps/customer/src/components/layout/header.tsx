@@ -498,7 +498,7 @@ export function Header() {
       height, which the motion contract forbids because it relayouts every frame.
     */
     <>
-      <div className="border-b border-hairline print:hidden">
+      <div className="marketplace-utility-bar border-b border-hairline print:hidden">
         <div className="mx-auto flex max-w-shell items-center justify-between gap-4 px-gutter py-1.5">
           {/*
             LAW E. This sentence is the residue of a hardening pass that removed
@@ -572,7 +572,7 @@ export function Header() {
           a product or policy page into a procurement file wants the page, and
           the printout used to open with the delivery strip, the bar and a
           search field. */}
-      <StickyGlassBar as="header" progress className="print:hidden">
+      <StickyGlassBar as="header" progress className="marketplace-main-header print:hidden">
         <div className="mx-auto flex max-w-shell items-center gap-2 px-gutter sm:gap-3">
           <Link
             href="/"
@@ -797,7 +797,7 @@ export function Header() {
             {/* size="md" (--control-h-md) so the bar's one commit action matches
                 the icon controls beside it instead of sitting 8px shorter than
                 everything else in the row. */}
-            <Button asChild variant="primary" size="md" className="ms-1 hidden lg:inline-flex">
+            <Button asChild variant="primary" size="md" className="marketplace-rfq-cta ms-1 hidden lg:inline-flex">
               <Link href="/b2b/rfq/new">
                 <FileText aria-hidden="true" className="h-3.5 w-3.5" />
                 {t("getQuote")}

@@ -1,3 +1,5 @@
+import { reviewedManufacturerImage, trustedCatalogImages } from "./catalog-image-integrity";
+
 type DetailPrice = {
   type: string;
   currency: string;
@@ -81,6 +83,7 @@ export type CatalogDetailSource = {
 
 /** Explicit anonymous/B2B storefront detail projection. */
 export function toCatalogDetailDto(source: CatalogDetailSource, channel: "B2C" | "B2B" = "B2C") {
+  const reviewedImage = reviewedManufacturerImage(source.sku);
   const availableFor = (variantId: string | null) => Math.max(0, source.inventory
     .filter((stock) => stock.variantId === variantId)
     .reduce((sum, stock) => sum + stock.available, 0));
@@ -99,9 +102,11 @@ export function toCatalogDetailDto(source: CatalogDetailSource, channel: "B2C" |
     origin: source.origin,
     weight: source.weight,
     moq: source.moq,
-    images: source.images.map(({ url, altEn, altAr, isPrimary, sortOrder }) => ({
-      url, altEn, altAr, isPrimary, sortOrder,
-    })),
+    images: reviewedImage
+      ? [{ url: reviewedImage.url, altEn: reviewedImage.altEn, altAr: reviewedImage.altAr, isPrimary: true, sortOrder: 0 }]
+      : trustedCatalogImages(source.images, source.brand?.nameEn).map(({ url, altEn, altAr, isPrimary, sortOrder }) => ({
+        url, altEn, altAr, isPrimary, sortOrder,
+      })),
     prices: source.prices.filter((price) => price.type === channel).map(({ type, currency, minQty, maxQty, price, vatRate }) => ({
       type, currency, minQty, maxQty, price, vatRate,
     })),

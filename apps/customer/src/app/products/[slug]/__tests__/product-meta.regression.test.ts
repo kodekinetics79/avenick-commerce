@@ -161,6 +161,18 @@ describe("productMetadata", () => {
     expect(meta.twitter).toMatchObject({ images: [SITE_SHARE_CARD] });
   });
 
+  it("falls back to the site card when a manufacturer image belongs to another brand", () => {
+    const meta = build({
+      images: [{
+        url: "https://www.mennekes.org/fileadmin/products_media/produktbilder/13501.png",
+        altEn: "Incorrect imported image",
+        altAr: null,
+      }],
+    });
+    expect(meta.openGraph).toMatchObject({ images: [{ url: SITE_SHARE_CARD, alt: "Platform" }] });
+    expect(meta.twitter).toMatchObject({ images: [SITE_SHARE_CARD] });
+  });
+
   it("asserts no price, offer, stock or rating", () => {
     const serialized = JSON.stringify(build()).toLowerCase();
     for (const claim of ["price", "offer", "rating", "stock", "sar", "aed"]) expect(serialized).not.toContain(claim);

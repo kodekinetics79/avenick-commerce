@@ -1,4 +1,5 @@
 import { defaultStorefrontCurrency } from "./market-context";
+import { reviewedManufacturerImage, trustedCatalogImages } from "./catalog-image-integrity";
 
 type CatalogPrice = {
   type: string; currency: string; minQty: number; maxQty: number | null;
@@ -10,7 +11,13 @@ export type CatalogListSource = {
   descriptionEn: string | null; descriptionAr: string | null; origin: string | null;
   tags: string[]; moq: number; isB2CEnabled: boolean; isB2BEnabled: boolean;
   isPubliclyDiscoverable: boolean;
-  images: Array<{ url: string; altText?: string | null }>;
+  images: Array<{
+    url: string;
+    /** Prisma ProductImage fields; altText remains accepted for legacy fixtures. */
+    altEn?: string | null;
+    altAr?: string | null;
+    altText?: string | null;
+  }>;
   prices: CatalogPrice[];
   inventory: Array<{ variantId: string | null; qty: number; reservedQty: number }>;
   variants: Array<{ id: string; prices: CatalogPrice[] }>;
@@ -27,6 +34,7 @@ export type CatalogListSource = {
 
 /** Explicit storefront projection: no operational inventory, issues, health, or internal timestamps. */
 export function toCatalogListDto(source: CatalogListSource, channel: "B2C" | "B2B", currency?: string) {
+  const reviewedImage = reviewedManufacturerImage(source.sku);
   const applicableAtMoq = (price: CatalogPrice) => price.type === channel
     && price.minQty <= source.moq
     && (price.maxQty == null || source.moq <= price.maxQty);
@@ -87,7 +95,10 @@ export function toCatalogListDto(source: CatalogListSource, channel: "B2C" | "B2
     isB2CEnabled: source.isB2CEnabled,
     isB2BEnabled: source.isB2BEnabled,
     isPubliclyDiscoverable: source.isPubliclyDiscoverable,
-    images: source.images.map(({ url, altText }) => ({ url, altText: altText ?? null })),
+    images: reviewedImage
+      ? [{ url: reviewedImage.url, altText: reviewedImage.altEn }]
+      : trustedCatalogImages(source.images, source.brand?.nameEn)
+        .map(({ url, altText, altEn }) => ({ url, altText: altText ?? altEn ?? null })),
     prices: source.prices
       .filter((price) => price.type === channel && (!currency || price.currency === currency))
       .map(({ type, currency: priceCurrency, minQty, maxQty, price, vatRate }) => ({

@@ -93,7 +93,6 @@ const nextConfig = {
     return [{ source: "/favicon.ico", destination: "/icon" }];
   },
   images: {
-    unoptimized: true,
     remotePatterns: remoteImagePatterns,
   },
   // Baseline security headers for every route. Policy lives in

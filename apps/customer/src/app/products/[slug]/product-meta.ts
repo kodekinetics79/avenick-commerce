@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { db, PUBLIC_CATALOG_SELLER } from "@avenick/database";
 import { canonicalFor } from "@/lib/page-metadata";
+import { isCatalogImageTrusted, reviewedManufacturerImage } from "@/lib/catalog-image-integrity";
 
 /**
  * The product page's server-side facts: whether the URL names a product at
@@ -126,7 +127,17 @@ export function productMetadata(
   // deployment's origin, and none at all when that origin is unknown.
   const canonicalValue = canonicalFor(`/products/${product.slug}`).alternates?.canonical;
   const canonical = typeof canonicalValue === "string" ? canonicalValue : undefined;
-  const image = product.images.find((candidate) => candidate.url.trim());
+  const reviewedImage = reviewedManufacturerImage(product.sku);
+  const catalogImage = product.images.find((candidate) =>
+    isCatalogImageTrusted(
+      candidate.url,
+      product.brand?.nameEn,
+      [candidate.altEn, candidate.altAr],
+    ),
+  );
+  const image = reviewedImage
+    ? { url: reviewedImage.url, altEn: reviewedImage.altEn, altAr: reviewedImage.altAr }
+    : catalogImage;
   const alt = image ? ((ar ? image.altAr : image.altEn) || image.altEn || name) : name;
 
   return {

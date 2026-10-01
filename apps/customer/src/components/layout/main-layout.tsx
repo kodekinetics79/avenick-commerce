@@ -29,7 +29,7 @@ export function MainLayout({ children, discoveryTrending }: MainLayoutProps) {
     // has to be an ancestor of both the header and the panel, and wrapping the
     // column that holds them both is the one place that is.
     <DiscoveryProvider>
-    <div className="min-h-screen flex flex-col">
+    <div className="avenick-marketplace min-h-screen flex flex-col">
       {/*
         The reading hairline: a 2px brass rule that draws itself across the top
         of the viewport from the inline start as the document scrolls. Zero

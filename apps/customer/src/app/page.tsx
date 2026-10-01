@@ -1,6 +1,16 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Building2, ClipboardCheck, PackageSearch, Undo2 } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  ClipboardCheck,
+  FileText,
+  PackageCheck,
+  PackageSearch,
+  Scale,
+  Undo2,
+  Users,
+} from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import {
@@ -12,19 +22,14 @@ import {
   Reveal,
   Surface,
 } from "@avenick/ui";
-import { formatCurrency, isSupportedCurrency } from "@avenick/utils";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
 import { ProductGrid } from "@/components/products/product-grid";
 import { categoryIcon } from "@/components/products/category-icon";
-import { fetchBackendJson } from "@/lib/backend";
 import { categoryLabel, getPublicCategories, type PublicCategory } from "@/lib/catalog-categories";
 import { loadHomeRails } from "@/lib/home-rails";
-import { partitionHomeProducts } from "@/lib/home-catalog";
-import { productCardPricePresentation } from "@/lib/product-card-commerce";
-import { HeroSection } from "@/components/hero/hero-section";
-import { toHeroSlides } from "@/components/hero/hero-slides";
 import { categoryRailRows } from "@/components/hero/category-rail-rows";
+import { ProcurementHero } from "@/components/home/procurement-hero";
 import type { Metadata } from "next";
 import { platformName } from "@avenick/utils/portal-config";
 import { canonicalFor } from "@/lib/page-metadata";
@@ -50,8 +55,6 @@ export default async function HomePage() {
   const cookieStore = await cookies();
   const locale = (cookieStore.get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
   const t = await getTranslations("home");
-  const tp = await getTranslations("products");
-  const tc = await getTranslations("catalogue");
   // The category strip comes from the catalog, not from a list typed into this
   // page: a typed list kept advertising categories with nothing to sell.
   const [rails, categories] = await Promise.all([
@@ -93,50 +96,15 @@ export default async function HomePage() {
 
   const mapped = products.map(toCard);
 
-  // The hero's specimen slot holds ONE REAL PRODUCT from the fetch this page
-  // already does — never a placeholder, never stock photography. If the
-  // catalogue is empty the slot renders the certificate empty state instead,
-  // which is the whole point of the slot.
-  const specimen = mapped[0];
-  /*
-    The hero's supporting shelf. A single framed object reads as a trade
-    catalogue's frontispiece; a shop is recognised by several products with
-    prices, immediately. These two sit under the lead specimen at a smaller
-    rank, from the same fetch the page already does — still real products, still
-    real prices, no placeholder and no stock photography.
-
-    Two, not four: they must not compete with the lead or push the call to
-    action under the fold on a 1366x768 laptop, which is a large share of Gulf
-    desktop traffic.
-  */
-  const heroShelf = (() => {
-    /*
-      Distinct NAMES, not just distinct rows. The pilot catalogue carries the
-      same product name across several SKUs — the first six rows of the live
-      feed are three "Wire & Cable Lubricants" and two "Twist-on Wire
-      Connectors" — so slicing the first three put the same words under three
-      different photographs and made the hero read as a rendering fault rather
-      than a shelf. Falling back to whatever is left keeps the shelf populated
-      on a catalogue too small to offer three distinct names.
-    */
-    const seen = new Set<string>([specimen?.nameEn ?? ""]);
-    const distinct = mapped.slice(1).filter((item) => {
-      if (seen.has(item.nameEn)) return false;
-      seen.add(item.nameEn);
+  const operationItems = (() => {
+    const seen = new Set<string>();
+    return mapped.filter((item) => {
+      const name = locale === "ar" ? item.nameAr || item.nameEn : item.nameEn;
+      if (seen.has(name)) return false;
+      seen.add(name);
       return true;
-    });
-    return (distinct.length >= 2 ? distinct : mapped.slice(1)).slice(0, 2);
+    }).slice(0, 6);
   })();
-  // Two headings over one ten-item feed used to render the same five products
-  // twice. The catalog API exposes no sales ranking, so the sections are simply
-  // made disjoint rather than labelled with a ranking nobody computes.
-  //
-  // The specimen is withheld from the grids ONLY when there is enough catalogue
-  // to spare it. Repeating one tile on a five-product storefront is a cosmetic
-  // redundancy; printing "no supplier lists a product in this storefront yet"
-  // underneath a product this same page is showing in its hero would be a lie,
-  // and a lie delivered by a layout decision is still the unsurvivable one.
-  const productSections = partitionHomeProducts(mapped.length > 5 ? mapped.slice(1) : mapped);
 
   // The rails, in card shape. Same mapping the hero's specimen uses, so a
   // product cannot describe itself one way in the header and another in a grid.
@@ -147,47 +115,6 @@ export default async function HomePage() {
     topRated: rails.topRated.map(toCard),
     trending: rails.trending.map(toCard),
   };
-
-  const specimenName = specimen
-    ? locale === "ar"
-      ? specimen.nameAr || specimen.nameEn
-      : specimen.nameEn
-    : "";
-
-
-  /*
-    The hero's figure line. The reference prints a price in this slot; a number
-    there is read as an offer, so it may only ever be the product's own. When
-    the catalogue exposes no public price for it — which is every product today,
-    because nothing has isB2CEnabled set — it says "Price on request", the same
-    words the tile uses, rather than borrowing a figure from the B2B channel
-    that an anonymous visitor is not entitled to see.
-  */
-  const specimenHasPrice = Boolean(
-    specimen && specimen.price != null && specimen.currency && isSupportedCurrency(specimen.currency),
-  );
-  const specimenPriceLine =
-    specimen && specimen.price != null && specimen.currency && isSupportedCurrency(specimen.currency)
-      ? `${specimen.priceIsFrom ? `${tc("from")} ` : ""}${formatCurrency(specimen.price, specimen.currency, locale)}`
-      : tc("quoteOnRequest");  const specimenMoney =
-    specimen && specimen.price != null && typeof specimen.currency === "string" && isSupportedCurrency(specimen.currency)
-      ? formatCurrency(specimen.price, specimen.currency, locale)
-      : null;
-  // The qualifier is computed with the SAME rule the grid below uses. A
-  // variant-bearing product's card price is the lowest of several bands, so the
-  // card qualifies it with "From"; the hero showing the identical figure bare
-  // would state a price the buyer cannot actually transact at.
-  const specimenPriceIsRange =
-    specimen != null &&
-    (specimen.priceIsFrom || productCardPricePresentation(specimen.price, specimen.hasVariants) === "FROM");
-  const specimenAvailability: "IN_STOCK" | "OUT_OF_STOCK" | "UNCONFIRMED" =
-    specimen?.availabilityStatus ?? (specimen?.inStock ? "IN_STOCK" : "OUT_OF_STOCK");
-  const specimenAvailabilityLabel =
-    specimenAvailability === "IN_STOCK"
-      ? tp("inStock")
-      : specimenAvailability === "UNCONFIRMED"
-        ? tp("availabilityUnconfirmed")
-        : tp("outOfStock");
 
   return (
     <MainLayout discoveryTrending={railFor.trending}>
@@ -201,70 +128,62 @@ export default async function HomePage() {
         were derived from.
       */}
 
-      {/* ─── THE HERO ─────────────────────────────────────
-        The reference's hero, taken structurally: a green gradient slab with a
-        two-line display headline in Light over SemiBold, an uppercase kicker, a
-        large figure, a white pill button, and one product photographed at scale
-        on the right over a soft glow. Node 2204:13035.
+      {/* The selected refinery direction: one clear sourcing promise, one
+          dominant RFQ action, and one secondary catalogue path. The specimen
+          is explicitly illustrative; it never impersonates live buyer data. */}
+      <ProcurementHero
+        categories={categories.map((category) => ({
+          slug: category.slug,
+          label: categoryLabel(category, locale),
+        }))}
+        rfqItems={operationItems.slice(0, 3).map((item) => ({
+          id: item.id,
+          name: locale === "ar" ? item.nameAr || item.nameEn : item.nameEn,
+          detail: [item.sku, item.category].filter(Boolean).join(" · "),
+          imageUrl: item.imageUrl,
+        }))}
+      />
 
-        THE GRADIENT IS DARKER THAN THE REFERENCE'S, and that is not a liberty.
-        Its stops measure 1.97:1 and 3.91:1 against white — the headline sits on
-        it, the kicker sits on it at 50% opacity, and none of that is readable.
-        The hue and the light-to-dark direction are kept exactly; the lightness
-        is taken down until white text passes, which is 5.2:1 at the near stop
-        and 7.5:1 at the far one. A hero nobody can read is not a hero.
-
-        THE FIGURE IS THE PRODUCT'S OWN. The reference prints $749.99 beside a
-        stock gear; this prints whatever the specimen actually costs, and when
-        the catalogue exposes no public price it says so instead. That is the
-        one substitution this hero cannot make — a number in this position is
-        read as an offer.
-
-        THE OBJECT IS A CAROUSEL OF THE PRODUCTS THIS PAGE ALREADY LOADED — up
-        to ten, one slide per distinct name, crossfading with a 1.02 → 1 settle
-        every six seconds and pausing on hover, on focus, in a hidden tab and
-        under reduced motion. The copy column does not turn; only the object and
-        its glass caption do, which is Apple's hero taken as a behaviour rather
-        than as an asset. NO VIDEO: there is no product video asset, and stock
-        footage would be a fabrication — a hero made of things the catalogue
-        does not hold. The behaviour matrix is in components/hero.
-
-        WIDTH AND MOTION, NOT STRUCTURE. The shell is max-w-shell (96rem) with a
-        fluid gutter where it was max-w-7xl over a fixed 16px; the rail and the
-        slab stretch to one height so they read as one composed row; the object
-        column grows with the shell (20 → 24 → 26rem) while the prose stays on
-        max-w-desc. The object parallaxes on a view() timeline where scroll
-        timelines exist and stands still where they do not, and the slab clips
-        with overflow-clip rather than hidden because hidden makes a scroll
-        container — inside one, a view() timeline never advances. The radius is
-        rounded-3xl (--radius-lg): the class this slab carried before resolved
-        to nothing, and it shipped square.
-      */}
-      <section className="border-b border-hairline">
-        <div
-          className={
-            categories.length > 0
-              ? "mx-auto w-full max-w-shell px-gutter py-block lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-stretch lg:gap-6"
-              : "mx-auto w-full max-w-shell px-gutter py-block"
-          }
-        >
+      <section className="marketplace-operations-section">
+        <div className="mx-auto grid w-full max-w-shell gap-7 px-gutter lg:grid-cols-[17rem_minmax(0,1fr)]">
           <CategoryRail
             categories={categories}
             locale={locale}
             label={t("categoriesTitle")}
             allLabel={t("allProducts")}
           />
-
-          {/* The hero is <HeroSection>: the system's stage composition, with the
-              slab's material on it. See that file for why the depth planes, the
-              display-glass panel and the generated plate belong there and not
-              in this page. */}
-          <HeroSection
-            slides={mapped.length > 0 ? toHeroSlides(mapped, { locale }) : []}
-            priceLine={specimenHasPrice && mapped.length === 1 ? specimenPriceLine : null}
-          />
+          <div className="min-w-0">
+            <SectionHead
+              eyebrow={t("operationsEyebrow")}
+              title={t("operationsTitle")}
+              href="/products"
+              linkLabel={t("viewAll")}
+            />
+            {operationItems.length > 0 ? (
+              <OperationsShelf rows={operationItems} locale={locale} viewLabel={t("viewProducts")} />
+            ) : (
+              <EmptyState
+                variant="certificate"
+                glyph={<PackageSearch />}
+                eyebrow={t("catalogEmptyEyebrow")}
+                headline={t("catalogEmptyHeadline")}
+                body={t("catalogEmptyBody")}
+                action={
+                  <Button variant="primary" size="md" asChild>
+                    <Link href="/b2b/rfq/new">{t("requestQuote")}</Link>
+                  </Button>
+                }
+              />
+            )}
+          </div>
         </div>
       </section>
+
+      <ProcurementFlow />
+
+      {rails.brands.length > 0 && (
+        <MarketplaceBrandStrip brands={rails.brands} locale={locale} />
+      )}
 
       {/* ─── Category strip ───────────────────────────────── */}
       {/* Categories come from the catalog API (active, with discoverable
@@ -309,52 +228,6 @@ export default async function HomePage() {
           </LightGrid>
         )}
       </section>
-
-      {/* ─── The named rails ──────────────────────────────
-          The certificate belongs to an EMPTY CATALOGUE, not to an empty rail.
-          Binding it to Best Sellers alone printed "No supplier lists a product
-          in this storefront yet" above three hundred listed products, because
-          only a handful of paid orders exist to rank from — a true sentence
-          about the ranking, rendered as a false one about the catalogue.
-
-          So: the certificate shows when every rail is empty, and each rail
-          otherwise renders only when it has rows. */}
-      {railFor.bestSellers.length === 0 &&
-      railFor.newArrivals.length === 0 &&
-      railFor.featured.length === 0 &&
-      railFor.topRated.length === 0 ? (
-        <Section
-          eyebrow={t("catalogEyebrow")}
-          title={t("bestSellers")}
-          subtitle={t("bestSellersSub")}
-          href="/products"
-          linkLabel={t("viewAll")}
-        >
-          <EmptyState
-            variant="certificate"
-            glyph={<PackageSearch />}
-            eyebrow={t("catalogEmptyEyebrow")}
-            headline={t("catalogEmptyHeadline")}
-            body={t("catalogEmptyBody")}
-            action={
-              <Button variant="primary" size="md" asChild>
-                <Link href="/b2b/rfq/new">
-                  {t("requestQuote")} <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
-                </Link>
-              </Button>
-            }
-          />
-        </Section>
-      ) : (
-        <ProductRail
-          rows={railFor.bestSellers}
-          eyebrow={t("catalogEyebrow")}
-          title={t("bestSellers")}
-          subtitle={t("bestSellersSub")}
-          viewAll={t("viewAll")}
-          locale={locale}
-        />
-      )}
 
       {/* ─── More products ────────────────────────────────── */}
       {/* No badge: "NEW" was stamped on every product regardless of age. The
@@ -510,56 +383,6 @@ export default async function HomePage() {
         href="/products?sort=rating"
       />
 
-      {/* ─── Brands ───────────────────────────────────────
-          The reference calls this strip "Our Partners" and fills it with
-          manufacturer logos. That word is the problem, not the row: a partner
-          is a commercial relationship, and Avenick has none of the ones those
-          logos would imply. The same row is completely true under its real
-          name — these are brands whose products sellers list here, which is a
-          fact about the catalogue rather than a claim about a boardroom.
-
-          Backed by listBrandsWithLogos, which returns only brands that are
-          active, HAVE a logo, and have at least one visible product. So the
-          strip cannot show a brand nothing is listed under, and it renders
-          nothing at all rather than a row of gaps when no logo is set. */}
-      {rails.brands.length > 0 && (
-        <section className="mx-auto max-w-shell px-gutter py-block">
-          <SectionHead
-            eyebrow={t("brandsEyebrow")}
-            title={t("brandsTitle")}
-            subtitle={t("brandsSub")}
-            href="/brands"
-            linkLabel={t("brandsAll")}
-          />
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {rails.brands.map((brand) => (
-              <li key={brand.slug}>
-                <Surface rung={2} interactive className="h-full">
-                  <Link
-                    href={`/products?brand=${encodeURIComponent(brand.slug)}`}
-                    className="u-logo u-focus flex h-full flex-col items-center justify-center gap-2.5 rounded-[inherit] px-4 py-5"
-                  >
-                    {/* The logo is decorative and the NAME is the label right
-                        beside it, so the image takes an empty alt rather than
-                        repeating the text to a screen reader twice. */}
-                    <img
-                      src={brand.logoUrl}
-                      alt=""
-                      aria-hidden="true"
-                      loading="lazy"
-                      className="h-14 w-full max-w-[9rem] object-contain"
-                    />
-                    <span className="u-meta text-center text-ink-2">
-                      {locale === "ar" ? brand.nameAr || brand.nameEn : brand.nameEn}
-                    </span>
-                  </Link>
-                </Surface>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
       {/* ─── B2B band ─────────────────────────────────────── */}
       <section className="mx-auto max-w-shell px-gutter pb-section pt-block">
         {/*
@@ -695,12 +518,113 @@ function ProductRail({
               index={i}
               className="h-full max-sm:snap-start max-sm:[&[data-reveal][data-reveal-state=hidden]]:opacity-100 max-sm:[&[data-reveal][data-reveal-state=hidden]]:[transform:none]"
             >
-              <ProductCard {...(p as any)} locale={locale} />
+              <ProductCard {...(p as any)} locale={locale} index={i} />
             </Reveal>
           ))}
         </ProductGrid>
       </div>
     </Section>
+  );
+}
+
+function OperationsShelf({
+  rows,
+  locale,
+  viewLabel,
+}: {
+  rows: Array<Record<string, any>>;
+  locale: "en" | "ar";
+  viewLabel: string;
+}) {
+  return (
+    <div className="marketplace-product-shelf">
+      {rows.map((product) => {
+        const name = locale === "ar" ? product.nameAr || product.nameEn : product.nameEn;
+        return (
+          <article key={product.id} className="marketplace-shelf-item">
+              <Link href={`/products/${product.slug}`} className="marketplace-shelf-link">
+              <span className="marketplace-shelf-image">
+                {product.imageUrl ? (
+                  <Image src={product.imageUrl} alt={name} fill sizes="(max-width: 640px) 44vw, 15vw" />
+                ) : (
+                  <PackageSearch aria-hidden="true" className="h-10 w-10 text-ink-3" />
+                )}
+              </span>
+              <strong>{name}</strong>
+              {product.category ? <small>{product.category}</small> : null}
+              <span className="marketplace-shelf-action">
+                {viewLabel} <ArrowRight aria-hidden="true" className="h-4 w-4 rtl:rotate-180" />
+              </span>
+            </Link>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+async function ProcurementFlow() {
+  const t = await getTranslations("home");
+  const steps = [
+    { icon: FileText, title: t("flowSpecifyTitle"), body: t("flowSpecifyBody") },
+    { icon: Users, title: t("flowInviteTitle"), body: t("flowInviteBody") },
+    { icon: Scale, title: t("flowCompareTitle"), body: t("flowCompareBody") },
+    { icon: PackageCheck, title: t("flowOrderTitle"), body: t("flowOrderBody") },
+  ];
+
+  return (
+    <section className="marketplace-flow-section">
+      <div className="mx-auto grid max-w-shell gap-7 px-gutter lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <div className="marketplace-flow-intro">
+          <p>{t("flowEyebrow")}</p>
+          <h2>{t("flowTitle")}</h2>
+        </div>
+        <ol className="marketplace-flow-steps">
+          {steps.map(({ icon: Icon, title, body }, index) => (
+            <li key={title}>
+              <span className="marketplace-step-number">{index + 1}</span>
+              <Icon aria-hidden="true" className="marketplace-step-icon" />
+              <div>
+                <strong>{title}</strong>
+                <p>{body}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+  );
+}
+
+async function MarketplaceBrandStrip({
+  brands,
+  locale,
+}: {
+  brands: Array<Record<string, any>>;
+  locale: "en" | "ar";
+}) {
+  const t = await getTranslations("home");
+  return (
+    <section className="marketplace-brand-strip" aria-label={t("trustedBrands")}>
+      <div className="mx-auto flex max-w-shell items-center gap-7 overflow-x-auto px-gutter">
+        <p>{t("trustedBrands")}</p>
+        <ul>
+          {brands.slice(0, 8).map((brand) => (
+            <li key={brand["slug"] as string}>
+              <Link href={`/products?brand=${encodeURIComponent(brand["slug"] as string)}`}>
+                <img
+                  src={brand["logoUrl"] as string}
+                  alt={locale === "ar" ? brand["nameAr"] || brand["nameEn"] : brand["nameEn"]}
+                  loading="lazy"
+                  decoding="async"
+                />
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <ViewAllLink href="/brands" label={t("brandsAll")} />
+      </div>
+    </section>
   );
 }
 
@@ -739,7 +663,7 @@ function CategoryRail({
 }) {
   if (categories.length === 0) return null;
   return (
-    <nav aria-label={label} className="hidden lg:flex lg:flex-col">
+    <nav aria-label={label} className="marketplace-category-nav hidden lg:flex lg:flex-col">
       {/*
         A FLOATING RAIL — raised to rung 4, and NOT glass.
         
@@ -767,7 +691,7 @@ function CategoryRail({
         short list beside a tall panel. That is also why the panel is no longer
         `sticky`: a panel as tall as its containing block has nowhere to stick.
       */}
-      <Surface rung={4} className="flex flex-1 flex-col overflow-hidden">
+      <Surface rung={4} className="marketplace-category-rail flex flex-1 flex-col overflow-hidden">
         <p className="u-meta border-b border-hairline px-3.5 py-2.5 font-medium text-ink-2">{label}</p>
         {/*
           THE SHAPE, ONE LEVEL DEEPER. Seven top-level rows ended 296px into a
