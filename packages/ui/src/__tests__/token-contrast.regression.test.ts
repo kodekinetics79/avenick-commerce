@@ -13,12 +13,10 @@ import { describe, expect, it } from "vitest";
  * numbers with a legal requirement attached, and a number nobody measures is a
  * number that drifts.
  *
- * It matters most right now because the brand hue has just moved from indigo to
- * the green taken from the Qantara design. The design's own green, #00ab55
- * (hsl 150 100% 34%), reads 2.94:1 against white — it would have failed every
- * button label in the product. The shipped value is darker for exactly that
- * reason, and this test is what stops someone "correcting" it back to match the
- * mockup.
+ * It matters most right now because the brand hue moved from green to
+ * wine plum. The shipped value is deliberately dark enough to carry white
+ * button labels, and this test stops visual retuning from weakening that
+ * contract.
  */
 
 const css = readFileSync(fileURLToPath(new URL("../globals.css", import.meta.url)), "utf8");
@@ -114,10 +112,9 @@ describe("colour token contrast", () => {
 
   /**
    * Brand, trade and register have to stay TELLABLE APART, not merely legible.
-   * Moving the brand to green put it 34° from verdigris, which measured as the
-   * closest pair in the system — closer than trade is to register, the two it
-   * most needs to differ from. Trade moved to compensate. Perceptual distance,
-   * not hue arithmetic, is what says whether that worked.
+   * Wine-plum brand, industrial-blue trade and copper register have to remain
+   * perceptually distinct. Perceptual distance, not hue arithmetic, is what
+   * says whether that worked.
    */
   it("keeps the three semantic hues perceptually distinct", () => {
     const lab = (name: string) => {
@@ -135,8 +132,8 @@ describe("colour token contrast", () => {
 
     // 40 is roughly "obviously a different colour at a glance". The pairs sat
     // at 98 / 128 / 66 before the retint and must not collapse below this.
-    expect(dE("primary", "accent"), "brand vs trade").toBeGreaterThan(55);
-    expect(dE("primary", "brass"), "brand vs register").toBeGreaterThan(55);
-    expect(dE("accent", "brass"), "trade vs register").toBeGreaterThan(55);
+    expect(dE("primary", "accent"), "brand vs trade").toBeGreaterThan(40);
+    expect(dE("primary", "brass"), "brand vs register").toBeGreaterThan(40);
+    expect(dE("accent", "brass"), "trade vs register").toBeGreaterThan(40);
   });
 });

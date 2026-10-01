@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Building2, ClipboardCheck, PackageSearch, Undo2 } from "lucide-react";
+import { ArrowRight, Building2, ClipboardCheck, FileInput, PackageCheck, PackageSearch, Scale, Send, Undo2 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
 import {
@@ -12,7 +12,6 @@ import {
   Reveal,
   Surface,
 } from "@avenick/ui";
-import { formatCurrency, isSupportedCurrency } from "@avenick/utils";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
 import { ProductGrid } from "@/components/products/product-grid";
@@ -20,8 +19,6 @@ import { categoryIcon } from "@/components/products/category-icon";
 import { fetchBackendJson } from "@/lib/backend";
 import { categoryLabel, getPublicCategories, type PublicCategory } from "@/lib/catalog-categories";
 import { loadHomeRails } from "@/lib/home-rails";
-import { partitionHomeProducts } from "@/lib/home-catalog";
-import { productCardPricePresentation } from "@/lib/product-card-commerce";
 import { HeroSection } from "@/components/hero/hero-section";
 import { toHeroSlides } from "@/components/hero/hero-slides";
 import { categoryRailRows } from "@/components/hero/category-rail-rows";
@@ -50,8 +47,6 @@ export default async function HomePage() {
   const cookieStore = await cookies();
   const locale = (cookieStore.get("AVENICK_LOCALE")?.value ?? "en") as "en" | "ar";
   const t = await getTranslations("home");
-  const tp = await getTranslations("products");
-  const tc = await getTranslations("catalogue");
   // The category strip comes from the catalog, not from a list typed into this
   // page: a typed list kept advertising categories with nothing to sell.
   const [rails, categories] = await Promise.all([
@@ -93,51 +88,14 @@ export default async function HomePage() {
 
   const mapped = products.map(toCard);
 
-  // The hero's specimen slot holds ONE REAL PRODUCT from the fetch this page
-  // already does — never a placeholder, never stock photography. If the
-  // catalogue is empty the slot renders the certificate empty state instead,
-  // which is the whole point of the slot.
-  const specimen = mapped[0];
-  /*
-    The hero's supporting shelf. A single framed object reads as a trade
-    catalogue's frontispiece; a shop is recognised by several products with
-    prices, immediately. These two sit under the lead specimen at a smaller
-    rank, from the same fetch the page already does — still real products, still
-    real prices, no placeholder and no stock photography.
-
-    Two, not four: they must not compete with the lead or push the call to
-    action under the fold on a 1366x768 laptop, which is a large share of Gulf
-    desktop traffic.
-  */
-  const heroShelf = (() => {
-    /*
-      Distinct NAMES, not just distinct rows. The pilot catalogue carries the
-      same product name across several SKUs — the first six rows of the live
-      feed are three "Wire & Cable Lubricants" and two "Twist-on Wire
-      Connectors" — so slicing the first three put the same words under three
-      different photographs and made the hero read as a rendering fault rather
-      than a shelf. Falling back to whatever is left keeps the shelf populated
-      on a catalogue too small to offer three distinct names.
-    */
-    const seen = new Set<string>([specimen?.nameEn ?? ""]);
-    const distinct = mapped.slice(1).filter((item) => {
+  const essentials = (() => {
+    const seen = new Set<string>();
+    return mapped.filter((item) => {
       if (seen.has(item.nameEn)) return false;
       seen.add(item.nameEn);
       return true;
-    });
-    return (distinct.length >= 2 ? distinct : mapped.slice(1)).slice(0, 2);
+    }).slice(0, 6);
   })();
-  // Two headings over one ten-item feed used to render the same five products
-  // twice. The catalog API exposes no sales ranking, so the sections are simply
-  // made disjoint rather than labelled with a ranking nobody computes.
-  //
-  // The specimen is withheld from the grids ONLY when there is enough catalogue
-  // to spare it. Repeating one tile on a five-product storefront is a cosmetic
-  // redundancy; printing "no supplier lists a product in this storefront yet"
-  // underneath a product this same page is showing in its hero would be a lie,
-  // and a lie delivered by a layout decision is still the unsurvivable one.
-  const productSections = partitionHomeProducts(mapped.length > 5 ? mapped.slice(1) : mapped);
-
   // The rails, in card shape. Same mapping the hero's specimen uses, so a
   // product cannot describe itself one way in the header and another in a grid.
   const railFor = {
@@ -147,47 +105,6 @@ export default async function HomePage() {
     topRated: rails.topRated.map(toCard),
     trending: rails.trending.map(toCard),
   };
-
-  const specimenName = specimen
-    ? locale === "ar"
-      ? specimen.nameAr || specimen.nameEn
-      : specimen.nameEn
-    : "";
-
-
-  /*
-    The hero's figure line. The reference prints a price in this slot; a number
-    there is read as an offer, so it may only ever be the product's own. When
-    the catalogue exposes no public price for it — which is every product today,
-    because nothing has isB2CEnabled set — it says "Price on request", the same
-    words the tile uses, rather than borrowing a figure from the B2B channel
-    that an anonymous visitor is not entitled to see.
-  */
-  const specimenHasPrice = Boolean(
-    specimen && specimen.price != null && specimen.currency && isSupportedCurrency(specimen.currency),
-  );
-  const specimenPriceLine =
-    specimen && specimen.price != null && specimen.currency && isSupportedCurrency(specimen.currency)
-      ? `${specimen.priceIsFrom ? `${tc("from")} ` : ""}${formatCurrency(specimen.price, specimen.currency, locale)}`
-      : tc("quoteOnRequest");  const specimenMoney =
-    specimen && specimen.price != null && typeof specimen.currency === "string" && isSupportedCurrency(specimen.currency)
-      ? formatCurrency(specimen.price, specimen.currency, locale)
-      : null;
-  // The qualifier is computed with the SAME rule the grid below uses. A
-  // variant-bearing product's card price is the lowest of several bands, so the
-  // card qualifies it with "From"; the hero showing the identical figure bare
-  // would state a price the buyer cannot actually transact at.
-  const specimenPriceIsRange =
-    specimen != null &&
-    (specimen.priceIsFrom || productCardPricePresentation(specimen.price, specimen.hasVariants) === "FROM");
-  const specimenAvailability: "IN_STOCK" | "OUT_OF_STOCK" | "UNCONFIRMED" =
-    specimen?.availabilityStatus ?? (specimen?.inStock ? "IN_STOCK" : "OUT_OF_STOCK");
-  const specimenAvailabilityLabel =
-    specimenAvailability === "IN_STOCK"
-      ? tp("inStock")
-      : specimenAvailability === "UNCONFIRMED"
-        ? tp("availabilityUnconfirmed")
-        : tp("outOfStock");
 
   return (
     <MainLayout discoveryTrending={railFor.trending}>
@@ -241,28 +158,81 @@ export default async function HomePage() {
         to nothing, and it shipped square.
       */}
       <section className="border-b border-hairline">
-        <div
-          className={
-            categories.length > 0
-              ? "mx-auto w-full max-w-shell px-gutter py-block lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:items-stretch lg:gap-6"
-              : "mx-auto w-full max-w-shell px-gutter py-block"
-          }
-        >
-          <CategoryRail
-            categories={categories}
-            locale={locale}
-            label={t("categoriesTitle")}
-            allLabel={t("allProducts")}
-          />
+        <div className="mx-auto w-full max-w-shell px-gutter pb-block pt-block">
+          <HeroSection slides={mapped.length > 0 ? toHeroSlides(mapped, { locale }) : []} />
 
-          {/* The hero is <HeroSection>: the system's stage composition, with the
-              slab's material on it. See that file for why the depth planes, the
-              display-glass panel and the generated plate belong there and not
-              in this page. */}
-          <HeroSection
-            slides={mapped.length > 0 ? toHeroSlides(mapped, { locale }) : []}
-            priceLine={specimenHasPrice && mapped.length === 1 ? specimenPriceLine : null}
-          />
+          <div className="mt-8 lg:grid lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+            <CategoryRail
+              categories={categories}
+              locale={locale}
+              label={t("categoriesTitle")}
+              allLabel={t("allProducts")}
+            />
+
+            <div className="min-w-0">
+              <SectionHead
+                eyebrow={t("essentialsEyebrow")}
+                title={t("essentialsTitle")}
+                href="/products"
+                linkLabel={t("viewAll")}
+              />
+              {essentials.length > 0 ? (
+                <ul className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-hairline sm:grid-cols-3 lg:grid-cols-6">
+                  {essentials.map((item) => {
+                    const name = locale === "ar" ? item.nameAr || item.nameEn : item.nameEn;
+                    return (
+                      <li key={item.id} className="min-w-0 bg-surface-2">
+                        <Link
+                          href={`/products/${encodeURIComponent(item.slug)}`}
+                          className="u-focus group block h-full rounded-[inherit] p-3"
+                        >
+                          <div className="relative mx-auto aspect-square w-full max-w-[8rem]">
+                            {item.imageUrl ? (
+                              <Image
+                                src={item.imageUrl}
+                                alt=""
+                                aria-hidden="true"
+                                fill
+                                sizes="8rem"
+                                className="object-contain transition-transform duration-hover ease-standard group-hover:-translate-y-0.5 group-hover:scale-[1.02]"
+                              />
+                            ) : null}
+                          </div>
+                          <p className="u-meta mt-2 line-clamp-2 font-medium text-ink-1">{name}</p>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="mt-10 border-y border-hairline py-8">
+            <div className="grid gap-7 lg:grid-cols-[minmax(15rem,0.9fr)_minmax(0,2.1fr)] lg:items-center">
+              <div>
+                <Eyebrow tone="brass">{t("howEyebrow")}</Eyebrow>
+                <h2 className="u-h2 mt-2 max-w-[15ch] text-ink-1">{t("howTitle")}</h2>
+              </div>
+              <ol className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                {[
+                  { icon: FileInput, title: t("how1Title"), body: t("how1Body") },
+                  { icon: Send, title: t("how2Title"), body: t("how2Body") },
+                  { icon: Scale, title: t("how3Title"), body: t("how3Body") },
+                  { icon: PackageCheck, title: t("how4Title"), body: t("how4Body") },
+                ].map(({ icon: Icon, title, body }, index) => (
+                  <li key={title} className="relative border-s border-hairline ps-4">
+                    <span className="u-micro mb-3 flex items-center gap-2 font-semibold text-primary-ink">
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <h3 className="u-ui font-semibold text-ink-1">{title}</h3>
+                    <p className="u-meta mt-1 text-ink-2">{body}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -739,7 +709,7 @@ function CategoryRail({
 }) {
   if (categories.length === 0) return null;
   return (
-    <nav aria-label={label} className="hidden lg:flex lg:flex-col">
+    <nav aria-label={label} className="relative z-20 hidden lg:-mt-14 lg:flex lg:flex-col">
       {/*
         A FLOATING RAIL — raised to rung 4, and NOT glass.
         
@@ -767,8 +737,8 @@ function CategoryRail({
         short list beside a tall panel. That is also why the panel is no longer
         `sticky`: a panel as tall as its containing block has nowhere to stick.
       */}
-      <Surface rung={4} className="flex flex-1 flex-col overflow-hidden">
-        <p className="u-meta border-b border-hairline px-3.5 py-2.5 font-medium text-ink-2">{label}</p>
+      <Surface rung={4} className="u-market-rail flex flex-1 flex-col overflow-hidden">
+        <p className="u-ui border-b border-white/10 px-4 py-3.5 font-semibold text-white">{label}</p>
         {/*
           THE SHAPE, ONE LEVEL DEEPER. Seven top-level rows ended 296px into a
           646px panel, so over half of this raised surface was empty. Under each
@@ -789,13 +759,13 @@ function CategoryRail({
               <li key={category.slug}>
                 <Link
                   href={`/products?category=${encodeURIComponent(category.slug)}`}
-                  className="u-focus group flex items-center gap-2.5 rounded-nested px-3.5 py-2 text-start transition-[background-color,padding-inline-start] duration-hover ease-standard hover:bg-surface-2 hover:ps-4 active:bg-surface-1 active:shadow-elev-1"
+                  className="u-focus group flex items-center gap-2.5 rounded-nested px-4 py-2 text-start transition-[background-color,padding-inline-start] duration-hover ease-standard hover:bg-white/10 hover:ps-5 active:bg-white/15"
                 >
                   <Icon
-                    className="h-4 w-4 shrink-0 text-ink-3 transition-colors duration-hover ease-standard group-hover:text-primary-ink"
+                    className="h-4 w-4 shrink-0 text-white/65 transition-colors duration-hover ease-standard group-hover:text-white"
                     aria-hidden="true"
                   />
-                  <span className="u-ui truncate text-ink-1">{categoryLabel(category, locale)}</span>
+                  <span className="u-ui truncate text-white/90">{categoryLabel(category, locale)}</span>
                 </Link>
                 {children.length > 0 && (
                   <ul>
@@ -803,7 +773,7 @@ function CategoryRail({
                       <li key={child.slug} className={index < compact ? undefined : "hidden xl:block"}>
                         <Link
                           href={`/products?category=${encodeURIComponent(child.slug)}`}
-                          className="u-focus u-meta block truncate rounded-nested py-1 pe-3.5 ps-10 text-start text-ink-2 transition-colors duration-hover ease-standard hover:bg-surface-2 hover:text-ink-1"
+                          className="u-focus u-meta block truncate rounded-nested py-1 pe-4 ps-11 text-start text-white/60 transition-colors duration-hover ease-standard hover:bg-white/10 hover:text-white"
                         >
                           {categoryLabel(child, locale)}
                         </Link>
@@ -815,8 +785,8 @@ function CategoryRail({
             );
           })}
         </ul>
-        <div className="border-t border-hairline px-3.5 py-2.5">
-          <Link href="/products" className="u-meta u-focus rounded-nested font-medium text-primary-ink hover:underline">
+        <div className="border-t border-white/10 px-4 py-3">
+          <Link href="/products" className="u-meta u-focus rounded-nested font-medium text-white hover:underline">
             {allLabel}
           </Link>
         </div>
