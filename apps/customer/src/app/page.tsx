@@ -13,15 +13,7 @@ import {
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { cookies } from "next/headers";
-import {
-  Button,
-  EmptyState,
-  Eyebrow,
-  LightGrid,
-  Rail,
-  Reveal,
-  Surface,
-} from "@avenick/ui";
+import { Button, EmptyState, Eyebrow, LightGrid, Rail, Reveal, Surface } from "@avenick/ui";
 import { MainLayout } from "@/components/layout/main-layout";
 import { ProductCard } from "@/components/products/product-card";
 import { ProductGrid } from "@/components/products/product-grid";
@@ -58,7 +50,9 @@ export default async function HomePage() {
   // The category strip comes from the catalog, not from a list typed into this
   // page: a typed list kept advertising categories with nothing to sell.
   const [rails, categories] = await Promise.all([
-    loadHomeRails({ onError: (source, error) => console.error(`Unable to load storefront ${source}`, error) }),
+    loadHomeRails({
+      onError: (source, error) => console.error(`Unable to load storefront ${source}`, error),
+    }),
     getPublicCategories(),
   ]);
   // The hero's specimen and shelf come from the same rails the page already
@@ -90,7 +84,9 @@ export default async function HomePage() {
       // Locale-aware, and no fallback label: a product whose category is
       // unknown is shown without one rather than filed under a category it may
       // not belong to.
-      category: (locale === "ar" ? p.category?.nameAr || p.category?.nameEn : p.category?.nameEn) ?? undefined,
+      category:
+        (locale === "ar" ? p.category?.nameAr || p.category?.nameEn : p.category?.nameEn) ??
+        undefined,
     };
   }
 
@@ -98,12 +94,14 @@ export default async function HomePage() {
 
   const operationItems = (() => {
     const seen = new Set<string>();
-    return mapped.filter((item) => {
-      const name = locale === "ar" ? item.nameAr || item.nameEn : item.nameEn;
-      if (seen.has(name)) return false;
-      seen.add(name);
-      return true;
-    }).slice(0, 6);
+    return mapped
+      .filter((item) => {
+        const name = locale === "ar" ? item.nameAr || item.nameEn : item.nameEn;
+        if (seen.has(name)) return false;
+        seen.add(name);
+        return true;
+      })
+      .slice(0, 6);
   })();
 
   // The rails, in card shape. Same mapping the hero's specimen uses, so a
@@ -160,7 +158,11 @@ export default async function HomePage() {
               linkLabel={t("viewAll")}
             />
             {operationItems.length > 0 ? (
-              <OperationsShelf rows={operationItems} locale={locale} viewLabel={t("viewProducts")} />
+              <OperationsShelf
+                rows={operationItems}
+                locale={locale}
+                viewLabel={t("viewProducts")}
+              />
             ) : (
               <EmptyState
                 variant="certificate"
@@ -181,9 +183,7 @@ export default async function HomePage() {
 
       <ProcurementFlow />
 
-      {rails.brands.length > 0 && (
-        <MarketplaceBrandStrip brands={rails.brands} locale={locale} />
-      )}
+      {rails.brands.length > 0 && <MarketplaceBrandStrip brands={rails.brands} locale={locale} />}
 
       {/* ─── Category strip ───────────────────────────────── */}
       {/* Categories come from the catalog API (active, with discoverable
@@ -204,7 +204,10 @@ export default async function HomePage() {
 
         {categories.length === 0 ? (
           <Surface rung={2} interactive className="inline-block">
-            <Link href="/products" className="u-focus flex items-center gap-2.5 rounded-[inherit] px-4 py-3">
+            <Link
+              href="/products"
+              className="u-focus flex items-center gap-2.5 rounded-[inherit] px-4 py-3"
+            >
               <PackageSearch className="h-4 w-4 text-ink-3" aria-hidden="true" />
               <span className="u-ui font-medium text-ink-1">{t("browseAll")}</span>
             </Link>
@@ -411,12 +414,12 @@ export default async function HomePage() {
             content. */}
         <Surface rung={1} className="overflow-hidden p-8 lg:p-12">
           <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between lg:gap-12">
-          <div className="max-w-xl">
-            <span className="u-drawn mb-5 w-14" data-on="true" aria-hidden="true" />
-            <Eyebrow tone="brass">{t("b2bEyebrow")}</Eyebrow>
-            <h2 className="u-display mt-2 text-ink-1">{t("b2bTitle")}</h2>
-            <p className="u-body mt-3 max-w-desc text-ink-2">{t("b2bDesc")}</p>
-            {/* ONE NAME FOR ONE DESTINATION. This button said "Submit an RFQ"
+            <div className="max-w-xl">
+              <span className="u-drawn mb-5 w-14" data-on="true" aria-hidden="true" />
+              <Eyebrow tone="brass">{t("b2bEyebrow")}</Eyebrow>
+              <h2 className="u-display mt-2 text-ink-1">{t("b2bTitle")}</h2>
+              <p className="u-body mt-3 max-w-desc text-ink-2">{t("b2bDesc")}</p>
+              {/* ONE NAME FOR ONE DESTINATION. This button said "Submit an RFQ"
                 while the hero, the empty catalogue and the footer said
                 "Request a quote" for the same /b2b/rfq/new, so it now uses the
                 same key. The header keeps its shorter "Get a quote" as chrome.
@@ -426,15 +429,18 @@ export default async function HomePage() {
                 API refuses anyone without a company account. The sentence is
                 worded to be true for every viewer, so the page does not need to
                 read the session to decide whether to show it. */}
-          </div>
-          <div className="shrink-0 lg:text-end">
-            <Button variant="primary" size="lg" asChild>
-              <Link href="/b2b/rfq/new">
-                {t("requestQuote")} <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
-              </Link>
-            </Button>
-            <p className="u-meta mt-3 max-w-desc text-ink-2 lg:max-w-[22rem]">{t("quoteSignInNote")}</p>
-          </div>
+            </div>
+            <div className="shrink-0 lg:text-end">
+              <Button variant="primary" size="lg" asChild>
+                <Link href="/b2b/rfq/new">
+                  {t("requestQuote")}{" "}
+                  <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+                </Link>
+              </Button>
+              <p className="u-meta mt-3 max-w-desc text-ink-2 lg:max-w-[22rem]">
+                {t("quoteSignInNote")}
+              </p>
+            </div>
           </div>
         </Surface>
       </section>
@@ -510,7 +516,7 @@ function ProductRail({
   if (rows.length === 0) return null;
   return (
     <Section eyebrow={eyebrow} title={title} subtitle={subtitle} href={href} linkLabel={viewAll}>
-      <div className="max-sm:grid max-sm:auto-cols-[72%] max-sm:grid-flow-col max-sm:gap-stack max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:snap-x max-sm:snap-proximity max-sm:pb-3 max-sm:[&>div]:contents">
+      <div className="max-sm:grid max-sm:snap-x max-sm:snap-proximity max-sm:auto-cols-[72%] max-sm:grid-flow-col max-sm:gap-stack max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:pb-3 max-sm:[&>div]:contents">
         <ProductGrid columns={5}>
           {rows.map((p, i) => (
             <Reveal
@@ -538,14 +544,24 @@ function OperationsShelf({
 }) {
   return (
     <div className="marketplace-product-shelf">
-      {rows.map((product) => {
+      {rows.map((product, index) => {
         const name = locale === "ar" ? product.nameAr || product.nameEn : product.nameEn;
         return (
-          <article key={product.id} className="marketplace-shelf-item">
-              <Link href={`/products/${product.slug}`} className="marketplace-shelf-link">
+          <Reveal
+            as="article"
+            index={index}
+            key={product.id}
+            className="marketplace-shelf-item max-md:[&[data-reveal][data-reveal-state=hidden]]:opacity-100 max-md:[&[data-reveal][data-reveal-state=hidden]]:[transform:none]"
+          >
+            <Link href={`/products/${product.slug}`} className="marketplace-shelf-link">
               <span className="marketplace-shelf-image">
                 {product.imageUrl ? (
-                  <Image src={product.imageUrl} alt={name} fill sizes="(max-width: 640px) 44vw, 15vw" />
+                  <Image
+                    src={product.imageUrl}
+                    alt={name}
+                    fill
+                    sizes="(max-width: 640px) 44vw, 15vw"
+                  />
                 ) : (
                   <PackageSearch aria-hidden="true" className="h-10 w-10 text-ink-3" />
                 )}
@@ -556,7 +572,7 @@ function OperationsShelf({
                 {viewLabel} <ArrowRight aria-hidden="true" className="h-4 w-4 rtl:rotate-180" />
               </span>
             </Link>
-          </article>
+          </Reveal>
         );
       })}
     </div>
@@ -581,14 +597,14 @@ async function ProcurementFlow() {
         </div>
         <ol className="marketplace-flow-steps">
           {steps.map(({ icon: Icon, title, body }, index) => (
-            <li key={title}>
+            <Reveal as="li" index={index} key={title}>
               <span className="marketplace-step-number">{index + 1}</span>
               <Icon aria-hidden="true" className="marketplace-step-icon" />
               <div>
                 <strong>{title}</strong>
                 <p>{body}</p>
               </div>
-            </li>
+            </Reveal>
           ))}
         </ol>
       </div>
@@ -692,7 +708,9 @@ function CategoryRail({
         `sticky`: a panel as tall as its containing block has nowhere to stick.
       */}
       <Surface rung={4} className="marketplace-category-rail flex flex-1 flex-col overflow-hidden">
-        <p className="u-meta border-b border-hairline px-3.5 py-2.5 font-medium text-ink-2">{label}</p>
+        <p className="u-meta border-b border-hairline px-3.5 py-2.5 font-medium text-ink-2">
+          {label}
+        </p>
         {/*
           THE SHAPE, ONE LEVEL DEEPER. Seven top-level rows ended 296px into a
           646px panel, so over half of this raised surface was empty. Under each
@@ -719,12 +737,17 @@ function CategoryRail({
                     className="h-4 w-4 shrink-0 text-ink-3 transition-colors duration-hover ease-standard group-hover:text-primary-ink"
                     aria-hidden="true"
                   />
-                  <span className="u-ui truncate text-ink-1">{categoryLabel(category, locale)}</span>
+                  <span className="u-ui truncate text-ink-1">
+                    {categoryLabel(category, locale)}
+                  </span>
                 </Link>
                 {children.length > 0 && (
                   <ul>
                     {children.map((child, index) => (
-                      <li key={child.slug} className={index < compact ? undefined : "hidden xl:block"}>
+                      <li
+                        key={child.slug}
+                        className={index < compact ? undefined : "hidden xl:block"}
+                      >
                         <Link
                           href={`/products?category=${encodeURIComponent(child.slug)}`}
                           className="u-focus u-meta block truncate rounded-nested py-1 pe-3.5 ps-10 text-start text-ink-2 transition-colors duration-hover ease-standard hover:bg-surface-2 hover:text-ink-1"
@@ -740,7 +763,10 @@ function CategoryRail({
           })}
         </ul>
         <div className="border-t border-hairline px-3.5 py-2.5">
-          <Link href="/products" className="u-meta u-focus rounded-nested font-medium text-primary-ink hover:underline">
+          <Link
+            href="/products"
+            className="u-meta u-focus rounded-nested font-medium text-primary-ink hover:underline"
+          >
             {allLabel}
           </Link>
         </div>
@@ -905,7 +931,13 @@ function Section({
 }) {
   return (
     <section className="mx-auto max-w-shell px-gutter py-block">
-      <SectionHead eyebrow={eyebrow} title={title} subtitle={subtitle} href={href} linkLabel={linkLabel} />
+      <SectionHead
+        eyebrow={eyebrow}
+        title={title}
+        subtitle={subtitle}
+        href={href}
+        linkLabel={linkLabel}
+      />
       {children}
     </section>
   );

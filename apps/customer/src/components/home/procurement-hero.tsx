@@ -24,15 +24,16 @@ export async function ProcurementHero({
   return (
     <section className="marketplace-hero-shell" aria-labelledby="marketplace-hero-title">
       <div className="marketplace-hero-stage">
-        <Image
-          src="/hero/avenick-procurement-refinery.webp"
-          alt=""
-          aria-hidden="true"
-          fill
-          priority
-          sizes="100vw"
-          className="marketplace-hero-image"
-        />
+        <div className="marketplace-hero-visual" aria-hidden="true">
+          <Image
+            src="/hero/avenick-procurement-refinery.webp"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="marketplace-hero-image"
+          />
+        </div>
 
         <div className="marketplace-hero-copy">
           <p className="marketplace-kicker">{t("heroTagline")}</p>
@@ -42,7 +43,7 @@ export async function ProcurementHero({
           </h1>
           <p className="marketplace-hero-description">{t("heroDesc")}</p>
           <div className="marketplace-hero-actions">
-            <Link href="/b2b/rfq/new" className="marketplace-hero-rfq u-focus">
+            <Link href="/b2b/rfq/new" className="marketplace-hero-rfq u-focus u-shine">
               <FileText aria-hidden="true" className="h-5 w-5" />
               {t("createRfq")}
               <ArrowRight aria-hidden="true" className="h-5 w-5 rtl:rotate-180" />
@@ -61,7 +62,9 @@ export async function ProcurementHero({
                 <p>{t("liveRfqExample")}</p>
                 <strong>{t("openForQuotes")}</strong>
               </div>
-              <Link className="u-focus" href="/b2b/rfq/new">{t("viewAllRfqs")}</Link>
+              <Link className="u-focus" href="/b2b/rfq/new">
+                {t("viewAllRfqs")}
+              </Link>
             </div>
             <div className="marketplace-rfq-meta">
               <span>{t("requiredBy")}</span>

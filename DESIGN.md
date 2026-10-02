@@ -15,7 +15,9 @@ in one changeset.
 
 - **Customer:** persuasive, search-first industrial commerce. Product imagery,
   commercial facts, verified evidence, and a clear buy-or-quote decision carry
-  the experience.
+  the experience. Its motion signature is the sourcing record assembling over
+  industrial depth: live search feedback, sequential RFQ/workflow disclosure,
+  and product imagery moving in bounded Z-space. Text and controls never tilt.
 - **Seller:** a dense revenue cockpit. Prioritize readiness, demand, conversion,
   stock risk, RFQ response, fulfilment, payouts, and one truthful next action.
 - **Admin:** a market command center. Prioritize conversion leakage, supplier
