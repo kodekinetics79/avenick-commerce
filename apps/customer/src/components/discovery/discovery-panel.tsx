@@ -2,14 +2,13 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Compass, X } from "lucide-react";
+import { FileText, LifeBuoy, MessageCircleMore, Search, ShoppingBasket, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Button, Eyebrow, ImageFrame, StatusPill, Surface } from "@avenick/ui";
 import { useDisclosure } from "@/components/layout/disclosure";
 import { storefrontProductHref } from "@/lib/product-card-commerce";
 import {
   buildDiscoveryPlan,
-  hasSomethingToSay,
   localeName,
   type DiscoveryBlock,
   type DiscoveryReason,
@@ -23,20 +22,15 @@ import { useCatalogueLabels, useDiscoverySignals } from "./use-discovery";
 /**
  * THE DISCOVERY PANEL.
  *
- * It is a recommender, not an assistant. Nothing here reasons, converses or
- * predicts: every line on screen is a lookup over signals this browser recorded
- * about itself plus rows a server component handed down, and every suggestion
- * prints the exact signal that produced it. That is not a disclaimer bolted on
- * the bottom — the planner's types make a block without a stated reason
- * unrepresentable, so the sentence under each heading is the same value the
- * ranking used.
+ * A deterministic sourcing assistant, not an invented AI persona. It gives
+ * every visitor a direct catalogue search, RFQ path and support path; when the
+ * browser has a local browsing trail, the existing auditable recommender adds
+ * blocks whose exact basis is printed beside them.
  *
- * WHAT IT REFUSES TO DO. It does not fill itself. With one product in the trail
- * it says so and stops; with none and no trending rows it does not render at
- * all, launcher included. There is no code path that reaches for an arbitrary
- * product to make the panel look busy, because a suggestion nobody can account
- * for is indistinguishable from a random product — and on a trade platform that
- * is not a small cost.
+ * WHAT IT REFUSES TO DO. It never claims to have generated an answer, contacted
+ * a supplier or found a deal. Its assistant actions are ordinary, inspectable
+ * routes, and recommendation rows still render only when the planner has a
+ * stated catalogue or local-history basis.
  *
  * MATERIAL. Rung 4 and OPAQUE. Rung 4 is where a floating layer belongs, but
  * this panel is nothing but body text, and text does not sit on a blur — the
@@ -59,10 +53,10 @@ import { useCatalogueLabels, useDiscoverySignals } from "./use-discovery";
  * copy. A floating control that sits over "the one control the page exists
  * for" is what this panel promised never to be. On a phone it is opened from
  * the menu sheet, through the bridge in ./discovery-context. The panel reports
- * whether it has anything to say and registers its own opener, so the sheet
- * offers the row only when the panel would render, and the disclosure above
- * still owns open and close. The OPEN panel keeps the lift, so it still never
- * sits on the buy bar.
+ * whether it is available and registers its own opener, so the sheet offers
+ * the row only after local state is ready, and the disclosure above still owns
+ * open and close. The OPEN panel keeps the lift, so it still never sits on the
+ * buy bar.
  */
 
 const PANEL_ID = "discovery-panel";
@@ -109,10 +103,13 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
   );
 
   const hidden = React.useMemo(() => isDismissed(dismissedAt, Date.now()), [dismissedAt]);
-  const available = ready && !hidden && hasSomethingToSay(plan);
+  // The assistant always has three useful, truthful actions. Recommendation
+  // blocks remain optional, but an empty local trail no longer removes the
+  // search/RFQ/support door with them.
+  const available = ready && !hidden;
 
   // The chrome's side of the bridge. Reported rather than recomputed there,
-  // because only this component knows whether it would render anything.
+  // because only this component knows whether its local state is ready.
   const host = useDiscoveryHost();
   React.useEffect(() => {
     host?.setAvailable(available);
@@ -173,7 +170,9 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
     const landed = document.activeElement;
     const pill = triggerProps.ref.current;
     const lost =
-      !landed || landed === document.body || (landed === pill && pill.getClientRects().length === 0);
+      !landed ||
+      landed === document.body ||
+      (landed === pill && pill.getClientRects().length === 0);
     if (lost && request.path === window.location.pathname && request.returnFocusTo?.isConnected) {
       request.returnFocusTo.focus({ preventScroll: true });
     }
@@ -202,7 +201,7 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
         // mega-menus, the account menu and the mobile drawer occupy. A passive
         // helper must never paint over a surface the visitor explicitly opened,
         // and it must never sit on a modal scrim.
-        "fixed z-sticky end-4 print:hidden",
+        "fixed end-4 z-sticky print:hidden",
         // Clear of the product page's `fixed inset-x-0 bottom-0` buy bar below
         // lg, and of an iOS home indicator, so the helper never sits on top of
         // the one control the page exists for. Below lg this now positions only
@@ -226,24 +225,102 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
                 {/* tabIndex -1 and no ring: it is where focus lands when the
                     sheet opens the panel (see FOCUS above), not a control, and
                     a ring on a heading would dress it as one. */}
-                <h2 id={headingId} ref={headingRef} tabIndex={-1} className="u-ui font-medium text-ink-1 outline-none">
-                  {hasOwnSignal ? t("heading.fromYourBrowsing") : t("heading.fromCatalogue")}
+                <h2
+                  id={headingId}
+                  ref={headingRef}
+                  tabIndex={-1}
+                  className="u-ui font-medium text-ink-1 outline-none"
+                >
+                  {t("assistantTitle")}
                 </h2>
               </div>
               {plan.basis.views > 0 && (
-                <StatusPill tone="neutral">{t("basis.views", { count: plan.basis.views })}</StatusPill>
+                <StatusPill tone="neutral">
+                  {t("basis.views", { count: plan.basis.views })}
+                </StatusPill>
               )}
               <button
                 type="button"
                 onClick={closeAndReturnFocus}
                 aria-label={t("close")}
-                className="u-focus -me-1 -mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-nested text-ink-3 transition-colors duration-hover ease-standard motion-reduce:transition-none hover:text-ink-1"
+                className="u-focus -me-1 -mt-1 grid h-7 w-7 shrink-0 place-items-center rounded-nested text-ink-3 transition-colors duration-hover ease-standard hover:text-ink-1 motion-reduce:transition-none"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
 
             <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4">
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary-soft text-primary-ink">
+                    <MessageCircleMore className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  <p className="u-ui pt-1 text-ink-2">{t("assistantPrompt")}</p>
+                </div>
+                <form action="/search" method="get" role="search" noValidate className="flex gap-2">
+                  <label className="relative min-w-0 flex-1">
+                    <span className="sr-only">{t("assistantSearchLabel")}</span>
+                    <Search
+                      aria-hidden="true"
+                      className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-3"
+                    />
+                    <input
+                      type="search"
+                      name="q"
+                      autoComplete="off"
+                      placeholder={t("assistantPlaceholder")}
+                      className="u-focus h-control-md w-full rounded-nested border border-border bg-surface-1 pe-3 ps-9 text-sm text-ink-1 placeholder:text-ink-3"
+                    />
+                  </label>
+                  <Button type="submit" variant="primary" size="sm">
+                    {t("assistantSearch")}
+                  </Button>
+                </form>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="xs"
+                    className="h-auto min-h-12 flex-col gap-1 px-1.5 py-2"
+                  >
+                    <Link href="/products">
+                      <ShoppingBasket className="h-4 w-4" aria-hidden="true" />
+                      <span>{t("assistantBrowse")}</span>
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="xs"
+                    className="h-auto min-h-12 flex-col gap-1 px-1.5 py-2"
+                  >
+                    <Link href="/b2b/rfq/new">
+                      <FileText className="h-4 w-4" aria-hidden="true" />
+                      <span>{t("assistantRfq")}</span>
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="xs"
+                    className="h-auto min-h-12 flex-col gap-1 px-1.5 py-2"
+                  >
+                    <Link href="/support">
+                      <LifeBuoy className="h-4 w-4" aria-hidden="true" />
+                      <span>{t("assistantSupport")}</span>
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+
+              {plan.blocks.length > 0 ? (
+                <div className="border-t border-hairline pt-4">
+                  <p className="u-meta font-semibold text-ink-2">
+                    {hasOwnSignal ? t("heading.fromYourBrowsing") : t("heading.fromCatalogue")}
+                  </p>
+                </div>
+              ) : null}
+
               {plan.blocks.map((block) => (
                 <BlockView key={blockKey(block)} block={block} locale={locale} />
               ))}
@@ -252,17 +329,20 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
                   thin to name a category or a brand from, and saying so is the
                   only alternative to inventing one. */}
               {plan.needsMoreSignal && (
-                <p className="u-meta rounded-nested bg-surface-1 p-3 text-ink-3">{t("needsMoreSignal")}</p>
+                <p className="u-meta rounded-nested bg-surface-1 p-3 text-ink-3">
+                  {t("needsMoreSignal")}
+                </p>
               )}
-              {!hasOwnSignal && <p className="u-meta text-ink-3">{t("noSignal")}</p>}
             </div>
 
             <div className="space-y-2 border-t border-hairline p-4 pt-3">
-              <p className="u-meta text-ink-3">{t("basis.local")}</p>
+              {hasOwnSignal ? <p className="u-meta text-ink-3">{t("basis.local")}</p> : null}
               <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" variant="ghost" size="xs" onClick={clear} disabled={!hasOwnSignal}>
-                  {t("actions.clear")}
-                </Button>
+                {hasOwnSignal ? (
+                  <Button type="button" variant="ghost" size="xs" onClick={clear}>
+                    {t("actions.clear")}
+                  </Button>
+                ) : null}
                 <Button type="button" variant="ghost" size="xs" onClick={dismiss}>
                   {t("actions.hide")}
                 </Button>
@@ -274,8 +354,13 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
 
       {/* The pill exists at lg and up only. Below lg the menu sheet opens the
           panel; a floating pill there covered in-flow controls on every page. */}
-      <Button {...triggerProps} variant="secondary" size="sm" className="hidden shadow-elev-3 lg:inline-flex">
-        <Compass className="h-4 w-4" aria-hidden="true" />
+      <Button
+        {...triggerProps}
+        variant="secondary"
+        size="sm"
+        className="hidden shadow-elev-3 lg:inline-flex"
+      >
+        <MessageCircleMore className="h-4 w-4" aria-hidden="true" />
         {t("launcher")}
       </Button>
     </div>
@@ -283,7 +368,9 @@ export function DiscoveryPanel({ trending = NO_TRENDING }: DiscoveryPanelProps) 
 }
 
 function blockKey(block: DiscoveryBlock): string {
-  return block.kind === "categoryJump" || block.kind === "brandJump" ? `${block.kind}:${block.slug}` : block.kind;
+  return block.kind === "categoryJump" || block.kind === "brandJump"
+    ? `${block.kind}:${block.slug}`
+    : block.kind;
 }
 
 function BlockView({ block, locale }: { block: DiscoveryBlock; locale: string }) {
@@ -293,7 +380,9 @@ function BlockView({ block, locale }: { block: DiscoveryBlock; locale: string })
     case "recentlyViewed":
       return (
         <section>
-          <Eyebrow as="h3" className="mb-1">{t("blocks.recentlyViewed")}</Eyebrow>
+          <Eyebrow as="h3" className="mb-1">
+            {t("blocks.recentlyViewed")}
+          </Eyebrow>
           <Reason reason={block.reason} locale={locale} />
           <ul className="mt-2 space-y-0.5">
             {block.products.map((product) => (
@@ -309,7 +398,9 @@ function BlockView({ block, locale }: { block: DiscoveryBlock; locale: string })
       const category = localeName(block.name, locale);
       return (
         <section>
-          <Eyebrow as="h3" className="mb-1">{t("blocks.moreIn", { category })}</Eyebrow>
+          <Eyebrow as="h3" className="mb-1">
+            {t("blocks.moreIn", { category })}
+          </Eyebrow>
           <Reason reason={block.reason} locale={locale} />
           <div className="mt-2 flex flex-wrap gap-2">
             <Button asChild variant="secondary" size="xs">
@@ -329,7 +420,9 @@ function BlockView({ block, locale }: { block: DiscoveryBlock; locale: string })
       const brand = localeName(block.name, locale);
       return (
         <section>
-          <Eyebrow as="h3" className="mb-1">{t("blocks.moreFrom", { brand })}</Eyebrow>
+          <Eyebrow as="h3" className="mb-1">
+            {t("blocks.moreFrom", { brand })}
+          </Eyebrow>
           <Reason reason={block.reason} locale={locale} />
           <div className="mt-2">
             <Button asChild variant="secondary" size="xs">
@@ -343,7 +436,9 @@ function BlockView({ block, locale }: { block: DiscoveryBlock; locale: string })
     case "resumeSearch":
       return (
         <section>
-          <Eyebrow as="h3" className="mb-1">{t("blocks.resumeSearch")}</Eyebrow>
+          <Eyebrow as="h3" className="mb-1">
+            {t("blocks.resumeSearch")}
+          </Eyebrow>
           <Reason reason={block.reason} locale={locale} />
           <div className="mt-2">
             <Button asChild variant="ghost" size="xs">
@@ -356,7 +451,9 @@ function BlockView({ block, locale }: { block: DiscoveryBlock; locale: string })
     case "trending":
       return (
         <section>
-          <Eyebrow as="h3" className="mb-1">{t("blocks.trending")}</Eyebrow>
+          <Eyebrow as="h3" className="mb-1">
+            {t("blocks.trending")}
+          </Eyebrow>
           <Reason reason={block.reason} locale={locale} />
           <ul className="mt-2 space-y-0.5">
             {block.products.map((product) => (
@@ -385,9 +482,15 @@ function Reason({ reason, locale }: { reason: DiscoveryReason; locale: string })
       case "recentViews":
         return t("reason.recentViews", { count: reason.count });
       case "categoryBrowsed":
-        return t("reason.categoryBrowsed", { category: localeName(reason.category, locale), count: reason.count });
+        return t("reason.categoryBrowsed", {
+          category: localeName(reason.category, locale),
+          count: reason.count,
+        });
       case "categoryViewed":
-        return t("reason.categoryViewed", { category: localeName(reason.category, locale), count: reason.count });
+        return t("reason.categoryViewed", {
+          category: localeName(reason.category, locale),
+          count: reason.count,
+        });
       case "categoryBoth":
         return t("reason.categoryBoth", {
           category: localeName(reason.category, locale),
@@ -395,7 +498,10 @@ function Reason({ reason, locale }: { reason: DiscoveryReason; locale: string })
           viewCount: reason.viewCount,
         });
       case "brandViewed":
-        return t("reason.brandViewed", { brand: localeName(reason.brand, locale), count: reason.count });
+        return t("reason.brandViewed", {
+          brand: localeName(reason.brand, locale),
+          count: reason.count,
+        });
       case "lastSearch":
         return t("reason.lastSearch", { term: reason.term });
       case "catalogueActivity":
@@ -414,18 +520,27 @@ function toRow(product: TrendingProduct): ViewedProduct {
     imageUrl: product.images?.[0]?.url ?? null,
     sku: product.sku ?? null,
     brand: product.brand ? { en: product.brand.nameEn, ar: product.brand.nameAr ?? null } : null,
-    category: product.category ? { slug: product.category.slug, name: { en: product.category.nameEn, ar: product.category.nameAr ?? null } } : null,
+    category: product.category
+      ? {
+          slug: product.category.slug,
+          name: { en: product.category.nameEn, ar: product.category.nameAr ?? null },
+        }
+      : null,
     at: 0,
   };
 }
 
 function ProductRow({ product, locale }: { product: ViewedProduct; locale: string }) {
   const name = localeName(product.name, locale);
-  const secondary = product.brand ? localeName(product.brand, locale) : product.category ? localeName(product.category.name, locale) : null;
+  const secondary = product.brand
+    ? localeName(product.brand, locale)
+    : product.category
+      ? localeName(product.category.name, locale)
+      : null;
   return (
     <Link
       href={storefrontProductHref(product.slug)}
-      className="u-focus flex items-center gap-3 rounded-nested p-1.5 transition-colors duration-hover ease-standard motion-reduce:transition-none hover:bg-ink-1/[0.05]"
+      className="u-focus flex items-center gap-3 rounded-nested p-1.5 transition-colors duration-hover ease-standard hover:bg-ink-1/[0.05] motion-reduce:transition-none"
     >
       {/* The catalogue's own frame, so an unphotographed listing — most of them —
           gets the designed plate and its SKU rather than a broken tile. */}

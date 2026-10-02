@@ -24,7 +24,14 @@ const EMPTY: DiscoveryPlan = {
 } as unknown as DiscoveryPlan;
 
 const A_SEARCH: DiscoveryPlan = {
-  blocks: [{ kind: "resumeSearch", term: "glove", href: "/search?q=glove", reason: { kind: "lastSearch", term: "glove" } }],
+  blocks: [
+    {
+      kind: "resumeSearch",
+      term: "glove",
+      href: "/search?q=glove",
+      reason: { kind: "lastSearch", term: "glove" },
+    },
+  ],
   basis: { views: 0, categoryVisits: 0, searches: 1 },
   needsMoreSignal: false,
 } as unknown as DiscoveryPlan;
@@ -37,7 +44,13 @@ vi.mock("../interest-signals", async (importOriginal) => ({
 }));
 
 vi.mock("../use-discovery", () => ({
-  useDiscoverySignals: () => ({ ready: true, history: {}, clear: vi.fn(), dismissedAt: null, dismiss: vi.fn() }),
+  useDiscoverySignals: () => ({
+    ready: true,
+    history: {},
+    clear: vi.fn(),
+    dismissedAt: null,
+    dismiss: vi.fn(),
+  }),
   useCatalogueLabels: () => ({ categoryNames: new Map(), brandSlugs: new Map() }),
 }));
 
@@ -128,11 +141,7 @@ describe("the discovery launcher on a phone", () => {
     menu.remove();
   });
 
-  /**
-   * The menu must never offer a panel that would render nothing. The panel is
-   * the only thing that knows, so availability is its report, not a guess.
-   */
-  it("reports nothing to offer when the panel would render nothing", () => {
+  it("keeps the sourcing tools available when recommendations are empty", () => {
     plan = EMPTY;
     const { container } = render(
       <DiscoveryProvider>
@@ -141,8 +150,8 @@ describe("the discovery launcher on a phone", () => {
       </DiscoveryProvider>,
     );
 
-    expect(launcher?.available).toBe(false);
-    expect(container.innerHTML).toBe("");
+    expect(launcher?.available).toBe(true);
+    expect(container.innerHTML).not.toBe("");
   });
 
   /**

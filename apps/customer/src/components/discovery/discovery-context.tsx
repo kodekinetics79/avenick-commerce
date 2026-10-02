@@ -16,10 +16,10 @@ import * as React from "react";
  * cannot reach into the panel's own disclosure state.
  *
  * WHAT IT CARRIES. Two things and no more:
- *  - `available`: whether the panel has anything to say. The panel is the only
- *    thing that knows (localStorage read, not dismissed, a plan with a block in
- *    it), so it REPORTS this rather than the header guessing. The menu never
- *    offers a panel that would render nothing.
+ *  - `available`: whether the assistant is ready to open. The panel is the
+ *    thing that knows (localStorage read and not dismissed), so it REPORTS
+ *    this rather than the header guessing. The menu never offers a panel
+ *    before its local state is ready.
  *  - `open`: a request to open it. The panel registers the opener, so its
  *    disclosure keeps Escape, outside-click and close-on-navigation exactly as
  *    they were. The caller passes the control focus should return to when the
@@ -63,7 +63,10 @@ export function DiscoveryProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const open = React.useCallback((returnFocusTo?: HTMLElement | null) => opener.current?.(returnFocusTo ?? null), []);
+  const open = React.useCallback(
+    (returnFocusTo?: HTMLElement | null) => opener.current?.(returnFocusTo ?? null),
+    [],
+  );
   const launcher = React.useMemo<DiscoveryLauncher>(() => ({ available, open }), [available, open]);
 
   return (

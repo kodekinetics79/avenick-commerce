@@ -17,7 +17,12 @@ in one changeset.
   commercial facts, verified evidence, and a clear buy-or-quote decision carry
   the experience. Its motion signature is the sourcing record assembling over
   industrial depth: live search feedback, sequential RFQ/workflow disclosure,
-  and product imagery moving in bounded Z-space. Text and controls never tilt.
+  product imagery moving in bounded Z-space, and a pausable market-pulse rail
+  sourced from real catalogue activity, completed order lines, and listing
+  recency. Text and controls never tilt. Urgency labels must name their data
+  basis; never substitute countdowns, “hot” badges, or sale language when no
+  promotion or scarcity feed exists. The sourcing assistant is deterministic
+  navigation and auditable local recommendations, not an invented AI persona.
 - **Seller:** a dense revenue cockpit. Prioritize readiness, demand, conversion,
   stock risk, RFQ response, fulfilment, payouts, and one truthful next action.
 - **Admin:** a market command center. Prioritize conversion leakage, supplier

@@ -22,6 +22,7 @@ import { categoryLabel, getPublicCategories, type PublicCategory } from "@/lib/c
 import { loadHomeRails } from "@/lib/home-rails";
 import { categoryRailRows } from "@/components/hero/category-rail-rows";
 import { ProcurementHero } from "@/components/home/procurement-hero";
+import { MarketPulse, type MarketPulseItem } from "@/components/home/market-pulse";
 import type { Metadata } from "next";
 import { platformName } from "@avenick/utils/portal-config";
 import { canonicalFor } from "@/lib/page-metadata";
@@ -114,6 +115,40 @@ export default async function HomePage() {
     trending: rails.trending.map(toCard),
   };
 
+  // One moving commercial signal, grounded in three catalogue facts. The
+  // labels deliberately stop short of "deal", "sale" or "hot": no promotion
+  // or discount feed exists yet, so urgency comes from real activity, paid
+  // order lines and listing recency instead of manufactured scarcity.
+  const pulseItems = (() => {
+    const seen = new Set<string>();
+    const result: MarketPulseItem[] = [];
+    const add = (
+      rows: Array<Record<string, any>>,
+      kind: MarketPulseItem["kind"],
+      limit: number,
+    ) => {
+      let added = 0;
+      for (const item of rows) {
+        const name = locale === "ar" ? item.nameAr || item.nameEn : item.nameEn;
+        if (!name || seen.has(name) || added >= limit) continue;
+        seen.add(name);
+        added += 1;
+        result.push({
+          id: `${kind}:${item.id}`,
+          slug: item.slug,
+          name,
+          detail: [item.category, item.sku].filter(Boolean).join(" · ") || null,
+          imageUrl: item.imageUrl ?? null,
+          kind,
+        });
+      }
+    };
+    add(railFor.trending, "trending", 2);
+    add(railFor.bestSellers, "ordered", 2);
+    add(railFor.newArrivals, "new", 2);
+    return result;
+  })();
+
   return (
     <MainLayout discoveryTrending={railFor.trending}>
       {/*
@@ -141,6 +176,8 @@ export default async function HomePage() {
           imageUrl: item.imageUrl,
         }))}
       />
+
+      <MarketPulse items={pulseItems} />
 
       <section className="marketplace-operations-section">
         <div className="mx-auto grid w-full max-w-shell gap-7 px-gutter lg:grid-cols-[17rem_minmax(0,1fr)]">

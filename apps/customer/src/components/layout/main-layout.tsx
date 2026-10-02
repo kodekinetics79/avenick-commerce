@@ -29,8 +29,8 @@ export function MainLayout({ children, discoveryTrending }: MainLayoutProps) {
     // has to be an ancestor of both the header and the panel, and wrapping the
     // column that holds them both is the one place that is.
     <DiscoveryProvider>
-    <div className="avenick-marketplace min-h-screen flex flex-col">
-      {/*
+      <div className="avenick-marketplace flex min-h-screen flex-col">
+        {/*
         The reading hairline: a 2px brass rule that draws itself across the top
         of the viewport from the inline start as the document scrolls. Zero
         JavaScript and zero scroll listeners — it is a scaleX on a scroll-driven
@@ -46,14 +46,14 @@ export function MainLayout({ children, discoveryTrending }: MainLayoutProps) {
         technology this.
       */}
 
-      <SkipLink />
-      <Header />
-      <main id="main-content" tabIndex={-1} className="flex-1">
-        <RouteFade>{children}</RouteFade>
-      </main>
-      <Footer />
+        <SkipLink />
+        <Header />
+        <main id="main-content" tabIndex={-1} className="flex-1">
+          <RouteFade>{children}</RouteFade>
+        </main>
+        <Footer />
 
-      {/*
+        {/*
         The cart drawer — what an add-to-cart opens instead of navigating away.
         Mounted once here so every route that adds to the cart has it, and
         mounted CLOSED: its open flag is not persisted and only a real add sets
@@ -61,16 +61,16 @@ export function MainLayout({ children, discoveryTrending }: MainLayoutProps) {
         need" slot reach it as props or through its store; see
         components/cart/completions.ts for the contract.
       */}
-      {/* Wired to /api/cart/completions on the client side of the boundary —
+        {/* Wired to /api/cart/completions on the client side of the boundary —
           a loader is a function, and a function cannot be passed from this
           server component into a client one. */}
-      <CartDrawerConnected />
+        <CartDrawerConnected />
 
-      {/*
-        The discovery panel — a recommender driven by this browser's own trail,
-        not an assistant and not a model. It renders NOTHING at all when it has
-        nothing to say, and nothing before localStorage has been read, so it
-        cannot shift the page or mismatch on hydration.
+        {/*
+        The sourcing assistant — a deterministic search/RFQ/support door with
+        an optional recommender driven by this browser's own trail. It is not a
+        model and never invents an answer. Nothing renders before localStorage
+        has been read, so it cannot shift the page or mismatch on hydration.
 
         The Suspense boundary is required, not decorative: the panel reads
         useSearchParams() to see which category or search a visitor is on, and an
@@ -78,10 +78,10 @@ export function MainLayout({ children, discoveryTrending }: MainLayoutProps) {
         this app to bail out. Same treatment <NavigationProgress> gets in
         app/layout.tsx, for the same reason.
       */}
-      <Suspense fallback={null}>
-        <DiscoveryPanel trending={discoveryTrending} />
-      </Suspense>
-    </div>
+        <Suspense fallback={null}>
+          <DiscoveryPanel trending={discoveryTrending} />
+        </Suspense>
+      </div>
     </DiscoveryProvider>
   );
 }
