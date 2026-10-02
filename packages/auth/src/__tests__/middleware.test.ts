@@ -51,6 +51,7 @@ describe("portal middleware — anonymous access", () => {
       "/api/products",
       "/api/products/some-slug",
       "/api/categories",
+      "/api/search/suggest?q=cable",
       "/api/payments/webhook",
     ]) {
       const res = await mw(req(path));

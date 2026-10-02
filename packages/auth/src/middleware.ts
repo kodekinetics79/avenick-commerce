@@ -110,6 +110,9 @@ const PUBLIC_API_PATHS: Record<PortalType, string[]> = {
   // route handler ran, which meant an anonymous shopper could not see the
   // catalogue at all. That is the entire top of the funnel, and the failure was
   // invisible from the route's own tests: those call the handler directly.
+  // "/api/search" is the same public catalogue expressed as typeahead. Keeping
+  // it behind a session makes the search field appear interactive while every
+  // anonymous query fails before the rate-limited route handler can answer.
   //
   // "/api/v1/checkout/quote" is public for the same reason the cart is — a
   // guest must be able to see what a basket costs before being asked who they
@@ -120,6 +123,7 @@ const PUBLIC_API_PATHS: Record<PortalType, string[]> = {
     "/api/products",
     "/api/categories",
     "/api/brands",
+    "/api/search",
     "/api/signals",
     "/api/cart",
     "/api/payments/webhook",

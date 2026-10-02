@@ -20,7 +20,7 @@ import { describe, expect, it } from "vitest";
 const API_ROOT = fileURLToPath(new URL(".", import.meta.url));
 
 /** The public surface, as the middleware's PUBLIC_API_PATHS.customer defines it. */
-const PUBLIC_PREFIXES = ["products", "categories", "brands", "signals", "cart"];
+const PUBLIC_PREFIXES = ["products", "categories", "brands", "search", "signals", "cart"];
 
 function routeFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -95,9 +95,9 @@ describe("no page builds itself by calling the app's own throttled route", () =>
   });
 
   it("the category tree and the brand list are readable without HTTP", () => {
-    expect(readFileSync(join(API_ROOT, "..", "..", "lib", "public-category-tree.ts"), "utf8")).toContain(
-      "export async function readPublicCategoryTree",
-    );
+    expect(
+      readFileSync(join(API_ROOT, "..", "..", "lib", "public-category-tree.ts"), "utf8"),
+    ).toContain("export async function readPublicCategoryTree");
     expect(readFileSync(join(API_ROOT, "..", "..", "lib", "public-brands.ts"), "utf8")).toContain(
       "export async function readPublicBrands",
     );

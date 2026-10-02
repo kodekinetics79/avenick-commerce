@@ -18,12 +18,19 @@ describe("customer public API paths", () => {
   // no /api entries and fails every case for the wrong reason.
   const block = /PUBLIC_API_PATHS[\s\S]*?customer:\s*\[([^\]]*)\]/.exec(source)?.[1] ?? "";
 
-  it.each(["/api/products", "/api/categories", "/api/brands", "/api/signals", "/api/cart"])(
-    "%s is reachable without a session",
-    (path) => {
-      expect(block, `${path} is not on PUBLIC_API_PATHS.customer — anonymous shoppers get 401`).toContain(`"${path}"`);
-    },
-  );
+  it.each([
+    "/api/products",
+    "/api/categories",
+    "/api/brands",
+    "/api/search",
+    "/api/signals",
+    "/api/cart",
+  ])("%s is reachable without a session", (path) => {
+    expect(
+      block,
+      `${path} is not on PUBLIC_API_PATHS.customer — anonymous shoppers get 401`,
+    ).toContain(`"${path}"`);
+  });
 });
 
 describe("customer public page paths", () => {
