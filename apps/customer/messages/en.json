@@ -514,6 +514,8 @@
     "marketPulseOrderedBasis": "Ranked from completed order lines",
     "marketPulseNew": "New in the catalogue",
     "marketPulseNewBasis": "One of the latest published listings",
+    "marketPulseVerified": "Manufacturer-verified image",
+    "marketPulseVerifiedBasis": "Matched to the exact catalogue SKU and official manufacturer source",
     "marketPulseView": "View product",
     "marketPulseCarouselRole": "carousel",
     "marketPulseCarouselLabel": "Live catalogue products",

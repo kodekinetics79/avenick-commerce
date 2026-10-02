@@ -204,9 +204,7 @@ export function rankTopRated(groups: RatingGroup[], minReviews: number, limit: n
   return groups
     .filter(
       (group) =>
-        group.count >= minReviews &&
-        group.average != null &&
-        Number.isFinite(group.average),
+        group.count >= minReviews && group.average != null && Number.isFinite(group.average),
     )
     .sort(
       (a, b) =>
@@ -265,6 +263,49 @@ export interface StorefrontSections {
 }
 
 /**
+ * Fetch a small, explicitly curated set of public catalogue rows in the same
+ * shape as the home rails. The caller owns the SKU list; this reader only
+ * enforces public visibility, stable input order, and the rail-size ceiling.
+ * It exists for verified manufacturer-media selections, where a broad
+ * newest-first query would bury the few listings whose imagery has been
+ * matched to an exact SKU.
+ */
+export async function getStorefrontProductsBySkus(
+  skus: readonly string[],
+  opts: { limit?: number; b2c?: boolean } = {},
+): Promise<ProductListRow[]> {
+  const orderedSkus = Array.from(
+    new Set(skus.map((sku) => sku.trim().toUpperCase()).filter(Boolean)),
+  ).slice(0, sectionSize(opts.limit ?? MAX_SECTION_SIZE));
+  if (orderedSkus.length === 0) return [];
+
+  const visible = publicProductWhere(opts.b2c);
+  const { data } = await read(
+    async () => {
+      const rows = await findSectionRows(
+        { ...visible, sku: { in: orderedSkus } },
+        orderedSkus.length,
+      );
+      const rated = await attachProductRatings(rows);
+      const bySku = new Map(rated.map((row) => [row.sku.toUpperCase(), row]));
+      return orderedSkus.flatMap((sku) => {
+        const row = bySku.get(sku);
+        return row ? [row] : [];
+      });
+    },
+    {
+      name: "storefront.productsBySkus",
+      cache: {
+        key: `storefront:productsBySkus:${JSON.stringify({ skus: orderedSkus, b2c: opts.b2c ?? null })}`,
+        ttlMs: 300_000,
+      },
+    },
+  );
+
+  return data;
+}
+
+/**
  * FEATURED.
  *
  * There is no featured flag in this schema. No `isFeatured`, no curation table,
@@ -291,11 +332,18 @@ export interface StorefrontSections {
  * change (a curated flag or a collection table). This function is the honest
  * limit of what present data supports.
  */
-function featuredWhere(visible: Prisma.ProductWhereInput, excludeIds: string[]): Prisma.ProductWhereInput {
+function featuredWhere(
+  visible: Prisma.ProductWhereInput,
+  excludeIds: string[],
+): Prisma.ProductWhereInput {
   return excludeIds.length > 0 ? { ...visible, id: { notIn: excludeIds } } : visible;
 }
 
-function findSectionRows(where: Prisma.ProductWhereInput, take: number, orderBy?: Prisma.ProductOrderByWithRelationInput) {
+function findSectionRows(
+  where: Prisma.ProductWhereInput,
+  take: number,
+  orderBy?: Prisma.ProductOrderByWithRelationInput,
+) {
   return db.product.findMany({
     where,
     take,
@@ -389,7 +437,9 @@ export async function getStorefrontSections(
       // before their rows are fetched. If a ranked id turns out to have no
       // visible row, featured merely passed over one candidate — it can never
       // duplicate a tile, which is the property that matters.
-      const claimed = Array.from(new Set([...bestSellerIds, ...topRatedIds, ...newArrivals.map((row) => row.id)]));
+      const claimed = Array.from(
+        new Set([...bestSellerIds, ...topRatedIds, ...newArrivals.map((row) => row.id)]),
+      );
 
       const [bestSellerRows, topRatedRows, featuredRows] = await Promise.all([
         bestSellerIds.length > 0
@@ -405,11 +455,16 @@ export async function getStorefrontSections(
       // because a product may legitimately appear in more than one rail.
       const unique = Array.from(
         new Map(
-          [...bestSellerRows, ...newArrivals, ...topRatedRows, ...featuredRows].map((row) => [row.id, row]),
+          [...bestSellerRows, ...newArrivals, ...topRatedRows, ...featuredRows].map((row) => [
+            row.id,
+            row,
+          ]),
         ).values(),
       );
       const rated = await attachProductRatings(unique);
-      const ratingById = new Map<string, ProductRating | null>(rated.map((row) => [row.id, row.rating]));
+      const ratingById = new Map<string, ProductRating | null>(
+        rated.map((row) => [row.id, row.rating]),
+      );
       const withRating = (rows: ProductListRowBase[]): ProductListRow[] =>
         rows.map((row) => ({ ...row, rating: ratingById.get(row.id) ?? null }));
 
@@ -464,7 +519,9 @@ export interface BrandWithLogo {
  *
  * One query. Ordered by name so the strip is stable between renders.
  */
-export async function listBrandsWithLogos(opts: { limit?: number; b2c?: boolean } = {}): Promise<BrandWithLogo[]> {
+export async function listBrandsWithLogos(
+  opts: { limit?: number; b2c?: boolean } = {},
+): Promise<BrandWithLogo[]> {
   const take = opts.limit == null ? undefined : Math.max(1, Math.floor(opts.limit));
   // `?? true` here was the same defect getStorefrontSections had: it filters on
   // isB2CEnabled, nothing in this catalogue sets it, so `products: { some }`
@@ -488,12 +545,17 @@ export async function listBrandsWithLogos(opts: { limit?: number; b2c?: boolean 
       return brands.flatMap((brand) => {
         const logoUrl = brand.logoUrl?.trim();
         if (!logoUrl) return [];
-        return [{ id: brand.id, slug: brand.slug, nameEn: brand.nameEn, nameAr: brand.nameAr, logoUrl }];
+        return [
+          { id: brand.id, slug: brand.slug, nameEn: brand.nameEn, nameAr: brand.nameAr, logoUrl },
+        ];
       });
     },
     {
       name: "storefront.brandStrip",
-      cache: { key: `storefront:brands:${JSON.stringify({ take: take ?? null, b2c: opts.b2c ?? null })}`, ttlMs: 300_000 },
+      cache: {
+        key: `storefront:brands:${JSON.stringify({ take: take ?? null, b2c: opts.b2c ?? null })}`,
+        ttlMs: 300_000,
+      },
     },
   );
 

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { ArrowRight, FileText, PackageSearch } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { HomeSearchDock, type HomeSearchCategory } from "./home-search-dock";
+import { HeroMarketSignal } from "./hero-market-signal";
+import type { MarketPulseItem } from "./market-pulse";
 
 export interface ProcurementHeroItem {
   id: string;
@@ -14,9 +16,11 @@ export interface ProcurementHeroItem {
 export async function ProcurementHero({
   categories,
   rfqItems,
+  pulseItems,
 }: {
   categories: HomeSearchCategory[];
   rfqItems: ProcurementHeroItem[];
+  pulseItems: MarketPulseItem[];
 }) {
   const t = await getTranslations("home");
   const rows = rfqItems.slice(0, 3);
@@ -53,6 +57,8 @@ export async function ProcurementHero({
               <ArrowRight aria-hidden="true" className="h-5 w-5 rtl:rotate-180" />
             </Link>
           </div>
+
+          <HeroMarketSignal items={pulseItems} />
         </div>
 
         {rows.length > 0 && (

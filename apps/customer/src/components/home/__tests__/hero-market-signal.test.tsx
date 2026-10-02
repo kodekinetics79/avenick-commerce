@@ -3,14 +3,11 @@
 import * as React from "react";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MarketPulse, type MarketPulseItem } from "../market-pulse";
+import { HeroMarketSignal } from "../hero-market-signal";
+import type { MarketPulseItem } from "../market-pulse";
 
 vi.mock("next-intl", () => ({
-  useTranslations: () => (key: string, values?: { name?: string }) => values?.name ?? key,
-}));
-
-vi.mock("next/image", () => ({
-  default: ({ src }: { src: string }) => <span data-image-src={src} />,
+  useTranslations: () => (key: string) => key,
 }));
 
 vi.mock("next/link", () => ({
@@ -74,32 +71,30 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe("market pulse", () => {
-  it("rotates real catalogue links and lets the visitor pause the motion", () => {
-    const { container } = render(<MarketPulse items={ITEMS} />);
-    const slides = Array.from(container.querySelectorAll(".marketplace-pulse-slide"));
+describe("hero market signal", () => {
+  it("surfaces live catalogue activity above the fold and lets visitors pause it", () => {
+    render(<HeroMarketSignal items={ITEMS} />);
 
-    expect(slides[0]?.getAttribute("data-active")).toBe("true");
-    expect(slides[1]?.getAttribute("data-active")).toBe("false");
     expect(screen.getByRole("link", { name: /Cable gland/ }).getAttribute("href")).toBe(
       "/products/cable-gland",
     );
 
-    act(() => vi.advanceTimersByTime(5600));
-    expect(slides[1]?.getAttribute("data-active")).toBe("true");
+    act(() => vi.advanceTimersByTime(4400));
+    expect(screen.getByRole("link", { name: /Terminal lug/ }).getAttribute("href")).toBe(
+      "/products/terminal-lug",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "marketPulsePause" }));
-    act(() => vi.advanceTimersByTime(11200));
-    expect(slides[1]?.getAttribute("data-active")).toBe("true");
+    act(() => vi.advanceTimersByTime(8800));
+    expect(screen.getByRole("link", { name: /Terminal lug/ })).toBeTruthy();
   });
 
-  it("does not auto-rotate or expose a pause control under reduced motion", () => {
+  it("stays still and removes the pause control when reduced motion is requested", () => {
     installMotionPreference(true);
-    const { container } = render(<MarketPulse items={ITEMS} />);
-    const slides = Array.from(container.querySelectorAll(".marketplace-pulse-slide"));
+    render(<HeroMarketSignal items={ITEMS} />);
 
-    act(() => vi.advanceTimersByTime(11200));
-    expect(slides[0]?.getAttribute("data-active")).toBe("true");
+    act(() => vi.advanceTimersByTime(8800));
+    expect(screen.getByRole("link", { name: /Cable gland/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "marketPulsePause" })).toBeNull();
   });
 });

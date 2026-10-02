@@ -187,6 +187,125 @@
   margin-top: 1.5rem;
 }
 
+.marketplace-hero-signal {
+  display: grid;
+  width: min(36rem, 100%);
+  min-height: 4.35rem;
+  grid-template-columns: 2.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 1.1rem;
+  overflow: hidden;
+  border: 1px solid hsl(38 30% 98% / 0.32);
+  border-radius: 0.65rem;
+  background: hsl(281 48% 13% / 0.9);
+  padding: 0.55rem 0.65rem;
+  color: white;
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.16),
+    0 18px 34px -22px hsl(281 52% 8% / 0.86);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+}
+
+.marketplace-hero-signal-live {
+  display: grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  place-items: center;
+  border: 1px solid hsl(38 30% 98% / 0.16);
+  border-radius: 50%;
+  background: hsl(281 34% 20% / 0.9);
+  color: hsl(29 92% 70%);
+}
+
+.marketplace-hero-signal-live svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.marketplace-hero-signal-copy {
+  min-width: 0;
+}
+
+.marketplace-hero-signal-copy > span {
+  display: block;
+  color: hsl(29 92% 70%);
+  font-size: 0.62rem;
+  font-weight: 750;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.marketplace-hero-signal-copy a {
+  display: flex;
+  min-height: 2rem;
+  align-items: center;
+  gap: 0.55rem;
+  color: hsl(38 30% 98%);
+}
+
+.marketplace-hero-signal-copy strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.marketplace-hero-signal-copy svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: 0 0 auto;
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.marketplace-hero-signal-copy a:hover svg {
+  transform: translateX(calc(3px * var(--dir)));
+}
+
+.marketplace-hero-signal-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.marketplace-hero-signal-controls > span {
+  color: hsl(38 20% 88% / 0.62);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.marketplace-hero-signal-controls button {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border-radius: 50%;
+  color: hsl(38 24% 94% / 0.78);
+  transition:
+    background-color var(--dur-2) ease,
+    color var(--dur-2) ease,
+    transform var(--dur-2) var(--ease-out);
+}
+
+.marketplace-hero-signal-controls button:hover {
+  background: hsl(38 30% 98% / 0.1);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.marketplace-hero-signal-controls button:focus-visible {
+  outline: 2px solid hsl(var(--brass));
+  outline-offset: 2px;
+}
+
+.marketplace-hero-signal-controls svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
 .marketplace-hero-rfq {
   display: inline-flex;
   min-height: 3.25rem;
@@ -682,6 +801,40 @@
   color: hsl(var(--accent-ink));
   text-decoration: underline;
   text-decoration-color: currentColor;
+}
+
+.marketplace-assistant-shortcut {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.45rem;
+  margin-block: -0.7rem;
+  margin-inline-start: auto;
+  border: 1px solid hsl(var(--primary) / 0.2);
+  border-radius: 999px;
+  background: hsl(var(--primary) / 0.07);
+  padding-inline: 0.75rem;
+  color: hsl(var(--primary-ink));
+  font-weight: 700;
+  transition:
+    background-color var(--dur-2) ease,
+    color var(--dur-2) ease,
+    transform var(--dur-2) var(--ease-out);
+}
+
+.marketplace-assistant-shortcut:hover {
+  background: hsl(var(--primary));
+  color: white;
+  transform: translateY(-1px);
+}
+
+.marketplace-assistant-shortcut:active {
+  transform: translateY(1px);
+}
+
+.marketplace-assistant-shortcut svg {
+  width: 0.95rem;
+  height: 0.95rem;
 }
 
 .marketplace-pulse-section {
@@ -1271,6 +1424,15 @@
   }
 }
 
+@keyframes marketplace-hero-signal-swap {
+  from {
+    opacity: 0.4;
+    filter: blur(4px);
+    clip-path: inset(0 14% 0 0);
+    transform: translateY(4px);
+  }
+}
+
 @supports (animation-timeline: view()) {
   @media (prefers-reduced-motion: no-preference) {
     .marketplace-hero-visual {
@@ -1282,6 +1444,10 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .marketplace-hero-signal-copy {
+    animation: marketplace-hero-signal-swap var(--dur-4) var(--ease-out) both;
+  }
+
   .marketplace-kicker {
     animation: marketplace-copy-arrive var(--dur-4) var(--ease-out) 40ms backwards;
   }
@@ -1387,7 +1553,8 @@
   .marketplace-rfq-example,
   .marketplace-search-dock,
   .marketplace-search-input,
-  .marketplace-search-category {
+  .marketplace-search-category,
+  .marketplace-hero-signal {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
@@ -1408,6 +1575,10 @@
     ) {
     background-color: hsl(281 24% 10%);
   }
+
+  .marketplace-hero-signal {
+    background-color: hsl(281 48% 13% / 0.98);
+  }
 }
 
 @media (hover: none), (pointer: coarse) {
@@ -1423,6 +1594,9 @@
   .marketplace-pulse-link:hover .marketplace-pulse-action svg,
   .marketplace-pulse-controls > button:hover,
   .marketplace-pulse-dots button:hover,
+  .marketplace-hero-signal-copy a:hover svg,
+  .marketplace-hero-signal-controls button:hover,
+  .marketplace-assistant-shortcut:hover,
   .marketplace-flow-steps li:hover,
   .marketplace-flow-steps li:hover .marketplace-step-icon {
     transform: none;
@@ -1432,7 +1606,8 @@
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .marketplace-rfq-example,
   .marketplace-search-dock,
-  .marketplace-category-rail {
+  .marketplace-category-rail,
+  .marketplace-hero-signal {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
@@ -1447,6 +1622,10 @@
   .marketplace-category-rail,
   .marketplace-utility-bar {
     background-color: hsl(281 50% 16%);
+  }
+
+  .marketplace-hero-signal {
+    background-color: hsl(281 48% 13% / 0.98);
   }
 }
 
@@ -1467,6 +1646,10 @@
   .marketplace-pulse-action svg,
   .marketplace-pulse-controls > button,
   .marketplace-pulse-dots button,
+  .marketplace-hero-signal-copy,
+  .marketplace-hero-signal-copy svg,
+  .marketplace-hero-signal-controls button,
+  .marketplace-assistant-shortcut,
   .marketplace-flow-steps li,
   .marketplace-step-icon {
     animation: none;
@@ -1572,6 +1755,7 @@
 
 [dir="rtl"] .marketplace-editorial-link:hover svg,
 [dir="rtl"] .marketplace-hero-rfq:hover svg:last-child,
+[dir="rtl"] .marketplace-hero-signal-copy a:hover svg,
 [dir="rtl"] .marketplace-shelf-link:hover .marketplace-shelf-action svg {
   transform: translateX(calc(3px * var(--dir))) rotate(180deg);
 }
@@ -1658,6 +1842,31 @@
 
   .marketplace-search-rfq {
     grid-column: 1 / -1;
+  }
+
+  .marketplace-hero-signal {
+    min-height: 4.15rem;
+    grid-template-columns: 2.25rem minmax(0, 1fr) auto;
+    gap: 0.65rem;
+    padding: 0.45rem 0.55rem;
+  }
+
+  .marketplace-hero-signal-live {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .marketplace-hero-signal-controls > span {
+    display: none;
+  }
+
+  .marketplace-popular-searches {
+    align-items: center;
+  }
+
+  .marketplace-assistant-shortcut {
+    margin-block: 0.1rem;
+    margin-inline-start: 0;
   }
 
   .marketplace-pulse-section {
@@ -1769,6 +1978,11 @@
 }
 
 @media (max-width: 479px) {
+  .marketplace-assistant-shortcut {
+    width: 100%;
+    justify-content: center;
+  }
+
   .marketplace-flow-steps {
     grid-template-columns: 1fr;
   }

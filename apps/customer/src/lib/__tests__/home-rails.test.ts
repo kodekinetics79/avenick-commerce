@@ -8,9 +8,20 @@ import { loadHomeRails } from "../home-rails";
  */
 function row(id: string) {
   return {
-    id, sellerId: "seller", sku: id.toUpperCase(), slug: id, nameEn: id, nameAr: id,
-    descriptionEn: null, descriptionAr: null, origin: "AE", tags: [], moq: 1,
-    isPubliclyDiscoverable: true, isB2CEnabled: true, isB2BEnabled: false,
+    id,
+    sellerId: "seller",
+    sku: id.toUpperCase(),
+    slug: id,
+    nameEn: id,
+    nameAr: id,
+    descriptionEn: null,
+    descriptionAr: null,
+    origin: "AE",
+    tags: [],
+    moq: 1,
+    isPubliclyDiscoverable: true,
+    isB2CEnabled: true,
+    isB2BEnabled: false,
     images: [{ url: "https://image.test/p.png", altText: null }],
     prices: [{ type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 10, vatRate: 5 }],
     inventory: [{ variantId: null, qty: 5, reservedQty: 0 }],
@@ -30,16 +41,21 @@ const sections = () =>
     featured: [row("d")],
   });
 
+const verifiedMedia = (() => Promise.resolve([row("verified")])) as any;
+
 describe("loadHomeRails", () => {
   it("returns every rail when all sources answer", async () => {
     const rails = await loadHomeRails({
       sections: sections as any,
       brands: (() => Promise.resolve([{ id: "brand" }])) as any,
       trending: (() => Promise.resolve([row("t")])) as any,
+      verifiedMedia,
     });
     expect(rails.bestSellers).toHaveLength(1);
     expect(rails.trending).toHaveLength(1);
     expect(rails.brands).toHaveLength(1);
+    expect(rails.verifiedMedia).toHaveLength(1);
+    expect(rails.verifiedMedia[0]!["images"]).toHaveLength(1);
     // The DTO ran: the card carries a price and the review aggregate survived it.
     expect(rails.bestSellers[0]!["cardPrice"]).toMatchObject({ amount: 10, currency: "AED" });
     expect(rails.bestSellers[0]!["rating"]).toEqual({ average: 4.5, count: 12 });
@@ -56,7 +72,9 @@ describe("loadHomeRails", () => {
     const rails = await loadHomeRails({
       sections: sections as any,
       brands: (() => Promise.resolve([{ id: "brand" }])) as any,
-      trending: (() => Promise.reject(new Error("The table `public.ProductViewSignal` does not exist"))) as any,
+      trending: (() =>
+        Promise.reject(new Error("The table `public.ProductViewSignal` does not exist"))) as any,
+      verifiedMedia,
       onError,
     });
     expect(rails.bestSellers).toHaveLength(1);
@@ -72,6 +90,7 @@ describe("loadHomeRails", () => {
       sections: sections as any,
       brands: (() => Promise.reject(new Error("no brands"))) as any,
       trending: (() => Promise.resolve([])) as any,
+      verifiedMedia,
     });
     expect(rails.bestSellers).toHaveLength(1);
     expect(rails.brands).toEqual([]);
@@ -83,12 +102,14 @@ describe("loadHomeRails", () => {
       sections: (() => Promise.reject(new Error("catalogue down"))) as any,
       brands: (() => Promise.resolve([{ id: "brand" }])) as any,
       trending: (() => Promise.resolve([row("t")])) as any,
+      verifiedMedia,
       onError,
     });
     expect(rails.bestSellers).toEqual([]);
     expect(rails.trending).toEqual([]);
     // The brand strip still answered, so it is still shown.
     expect(rails.brands).toHaveLength(1);
+    expect(rails.verifiedMedia).toHaveLength(1);
     expect(onError).toHaveBeenCalledWith("sections", expect.any(Error));
   });
 });

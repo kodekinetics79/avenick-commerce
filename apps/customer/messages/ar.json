@@ -514,6 +514,8 @@
     "marketPulseOrderedBasis": "مرتّب حسب بنود الطلبات المكتملة",
     "marketPulseNew": "جديد في الكتالوج",
     "marketPulseNewBasis": "من أحدث المنتجات المنشورة",
+    "marketPulseVerified": "صورة موثّقة من الشركة المصنّعة",
+    "marketPulseVerifiedBasis": "مطابقة لرقم المنتج الدقيق في الكتالوج ولمصدر الشركة المصنّعة الرسمي",
     "marketPulseView": "عرض المنتج",
     "marketPulseCarouselRole": "عرض دوّار",
     "marketPulseCarouselLabel": "منتجات مباشرة من الكتالوج",

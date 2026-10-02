@@ -50,16 +50,17 @@ export function toProductCard(
   origin: string,
 ): ProductCard {
   const projected = toCatalogListDto(row satisfies CatalogListSource, channel, currency);
-  // PRODUCT_LIST_INCLUDE loads `images: { where: { isPrimary: true }, take: 1 }`,
-  // so this is the primary image or nothing — the gallery lives on the detail.
-  const primary = row.images[0];
+  // Use the storefront projection, not the raw database relation. The
+  // projection quarantines wrong-brand imports and applies only exact,
+  // manufacturer-reviewed SKU mappings.
+  const primary = projected.images[0];
 
   return {
     id: row.id,
     slug: row.slug,
     nameEn: row.nameEn,
     nameAr: row.nameAr,
-    image: primary ? toImage({ url: primary.url, alt: primary.altEn }, origin) : null,
+    image: primary ? toImage({ url: primary.url, alt: primary.altText }, origin) : null,
     price: projected.cardPrice
       ? {
           amount: toMoney(projected.cardPrice.amount),
@@ -152,7 +153,7 @@ export function toProductDetail(
     nameAr: product.nameAr,
     descriptionEn: product.descriptionEn,
     descriptionAr: product.descriptionAr,
-    images: product.images
+    images: projected.images
       .slice(0, MAX_IMAGES)
       .map((image) => toImage({ url: image.url, alt: image.altEn }, origin))
       .filter((image): image is NonNullable<typeof image> => image !== null),

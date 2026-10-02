@@ -34,4 +34,10 @@ describe("marketplace shell geometry", () => {
     expect(searchDock).toContain("clearSearch");
     expect(searchDock).toContain("event.nativeEvent.isComposing");
   });
+
+  it("keeps the sourcing assistant visible next to the search tools", () => {
+    expect(searchDock).toContain("useDiscoveryLauncher");
+    expect(searchDock).toContain("marketplace-assistant-shortcut");
+    expect(searchDock).toContain("discovery.open(event.currentTarget)");
+  });
 });

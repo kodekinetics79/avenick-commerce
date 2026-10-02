@@ -1,5 +1,11 @@
-import { getStorefrontSections, getTrendingProducts, listBrandsWithLogos } from "@avenick/database";
+import {
+  getStorefrontProductsBySkus,
+  getStorefrontSections,
+  getTrendingProducts,
+  listBrandsWithLogos,
+} from "@avenick/database";
 import { toCatalogListDto } from "@/lib/catalog-list-dto";
+import { REVIEWED_MANUFACTURER_IMAGE_SKUS } from "@/lib/catalog-image-integrity";
 
 type Row = Record<string, any>;
 
@@ -9,6 +15,7 @@ export interface HomeRails {
   topRated: Row[];
   featured: Row[];
   trending: Row[];
+  verifiedMedia: Row[];
   brands: Row[];
 }
 
@@ -18,6 +25,7 @@ export const EMPTY_HOME_RAILS: HomeRails = {
   topRated: [],
   featured: [],
   trending: [],
+  verifiedMedia: [],
   brands: [],
 };
 
@@ -29,6 +37,7 @@ export interface HomeRailReaders {
   sections: typeof getStorefrontSections;
   brands: typeof listBrandsWithLogos;
   trending: typeof getTrendingProducts;
+  verifiedMedia: typeof getStorefrontProductsBySkus;
   onError?: (source: string, error: unknown) => void;
 }
 
@@ -36,6 +45,7 @@ const DEFAULT_READERS: HomeRailReaders = {
   sections: getStorefrontSections,
   brands: listBrandsWithLogos,
   trending: getTrendingProducts,
+  verifiedMedia: getStorefrontProductsBySkus,
 };
 
 /**
@@ -60,7 +70,10 @@ const DEFAULT_READERS: HomeRailReaders = {
  * to [] on its own, and only a catalogue failure can empty the page.
  */
 export async function loadHomeRails(readers: Partial<HomeRailReaders> = {}): Promise<HomeRails> {
-  const { sections, brands, trending, onError } = { ...DEFAULT_READERS, ...readers };
+  const { sections, brands, trending, verifiedMedia, onError } = {
+    ...DEFAULT_READERS,
+    ...readers,
+  };
   const optional = async <T>(source: string, read: () => Promise<T[]>): Promise<T[]> => {
     try {
       return await read();
@@ -70,7 +83,7 @@ export async function loadHomeRails(readers: Partial<HomeRailReaders> = {}): Pro
     }
   };
 
-  const [sectionRows, brandRows, trendingRows] = await Promise.all([
+  const [sectionRows, brandRows, trendingRows, verifiedMediaRows] = await Promise.all([
     sections({ limit: 10 }).catch((error: unknown) => {
       onError?.("sections", error);
       return null;
@@ -80,9 +93,18 @@ export async function loadHomeRails(readers: Partial<HomeRailReaders> = {}): Pro
     // treats that as the normal case and shows the block only when it has rows
     // — nothing here invents a trend from an empty table.
     optional("trending", () => trending({ limit: 6 })),
+    optional("verified manufacturer media", () =>
+      verifiedMedia(REVIEWED_MANUFACTURER_IMAGE_SKUS, { limit: 8 }),
+    ),
   ]);
 
-  if (!sectionRows) return { ...EMPTY_HOME_RAILS, brands: brandRows as Row[] };
+  if (!sectionRows) {
+    return {
+      ...EMPTY_HOME_RAILS,
+      brands: brandRows as Row[],
+      verifiedMedia: verifiedMediaRows.map((row) => toCatalogListDto(row as any, "B2C")),
+    };
+  }
 
   const shape = (rows: Row[]) =>
     rows.map((row) => ({ ...toCatalogListDto(row as any, "B2C"), rating: row["rating"] ?? null }));
@@ -93,6 +115,7 @@ export async function loadHomeRails(readers: Partial<HomeRailReaders> = {}): Pro
     topRated: shape(sectionRows.topRated as Row[]),
     featured: shape(sectionRows.featured as Row[]),
     trending: shape(trendingRows as Row[]),
+    verifiedMedia: shape(verifiedMediaRows as Row[]),
     brands: brandRows as Row[],
   };
 }

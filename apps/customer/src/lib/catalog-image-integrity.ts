@@ -36,20 +36,17 @@ export function isCatalogImageTrusted(
   }
 }
 
-export function trustedCatalogImages<T extends {
-  url: string;
-  altText?: string | null;
-  altEn?: string | null;
-  altAr?: string | null;
-}>(
-  images: T[],
-  brandName?: string | null,
-): T[] {
-  return images.filter((image) => isCatalogImageTrusted(
-    image.url,
-    brandName,
-    [image.altText, image.altEn, image.altAr],
-  ));
+export function trustedCatalogImages<
+  T extends {
+    url: string;
+    altText?: string | null;
+    altEn?: string | null;
+    altAr?: string | null;
+  },
+>(images: T[], brandName?: string | null): T[] {
+  return images.filter((image) =>
+    isCatalogImageTrusted(image.url, brandName, [image.altText, image.altEn, image.altAr]),
+  );
 }
 
 export type ReviewedManufacturerImage = {
@@ -67,6 +64,17 @@ export type ReviewedManufacturerImage = {
  * state instead of inheriting a visually similar item.
  */
 const REVIEWED_MANUFACTURER_IMAGES: Record<string, ReviewedManufacturerImage> = {
+  "PILOT-MENNEKES-ITM-002207": reviewedMennekes("13501"),
+  "PILOT-MENNEKES-130-0049543": reviewedMennekes("13502"),
+  "PILOT-MENNEKES-ITM-004105": reviewedMennekes("13506"),
+  "PILOT-MENNEKES-130-0005274": reviewedMennekes("13510"),
+  "PILOT-MENNEKES-ITM-004106": reviewedMennekes("13512"),
+  "PILOT-MENNEKES-130-0050187": reviewedMennekes("13513"),
+  "PILOT-MENNEKES-ITM-004107": reviewedMennekes("13516"),
+  "PILOT-MENNEKES-130-0010295": reviewedMennekes("13520"),
+  "PILOT-MENNEKES-130-0030418": reviewedMennekes("13102"),
+  "PILOT-MENNEKES-130-0030419": reviewedMennekes("13106"),
+  "PILOT-MENNEKES-106-0022842": reviewedMennekes("13112"),
   "PILOT-MENNEKES-ITM-004108": reviewedMennekes("13619"),
   "PILOT-MENNEKES-ITM-002302": reviewedMennekes("13620"),
   "PILOT-MENNEKES-ITM-004109": reviewedMennekes("13622"),
@@ -80,6 +88,10 @@ const REVIEWED_MANUFACTURER_IMAGES: Record<string, ReviewedManufacturerImage> = 
   "PILOT-MENNEKES-130-0031116": reviewedMennekes("1491"),
   "PILOT-MENNEKES-130-0030435": reviewedMennekes("1128A"),
 };
+
+export const REVIEWED_MANUFACTURER_IMAGE_SKUS = Object.freeze(
+  Object.keys(REVIEWED_MANUFACTURER_IMAGES),
+);
 
 function reviewedMennekes(partNumber: string): ReviewedManufacturerImage {
   return {

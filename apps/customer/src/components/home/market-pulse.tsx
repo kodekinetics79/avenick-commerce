@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-export type MarketPulseKind = "trending" | "ordered" | "new";
+export type MarketPulseKind = "trending" | "ordered" | "new" | "verified";
 
 export interface MarketPulseItem {
   id: string;
@@ -70,12 +70,14 @@ export function MarketPulse({ items }: { items: MarketPulseItem[] }) {
   const kindLabel = (kind: MarketPulseKind) => {
     if (kind === "trending") return t("marketPulseTrending");
     if (kind === "ordered") return t("marketPulseOrdered");
+    if (kind === "verified") return t("marketPulseVerified");
     return t("marketPulseNew");
   };
 
   const kindBasis = (kind: MarketPulseKind) => {
     if (kind === "trending") return t("marketPulseTrendingBasis");
     if (kind === "ordered") return t("marketPulseOrderedBasis");
+    if (kind === "verified") return t("marketPulseVerifiedBasis");
     return t("marketPulseNewBasis");
   };
 

@@ -58,7 +58,12 @@ export default async function HomePage() {
   ]);
   // The hero's specimen and shelf come from the same rails the page already
   // loaded, so the page makes no extra round trip to fill its own header.
-  const products = [...rails.featured, ...rails.bestSellers, ...rails.newArrivals];
+  const products = [
+    ...rails.verifiedMedia,
+    ...rails.featured,
+    ...rails.bestSellers,
+    ...rails.newArrivals,
+  ];
 
   function toCard(p: any) {
     const stock = p.inventory?.[0];
@@ -113,6 +118,7 @@ export default async function HomePage() {
     featured: rails.featured.map(toCard),
     topRated: rails.topRated.map(toCard),
     trending: rails.trending.map(toCard),
+    verifiedMedia: rails.verifiedMedia.map(toCard),
   };
 
   // One moving commercial signal, grounded in three catalogue facts. The
@@ -143,9 +149,10 @@ export default async function HomePage() {
         });
       }
     };
-    add(railFor.trending, "trending", 2);
-    add(railFor.bestSellers, "ordered", 2);
-    add(railFor.newArrivals, "new", 2);
+    add(railFor.verifiedMedia, "verified", 4);
+    add(railFor.trending, "trending", 1);
+    add(railFor.bestSellers, "ordered", 1);
+    if (result.length < 6) add(railFor.newArrivals, "new", 6 - result.length);
     return result;
   })();
 
@@ -175,6 +182,7 @@ export default async function HomePage() {
           detail: [item.sku, item.category].filter(Boolean).join(" · "),
           imageUrl: item.imageUrl,
         }))}
+        pulseItems={pulseItems}
       />
 
       <MarketPulse items={pulseItems} />

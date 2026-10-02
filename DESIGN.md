@@ -19,7 +19,9 @@ in one changeset.
   industrial depth: live search feedback, sequential RFQ/workflow disclosure,
   product imagery moving in bounded Z-space, and a pausable market-pulse rail
   sourced from real catalogue activity, completed order lines, and listing
-  recency. Text and controls never tilt. Urgency labels must name their data
+  recency. A compact version of that truthful market signal belongs in the
+  first viewport; the full rail may deepen it below the hero. Text and controls
+  never tilt. Urgency labels must name their data
   basis; never substitute countdowns, “hot” badges, or sale language when no
   promotion or scarcity feed exists. The sourcing assistant is deterministic
   navigation and auditable local recommendations, not an invented AI persona.

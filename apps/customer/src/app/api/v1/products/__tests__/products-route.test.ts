@@ -40,7 +40,13 @@ vi.mock("@avenick/auth/rate-limit", () => ({
   clientIpFrom: () => "203.0.113.7",
 }));
 vi.mock("@avenick/observability", () => {
-  const log = { error: mocks.logError, info: vi.fn(), warn: vi.fn(), debug: vi.fn(), with: () => log };
+  const log = {
+    error: mocks.logError,
+    info: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+    with: () => log,
+  };
   return { log, instrumentRequest: () => ({ ctx: { log }, finish: vi.fn() }) };
 });
 
@@ -84,8 +90,27 @@ function card(id: string, createdAt: string, overrides: Record<string, unknown> 
     tags: ["ppe"],
     moq: 1,
     createdAt: new Date(createdAt),
-    images: [{ url: "https://placehold.co/600x600/FFD700/000?text=Helmet", altEn: "Helmet", altAr: null, isPrimary: true, sortOrder: 0 }],
-    prices: [{ id: "pp1", type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 42.5, vatRate: 5, isActive: true }],
+    images: [
+      {
+        url: "https://placehold.co/600x600/FFD700/000?text=Helmet",
+        altEn: "Helmet",
+        altAr: null,
+        isPrimary: true,
+        sortOrder: 0,
+      },
+    ],
+    prices: [
+      {
+        id: "pp1",
+        type: "B2C",
+        currency: "AED",
+        minQty: 1,
+        maxQty: null,
+        price: 42.5,
+        vatRate: 5,
+        isActive: true,
+      },
+    ],
     inventory: [{ variantId: null, qty: 10, reservedQty: 0 }],
     variants: [],
     category: { nameEn: "PPE", nameAr: "معدات", slug: "ppe" },
@@ -125,7 +150,8 @@ beforeEach(() => {
   mocks.auth.mockResolvedValue(null);
   mocks.findManyCategories.mockResolvedValue([]);
   mocks.attachProductRatings.mockImplementation(async (rows: Array<{ id: string }>) =>
-    rows.map((row) => ({ ...row, rating: null })));
+    rows.map((row) => ({ ...row, rating: null })),
+  );
   mocks.findManyProducts.mockResolvedValue([card("a", "2026-03-01T00:00:00.000Z")]);
 });
 
@@ -157,6 +183,42 @@ describe("the page a phone scrolls", () => {
       brandName: "Honeywell",
       sellableInChannel: true,
     });
+  });
+
+  it("uses the trusted storefront image projection instead of raw wrong-brand media", async () => {
+    mocks.findManyProducts.mockResolvedValue([
+      card("wrong-image", "2026-03-01T00:00:00.000Z", {
+        sku: "PILOT-3M-ITM-004049",
+        brand: { nameEn: "3M", nameAr: "3M" },
+        images: [
+          {
+            url: "https://www.mennekes.org/fileadmin/products_media/produktbilder/13501.png",
+            altEn: "Wrong imported image",
+            altAr: null,
+            isPrimary: true,
+            sortOrder: 0,
+          },
+        ],
+      }),
+    ]);
+
+    const page = await pageOf(await GET_LIST(get("/api/v1/products")));
+    expect(page.data[0]!.image).toBeNull();
+  });
+
+  it("adds exact manufacturer-reviewed media even when the raw relation is empty", async () => {
+    mocks.findManyProducts.mockResolvedValue([
+      card("reviewed-image", "2026-03-01T00:00:00.000Z", {
+        sku: "PILOT-MENNEKES-ITM-004107",
+        brand: { nameEn: "Mennekes", nameAr: "Mennekes" },
+        images: [],
+      }),
+    ]);
+
+    const page = await pageOf(await GET_LIST(get("/api/v1/products")));
+    expect(page.data[0]!.image?.url).toBe(
+      "https://www.mennekes.org/fileadmin/products_media/produktbilder/13516.png",
+    );
   });
 
   it("carries no total, and asks the database for no count", async () => {
@@ -225,7 +287,9 @@ describe("the cursor", () => {
     const first = await pageOf(await GET_LIST(get("/api/v1/products?limit=1&sort=moq_asc")));
     const cursor = first.meta.cursor!;
 
-    await GET_LIST(get(`/api/v1/products?limit=1&sort=moq_asc&cursor=${encodeURIComponent(cursor)}`));
+    await GET_LIST(
+      get(`/api/v1/products?limit=1&sort=moq_asc&cursor=${encodeURIComponent(cursor)}`),
+    );
     // moq defaults to 1 for nearly the whole catalogue, so this ordering is
     // almost all ties — which is exactly why the id half is not optional.
     expect(mocks.findManyProducts.mock.calls[1]![0].where.AND).toEqual([
@@ -265,7 +329,9 @@ describe("the cursor", () => {
     const searched = await pageOf(await GET_LIST(get("/api/v1/products?limit=1&search=bolt")));
     const rankCursor = searched.meta.cursor!;
 
-    const response = await GET_LIST(get(`/api/v1/products?limit=1&cursor=${encodeURIComponent(rankCursor)}`));
+    const response = await GET_LIST(
+      get(`/api/v1/products?limit=1&cursor=${encodeURIComponent(rankCursor)}`),
+    );
     expect(response.status).toBe(400);
     expect((await errorOf(response)).fieldErrors?.cursor).toBeDefined();
   });
@@ -307,12 +373,28 @@ describe("the channel prices the catalogue, it does not filter it", () => {
     mocks.findManyProducts.mockResolvedValue([
       card("a", "2026-03-01T00:00:00.000Z", {
         isB2CEnabled: false,
-        prices: [{ id: "pp1", type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: 42.5, vatRate: 5, isActive: true }],
+        prices: [
+          {
+            id: "pp1",
+            type: "B2C",
+            currency: "AED",
+            minQty: 1,
+            maxQty: null,
+            price: 42.5,
+            vatRate: 5,
+            isActive: true,
+          },
+        ],
       }),
     ]);
     const page = await pageOf(await GET_LIST(get("/api/v1/products")));
     // A B2C price IS resolved...
-    expect(page.data[0]!.price).toEqual({ amount: 42.5, currency: "AED", vatRatePercent: 5, isFrom: false });
+    expect(page.data[0]!.price).toEqual({
+      amount: 42.5,
+      currency: "AED",
+      vatRatePercent: 5,
+      isFrom: false,
+    });
     // ...and the product still cannot be bought.
     expect(page.data[0]!.sellableInChannel).toBe(false);
   });
@@ -345,12 +427,28 @@ describe("the channel prices the catalogue, it does not filter it", () => {
     signedInConsumer("comp_1");
     mocks.findManyProducts.mockResolvedValue([
       card("a", "2026-03-01T00:00:00.000Z", {
-        prices: [{ id: "pp1", type: "B2B", currency: "AED", minQty: 1, maxQty: null, price: 30, vatRate: 5, isActive: true }],
+        prices: [
+          {
+            id: "pp1",
+            type: "B2B",
+            currency: "AED",
+            minQty: 1,
+            maxQty: null,
+            price: 30,
+            vatRate: 5,
+            isActive: true,
+          },
+        ],
       }),
     ]);
     const page = await pageOf(await GET_LIST(get("/api/v1/products?channel=B2B")));
     // The channel resolves the B2B price bands; it does not narrow the listing.
-    expect(page.data[0]!.price).toEqual({ amount: 30, currency: "AED", vatRatePercent: 5, isFrom: false });
+    expect(page.data[0]!.price).toEqual({
+      amount: 30,
+      currency: "AED",
+      vatRatePercent: 5,
+      isFrom: false,
+    });
   });
 });
 
@@ -360,7 +458,12 @@ describe("filters", () => {
     // the predicate only when the flag is truthy. Answering "out of stock only"
     // with the whole catalogue is the defect `?b2c=true` was.
     mocks.listProducts.mockResolvedValue({
-      products: [], total: 0, page: 1, limit: 24, totalPages: 0, search: { status: "none" },
+      products: [],
+      total: 0,
+      page: 1,
+      limit: 24,
+      totalPages: 0,
+      search: { status: "none" },
     });
     const response = await GET_LIST(get("/api/v1/products?search=bolt&inStock=false"));
     expect(response.status).toBe(400);
@@ -382,8 +485,22 @@ describe("filters", () => {
 
   it("resolves a category to its whole active subtree, not an exact-slug dead end", async () => {
     mocks.findManyCategories.mockResolvedValue([
-      { id: "cat_root", slug: "ppe", nameEn: "PPE", nameAr: "معدات", parentId: null, imageUrl: null },
-      { id: "cat_leaf", slug: "helmets", nameEn: "Helmets", nameAr: "خوذ", parentId: "cat_root", imageUrl: null },
+      {
+        id: "cat_root",
+        slug: "ppe",
+        nameEn: "PPE",
+        nameAr: "معدات",
+        parentId: null,
+        imageUrl: null,
+      },
+      {
+        id: "cat_leaf",
+        slug: "helmets",
+        nameEn: "Helmets",
+        nameAr: "خوذ",
+        parentId: "cat_root",
+        imageUrl: null,
+      },
     ]);
     await GET_LIST(get("/api/v1/products?categorySlug=ppe"));
     expect(mocks.findManyProducts.mock.calls[0]![0].where.categoryId).toEqual({
@@ -434,7 +551,11 @@ describe("a search, which still ranks by relevance", () => {
     // A term below the trigram floor and not identifier-shaped is refused by
     // the service with zero rows. `hasMore: false` stops the app paging.
     mocks.listProducts.mockResolvedValue({
-      products: [], total: 0, page: 1, limit: 24, totalPages: 0,
+      products: [],
+      total: 0,
+      page: 1,
+      limit: 24,
+      totalPages: 0,
       search: { status: "too_short", term: "a", minLength: 3 },
     });
     const page = await pageOf(await GET_LIST(get("/api/v1/products?search=a")));
@@ -462,10 +583,31 @@ describe("one product, in full", () => {
     moq: 2,
     tags: ["ppe", "head"],
     images: [
-      { url: "https://placehold.co/600x600/FFD700/000?text=Front", altEn: "Front", altAr: null, isPrimary: true, sortOrder: 0 },
-      { url: "https://assets.test/no-size.jpg", altEn: null, altAr: null, isPrimary: false, sortOrder: 1 },
+      {
+        url: "https://placehold.co/600x600/FFD700/000?text=Front",
+        altEn: "Front",
+        altAr: null,
+        isPrimary: true,
+        sortOrder: 0,
+      },
+      {
+        url: "https://assets.test/no-size.jpg",
+        altEn: null,
+        altAr: null,
+        isPrimary: false,
+        sortOrder: 1,
+      },
     ],
-    prices: [{ type: "B2C", currency: "AED", minQty: 1, maxQty: null, price: { toString: () => "42.50" }, vatRate: { toString: () => "5.00" } }],
+    prices: [
+      {
+        type: "B2C",
+        currency: "AED",
+        minQty: 1,
+        maxQty: null,
+        price: { toString: () => "42.50" },
+        vatRate: { toString: () => "5.00" },
+      },
+    ],
     inventory: [{ variantId: null, available: 40 }],
     variants: [],
     brand: { id: "brand_1", nameEn: "Honeywell", nameAr: null },
@@ -489,7 +631,9 @@ describe("one product, in full", () => {
 
   beforeEach(() => {
     mocks.getProductBySlug.mockResolvedValue(DETAIL);
-    mocks.attachProductRatings.mockResolvedValue([{ id: "prod_1", rating: { average: 4.2, count: 9 } }]);
+    mocks.attachProductRatings.mockResolvedValue([
+      { id: "prod_1", rating: { average: 4.2, count: 9 } },
+    ]);
   });
 
   it("answers the fat DTO, and it conforms to the contract", async () => {

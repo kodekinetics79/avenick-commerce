@@ -3,11 +3,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileText, Search, X } from "lucide-react";
+import { FileText, MessageCircleMore, Search, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@avenick/utils";
 import { useSearchSuggest } from "@/lib/search-suggest-client";
 import type { SearchSuggestion, SuggestionKind } from "@/lib/search-suggest";
+import { useDiscoveryLauncher } from "@/components/discovery";
 
 export interface HomeSearchCategory {
   slug: string;
@@ -16,8 +17,10 @@ export interface HomeSearchCategory {
 
 export function HomeSearchDock({ categories }: { categories: HomeSearchCategory[] }) {
   const t = useTranslations("home");
+  const discoveryT = useTranslations("discovery");
   const locale = useLocale() === "ar" ? "ar" : "en";
   const router = useRouter();
+  const discovery = useDiscoveryLauncher();
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [query, setQuery] = React.useState("");
   const [isComposing, setIsComposing] = React.useState(false);
@@ -217,6 +220,16 @@ export function HomeSearchDock({ categories }: { categories: HomeSearchCategory[
         <Link href="/search?q=cable">{t("popularCable")}</Link>
         <Link href="/search?q=safety%20equipment">{t("popularSafety")}</Link>
         <Link href="/search?q=electrical%20components">{t("popularElectrical")}</Link>
+        {discovery?.available ? (
+          <button
+            type="button"
+            className="marketplace-assistant-shortcut u-focus"
+            onClick={(event) => discovery.open(event.currentTarget)}
+          >
+            <MessageCircleMore aria-hidden="true" />
+            {discoveryT("launcher")}
+          </button>
+        ) : null}
       </div>
     </div>
   );
