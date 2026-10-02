@@ -11,8 +11,6 @@ import {
   CheckCircle2,
   Clock,
   FileText,
-  ShieldCheck,
-  TrendingUp,
   Users,
 } from "lucide-react";
 import { db } from "@avenick/database";
@@ -20,11 +18,8 @@ import type { CompanySize, Country, Industry, Language } from "@avenick/database
 import { COMPANY_SIZE_VALUES, INDUSTRY_VALUES, LANGUAGE_VALUES } from "@avenick/types";
 import {
   Button,
-  CellGrid,
   Dateline,
-  DisplayPlate,
   Eyebrow,
-  Reveal,
   StatusPill,
   Surface,
   Timeline,
@@ -52,21 +47,6 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata() {
   return { ...(await b2bMetadata("meta.register")), ...canonicalFor("/b2b/register") };
 }
-
-// Each line describes a capability the portal implements, in the terms the
-// product actually uses. No "exclusive discounts" and no Net-30/60/90: payment
-// terms are whatever is recorded on an approved company account, and there is
-// no self-service credit application (see the Terms of Service).
-const FEATURES: Array<{ icon: typeof TrendingUp; titleKey: B2BKey; descKey: B2BKey }> = [
-  {
-    icon: TrendingUp,
-    titleKey: "register.feature.pricing",
-    descKey: "register.feature.pricing.desc",
-  },
-  { icon: FileText, titleKey: "register.feature.po", descKey: "register.feature.po.desc" },
-  { icon: Users, titleKey: "register.feature.team", descKey: "register.feature.team.desc" },
-  { icon: ShieldCheck, titleKey: "register.feature.terms", descKey: "register.feature.terms.desc" },
-];
 
 /*
  * Option labels.
@@ -576,318 +556,322 @@ export default async function B2BRegisterPage(props: {
     );
   }
 
-  // The second language's line. On the English page it is Arabic and on the
-  // Arabic page it is English, and each carries its own lang/dir so the run is
-  // shaped by the right face and laid out in the right direction inside a page
-  // set in the other. Two languages of equal standing, stated by the layout
-  // rather than claimed in a footer.
-  const secondLang = locale === "ar" ? "en" : "ar";
-  const secondDir = locale === "ar" ? "ltr" : "rtl";
-
   return (
     <MainLayout>
-      <div className="mx-auto max-w-6xl px-4 py-section">
-        {/* ══ THE OPENING ═══════════════════════════════════════════════════
-            A 12-column asymmetric composition rather than a stack: seven
-            columns of type against four holding one composed object, both
-            dropping to full width below 1024px.
-
-            `grid-column` is LOGICAL, so the whole composition mirrors in Arabic
-            with no second rule — the type takes the right seven columns and the
-            plate the left four, and nothing in this file knows about it.
-
-            The plate is <DisplayPlate>: the system's generated object, built
-            from the product's own hues with the ledger ruling and the grain
-            behind it. It claims nothing — there is no stock photograph of a
-            warehouse here, and no customer count — and the sentence on it is
-            three facts the database actually enforces. */}
-        <div className="mb-block grid grid-cols-1 items-end gap-x-10 gap-y-8 lg:grid-cols-12">
-          <div className="lg:col-span-7">
-            <Eyebrow className="mb-3 flex items-center gap-1.5">
-              <Building2 className="h-3.5 w-3.5" aria-hidden="true" /> {t("register.eyebrow")}
-            </Eyebrow>
-            <h1 className="u-hero text-ink-1">
-              {t("register.title", { platform: platformName() })}
-            </h1>
-            <p lang={secondLang} dir={secondDir} className="u-h2 mt-3 font-normal text-ink-3">
-              {/* `titleAlt`, not `titleAr`: in the AR catalogue this key holds
-                  the ENGLISH line, which is exactly what the composition above
-                  asks for and exactly what a name ending in "Ar" invites the
-                  next reader to "correct". */}
-              {t("register.titleAlt", { platform: platformName() })}
-            </p>
-            <p className="u-lead mt-5 max-w-prose text-ink-2">{t("register.lead")}</p>
-            <div className="mt-6 flex flex-wrap gap-2">
-              <Button asChild variant="primary" size="lg">
-                <Link href="#register">{t("register.submit")}</Link>
-              </Button>
-              <Button asChild variant="secondary" size="lg">
-                <Link href="/products?b2b=true">{t("common.browseCatalogue")}</Link>
-              </Button>
-            </div>
-            {/* The way back in.
-                This page offered "Create business account" and nothing else, so
-                an existing buyer who arrived here — from a marketing link, or
-                from /b2b bouncing them — had no visible route to signing in and
-                the only thing on the screen to press was a second registration.
-                It is stated here as well as beside the submit because a reader
-                who is in the wrong place needs to find that out at the TOP of a
-                long page, not after filling it in. */}
-            <p className="u-ui mt-4 text-ink-2">
-              {t("register.haveAccount")}{" "}
-              <Link
-                href={SIGN_IN_HREF}
-                className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
-              >
-                {t("register.signIn")}
-              </Link>
-            </p>
-
-            {/* Shown ALWAYS, not only after a CR clash.
-                The person who needs this does not yet know a colleague has
-                already registered the company — that is precisely why they are
-                on this form. Making them fill it in, read a refusal and then go
-                looking for the other door is a step that exists only because
-                the door was hidden. Same reasoning as the sign-in line above:
-                someone in the wrong place finds out at the TOP. */}
-            <p className="u-ui mt-2 text-ink-2">
-              {t("register.joinInstead")}{" "}
-              <Link
-                href="/b2b/join"
-                className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
-              >
-                {t("register.joinInstead.link")}
-              </Link>
-            </p>
-          </div>
-
-          <DisplayPlate className="grid min-h-[260px] content-end p-6 lg:col-span-5 lg:min-h-[340px]">
-            {/* relative z-[1]: the plate's ruling is a positioned ::before at
-                z-index 0 and its grain is a positioned ::after, and an in-flow
-                child paints BELOW both. Every plate that carries content has to
-                lift it, exactly as `.u-empty > *` does. */}
-            <div className="relative z-[1]">
-              {/* ink-1, not the brass tone. The plate's own conic runs to .16
-                  alpha — twice the ambient field's — and brass-ink's measured
-                  headroom is computed against the FIELD. An 11px micro-caps run
-                  is small text and needs 4.5:1, so it is set in the ink with the
-                  most headroom rather than in the hue with the least. */}
-              <Eyebrow className="text-ink-1">{t("register.plate.eyebrow")}</Eyebrow>
-              {/* Display-scale type only. Nothing body-sized sits on the plate:
-                  its tint is a gradient, and a 13px label's contrast would
-                  depend on where in that gradient it happened to land. */}
-              <p className="u-h2 mt-2 text-ink-1">{t("register.plate.line")}</p>
-            </div>
-          </DisplayPlate>
-        </div>
-
-        {/* Features. One panel divided by hairlines: four capabilities, one
-            object, rather than four cards floating at the same weight as the
-            registration form itself. The stagger is the page's only one, it is
-            capped at four, and every cell is readable at t=0 — with JavaScript
-            off the reveal never runs and the panel is simply there. */}
-        <CellGrid cols={{ base: 1, sm: 2, lg: 4 }} className="mb-block">
-          {FEATURES.map((feature, index) => (
-            <Reveal key={feature.titleKey} index={index}>
-              <feature.icon className="mb-2 h-5 w-5 text-ink-3" aria-hidden="true" />
-              <h2 className="u-ui font-medium text-ink-1">{t(feature.titleKey)}</h2>
-              <p className="u-meta mt-1 text-ink-2">{t(feature.descKey)}</p>
-            </Reveal>
-          ))}
-        </CellGrid>
-
-        {/* Registration */}
-        <Surface rung={2} id="register" className="overflow-hidden">
-          <div className="u-drawn w-14" data-on="true" aria-hidden="true" />
-          <div className="p-6">
-            <div className="mb-5 border-b border-border-strong pb-4">
-              <h2 className="u-h2 text-ink-1">{t("register.form.title")}</h2>
-              <p className="u-body mt-1 max-w-prose text-ink-2">{t("register.form.body")}</p>
-            </div>
-
-            <ValidatedForm action={registerBusinessAction} className="space-y-block">
-              <section>
-                <Eyebrow className="mb-3 flex items-center gap-1.5">
-                  <Building2 className="h-3.5 w-3.5" aria-hidden="true" />{" "}
-                  {t("register.section.company")}
-                </Eyebrow>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <ValidatedTextField
-                    name="companyNameEn"
-                    label={t("register.field.nameEn")}
-                    required
-                    minLength={2}
-                    maxLength={100}
-                    autoComplete="organization"
-                  />
-                  <ValidatedTextField
-                    name="companyNameAr"
-                    label={t("register.field.nameAr")}
-                    minLength={2}
-                    maxLength={100}
-                    lang="ar"
-                    dir="rtl"
-                    placeholder={t("register.field.nameAr.placeholder")}
-                  />
-                  <ValidatedTextField
-                    name="crNumber"
-                    label={t("register.field.cr")}
-                    required
-                    minLength={5}
-                    maxLength={30}
-                  />
-                  <ValidatedTextField
-                    name="vatNumber"
-                    label={t("register.field.vat")}
-                    hint={t("register.field.vat.hint")}
-                    maxLength={30}
-                  />
-                  <ValidatedSelectField
-                    name="industry"
-                    label={t("register.field.industry")}
-                    required
-                    defaultValue=""
-                  >
-                    <option value="" disabled>
-                      {t("register.field.industry.select")}
-                    </option>
-                    {INDUSTRY_VALUES.map((v) => (
-                      <option key={v} value={v}>
-                        {t(INDUSTRY_LABELS[v])}
-                      </option>
-                    ))}
-                  </ValidatedSelectField>
-                  <ValidatedSelectField
-                    name="companySize"
-                    label={t("register.field.size")}
-                    required
-                    defaultValue=""
-                  >
-                    <option value="" disabled>
-                      {t("register.field.size.select")}
-                    </option>
-                    {COMPANY_SIZE_VALUES.map((v) => (
-                      <option key={v} value={v}>
-                        {t(COMPANY_SIZE_LABELS[v])}
-                      </option>
-                    ))}
-                  </ValidatedSelectField>
-                  <ValidatedSelectField
-                    name="country"
-                    label={t("register.field.country")}
-                    required
-                    defaultValue=""
-                  >
-                    <option value="" disabled>
-                      {t("register.field.country.select")}
-                    </option>
-                    {COUNTRY_OPTIONS.map(([code, name]) => (
-                      <option key={code} value={code}>
-                        {COUNTRY_LABELS[code] ? t(COUNTRY_LABELS[code]!) : name}
-                      </option>
-                    ))}
-                  </ValidatedSelectField>
-                  <ValidatedTextField
-                    name="city"
-                    label={t("register.field.city")}
-                    required
-                    minLength={2}
-                    maxLength={50}
-                    autoComplete="address-level2"
-                  />
+      <div className="mx-auto max-w-shell px-gutter py-4 lg:py-5">
+        {/* Registration is the opening experience, not a destination below a
+            marketing page. Chrome glass gives the form a focused workspace on
+            wide screens; the mobile override removes the blur and uses the
+            opaque float surface so a tall phone form stays fast and legible. */}
+        <section
+          id="register"
+          className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start lg:gap-7"
+        >
+          <Surface
+            rung={4}
+            glass
+            className="overflow-hidden max-md:!bg-surface-float max-md:backdrop-blur-none lg:col-span-8"
+          >
+            <div className="p-5 sm:p-6">
+              <header className="mb-4 border-b border-border-strong pb-4">
+                <h1 className="u-h1 max-w-[22ch] text-ink-1">
+                  {t("register.title", { platform: platformName() })}
+                </h1>
+                <p className="u-body mt-2 max-w-[68ch] text-ink-2">{t("register.lead")}</p>
+                <div className="u-ui mt-3 flex flex-wrap gap-x-5 gap-y-2 text-ink-2">
+                  <span>
+                    {t("register.haveAccount")}{" "}
+                    <Link
+                      href={SIGN_IN_HREF}
+                      className="u-focus rounded-nested font-medium text-primary-ink underline decoration-transparent underline-offset-4 hover:decoration-current"
+                    >
+                      {t("register.signIn")}
+                    </Link>
+                  </span>
+                  <span>
+                    {t("register.joinInstead")}{" "}
+                    <Link
+                      href="/b2b/join"
+                      className="u-focus rounded-nested font-medium text-primary-ink underline decoration-transparent underline-offset-4 hover:decoration-current"
+                    >
+                      {t("register.joinInstead.link")}
+                    </Link>
+                  </span>
                 </div>
-              </section>
+              </header>
 
-              <section>
-                <Eyebrow className="mb-3 flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5" aria-hidden="true" /> {t("register.section.admin")}
-                </Eyebrow>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <ValidatedTextField
-                    name="firstName"
-                    label={t("register.field.firstName")}
-                    required
-                    minLength={2}
-                    maxLength={50}
-                    autoComplete="given-name"
-                  />
-                  <ValidatedTextField
-                    name="lastName"
-                    label={t("register.field.lastName")}
-                    required
-                    minLength={2}
-                    maxLength={50}
-                    autoComplete="family-name"
-                  />
-                  <ValidatedTextField
-                    type="email"
-                    name="email"
-                    label={t("register.field.email")}
-                    required
-                    autoComplete="email"
-                  />
-                  <ValidatedTextField
-                    type="tel"
-                    name="phone"
-                    label={t("register.field.phone")}
-                    hint={t("register.field.phone.hint")}
-                    pattern="\+[1-9][0-9]{7,14}"
-                    autoComplete="tel"
-                  />
-                  {/* The show-password toggle's name comes from the identity copy,
+              <div className="mb-4">
+                <h2 className="u-h2 text-ink-1">{t("register.form.title")}</h2>
+                <p className="u-meta mt-1 max-w-prose text-ink-2">{t("register.form.body")}</p>
+              </div>
+
+              <ValidatedForm action={registerBusinessAction} className="space-y-5">
+                <div className="grid gap-6 xl:grid-cols-2">
+                  <section>
+                    <div className="mb-4 flex items-center gap-3">
+                      <span
+                        className="u-mono u-ui grid h-9 w-9 place-items-center rounded-full bg-primary-soft text-primary-ink"
+                        aria-hidden="true"
+                      >
+                        01
+                      </span>
+                      <h3 className="u-h3 text-ink-1">{t("register.section.company")}</h3>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <ValidatedTextField
+                        name="companyNameEn"
+                        label={t("register.field.nameEn")}
+                        required
+                        minLength={2}
+                        maxLength={100}
+                        autoComplete="organization"
+                      />
+                      <ValidatedTextField
+                        name="companyNameAr"
+                        label={t("register.field.nameAr")}
+                        minLength={2}
+                        maxLength={100}
+                        lang="ar"
+                        dir="rtl"
+                        placeholder={t("register.field.nameAr.placeholder")}
+                      />
+                      <ValidatedTextField
+                        name="crNumber"
+                        label={t("register.field.cr")}
+                        required
+                        minLength={5}
+                        maxLength={30}
+                      />
+                      <ValidatedTextField
+                        name="vatNumber"
+                        label={t("register.field.vat")}
+                        hint={t("register.field.vat.hint")}
+                        maxLength={30}
+                      />
+                      <ValidatedSelectField
+                        name="industry"
+                        label={t("register.field.industry")}
+                        required
+                        defaultValue=""
+                      >
+                        <option value="" disabled>
+                          {t("register.field.industry.select")}
+                        </option>
+                        {INDUSTRY_VALUES.map((v) => (
+                          <option key={v} value={v}>
+                            {t(INDUSTRY_LABELS[v])}
+                          </option>
+                        ))}
+                      </ValidatedSelectField>
+                      <ValidatedSelectField
+                        name="companySize"
+                        label={t("register.field.size")}
+                        required
+                        defaultValue=""
+                      >
+                        <option value="" disabled>
+                          {t("register.field.size.select")}
+                        </option>
+                        {COMPANY_SIZE_VALUES.map((v) => (
+                          <option key={v} value={v}>
+                            {t(COMPANY_SIZE_LABELS[v])}
+                          </option>
+                        ))}
+                      </ValidatedSelectField>
+                      <ValidatedSelectField
+                        name="country"
+                        label={t("register.field.country")}
+                        required
+                        defaultValue=""
+                      >
+                        <option value="" disabled>
+                          {t("register.field.country.select")}
+                        </option>
+                        {COUNTRY_OPTIONS.map(([code, name]) => (
+                          <option key={code} value={code}>
+                            {COUNTRY_LABELS[code] ? t(COUNTRY_LABELS[code]!) : name}
+                          </option>
+                        ))}
+                      </ValidatedSelectField>
+                      <ValidatedTextField
+                        name="city"
+                        label={t("register.field.city")}
+                        required
+                        minLength={2}
+                        maxLength={50}
+                        autoComplete="address-level2"
+                      />
+                    </div>
+                  </section>
+
+                  <section>
+                    <div className="mb-4 flex items-center gap-3">
+                      <span
+                        className="u-mono u-ui grid h-9 w-9 place-items-center rounded-full bg-primary-soft text-primary-ink"
+                        aria-hidden="true"
+                      >
+                        02
+                      </span>
+                      <h3 className="u-h3 text-ink-1">{t("register.section.admin")}</h3>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <ValidatedTextField
+                        name="firstName"
+                        label={t("register.field.firstName")}
+                        required
+                        minLength={2}
+                        maxLength={50}
+                        autoComplete="given-name"
+                      />
+                      <ValidatedTextField
+                        name="lastName"
+                        label={t("register.field.lastName")}
+                        required
+                        minLength={2}
+                        maxLength={50}
+                        autoComplete="family-name"
+                      />
+                      <ValidatedTextField
+                        type="email"
+                        name="email"
+                        label={t("register.field.email")}
+                        required
+                        autoComplete="email"
+                      />
+                      <ValidatedTextField
+                        type="tel"
+                        name="phone"
+                        label={t("register.field.phone")}
+                        hint={t("register.field.phone.hint")}
+                        pattern="\+[1-9][0-9]{7,14}"
+                        autoComplete="tel"
+                      />
+                      {/* The show-password toggle's name comes from the identity copy,
                       the one place the storefront's sign-in and registration forms
                       share it, so all three forms say it the same way. */}
-                  <ValidatedPasswordField
-                    name="password"
-                    label={t("register.field.password")}
-                    hint={t("register.field.password.hint")}
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                    revealLabel={identityCopy(toIdentityLocale(locale)).passwordReveal.label}
-                  />
-                  <ValidatedSelectField
-                    name="language"
-                    label={t("register.field.language")}
-                    defaultValue={locale === "ar" ? "AR" : "EN"}
-                  >
-                    {LANGUAGE_VALUES.map((v) => (
-                      <option key={v} value={v}>
-                        {t(LANGUAGE_LABELS[v])}
-                      </option>
-                    ))}
-                  </ValidatedSelectField>
+                      <ValidatedPasswordField
+                        name="password"
+                        label={t("register.field.password")}
+                        hint={t("register.field.password.hint")}
+                        required
+                        minLength={8}
+                        autoComplete="new-password"
+                        revealLabel={identityCopy(toIdentityLocale(locale)).passwordReveal.label}
+                      />
+                      <ValidatedSelectField
+                        name="language"
+                        label={t("register.field.language")}
+                        defaultValue={locale === "ar" ? "AR" : "EN"}
+                      >
+                        {LANGUAGE_VALUES.map((v) => (
+                          <option key={v} value={v}>
+                            {t(LANGUAGE_LABELS[v])}
+                          </option>
+                        ))}
+                      </ValidatedSelectField>
+                    </div>
+                  </section>
                 </div>
-              </section>
 
-              <div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                  <Button type="submit" variant="primary">
-                    {t("register.submit")}
-                  </Button>
-                  {/* The alternative to pressing the button, beside the button.
+                <div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                    <Button type="submit" variant="primary">
+                      {t("register.submit")}
+                    </Button>
+                    {/* The alternative to pressing the button, beside the button.
                       This line used to sit outside the form entirely, below it;
                       the moment a reader realises they already have an account
                       is the moment they are looking at the submit, so that is
                       where the other route has to be. */}
-                  <p className="u-ui text-ink-2">
-                    {t("register.haveAccount")}{" "}
-                    <Link
-                      href={SIGN_IN_HREF}
-                      className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
-                    >
-                      {t("register.signInInstead")}
-                    </Link>
-                  </p>
+                    <p className="u-ui text-ink-2">
+                      {t("register.haveAccount")}{" "}
+                      <Link
+                        href={SIGN_IN_HREF}
+                        className="u-focus rounded-nested font-medium text-primary-ink hover:underline"
+                      >
+                        {t("register.signInInstead")}
+                      </Link>
+                    </p>
+                  </div>
+                  <Dateline className="mt-3 flex items-center gap-1.5">
+                    <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                    {t("register.submit.basis")}
+                  </Dateline>
                 </div>
-                <Dateline className="mt-3 flex items-center gap-1.5">
-                  <CheckCircle className="h-3.5 w-3.5" aria-hidden="true" />
-                  {t("register.submit.basis")}
-                </Dateline>
+              </ValidatedForm>
+            </div>
+          </Surface>
+
+          <aside className="space-y-5 lg:col-span-4">
+            <Surface
+              rung={2}
+              className="overflow-hidden border-primary/30 bg-primary text-primary-foreground"
+            >
+              <div className="p-5 sm:p-6">
+                <h2 className="u-h2 max-w-[18ch] text-primary-foreground">
+                  {t("register.process.title")}
+                </h2>
+                <ol className="mt-5 divide-y divide-primary-foreground/15">
+                  {[
+                    ["register.process.company", "register.process.company.desc"],
+                    ["register.process.review", "register.process.review.desc"],
+                    ["register.process.open", "register.process.open.desc"],
+                  ].map(([titleKey, descKey], index) => (
+                    <li
+                      key={titleKey}
+                      className="grid grid-cols-[2.4rem_minmax(0,1fr)] gap-3 py-3.5 first:pt-0 last:pb-0"
+                    >
+                      <span
+                        className="u-mono u-ui grid h-9 w-9 place-items-center rounded-full border border-primary-foreground/20 text-primary-foreground/75"
+                        aria-hidden="true"
+                      >
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <span>
+                        <strong className="u-ui block font-semibold text-primary-foreground">
+                          {t(titleKey as B2BKey)}
+                        </strong>
+                        <span className="u-meta mt-1 block text-primary-foreground/70">
+                          {t(descKey as B2BKey)}
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+                <p className="u-provenance mt-5 border-t border-primary-foreground/15 pt-4 !text-primary-foreground/70">
+                  {t("register.process.basis")}
+                </p>
               </div>
-            </ValidatedForm>
-          </div>
-        </Surface>
+            </Surface>
+
+            <Surface rung={1} className="p-5 sm:p-6">
+              <h2 className="u-h3 text-ink-1">{t("register.requirements.title")}</h2>
+              <ul className="mt-4 space-y-4">
+                {[
+                  ["register.requirements.cr", "register.requirements.cr.desc", FileText],
+                  ["register.requirements.admin", "register.requirements.admin.desc", Users],
+                  [
+                    "register.requirements.location",
+                    "register.requirements.location.desc",
+                    Building2,
+                  ],
+                ].map(([titleKey, descKey, Icon]) => (
+                  <li key={titleKey as string} className="flex gap-3">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-primary-soft text-primary-ink">
+                      <Icon className="h-4 w-4" aria-hidden="true" />
+                    </span>
+                    <span>
+                      <strong className="u-ui block font-semibold text-ink-1">
+                        {t(titleKey as B2BKey)}
+                      </strong>
+                      <span className="u-meta mt-1 block text-ink-2">{t(descKey as B2BKey)}</span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </Surface>
+          </aside>
+        </section>
       </div>
     </MainLayout>
   );
