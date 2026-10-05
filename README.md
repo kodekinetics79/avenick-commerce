@@ -4,6 +4,8 @@ GCC B2B + B2C Marketplace Platform — Stage 1 MVP
 
 Three-portal monorepo: Customer Marketplace · Seller Central · Admin Console
 
+Developed by [Kode Kinetics](https://www.kodekinetics.com/). Visit the company website for business enquiries; use this repository for technical documentation and development.
+
 ---
 
 ## Quick Start
